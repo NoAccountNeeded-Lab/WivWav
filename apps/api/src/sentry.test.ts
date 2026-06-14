@@ -75,6 +75,12 @@ describe('API sentry init (beforeSend / PII scrubbing)', () => {
     expect(result?.message).toBe('[VIN] and [VIN]')
   })
 
+  it('replaces lowercase VINs in event.message', () => {
+    const event: Event = { message: 'failed vin 1hgbh41jxmn109186' }
+    const result = getBeforeSend()(event, {} as EventHint)
+    expect(result?.message).toBe('failed vin [VIN]')
+  })
+
   it('leaves a 16-character string unmodified (not a VIN)', () => {
     const event: Event = { message: 'error ref ABCD1234EFGH567' }
     const result = getBeforeSend()(event, {} as EventHint)
@@ -174,6 +180,27 @@ describe('API sentry init (beforeSend / PII scrubbing)', () => {
     expect(result?.extra?.['dealer_phone']).toBeUndefined()
     expect(result?.extra?.['contact']).toBeUndefined()
     expect(result?.extra?.['safeField']).toBe('keep-me')
+  })
+
+  it('scrubs VINs and contact fields from request URLs and nested contexts', () => {
+    const event: Event = {
+      request: { url: 'https://api.test/v1/vin/1HGBH41JXMN109186/safety' },
+      contexts: {
+        listing: {
+          vin: '1HGBH41JXMN109186',
+          dealer_email: 'dealer@example.com',
+          safeField: 'keep',
+        },
+      },
+    }
+
+    const result = getBeforeSend()(event, {} as EventHint)
+    const listing = result?.contexts?.['listing'] as Record<string, unknown> | undefined
+
+    expect(result?.request?.url).toBe('https://api.test/v1/vin/[VIN]/safety')
+    expect(listing?.['vin']).toBe('[VIN]')
+    expect(listing?.['dealer_email']).toBeUndefined()
+    expect(listing?.['safeField']).toBe('keep')
   })
 
   it('handles events with no extra', () => {

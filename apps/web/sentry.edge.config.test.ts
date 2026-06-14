@@ -60,6 +60,12 @@ describe('web edge sentry config (beforeSend / PII scrubbing)', () => {
     expect(result?.message).toBe('Edge middleware error [VIN]')
   })
 
+  it('replaces lowercase VINs in event.message', () => {
+    const event: Event = { message: 'Edge middleware error 1hgbh41jxmn109186' }
+    const result = getBeforeSend()(event, {} as EventHint)
+    expect(result?.message).toBe('Edge middleware error [VIN]')
+  })
+
   it('replaces multiple VINs in event.message', () => {
     const event: Event = { message: '1HGBH41JXMN109186 and 2T1BURHE0JC074659' }
     const result = getBeforeSend()(event, {} as EventHint)
@@ -131,6 +137,27 @@ describe('web edge sentry config (beforeSend / PII scrubbing)', () => {
     expect(result?.extra?.['dealer_phone']).toBeUndefined()
     expect(result?.extra?.['contact']).toBeUndefined()
     expect(result?.extra?.['safeField']).toBe('keep-me')
+  })
+
+  it('scrubs VINs and contact fields from request URLs and nested contexts', () => {
+    const event: Event = {
+      request: { url: 'https://edge.test/v1/vin/1HGBH41JXMN109186/safety' },
+      contexts: {
+        listing: {
+          vin: '1HGBH41JXMN109186',
+          dealer_email: 'dealer@example.com',
+          safeField: 'keep',
+        },
+      },
+    }
+
+    const result = getBeforeSend()(event, {} as EventHint)
+    const listing = result?.contexts?.['listing'] as Record<string, unknown> | undefined
+
+    expect(result?.request?.url).toBe('https://edge.test/v1/vin/[VIN]/safety')
+    expect(listing?.['vin']).toBe('[VIN]')
+    expect(listing?.['dealer_email']).toBeUndefined()
+    expect(listing?.['safeField']).toBe('keep')
   })
 
   it('handles empty event gracefully', () => {
