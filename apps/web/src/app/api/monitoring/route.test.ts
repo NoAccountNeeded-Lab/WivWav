@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { POST } from './route'
+
+async function loadPost(dsn = 'https://public@example@o123.ingest.sentry.io/456') {
+  vi.stubEnv('NEXT_PUBLIC_SENTRY_DSN', dsn)
+  const route = await import('./route')
+  return route.POST
+}
 
 function makeRequest(path: string): NextRequest {
   return new NextRequest(`http://localhost${path}`, {
@@ -12,12 +17,15 @@ function makeRequest(path: string): NextRequest {
 
 describe('POST /api/monitoring', () => {
   afterEach(() => {
+    vi.resetModules()
+    vi.unstubAllEnvs()
     vi.unstubAllGlobals()
   })
 
   it('forwards Sentry envelopes to the SaaS ingest endpoint', async () => {
     const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
     vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost()
 
     const res = await POST(makeRequest('/api/monitoring?o=123&p=456'))
 
@@ -36,6 +44,7 @@ describe('POST /api/monitoring', () => {
   it('forwards regional Sentry envelopes to the regional ingest endpoint', async () => {
     const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
     vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost()
 
     const res = await POST(makeRequest('/api/monitoring?o=123&p=456&r=de'))
 
@@ -49,6 +58,7 @@ describe('POST /api/monitoring', () => {
   it('returns 400 when org id is non-numeric', async () => {
     const mockFetch = vi.fn()
     vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost()
 
     const res = await POST(makeRequest('/api/monitoring?o=abc&p=456'))
 
@@ -61,6 +71,7 @@ describe('POST /api/monitoring', () => {
   it('returns 400 when project id is missing', async () => {
     const mockFetch = vi.fn()
     vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost()
 
     const res = await POST(makeRequest('/api/monitoring?o=123'))
 
@@ -71,6 +82,7 @@ describe('POST /api/monitoring', () => {
   it('returns 400 when region is not exactly two lowercase letters', async () => {
     const mockFetch = vi.fn()
     vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost()
 
     const res = await POST(makeRequest('/api/monitoring?o=123&p=456&r=USA'))
 
@@ -80,9 +92,32 @@ describe('POST /api/monitoring', () => {
 
   it('passes through upstream Sentry status codes', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 429 })))
+    const POST = await loadPost()
 
     const res = await POST(makeRequest('/api/monitoring?o=123&p=456'))
 
     expect(res.status).toBe(429)
+  })
+
+  it('returns 400 when the request org does not match the configured DSN org', async () => {
+    const mockFetch = vi.fn()
+    vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost()
+
+    const res = await POST(makeRequest('/api/monitoring?o=999&p=456'))
+
+    expect(res.status).toBe(400)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when no configured DSN is available', async () => {
+    const mockFetch = vi.fn()
+    vi.stubGlobal('fetch', mockFetch)
+    const POST = await loadPost('')
+
+    const res = await POST(makeRequest('/api/monitoring?o=123&p=456'))
+
+    expect(res.status).toBe(400)
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 })
