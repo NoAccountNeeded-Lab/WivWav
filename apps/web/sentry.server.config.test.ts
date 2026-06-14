@@ -60,6 +60,12 @@ describe('web server sentry config (beforeSend / PII scrubbing)', () => {
     expect(result?.message).toBe('Server error VIN [VIN] missing')
   })
 
+  it('replaces lowercase VINs in event.message', () => {
+    const event: Event = { message: 'Server error vin 1hgbh41jxmn109186 missing' }
+    const result = getBeforeSend()(event, {} as EventHint)
+    expect(result?.message).toBe('Server error vin [VIN] missing')
+  })
+
   it('replaces a VIN in exception value', () => {
     const event: Event = {
       exception: {
@@ -74,7 +80,7 @@ describe('web server sentry config (beforeSend / PII scrubbing)', () => {
     const event: Event = { user: { email: 'a@b.com', ip_address: '192.168.1.1' } }
     const result = getBeforeSend()(event, {} as EventHint)
     expect(result?.user?.ip_address).toBeUndefined()
-    expect(result?.user?.email).toBe('a@b.com')
+    expect(result?.user?.email).toBeUndefined()
   })
 
   it('removes IP forwarding headers from event.request.headers', () => {
@@ -115,6 +121,27 @@ describe('web server sentry config (beforeSend / PII scrubbing)', () => {
     expect(result?.extra?.['dealer_phone']).toBeUndefined()
     expect(result?.extra?.['contact']).toBeUndefined()
     expect(result?.extra?.['requestMethod']).toBe('GET')
+  })
+
+  it('scrubs VINs and contact fields from request URLs and nested contexts', () => {
+    const event: Event = {
+      request: { url: 'https://web.test/v1/vin/1HGBH41JXMN109186/safety' },
+      contexts: {
+        listing: {
+          vin: '1HGBH41JXMN109186',
+          dealer_phone: '555-0202',
+          sourceId: 'source-1',
+        },
+      },
+    }
+
+    const result = getBeforeSend()(event, {} as EventHint)
+    const listing = result?.contexts?.['listing'] as Record<string, unknown> | undefined
+
+    expect(result?.request?.url).toBe('https://web.test/v1/vin/[VIN]/safety')
+    expect(listing?.['vin']).toBe('[VIN]')
+    expect(listing?.['dealer_phone']).toBeUndefined()
+    expect(listing?.['sourceId']).toBe('source-1')
   })
 
   it('returns the mutated event', () => {

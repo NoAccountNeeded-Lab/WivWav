@@ -19,8 +19,9 @@ function buildEnvelopeUrl(searchParams: URLSearchParams): string | null {
   const projectId = searchParams.get('p')
   const region = searchParams.get('r')
 
+  if (SENTRY_ORG_ID === null) return null
   if (!orgId || !ORG_ID_PATTERN.test(orgId)) return null
-  if (SENTRY_ORG_ID !== null && orgId !== SENTRY_ORG_ID) return null
+  if (orgId !== SENTRY_ORG_ID) return null
   if (!projectId || !PROJECT_ID_PATTERN.test(projectId)) return null
   if (region !== null && !REGION_ALLOWLIST.has(region)) return null
 

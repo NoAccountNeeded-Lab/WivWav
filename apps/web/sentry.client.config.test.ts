@@ -64,6 +64,12 @@ describe('web client sentry config (beforeSend / PII scrubbing)', () => {
     expect(result?.message).toBe('Client error on VIN [VIN]')
   })
 
+  it('replaces lowercase VINs in event.message', () => {
+    const event: Event = { message: 'Client error on vin 1hgbh41jxmn109186' }
+    const result = getBeforeSend()(event, {} as EventHint)
+    expect(result?.message).toBe('Client error on vin [VIN]')
+  })
+
   it('replaces a VIN in exception value', () => {
     const event: Event = {
       exception: {
@@ -99,6 +105,27 @@ describe('web client sentry config (beforeSend / PII scrubbing)', () => {
     expect(result?.extra?.['dealer_phone']).toBeUndefined()
     expect(result?.extra?.['contact']).toBeUndefined()
     expect(result?.extra?.['requestId']).toBe('req-1')
+  })
+
+  it('scrubs VINs and contact fields from request URLs and nested contexts', () => {
+    const event: Event = {
+      request: { url: 'https://app.test/v1/vin/1HGBH41JXMN109186/safety' },
+      contexts: {
+        listing: {
+          vin: '1HGBH41JXMN109186',
+          contact: 'Dealer Rep',
+          listingId: 'listing-1',
+        },
+      },
+    }
+
+    const result = getBeforeSend()(event, {} as EventHint)
+    const listing = result?.contexts?.['listing'] as Record<string, unknown> | undefined
+
+    expect(result?.request?.url).toBe('https://app.test/v1/vin/[VIN]/safety')
+    expect(listing?.['vin']).toBe('[VIN]')
+    expect(listing?.['contact']).toBeUndefined()
+    expect(listing?.['listingId']).toBe('listing-1')
   })
 
   it('returns the mutated event', () => {

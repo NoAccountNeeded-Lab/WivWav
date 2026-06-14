@@ -60,6 +60,12 @@ describe('scraper sentry init (beforeSend / PII scrubbing)', () => {
     expect(result?.message).toBe('Scrape error on [VIN]')
   })
 
+  it('replaces lowercase VINs in event.message', () => {
+    const event: Event = { message: 'Scrape error on 1hgbh41jxmn109186' }
+    const result = getBeforeSend()(event, {} as EventHint)
+    expect(result?.message).toBe('Scrape error on [VIN]')
+  })
+
   it('replaces a VIN in exception value', () => {
     const event: Event = {
       exception: {
@@ -115,6 +121,27 @@ describe('scraper sentry init (beforeSend / PII scrubbing)', () => {
     expect(result?.extra?.['dealer_phone']).toBeUndefined()
     expect(result?.extra?.['contact']).toBeUndefined()
     expect(result?.extra?.['listingId']).toBe(42)
+  })
+
+  it('scrubs VINs and contact fields from request URLs and nested contexts', () => {
+    const event: Event = {
+      request: { url: 'https://dealer.example/listings/1HGBH41JXMN109186' },
+      contexts: {
+        listing: {
+          vin: '1HGBH41JXMN109186',
+          phone: '555-0101',
+          sourceId: 'source-1',
+        },
+      },
+    }
+
+    const result = getBeforeSend()(event, {} as EventHint)
+    const listing = result?.contexts?.['listing'] as Record<string, unknown> | undefined
+
+    expect(result?.request?.url).toBe('https://dealer.example/listings/[VIN]')
+    expect(listing?.['vin']).toBe('[VIN]')
+    expect(listing?.['phone']).toBeUndefined()
+    expect(listing?.['sourceId']).toBe('source-1')
   })
 
   it('returns the mutated event', () => {
