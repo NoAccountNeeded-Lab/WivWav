@@ -2,6 +2,13 @@ import 'dotenv/config'
 // Sentry must be initialised before any other imports so that startup errors
 // and unhandled rejections are captured from the very beginning.
 import { Sentry } from './sentry.js'
+
+process.on('uncaughtException', async (err) => {
+  Sentry.captureException(err)
+  await Sentry.flush(2000)
+  process.exit(1)
+})
+
 import { Meilisearch } from 'meilisearch'
 import { Redis } from 'ioredis'
 import { getDb } from '@wivwav/db'

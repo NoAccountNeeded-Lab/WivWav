@@ -2,6 +2,13 @@ import 'dotenv/config'
 // Sentry must be initialised before any other imports so that startup errors
 // and unhandled rejections from BullMQ workers are captured from the start.
 import { Sentry } from './sentry.js'
+
+process.on('uncaughtException', async (err) => {
+  Sentry.captureException(err)
+  await Sentry.flush(2000)
+  process.exit(1)
+})
+
 import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
 import { BullMQQueueFactory, QUEUES } from '@wivwav/queue'
