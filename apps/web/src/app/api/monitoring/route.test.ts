@@ -46,7 +46,7 @@ describe('POST /api/monitoring', () => {
     )
   })
 
-  it('returns 400 when required tunnel parameters are invalid', async () => {
+  it('returns 400 when org id is non-numeric', async () => {
     const mockFetch = vi.fn()
     vi.stubGlobal('fetch', mockFetch)
 
@@ -56,6 +56,26 @@ describe('POST /api/monitoring', () => {
     expect(mockFetch).not.toHaveBeenCalled()
     const body = await res.json() as { error: { code: string } }
     expect(body.error.code).toBe('BAD_REQUEST')
+  })
+
+  it('returns 400 when project id is missing', async () => {
+    const mockFetch = vi.fn()
+    vi.stubGlobal('fetch', mockFetch)
+
+    const res = await POST(makeRequest('/api/monitoring?o=123'))
+
+    expect(res.status).toBe(400)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when region is not exactly two lowercase letters', async () => {
+    const mockFetch = vi.fn()
+    vi.stubGlobal('fetch', mockFetch)
+
+    const res = await POST(makeRequest('/api/monitoring?o=123&p=456&r=USA'))
+
+    expect(res.status).toBe(400)
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('passes through upstream Sentry status codes', async () => {
