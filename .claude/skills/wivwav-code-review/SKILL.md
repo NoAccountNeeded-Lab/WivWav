@@ -181,11 +181,11 @@ Format the comment with the attribution header, then the full findings (grouped 
 
 ```bash
 # Find the PR number for the current branch
-gh pr list --head $(git branch --show-current) --json number --jq '.[0].number'
+gh pr list --head $(git branch --show-current) --state open --json number --jq '.[0].number'
 
 # Post the comment
 gh pr comment {PR#} --body "$(cat <<'EOF'
-🤖 **code-review[1]** · `wivwav-code-review` · {YYYY-MM-DD}
+**code-review[1]** · `wivwav-code-review` · {YYYY-MM-DD}
 
 ## Review verdict: {REVISION NEEDED | READY TO FINISH}
 
