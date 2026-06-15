@@ -273,3 +273,153 @@ describe('AgentPipeline — max revision limit', () => {
     expect(run.steps.find((s) => s.role === 'human-liaison')).toBeUndefined()
   })
 })
+
+describe('AgentPipeline — onStep callback', () => {
+  it('fires onStep for every step in order', async () => {
+    const stepRoles: string[] = []
+    const provider = makeProvider(PASS)
+
+    await new AgentPipeline(provider, ROLES).run('test task', (step) => {
+      stepRoles.push(step.role)
+    })
+
+    expect(stepRoles).toEqual([
+      'planner',
+      'architect',
+      'coder',
+      'reviewer',
+      'accessibility',
+      'tester',
+      'qa',
+      'docs',
+      'release',
+      'human-liaison',
+    ])
+  })
+
+  it('fires onStep with the step result including artifact', async () => {
+    const steps: import('./types.js').AgentStep[] = []
+    await new AgentPipeline(makeProvider(PASS), ROLES).run('test task', (s) => steps.push(s))
+
+    const plannerStep = steps.find((s) => s.role === 'planner')
+    expect(plannerStep).toBeDefined()
+    expect(plannerStep?.status).toBe('completed')
+    expect(plannerStep?.artifact?.content).toBeTruthy()
+  })
+})
+
+describe('AgentPipeline — provider failure (step fails)', () => {
+  it('returns failed status immediately when planner throws', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn().mockRejectedValue(new Error('LLM unavailable')),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.status).toBe('failed')
+    expect(run.steps).toHaveLength(1)
+    expect(run.steps[0]?.role).toBe('planner')
+    expect(run.steps[0]?.status).toBe('failed')
+    expect(run.steps[0]?.error).toBe('LLM unavailable')
+    expect(run.completedAt).toBeDefined()
+  })
+
+  it('returns failed status immediately when coder throws', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn(async (_s: string, u: string) => {
+        const role = u.match(/# Your role: ([\w-]+)/)?.[1]?.toLowerCase() ?? ''
+        if (role === 'coder') throw new Error('coder unavailable')
+        return PASS[role as keyof typeof PASS] ?? `${role} output`
+      }),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.status).toBe('failed')
+    const coderStep = run.steps.find((s) => s.role === 'coder')
+    expect(coderStep?.status).toBe('failed')
+    expect(coderStep?.error).toBe('coder unavailable')
+  })
+
+  it('returns failed status when a post-review step (docs) throws', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn(async (_s: string, u: string) => {
+        const role = u.match(/# Your role: ([\w-]+)/)?.[1]?.toLowerCase() ?? ''
+        if (role === 'docs') throw new Error('docs unavailable')
+        return PASS[role as keyof typeof PASS] ?? `${role} output`
+      }),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.status).toBe('failed')
+    const docsStep = run.steps.find((s) => s.role === 'docs')
+    expect(docsStep?.status).toBe('failed')
+    // human-liaison must not have run after docs failed
+    expect(run.steps.find((s) => s.role === 'human-liaison')).toBeUndefined()
+  })
+
+  it('returns failed status when release throws and does not run human-liaison', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn(async (_s: string, u: string) => {
+        const role = u.match(/# Your role: ([\w-]+)/)?.[1]?.toLowerCase() ?? ''
+        if (role === 'release') throw new Error('release unavailable')
+        return PASS[role as keyof typeof PASS] ?? `${role} output`
+      }),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.status).toBe('failed')
+    const releaseStep = run.steps.find((s) => s.role === 'release')
+    expect(releaseStep?.status).toBe('failed')
+    // human-liaison must not have run after release failed
+    expect(run.steps.find((s) => s.role === 'human-liaison')).toBeUndefined()
+    expect(run.completedAt).toBeDefined()
+  })
+
+  it('returns failed status when human-liaison throws', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn(async (_s: string, u: string) => {
+        const role = u.match(/# Your role: ([\w-]+)/)?.[1]?.toLowerCase() ?? ''
+        if (role === 'human-liaison') throw new Error('liaison unavailable')
+        return PASS[role as keyof typeof PASS] ?? `${role} output`
+      }),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.status).toBe('failed')
+    const liaisonStep = run.steps.find((s) => s.role === 'human-liaison')
+    expect(liaisonStep?.status).toBe('failed')
+    expect(liaisonStep?.error).toBe('liaison unavailable')
+    expect(run.completedAt).toBeDefined()
+  })
+
+  it('records the error message on a failed step', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn().mockRejectedValue(new TypeError('network timeout')),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.steps[0]?.error).toBe('network timeout')
+  })
+
+  it('records a stringified error when provider rejects with a non-Error', async () => {
+    const provider: CompletionProvider = {
+      name: 'mock',
+      complete: vi.fn().mockRejectedValue('string rejection'),
+    }
+
+    const run = await new AgentPipeline(provider, ROLES).run('test task')
+
+    expect(run.steps[0]?.error).toBe('string rejection')
+  })
+})
