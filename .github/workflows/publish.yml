@@ -54,13 +54,6 @@ jobs:
           context: .
           file: ${{ matrix.service.dockerfile }}
           push: true
-          build-args: |
-            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
-            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
-            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
-          secrets: |
-            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.service.name }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.service.name }}:latest

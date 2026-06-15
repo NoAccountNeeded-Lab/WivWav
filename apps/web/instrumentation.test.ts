@@ -9,6 +9,7 @@ describe('register()', () => {
   })
 
   it('imports sentry.server.config when NEXT_RUNTIME is nodejs', async () => {
+    vi.stubEnv('SENTRY_ENABLED', 'true')
     vi.stubEnv('NEXT_RUNTIME', 'nodejs')
 
     // Mock both possible config imports so the side effects don't run
@@ -21,6 +22,7 @@ describe('register()', () => {
   })
 
   it('imports sentry.edge.config when NEXT_RUNTIME is edge', async () => {
+    vi.stubEnv('SENTRY_ENABLED', 'true')
     vi.stubEnv('NEXT_RUNTIME', 'edge')
 
     vi.doMock('./sentry.server.config', () => ({}))
@@ -44,10 +46,12 @@ describe('register()', () => {
 describe('onRequestError()', () => {
   beforeEach(() => {
     vi.resetModules()
+    vi.stubEnv('SENTRY_ENABLED', 'true')
   })
 
   afterEach(() => {
     vi.resetModules()
+    vi.unstubAllEnvs()
   })
 
   it('calls captureRequestError with the error, request, and context', async () => {

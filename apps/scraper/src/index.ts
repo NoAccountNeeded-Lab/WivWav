@@ -1,14 +1,16 @@
 import 'dotenv/config'
-// Sentry must be initialised before any other imports so that startup errors
-// and unhandled rejections from BullMQ workers are captured from the start.
-import { Sentry } from './sentry.js'
+// Sentry is disabled by default. When explicitly enabled, this import must stay
+// before app imports so startup errors can be captured.
+import { isSentryEnabled, Sentry } from './sentry.js'
 
 process.on('uncaughtException', (err) => {
+  if (!isSentryEnabled) {
+    process.exit(1)
+  }
+
   Sentry.captureException(err)
   void Sentry.flush(2000).finally(() => process.exit(1))
 })
-// @sentry/node auto-instruments 'unhandledRejection' via its default integrations,
-// so no manual handler is needed here — it mirrors what uncaughtException does above.
 
 import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
@@ -95,13 +97,15 @@ function shutdown(signal: NodeJS.Signals): Promise<void> {
       await queueFactory.close()
       await db.$disconnect()
       logger.info('Scraper shutdown complete')
-      // Flush buffered Sentry events before exit — without this, events captured
-      // just before shutdown are silently dropped by the async transport.
-      await Sentry.flush(2000)
+      if (isSentryEnabled) {
+        await Sentry.flush(2000)
+      }
       process.exit(0)
     } catch (err) {
       logger.error({ err }, 'Scraper shutdown failed')
-      await Sentry.flush(2000)
+      if (isSentryEnabled) {
+        await Sentry.flush(2000)
+      }
       process.exit(1)
     }
   })()

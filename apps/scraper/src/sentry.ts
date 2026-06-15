@@ -1,9 +1,11 @@
 /**
  * Sentry initialisation for the scraper worker.
  *
- * Import this module at the very top of `index.ts` — before any other imports
- * — so that unhandled exceptions thrown during startup and BullMQ job failures
- * are captured from the very beginning.
+ * Disabled by default. Set SENTRY_ENABLED=true and SENTRY_DSN to opt in.
+ *
+ * When enabled, import this module at the very top of `index.ts` — before any
+ * other imports — so that unhandled exceptions thrown during startup and BullMQ
+ * job failures are captured from the very beginning.
  *
  * The scraper is a long-running background worker. Sentry captures:
  *  - Unhandled promise rejections (process-level)
@@ -16,30 +18,34 @@
 import * as Sentry from '@sentry/node'
 import { scrubPii, scrubSentryEvent } from './sentry-pii.js'
 
-Sentry.init({
-  dsn: process.env['SENTRY_DSN'],
+export const isSentryEnabled = process.env['SENTRY_ENABLED'] === 'true' && Boolean(process.env['SENTRY_DSN'])
 
-  environment: process.env['NODE_ENV'] ?? 'development',
+if (isSentryEnabled) {
+  Sentry.init({
+    dsn: process.env['SENTRY_DSN'],
 
-  tracesSampleRate: process.env['NODE_ENV'] === 'production' ? 0.1 : 1.0,
+    environment: process.env['NODE_ENV'] ?? 'development',
 
-  beforeBreadcrumb(breadcrumb) {
-    if (breadcrumb.message) {
-      breadcrumb.message = scrubPii(breadcrumb.message)
-    }
+    tracesSampleRate: process.env['NODE_ENV'] === 'production' ? 0.1 : 1.0,
 
-    const data = breadcrumb.data
-    const url = data?.['url']
-    if (data && typeof url === 'string') {
-      data['url'] = scrubPii(url)
-    }
+    beforeBreadcrumb(breadcrumb) {
+      if (breadcrumb.message) {
+        breadcrumb.message = scrubPii(breadcrumb.message)
+      }
 
-    return breadcrumb
-  },
+      const data = breadcrumb.data
+      const url = data?.['url']
+      if (data && typeof url === 'string') {
+        data['url'] = scrubPii(url)
+      }
 
-  beforeSend(event) {
-    return scrubSentryEvent(event)
-  },
-})
+      return breadcrumb
+    },
+
+    beforeSend(event) {
+      return scrubSentryEvent(event)
+    },
+  })
+}
 
 export { Sentry }

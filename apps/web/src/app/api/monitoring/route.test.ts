@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 async function loadPost(dsn = 'https://public@example@o123.ingest.sentry.io/456') {
+  vi.stubEnv('SENTRY_ENABLED', 'true')
   vi.stubEnv('NEXT_PUBLIC_SENTRY_DSN', dsn)
   const route = await import('./route')
   return route.POST
@@ -20,6 +21,18 @@ describe('POST /api/monitoring', () => {
     vi.resetModules()
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
+  })
+
+  it('returns 404 by default when Sentry is disabled', async () => {
+    const mockFetch = vi.fn()
+    vi.stubGlobal('fetch', mockFetch)
+    vi.stubEnv('NEXT_PUBLIC_SENTRY_DSN', 'https://public@example@o123.ingest.sentry.io/456')
+    const { POST } = await import('./route')
+
+    const res = await POST(makeRequest('/api/monitoring?o=123&p=456'))
+
+    expect(res.status).toBe(404)
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('forwards Sentry envelopes to the SaaS ingest endpoint', async () => {

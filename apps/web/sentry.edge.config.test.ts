@@ -24,6 +24,11 @@ vi.mock('@sentry/nextjs', () => ({
   }),
 }))
 
+function enableSentryForTest(): void {
+  vi.stubEnv('SENTRY_ENABLED', 'true')
+  vi.stubEnv('SENTRY_DSN', 'https://public@example.com/1')
+}
+
 function getInit(): CapturedInit {
   if (!capturedInit) throw new Error('Sentry.init was not called')
   return capturedInit
@@ -47,11 +52,13 @@ describe('web edge sentry config (beforeSend / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.edge.config.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces a VIN in event.message', () => {
@@ -176,11 +183,13 @@ describe('web edge sentry config (beforeBreadcrumb / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.edge.config.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces VINs in breadcrumb messages and URLs', () => {
@@ -198,11 +207,13 @@ describe('web edge sentry init options', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.edge.config.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('sets tracesSampleRate to 1.0 outside production', () => {
@@ -231,5 +242,22 @@ describe('web edge sentry init options', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+describe('web edge sentry disabled state', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('does not initialise Sentry by default', async () => {
+    capturedInit = undefined
+    vi.resetModules()
+    vi.unstubAllEnvs()
+
+    await import('./sentry.edge.config.js')
+
+    expect(capturedInit).toBeUndefined()
   })
 })
