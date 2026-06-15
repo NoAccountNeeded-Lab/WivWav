@@ -40,6 +40,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+[[ "$LOOKBACK_DAYS" =~ ^[0-9]+$ ]] || { echo "LOOKBACK_DAYS must be a positive integer" >&2; exit 1; }
+
 # ── Repo detection ────────────────────────────────────────────────────────────
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
 if [[ -z "$REPO" ]]; then
@@ -120,7 +122,7 @@ CI_RUNS=$(gh run list \
   2>/dev/null || echo "[]")
 
 COMPLETED_RUNS=$(echo "$CI_RUNS" | jq --arg since "$SINCE" \
-  '[.[] | select(.createdAt >= $since and .status == "completed")]')
+  '[.[] | select((.createdAt | fromdateiso8601) >= ($since | fromdateiso8601) and .status == "completed")]')
 TOTAL_COMPLETED=$(echo "$COMPLETED_RUNS" | jq 'length')
 
 if [[ "$TOTAL_COMPLETED" -eq 0 ]]; then
@@ -164,13 +166,14 @@ echo ""
 # ── 2. Failed-check causes ────────────────────────────────────────────────────
 echo "## 2. Failed-Check Causes  (last 10 failed CI runs in period, any branch)"
 
-FAILED_RUNS=$(gh run list \
+FAILED_RUNS_RAW=$(gh run list \
   --repo "$REPO" \
   --workflow ci.yml \
   --limit 100 \
   --json databaseId,conclusion,displayTitle,headBranch,createdAt \
-  2>/dev/null | jq --arg since "$SINCE" \
-    '[.[] | select(.createdAt >= $since and .conclusion == "failure")] | .[0:10]')
+  2>/dev/null || echo "[]")
+FAILED_RUNS=$(echo "$FAILED_RUNS_RAW" | jq --arg since "$SINCE" \
+  '[.[] | select((.createdAt | fromdateiso8601) >= ($since | fromdateiso8601) and .conclusion == "failure")] | .[0:10]')
 
 FAIL_COUNT=$(echo "$FAILED_RUNS" | jq 'length')
 if [[ "$FAIL_COUNT" -eq 0 ]]; then
@@ -201,7 +204,7 @@ MERGED_PRS=$(gh pr list \
 
 MERGED_IN_PERIOD=$(echo "$MERGED_PRS" | jq \
   --arg since "$SINCE" \
-  '[.[] | select(.mergedAt != null and .mergedAt >= $since)]')
+  '[.[] | select(.mergedAt != null and ((.mergedAt | fromdateiso8601) >= ($since | fromdateiso8601)))]')
 
 PR_COUNT=$(echo "$MERGED_IN_PERIOD" | jq 'length')
 
@@ -260,7 +263,9 @@ if [[ $REVIEW_CYCLES_COUNT -gt 0 ]]; then
     AVG_CYCLES=$(echo "scale=1; $REVIEW_CYCLES_TOTAL / $REVIEW_CYCLES_COUNT" | bc)
   else
     AVG_CYCLES=$(( REVIEW_CYCLES_TOTAL * 10 / REVIEW_CYCLES_COUNT ))
-    AVG_CYCLES="${AVG_CYCLES%?}.${AVG_CYCLES: -1}"
+    INT_PART="${AVG_CYCLES%?}"
+    FRAC_PART="${AVG_CYCLES: -1}"
+    AVG_CYCLES="${INT_PART:-0}.${FRAC_PART}"
   fi
   echo "  Avg re-review cycles : ${AVG_CYCLES}"
   # Compare integer part against threshold
