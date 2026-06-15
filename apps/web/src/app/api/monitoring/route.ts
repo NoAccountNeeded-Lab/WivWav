@@ -54,14 +54,28 @@ export async function POST(req: NextRequest): Promise<Response> {
     )
   }
 
-  const upstream = await fetch(envelopeUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': req.headers.get('content-type') ?? 'application/x-sentry-envelope',
-    },
-    body,
-    cache: 'no-store',
-  })
+  let upstream: globalThis.Response
+  try {
+    upstream = await fetch(envelopeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': req.headers.get('content-type') ?? 'application/x-sentry-envelope',
+      },
+      body,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    })
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'BAD_GATEWAY', message: 'Sentry ingest unreachable' } },
+      { status: 502 },
+    )
+  }
 
-  return new Response(null, { status: upstream.status })
+  const retryAfter = upstream.headers.get('Retry-After')
+  const rateLimitHeader = upstream.headers.get('X-Sentry-Rate-Limit')
+  const headers: Record<string, string> = {}
+  if (retryAfter) headers['Retry-After'] = retryAfter
+  if (rateLimitHeader) headers['X-Sentry-Rate-Limit'] = rateLimitHeader
+  return new Response(upstream.body, { status: upstream.status, headers })
 }

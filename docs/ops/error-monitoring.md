@@ -45,9 +45,20 @@ Filter by project to narrow to a specific service:
    SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
    ```
 
-5. For CI/CD source map upload, set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and
-   `SENTRY_PROJECT` as secrets in your CI environment. The Next.js build will
-   upload source maps automatically when the auth token is present.
+5. For CI/CD source map upload, set the following secrets in your CI environment:
+
+   | Secret | Used by |
+   |--------|---------|
+   | `SENTRY_AUTH_TOKEN` | All three source map upload steps |
+   | `SENTRY_ORG` | All three source map upload steps |
+   | `SENTRY_PROJECT` | Next.js Docker build (`apps/web`) |
+   | `SENTRY_PROJECT_API` | API source map upload step |
+   | `SENTRY_PROJECT_SCRAPER` | Scraper source map upload step |
+
+   `SENTRY_PROJECT_API` and `SENTRY_PROJECT_SCRAPER` are separate from `SENTRY_PROJECT`
+   because the CI workflow uploads source maps for each service into its own Sentry
+   project. If either is missing, the upload step runs with a blank project name and
+   silently fails to associate source maps with the correct project.
 
 ## Triggering a test error
 
@@ -118,7 +129,7 @@ Stack traces in the Sentry dashboard will show original TypeScript line numbers.
 
 If stack traces show minified code, verify:
 
-1. `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` were set at build time.
+1. All five CI secrets are set: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_PROJECT_API`, `SENTRY_PROJECT_SCRAPER`.
 2. The Sentry project name matches exactly (case-sensitive).
 3. Check build logs for `Sentry source maps upload` output.
 
@@ -143,3 +154,18 @@ Loki/Prometheus. This is intentional: error capture on crash requires a direct
 SDK flush path that does not depend on the collector being available.
 
 See `docs/design/observability-architecture.md` for the full observability design.
+
+## Go-live checklist
+
+Complete these steps before declaring error monitoring live for public beta. The
+Sentry SDK is inert without a DSN, so all items below must be done in staging
+before the beta launch date.
+
+- [ ] Create three Sentry projects: `wivwav-web`, `wivwav-api`, `wivwav-scraper` (all under the same org)
+- [ ] Copy each project's DSN into the service environment (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`)
+- [ ] Set all five CI secrets: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_PROJECT_API`, `SENTRY_PROJECT_SCRAPER`
+- [ ] Deploy staging build and trigger a test error for each service (see "Triggering a test error" above)
+- [ ] Confirm each error appears in Sentry with correct TypeScript source lines (not minified)
+- [ ] Confirm no VINs or IP addresses appear in the Sentry event payload
+- [ ] Configure P0/P1 alert rules in Sentry UI (see "Alerting" above)
+- [ ] Update the dashboard URL at the top of this file with the real Sentry org URL

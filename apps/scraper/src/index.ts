@@ -3,11 +3,12 @@ import 'dotenv/config'
 // and unhandled rejections from BullMQ workers are captured from the start.
 import { Sentry } from './sentry.js'
 
-process.on('uncaughtException', async (err) => {
+process.on('uncaughtException', (err) => {
   Sentry.captureException(err)
-  await Sentry.flush(2000)
-  process.exit(1)
+  void Sentry.flush(2000).finally(() => process.exit(1))
 })
+// @sentry/node auto-instruments 'unhandledRejection' via its default integrations,
+// so no manual handler is needed here — it mirrors what uncaughtException does above.
 
 import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
