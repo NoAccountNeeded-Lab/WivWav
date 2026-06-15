@@ -3,7 +3,7 @@
  *
  * Encodes the "Finish an issue" section of AGENTS.md:
  *   1. Full validation (typecheck + lint + test)
- *   2. Detect staged / relevant files — warn on dirty unrelated files
+ *   2. Detect staged / relevant files — fail closed on dirty unrelated files
  *   3. Commit with required format and attribution trailers
  *   4. Push to origin
  *   5. Open a draft PR with acceptance evidence placeholders
@@ -81,7 +81,8 @@ export function titleToDescription(title: string): string {
 }
 
 /** Build acceptance evidence section from AC checklist items. */
-function buildAcceptanceEvidence(body: string): string {
+function buildAcceptanceEvidence(body: string | null): string {
+  if (!body) return '<!-- No acceptance-criteria checklist found — add evidence manually -->'
   const checkboxRe = /^[ \t]*-[ \t]\[[ xX]\][ \t]+(.+)$/gm
   const items: string[] = []
   let m: RegExpExecArray | null
@@ -141,17 +142,19 @@ export async function finishCommand(
     console.log('[OK] Full validation passed.')
   }
 
-  // 3. Check for dirty unrelated files
+  // 3. Check for dirty unrelated files — fail closed so commit cannot silently omit them
   if (isDirty()) {
     const staged = stagedFiles()
     const changed = changedFiles()
     const unstaged = changed.filter((f) => !staged.includes(f))
     if (unstaged.length > 0) {
-      console.warn('\n[WARNING] Untracked or unstaged files detected:')
+      console.error('\n[ERROR] Unstaged files detected — stage or stash them before finishing:')
       for (const f of unstaged) {
-        console.warn(`  ${f}`)
+        console.error(`  ${f}`)
       }
-      console.warn('  Only stage files relevant to this issue.')
+      throw new CliError(
+        'Cannot finish: working tree has unstaged changes. Stage all issue-relevant files and stash or discard the rest.',
+      )
     }
   }
 

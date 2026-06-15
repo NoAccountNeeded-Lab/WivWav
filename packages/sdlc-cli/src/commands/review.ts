@@ -24,7 +24,7 @@ interface ReviewPacket {
 }
 
 /** Extract acceptance-criteria checklist items from the issue body. */
-function extractAcItems(body: string): string[] {
+function extractAcItems(body: string | null): string[] {
   if (!body) return []
 
   // Match markdown task list items: `- [ ] text` or `- [x] text`
@@ -123,7 +123,8 @@ export async function reviewCommand(opts: ReviewOptions = {}): Promise<void> {
       } else {
         console.warn(`\n[WARNING] Issue #${opts.issueNumber} has no acceptance criteria.`)
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof CliError) throw err
       console.warn(`\n[WARNING] Could not fetch issue #${opts.issueNumber} for AC check.`)
     }
   }
