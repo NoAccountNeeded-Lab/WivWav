@@ -64,8 +64,8 @@ lint:
 
 ## check-affected    Run typecheck, lint, and test only for packages changed
 ##                   relative to origin/main. Use during iteration for faster
-##                   feedback. Use 'make typecheck && make lint && make test'
-##                   (or pnpm check:affected) for the full suite before finish.
+##                   feedback only. Use 'make typecheck && make lint && make test'
+##                   for the required full suite before finish.
 check-affected:
 	pnpm check:affected
 
