@@ -59,6 +59,16 @@ jobs:
   lint-typecheck:
     name: Lint & Typecheck
     runs-on: ubuntu-latest
+
+    env:
+      # Turbo remote cache — both vars must be set for remote caching to activate.
+      # Create a token at https://vercel.com/account/tokens and store it as a
+      # repository secret named TURBO_TOKEN. TURBO_TEAM is the Vercel team slug
+      # (or your personal account slug). When these are absent the run falls back
+      # to local-only caching with no failure.
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
     steps:
       - uses: actions/checkout@v6
 
@@ -75,6 +85,11 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
+      - name: Record task start time
+        id: timing
+        if: always()
+        run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -86,6 +101,18 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Report Turbo lint/typecheck duration
+        if: always()
+        run: |
+          end=$(date +%s)
+          elapsed=$(( end - ${{ steps.timing.outputs.start }} ))
+          echo "Turbo lint/typecheck tasks completed in ${elapsed}s (typecheck + build + lint)"
+          if [ -n "$TURBO_TOKEN" ]; then
+            echo "Remote cache: enabled (TURBO_TOKEN present)"
+          else
+            echo "Remote cache: disabled (TURBO_TOKEN not set — set repository secret to enable)"
+          fi
 
   test:
     name: Test
@@ -108,6 +135,13 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://wav:wav@localhost:5432/wivwav
+      # Turbo remote cache — both vars must be set for remote caching to activate.
+      # Create a token at https://vercel.com/account/tokens and store it as a
+      # repository secret named TURBO_TOKEN. TURBO_TEAM is the Vercel team slug
+      # (or your personal account slug). When these are absent the run falls back
+      # to local-only caching with no failure.
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
     steps:
       - uses: actions/checkout@v6
@@ -138,5 +172,22 @@ jobs:
             --to-schema ./prisma/schema.prisma \
             --exit-code
 
+      - name: Record task start time
+        id: timing
+        if: always()
+        run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Test
         run: pnpm test
+
+      - name: Report Turbo test duration
+        if: always()
+        run: |
+          end=$(date +%s)
+          elapsed=$(( end - ${{ steps.timing.outputs.start }} ))
+          echo "Turbo test task completed in ${elapsed}s"
+          if [ -n "$TURBO_TOKEN" ]; then
+            echo "Remote cache: enabled (TURBO_TOKEN present)"
+          else
+            echo "Remote cache: disabled (TURBO_TOKEN not set — set repository secret to enable)"
+          fi
