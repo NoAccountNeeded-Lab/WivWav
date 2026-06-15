@@ -205,14 +205,12 @@ describe('reviewCommand — acceptance criteria extraction', () => {
     warn.mockRestore()
   })
 
-  it('warns gracefully when fetchIssue throws', async () => {
-    mockFetchIssue.mockImplementation(() => { throw new Error('network error') })
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+  it('fails closed when fetchIssue throws', async () => {
+    mockFetchIssue.mockImplementation(() => {
+      throw new Error('network error')
+    })
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
-    await expect(reviewCommand({ issueNumber: 99 })).resolves.toBeUndefined()
-    const warnOutput = warn.mock.calls.map((c) => String(c[0])).join('\n')
-    expect(warnOutput).toMatch(/Could not fetch issue/)
-    warn.mockRestore()
+    await expect(reviewCommand({ issueNumber: 99 })).rejects.toThrow(/Could not fetch issue #99/)
   })
 
   it('extracts items from "Done when" bullet list when no checkboxes exist', async () => {
