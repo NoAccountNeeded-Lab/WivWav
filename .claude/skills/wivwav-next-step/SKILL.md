@@ -30,4 +30,9 @@ At session start, if the user asks for implementation work without an issue or b
 - "Create a new issue for this task, then start work."
 - "Keep this as discussion/planning only and do not edit code."
 
+When multiple `status:ready` issues exist and the user is looking for next work:
+
+- "Run `/wivwav-run-sprint` to drain the queue sequentially. **Recommended**"
+- "Run `/wivwav-run-sprint --parallel N` to process N issues concurrently as background agents."
+
 Do not perform commit, push, PR creation, merge, destructive cleanup, or broad implementation direction changes unless the user chooses that option or has already explicitly requested it.

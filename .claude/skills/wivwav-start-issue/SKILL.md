@@ -5,7 +5,7 @@ argument-hint: "[issue-number]"
 
 # Start Issue
 
-Use this skill when the user asks to start, pick up, or begin work on an issue, or when invoked by the `/wivwav-run-sprint` orchestrator before spawning a worker agent.
+Use this skill when the user asks to start, pick up, or begin work on an issue.
 
 Read `.claude/core.md` for branch naming, labels, and commit format. Read `AGENTS.md` only if the task requires deep workflow or architecture reference.
 
