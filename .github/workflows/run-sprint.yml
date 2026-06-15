@@ -49,6 +49,11 @@ jobs:
           # GITHUB_TOKEN is auto-provided by Actions with the scopes declared above.
           # No ANTHROPIC_API_KEY required — claude uses subscription auth on the runner.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Turbo remote cache — workers inherit the shared cache so repeated
+          # typecheck/lint/test runs reuse artifacts already built by CI or other
+          # workers. Absent vars fall back to local-only caching silently.
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
         run: |
           claude \
             --allowedTools "Bash,Read,Write,Edit,Agent,Skill,Glob,Grep" \
