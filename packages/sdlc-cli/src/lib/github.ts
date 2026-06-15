@@ -3,7 +3,7 @@ import { run, tryRun } from './git.js'
 export interface IssueData {
   number: number
   title: string
-  body: string
+  body: string | null
   state: string
   labels: Array<{ name: string }>
 }
@@ -14,7 +14,8 @@ export function fetchIssue(issueNumber: number): IssueData {
   const json = run(
     `gh issue view ${issueNumber} --json number,title,body,state,labels`,
   )
-  return JSON.parse(json) as IssueData
+  const raw = JSON.parse(json) as IssueData
+  return { ...raw, body: raw.body ?? '' }
 }
 
 /** Add and remove labels on a GitHub issue. */
@@ -77,7 +78,7 @@ export function labelNames(issue: IssueData): string[] {
 }
 
 /** Detect acceptance criteria in an issue body. */
-export function hasAcceptanceCriteria(body: string): boolean {
+export function hasAcceptanceCriteria(body: string | null): boolean {
   if (!body || body.trim() === '') return false
   const lower = body.toLowerCase()
   return (
