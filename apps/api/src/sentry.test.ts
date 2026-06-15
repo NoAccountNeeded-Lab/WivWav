@@ -26,6 +26,11 @@ vi.mock('@sentry/node', () => ({
   }),
 }))
 
+function enableSentryForTest(): void {
+  vi.stubEnv('SENTRY_ENABLED', 'true')
+  vi.stubEnv('SENTRY_DSN', 'https://public@example.com/1')
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // Reads capturedInit via a function call to break TypeScript's control-flow
@@ -53,12 +58,14 @@ describe('API sentry init (beforeSend / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     // Import the module under test — the side-effect calls Sentry.init
     await import('./sentry.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   // ── VIN scrubbing ──────────────────────────────────────────────────────────
@@ -223,11 +230,13 @@ describe('API sentry init (beforeBreadcrumb / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces VINs in breadcrumb messages and URLs', () => {
@@ -245,11 +254,13 @@ describe('API sentry init options', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('sets tracesSampleRate to 1.0 outside production', () => {
@@ -279,5 +290,22 @@ describe('API sentry init options', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+describe('API sentry disabled state', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('does not initialise Sentry by default', async () => {
+    capturedInit = undefined
+    vi.resetModules()
+    vi.unstubAllEnvs()
+
+    await import('./sentry.js')
+
+    expect(capturedInit).toBeUndefined()
   })
 })

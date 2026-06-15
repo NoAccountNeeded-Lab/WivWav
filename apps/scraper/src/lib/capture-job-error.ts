@@ -7,6 +7,7 @@
  */
 import * as Sentry from '@sentry/node'
 import type { JobContext, JobProcessor } from '@wivwav/queue'
+import { isSentryEnabled } from '../sentry.js'
 
 export function withSentryCapture<T = unknown>(
   queueName: string,
@@ -16,16 +17,18 @@ export function withSentryCapture<T = unknown>(
     try {
       await processor(data, context)
     } catch (err) {
-      Sentry.withScope((scope) => {
-        scope.setTag('queue', queueName)
-        if (data && typeof data === 'object') {
-          const record = data as Record<string, unknown>
-          if (typeof record['sourceId'] === 'string') {
-            scope.setTag('sourceId', record['sourceId'])
+      if (isSentryEnabled) {
+        Sentry.withScope((scope) => {
+          scope.setTag('queue', queueName)
+          if (data && typeof data === 'object') {
+            const record = data as Record<string, unknown>
+            if (typeof record['sourceId'] === 'string') {
+              scope.setTag('sourceId', record['sourceId'])
+            }
           }
-        }
-        Sentry.captureException(err)
-      })
+          Sentry.captureException(err)
+        })
+      }
       throw err
     }
   }

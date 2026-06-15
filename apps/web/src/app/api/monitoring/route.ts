@@ -30,6 +30,13 @@ function buildEnvelopeUrl(searchParams: URLSearchParams): string | null {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  if (process.env['SENTRY_ENABLED'] !== 'true') {
+    return NextResponse.json(
+      { error: { code: 'NOT_FOUND', message: 'Monitoring tunnel is disabled' } },
+      { status: 404 },
+    )
+  }
+
   const envelopeUrl = buildEnvelopeUrl(req.nextUrl.searchParams)
   if (!envelopeUrl) {
     return NextResponse.json(

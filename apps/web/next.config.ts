@@ -39,4 +39,6 @@ const sentryOptions: SentryBuildOptions = {
   widenClientFileUpload: true,
 }
 
-export default withSentryConfig(config, sentryOptions)
+const isSentryEnabled = process.env['SENTRY_ENABLED'] === 'true'
+
+export default isSentryEnabled ? withSentryConfig(config, sentryOptions) : config

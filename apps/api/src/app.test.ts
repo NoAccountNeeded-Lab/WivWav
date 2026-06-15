@@ -19,6 +19,7 @@ const { mockCaptureException, mockSetTag, mockWithScope } = vi.hoisted(() => {
 })
 
 vi.mock('./sentry.js', () => ({
+  isSentryEnabled: true,
   Sentry: {
     withScope: mockWithScope,
     captureException: mockCaptureException,

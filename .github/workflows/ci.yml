@@ -45,13 +45,6 @@ jobs:
           push: false
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
-          build-args: |
-            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
-            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
-            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
-          secrets: |
-            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Build migrate
         uses: docker/build-push-action@v7
@@ -116,34 +109,10 @@ jobs:
         run: pnpm typecheck
 
       - name: Build api
-        id: build_api
         run: pnpm build --filter=@wivwav/api...
 
-      - name: Upload api sourcemaps to Sentry
-        if: ${{ steps.build_api.outcome == 'success' }}
-        run: |
-          [ -z "$SENTRY_AUTH_TOKEN" ] && echo "Skipping: SENTRY_AUTH_TOKEN not set" && exit 0
-          npx sentry-cli sourcemaps inject apps/api/dist
-          npx sentry-cli sourcemaps upload --release ${{ github.sha }} apps/api/dist
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT_API }}
-
       - name: Build scraper
-        id: build_scraper
         run: pnpm build --filter=@wivwav/scraper...
-
-      - name: Upload scraper sourcemaps to Sentry
-        if: ${{ steps.build_scraper.outcome == 'success' }}
-        run: |
-          [ -z "$SENTRY_AUTH_TOKEN" ] && echo "Skipping: SENTRY_AUTH_TOKEN not set" && exit 0
-          npx sentry-cli sourcemaps inject apps/scraper/dist
-          npx sentry-cli sourcemaps upload --release ${{ github.sha }} apps/scraper/dist
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT_SCRAPER }}
 
       - name: Lint
         run: pnpm lint

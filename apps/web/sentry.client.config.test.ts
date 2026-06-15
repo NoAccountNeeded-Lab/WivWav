@@ -28,6 +28,11 @@ vi.mock('@sentry/nextjs', () => ({
   replayIntegration: vi.fn(() => 'replay-integration'),
 }))
 
+function enableSentryForTest(): void {
+  vi.stubEnv('NEXT_PUBLIC_SENTRY_ENABLED', 'true')
+  vi.stubEnv('NEXT_PUBLIC_SENTRY_DSN', 'https://public@example.com/1')
+}
+
 function getInit(): CapturedInit {
   if (!capturedInit) throw new Error('Sentry.init was not called')
   return capturedInit
@@ -51,11 +56,13 @@ describe('web client sentry config (beforeSend / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.client.config.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces a VIN in event.message', () => {
@@ -145,11 +152,13 @@ describe('web client sentry config (beforeBreadcrumb / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.client.config.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces VINs in breadcrumb messages and URLs', () => {
@@ -167,23 +176,22 @@ describe('web client sentry init options', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.client.config.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
-  it('sets replaysSessionSampleRate to 0.01', () => {
-    expect(getInit().replaysSessionSampleRate).toBe(0.01)
+  it('keeps Session Replay disabled', () => {
+    expect(getInit().replaysSessionSampleRate).toBe(0)
+    expect(getInit().replaysOnErrorSampleRate).toBe(0)
   })
 
-  it('sets replaysOnErrorSampleRate to 1.0', () => {
-    expect(getInit().replaysOnErrorSampleRate).toBe(1.0)
-  })
-
-  it('registers the Replay integration', () => {
-    expect(getInit().integrations).toContain('replay-integration')
+  it('does not register the Replay integration', () => {
+    expect(getInit().integrations).toBeUndefined()
   })
 
   it('sets tracesSampleRate to 1.0 outside production', () => {
@@ -212,5 +220,22 @@ describe('web client sentry init options', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+describe('web client sentry disabled state', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('does not initialise Sentry by default', async () => {
+    capturedInit = undefined
+    vi.resetModules()
+    vi.unstubAllEnvs()
+
+    await import('./sentry.client.config.js')
+
+    expect(capturedInit).toBeUndefined()
   })
 })
