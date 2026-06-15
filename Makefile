@@ -1,6 +1,7 @@
 COMPOSE = docker compose
 
 .PHONY: up build down dev test test-integration typecheck lint build-app clean format logs \
+        check-affected typecheck-affected lint-affected test-affected \
         db-push db-generate db-migrate db-seed db-studio \
         job-detail-crawl job-detail-extract job-geocode \
         agents
@@ -59,6 +60,25 @@ typecheck:
 ## lint              Run ESLint across all packages. Fails on any lint error.
 lint:
 	pnpm lint
+
+## check-affected    Run typecheck, lint, and test only for packages changed
+##                   relative to origin/main. Use during iteration for faster
+##                   feedback. Use 'make typecheck && make lint && make test'
+##                   (or pnpm check:affected) for the full suite before finish.
+check-affected:
+	pnpm check:affected
+
+## typecheck-affected  Typecheck only packages changed relative to origin/main.
+typecheck-affected:
+	pnpm typecheck:affected
+
+## lint-affected       Lint only packages changed relative to origin/main.
+lint-affected:
+	pnpm lint:affected
+
+## test-affected       Test only packages changed relative to origin/main.
+test-affected:
+	pnpm test:affected
 
 ## format            Auto-format all source files with Prettier.
 format:
