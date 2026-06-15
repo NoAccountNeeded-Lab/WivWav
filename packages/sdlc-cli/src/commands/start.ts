@@ -9,7 +9,7 @@
  *   5. Label status:in-progress, create branch, post check-in comment
  */
 import { fetchIssue, editIssueLabels, postComment, CliError } from '../lib/github.js'
-import { run } from '../lib/git.js'
+import { run, isDirty } from '../lib/git.js'
 import {
   validateIssueForStart,
   validateBranchName,
@@ -56,19 +56,13 @@ export function deriveBranchPrefix(title: string): string {
  * Build the canonical branch name for an issue.
  * Format: `{prefix}/issue-{N}-{slug}`
  */
-export function buildBranchName(
-  issueNumber: number,
-  issueTitle: string,
-): string {
+export function buildBranchName(issueNumber: number, issueTitle: string): string {
   const prefix = deriveBranchPrefix(issueTitle)
   const slug = slugify(issueTitle.replace(/^[a-z]+\([^)]*\):\s*/i, '').replace(/^[a-z]+:\s*/i, ''))
   return `${prefix}/issue-${issueNumber}-${slug}`
 }
 
-export async function startCommand(
-  issueNumber: number,
-  opts: StartOptions = {},
-): Promise<void> {
+export async function startCommand(issueNumber: number, opts: StartOptions = {}): Promise<void> {
   console.log(`\nFetching issue #${issueNumber}...`)
   const issue = fetchIssue(issueNumber)
   console.log(`  Title: ${issue.title}`)
@@ -91,7 +85,7 @@ export async function startCommand(
 
   // Validate branch name against convention
   const branchValidation = validateBranchName(branchName, issueNumber)
-  const allValidation = mergeResults(branchValidation)
+  const allValidation = mergeResults(issueValidation, branchValidation)
   if (!allValidation.ok) {
     console.error('\nBranch name validation failed:')
     console.error(formatResult(allValidation))
@@ -100,10 +94,18 @@ export async function startCommand(
 
   if (opts.dryRun) {
     console.log('\n[dry-run] Would perform:')
-    console.log(`  gh issue edit ${issueNumber} --add-label status:in-progress --remove-label status:ready`)
+    console.log(
+      `  gh issue edit ${issueNumber} --add-label status:in-progress --remove-label status:ready`,
+    )
     console.log(`  git fetch origin main && git checkout -b ${branchName} origin/main`)
     console.log(`  gh issue comment ${issueNumber} --body "Starting work..."`)
     return
+  }
+
+  if (isDirty()) {
+    throw new CliError(
+      'Working tree has uncommitted changes. Commit, stash, or clean them before starting a new issue.',
+    )
   }
 
   // Fetch latest main and create the new branch from it, regardless of current branch
@@ -133,5 +135,7 @@ export async function startCommand(
 
   console.log(`\nReady. Branch "${branchName}" is checked out.`)
   console.log(`Run "pnpm check:affected" for fast iteration checks.`)
-  console.log(`When done, run "pnpm wivwav review ${issueNumber}" then "pnpm wivwav finish ${issueNumber}".`)
+  console.log(
+    `When done, run "pnpm wivwav review ${issueNumber}" then "pnpm wivwav finish ${issueNumber}".`,
+  )
 }

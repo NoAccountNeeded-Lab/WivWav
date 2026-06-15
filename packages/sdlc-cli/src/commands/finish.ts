@@ -3,7 +3,7 @@
  *
  * Encodes the "Finish an issue" section of AGENTS.md:
  *   1. Full validation (typecheck + lint + test)
- *   2. Detect staged / relevant files — fail closed on dirty unrelated files
+ *   2. Detect staged / relevant files — fail on unstaged or untracked files
  *   3. Commit with required format and attribution trailers
  *   4. Push to origin
  *   5. Open a draft PR with acceptance evidence placeholders
@@ -16,6 +16,7 @@ import {
   isDirty,
   stagedFiles,
   changedFiles,
+  dirtyFiles,
 } from '../lib/git.js'
 import {
   fetchIssue,
@@ -81,8 +82,7 @@ export function titleToDescription(title: string): string {
 }
 
 /** Build acceptance evidence section from AC checklist items. */
-function buildAcceptanceEvidence(body: string | null): string {
-  if (!body) return '<!-- No acceptance-criteria checklist found — add evidence manually -->'
+function buildAcceptanceEvidence(body: string): string {
   const checkboxRe = /^[ \t]*-[ \t]\[[ xX]\][ \t]+(.+)$/gm
   const items: string[] = []
   let m: RegExpExecArray | null
@@ -100,16 +100,11 @@ function buildAcceptanceEvidence(body: string | null): string {
     .join('\n')
 }
 
-export async function finishCommand(
-  issueNumber: number,
-  opts: FinishOptions = {},
-): Promise<void> {
+export async function finishCommand(issueNumber: number, opts: FinishOptions = {}): Promise<void> {
   const branch = currentBranch()
 
   if (isProtectedBranch(branch)) {
-    throw new CliError(
-      `You are on "${branch}". Run finish from a feature branch.`,
-    )
+    throw new CliError(`You are on "${branch}". Run finish from a feature branch.`)
   }
 
   // 1. Fetch issue for metadata
@@ -142,18 +137,18 @@ export async function finishCommand(
     console.log('[OK] Full validation passed.')
   }
 
-  // 3. Check for dirty unrelated files — fail closed so commit cannot silently omit them
+  // 3. Check for unstaged or untracked files
   if (isDirty()) {
     const staged = stagedFiles()
-    const changed = changedFiles()
-    const unstaged = changed.filter((f) => !staged.includes(f))
+    const dirty = dirtyFiles()
+    const unstaged = dirty.filter((f) => !staged.includes(f))
     if (unstaged.length > 0) {
-      console.error('\n[ERROR] Unstaged files detected — stage or stash them before finishing:')
+      console.error('\n[ERROR] Untracked or unstaged files detected:')
       for (const f of unstaged) {
         console.error(`  ${f}`)
       }
       throw new CliError(
-        'Cannot finish: working tree has unstaged changes. Stage all issue-relevant files and stash or discard the rest.',
+        'Cannot finish: stage only files relevant to this issue, or stash unrelated changes.',
       )
     }
   }
@@ -177,7 +172,8 @@ export async function finishCommand(
   if (opts.sprintRun) {
     trailers.push(`Sprint-Run: ${opts.sprintRun}`)
   }
-  const coAuthor = opts.coAuthoredBy ?? 'Claude Sonnet 4.6 <noreply@anthropic.com>'
+  const coAuthor =
+    opts.coAuthoredBy ?? process.env.WIVWAV_CO_AUTHOR ?? 'Claude Sonnet 4.6 <noreply@anthropic.com>'
   trailers.push(`Co-Authored-By: ${coAuthor}`)
 
   if (opts.dryRun) {
@@ -222,5 +218,7 @@ export async function finishCommand(
   const prUrl = createDraftPr({ title: prTitle, body: prBody })
 
   console.log(`\nDraft PR is open: ${prUrl}`)
-  console.log('Run `/wivwav-code-review` (Claude Code) or manually review the diff before marking ready for merge.')
+  console.log(
+    'Run `/wivwav-code-review` (Claude Code) or manually review the diff before marking ready for merge.',
+  )
 }

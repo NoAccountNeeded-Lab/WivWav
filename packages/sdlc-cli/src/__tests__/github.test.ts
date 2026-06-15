@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { labelNames, hasAcceptanceCriteria, CliError } from '../lib/github.js'
+import { labelNames, hasAcceptanceCriteria, shellQuote, CliError } from '../lib/github.js'
 import type { IssueData } from '../lib/github.js'
 
 function makeIssue(overrides: Partial<IssueData> = {}): IssueData {
@@ -47,9 +47,9 @@ describe('hasAcceptanceCriteria', () => {
   })
 
   it('returns true when body contains "acceptance criteria"', () => {
-    expect(
-      hasAcceptanceCriteria('## Acceptance Criteria\n- GET /listings returns results'),
-    ).toBe(true)
+    expect(hasAcceptanceCriteria('## Acceptance Criteria\n- GET /listings returns results')).toBe(
+      true,
+    )
   })
 
   it('is case-insensitive for "acceptance criteria"', () => {
@@ -74,6 +74,20 @@ describe('hasAcceptanceCriteria', () => {
 
   it('returns false for body with unrelated bullet points (no checkbox)', () => {
     expect(hasAcceptanceCriteria('- some plain bullet\n- another')).toBe(false)
+  })
+})
+
+describe('shellQuote', () => {
+  it('wraps a simple argument in single quotes', () => {
+    expect(shellQuote('hello world')).toBe("'hello world'")
+  })
+
+  it('escapes embedded single quotes using POSIX-safe quoting', () => {
+    expect(shellQuote("don't stop")).toBe("'don'\\''t stop'")
+  })
+
+  it('does not use bash-only ANSI C quoting', () => {
+    expect(shellQuote('line one\nline two')).not.toMatch(/^\$'/)
   })
 })
 

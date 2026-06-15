@@ -38,7 +38,8 @@ function extractAcItems(body: string | null): string[] {
 
   // If no checkbox items, try "Done when" or "Acceptance Criteria" bullet lists
   if (items.length === 0) {
-    const acSection = /(?:acceptance criteria|done when)[:\s]*([\s\S]*?)(?:\n#|\n---|\n\n[A-Z]|$)/i.exec(body)
+    const acSection =
+      /(?:acceptance criteria|done when)[:\s]*([\s\S]*?)(?:\n#|\n---|\n\n[A-Z]|$)/i.exec(body)
     if (acSection) {
       const sectionBody = acSection[1] ?? ''
       const bullets = sectionBody.match(/^[ \t]*[-*][ \t]+(.+)$/gm) ?? []
@@ -56,16 +57,22 @@ function buildDomainNotes(files: string[]): string[] {
   const notes: string[] = []
 
   if (files.some((f) => f.startsWith('apps/web/'))) {
-    notes.push('[web] WCAG 2.1 AA: verify keyboard navigation, ARIA roles, color contrast, mobile touch targets (44×44 px).')
+    notes.push(
+      '[web] WCAG 2.1 AA: verify keyboard navigation, ARIA roles, color contrast, mobile touch targets (44×44 px).',
+    )
   }
   if (files.some((f) => f.startsWith('apps/api/src/routes/'))) {
     notes.push('[api] Verify the API routes table in AGENTS.md is current after route changes.')
   }
   if (files.some((f) => f.startsWith('apps/scraper/'))) {
-    notes.push('[scraper] Avoid arrow functions inside page.evaluate() — tsx esbuild wraps them with __name() which breaks in Playwright browser context. Use function declarations instead.')
+    notes.push(
+      '[scraper] Avoid arrow functions inside page.evaluate() — tsx esbuild wraps them with __name() which breaks in Playwright browser context. Use function declarations instead.',
+    )
   }
   if (files.some((f) => f.includes('.env') || f.includes('secrets'))) {
-    notes.push('[security] Detected possible secrets file in diff. Do NOT commit .env or credentials files.')
+    notes.push(
+      '[security] Detected possible secrets file in diff. Do NOT commit .env or credentials files.',
+    )
   }
 
   return notes
@@ -75,9 +82,7 @@ export async function reviewCommand(opts: ReviewOptions = {}): Promise<void> {
   const branch = currentBranch()
 
   if (isProtectedBranch(branch)) {
-    throw new CliError(
-      `You are on "${branch}". Run review from a feature branch.`,
-    )
+    throw new CliError(`You are on "${branch}". Run review from a feature branch.`)
   }
 
   // Gather changed files
@@ -94,9 +99,7 @@ export async function reviewCommand(opts: ReviewOptions = {}): Promise<void> {
 
   // Determine which validation to run
   const useFullSuite = opts.full ?? false
-  const checkCmd = useFullSuite
-    ? 'pnpm typecheck && pnpm lint && pnpm test'
-    : 'pnpm check:affected'
+  const checkCmd = useFullSuite ? 'pnpm typecheck && pnpm lint && pnpm test' : 'pnpm check:affected'
 
   console.log(`\nRunning ${useFullSuite ? 'full' : 'affected'} validation suite...`)
   console.log(`  $ ${checkCmd}`)
@@ -124,13 +127,20 @@ export async function reviewCommand(opts: ReviewOptions = {}): Promise<void> {
         console.warn(`\n[WARNING] Issue #${opts.issueNumber} has no acceptance criteria.`)
       }
     } catch (err: unknown) {
-      if (err instanceof CliError) throw err
-      console.warn(`\n[WARNING] Could not fetch issue #${opts.issueNumber} for AC check.`)
+      const detail = err instanceof Error ? ` ${err.message}` : ''
+      throw new CliError(`Could not fetch issue #${opts.issueNumber} for AC check.${detail}`)
     }
   }
 
   // Print review packet
-  const packet: ReviewPacket = { branch, changedFiles: files, checksOk, checkOutput, acItems, notes }
+  const packet: ReviewPacket = {
+    branch,
+    changedFiles: files,
+    checksOk,
+    checkOutput,
+    acItems,
+    notes,
+  }
   printReviewPacket(packet)
 
   if (!checksOk) {
