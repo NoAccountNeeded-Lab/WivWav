@@ -17,7 +17,7 @@
     "lint:affected": "turbo lint --filter=\"...[origin/main]\"",
     "test:affected": "turbo test --filter=\"...[origin/main]\"",
     "check:affected": "turbo typecheck lint test --filter=\"...[origin/main]\"",
-    "sdlc:report": "bash scripts/sdlc-report.sh",
+    "sdlc:report": "LOOKBACK_DAYS=${LOOKBACK_DAYS:-30} bash scripts/sdlc-report.sh",
     "db:generate": "pnpm --filter @wivwav/db generate",
     "db:migrate": "pnpm --filter @wivwav/db migrate",
     "db:migrate:create": "pnpm --filter @wivwav/db migrate:create",
