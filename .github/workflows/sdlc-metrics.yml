@@ -1,0 +1,45 @@
+name: SDLC Metrics
+
+# Run on demand (Actions UI or API) or on a weekly schedule.
+# Outputs a delivery metrics report as a workflow summary so it is visible
+# directly in the GitHub Actions UI without downloading an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Days of history to analyse"
+        required: false
+        default: "30"
+
+  schedule:
+    # Every Monday at 08:00 UTC — gives the team metrics at the start of the week.
+    - cron: "0 8 * * 1"
+
+permissions:
+  # Read-only access is sufficient — we only query the API, never write back.
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  metrics:
+    name: Generate SDLC report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run SDLC report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '30' }}
+        run: |
+          bash scripts/sdlc-report.sh --lookback-days "$LOOKBACK_DAYS" | tee /tmp/sdlc-report.txt
+
+      - name: Write report to workflow summary
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/sdlc-report.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
