@@ -3,7 +3,7 @@ import { run, tryRun } from './git.js'
 export interface IssueData {
   number: number
   title: string
-  body: string | null
+  body: string
   state: string
   labels: Array<{ name: string }>
 }
@@ -11,10 +11,10 @@ export interface IssueData {
 /** Fetch issue data from GitHub using the `gh` CLI. Throws if auth is missing. */
 export function fetchIssue(issueNumber: number): IssueData {
   ensureGhAuth()
-  const json = run(
-    `gh issue view ${issueNumber} --json number,title,body,state,labels`,
-  )
-  const raw = JSON.parse(json) as IssueData
+  const json = run(`gh issue view ${issueNumber} --json number,title,body,state,labels`)
+  const raw = JSON.parse(json) as Omit<IssueData, 'body'> & {
+    body: string | null
+  }
   return { ...raw, body: raw.body ?? '' }
 }
 
@@ -24,9 +24,7 @@ export function editIssueLabels(
   opts: { add?: string[]; remove?: string[] },
 ): void {
   const addArgs = (opts.add ?? []).map((l) => `--add-label "${l}"`).join(' ')
-  const removeArgs = (opts.remove ?? [])
-    .map((l) => `--remove-label "${l}"`)
-    .join(' ')
+  const removeArgs = (opts.remove ?? []).map((l) => `--remove-label "${l}"`).join(' ')
   run(`gh issue edit ${issueNumber} ${addArgs} ${removeArgs}`.trim())
 }
 
@@ -36,10 +34,7 @@ export function postComment(issueNumber: number, body: string): void {
 }
 
 /** Create a draft PR and return its URL. */
-export function createDraftPr(opts: {
-  title: string
-  body: string
-}): string {
+export function createDraftPr(opts: { title: string; body: string }): string {
   const result = run(
     `gh pr create --draft --title ${shellQuote(opts.title)} --body ${shellQuote(opts.body)}`,
   )
@@ -55,21 +50,13 @@ export function isGhAuthenticated(): boolean {
 /** Throw a user-friendly error when GitHub auth is unavailable. */
 export function ensureGhAuth(): void {
   if (!isGhAuthenticated()) {
-    throw new CliError(
-      'GitHub CLI is not authenticated. Run `gh auth login` first.',
-    )
+    throw new CliError('GitHub CLI is not authenticated. Run `gh auth login` first.')
   }
 }
 
 /** Minimally escape a string for single-use in a shell argument. */
-function shellQuote(s: string): string {
-  // Use $'...' ANSI quoting to safely pass multi-line strings
-  const escaped = s
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-  return `$'${escaped}'`
+export function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
 /** Extract label names from an IssueData object. */
@@ -78,13 +65,11 @@ export function labelNames(issue: IssueData): string[] {
 }
 
 /** Detect acceptance criteria in an issue body. */
-export function hasAcceptanceCriteria(body: string | null): boolean {
+export function hasAcceptanceCriteria(body: string): boolean {
   if (!body || body.trim() === '') return false
   const lower = body.toLowerCase()
   return (
-    lower.includes('acceptance criteria') ||
-    lower.includes('done when') ||
-    /- \[[ x]\]/.test(body)
+    lower.includes('acceptance criteria') || lower.includes('done when') || /- \[[ x]\]/.test(body)
   )
 }
 

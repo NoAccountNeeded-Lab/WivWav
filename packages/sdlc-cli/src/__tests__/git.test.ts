@@ -6,6 +6,7 @@ import {
   tryRun,
   changedFiles,
   stagedFiles,
+  dirtyFiles,
 } from '../lib/git.js'
 
 describe('isProtectedBranch', () => {
@@ -98,6 +99,12 @@ describe('tryRun', () => {
     expect(result.ok).toBe(false)
   })
 
+  it('captures stderr for a failing command', () => {
+    const result = tryRun('node -e "console.error(\'stderr only\'); process.exit(1)"')
+    expect(result.ok).toBe(false)
+    expect(result.stdout).toContain('stderr only')
+  })
+
   it('returns ok:false for an unknown command', () => {
     const result = tryRun('__no_such_command_wivwav__ 2>/dev/null')
     expect(result.ok).toBe(false)
@@ -125,6 +132,17 @@ describe('changedFiles', () => {
 describe('stagedFiles', () => {
   it('returns an array of staged file paths', () => {
     const files = stagedFiles()
+    expect(Array.isArray(files)).toBe(true)
+    for (const f of files) {
+      expect(typeof f).toBe('string')
+      expect(f.length).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('dirtyFiles', () => {
+  it('returns an array of dirty file paths', () => {
+    const files = dirtyFiles()
     expect(Array.isArray(files)).toBe(true)
     for (const f of files) {
       expect(typeof f).toBe('string')

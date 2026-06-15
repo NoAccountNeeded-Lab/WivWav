@@ -6,10 +6,7 @@ export function run(cmd: string, opts?: { cwd?: string }): string {
 }
 
 /** Run a shell command and return stdout + exit code (never throws). */
-export function tryRun(
-  cmd: string,
-  opts?: { cwd?: string },
-): { stdout: string; ok: boolean } {
+export function tryRun(cmd: string, opts?: { cwd?: string }): { stdout: string; ok: boolean } {
   try {
     const stdout = run(cmd, opts)
     return { stdout, ok: true }
@@ -35,9 +32,7 @@ export function isDirty(): boolean {
 
 /** Return true when the current branch exists on origin. */
 export function existsOnRemote(branch: string): boolean {
-  const { ok } = tryRun(
-    `git ls-remote --exit-code --heads origin ${branch}`,
-  )
+  const { ok } = tryRun(`git ls-remote --exit-code --heads origin ${branch}`)
   return ok
 }
 
@@ -55,15 +50,23 @@ export function stagedFiles(): string[] {
   return out.stdout.split('\n').filter(Boolean)
 }
 
+/** Files with any uncommitted status, including untracked files. */
+export function dirtyFiles(): string[] {
+  const out = tryRun('git status --porcelain')
+  if (!out.ok || out.stdout === '') return []
+  return out.stdout
+    .split('\n')
+    .map((line) => line.slice(3).split(' -> ').at(-1)?.trim() ?? '')
+    .filter(Boolean)
+}
+
 /** Return true when on a protected branch (main or master). */
 export function isProtectedBranch(branch: string): boolean {
   return branch === 'main' || branch === 'master'
 }
 
 /** Derive the expected branch prefix from an issue type keyword. */
-export function expectedPrefix(
-  issueTitle: string,
-): 'feat' | 'fix' | 'docs' | 'chore' {
+export function expectedPrefix(issueTitle: string): 'feat' | 'fix' | 'docs' | 'chore' {
   const lower = issueTitle.toLowerCase()
   if (lower.startsWith('fix') || lower.startsWith('bug')) return 'fix'
   if (lower.startsWith('doc')) return 'docs'

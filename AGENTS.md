@@ -214,7 +214,7 @@ The review role prompts live in `packages/agents/src/roles.ts` and are read at r
 `packages/sdlc-cli` provides a first-class CLI that encodes the full start/review/finish workflow. It is the canonical path for **all** agents — Claude Code uses the matching `/wivwav-*` skills; every other agent uses the CLI directly.
 
 ```bash
-# Install once (installs into the repo's node_modules/.bin via pnpm workspaces)
+# Install dependencies once; the CLI runs through the root pnpm script.
 pnpm install
 
 # Start an issue — verifies state, AC, labels, branches, posts check-in comment
@@ -246,7 +246,9 @@ The CLI fails closed on:
 - Missing acceptance criteria
 - Branch on `main`/`master`
 - Validation suite failure (typecheck / lint / test)
-- Dirty unrelated files at commit time
+- Unstaged or untracked files during finish
+
+Set `WIVWAV_CO_AUTHOR` or pass `--co-author` to override the default `Co-Authored-By` trailer.
 
 #### Manual fallback (if CLI is unavailable)
 
