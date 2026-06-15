@@ -72,6 +72,8 @@ pnpm test:affected
 
 All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run only the packages whose source files have changed relative to `origin/main`. Use these for iteration speed. Run the full suite (`pnpm typecheck && pnpm lint && pnpm test`) before opening or finishing a PR.
 
+Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the self-hosted sprint runner. When `TURBO_TOKEN` and `TURBO_TEAM` are set, repeated runs with unchanged inputs skip re-execution and restore artifacts from the cache. Cache keys are pure content hashes of source files — no secrets are ever included. See `docs/design/turbo-remote-cache.md` for setup instructions, cache key details, invalidation, and troubleshooting.
+
 ```bash
 # SDLC delivery metrics report
 make sdlc-report                  # 30-day window (default)
