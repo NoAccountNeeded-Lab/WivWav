@@ -1,136 +1,235 @@
 ---
-description: Run a development sprint by working on one ready issue, or a specific issue number if provided. Spawns 1 worker agent, implementing one issue and opening a draft PR. Uses the host agent's built-in sub-agent spawning — no separate AI API key required.
-argument-hint: "[issue-number]"
+description: Run a development sprint by working on ready issues. Supports single-issue, sequential (drain queue), and parallel (concurrent workers) modes. Pass an issue number to target one issue; --limit N to cap sequential runs; --parallel N (or -p N) to run N issues concurrently.
+argument-hint: "[issue-number] [--limit N] [--parallel N]"
 ---
 
 # Run Sprint
 
-Works on one issue at a time using a Claude Code sub-agent.
-The worker runs in an isolated git worktree to keep the main working tree clean.
+Works on ready issues using Claude Code sub-agents, each in an isolated git worktree.
 
-This command is intentionally single-worker. It does not run multiple issues concurrently. True multi-worker sprint orchestration requires a separate command/update that assigns multiple agent indexes and preserves multiple active worktrees.
+**Modes:**
+- **Single** — `[issue-number]`: run exactly one specified issue.
+- **Sequential** (default): drain all `status:ready` issues one at a time; add `--limit N` to cap how many.
+- **Parallel** — `--parallel N` (alias `-p N`): spawn up to N issues as concurrent background agents in one shot.
+
+This command does not run multiple issues concurrently in sequential mode. True parallel orchestration uses `run_in_background: true` and requires unique agent indexes per worker.
+
+---
 
 ## Steps
 
-1. Generate a Sprint-Run ID for this run:
-   ```bash
-   SPRINT_RUN_ID="run-sprint/$(date -u +%Y-%m-%dT%H:%M)"
-   ```
+### 1. Parse arguments
 
-2. Prune stale git metadata, but do **not** remove worktree directories blindly:
-   ```bash
-   git worktree prune
-   git worktree list
-   ```
+From `$ARGUMENTS` extract:
+- `ISSUE_NUMBER` — bare integer if present, else empty
+- `LIMIT` — value after `--limit` if present; default `0` (unlimited) for sequential mode
+- `PARALLEL` — value after `--parallel` or `-p` if present; `0` means sequential
 
-   If an old `.claude/worktrees/...` directory is clearly stale, remove only that specific worktree after confirming it is not an active worker. Do not run a loop that removes all `.claude/worktrees/*`; concurrent or long-running workers may still be using them.
+If both an issue number and `--parallel` are given, ignore `--parallel` and run single-issue mode.
 
-3. Select the target issue:
+### 2. Generate a Sprint-Run ID
 
-   - If `$ARGUMENTS` contains an issue number, use that issue.
-   - If no issue number is provided, list ready issues:
+```bash
+SPRINT_RUN_ID="run-sprint/$(date -u +%Y-%m-%dT%H:%M)"
+```
 
-   ```bash
-   gh issue list --label status:ready --json number,title --limit 10
-   ```
+The Sprint-Run ID includes `T%H:%M` for uniqueness across multiple runs on the same day. Issue comments use `%Y-%m-%d` (date only) for human readability.
 
-4. If no issue number was provided and none are labeled `status:ready`: report "No issues labeled status:ready. Nothing to do." and stop.
+### 3. Prune stale git metadata
 
-5. Fetch the selected issue and verify it is runnable:
-   ```bash
-   gh issue view {N} --json number,title,body,labels,state
-   ```
+```bash
+git worktree prune
+git worktree list
+```
 
-   Stop if:
-   - The issue is not open.
-   - The issue is already labeled `status:in-progress`.
-   - The issue is not labeled `status:ready` and it was not explicitly supplied by the user.
+Do **not** remove worktree directories blindly. Only remove a specific `.claude/worktrees/...` directory if it is clearly stale and confirmed not used by an active worker.
 
-6. **Readiness pre-flight** — check the selected issue body for acceptance criteria before committing a worker to it:
+### 4. Select target issues
 
-   ```bash
-   gh issue view {N} --json body --jq '.body'
-   ```
+- If `ISSUE_NUMBER` is set: use only that issue (single mode).
+- Otherwise list ready issues:
 
-   The issue body must contain at least one of these markers (case-insensitive):
-   - `acceptance criteria`
-   - `done when`
-   - `## ac`
-   - A non-empty checklist (`- [ ]`)
+```bash
+gh issue list --label status:ready --json number,title --limit 20
+```
 
-   If none are present, **do not spawn a worker**. Instead:
-   - Post a comment on the issue: "🤖 **orchestrator** · `run-sprint` · {date}\n\nIssue is missing acceptance criteria. Add them before this issue can be picked up by a sprint worker."
-   - Remove `status:ready`, add `status:stuck`
-   - Report to the user: "Issue #{N} has no acceptance criteria — labeled status:stuck. Fix the issue description and re-label status:ready to queue it again."
-   - Stop.
+If none, report "No issues labeled status:ready. Nothing to do." and stop.
 
-7. Take the selected issue only. If no issue number was provided and more than 1 issue is ready, report the extras by number as queued for the next sprint.
-   Assign it agent index **1** (the first and only worker slot; human/local is always 0).
+Apply mode caps:
+- **Single**: take that issue only.
+- **Sequential**: take up to `LIMIT` issues (all if `LIMIT=0`), ordered by issue number ascending.
+- **Parallel**: take up to `PARALLEL` issues; report any extras as queued for the next sprint. `--limit` is ignored when `--parallel` is set — `PARALLEL` itself is the cap.
 
-8. Derive the branch name for that issue (before spawning):
-   - Use prefix and slug rules from `.claude/core.md` (feat/fix/docs/chore + issue-N-slug).
+### 5. Readiness pre-flight for each selected issue
 
-9. Run setup:
-   ```bash
-   gh issue edit N --add-label status:in-progress --remove-label status:ready
-   gh issue comment N --body "🤖 **orchestrator** · \`run-sprint\` · $(date -u +%Y-%m-%d)
+For each candidate:
 
-   Sprint worker starting. Branch: {branch-name} · Sprint: {SPRINT_RUN_ID}"
-   ```
+```bash
+gh issue view {N} --json number,title,body,labels,state
+```
 
-10. Spawn the worker — one `Agent` call with `isolation: "worktree"`.
-   If the Agent call itself fails (spawn error before the worker runs):
-   ```bash
-   gh issue edit N --remove-label status:in-progress --add-label status:stuck
-   gh issue comment N --body "🤖 **orchestrator** · \`run-sprint\` · $(date -u +%Y-%m-%d)
+Skip (do not process) if:
+- The issue is not open.
+- The issue is already labeled `status:in-progress`.
+- The issue is not labeled `status:ready` and was not explicitly supplied by the user.
 
-   Sprint worker failed to start: {error}. Labeled status:stuck for triage."
-   ```
-   Report the failure and stop.
+Check the body for acceptance criteria (case-insensitive match on any of):
+- `acceptance criteria`
+- `done when`
+- `## ac`
+- A non-empty checklist (`- [ ]`)
 
-   **Worker prompt** (fill in N, branch-name, SPRINT_RUN_ID):
+If none are present, **do not spawn a worker**:
+- Post comment: "🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)\n\nIssue is missing acceptance criteria. Add them before this issue can be picked up by a sprint worker."
+- Remove `status:ready`, add `status:stuck`.
+- Report to the user and exclude this issue from the run.
 
-   ---
-   Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.
-   Keep startup context lean: do not read `AGENTS.md`, package manifests, or broad directory listings unless your plan identifies a specific need for them.
+If no issues survive pre-flight, stop.
 
-   You are implementing issue #{N}.
+### 6. Derive branch names
 
-   First fetch the issue details:
-   `gh issue view {N} --json number,title,body,labels`
+For each issue that passed pre-flight, derive its branch name using prefix and slug rules from `.claude/core.md` (feat/fix/docs/chore + issue-N-slug).
 
-   Before reading source files, use the fetched issue details to write a scoped plan that names the likely files and the evidence you need from each one.
+### 7. Label all selected issues in-progress and post start comments
 
-   Your branch: {branch-name}
-   Agent-Role: worker
-   Agent-Index: 1
-   Sprint-Run: {SPRINT_RUN_ID}
-   ---
+For each issue:
+```bash
+gh issue edit {N} --add-label status:in-progress --remove-label status:ready
+gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(date -u +%Y-%m-%d)
 
-   Do not inline the full issue body into the worker prompt. This keeps spawn-time context small and should be mirrored by equivalent Codex, Gemini, Copilot, Cursor, Ollama, or other agent orchestration that runs sprint workers.
+Sprint worker starting. Branch: {branch-name} · Sprint: {SPRINT_RUN_ID}"
+```
 
-11. Wait for the worker to complete.
+---
 
-12. Clean up only the worker worktree created for this run, regardless of success or failure. The work should now be on a pushed branch:
-    ```bash
-    git worktree remove --force .claude/worktrees/{worktree-dir}
-    git worktree prune
-    ```
+## Sequential mode (PARALLEL=0)
 
-13. Post a summary comment on the issue:
-    - Success:
-      ```
-      🤖 **orchestrator** · `run-sprint` · {date}
+### 8-seq. Loop through issues one at a time
 
-      Draft PR opened: {PR URL}. Commit: {SHA}. Sprint: {SPRINT_RUN_ID}
-      ```
-    - Failure:
-      ```
-      🤖 **orchestrator** · `run-sprint` · {date}
+Each Agent call is **foreground (blocking)** — wait for the result before proceeding to the next issue.
 
-      Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
-      ```
+For each issue in order, assign agent index **1** and spawn a worker with `isolation: "worktree"`:
 
-14. Report sprint summary:
-    - Whether the issue → draft PR opened or failed/stuck
-    - How many issues remain queued with status:ready for the next sprint
+**Worker prompt** (fill in N, branch-name, SPRINT_RUN_ID):
+
+---
+Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.
+Keep startup context lean: do not read `AGENTS.md`, package manifests, or broad directory listings unless your plan identifies a specific need for them.
+
+You are implementing issue #{N}.
+
+First fetch the issue details:
+`gh issue view {N} --json number,title,body,labels`
+
+Before reading source files, use the fetched issue details to write a scoped plan that names the likely files and the evidence you need from each one.
+
+Your branch: {branch-name}
+Agent-Role: worker
+Agent-Index: 1
+Sprint-Run: {SPRINT_RUN_ID}
+
+---
+
+If the Agent call fails to spawn:
+```bash
+gh issue edit {N} --remove-label status:in-progress --add-label status:stuck
+gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(date -u +%Y-%m-%d)
+
+Worker failed to start: {error}. Labeled status:stuck for triage."
+```
+
+After each worker completes, post a summary comment:
+- Success:
+  ```
+  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
+
+  Draft PR opened: {PR URL}. Commit: {SHA}. Sprint: {SPRINT_RUN_ID}
+  ```
+- Failure:
+  ```
+  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
+
+  Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
+  ```
+
+Clean up the worktree for that issue before moving to the next:
+```bash
+git worktree remove --force .claude/worktrees/{worktree-dir}
+git worktree prune
+```
+
+If a worker fails, label the issue `status:stuck` and continue to the next issue. Proceed until the list is exhausted or `LIMIT` is reached.
+
+---
+
+## Parallel mode (PARALLEL > 0)
+
+### 8-par. Spawn all workers in a single message as background agents
+
+Assign each issue a unique agent index starting at 1 (first issue → index 1, second → index 2, …).
+
+Spawn **all agents in one message** using `run_in_background: true` and `isolation: "worktree"` on each Agent call.
+
+**Worker prompt** (fill in N, branch-name, SPRINT_RUN_ID, AGENT_INDEX):
+
+---
+Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.
+Keep startup context lean: do not read `AGENTS.md`, package manifests, or broad directory listings unless your plan identifies a specific need for them.
+
+You are implementing issue #{N}.
+
+First fetch the issue details:
+`gh issue view {N} --json number,title,body,labels`
+
+Before reading source files, use the fetched issue details to write a scoped plan that names the likely files and the evidence you need from each one.
+
+Your branch: {branch-name}
+Agent-Role: worker
+Agent-Index: {AGENT_INDEX}
+Sprint-Run: {SPRINT_RUN_ID}
+
+---
+
+If any Agent call fails to spawn immediately:
+```bash
+gh issue edit {N} --remove-label status:in-progress --add-label status:stuck
+gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(date -u +%Y-%m-%d)
+
+Worker failed to start: {error}. Labeled status:stuck for triage."
+```
+
+### 9-par. Handle completions as they arrive
+
+The harness notifies you when each background agent finishes. As each one completes, **immediately** post its summary comment — do not wait for all workers before posting. Accumulate each result as notifications arrive; post the final sprint summary (section 9) only after the last worker finishes.
+
+- Success:
+  ```
+  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
+
+  Draft PR opened: {PR URL}. Commit: {SHA}. Sprint: {SPRINT_RUN_ID}
+  ```
+- Failure:
+  ```
+  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
+
+  Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
+  ```
+
+Clean up each worktree as its worker finishes — do not wait for all workers:
+```bash
+git worktree remove --force .claude/worktrees/{worktree-dir}
+git worktree prune
+```
+
+A partial success (some workers succeed, some fail) is still a valid sprint run. Never cancel running workers because one failed.
+
+---
+
+## 9. Final sprint summary (all modes)
+
+In sequential mode, all outcomes are known before this step. In parallel mode, post this summary only after the last background worker completes (you accumulate outcomes from completion notifications in section 9-par).
+
+Report to the user:
+- Mode used (single / sequential / parallel)
+- Per-issue outcome: issue number → draft PR URL or stuck
+- Count of issues remaining with `status:ready` queued for the next sprint
