@@ -17,7 +17,9 @@ Read `.claude/core.md` for branch naming, commit format, and attribution convent
 6. Run final validation from the repository root:
    - `pnpm typecheck`
    - `pnpm lint`
-   - `pnpm test`
+   - Serialize the test run with a platform-appropriate lockfile to prevent concurrent test runs across worktrees from colliding on shared infrastructure (PostgreSQL, Meilisearch, Valkey); `typecheck` and `lint` are read-only and left unwrapped:
+     - Linux: `flock /tmp/wivwav-test.lock pnpm test`
+     - macOS: `lockf -k /tmp/wivwav-test.lock pnpm test`
 7. If validation fails, stop. Report the failure and do not commit.
 8. Stage only relevant files for this issue. Do not stage `.env` files, generated caches, unrelated work, or dirty files outside the issue scope.
 9. Commit using the required format:
