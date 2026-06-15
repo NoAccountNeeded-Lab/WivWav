@@ -9,7 +9,6 @@
  * are private; they are exercised indirectly through reviewCommand.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { CliError } from '../lib/github.js'
 
 // ---------------------------------------------------------------------------
 // Module mocks — declared before any import of the module under test so that
