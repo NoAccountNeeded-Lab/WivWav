@@ -13,21 +13,17 @@
 #   - Repo read access
 #
 # Usage:
-#   bash scripts/sdlc-report.sh [--lookback-days N] [--json]
+#   bash scripts/sdlc-report.sh [--lookback-days N]
 #
 # Options:
 #   --lookback-days N   How many days of history to analyse (default: 30)
-#   --json              Emit raw JSON data instead of human-readable report
-#
 # Environment variables:
 #   LOOKBACK_DAYS=N     Equivalent to --lookback-days N
-#   SDLC_JSON=1         Equivalent to --json
 
 set -euo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 LOOKBACK_DAYS="${LOOKBACK_DAYS:-30}"
-SDLC_JSON="${SDLC_JSON:-0}"
 
 # Parse flags
 while [[ $# -gt 0 ]]; do
@@ -36,13 +32,9 @@ while [[ $# -gt 0 ]]; do
       LOOKBACK_DAYS="$2"
       shift 2
       ;;
-    --json)
-      SDLC_JSON=1
-      shift
-      ;;
     *)
       echo "Unknown option: $1" >&2
-      echo "Usage: $0 [--lookback-days N] [--json]" >&2
+      echo "Usage: $0 [--lookback-days N]" >&2
       exit 1
       ;;
   esac
@@ -88,6 +80,34 @@ pretty_duration() {
   fi
 }
 
+failed_job_summary() {
+  local run_id="$1"
+  local details
+  details=$(gh run view "$run_id" \
+    --repo "$REPO" \
+    --json jobs \
+    --jq '
+      [
+        .jobs[]
+        | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")
+        | .name as $job
+        | ([
+            .steps[]?
+            | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")
+            | .name
+          ] | if length > 0 then join(", ") else "job conclusion: \(.conclusion)" end) as $steps
+        | "\($job): \($steps)"
+      ]
+      | if length > 0 then join("; ") else "failed job details unavailable" end
+    ' 2>/dev/null || echo "failed job details unavailable")
+
+  if [[ -z "$details" || "$details" == "null" ]]; then
+    echo "failed job details unavailable"
+  else
+    echo "$details"
+  fi
+}
+
 # ── 1. CI duration (CI workflow, main branch) ─────────────────────────────────
 echo "## 1. CI Duration  (workflow: CI, branch: main)"
 
@@ -95,15 +115,16 @@ CI_RUNS=$(gh run list \
   --repo "$REPO" \
   --workflow ci.yml \
   --branch main \
-  --limit 50 \
+  --limit 100 \
   --json databaseId,conclusion,createdAt,updatedAt,status,displayTitle \
   2>/dev/null || echo "[]")
 
-COMPLETED_RUNS=$(echo "$CI_RUNS" | jq '[.[] | select(.status == "completed")]')
+COMPLETED_RUNS=$(echo "$CI_RUNS" | jq --arg since "$SINCE" \
+  '[.[] | select(.createdAt >= $since and .status == "completed")]')
 TOTAL_COMPLETED=$(echo "$COMPLETED_RUNS" | jq 'length')
 
 if [[ "$TOTAL_COMPLETED" -eq 0 ]]; then
-  echo "  No completed CI runs found on main."
+  echo "  No completed CI runs found on main in the last ${LOOKBACK_DAYS} days."
 else
   PASSED=$(echo "$COMPLETED_RUNS" | jq '[.[] | select(.conclusion == "success")] | length')
   FAILED=$(echo "$COMPLETED_RUNS" | jq '[.[] | select(.conclusion == "failure")] | length')
@@ -141,22 +162,30 @@ fi
 echo ""
 
 # ── 2. Failed-check causes ────────────────────────────────────────────────────
-echo "## 2. Failed-Check Causes  (last 10 failed CI runs, any branch)"
+echo "## 2. Failed-Check Causes  (last 10 failed CI runs in period, any branch)"
 
 FAILED_RUNS=$(gh run list \
   --repo "$REPO" \
   --workflow ci.yml \
-  --limit 50 \
+  --limit 100 \
   --json databaseId,conclusion,displayTitle,headBranch,createdAt \
-  2>/dev/null | jq '[.[] | select(.conclusion == "failure")] | .[0:10]')
+  2>/dev/null | jq --arg since "$SINCE" \
+    '[.[] | select(.createdAt >= $since and .conclusion == "failure")] | .[0:10]')
 
 FAIL_COUNT=$(echo "$FAILED_RUNS" | jq 'length')
 if [[ "$FAIL_COUNT" -eq 0 ]]; then
-  echo "  No recent failed runs. ✅"
+  echo "  No failed CI runs found in the last ${LOOKBACK_DAYS} days. ✅"
 else
   echo "  ${FAIL_COUNT} failed run(s):"
-  echo "$FAILED_RUNS" | jq -r \
-    '.[] | "  - [\(.createdAt[:10])] branch=\(.headBranch)  \(.displayTitle)"'
+  while IFS= read -r run; do
+    run_id=$(echo "$run" | jq -r '.databaseId')
+    created=$(echo "$run" | jq -r '.createdAt[:10]')
+    branch=$(echo "$run" | jq -r '.headBranch')
+    title=$(echo "$run" | jq -r '.displayTitle')
+    cause=$(failed_job_summary "$run_id")
+    echo "  - [${created}] branch=${branch}  ${title}"
+    echo "    cause: ${cause}"
+  done < <(echo "$FAILED_RUNS" | jq -c '.[]')
 fi
 echo ""
 
