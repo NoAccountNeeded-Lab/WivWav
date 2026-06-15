@@ -14,11 +14,12 @@ export function tryRun(
     const stdout = run(cmd, opts)
     return { stdout, ok: true }
   } catch (err: unknown) {
-    const msg =
-      err instanceof Error && 'stdout' in err
-        ? String((err as NodeJS.ErrnoException & { stdout?: Buffer }).stdout ?? '')
-        : ''
-    return { stdout: msg.trim(), ok: false }
+    type SpawnErr = NodeJS.ErrnoException & { stdout?: Buffer | string; stderr?: Buffer | string }
+    const e = err instanceof Error ? (err as SpawnErr) : null
+    const out = e ? String(e.stdout ?? '') : ''
+    const errOut = e ? String(e.stderr ?? '') : ''
+    const combined = [out, errOut].filter(Boolean).join('\n')
+    return { stdout: combined.trim(), ok: false }
   }
 }
 

@@ -120,10 +120,10 @@ The output is human-readable text. Copy it into the PR evidence section when rel
 
 1. Pick an open issue: `gh issue list --state open`
 2. Add `status:in-progress`, post a brief check-in comment
-3. Branch off main: `git checkout main && git pull origin main && git checkout -b <prefix>/issue-{N}-{slug}`
+3. Branch off main: `git fetch origin main && git checkout -b <prefix>/issue-{N}-{slug} origin/main`
 4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
 5. **Update AGENTS.md** if you added, removed, or renamed API routes (keep the routes table current)
-6. Validate, commit, push, and open a draft PR — see **Explicit workflow** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
+6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
 7. Review the PR, address findings, and merge with **rebase** (`gh pr merge --rebase`). Claude Code: `/wivwav-code-review`.
 
 Never work directly on `main`. Never commit on failing tests.

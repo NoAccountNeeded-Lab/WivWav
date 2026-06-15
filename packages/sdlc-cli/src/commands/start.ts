@@ -9,7 +9,7 @@
  *   5. Label status:in-progress, create branch, post check-in comment
  */
 import { fetchIssue, editIssueLabels, postComment, CliError } from '../lib/github.js'
-import { run, currentBranch, isProtectedBranch } from '../lib/git.js'
+import { run } from '../lib/git.js'
 import {
   validateIssueForStart,
   validateBranchName,
@@ -106,21 +106,11 @@ export async function startCommand(
     return
   }
 
-  // Check we are not on a protected branch with uncommitted changes
-  const current = currentBranch()
-  if (isProtectedBranch(current)) {
-    // Safe: fetch main and create branch from it
-    console.log('\nFetching latest main...')
-    run('git fetch origin main')
-    console.log(`Creating branch ${branchName} from origin/main...`)
-    run(`git checkout -b ${branchName} origin/main`)
-  } else {
-    // Already on a feature branch — just create the new one from main
-    console.log('\nFetching latest main...')
-    run('git fetch origin main')
-    console.log(`Creating branch ${branchName} from origin/main...`)
-    run(`git checkout -b ${branchName} origin/main`)
-  }
+  // Fetch latest main and create the new branch from it, regardless of current branch
+  console.log('\nFetching latest main...')
+  run('git fetch origin main')
+  console.log(`Creating branch ${branchName} from origin/main...`)
+  run(`git checkout -b ${branchName} origin/main`)
 
   // Label the issue
   console.log('Labeling issue status:in-progress...')
