@@ -1,0 +1,28 @@
+{
+  "name": "@wivwav/sdlc-cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "wivwav": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "clean": "rm -rf dist",
+    "cli": "tsx src/index.ts",
+    "start": "tsx src/index.ts start",
+    "review": "tsx src/index.ts review",
+    "finish": "tsx src/index.ts finish"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "@wivwav/config": "workspace:*",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}

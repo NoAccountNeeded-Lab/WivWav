@@ -164,7 +164,7 @@ Keep always-loaded agent context short and stable. `AGENTS.md` is the canonical 
 Provider-specific guidance:
 
 - **Claude / Claude Code:** use `CLAUDE.md` and `.claude/core.md` for startup context; use role files, skills, and subagents for task-specific detail. Keep returned subagent summaries concise.
-- **Codex / OpenAI:** `AGENTS.md` is canonical. Read the **Explicit workflow** section for the shell commands that replace Claude Code's `wav-*` skills — start, review, and finish steps are all there. Preserve stable prompt prefixes and append per-issue context after reusable instructions so OpenAI prompt caching can hit.
+- **Codex / OpenAI:** `AGENTS.md` is canonical. Use `pnpm wivwav start|review|finish` (see **SDLC CLI** below) for the start, review, and finish steps — these encode the full workflow and fail closed on missing auth or bad state. Preserve stable prompt prefixes and append per-issue context after reusable instructions so OpenAI prompt caching can hit.
 - **Gemini:** use `GEMINI.md` for concise project context. Read `AGENTS.md` only when the task needs full workflow or architecture reference.
 - **GitHub Copilot / Cursor:** use their repo instruction/rule files for concise defaults; read domain docs only when the touched files require them.
 - **Ollama/local models:** optimize by reducing prompt size and using deterministic commands (`rg`, tests, typecheck, lint) instead of asking the model to rediscover repo state.
@@ -209,89 +209,79 @@ The review role prompts live in `packages/agents/src/roles.ts` and are read at r
 
 ---
 
-### Explicit workflow (Codex and other agents)
+### SDLC CLI
 
-Agents that cannot invoke `.claude/skills/wivwav-*` commands follow the same SDLC stages using shell commands. These are the direct equivalents of `wivwav-start-issue`, `wivwav-code-review`, and `wivwav-finish-issue`.
-
-#### Start an issue
+`packages/sdlc-cli` provides a first-class CLI that encodes the full start/review/finish workflow. It is the canonical path for **all** agents — Claude Code uses the matching `/wivwav-*` skills; every other agent uses the CLI directly.
 
 ```bash
-# 1. Look up the issue
+# Install once (installs into the repo's node_modules/.bin via pnpm workspaces)
+pnpm install
+
+# Start an issue — verifies state, AC, labels, branches, posts check-in comment
+pnpm wivwav start <issue-number>
+
+# Review changed files — runs affected checks and produces a review packet
+pnpm wivwav review [issue-number]
+
+# Finish — full validation, commit with trailers, push, open draft PR
+pnpm wivwav finish <issue-number>
+
+# All commands support --dry-run to preview actions without executing them
+pnpm wivwav start 304 --dry-run
+```
+
+#### Agent options for finish (pass attribution trailers)
+
+```bash
+pnpm wivwav finish 304 \
+  --agent-role worker \
+  --agent-index 1 \
+  --sprint-run "run-sprint/2026-06-15T05:18" \
+  --co-author "Codex GPT-4o <noreply@openai.com>"
+```
+
+The CLI fails closed on:
+- Missing GitHub auth (`gh auth status` fails)
+- Issue not open or already in-progress
+- Missing acceptance criteria
+- Branch on `main`/`master`
+- Validation suite failure (typecheck / lint / test)
+- Dirty unrelated files at commit time
+
+#### Manual fallback (if CLI is unavailable)
+
+Agents that cannot run `pnpm wivwav` follow these direct shell equivalents:
+
+**Start:**
+```bash
 gh issue view N --json number,title,body,labels
-
-# 2. Verify before starting — stop and report if any check fails:
-#    - Issue is open and not already labeled status:in-progress
-#    - Body contains acceptance criteria: look for "acceptance criteria",
-#      "done when", or a - [ ] checklist. No AC = do not start.
-
-# 3. Label, branch, and post check-in
+# Verify: open, not in-progress, has AC (checklist / "Acceptance Criteria" / "Done when")
 gh issue edit N --add-label status:in-progress --remove-label status:ready
-git checkout main && git pull origin main
-git checkout -b {prefix}/issue-N-{slug}
+git fetch origin main && git checkout -b {prefix}/issue-N-{slug} origin/main
 gh issue comment N --body "Starting work on issue #N. Branch: {branch-name}"
 ```
 
 Prefix rules — `feat/`, `fix/`, `docs/`, `chore/` — follow **Commit format and branch naming**.
 
-#### Review changed files
-
+**Review:**
 ```bash
-# See what changed
 git diff origin/main --name-only
-
-# Run validation — stop and fix before continuing if any fails
-# Use affected-only for fast iteration; full suite is required before finish
-pnpm check:affected          # fast: only changed packages
+pnpm check:affected          # fast iteration
 pnpm typecheck && pnpm lint && pnpm test  # full suite (required before finish)
 ```
 
-For each changed file, read it and run `git diff origin/main -- {file}`. Check for:
+Check for: type safety, security, logic bugs, AC coverage, WCAG 2.1 AA (web), routes table (api), arrow-fn pitfall (scraper). Label [CRITICAL] / [WARNING] / [SUGGESTION]. Fix all non-suggestion findings before finishing.
 
-- **Type safety** — null checks, incorrect type assumptions, unsafe casts
-- **Security** — input validation at system boundaries, injection risks, exposed secrets
-- **Logic bugs** — missed edge cases, wrong conditionals, off-by-one errors
-- **Acceptance criteria** — every AC item in the issue must be provably implemented
-- **If `apps/web/` changed** — WCAG 2.1 AA: keyboard, ARIA correctness, contrast, mobile touch targets
-- **If `apps/api/src/routes/` changed** — verify the routes table in this file is current
-- **If `apps/scraper/` changed** — avoid arrow functions inside `page.evaluate()` (tsx esbuild pitfall)
-
-Label findings [CRITICAL], [WARNING], or [SUGGESTION]. Fix all [CRITICAL] and [WARNING] before finishing. Write missing Vitest tests to disk for any changed logic that lacks coverage.
-
-#### Finish an issue
-
+**Finish:**
 ```bash
-# 1. Final validation — do not proceed if any command fails
 pnpm typecheck && pnpm lint && pnpm test
-
-# 2. Stage only files relevant to this issue (never .env, caches, or unrelated changes)
 git status --short
-git add {relevant files}
-
-# 3. Commit with the required format
-#    Use "fixes #N" instead of "refs #N" when this commit fully resolves the issue.
-#    Co-Authored-By: use your platform's value from the Attribution table in .claude/core.md
-git commit -m "type(scope): description (refs #N)" \
+git add {relevant files only}
+git commit -m "type(scope): description (fixes #N)" \
   --trailer "Agent-Role: worker" \
   --trailer "Co-Authored-By: Codex GPT-4o <noreply@openai.com>"
-
-# 4. Push and open a draft PR
 git push -u origin {branch}
-gh pr create --draft \
-  --title "type(scope): description" \
-  --body "$(cat <<'EOF'
-## Summary
-{what changed and why}
-
-## Acceptance Evidence
-{one line per AC item — command output, test name, log line, or explicit gap note}
-
-## Risk level
-- [x] Low / [ ] Medium / [ ] High
-
-## QA Notes
-{what a human reviewer should manually verify before approving}
-EOF
-)"
+gh pr create --draft --title "type(scope): description" --body "..."
 ```
 
 Tell the user: "Draft PR is open. Run `/wivwav-code-review` (Claude Code) or manually review the diff before marking ready for merge."
