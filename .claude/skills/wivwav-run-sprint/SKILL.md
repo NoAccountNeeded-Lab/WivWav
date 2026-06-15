@@ -170,6 +170,8 @@ Assign each issue a unique agent index starting at 1 (first issue → index 1, s
 
 Spawn **all agents in one message** using `run_in_background: true` and `isolation: "worktree"` on each Agent call.
 
+> **Concurrency note:** Each worker runs in its own git worktree and operates on separate source files, so file writes do not conflict. However, `pnpm test` hits shared infrastructure (PostgreSQL, Meilisearch, Valkey). Both `wivwav-code-review` (Step 8) and `wivwav-finish-issue` (Step 6) wrap their test runs with a platform-appropriate lockfile (`flock` on Linux, `lockf -k` on macOS), which serializes test execution across all concurrent workers automatically. `pnpm typecheck` and `pnpm lint` are read-only and run concurrently without a lock.
+
 **Worker prompt** (fill in N, branch-name, SPRINT_RUN_ID, AGENT_INDEX):
 
 ---

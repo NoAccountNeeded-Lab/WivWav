@@ -11,13 +11,18 @@ Classifies the changed files, routes to the matching named pipeline, and runs on
 
 ## Step 1 — Identify changed files
 
+Capture the worktree root first, then run all git commands relative to it:
+
 ```bash
-git diff --name-only HEAD
-git diff --name-only --cached
-git ls-files --others --exclude-standard
+WORKTREE_ROOT=$(git rev-parse --show-toplevel)
+git -C "$WORKTREE_ROOT" diff --name-only HEAD
+git -C "$WORKTREE_ROOT" diff --name-only --cached
+git -C "$WORKTREE_ROOT" ls-files --others --exclude-standard
 ```
 
 Combine all three. Exclude `.env` files, `node_modules`, `dist`, and generated Prisma output.
+
+Keep `WORKTREE_ROOT` in scope — it is threaded through all git commands, sub-agent prompts, and verification commands in Steps 5 and 8.
 
 ---
 
@@ -72,9 +77,12 @@ Read `.claude/roles/{role}.md` for your role instructions and output format.
 
 Issue number: {N}
 Your scoped file list: {files for this job}
+Worktree root: {WORKTREE_ROOT}
 
-Use your Read tool to read each file before reviewing.
-Use Bash to run `git diff origin/main -- {file}` to see what changed.
+All file reads, writes, and git commands must be scoped to this worktree root.
+Use your Read tool to read each file before reviewing, using absolute paths under {WORKTREE_ROOT}.
+Use Bash to run `git -C "{WORKTREE_ROOT}" diff origin/main -- {file}` to see what changed.
+If you write test files, write them under {WORKTREE_ROOT} using absolute paths.
 Follow the output format defined in your role file exactly.
 ```
 
@@ -92,7 +100,7 @@ Spawn these sub-agents **in parallel**:
 4. **qa** (`.claude/roles/qa.md`) — validate against acceptance criteria
 
 For **qa**, also include: `gh issue view N --json title,body`
-For **tester**, also include: "Write any missing tests directly to disk using your Write/Edit tools."
+For **tester**, also include: "Write any missing tests directly to disk using your Write/Edit tools. All test file paths must be absolute paths under {WORKTREE_ROOT}."
 
 ---
 
@@ -103,7 +111,7 @@ For **tester**, also include: "Write any missing tests directly to disk using yo
 Spawn in parallel:
 
 1. **reviewer** (`.claude/roles/reviewer.md`) — bugs, type safety, security, principles
-2. **tester** (`.claude/roles/tester.md`) — missing Vitest coverage, write tests to disk
+2. **tester** (`.claude/roles/tester.md`) — missing Vitest coverage, write tests to disk. All test file paths must be absolute paths under {WORKTREE_ROOT}.
 3. **qa** (`.claude/roles/qa.md`) — acceptance criteria coverage
 4. **docs-accuracy** (`.claude/roles/docs-accuracy.md`) — **only if** the changed file list includes any file under `apps/api/src/routes/`. Scope it to verifying the API routes table in `AGENTS.md` is current. Skip otherwise.
 
@@ -281,8 +289,14 @@ The review ran against a branch that already has a draft PR. Fixes (if any) need
 
 ## Step 8B — Pre-PR path (no PR open yet)
 
-1. Run `git status --short` and list every uncommitted file to the user.
-2. Run `pnpm test` (from the repo root) to confirm everything still passes.
+1. Run `git -C "$WORKTREE_ROOT" status --short` and list every uncommitted file to the user.
+2. Run tests from the worktree root, serialized with a lockfile to prevent concurrent test runs across worktrees from colliding on shared infrastructure (PostgreSQL, Meilisearch, Valkey). Use the platform-appropriate locking utility (`flock` on Linux, `lockf` on macOS):
+   ```bash
+   # Linux (flock is built-in):
+   flock /tmp/wivwav-test.lock pnpm --dir "$WORKTREE_ROOT" test
+   # macOS (lockf is built-in; -k keeps the file for ordered locking):
+   lockf -k /tmp/wivwav-test.lock pnpm --dir "$WORKTREE_ROOT" test
+   ```
 3. If tests fail: report the failure and ask the user how to proceed.
 4. If tests pass: leave all review-cycle fixes uncommitted in the working tree.
 5. Do **not** commit or push. `/wivwav-finish-issue` is the command that runs final validation, commits, pushes, and opens the draft PR.
