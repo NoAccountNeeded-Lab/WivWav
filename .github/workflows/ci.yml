@@ -11,13 +11,13 @@ jobs:
     name: Docker builds
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build api (builder stage)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/api.Dockerfile
@@ -27,7 +27,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=api
 
       - name: Build scraper (builder stage)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/scraper.Dockerfile
@@ -37,7 +37,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=scraper
 
       - name: Build web (builder stage)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/web.Dockerfile
@@ -54,7 +54,7 @@ jobs:
             sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Build migrate
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/migrate.Dockerfile
@@ -84,7 +84,7 @@ jobs:
       DATABASE_URL: postgresql://wav:wav@localhost:5432/wivwav
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v4
 
@@ -116,10 +116,11 @@ jobs:
         run: pnpm typecheck
 
       - name: Build api
+        id: build_api
         run: pnpm build --filter=@wivwav/api...
 
       - name: Upload api sourcemaps to Sentry
-        if: ${{ !cancelled() }}
+        if: ${{ steps.build_api.outcome == 'success' }}
         run: |
           [ -z "$SENTRY_AUTH_TOKEN" ] && echo "Skipping: SENTRY_AUTH_TOKEN not set" && exit 0
           npx sentry-cli sourcemaps inject apps/api/dist
@@ -130,10 +131,11 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT_API }}
 
       - name: Build scraper
+        id: build_scraper
         run: pnpm build --filter=@wivwav/scraper...
 
       - name: Upload scraper sourcemaps to Sentry
-        if: ${{ !cancelled() }}
+        if: ${{ steps.build_scraper.outcome == 'success' }}
         run: |
           [ -z "$SENTRY_AUTH_TOKEN" ] && echo "Skipping: SENTRY_AUTH_TOKEN not set" && exit 0
           npx sentry-cli sourcemaps inject apps/scraper/dist
