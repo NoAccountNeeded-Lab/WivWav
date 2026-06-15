@@ -2,6 +2,7 @@ COMPOSE = docker compose
 
 .PHONY: up build down dev test test-integration typecheck lint build-app clean format logs \
         check-affected typecheck-affected lint-affected test-affected \
+        sdlc-report \
         db-push db-generate db-migrate db-seed db-studio \
         job-detail-crawl job-detail-extract job-geocode \
         agents
@@ -143,6 +144,20 @@ job-detail-extract:
 ##                     writing coordinates back to the database for map display.
 job-geocode:
 	pnpm job:geocode
+
+# ── SDLC metrics ─────────────────────────────────────────────────────────────
+
+## sdlc-report  Print a delivery metrics report for CI duration, failure rate,
+##              PR lead time, review cycles, and time-to-merge.
+##              Requires GitHub CLI authenticated: gh auth status
+##
+##              Options (pass as env vars):
+##                LOOKBACK_DAYS=N   Days of history to analyse (default: 30)
+##              Examples:
+##                make sdlc-report
+##                make sdlc-report LOOKBACK_DAYS=90
+sdlc-report:
+	LOOKBACK_DAYS=$${LOOKBACK_DAYS:-30} bash scripts/sdlc-report.sh
 
 # ── Agents CLI ────────────────────────────────────────────────────────────────
 
