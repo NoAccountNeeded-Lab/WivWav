@@ -53,10 +53,24 @@ Metrics exposed at `/metrics`: Node.js process defaults (heap, GC, event loop la
 
 ```bash
 make down      # stop infra containers
-make test      # run unit tests
+make test      # run unit tests (all packages)
 make typecheck # type check all packages
 make lint      # lint all packages
+
+# Affected-only checks — fast iteration during development
+make check-affected     # typecheck + lint + test for changed packages only
+make typecheck-affected # typecheck changed packages only
+make lint-affected      # lint changed packages only
+make test-affected      # test changed packages only
+
+# pnpm equivalents
+pnpm check:affected
+pnpm typecheck:affected
+pnpm lint:affected
+pnpm test:affected
 ```
+
+All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run only the packages whose source files have changed relative to `origin/main`. Use these for iteration speed. Run the full suite (`pnpm typecheck && pnpm lint && pnpm test`) before opening or finishing a PR.
 
 ---
 
@@ -65,7 +79,7 @@ make lint      # lint all packages
 1. Pick an open issue: `gh issue list --state open`
 2. Add `status:in-progress`, post a brief check-in comment
 3. Branch off main: `git checkout main && git pull origin main && git checkout -b <prefix>/issue-{N}-{slug}`
-4. Do the work — commit small and often once typecheck, lint, and tests pass
+4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
 5. **Update AGENTS.md** if you added, removed, or renamed API routes (keep the routes table current)
 6. Validate, commit, push, and open a draft PR — see **Explicit workflow** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
 7. Review the PR, address findings, and merge with **rebase** (`gh pr merge --rebase`). Claude Code: `/wivwav-code-review`.
@@ -184,7 +198,9 @@ Prefix rules — `feat/`, `fix/`, `docs/`, `chore/` — follow **Commit format a
 git diff origin/main --name-only
 
 # Run validation — stop and fix before continuing if any fails
-pnpm typecheck && pnpm lint && pnpm test
+# Use affected-only for fast iteration; full suite is required before finish
+pnpm check:affected          # fast: only changed packages
+pnpm typecheck && pnpm lint && pnpm test  # full suite (required before finish)
 ```
 
 For each changed file, read it and run `git diff origin/main -- {file}`. Check for:
