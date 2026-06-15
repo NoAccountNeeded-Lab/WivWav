@@ -48,7 +48,7 @@ Stop and report if any required or expected check is failing, pending, skipped u
 ## Step 4 — Merge
 
 ```bash
-gh pr merge {N} --rebase --delete-branch
+gh pr merge {N} --auto --rebase --delete-branch
 ```
 
 If this fails because the PR was already merged, continue to Step 5.
