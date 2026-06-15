@@ -7,6 +7,10 @@
  * @see https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 export async function register() {
+  if (process.env['SENTRY_ENABLED'] !== 'true') {
+    return
+  }
+
   if (process.env['NEXT_RUNTIME'] === 'nodejs') {
     await import('./sentry.server.config')
   }
@@ -32,6 +36,10 @@ export const onRequestError = async (
   request: { path: string; method: string; headers: Record<string, string | string[] | undefined> },
   context: { routerKind: string; routePath: string; routeType: string },
 ): Promise<void> => {
+  if (process.env['SENTRY_ENABLED'] !== 'true') {
+    return
+  }
+
   const { captureRequestError } = await import('@sentry/nextjs')
   captureRequestError(error, request, context)
 }

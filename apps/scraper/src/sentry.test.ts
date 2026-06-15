@@ -24,6 +24,11 @@ vi.mock('@sentry/node', () => ({
   }),
 }))
 
+function enableSentryForTest(): void {
+  vi.stubEnv('SENTRY_ENABLED', 'true')
+  vi.stubEnv('SENTRY_DSN', 'https://public@example.com/1')
+}
+
 function getInit(): CapturedInit {
   if (!capturedInit) throw new Error('Sentry.init was not called')
   return capturedInit
@@ -47,11 +52,13 @@ describe('scraper sentry init (beforeSend / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces a VIN in event.message', () => {
@@ -161,11 +168,13 @@ describe('scraper sentry init (beforeBreadcrumb / PII scrubbing)', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('replaces VINs in breadcrumb messages and URLs', () => {
@@ -183,11 +192,13 @@ describe('scraper sentry init options', () => {
   beforeEach(async () => {
     capturedInit = undefined
     vi.resetModules()
+    enableSentryForTest()
     await import('./sentry.js')
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('sets tracesSampleRate to 1.0 outside production', () => {
@@ -216,5 +227,22 @@ describe('scraper sentry init options', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+describe('scraper sentry disabled state', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('does not initialise Sentry by default', async () => {
+    capturedInit = undefined
+    vi.resetModules()
+    vi.unstubAllEnvs()
+
+    await import('./sentry.js')
+
+    expect(capturedInit).toBeUndefined()
   })
 })

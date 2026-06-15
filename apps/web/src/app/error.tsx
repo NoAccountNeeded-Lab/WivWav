@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
 import { reportError } from '@/lib/error-reporter'
 
 /**
@@ -19,7 +18,12 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    Sentry.captureException(error)
+    if (process.env['NEXT_PUBLIC_SENTRY_ENABLED'] === 'true') {
+      void import('@sentry/nextjs').then((Sentry) => {
+        Sentry.captureException(error)
+      })
+    }
+
     reportError({
       type: 'js-error',
       message: error.message,

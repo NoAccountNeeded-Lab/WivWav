@@ -1,7 +1,11 @@
 # Error Monitoring — Sentry Runbook
 
-WivWav uses [Sentry](https://sentry.io) for error monitoring across all three services:
+WivWav has an optional [Sentry](https://sentry.io) integration for error monitoring across all three services:
 `apps/web` (Next.js), `apps/api` (Fastify), and `apps/scraper` (BullMQ workers).
+
+Sentry is disabled by default. It does not initialise, upload source maps,
+forward browser envelopes, or capture exceptions unless the relevant
+`*_SENTRY_ENABLED` flags below are set to `true`.
 
 ## Dashboard
 
@@ -28,6 +32,8 @@ Filter by project to narrow to a specific service:
 
    **`apps/web/.env.local`** (local) or your hosting provider's env config:
    ```
+   SENTRY_ENABLED=true
+   NEXT_PUBLIC_SENTRY_ENABLED=true
    NEXT_PUBLIC_SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
    SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
    SENTRY_ORG=your-org-slug
@@ -37,15 +43,17 @@ Filter by project to narrow to a specific service:
 
    **`apps/api/.env`**:
    ```
+   SENTRY_ENABLED=true
    SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
    ```
 
    **`apps/scraper/.env`**:
    ```
+   SENTRY_ENABLED=true
    SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
    ```
 
-5. For CI/CD source map upload, set the following secrets in your CI environment:
+5. If you re-enable CI/CD source map upload, set the following secrets in your CI environment:
 
    | Secret | Used by |
    |--------|---------|
@@ -122,19 +130,22 @@ Additional server-side scrubbing can be configured at **Settings → Projects �
 
 ## Source maps
 
-Source maps are uploaded during `next build` when `SENTRY_AUTH_TOKEN` is set.
-After upload they are deleted from the build output (`sourcemaps.deleteSourcemapsAfterUpload: true`
+Source map upload is currently disabled with the rest of the Sentry integration.
+If Sentry is re-enabled, the Next.js build wrapper uploads web source maps when
+`SENTRY_ENABLED=true` and `SENTRY_AUTH_TOKEN` is set. After upload they are
+deleted from the build output (`sourcemaps.deleteSourcemapsAfterUpload: true`
 in `next.config.ts`) so they are never served to browsers.
 Stack traces in the Sentry dashboard will show original TypeScript line numbers.
 
 If stack traces show minified code, verify:
 
-1. All five CI secrets are set: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_PROJECT_API`, `SENTRY_PROJECT_SCRAPER`.
+1. The relevant CI secrets are set: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and the Sentry project name for the service being uploaded.
 2. The Sentry project name matches exactly (case-sensitive).
 3. Check build logs for `Sentry source maps upload` output.
 
 Browser events use the local `/api/monitoring` tunnel path, which forwards
-Sentry envelopes to Sentry ingest from the Next.js App Router.
+Sentry envelopes to Sentry ingest from the Next.js App Router only when
+`SENTRY_ENABLED=true`.
 
 ## Quota management
 
@@ -142,7 +153,8 @@ The free tier allows 5 000 errors/month. To stay within quota:
 
 - `tracesSampleRate` is set to `0.1` (10 %) in production — only 10 % of
   transactions are traced.
-- Browser replay sample rate is 1 % for normal web sessions, 100 % on web errors.
+- Browser Session Replay is disabled. Re-enable it only after a product/privacy
+  decision to collect replay data.
 - Use Sentry's **Inbound Filters** to ignore known low-signal errors
   (e.g. browser extension noise, `ResizeObserver` loop errors).
 
@@ -158,12 +170,13 @@ See `docs/design/observability-architecture.md` for the full observability desig
 ## Go-live checklist
 
 Complete these steps before declaring error monitoring live for public beta. The
-Sentry SDK is inert without a DSN, so all items below must be done in staging
-before the beta launch date.
+Sentry SDK is inert unless `SENTRY_ENABLED=true` and a DSN are both present,
+so all items below must be done in staging before declaring Sentry live.
 
 - [ ] Create three Sentry projects: `wivwav-web`, `wivwav-api`, `wivwav-scraper` (all under the same org)
 - [ ] Copy each project's DSN into the service environment (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`)
-- [ ] Set all five CI secrets: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_PROJECT_API`, `SENTRY_PROJECT_SCRAPER`
+- [ ] Set `SENTRY_ENABLED=true` for server-side services and `NEXT_PUBLIC_SENTRY_ENABLED=true` for the browser bundle
+- [ ] Restore CI source-map upload steps and set the relevant Sentry secrets
 - [ ] Deploy staging build and trigger a test error for each service (see "Triggering a test error" above)
 - [ ] Confirm each error appears in Sentry with correct TypeScript source lines (not minified)
 - [ ] Confirm no VINs or IP addresses appear in the Sentry event payload

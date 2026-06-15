@@ -13,6 +13,10 @@ vi.mock('@sentry/node', () => ({
   captureException: mockCaptureException,
 }))
 
+vi.mock('../sentry.js', () => ({
+  isSentryEnabled: true,
+}))
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeContext(): JobContext {
