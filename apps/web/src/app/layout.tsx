@@ -30,7 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body data-api-url={apiBaseUrl}>
         <NavigationFocusReset />
-        <div id="focus-reset" tabIndex={-1} aria-hidden="true" style={{ outline: 'none', position: 'absolute', width: 0, height: 0 }} />
         <GlobalErrorHandlers />
         <FetchErrorMonitor />
         <a href="#main-content" className="skip-link">
