@@ -70,7 +70,7 @@ pnpm lint:affected
 pnpm test:affected
 ```
 
-All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run only the packages whose source files have changed relative to `origin/main`. Use these for iteration speed. Run the full suite (`pnpm typecheck && pnpm lint && pnpm test`) before opening or finishing a PR.
+All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run only the packages whose source files have changed relative to `origin/main`. Use these for iteration speed. Run the full suite (`pnpm typecheck && pnpm lint && pnpm build && pnpm test`) before opening or finishing a PR.
 
 Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the self-hosted sprint runner. When `TURBO_TOKEN` and `TURBO_TEAM` are set, repeated runs with unchanged inputs skip re-execution and restore artifacts from the cache. Cache keys are pure content hashes of source files — no secrets are ever included. See `docs/design/turbo-remote-cache.md` for setup instructions, cache key details, invalidation, and troubleshooting.
 
@@ -126,7 +126,7 @@ The output is human-readable text. Copy it into the PR evidence section when rel
 4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
 5. **Update AGENTS.md** if you added, removed, or renamed API routes (keep the routes table current)
 6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
-7. Review the PR, address findings, and merge with **rebase** (`gh pr merge --auto --rebase --delete-branch`) — `main` is a merge-queue-protected branch, so `--auto` is required to enqueue rather than merge immediately; see [docs/design/merge-queue.md](docs/design/merge-queue.md). Claude Code: `/wivwav-code-review`.
+7. Review the draft PR on GitHub (the sprint worker's inline Reviewer agent has already checked the implementation) and merge with **rebase** (`gh pr merge --auto --rebase --delete-branch`) — `main` is a merge-queue-protected branch, so `--auto` is required to enqueue rather than merge immediately; see [docs/design/merge-queue.md](docs/design/merge-queue.md). Claude Code: `/wivwav-merge-pr {N}`.
 
 Never work directly on `main`. Never commit on failing tests.
 Never leave an issue without a commit and draft PR — finish explicitly, not at session end.
@@ -193,21 +193,21 @@ When a worker agent is spawned by `/wivwav-run-sprint`, it follows this sequence
 
 4. Implement  — write the code following AGENTS.md conventions
 
-5. /wivwav-code-review N  — four sub-agents review the actual changed files:
-        reviewer      bugs, type safety, security, principles
-        accessibility WCAG 2.1 AA (only if apps/web/ files changed)
-        tester        missing Vitest coverage → writes tests to disk
-        qa            validates against the issue acceptance criteria
+5. Implement + tests  — write code and tests in a single pass
 
-6. Fix and re-review  — up to 2 cycles if REVISION NEEDED
+6. Review  — one Reviewer agent (foreground, blocking) reads role files matched to
+             the changed file types: always reviewer + qa; add accessibility if
+             apps/web/ changed; performance if api/scraper/db/queue changed;
+             docs-accuracy if routes or .md files changed
 
-7. /wivwav-finish-issue N  — typecheck + lint + test → commit → push → draft PR
+7. Fix  — apply all findings (CRITICAL, WARNING, SUGGESTION)
+
+8. /wivwav-finish-issue N  — typecheck + lint + build + test → commit → push → draft PR → status:needs-review
 ```
 
 Spawned workers should receive the issue number and execution metadata, not the full issue body. Fetching the issue body inside the worker keeps spawn prompts smaller across Claude, Codex, Gemini, Copilot/Cursor, and local-agent implementations.
 
-The `/wivwav-code-review` and `/wivwav-finish-issue` skills are in `.claude/skills/`.
-The review role prompts live in `packages/agents/src/roles.ts` and are read at runtime by the sub-agents.
+The `/wivwav-finish-issue` skill is in `.claude/skills/`. Review role prompts live in `.claude/roles/`.
 
 ---
 
@@ -247,7 +247,7 @@ The CLI fails closed on:
 - Issue not open or already in-progress
 - Missing acceptance criteria
 - Branch on `main`/`master`
-- Validation suite failure (typecheck / lint / test)
+- Validation suite failure (typecheck / lint / build / test)
 - Unstaged or untracked files during finish
 
 Set `WIVWAV_CO_AUTHOR` or pass `--co-author` to override the default `Co-Authored-By` trailer.
@@ -271,14 +271,14 @@ Prefix rules — `feat/`, `fix/`, `docs/`, `chore/` — follow **Commit format a
 ```bash
 git diff origin/main --name-only
 pnpm check:affected          # fast iteration
-pnpm typecheck && pnpm lint && pnpm test  # full suite (required before finish)
+pnpm typecheck && pnpm lint && pnpm build && pnpm test  # full suite (required before finish)
 ```
 
 Check for: type safety, security, logic bugs, AC coverage, WCAG 2.1 AA (web), routes table (api), arrow-fn pitfall (scraper). Label [CRITICAL] / [WARNING] / [SUGGESTION]. Fix all non-suggestion findings before finishing.
 
 **Finish:**
 ```bash
-pnpm typecheck && pnpm lint && pnpm test
+pnpm typecheck && pnpm lint && pnpm build && pnpm test
 git status --short
 git add {relevant files only}
 git commit -m "type(scope): description (fixes #N)" \
@@ -299,9 +299,10 @@ gh pr create --draft --title "type(scope): description" --body "$(cat <<'EOF'
 {what a human reviewer should manually verify before approving}
 EOF
 )"
+gh issue edit N --add-label status:needs-review --remove-label status:in-progress
 ```
 
-Tell the user: "Draft PR is open. Run `/wivwav-code-review` (Claude Code) or manually review the diff before marking ready for merge."
+Tell the user: "Draft PR is open and the issue is labeled `status:needs-review`. Review the diff on GitHub and mark it ready when satisfied, then run `/wivwav-merge-pr {N}` to merge."
 
 ---
 

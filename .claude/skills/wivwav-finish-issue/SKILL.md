@@ -42,8 +42,12 @@ Do not commit, push, or open a PR if validation fails.
    - accessibility notes for user-facing changes
    - QA notes
    - deployment impact, rollback plan, and smoke checks when relevant
-12. Report the commit SHA, PR URL, and validation commands that passed.
-13. Tell the user explicitly what to do next:
-    - "The PR is open as a draft. When you're ready for review, run `/wivwav-code-review` to get a full review, or mark it ready for review manually on GitHub."
+12. Transition the issue label:
+   ```bash
+   gh issue edit {N} --add-label status:needs-review --remove-label status:in-progress
+   ```
+13. Report the commit SHA, PR URL, and validation commands that passed.
+14. Tell the user what to do next:
+    - "The draft PR is open and the issue is labeled `status:needs-review`. Review the diff on GitHub and mark it ready when satisfied."
     - "When the PR is approved, run `/wivwav-merge-pr {N}` to rebase-merge and clean up the branch."
     - If there were accessibility or QA notes in the PR body, remind the user of any manual smoke checks that need human verification before merge.
