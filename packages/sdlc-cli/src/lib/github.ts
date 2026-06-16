@@ -69,7 +69,10 @@ export function hasAcceptanceCriteria(body: string): boolean {
   if (!body || body.trim() === '') return false
   const lower = body.toLowerCase()
   return (
-    lower.includes('acceptance criteria') || lower.includes('done when') || /- \[[ x]\]/.test(body)
+    lower.includes('acceptance criteria') ||
+    lower.includes('done when') ||
+    /^##[ \t]+ac\b/im.test(body) ||
+    /^[ \t]*-[ \t]\[[ xX]\][ \t]+\S/m.test(body)
   )
 }
 

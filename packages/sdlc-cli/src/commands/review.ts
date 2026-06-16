@@ -99,7 +99,9 @@ export async function reviewCommand(opts: ReviewOptions = {}): Promise<void> {
 
   // Determine which validation to run
   const useFullSuite = opts.full ?? false
-  const checkCmd = useFullSuite ? 'pnpm typecheck && pnpm lint && pnpm test' : 'pnpm check:affected'
+  const checkCmd = useFullSuite
+    ? 'pnpm typecheck && pnpm lint && pnpm build && pnpm test'
+    : 'pnpm check:affected'
 
   console.log(`\nRunning ${useFullSuite ? 'full' : 'affected'} validation suite...`)
   console.log(`  $ ${checkCmd}`)
