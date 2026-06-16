@@ -22,6 +22,23 @@ const baseDeps = {
   config: baseConfig,
 }
 
+function buildHealthDeps(sourceCountVal: number, lastRun: { finishedAt: Date | null } | null) {
+  return {
+    sources: {
+      count: vi.fn(async () => sourceCountVal),
+      countActive: vi.fn(async () => sourceCountVal),
+      findAll: vi.fn(async () => []),
+      findById: vi.fn(async () => null),
+      findManyByIds: vi.fn(async () => []),
+      findScheduledSources: vi.fn(async () => []),
+    },
+    scraperRuns: {
+      findRecent: vi.fn(async () => []),
+      findLastSuccessful: vi.fn(async () => lastRun),
+    },
+  }
+}
+
 describe('healthRoutes', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -33,14 +50,9 @@ describe('healthRoutes', () => {
     const app = Fastify()
     await app.register(healthRoutes, {
       ...baseDeps,
+      ...buildHealthDeps(2, { finishedAt: new Date(Date.now() - 60_000) }),
       db: {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
-        source: {
-          count: vi.fn(async () => 2),
-        },
-        scraperRun: {
-          findFirst: vi.fn(async () => ({ finishedAt: new Date(Date.now() - 60_000) })),
-        },
       } as never,
     })
 
@@ -65,14 +77,9 @@ describe('healthRoutes', () => {
     const app = Fastify()
     await app.register(healthRoutes, {
       ...baseDeps,
+      ...buildHealthDeps(2, null),
       db: {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
-        source: {
-          count: vi.fn(async () => 2),
-        },
-        scraperRun: {
-          findFirst: vi.fn(async () => null),
-        },
       } as never,
     })
 
@@ -94,14 +101,9 @@ describe('healthRoutes', () => {
     const app = Fastify()
     await app.register(healthRoutes, {
       ...baseDeps,
+      ...buildHealthDeps(2, null),
       db: {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
-        source: {
-          count: vi.fn(async () => 2),
-        },
-        scraperRun: {
-          findFirst: vi.fn(async () => null),
-        },
       } as never,
     })
 

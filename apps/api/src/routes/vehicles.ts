@@ -1,34 +1,21 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { PrismaClient } from '@wivwav/db'
+import type { VehicleRepository } from '../repositories/index.js'
 
 interface VehiclesPluginOptions {
-  db: PrismaClient
+  vehicles: VehicleRepository
 }
 
-export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (app, { db }) => {
+export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (app, { vehicles }) => {
   app.get<{ Params: { make: string; model: string; year: string } }>(
     '/:make/:model/:year/recalls',
     async (req, reply) => {
       const year = parseInt(req.params.year)
       if (isNaN(year)) return reply.badRequest('year must be a number')
 
-      const vm = await db.vehicleModel.findFirst({
-        where: { make: req.params.make, model: req.params.model, year },
-      })
+      const vm = await vehicles.findModel(req.params.make, req.params.model, year)
       if (!vm) return reply.send({ data: [] })
 
-      const recalls = await db.recall.findMany({
-        where: { vehicleModelId: vm.id },
-        orderBy: { reportedAt: 'desc' },
-        select: {
-          id: true,
-          nhtsaCampaignId: true,
-          component: true,
-          summary: true,
-          remedy: true,
-          reportedAt: true,
-        },
-      })
+      const recalls = await vehicles.findRecalls(vm.id)
 
       return reply.send({ data: recalls })
     },
@@ -40,34 +27,7 @@ export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (a
       const year = req.query.year !== undefined ? parseInt(req.query.year) : undefined
       if (year !== undefined && isNaN(year)) return reply.badRequest('year must be a number')
 
-      const select = {
-        make: true,
-        model: true,
-        year: true,
-        avgLifespanMiles: true,
-        reliabilityScore: true,
-        reliabilitySource: true,
-        jdPowerScore: true,
-        dataSourceName: true,
-        dataSourceUrl: true,
-        methodology: true,
-        refreshedAt: true,
-      } as const
-      const baseWhere = { make: req.params.make, model: req.params.model }
-      const stats =
-        year !== undefined
-          ? ((await db.vehicleStats.findFirst({
-              where: { ...baseWhere, year },
-              select,
-            })) ??
-            (await db.vehicleStats.findFirst({
-              where: { ...baseWhere, year: null },
-              select,
-            })))
-          : await db.vehicleStats.findFirst({
-              where: { ...baseWhere, year: null },
-              select,
-            })
+      const stats = await vehicles.findStats(req.params.make, req.params.model, year ?? null)
 
       if (!stats) return reply.send({ data: null })
       const { dataSourceName, dataSourceUrl, ...statsData } = stats
@@ -91,24 +51,10 @@ export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (a
       const year = parseInt(req.params.year)
       if (isNaN(year)) return reply.badRequest('year must be a number')
 
-      const vm = await db.vehicleModel.findFirst({
-        where: { make: req.params.make, model: req.params.model, year },
-      })
+      const vm = await vehicles.findModel(req.params.make, req.params.model, year)
       if (!vm) return reply.send({ data: [] })
 
-      const complaints = await db.complaint.findMany({
-        where: { vehicleModelId: vm.id },
-        orderBy: { reportedAt: 'desc' },
-        select: {
-          id: true,
-          nhtsaId: true,
-          component: true,
-          summary: true,
-          mileage: true,
-          crashInvolved: true,
-          reportedAt: true,
-        },
-      })
+      const complaints = await vehicles.findComplaints(vm.id)
 
       return reply.send({ data: complaints })
     },
@@ -121,38 +67,10 @@ export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (a
       const year = parseInt(req.params.year)
       if (isNaN(year)) return reply.badRequest('year must be a number')
 
-      const vm = await db.vehicleModel.findFirst({
-        where: { make: req.params.make, model: req.params.model, year },
-      })
+      const vm = await vehicles.findModel(req.params.make, req.params.model, year)
       if (!vm) return reply.send({ data: null })
 
-      const research = await db.vehicleModelResearch.findFirst({
-        where: { vehicleModelId: vm.id },
-        orderBy: { researchVersion: 'desc' },
-        select: {
-          id: true,
-          researchVersion: true,
-          researchedAt: true,
-          sources: {
-            select: {
-              id: true,
-              sourceName: true,
-              sourceUrl: true,
-              fetchedAt: true,
-            },
-          },
-          claims: {
-            orderBy: { field: 'asc' },
-            select: {
-              id: true,
-              field: true,
-              claimText: true,
-              confidence: true,
-              sourceId: true,
-            },
-          },
-        },
-      })
+      const research = await vehicles.findResearch(vm.id)
 
       if (!research) return reply.send({ data: null })
 

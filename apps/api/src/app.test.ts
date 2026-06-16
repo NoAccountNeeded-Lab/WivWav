@@ -89,17 +89,31 @@ function buildTestApp() {
     app: buildApp(
       { ...baseConfig, NODE_ENV: 'test' },
       {
+        $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
         listing: {
           findMany: vi.fn(async () => []),
           count: vi.fn(async () => 0),
           findUnique: vi.fn(async () => null),
         },
+        listingPriceHistory: {
+          findMany: vi.fn(async () => []),
+        },
+        vehicleModel: {
+          findUnique: vi.fn(async () => null),
+          findFirst: vi.fn(async () => null),
+        },
+        recall: { findMany: vi.fn(async () => []) },
+        complaint: { findMany: vi.fn(async () => []) },
+        vehicleStats: { findFirst: vi.fn(async () => null) },
+        vehicleModelResearch: { findFirst: vi.fn(async () => null) },
         source: {
           findMany: vi.fn(async () => []),
           findUnique: vi.fn(async () => null),
+          count: vi.fn(async () => 0),
         },
         scraperRun: {
           findMany: vi.fn(async () => []),
+          findFirst: vi.fn(async () => null),
         },
       } as never,
       {} as never,
