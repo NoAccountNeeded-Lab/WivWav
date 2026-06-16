@@ -73,7 +73,7 @@ function parseArgs(argv: string[]): {
   let i = 0
   while (i < argv.length) {
     const arg = argv[i]
-    if (arg === undefined) { i++; continue }
+    if (arg === undefined || arg === '--') { i++; continue }
     if (arg === '-p') {
       const next = argv[i + 1]
       if (next !== undefined && !next.startsWith('-')) {
