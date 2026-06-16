@@ -7,6 +7,7 @@ import { ActiveFilters } from '../../components/ActiveFilters'
 import type { MapListing } from '../../components/ListingsMap'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
+import { SiteHeader } from '@/components/SiteHeader'
 import styles from './page.module.css'
 
 // ── Types ────────────────────────────────────────────────
@@ -252,15 +253,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
 
   return (
     <>
-      <header className={styles.siteHeader}>
-        <div className={styles.headerInner}>
-          <a href="/" className={styles.logo} aria-label="WivWav — go to home">
-            <span className={styles.logoAccent}>WAV</span> Search
-          </a>
-          <span className={styles.divider} aria-hidden="true">/</span>
-          <span className={styles.sectionText}>Wheelchair Accessible Vehicles</span>
-        </div>
-      </header>
+      <SiteHeader section="Wheelchair Accessible Vehicles" />
 
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>
