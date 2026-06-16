@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { slugify, deriveBranchPrefix, buildBranchName } from '../commands/start.js'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { slugify, deriveBranchPrefix, buildBranchName, sanitizeBranchName } from '../commands/start.js'
 
 describe('slugify', () => {
   it('lowercases and replaces spaces with hyphens', () => {
@@ -62,5 +62,197 @@ describe('buildBranchName', () => {
   it('handles plain titles without conventional-commit prefix', () => {
     const name = buildBranchName(10, 'Add wheelchair listing page')
     expect(name).toMatch(/^feat\/issue-10-add-wheelchair/)
+  })
+})
+
+describe('sanitizeBranchName', () => {
+  it('passes through a safe branch name unchanged', () => {
+    expect(sanitizeBranchName('feat/issue-42-add-search')).toBe('feat/issue-42-add-search')
+  })
+
+  it('strips shell metacharacters like $, (, ), spaces', () => {
+    // slash is kept (valid in branch names); $ ( ) and space are stripped
+    expect(sanitizeBranchName('feat/issue-42-evil$(rm -rf /)')).toBe('feat/issue-42-evilrm-rf/')
+  })
+
+  it('strips backticks', () => {
+    expect(sanitizeBranchName('feat/issue-1-`whoami`')).toBe('feat/issue-1-whoami')
+  })
+
+  it('strips spaces', () => {
+    expect(sanitizeBranchName('feat/issue-1-foo bar')).toBe('feat/issue-1-foobar')
+  })
+
+  it('allows dots and underscores', () => {
+    expect(sanitizeBranchName('feat/issue-1-foo.bar_baz')).toBe('feat/issue-1-foo.bar_baz')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// startCommand behavioural tests — external boundaries are mocked
+// ---------------------------------------------------------------------------
+vi.mock('../lib/github.js', () => ({
+  fetchIssue: vi.fn(),
+  editIssueLabels: vi.fn(),
+  postComment: vi.fn(),
+  CliError: class CliError extends Error {
+    constructor(msg: string) {
+      super(msg)
+      this.name = 'CliError'
+    }
+  },
+}))
+
+vi.mock('../lib/git.js', () => ({
+  run: vi.fn(),
+  isDirty: vi.fn(() => false),
+}))
+
+vi.mock('../lib/validation.js', () => ({
+  validateIssueForStart: vi.fn(() => ({ ok: true, errors: [], warnings: [] })),
+  validateBranchName: vi.fn(() => ({ ok: true, errors: [], warnings: [] })),
+  mergeResults: vi.fn((...results: { ok: boolean; errors: string[]; warnings: string[] }[]) => ({
+    ok: results.every((r) => r.ok),
+    errors: results.flatMap((r) => r.errors),
+    warnings: results.flatMap((r) => r.warnings),
+  })),
+  formatResult: vi.fn(() => ''),
+}))
+
+import { startCommand } from '../commands/start.js'
+import * as githubMod from '../lib/github.js'
+import * as gitMod from '../lib/git.js'
+import * as validationMod from '../lib/validation.js'
+
+const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
+const mockEditIssueLabels = githubMod.editIssueLabels as ReturnType<typeof vi.fn>
+const mockPostComment = githubMod.postComment as ReturnType<typeof vi.fn>
+const mockRun = gitMod.run as ReturnType<typeof vi.fn>
+const mockIsDirty = gitMod.isDirty as ReturnType<typeof vi.fn>
+const mockValidateIssue = validationMod.validateIssueForStart as ReturnType<typeof vi.fn>
+const mockValidateBranch = validationMod.validateBranchName as ReturnType<typeof vi.fn>
+const mockMergeResults = validationMod.mergeResults as ReturnType<typeof vi.fn>
+
+function makeIssue(overrides = {}) {
+  return {
+    number: 42,
+    title: 'feat(api): add listing search',
+    body: '## Acceptance Criteria\n- [ ] GET /listings returns results',
+    state: 'OPEN',
+    labels: [{ name: 'status:ready' }],
+    ...overrides,
+  }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockFetchIssue.mockReturnValue(makeIssue())
+  mockIsDirty.mockReturnValue(false)
+  mockRun.mockReturnValue('')
+  mockValidateIssue.mockReturnValue({ ok: true, errors: [], warnings: [] })
+  mockValidateBranch.mockReturnValue({ ok: true, errors: [], warnings: [] })
+  mockMergeResults.mockImplementation((...results: { ok: boolean; errors: string[]; warnings: string[] }[]) => ({
+    ok: results.every((r) => r.ok),
+    errors: results.flatMap((r) => r.errors),
+    warnings: results.flatMap((r) => r.warnings),
+  }))
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe('startCommand — issue validation failure', () => {
+  it('throws CliError when issue validation fails', async () => {
+    mockValidateIssue.mockReturnValue({
+      ok: false,
+      errors: ['Issue is already in-progress'],
+      warnings: [],
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(startCommand(42)).rejects.toThrow('pre-flight checks failed')
+  })
+})
+
+describe('startCommand — branch name validation failure', () => {
+  it('throws CliError when branch name fails validation', async () => {
+    mockValidateBranch.mockReturnValue({
+      ok: false,
+      errors: ['Branch must start with feat/'],
+      warnings: [],
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(startCommand(42, { branch: 'bad-name' })).rejects.toThrow(
+      'branch name does not conform',
+    )
+  })
+})
+
+describe('startCommand — dirty working tree', () => {
+  it('throws CliError when working tree has uncommitted changes', async () => {
+    mockIsDirty.mockReturnValue(true)
+    await expect(startCommand(42)).rejects.toThrow('uncommitted changes')
+  })
+})
+
+describe('startCommand — dry-run', () => {
+  it('prints planned actions without executing side effects', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42, { dryRun: true })
+    expect(mockRun).not.toHaveBeenCalled()
+    expect(mockEditIssueLabels).not.toHaveBeenCalled()
+    expect(mockPostComment).not.toHaveBeenCalled()
+    const allOutput = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(allOutput).toContain('[dry-run]')
+  })
+})
+
+describe('startCommand — happy path', () => {
+  it('labels the issue, creates the branch, and posts a check-in comment', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42)
+
+    expect(mockRun).toHaveBeenCalledWith('git fetch origin main')
+    expect(mockRun).toHaveBeenCalledWith(expect.stringMatching(/git checkout -b .+ origin\/main/))
+    expect(mockEditIssueLabels).toHaveBeenCalledWith(42, {
+      add: ['status:in-progress'],
+      remove: ['status:ready'],
+    })
+    expect(mockPostComment).toHaveBeenCalledWith(42, expect.stringContaining('Starting work on issue #42'))
+  })
+
+  it('uses the provided --branch override instead of deriving one', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42, { branch: 'feat/issue-42-custom-slug' })
+
+    const checkoutCall = (mockRun.mock.calls as unknown[][]).find((c) =>
+      String(c[0]).includes('git checkout'),
+    )
+    expect(String(checkoutCall?.[0])).toContain('feat/issue-42-custom-slug')
+  })
+
+  it('sanitizes a user-provided branch — strips $ and parentheses before shell use', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42, { branch: 'feat/issue-42-evil$(echo pwned)' })
+
+    const checkoutCall = (mockRun.mock.calls as unknown[][]).find((c) =>
+      String(c[0]).includes('git checkout'),
+    )
+    const cmd = String(checkoutCall?.[0])
+    // The dangerous $( sequence must be gone even if the plain words remain
+    expect(cmd).not.toContain('$(')
+  })
+
+  it('emits warnings without failing when issue has warnings', async () => {
+    mockValidateIssue.mockReturnValue({
+      ok: true,
+      errors: [],
+      warnings: ['not labeled status:ready'],
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42)
+    expect(warn).toHaveBeenCalled()
+    expect(mockEditIssueLabels).toHaveBeenCalled()
   })
 })

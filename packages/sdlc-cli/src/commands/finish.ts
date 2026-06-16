@@ -13,10 +13,10 @@ import {
   tryRun,
   currentBranch,
   isProtectedBranch,
-  isDirty,
   stagedFiles,
   changedFiles,
   dirtyFiles,
+  expectedPrefix,
 } from '../lib/git.js'
 import {
   fetchIssue,
@@ -137,24 +137,28 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     console.log('[OK] Full validation passed.')
   }
 
-  // 3. Check for unstaged or untracked files
-  if (isDirty()) {
-    const staged = stagedFiles()
-    const dirty = dirtyFiles()
-    const unstaged = dirty.filter((f) => !staged.includes(f))
-    if (unstaged.length > 0) {
-      console.error('\n[ERROR] Untracked or unstaged files detected:')
-      for (const f of unstaged) {
-        console.error(`  ${f}`)
-      }
-      throw new CliError(
-        'Cannot finish: stage only files relevant to this issue, or stash unrelated changes.',
-      )
+  // 3. Verify staged files and check for unrelated dirty files
+  const staged = stagedFiles()
+  if (staged.length === 0) {
+    throw new CliError(
+      'No files staged for commit. Stage the files for this issue with `git add <files>` then re-run finish.',
+    )
+  }
+
+  const dirty = dirtyFiles()
+  const unstaged = dirty.filter((f) => !staged.includes(f))
+  if (unstaged.length > 0) {
+    console.error('\n[ERROR] Untracked or unstaged files detected:')
+    for (const f of unstaged) {
+      console.error(`  ${f}`)
     }
+    throw new CliError(
+      'Cannot finish: stage only files relevant to this issue, or stash unrelated changes.',
+    )
   }
 
   // 4. Derive commit message components
-  const commitType = opts.commitType ?? 'feat'
+  const commitType = opts.commitType ?? expectedPrefix(issue.title)
   const changed = changedFiles()
   const commitScope = opts.commitScope ?? deriveScope(changed)
   const description = opts.description ?? titleToDescription(issue.title)

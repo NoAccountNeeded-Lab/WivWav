@@ -62,6 +62,15 @@ export function buildBranchName(issueNumber: number, issueTitle: string): string
   return `${prefix}/issue-${issueNumber}-${slug}`
 }
 
+/**
+ * Strip characters that are unsafe in shell from a git branch name.
+ * Only alphanumeric, slash, hyphen, underscore, and dot are allowed.
+ * Applied to user-provided --branch overrides before passing to shell.
+ */
+export function sanitizeBranchName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9/._-]/g, '')
+}
+
 export async function startCommand(issueNumber: number, opts: StartOptions = {}): Promise<void> {
   console.log(`\nFetching issue #${issueNumber}...`)
   const issue = fetchIssue(issueNumber)
@@ -79,8 +88,8 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
     console.warn(formatResult(issueValidation))
   }
 
-  // Derive branch name
-  const branchName = opts.branch ?? buildBranchName(issue.number, issue.title)
+  // Derive branch name; sanitize any user-provided override before shell use
+  const branchName = sanitizeBranchName(opts.branch ?? buildBranchName(issue.number, issue.title))
   console.log(`\nBranch: ${branchName}`)
 
   // Validate branch name against convention

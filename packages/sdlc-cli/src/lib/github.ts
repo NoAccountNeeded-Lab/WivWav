@@ -23,8 +23,8 @@ export function editIssueLabels(
   issueNumber: number,
   opts: { add?: string[]; remove?: string[] },
 ): void {
-  const addArgs = (opts.add ?? []).map((l) => `--add-label "${l}"`).join(' ')
-  const removeArgs = (opts.remove ?? []).map((l) => `--remove-label "${l}"`).join(' ')
+  const addArgs = (opts.add ?? []).map((l) => `--add-label ${shellQuote(l)}`).join(' ')
+  const removeArgs = (opts.remove ?? []).map((l) => `--remove-label ${shellQuote(l)}`).join(' ')
   run(`gh issue edit ${issueNumber} ${addArgs} ${removeArgs}`.trim())
 }
 
