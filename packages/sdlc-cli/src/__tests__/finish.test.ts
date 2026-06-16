@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { deriveScope, titleToDescription } from '../commands/finish.js'
 
 describe('deriveScope', () => {
@@ -49,5 +49,199 @@ describe('titleToDescription', () => {
     expect(titleToDescription('Add wheelchair listing page')).toBe(
       'add wheelchair listing page',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// finishCommand behavioural tests — external boundaries are mocked
+// ---------------------------------------------------------------------------
+vi.mock('../lib/git.js', () => ({
+  currentBranch: vi.fn(() => 'feat/issue-304-add-sdlc-cli'),
+  isProtectedBranch: vi.fn(() => false),
+  stagedFiles: vi.fn(() => []),
+  dirtyFiles: vi.fn(() => []),
+  changedFiles: vi.fn(() => ['packages/sdlc-cli/src/index.ts']),
+  tryRun: vi.fn(() => ({ stdout: '', ok: true })),
+  run: vi.fn(),
+  expectedPrefix: vi.fn(() => 'feat'),
+}))
+
+vi.mock('../lib/github.js', () => ({
+  fetchIssue: vi.fn(),
+  hasAcceptanceCriteria: vi.fn(() => true),
+  labelNames: vi.fn(() => ['status:in-progress']),
+  createDraftPr: vi.fn(() => 'https://github.com/org/repo/pull/123'),
+  CliError: class CliError extends Error {
+    constructor(msg: string) {
+      super(msg)
+      this.name = 'CliError'
+    }
+  },
+}))
+
+import { finishCommand } from '../commands/finish.js'
+import * as gitMod from '../lib/git.js'
+import * as githubMod from '../lib/github.js'
+
+const mockCurrentBranch = gitMod.currentBranch as ReturnType<typeof vi.fn>
+const mockIsProtected = gitMod.isProtectedBranch as ReturnType<typeof vi.fn>
+const mockStagedFiles = gitMod.stagedFiles as ReturnType<typeof vi.fn>
+const mockDirtyFiles = gitMod.dirtyFiles as ReturnType<typeof vi.fn>
+const mockChangedFiles = gitMod.changedFiles as ReturnType<typeof vi.fn>
+const mockTryRun = gitMod.tryRun as ReturnType<typeof vi.fn>
+const mockRun = gitMod.run as ReturnType<typeof vi.fn>
+const mockExpectedPrefix = gitMod.expectedPrefix as ReturnType<typeof vi.fn>
+const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
+const mockHasAC = githubMod.hasAcceptanceCriteria as ReturnType<typeof vi.fn>
+const mockLabelNames = githubMod.labelNames as ReturnType<typeof vi.fn>
+const mockCreateDraftPr = githubMod.createDraftPr as ReturnType<typeof vi.fn>
+
+function makeIssue(overrides = {}) {
+  return {
+    number: 304,
+    title: 'feat(sdlc): add SDLC CLI',
+    body: '## Acceptance Criteria\n- [ ] start command works\n- [ ] finish command works',
+    state: 'OPEN',
+    labels: [{ name: 'status:in-progress' }],
+    ...overrides,
+  }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockCurrentBranch.mockReturnValue('feat/issue-304-add-sdlc-cli')
+  mockIsProtected.mockReturnValue(false)
+  mockStagedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
+  mockDirtyFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
+  mockChangedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
+  mockTryRun.mockReturnValue({ stdout: 'all good', ok: true })
+  mockRun.mockReturnValue('')
+  mockExpectedPrefix.mockReturnValue('feat')
+  mockFetchIssue.mockReturnValue(makeIssue())
+  mockHasAC.mockReturnValue(true)
+  mockLabelNames.mockReturnValue(['status:in-progress'])
+  mockCreateDraftPr.mockReturnValue('https://github.com/org/repo/pull/123')
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe('finishCommand — protected branch guard', () => {
+  it('throws CliError when run from a protected branch', async () => {
+    mockIsProtected.mockReturnValue(true)
+    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('feature branch')
+  })
+})
+
+describe('finishCommand — issue pre-flight', () => {
+  it('throws when issue is not labeled status:in-progress', async () => {
+    mockLabelNames.mockReturnValue(['status:ready'])
+    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('not labeled status:in-progress')
+  })
+
+  it('throws when issue has no acceptance criteria', async () => {
+    mockHasAC.mockReturnValue(false)
+    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('no acceptance criteria')
+  })
+})
+
+describe('finishCommand — validation', () => {
+  it('throws when full validation suite fails', async () => {
+    mockTryRun.mockReturnValue({ stdout: 'type error', ok: false })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(finishCommand(304)).rejects.toThrow('validation suite did not pass')
+  })
+
+  it('skips validation when skipValidation is true', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+    const tryRunCalls = mockTryRun.mock.calls as unknown[][]
+    const ranValidation = tryRunCalls.some((c) => String(c[0]).includes('pnpm typecheck'))
+    expect(ranValidation).toBe(false)
+  })
+})
+
+describe('finishCommand — staging checks', () => {
+  it('throws when no files are staged', async () => {
+    mockStagedFiles.mockReturnValue([])
+    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('No files staged')
+  })
+
+  it('throws when there are unstaged dirty files', async () => {
+    mockStagedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
+    mockDirtyFiles.mockReturnValue([
+      'packages/sdlc-cli/src/index.ts',
+      'some/unrelated/file.ts',
+    ])
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow(
+      'stage only files relevant',
+    )
+  })
+
+  it('proceeds when all dirty files are staged', async () => {
+    const files = ['packages/sdlc-cli/src/index.ts']
+    mockStagedFiles.mockReturnValue(files)
+    mockDirtyFiles.mockReturnValue(files)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+    expect(mockRun).toHaveBeenCalledWith(expect.stringContaining('git commit'))
+  })
+})
+
+describe('finishCommand — commit type derivation', () => {
+  it('uses expectedPrefix from issue title when no commitType is provided', async () => {
+    mockExpectedPrefix.mockReturnValue('fix')
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+    const commitCall = (mockRun.mock.calls as unknown[][]).find((c) =>
+      String(c[0]).includes('git commit'),
+    )
+    expect(String(commitCall?.[0])).toContain('fix(')
+  })
+
+  it('uses explicit commitType when provided', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true, commitType: 'chore' })
+    const commitCall = (mockRun.mock.calls as unknown[][]).find((c) =>
+      String(c[0]).includes('git commit'),
+    )
+    expect(String(commitCall?.[0])).toContain('chore(')
+  })
+})
+
+describe('finishCommand — dry-run', () => {
+  it('prints planned actions without calling run', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true, dryRun: true })
+    expect(mockRun).not.toHaveBeenCalled()
+    const allOutput = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(allOutput).toContain('[dry-run]')
+    expect(allOutput).toContain('git commit')
+    expect(allOutput).toContain('git push')
+  })
+})
+
+describe('finishCommand — happy path', () => {
+  it('calls git commit, git push, and createDraftPr in order', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+
+    const calls = (mockRun.mock.calls as unknown[][]).map((c) => String(c[0]))
+    const commitIdx = calls.findIndex((c) => c.includes('git commit'))
+    const pushIdx = calls.findIndex((c) => c.includes('git push'))
+    expect(commitIdx).toBeGreaterThanOrEqual(0)
+    expect(pushIdx).toBeGreaterThan(commitIdx)
+    expect(mockCreateDraftPr).toHaveBeenCalledOnce()
+  })
+
+  it('includes Co-Authored-By trailer in commit', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true, coAuthoredBy: 'Test Bot <bot@example.com>' })
+    const commitCall = (mockRun.mock.calls as unknown[][]).find((c) =>
+      String(c[0]).includes('git commit'),
+    )
+    expect(String(commitCall?.[0])).toContain('Co-Authored-By: Test Bot <bot@example.com>')
   })
 })
