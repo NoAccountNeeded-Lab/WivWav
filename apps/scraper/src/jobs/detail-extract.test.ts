@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveListingStatus } from './detail-extract.js'
+import { buildListingDetailUpdateData, resolveListingStatus } from './detail-extract.js'
 
 const NOW = new Date('2026-06-02T00:00:00Z')
 
@@ -58,5 +58,43 @@ describe('resolveListingStatus', () => {
     expect(resolveListingStatus('gone', 'sold', null, NOW)).toEqual({})
     expect(resolveListingStatus('gone', 'pending', null, NOW)).toEqual({})
     expect(resolveListingStatus('gone', 'active', null, NOW)).toEqual({})
+  })
+})
+
+describe('buildListingDetailUpdateData', () => {
+  const detail = {
+    color: 'Grey',
+    fuelType: '2.5L Hybrid I4',
+    transmission: 'automatic',
+    rampType: 'fold_out' as const,
+    hasLift: false,
+    floorLoweringInches: 14,
+    wheelchairCapacity: null,
+    handControls: false,
+    transferSeat: true,
+    description: 'Rear Entry wheelchair van.',
+    images: ['https://www.blvd.com/van_large.jpg'],
+    zip: '95815',
+    dealerPhone: '(916) 555-0101',
+    saleStatus: 'active' as const,
+  }
+
+  it('includes dealer phone, dealer website, and direct buyer URL when enrichment succeeds', () => {
+    expect(buildListingDetailUpdateData(detail, {
+      dealerWebsite: 'https://dealer.example.com',
+      directVehicleUrl: 'https://dealer.example.com/inventory/5TDYRKEC8RS205440',
+    }, {}, NOW)).toMatchObject({
+      dealerPhone: '(916) 555-0101',
+      dealerWebsite: 'https://dealer.example.com',
+      buyerUrl: 'https://dealer.example.com/inventory/5TDYRKEC8RS205440',
+      detailScrapedAt: NOW,
+    })
+  })
+
+  it('omits buyerUrl when enrichment falls back to the existing BLVD URL', () => {
+    expect(buildListingDetailUpdateData(detail, {
+      dealerWebsite: 'https://dealer.example.com',
+      directVehicleUrl: null,
+    }, {}, NOW)).not.toHaveProperty('buyerUrl')
   })
 })
