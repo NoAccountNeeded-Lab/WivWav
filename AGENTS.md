@@ -166,7 +166,7 @@ Keep always-loaded agent context short and stable. `AGENTS.md` is the canonical 
 Provider-specific guidance:
 
 - **Claude / Claude Code:** use `CLAUDE.md` and `.claude/core.md` for startup context; use role files, skills, and subagents for task-specific detail. Keep returned subagent summaries concise.
-- **Codex / OpenAI:** `AGENTS.md` is canonical. Use `pnpm wivwav start|review|finish` (see **SDLC CLI** below) for the start, review, and finish steps — these encode the full workflow and fail closed on missing auth or bad state. Preserve stable prompt prefixes and append per-issue context after reusable instructions so OpenAI prompt caching can hit.
+- **Codex / OpenAI:** `AGENTS.md` is canonical. Use `pnpm wivwav start|review|finish|run-sprint` (see **SDLC CLI** below) for the issue workflow — these encode the deterministic gates and fail closed on missing auth or bad state. Preserve stable prompt prefixes and append per-issue context after reusable instructions so OpenAI prompt caching can hit.
 - **Gemini:** use `GEMINI.md` for concise project context. Read `AGENTS.md` only when the task needs full workflow or architecture reference.
 - **GitHub Copilot / Cursor:** use their repo instruction/rule files for concise defaults; read domain docs only when the touched files require them.
 - **Ollama/local models:** optimize by reducing prompt size and using deterministic commands (`rg`, tests, typecheck, lint) instead of asking the model to rediscover repo state.
@@ -213,7 +213,7 @@ The `/wivwav-finish-issue` skill is in `.claude/skills/`. Review role prompts li
 
 ### SDLC CLI
 
-`packages/sdlc-cli` provides a first-class CLI that encodes the full start/review/finish workflow. It is the canonical path for **all** agents — Claude Code uses the matching `/wivwav-*` skills; every other agent uses the CLI directly.
+`packages/sdlc-cli` provides a first-class CLI that encodes the start/review/finish workflow and the deterministic setup phase of sprint orchestration. It is the canonical path for **all** agents — Claude Code uses the matching `/wivwav-*` skills; every other agent uses the CLI directly.
 
 ```bash
 # Install dependencies once; the CLI runs through the root pnpm script.
@@ -228,9 +228,16 @@ pnpm wivwav review [issue-number]
 # Finish — full validation, commit with trailers, push, open draft PR
 pnpm wivwav finish <issue-number>
 
+# Run sprint — select/claim issues, create worker worktrees, print worker prompts
+pnpm wivwav run-sprint [issue-number]
+pnpm wivwav run-sprint --parallel 3
+
 # All commands support --dry-run to preview actions without executing them
 pnpm wivwav start 304 --dry-run
+pnpm wivwav run-sprint --limit 2 --dry-run
 ```
+
+`run-sprint` prepares work for agents; it does not implement issues by itself. It selects issues, checks AC, labels them `status:in-progress`, creates isolated worktrees, writes `/tmp/wivwav-{N}.md` recovery state, and prints the worker instructions an agent should run in each worktree.
 
 #### Agent options for finish (pass attribution trailers)
 

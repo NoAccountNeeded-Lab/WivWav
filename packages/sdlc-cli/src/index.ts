@@ -2,17 +2,19 @@
 /**
  * WivWav SDLC CLI
  *
- * Provides `start`, `review`, and `finish` commands that encode the
+ * Provides `start`, `review`, `finish`, and `run-sprint` commands that encode the
  * issue workflow documented in AGENTS.md.
  *
  * Usage:
- *   pnpm wivwav start <issue>   -- label, branch, check-in comment
- *   pnpm wivwav review [issue]  -- validate changed files and produce review packet
- *   pnpm wivwav finish <issue>  -- full validation, commit, push, draft PR
+ *   pnpm wivwav start <issue>       -- label, branch, check-in comment
+ *   pnpm wivwav review [issue]      -- validate changed files and produce review packet
+ *   pnpm wivwav finish <issue>      -- full validation, commit, push, draft PR
+ *   pnpm wivwav run-sprint [issue]  -- prepare sprint worker worktrees
  */
 import { startCommand, type StartOptions } from './commands/start.js'
 import { reviewCommand, type ReviewOptions } from './commands/review.js'
 import { finishCommand, type FinishOptions } from './commands/finish.js'
+import { runSprintCommand, type RunSprintOptions } from './commands/run-sprint.js'
 import { CliError } from './lib/github.js'
 
 function usage(): void {
@@ -23,6 +25,7 @@ Commands:
   start <issue>     Start an issue: verify, label, branch, post check-in comment
   review [issue]    Review changed files: run checks, produce checklist review packet
   finish <issue>    Finish an issue: validate, commit, push, open draft PR
+  run-sprint [issue] Prepare sprint worker worktrees for ready issues
 
 Options (all commands):
   --dry-run         Print actions without executing them
@@ -43,12 +46,19 @@ Options (finish):
   --sprint-run <id> Sprint run ID for git trailers
   --co-author <s>   Co-Authored-By trailer value
 
+Options (run-sprint):
+  --limit <n>       Max ready issues to prepare in sequential mode
+  --parallel <n>    Max ready issues to prepare with unique agent indexes
+  -p <n>            Alias for --parallel
+
 Examples:
   pnpm wivwav start 304
   pnpm wivwav review 304
   pnpm wivwav finish 304
+  pnpm wivwav run-sprint 304
+  pnpm wivwav run-sprint --parallel 3
   pnpm wivwav finish 304 --agent-role worker --agent-index 1 --sprint-run run-sprint/2026-06-15T05:18
-`.trim())
+	`.trim())
 }
 
 type FlagValue = string | boolean
@@ -64,6 +74,17 @@ function parseArgs(argv: string[]): {
   while (i < argv.length) {
     const arg = argv[i]
     if (arg === undefined) { i++; continue }
+    if (arg === '-p') {
+      const next = argv[i + 1]
+      if (next !== undefined && !next.startsWith('-')) {
+        flags.parallel = next
+        i += 2
+      } else {
+        flags.parallel = true
+        i++
+      }
+      continue
+    }
     if (arg.startsWith('--')) {
       const key = arg.slice(2)
       const next = argv[i + 1]
@@ -155,6 +176,18 @@ async function main(): Promise<void> {
         const coAuthoredBy = strFlag(flags, 'co-author')
         if (coAuthoredBy !== undefined) opts.coAuthoredBy = coAuthoredBy
         await finishCommand(issueNumber, opts)
+        break
+      }
+
+      case 'run-sprint': {
+        const issueRaw = args[0] !== undefined ? parseInt(args[0], 10) : undefined
+        const opts: RunSprintOptions = { dryRun: boolFlag(flags, 'dry-run') }
+        if (issueRaw !== undefined && !isNaN(issueRaw)) opts.issueNumber = issueRaw
+        const limitStr = strFlag(flags, 'limit')
+        if (limitStr !== undefined) opts.limit = parseInt(limitStr, 10)
+        const parallelStr = strFlag(flags, 'parallel')
+        if (parallelStr !== undefined) opts.parallel = parseInt(parallelStr, 10)
+        await runSprintCommand(opts)
         break
       }
 

@@ -8,6 +8,11 @@ export interface IssueData {
   labels: Array<{ name: string }>
 }
 
+export interface IssueSummary {
+  number: number
+  title: string
+}
+
 /** Fetch issue data from GitHub using the `gh` CLI. Throws if auth is missing. */
 export function fetchIssue(issueNumber: number): IssueData {
   ensureGhAuth()
@@ -16,6 +21,14 @@ export function fetchIssue(issueNumber: number): IssueData {
     body: string | null
   }
   return { ...raw, body: raw.body ?? '' }
+}
+
+/** List ready issues from GitHub, sorted by issue number ascending. */
+export function listReadyIssues(limit = 20): IssueSummary[] {
+  ensureGhAuth()
+  const json = run(`gh issue list --label status:ready --json number,title --limit ${limit}`)
+  const issues = JSON.parse(json) as IssueSummary[]
+  return issues.sort((a, b) => a.number - b.number)
 }
 
 /** Add and remove labels on a GitHub issue. */
