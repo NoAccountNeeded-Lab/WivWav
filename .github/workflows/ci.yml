@@ -56,7 +56,33 @@ jobs:
           cache-from: type=gha,scope=migrate
           cache-to: type=gha,mode=max,scope=migrate
 
-  ci:
+  lint-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+  test:
+    name: Test
     runs-on: ubuntu-latest
 
     services:
@@ -106,17 +132,11 @@ jobs:
             --to-schema ./prisma/schema.prisma \
             --exit-code
 
-      - name: Typecheck
-        run: pnpm typecheck
-
       - name: Build api
         run: pnpm build --filter=@wivwav/api...
 
       - name: Build scraper
         run: pnpm build --filter=@wivwav/scraper...
-
-      - name: Lint
-        run: pnpm lint
 
       - name: Test
         run: pnpm test
