@@ -23,6 +23,7 @@ import {
   createDraftPr,
   hasAcceptanceCriteria,
   labelNames,
+  editIssueLabels,
   CliError,
 } from '../lib/github.js'
 
@@ -127,8 +128,8 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
 
   // 2. Full validation
   if (!opts.skipValidation) {
-    console.log('\nRunning full validation suite (typecheck + lint + test)...')
-    const { stdout, ok } = tryRun('pnpm typecheck && pnpm lint && pnpm test')
+    console.log('\nRunning full validation suite (typecheck + lint + build + test)...')
+    const { stdout, ok } = tryRun('pnpm typecheck && pnpm lint && pnpm build && pnpm test')
     if (!ok) {
       console.error('\nValidation failed:')
       console.error(stdout)
@@ -220,9 +221,13 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
   console.log('\nOpening draft PR...')
   const prTitle = `${commitType}(${commitScope}): ${description}`
   const prUrl = createDraftPr({ title: prTitle, body: prBody })
+  editIssueLabels(issueNumber, {
+    add: ['status:needs-review'],
+    remove: ['status:in-progress'],
+  })
 
   console.log(`\nDraft PR is open: ${prUrl}`)
   console.log(
-    'Run `/wivwav-code-review` (Claude Code) or manually review the diff before marking ready for merge.',
+    'Issue labeled status:needs-review. Review the draft PR on GitHub and mark it ready when satisfied.',
   )
 }

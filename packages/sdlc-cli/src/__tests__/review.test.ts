@@ -106,8 +106,7 @@ describe('reviewCommand — validation mode', () => {
   it('runs the full suite when opts.full is true', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     await reviewCommand({ full: true })
-    const callArgs = mockTryRun.mock.calls.map((c: unknown[]) => c[0])
-    expect(callArgs.some((a: unknown) => String(a).includes('pnpm typecheck'))).toBe(true)
+    expect(mockTryRun).toHaveBeenCalledWith('pnpm typecheck && pnpm lint && pnpm build && pnpm test')
   })
 
   it('throws CliError when validation fails', async () => {

@@ -64,12 +64,16 @@ describe('hasAcceptanceCriteria', () => {
     expect(hasAcceptanceCriteria('DONE WHEN users log in')).toBe(true)
   })
 
+  it('returns true when body contains an AC heading', () => {
+    expect(hasAcceptanceCriteria('## AC\n- endpoint returns data')).toBe(true)
+  })
+
   it('returns true when body contains a markdown task-list item', () => {
     expect(hasAcceptanceCriteria('- [ ] implement endpoint')).toBe(true)
   })
 
   it('returns true for a checked task-list item', () => {
-    expect(hasAcceptanceCriteria('- [x] implement endpoint')).toBe(true)
+    expect(hasAcceptanceCriteria('- [X] implement endpoint')).toBe(true)
   })
 
   it('returns false for body with unrelated bullet points (no checkbox)', () => {

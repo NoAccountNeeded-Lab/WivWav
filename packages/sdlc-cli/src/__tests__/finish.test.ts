@@ -71,6 +71,7 @@ vi.mock('../lib/github.js', () => ({
   hasAcceptanceCriteria: vi.fn(() => true),
   labelNames: vi.fn(() => ['status:in-progress']),
   createDraftPr: vi.fn(() => 'https://github.com/org/repo/pull/123'),
+  editIssueLabels: vi.fn(),
   CliError: class CliError extends Error {
     constructor(msg: string) {
       super(msg)
@@ -95,6 +96,7 @@ const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
 const mockHasAC = githubMod.hasAcceptanceCriteria as ReturnType<typeof vi.fn>
 const mockLabelNames = githubMod.labelNames as ReturnType<typeof vi.fn>
 const mockCreateDraftPr = githubMod.createDraftPr as ReturnType<typeof vi.fn>
+const mockEditIssueLabels = githubMod.editIssueLabels as ReturnType<typeof vi.fn>
 
 function makeIssue(overrides = {}) {
   return {
@@ -159,6 +161,12 @@ describe('finishCommand — validation', () => {
     const tryRunCalls = mockTryRun.mock.calls as unknown[][]
     const ranValidation = tryRunCalls.some((c) => String(c[0]).includes('pnpm typecheck'))
     expect(ranValidation).toBe(false)
+  })
+
+  it('runs build as part of the full validation suite', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304)
+    expect(mockTryRun).toHaveBeenCalledWith('pnpm typecheck && pnpm lint && pnpm build && pnpm test')
   })
 })
 
@@ -234,6 +242,16 @@ describe('finishCommand — happy path', () => {
     expect(commitIdx).toBeGreaterThanOrEqual(0)
     expect(pushIdx).toBeGreaterThan(commitIdx)
     expect(mockCreateDraftPr).toHaveBeenCalledOnce()
+  })
+
+  it('moves the issue to status:needs-review after opening the draft PR', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+
+    expect(mockEditIssueLabels).toHaveBeenCalledWith(304, {
+      add: ['status:needs-review'],
+      remove: ['status:in-progress'],
+    })
   })
 
   it('includes Co-Authored-By trailer in commit', async () => {
