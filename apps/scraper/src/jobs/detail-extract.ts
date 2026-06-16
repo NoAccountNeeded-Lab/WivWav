@@ -4,6 +4,12 @@ import type { JobContext } from '@wivwav/queue'
 import type { RampType, SaleStatus } from '@wivwav/types'
 import { syncListings } from '@wivwav/search'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
+import {
+  createRateLimitedFetcher,
+  enrichBlvdDealerListing,
+  fetchHtml,
+  type BlvdDealerEnrichment,
+} from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
@@ -12,7 +18,7 @@ const BATCH_SIZE = 100
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
 
-type StatusUpdate =
+export type StatusUpdate =
   | { status: 'gone'; goneAt: Date; soldAt?: Date }
   | { status: 'active'; goneAt: null }
   | Record<string, never>
@@ -49,7 +55,7 @@ export function resolveListingStatus(
   return {}
 }
 
-type DetailResult = {
+export type DetailResult = {
   color: string | null
   fuelType: string | null
   transmission: string | null
@@ -64,6 +70,34 @@ type DetailResult = {
   zip: string | null
   dealerPhone: string | null
   saleStatus: SaleStatus
+}
+
+export function buildListingDetailUpdateData(
+  detail: DetailResult,
+  enrichment: BlvdDealerEnrichment,
+  statusUpdate: StatusUpdate,
+  now: Date,
+) {
+  return {
+    color: detail.color,
+    fuelType: detail.fuelType,
+    transmission: detail.transmission,
+    rampType: detail.rampType,
+    hasLift: detail.hasLift,
+    floorLoweringInches: detail.floorLoweringInches,
+    handControls: detail.handControls,
+    transferSeat: detail.transferSeat,
+    wheelchairCapacity: detail.wheelchairCapacity,
+    description: detail.description,
+    ...(detail.images.length > 0 && { images: detail.images }),
+    ...(detail.zip && { zip: detail.zip }),
+    ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
+    ...(enrichment.dealerWebsite && { dealerWebsite: enrichment.dealerWebsite }),
+    ...(enrichment.directVehicleUrl && { buyerUrl: enrichment.directVehicleUrl }),
+    saleStatus: detail.saleStatus,
+    ...statusUpdate,
+    detailScrapedAt: now,
+  }
 }
 
 async function extractDetail(page: Page, url: string): Promise<DetailResult> {
@@ -101,6 +135,7 @@ export async function runDetailExtractJob(sourceId: string, context?: JobContext
   })
 
   const browser = await chromium.launch()
+  const fetchDealerPage = createRateLimitedFetcher(fetchHtml)
   let success = 0
   let failed = 0
 
@@ -115,7 +150,7 @@ export async function runDetailExtractJob(sourceId: string, context?: JobContext
 
         const listing = await db.listing.findFirst({
           where: { sourceUrl: rawPage.url },
-          select: { id: true, status: true, soldAt: true },
+          select: { id: true, status: true, soldAt: true, vin: true },
         })
 
         if (listing) {
@@ -126,27 +161,16 @@ export async function runDetailExtractJob(sourceId: string, context?: JobContext
             listing.soldAt,
             now,
           )
+          const enrichment = await enrichBlvdDealerListing({
+            sourceUrl: rawPage.url,
+            vin: listing.vin,
+            fetchPage: fetchDealerPage,
+            log: (message) => report(context, message),
+          })
 
           await db.listing.update({
             where: { id: listing.id },
-            data: {
-              color: detail.color,
-              fuelType: detail.fuelType,
-              transmission: detail.transmission,
-              rampType: detail.rampType,
-              hasLift: detail.hasLift,
-              floorLoweringInches: detail.floorLoweringInches,
-              handControls: detail.handControls,
-              transferSeat: detail.transferSeat,
-              wheelchairCapacity: detail.wheelchairCapacity,
-              description: detail.description,
-              ...(detail.images.length > 0 && { images: detail.images }),
-              ...(detail.zip && { zip: detail.zip }),
-              ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
-              saleStatus: detail.saleStatus,
-              ...statusUpdate,
-              detailScrapedAt: now,
-            },
+            data: buildListingDetailUpdateData(detail, enrichment, statusUpdate, now),
           })
           await syncListings([listing.id], db, getMeiliClient())
         } else {
