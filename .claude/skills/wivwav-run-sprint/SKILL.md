@@ -1,226 +1,54 @@
 ---
-description: Run a development sprint by working on ready issues. Supports single-issue, sequential (drain queue), and parallel (concurrent workers) modes. Pass an issue number to target one issue; --limit N to cap sequential runs; --parallel N (or -p N) to run N issues concurrently.
+description: Run a development sprint by preparing ready issues with the SDLC CLI, then spawning Claude worker agents in the prepared worktrees. Supports single-issue, sequential, and parallel modes. Pass an issue number to target one issue; --limit N to cap sequential runs; --parallel N (or -p N) to run N issues concurrently.
 argument-hint: "[issue-number] [--limit N] [--parallel N]"
 ---
 
 # Run Sprint
 
-Works on ready issues using Claude Code sub-agents, each in an isolated git worktree.
+Use this skill for sprint orchestration. The SDLC CLI is the source of truth for issue selection, readiness checks, labels, branch names, worktree setup, and recovery state.
 
-**Modes:**
-- **Single** — `[issue-number]`: run exactly one specified issue.
-- **Sequential** (default): drain all `status:ready` issues one at a time; add `--limit N` to cap how many.
-- **Parallel** — `--parallel N` (alias `-p N`): spawn up to N issues as concurrent background agents in one shot.
+## 1. Prepare sprint work
 
-This command does not run multiple issues concurrently in sequential mode. True parallel orchestration uses `run_in_background: true` and requires unique agent indexes per worker.
-
----
-
-## Steps
-
-### 1. Parse arguments
-
-From `$ARGUMENTS` extract:
-- `ISSUE_NUMBER` — bare integer if present, else empty
-- `LIMIT` — value after `--limit` if present; default `0` (unlimited) for sequential mode
-- `PARALLEL` — value after `--parallel` or `-p` if present; `0` means sequential
-
-If both an issue number and `--parallel` are given, ignore `--parallel` and run single-issue mode.
-
-### 2. Generate a Sprint-Run ID
+Run the CLI from the repository root, passing `$ARGUMENTS` through exactly:
 
 ```bash
-SPRINT_RUN_ID="run-sprint/$(date -u +%Y-%m-%dT%H:%M)"
+pnpm wivwav run-sprint $ARGUMENTS
 ```
 
-The Sprint-Run ID includes `T%H:%M` for uniqueness across multiple runs on the same day. Issue comments use `%Y-%m-%d` (date only) for human readability.
+If the command fails, stop and report the CLI error. Do not manually recreate its GitHub label, branch, or worktree logic.
 
-### 3. Prune stale git metadata
+The CLI will:
+- select the explicit issue, or ready issues for sequential/parallel mode
+- verify issue state and acceptance criteria
+- move selected issues to `status:in-progress`
+- create one isolated worktree per selected issue
+- write `/tmp/wivwav-{N}.md` recovery state
+- print worker instructions for each selected issue
 
-```bash
-git worktree prune && git worktree list
-```
+## 2. Spawn workers from CLI output
 
-Do **not** remove worktree directories blindly. Only remove a specific `.claude/worktrees/...` directory if it is clearly stale and confirmed not used by an active worker.
+For each worker instruction block printed by the CLI:
 
-### 4. Select target issues
+- Use the listed `Worktree`, `Branch`, `Agent-Index`, and `Sprint-Run`.
+- Spawn one worker agent with `isolation: "worktree"`.
+- In sequential mode, run workers foreground/blocking one at a time.
+- In parallel mode, spawn all listed workers in one message with `run_in_background: true`.
 
-- If `ISSUE_NUMBER` is set: use only that issue (single mode).
-- Otherwise list ready issues:
+The worker prompt is the instruction block printed by the CLI. Do not add the full issue body to the spawn prompt; the worker fetches it.
 
-```bash
-gh issue list --label status:ready --json number,title --limit 20
-```
+## 3. Handle completions
 
-If none, report "No issues labeled status:ready. Nothing to do." and stop.
+As workers complete:
 
-Apply mode caps:
-- **Single**: take that issue only.
-- **Sequential**: take up to `LIMIT` issues (all if `LIMIT=0`), ordered by issue number ascending.
-- **Parallel**: take up to `PARALLEL` issues; report any extras as queued for the next sprint. `--limit` is ignored when `--parallel` is set — `PARALLEL` itself is the cap.
+- Success: post an issue comment with draft PR URL, commit SHA, and sprint ID; update `/tmp/wivwav-{N}.md` to `Status: success` and add the PR URL.
+- Failure: label the issue `status:stuck`, post a failure comment, and update `/tmp/wivwav-{N}.md` to `Status: stuck`.
+- Clean up each completed worktree with `git worktree remove --force {worktree}` followed by `git worktree prune`.
 
-### 5. Readiness pre-flight for each selected issue
+Never cancel other running workers because one failed. A partial success is still a valid sprint run.
 
-For each candidate:
+## 4. Final summary
 
-```bash
-gh issue view {N} --json number,title,body,labels,state
-```
-
-Skip (do not process) if:
-- The issue is not open.
-- The issue is already labeled `status:in-progress`.
-- The issue is not labeled `status:ready` and was not explicitly supplied by the user.
-
-Check the body for acceptance criteria using the markers defined in `.claude/core.md`.
-
-If none are present, **do not spawn a worker**:
-- Post comment: "🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)\n\nIssue is missing acceptance criteria. Add them before this issue can be picked up by a sprint worker."
-- Remove `status:ready`, add `status:stuck`.
-- Report to the user and exclude this issue from the run.
-
-If no issues survive pre-flight, stop.
-
-### 6. Derive branch names
-
-For each issue that passed pre-flight, derive its branch name using prefix and slug rules from `.claude/core.md` (feat/fix/docs/chore + issue-N-slug).
-
-### 7. Label all selected issues in-progress and post start comments
-
-For each issue:
-```bash
-gh issue edit {N} --add-label status:in-progress --remove-label status:ready
-gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(date -u +%Y-%m-%d)
-
-Sprint worker starting. Branch: {branch-name} · Sprint: {SPRINT_RUN_ID}"
-```
-
-Write a recovery state file so any continuation agent can orient itself without needing this conversation's context:
-
-**`/tmp/wivwav-{N}.md`**
-```
-Issue: #{N}
-Branch: {branch-name}
-Sprint-Run: {SPRINT_RUN_ID}
-Status: running
-```
-
----
-
-## Worker prompt template
-
-Fill in `N`, `branch-name`, `SPRINT_RUN_ID`, and `AGENT_INDEX` for each worker. In sequential mode, `AGENT_INDEX` is always `1`.
-
----
-Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.
-Keep startup context lean: do not read `AGENTS.md`, package manifests, or broad directory listings unless your plan identifies a specific need for them.
-
-You are implementing issue #{N}.
-
-First fetch the issue details:
-`gh issue view {N} --json number,title,body,labels`
-
-Before reading source files, use the fetched issue details to write a scoped plan that names the likely files and the evidence you need from each one.
-
-Your branch: {branch-name}
-Agent-Role: worker
-Agent-Index: {AGENT_INDEX}
-Sprint-Run: {SPRINT_RUN_ID}
-
----
-
-## Sequential mode (PARALLEL=0)
-
-### 8-seq. Loop through issues one at a time
-
-Each Agent call is **foreground (blocking)** — wait for the result before proceeding to the next issue.
-
-For each issue in order, assign agent index **1** and spawn a worker with `isolation: "worktree"` using the **worker prompt template** above.
-
-If the Agent call fails to spawn:
-```bash
-gh issue edit {N} --remove-label status:in-progress --add-label status:stuck
-gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(date -u +%Y-%m-%d)
-
-Worker failed to start: {error}. Labeled status:stuck for triage."
-```
-
-After each worker completes, post a summary comment:
-- Success:
-  ```
-  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
-
-  Draft PR opened: {PR URL}. Commit: {SHA}. Sprint: {SPRINT_RUN_ID}
-  ```
-- Failure:
-  ```
-  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
-
-  Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
-  ```
-
-Update `/tmp/wivwav-{N}.md`: set `Status: success` and add `PR: {PR URL}` on success, or `Status: stuck` on failure.
-
-Clean up the worktree for that issue before moving to the next:
-```bash
-git worktree remove --force .claude/worktrees/{worktree-dir} && git worktree prune
-```
-
-If a worker fails, label the issue `status:stuck` and continue to the next issue. Proceed until the list is exhausted or `LIMIT` is reached.
-
----
-
-## Parallel mode (PARALLEL > 0)
-
-### 8-par. Spawn all workers in a single message as background agents
-
-Assign each issue a unique agent index starting at 1 (first issue → index 1, second → index 2, …).
-
-Spawn **all agents in one message** using `run_in_background: true` and `isolation: "worktree"` on each Agent call, using the **worker prompt template** above with each issue's assigned `Agent-Index`.
-
-> **Concurrency note:** Each worker runs in its own git worktree and operates on separate source files, so file writes do not conflict. However, `pnpm test` hits shared infrastructure (PostgreSQL, Meilisearch, Valkey). `wivwav-finish-issue` wraps its test run with a platform-appropriate lockfile (`flock` on Linux, `lockf -k` on macOS), which serializes test execution across all concurrent workers automatically. `pnpm typecheck`, `pnpm lint`, and `pnpm build` are read-only and run concurrently without a lock.
-
-If any Agent call fails to spawn immediately:
-```bash
-gh issue edit {N} --remove-label status:in-progress --add-label status:stuck
-gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(date -u +%Y-%m-%d)
-
-Worker failed to start: {error}. Labeled status:stuck for triage."
-```
-
-### 9-par. Handle completions as they arrive
-
-The harness notifies you when each background agent finishes. As each one completes, **immediately** post its summary comment — do not wait for all workers before posting. Accumulate each result as notifications arrive; post the final sprint summary (section 9) only after the last worker finishes.
-
-- Success:
-  ```
-  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
-
-  Draft PR opened: {PR URL}. Commit: {SHA}. Sprint: {SPRINT_RUN_ID}
-  ```
-- Failure:
-  ```
-  🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)
-
-  Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
-  ```
-
-Update `/tmp/wivwav-{N}.md`: set `Status: success` and add `PR: {PR URL}` on success, or `Status: stuck` on failure.
-
-Clean up each worktree as its worker finishes — do not wait for all workers:
-```bash
-git worktree remove --force .claude/worktrees/{worktree-dir} && git worktree prune
-```
-
-A partial success (some workers succeed, some fail) is still a valid sprint run. Never cancel running workers because one failed.
-
----
-
-## 9. Final sprint summary (all modes)
-
-In sequential mode, all outcomes are known before this step. In parallel mode, post this summary only after the last background worker completes (you accumulate outcomes from completion notifications in section 9-par).
-
-Report to the user:
-- Mode used (single / sequential / parallel)
-- Per-issue outcome: issue number → draft PR URL or stuck
-- Count of issues remaining with `status:ready` queued for the next sprint
+Report:
+- mode used: single, sequential, or parallel
+- per-issue outcome: draft PR URL or stuck reason
+- count of issues still labeled `status:ready`
