@@ -3,6 +3,7 @@ import './globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { GlobalErrorHandlers } from '@/components/GlobalErrorHandlers'
 import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
+import { Footer } from '@/components/Footer'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="main-content">
             {children}
           </main>
+          <Footer />
         </ErrorBoundary>
       </body>
     </html>
