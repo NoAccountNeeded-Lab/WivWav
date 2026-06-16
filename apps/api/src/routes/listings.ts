@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { PrismaClient, Listing } from '@wivwav/db'
+import type { Listing } from '@wivwav/db'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
+import type { ListingRepository } from '../repositories/index.js'
 
 type ListingWithRequiredSource = Listing & { source: { name: string; baseUrl: string } }
 
@@ -40,7 +41,7 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
 }
 
 interface ListingsPluginOptions {
-  db: PrismaClient
+  listings: ListingRepository
   search: ListingSearchService
   facets: ListingFacetsService
 }
@@ -91,7 +92,7 @@ const filterQuerySchema = {
   additionalProperties: false,
 } as const
 
-export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (app, { db, search, facets }) => {
+export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (app, { listings, search, facets }) => {
   app.get<{ Querystring: FilterQuery }>('/facets', { schema: { querystring: filterQuerySchema } }, async (req, reply) => {
     const q = req.query
     try {
@@ -171,12 +172,12 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         },
       })
     } catch (err) {
-      // Meilisearch unavailable — fall back to plain Prisma query
-      req.log.warn(err, '[listings] Meilisearch unavailable, falling back to Prisma')
+      // Meilisearch unavailable — fall back to repository query
+      req.log.warn(err, '[listings] Meilisearch unavailable, falling back to repository')
       const skip = (page - 1) * perPage
       const [rows, total] = await Promise.all([
-        db.listing.findMany({ skip, take: perPage, where: { status: 'active' }, orderBy: { listedAt: 'desc' } }),
-        db.listing.count({ where: { status: 'active' } }),
+        listings.findManyActive(skip, perPage),
+        listings.countActive(),
       ])
       return reply.send({
         data: rows,
@@ -188,14 +189,11 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
 
   app.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
     try {
-      const listing = await db.listing.findUnique({
-        where: { id: req.params.id },
-        include: { source: { select: { name: true, baseUrl: true } } },
-      })
+      const listing = await listings.findById(req.params.id)
       if (!listing) return reply.notFound('Listing not found')
       if (!listing.source) return reply.internalServerError('Listing source not found')
 
-      return reply.send({ data: toListingDetailResponse(listing) })
+      return reply.send({ data: toListingDetailResponse(listing as ListingWithRequiredSource) })
     } catch (err) {
       req.log.error(err, '[listings/:id] failed to fetch listing')
       return reply.internalServerError('Failed to fetch listing')
@@ -203,21 +201,11 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
   })
 
   app.get<{ Params: { id: string } }>('/:id/safety', async (req, reply) => {
-    const listing = await db.listing.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, vehicleModelId: true },
-    })
+    const listing = await listings.findByIdForSafety(req.params.id)
     if (!listing) return reply.notFound('Listing not found')
     if (!listing.vehicleModelId) return reply.send({ data: { vehicleModel: null, recalls: [], complaints: [], safetyRatings: [] } })
 
-    const vehicleModel = await db.vehicleModel.findUnique({
-      where: { id: listing.vehicleModelId },
-      include: {
-        recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true } },
-        complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true } },
-        safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true } },
-      },
-    })
+    const vehicleModel = await listings.findVehicleModelWithSafetyData(listing.vehicleModelId)
 
     return reply.send({
       data: {
@@ -232,13 +220,9 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
   })
 
   app.get<{ Params: { id: string } }>('/:id/price-history', async (req, reply) => {
-    const listing = await db.listing.findUnique({ where: { id: req.params.id }, select: { id: true } })
+    const listing = await listings.findByIdForSafety(req.params.id)
     if (!listing) return reply.notFound('Listing not found')
-    const history = await db.listingPriceHistory.findMany({
-      where: { listingId: req.params.id },
-      orderBy: { recordedAt: 'asc' },
-      select: { id: true, priceCents: true, recordedAt: true },
-    })
+    const history = await listings.findPriceHistory(req.params.id)
     return reply.send({ data: history })
   })
 

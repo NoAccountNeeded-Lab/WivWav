@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { PrismaClient } from '@wivwav/db'
 import type { QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
+import type { ListingRepository, SourceRepository, ScraperRunRepository } from '../repositories/index.js'
 
 interface AdminPluginOptions {
-  db: PrismaClient
+  listings: ListingRepository
+  sources: SourceRepository
+  scraperRuns: ScraperRunRepository
   queueFactory: QueueFactory
   search: ListingSearchService
 }
@@ -29,7 +31,7 @@ const queueJobBodySchema = {
 
 export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app,
-  { db, queueFactory, search },
+  { listings, sources, scraperRuns, queueFactory, search },
 ) => {
   const queues = new Map<string, QueueAdapter>()
   for (const name of Object.values(QUEUES)) {
@@ -95,39 +97,22 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
   // GET /admin/runs — last 100 scraper runs ordered by startedAt desc, with source name
   app.get('/runs', async (_req, reply) => {
-    const runs = await db.scraperRun.findMany({
-      orderBy: { startedAt: 'desc' },
-      take: 100,
-    })
+    const runs = await scraperRuns.findRecent(100)
     const sourceIds = [...new Set(runs.map(r => r.sourceId))]
-    const sources = sourceIds.length
-      ? await db.source.findMany({ where: { id: { in: sourceIds } }, select: { id: true, name: true } })
-      : []
-    const nameById = new Map(sources.map(s => [s.id, s.name]))
+    const sourceRows = await sources.findManyByIds(sourceIds)
+    const nameById = new Map(sourceRows.map(s => [s.id, s.name]))
     return reply.send({ data: runs.map(r => ({ ...r, sourceName: nameById.get(r.sourceId) ?? null })) })
   })
 
   // GET /admin/sources — sources with status, lastScrapedAt, listingCount
   app.get('/sources', async (_req, reply) => {
-    const sources = await db.source.findMany({
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        baseUrl: true,
-        status: true,
-        cronExpression: true,
-        lastScrapedAt: true,
-        listingCount: true,
-        errorMessage: true,
-      },
-    })
-    return reply.send({ data: sources })
+    const sourceList = await sources.findAll()
+    return reply.send({ data: sourceList })
   })
 
   // POST /admin/sources/:id/run — immediately enqueue a source-scrape job
   app.post<{ Params: { id: string } }>('/sources/:id/run', async (req, reply) => {
-    const source = await db.source.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } })
+    const source = await sources.findById(req.params.id)
     if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
     const q = queues.get(QUEUES.SOURCE_SCRAPE)!
     const id = await q.add({ sourceId: source.id, traceId: req.id })
@@ -138,7 +123,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app.post('/sync', {
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (_req, reply) => {
-    const count = await search.syncAll(db)
+    const count = await search.syncAll(listings)
     return reply.send({ data: { synced: count } })
   })
 
@@ -159,12 +144,9 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   }
 
   async function getCanonicalDefs(): Promise<CanonicalDef[]> {
-    const sources = await db.source.findMany({
-      where: { name: { in: ['BLVD.com', 'MobilityWorks'] } },
-      select: { id: true, name: true, cronExpression: true, timezone: true },
-    })
-    const blvd = sources.find((s) => s.name === 'BLVD.com')
-    const mw = sources.find((s) => s.name === 'MobilityWorks')
+    const scheduledSources = await sources.findScheduledSources(['BLVD.com', 'MobilityWorks'])
+    const blvd = scheduledSources.find((s) => s.name === 'BLVD.com')
+    const mw = scheduledSources.find((s) => s.name === 'MobilityWorks')
     const tz = blvd?.timezone ?? 'America/New_York'
     return [
       ...(blvd ? [{ id: 'blvd', queue: 'source-scrape', jobId: 'blvd', label: 'BLVD.com scrape', name: 'source-scrape', data: { sourceId: blvd.id }, defaultPattern: blvd.cronExpression, tz: blvd.timezone }] : []),

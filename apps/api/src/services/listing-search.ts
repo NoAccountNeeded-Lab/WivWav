@@ -1,10 +1,10 @@
 import type { Meilisearch } from 'meilisearch'
-import type { PrismaClient } from '@wivwav/db'
 import type { ListingDocument } from '@wivwav/search'
 import {
   INDEX_NAME,
   toDocument,
 } from '@wivwav/search'
+import type { ListingRepository } from '../repositories/index.js'
 
 export { INDEX_NAME, priceBucket, mileageBucket } from '@wivwav/search'
 export type { ListingDocument } from '@wivwav/search'
@@ -105,16 +105,12 @@ export class ListingSearchService {
     }
   }
 
-  async syncAll(db: PrismaClient): Promise<number> {
+  async syncAll(listings: ListingRepository): Promise<number> {
     let synced = 0
     let cursor: string | undefined
 
     for (;;) {
-      const rows = await db.listing.findMany({
-        take: BATCH_SIZE,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-        orderBy: { id: 'asc' },
-      })
+      const rows = await listings.findPageForSync(BATCH_SIZE, cursor)
       if (rows.length === 0) break
 
       await this.index.addDocuments(rows.map(toDocument), { primaryKey: 'id' })

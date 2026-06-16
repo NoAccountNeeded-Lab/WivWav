@@ -57,21 +57,26 @@ const defaultDbListing = {
   },
 }
 
+function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
+  return {
+    findById: vi.fn(async () => null),
+    findByIdForSafety: vi.fn(async () => null),
+    findVehicleModelWithSafetyData: vi.fn(async () => null),
+    findManyActive: vi.fn(async () => [] as unknown[]),
+    countActive: vi.fn(async () => 0),
+    findPriceHistory: vi.fn(async () => []),
+    ...overrides,
+  }
+}
+
 function buildTestApp(
   search = { search: vi.fn(async () => ({ hits: [] as unknown[], total: 0, facets: {} as Record<string, unknown> })) },
-  dbOverrides: Partial<{ findUnique: (args: unknown) => Promise<unknown>; findMany: (args: unknown) => Promise<unknown[]>; count: () => Promise<number> }> = {},
+  listingRepoOverrides: Record<string, unknown> = {},
   facetsOverrides: Partial<{ getFacets: (args: unknown) => Promise<unknown> }> = {},
 ) {
   const app = Fastify()
   void app.register(sensible)
-  const db = {
-    listing: {
-      findMany: vi.fn(async () => []),
-      count: vi.fn(async () => 0),
-      findUnique: vi.fn(async () => null),
-      ...dbOverrides,
-    },
-  }
+  const listings = buildDefaultListingRepo(listingRepoOverrides)
   const facets = {
     getFacets: vi.fn(async () => ({
       total: 0,
@@ -88,8 +93,8 @@ function buildTestApp(
     })),
     ...facetsOverrides,
   }
-  void app.register(listingRoutes, { db: db as never, search: search as never, facets: facets as never })
-  return { app, db, search, facets }
+  void app.register(listingRoutes, { listings: listings as never, search: search as never, facets: facets as never })
+  return { app, listings, search, facets }
 }
 
 describe('GET /', () => {
@@ -138,12 +143,12 @@ describe('GET /', () => {
     await app.close()
   })
 
-  it('falls back to Prisma when Meilisearch is unavailable', async () => {
+  it('falls back to repository when Meilisearch is unavailable', async () => {
     const failingSearch = { search: vi.fn(async () => { throw new Error('Meilisearch down') }) }
     const dbListings = [{ id: 'row-1' }]
-    const { app, db } = buildTestApp(failingSearch, {
-      findMany: vi.fn(async () => dbListings),
-      count: vi.fn(async () => 7),
+    const { app, listings } = buildTestApp(failingSearch, {
+      findManyActive: vi.fn(async () => dbListings),
+      countActive: vi.fn(async () => 7),
     })
 
     const res = await app.inject({ method: 'GET', url: '/?page=2&perPage=5' })
@@ -153,7 +158,7 @@ describe('GET /', () => {
     expect(body.data).toEqual(dbListings)
     expect(body.facets).toEqual({})
     expect(body.pagination).toEqual({ page: 2, perPage: 5, total: 7, totalPages: 2 })
-    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 5, take: 5 }))
+    expect(listings.findManyActive).toHaveBeenCalledWith(5, 5)
 
     await app.close()
   })
@@ -234,7 +239,7 @@ describe('GET /:id — provenance', () => {
       detailScrapedAt: new Date('2024-01-03'),
       vehicleModelMatchConfidence: 'high',
     }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -253,7 +258,7 @@ describe('GET /:id — provenance', () => {
   })
 
   it('returns null for optional provenance fields when absent', async () => {
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => defaultDbListing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -272,7 +277,7 @@ describe('GET /:id — provenance', () => {
   })
 
   it('wraps response in { data } envelope', async () => {
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => defaultDbListing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -285,7 +290,7 @@ describe('GET /:id — provenance', () => {
   })
 
   it('does not leak the raw source relation into the top-level response', async () => {
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => defaultDbListing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -306,7 +311,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       dealerPhone: '303-555-0101',
       dealerWebsite: 'https://mobilitymotors.example.com',
     }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -322,7 +327,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
   })
 
   it('sets all dealer fields to null when absent', async () => {
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => defaultDbListing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -342,7 +347,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       lat: 39.7392,
       lng: -104.9903,
     }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -361,7 +366,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
 
   it('sets all location fields to null when absent', async () => {
     const listing = { ...defaultDbListing, zip: null, city: null, state: null, lat: null, lng: null }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -384,7 +389,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       transferSeat: true,
       wheelchairCapacity: 2,
     }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -405,7 +410,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
   })
 
   it('sets optional WAV fields to null when absent', async () => {
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => defaultDbListing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -437,7 +442,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       lat: 39.7392,
       lng: -104.9903,
     }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -459,7 +464,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
   })
 
   it('does not expose scrapedAt at the top level of data', async () => {
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => defaultDbListing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -472,7 +477,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
 
   it('returns 500 when source relation is missing from the listing', async () => {
     const listing = { ...defaultDbListing, source: null }
-    const { app } = buildTestApp(undefined, { findUnique: vi.fn(async () => listing) })
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 

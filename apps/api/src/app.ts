@@ -15,6 +15,12 @@ import { createBullBoardQueues } from '@wivwav/queue/bullmq/board'
 import type { Config } from './config.js'
 import type { ListingSearchService } from './services/listing-search.js'
 import type { ListingFacetsService } from './services/listing-facets.js'
+import {
+  PrismaListingRepository,
+  PrismaVehicleRepository,
+  PrismaSourceRepository,
+  PrismaScraperRunRepository,
+} from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
 import { vehicleRoutes } from './routes/vehicles.js'
@@ -117,13 +123,18 @@ export async function buildApp(
     void reply.code(statusCode).send(error)
   })
 
-  await app.register(healthRoutes, { prefix: '/health', db, meili, cache, config })
-  await app.register(listingRoutes, { prefix: '/v1/listings', db, search, facets })
-  await app.register(vehicleRoutes, { prefix: '/v1/vehicles', db })
+  const listingRepo = new PrismaListingRepository(db)
+  const vehicleRepo = new PrismaVehicleRepository(db)
+  const sourceRepo = new PrismaSourceRepository(db)
+  const scraperRunRepo = new PrismaScraperRunRepository(db)
+
+  await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
+  await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets })
+  await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
   await app.register(vinRoutes, { prefix: '/v1/vin', db })
   await app.register(marketRoutes, { prefix: '/v1/market', db })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
-  await app.register(adminRoutes, { prefix: '/admin', db, queueFactory, search })
+  await app.register(adminRoutes, { prefix: '/admin', listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
   await app.register(adminAiRoutes, {
     prefix: '/admin/ai',
     db,

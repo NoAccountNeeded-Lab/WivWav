@@ -3,28 +3,37 @@ import sensible from '@fastify/sensible'
 import { describe, expect, it, vi } from 'vitest'
 import { vehicleRoutes } from './vehicles.js'
 
-function buildTestApp(db: unknown) {
+function buildDefaultVehicleRepo(overrides: Record<string, unknown> = {}) {
+  return {
+    findModel: vi.fn(async () => null),
+    findRecalls: vi.fn(async () => []),
+    findComplaints: vi.fn(async () => []),
+    findStats: vi.fn(async () => null),
+    findResearch: vi.fn(async () => null),
+    ...overrides,
+  }
+}
+
+function buildTestApp(vehicleRepoOverrides: Record<string, unknown> = {}) {
   const app = Fastify()
   void app.register(sensible)
-  void app.register(vehicleRoutes, { db: db as never })
-  return app
+  const vehicles = buildDefaultVehicleRepo(vehicleRepoOverrides)
+  void app.register(vehicleRoutes, { vehicles: vehicles as never })
+  return { app, vehicles }
 }
 
 // ── GET /:make/:model/:year/recalls ───────────────────────────────────────────
 
 describe('GET /:make/:model/:year/recalls', () => {
   it('returns 400 when year is not a number', async () => {
-    const app = buildTestApp({})
+    const { app } = buildTestApp()
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/abc/recalls' })
     expect(res.statusCode).toBe(400)
     await app.close()
   })
 
   it('returns empty data when no VehicleModel is found', async () => {
-    const db = {
-      vehicleModel: { findFirst: vi.fn(async () => null) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findModel: vi.fn(async () => null) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/recalls' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toEqual([])
@@ -51,11 +60,10 @@ describe('GET /:make/:model/:year/recalls', () => {
         reportedAt: new Date('2023-06-01'),
       },
     ]
-    const db = {
-      vehicleModel: { findFirst: vi.fn(async () => vm) },
-      recall: { findMany: vi.fn(async () => recalls) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findRecalls: vi.fn(async () => recalls),
+    })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/recalls' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toHaveLength(2)
@@ -68,17 +76,14 @@ describe('GET /:make/:model/:year/recalls', () => {
 
 describe('GET /:make/:model/stats', () => {
   it('returns 400 when year query param is not a number', async () => {
-    const app = buildTestApp({})
+    const { app } = buildTestApp()
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats?year=abc' })
     expect(res.statusCode).toBe(400)
     await app.close()
   })
 
   it('returns null data when no stats record exists', async () => {
-    const db = {
-      vehicleStats: { findFirst: vi.fn(async () => null) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findStats: vi.fn(async () => null) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toBeNull()
@@ -100,10 +105,7 @@ describe('GET /:make/:model/stats', () => {
         'Source-backed vehicle facts only; no WivWav reliability score is calculated.',
       refreshedAt: new Date('2026-01-01'),
     }
-    const db = {
-      vehicleStats: { findFirst: vi.fn(async () => stats) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findStats: vi.fn(async () => stats) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toMatchObject({
@@ -131,25 +133,17 @@ describe('GET /:make/:model/stats', () => {
       methodology: 'No reliability or lifespan score is populated.',
       refreshedAt: new Date('2026-01-01'),
     }
-    const db = {
-      vehicleStats: { findFirst: vi.fn(async () => stats) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findStats: vi.fn(async () => stats) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data.sources).toEqual([])
     await app.close()
   })
 
-  it('passes year filter to db query when year query param is provided', async () => {
-    const db = {
-      vehicleStats: { findFirst: vi.fn(async () => null) },
-    }
-    const app = buildTestApp(db)
+  it('passes year filter to repository when year query param is provided', async () => {
+    const { app, vehicles } = buildTestApp({ findStats: vi.fn(async () => null) })
     await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats?year=2020' })
-    expect(db.vehicleStats.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ year: 2020 }) }),
-    )
+    expect(vehicles.findStats).toHaveBeenCalledWith('Toyota', 'Sienna', 2020)
     await app.close()
   })
 
@@ -167,10 +161,7 @@ describe('GET /:make/:model/stats', () => {
       methodology: null,
       refreshedAt: new Date('2026-01-01'),
     }
-    const db = {
-      vehicleStats: { findFirst: vi.fn(async () => stats) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findStats: vi.fn(async () => stats) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data.sources).toEqual([])
@@ -191,22 +182,11 @@ describe('GET /:make/:model/stats', () => {
       methodology: 'No reliability or lifespan score is populated.',
       refreshedAt: new Date('2026-01-01'),
     }
-    const db = {
-      vehicleStats: {
-        findFirst: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(genericStats),
-      },
-    }
-    const app = buildTestApp(db)
+    // The repository handles the fallback internally; route just calls findStats once
+    const { app, vehicles } = buildTestApp({ findStats: vi.fn(async () => genericStats) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/stats?year=2020' })
     expect(res.statusCode).toBe(200)
-    expect(db.vehicleStats.findFirst).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ where: expect.objectContaining({ year: 2020 }) }),
-    )
-    expect(db.vehicleStats.findFirst).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ where: expect.objectContaining({ year: null }) }),
-    )
+    expect(vehicles.findStats).toHaveBeenCalledWith('Toyota', 'Sienna', 2020)
     expect(res.json().data).toMatchObject({ year: null, methodology: genericStats.methodology })
     await app.close()
   })
@@ -216,17 +196,14 @@ describe('GET /:make/:model/stats', () => {
 
 describe('GET /:make/:model/:year/complaints', () => {
   it('returns 400 when year is not a number', async () => {
-    const app = buildTestApp({})
+    const { app } = buildTestApp()
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/bad/complaints' })
     expect(res.statusCode).toBe(400)
     await app.close()
   })
 
   it('returns empty data when no VehicleModel is found', async () => {
-    const db = {
-      vehicleModel: { findFirst: vi.fn(async () => null) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findModel: vi.fn(async () => null) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/complaints' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toEqual([])
@@ -246,11 +223,10 @@ describe('GET /:make/:model/:year/complaints', () => {
         reportedAt: new Date('2024-03-01'),
       },
     ]
-    const db = {
-      vehicleModel: { findFirst: vi.fn(async () => vm) },
-      complaint: { findMany: vi.fn(async () => complaints) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findComplaints: vi.fn(async () => complaints),
+    })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/complaints' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toHaveLength(1)
@@ -263,17 +239,14 @@ describe('GET /:make/:model/:year/complaints', () => {
 
 describe('GET /:make/:model/:year/research', () => {
   it('returns 400 when year is not a number', async () => {
-    const app = buildTestApp({})
+    const { app } = buildTestApp()
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/notanumber/research' })
     expect(res.statusCode).toBe(400)
     await app.close()
   })
 
   it('returns null data when no VehicleModel is found', async () => {
-    const db = {
-      vehicleModel: { findFirst: vi.fn(async () => null) },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({ findModel: vi.fn(async () => null) })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/research' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toBeNull()
@@ -281,15 +254,10 @@ describe('GET /:make/:model/:year/research', () => {
   })
 
   it('returns null data when VehicleModel exists but has no research', async () => {
-    const db = {
-      vehicleModel: {
-        findFirst: vi.fn(async () => ({ id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 })),
-      },
-      vehicleModelResearch: {
-        findFirst: vi.fn(async () => null),
-      },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => ({ id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 })),
+      findResearch: vi.fn(async () => null),
+    })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/research' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toBeNull()
@@ -298,43 +266,38 @@ describe('GET /:make/:model/:year/research', () => {
 
   it('returns research with sources and claims', async () => {
     const researchedAt = new Date('2026-06-01T00:00:00.000Z')
-    const db = {
-      vehicleModel: {
-        findFirst: vi.fn(async () => ({ id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 })),
-      },
-      vehicleModelResearch: {
-        findFirst: vi.fn(async () => ({
-          id: 'res-1',
-          researchVersion: 1,
-          researchedAt,
-          sources: [
-            {
-              id: 'src-1',
-              sourceName: 'EPA FuelEconomy.gov',
-              sourceUrl: 'https://www.fueleconomy.gov/feg/bymodel/2020_Toyota_Sienna.shtml',
-              fetchedAt: researchedAt,
-            },
-          ],
-          claims: [
-            {
-              id: 'claim-1',
-              field: 'fuelEconomyCombined',
-              claimText: '20 MPG combined',
-              confidence: 'high',
-              sourceId: 'src-1',
-            },
-            {
-              id: 'claim-2',
-              field: 'drivetrain',
-              claimText: 'Front-Wheel Drive',
-              confidence: 'high',
-              sourceId: 'src-1',
-            },
-          ],
-        })),
-      },
-    }
-    const app = buildTestApp(db)
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => ({ id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 })),
+      findResearch: vi.fn(async () => ({
+        id: 'res-1',
+        researchVersion: 1,
+        researchedAt,
+        sources: [
+          {
+            id: 'src-1',
+            sourceName: 'EPA FuelEconomy.gov',
+            sourceUrl: 'https://www.fueleconomy.gov/feg/bymodel/2020_Toyota_Sienna.shtml',
+            fetchedAt: researchedAt,
+          },
+        ],
+        claims: [
+          {
+            id: 'claim-1',
+            field: 'fuelEconomyCombined',
+            claimText: '20 MPG combined',
+            confidence: 'high',
+            sourceId: 'src-1',
+          },
+          {
+            id: 'claim-2',
+            field: 'drivetrain',
+            claimText: 'Front-Wheel Drive',
+            confidence: 'high',
+            sourceId: 'src-1',
+          },
+        ],
+      })),
+    })
     const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/research' })
 
     expect(res.statusCode).toBe(200)

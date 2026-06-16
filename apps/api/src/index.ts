@@ -20,6 +20,7 @@ import { loadConfig } from './config.js'
 import { buildApp } from './app.js'
 import { configureListingsIndex, ListingSearchService } from './services/listing-search.js'
 import { ListingFacetsService } from './services/listing-facets.js'
+import { PrismaListingRepository } from './repositories/index.js'
 
 const config = loadConfig()
 if (!config.CONFIG_ENCRYPTION_SECRET) {
@@ -93,7 +94,7 @@ try {
 
 // Initial sync runs in the background — can take minutes with many listings.
 // Idempotent; safe to run on every restart.
-void search.syncAll(db)
+void search.syncAll(new PrismaListingRepository(db))
   .then(n => app.log.info(`[search] Initial sync complete — ${n} listings indexed`))
   .catch(err => {
     const reason = err instanceof Error ? `: ${err.message}` : ''

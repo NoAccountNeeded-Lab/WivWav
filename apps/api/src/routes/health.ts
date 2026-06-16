@@ -4,6 +4,7 @@ import type { Meilisearch } from 'meilisearch'
 import type { PrismaClient } from '@wivwav/db'
 import type { HealthResponse, OverallHealthStatus, ServiceHealth } from '@wivwav/types'
 import type { Config } from '../config.js'
+import type { SourceRepository, ScraperRunRepository } from '../repositories/index.js'
 
 const LATENCY_THRESHOLDS_MS = {
   postgres: 100,
@@ -17,6 +18,8 @@ const PROBE_TIMEOUT_MS = 1500
 
 interface HealthPluginOptions {
   db: PrismaClient
+  sources: SourceRepository
+  scraperRuns: ScraperRunRepository
   meili: Meilisearch
   cache: Redis
   config: Config
@@ -24,7 +27,7 @@ interface HealthPluginOptions {
 
 type ProbeName = keyof typeof LATENCY_THRESHOLDS_MS
 
-export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app, { db, meili, cache, config }) => {
+export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app, { db, sources, scraperRuns, meili, cache, config }) => {
   app.get('/', { logLevel: 'silent' }, async (): Promise<HealthResponse> => {
     const [postgres, meilisearch, valkey, ollama, scraper] = await Promise.all([
       probe('postgres', () => db.$queryRaw`SELECT 1`),
@@ -36,7 +39,7 @@ export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app,
         await cache.ping()
       }),
       probeOllama(config),
-      getScraperHealth(db),
+      getScraperHealth(sources, scraperRuns),
     ])
 
     const services = { postgres, meilisearch, valkey, ollama, scraper }
@@ -79,17 +82,13 @@ async function probe(name: ProbeName, fn: () => Promise<unknown>): Promise<Servi
   }
 }
 
-async function getScraperHealth(db: PrismaClient): Promise<ServiceHealth> {
+async function getScraperHealth(sources: SourceRepository, scraperRuns: ScraperRunRepository): Promise<ServiceHealth> {
   try {
     const [sourceCount, activeSourceCount, lastRun] = await withTimeout(
       Promise.all([
-        db.source.count(),
-        db.source.count({ where: { status: 'active' } }),
-        db.scraperRun.findFirst({
-          where: { success: true, finishedAt: { not: null } },
-          orderBy: { finishedAt: 'desc' },
-          select: { finishedAt: true },
-        }),
+        sources.count(),
+        sources.countActive(),
+        scraperRuns.findLastSuccessful(),
       ]),
       PROBE_TIMEOUT_MS
     )
