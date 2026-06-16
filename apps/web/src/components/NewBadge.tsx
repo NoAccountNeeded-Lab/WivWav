@@ -22,14 +22,17 @@ export function NewBadge({ listedAt }: NewBadgeProps) {
   useEffect(() => {
     const lastVisit = getLastVisitTimestamp()
     if (lastVisit === null) return
-    setIsNew(new Date(listedAt) > new Date(lastVisit))
+
+    const listedDate = new Date(listedAt)
+    if (isNaN(listedDate.getTime())) return
+
+    setIsNew(listedDate > new Date(lastVisit))
   }, [listedAt])
 
   if (!isNew) return null
 
   return (
-    <span className={styles.badge} aria-label="New listing">
-      New
-    </span>
+    // Visible text "New" is read by screen readers; no aria-label needed
+    <span className={styles.badge}>New</span>
   )
 }

@@ -2,7 +2,7 @@
  * "New" badge for listings added since the user's last visit.
  *
  * When rendered inside a position:relative card image wrapper it is placed
- * in the top-right corner. Uses --color-info (Blue 9) to be visually distinct
+ * in the top-right corner. Uses --clr-info (Blue 9) to be visually distinct
  * from the green WAV-feature badges. Color is never the only signal — the
  * text "New" carries the meaning.
  */
@@ -19,8 +19,7 @@
   text-transform: uppercase;
   border-radius: 999px;
   white-space: nowrap;
-  /* Blue 9 from Radix — fixed, not theme-dependent */
-  background: #0090ff;
+  background: var(--clr-info);
   color: #fff;
   line-height: 1.4;
   /* Sit above the image gradient */
