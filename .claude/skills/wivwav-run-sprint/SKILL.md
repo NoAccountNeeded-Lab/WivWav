@@ -38,8 +38,7 @@ The Sprint-Run ID includes `T%H:%M` for uniqueness across multiple runs on the s
 ### 3. Prune stale git metadata
 
 ```bash
-git worktree prune
-git worktree list
+git worktree prune && git worktree list
 ```
 
 Do **not** remove worktree directories blindly. Only remove a specific `.claude/worktrees/...` directory if it is clearly stale and confirmed not used by an active worker.
@@ -73,11 +72,7 @@ Skip (do not process) if:
 - The issue is already labeled `status:in-progress`.
 - The issue is not labeled `status:ready` and was not explicitly supplied by the user.
 
-Check the body for acceptance criteria (case-insensitive match on any of):
-- `acceptance criteria`
-- `done when`
-- `## ac`
-- A non-empty checklist (`- [ ]`)
+Check the body for acceptance criteria using the markers defined in `.claude/core.md`.
 
 If none are present, **do not spawn a worker**:
 - Post comment: "🤖 **orchestrator[0]** · `run-sprint` · $(date -u +%Y-%m-%d)\n\nIssue is missing acceptance criteria. Add them before this issue can be picked up by a sprint worker."
@@ -100,17 +95,21 @@ gh issue comment {N} --body "🤖 **orchestrator[0]** · \`run-sprint\` · $(dat
 Sprint worker starting. Branch: {branch-name} · Sprint: {SPRINT_RUN_ID}"
 ```
 
+Write a recovery state file so any continuation agent can orient itself without needing this conversation's context:
+
+**`/tmp/wivwav-{N}.md`**
+```
+Issue: #{N}
+Branch: {branch-name}
+Sprint-Run: {SPRINT_RUN_ID}
+Status: running
+```
+
 ---
 
-## Sequential mode (PARALLEL=0)
+## Worker prompt template
 
-### 8-seq. Loop through issues one at a time
-
-Each Agent call is **foreground (blocking)** — wait for the result before proceeding to the next issue.
-
-For each issue in order, assign agent index **1** and spawn a worker with `isolation: "worktree"`:
-
-**Worker prompt** (fill in N, branch-name, SPRINT_RUN_ID):
+Fill in `N`, `branch-name`, `SPRINT_RUN_ID`, and `AGENT_INDEX` for each worker. In sequential mode, `AGENT_INDEX` is always `1`.
 
 ---
 Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.
@@ -125,10 +124,18 @@ Before reading source files, use the fetched issue details to write a scoped pla
 
 Your branch: {branch-name}
 Agent-Role: worker
-Agent-Index: 1
+Agent-Index: {AGENT_INDEX}
 Sprint-Run: {SPRINT_RUN_ID}
 
 ---
+
+## Sequential mode (PARALLEL=0)
+
+### 8-seq. Loop through issues one at a time
+
+Each Agent call is **foreground (blocking)** — wait for the result before proceeding to the next issue.
+
+For each issue in order, assign agent index **1** and spawn a worker with `isolation: "worktree"` using the **worker prompt template** above.
 
 If the Agent call fails to spawn:
 ```bash
@@ -152,10 +159,11 @@ After each worker completes, post a summary comment:
   Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
   ```
 
+Update `/tmp/wivwav-{N}.md`: set `Status: success` and add `PR: {PR URL}` on success, or `Status: stuck` on failure.
+
 Clean up the worktree for that issue before moving to the next:
 ```bash
-git worktree remove --force .claude/worktrees/{worktree-dir}
-git worktree prune
+git worktree remove --force .claude/worktrees/{worktree-dir} && git worktree prune
 ```
 
 If a worker fails, label the issue `status:stuck` and continue to the next issue. Proceed until the list is exhausted or `LIMIT` is reached.
@@ -168,29 +176,9 @@ If a worker fails, label the issue `status:stuck` and continue to the next issue
 
 Assign each issue a unique agent index starting at 1 (first issue → index 1, second → index 2, …).
 
-Spawn **all agents in one message** using `run_in_background: true` and `isolation: "worktree"` on each Agent call.
+Spawn **all agents in one message** using `run_in_background: true` and `isolation: "worktree"` on each Agent call, using the **worker prompt template** above with each issue's assigned `Agent-Index`.
 
-> **Concurrency note:** Each worker runs in its own git worktree and operates on separate source files, so file writes do not conflict. However, `pnpm test` hits shared infrastructure (PostgreSQL, Meilisearch, Valkey). Both `wivwav-code-review` (Step 8) and `wivwav-finish-issue` (Step 6) wrap their test runs with a platform-appropriate lockfile (`flock` on Linux, `lockf -k` on macOS), which serializes test execution across all concurrent workers automatically. `pnpm typecheck` and `pnpm lint` are read-only and run concurrently without a lock.
-
-**Worker prompt** (fill in N, branch-name, SPRINT_RUN_ID, AGENT_INDEX):
-
----
-Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.
-Keep startup context lean: do not read `AGENTS.md`, package manifests, or broad directory listings unless your plan identifies a specific need for them.
-
-You are implementing issue #{N}.
-
-First fetch the issue details:
-`gh issue view {N} --json number,title,body,labels`
-
-Before reading source files, use the fetched issue details to write a scoped plan that names the likely files and the evidence you need from each one.
-
-Your branch: {branch-name}
-Agent-Role: worker
-Agent-Index: {AGENT_INDEX}
-Sprint-Run: {SPRINT_RUN_ID}
-
----
+> **Concurrency note:** Each worker runs in its own git worktree and operates on separate source files, so file writes do not conflict. However, `pnpm test` hits shared infrastructure (PostgreSQL, Meilisearch, Valkey). `wivwav-finish-issue` wraps its test run with a platform-appropriate lockfile (`flock` on Linux, `lockf -k` on macOS), which serializes test execution across all concurrent workers automatically. `pnpm typecheck`, `pnpm lint`, and `pnpm build` are read-only and run concurrently without a lock.
 
 If any Agent call fails to spawn immediately:
 ```bash
@@ -217,10 +205,11 @@ The harness notifies you when each background agent finishes. As each one comple
   Worker could not complete this issue: {reason}. Labeled status:stuck for triage.
   ```
 
+Update `/tmp/wivwav-{N}.md`: set `Status: success` and add `PR: {PR URL}` on success, or `Status: stuck` on failure.
+
 Clean up each worktree as its worker finishes — do not wait for all workers:
 ```bash
-git worktree remove --force .claude/worktrees/{worktree-dir}
-git worktree prune
+git worktree remove --force .claude/worktrees/{worktree-dir} && git worktree prune
 ```
 
 A partial success (some workers succeed, some fail) is still a valid sprint run. Never cancel running workers because one failed.

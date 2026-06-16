@@ -7,7 +7,7 @@ argument-hint: "[issue-number]"
 
 Use this skill only when the user explicitly asks to finish the current issue or invokes `/wivwav-finish-issue`.
 
-Read `.claude/core.md` for branch naming, commit format, and attribution conventions. Read `AGENTS.md` only if the task requires deep workflow or architecture reference. Do not commit, push, or open a PR if validation fails.
+Do not commit, push, or open a PR if validation fails.
 
 1. Confirm the current branch is not `main`, `master`, or detached `HEAD`.
 2. Identify the issue number from `$ARGUMENTS`, the branch name, or the user's request.
@@ -15,11 +15,12 @@ Read `.claude/core.md` for branch naming, commit format, and attribution convent
 4. If files under `apps/web` changed, read `docs/BRAND.md` now (if not already read this session) and include accessibility QA notes in the PR body.
 5. If files under `apps/api/src/routes/` changed, verify the API routes table in `AGENTS.md` is current and stage it if it changed.
 6. Run final validation from the repository root:
-   - `pnpm typecheck`
-   - `pnpm lint`
-   - Serialize the test run with a platform-appropriate lockfile to prevent concurrent test runs across worktrees from colliding on shared infrastructure (PostgreSQL, Meilisearch, Valkey); `typecheck` and `lint` are read-only and left unwrapped:
-     - Linux: `flock /tmp/wivwav-test.lock pnpm test`
-     - macOS: `lockf -k /tmp/wivwav-test.lock pnpm test`
+   ```bash
+   pnpm typecheck && pnpm lint && pnpm build
+   lockf -k /tmp/wivwav-test.lock pnpm test   # macOS
+   flock /tmp/wivwav-test.lock pnpm test       # Linux
+   ```
+   `typecheck`, `lint`, and `build` run unwrapped. The test lockfile serializes runs across worktrees to prevent conflicts on shared infrastructure (PostgreSQL, Meilisearch, Valkey).
 7. If validation fails, stop. Report the failure and do not commit.
 8. Stage only relevant files for this issue. Do not stage `.env` files, generated caches, unrelated work, or dirty files outside the issue scope.
 9. Commit using the required format:
