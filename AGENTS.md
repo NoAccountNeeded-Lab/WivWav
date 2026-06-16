@@ -126,7 +126,7 @@ The output is human-readable text. Copy it into the PR evidence section when rel
 4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
 5. **Update AGENTS.md** if you added, removed, or renamed API routes (keep the routes table current)
 6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
-7. Review the PR, address findings, and merge with **rebase** (`gh pr merge --rebase`). Claude Code: `/wivwav-code-review`.
+7. Review the PR, address findings, and merge with **rebase** (`gh pr merge --auto --rebase --delete-branch`) — `main` is a merge-queue-protected branch, so `--auto` is required to enqueue rather than merge immediately; see [docs/design/merge-queue.md](docs/design/merge-queue.md). Claude Code: `/wivwav-code-review`.
 
 Never work directly on `main`. Never commit on failing tests.
 Never leave an issue without a commit and draft PR — finish explicitly, not at session end.
@@ -494,8 +494,9 @@ Test files live next to source: `foo.ts` → `foo.test.ts`. Integration tests us
 
 ## CI/CD
 
-- **All pushes:** typecheck → lint → test (`ci.yml`)
+- **All pushes/PRs:** `ci.yml` runs three parallel jobs — `Docker builds`, `Lint & Typecheck`, `Test`
 - **Main branch:** build + push Docker images to ghcr.io (`publish.yml`)
+- **Merge queue:** `main` requires all three `ci.yml` jobs to pass before merging, enforced via a repository ruleset (not classic branch protection) with `merge_group` support in `ci.yml`. See [docs/design/merge-queue.md](docs/design/merge-queue.md) for the full ruleset configuration, the `--auto` merge path, and verification evidence.
 
 ---
 
