@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import styles from '@/styles/legal-page.module.css'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — WAV Search',
-  description: 'How WAV Search handles data from site visitors and third-party sources.',
+  title: 'Privacy Policy — WivWav',
+  description: 'How WivWav handles data from site visitors and third-party sources.',
 }
 
 export default function PrivacyPage() {
@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="overview-heading">
           <h2 id="overview-heading" className={styles.sectionHeading}>Overview</h2>
           <p className={styles.body}>
-            WAV Search is a free, open-access search tool for wheelchair accessible vehicles. No account
+            WivWav is a free, open-access search tool for wheelchair accessible vehicles. No account
             or login is required to use the site. This policy explains what information is collected,
             how it is used, and your rights as a visitor.
           </p>
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="data-collected-heading">
           <h2 id="data-collected-heading" className={styles.sectionHeading}>Data Collected from Visitors</h2>
           <p className={styles.body}>
-            WAV Search does not require registration or login. We do not knowingly collect personally
+            WivWav does not require registration or login. We do not knowingly collect personally
             identifiable information (PII) such as your name, email address, or phone number.
           </p>
           <p className={styles.body}>
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="cookies-heading">
           <h2 id="cookies-heading" className={styles.sectionHeading}>Cookies and Local Storage</h2>
           <p className={styles.body}>
-            WAV Search uses browser <code>localStorage</code> to remember your optional theme preference
+            WivWav uses browser <code>localStorage</code> to remember your optional theme preference
             (Spring, Summer, Fall, or Winter). This data never leaves your device and is not transmitted
             to our servers.
           </p>
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="third-party-heading">
           <h2 id="third-party-heading" className={styles.sectionHeading}>Third-Party Data Sources</h2>
           <p className={styles.body}>
-            Listing data on WAV Search is sourced from publicly accessible dealer websites and the
+            Listing data on WivWav is sourced from publicly accessible dealer websites and the
             U.S. National Highway Traffic Safety Administration (NHTSA) public API. We aggregate and
             index this information to make it searchable. We do not control the privacy practices of
             those sources.
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="children-heading">
           <h2 id="children-heading" className={styles.sectionHeading}>Children&apos;s Privacy</h2>
           <p className={styles.body}>
-            WAV Search is not directed at children under 13. We do not knowingly collect personal
+            WivWav is not directed at children under 13. We do not knowingly collect personal
             information from children.
           </p>
         </section>
@@ -101,8 +101,8 @@ export default function PrivacyPage() {
           <h2 id="privacy-contact-heading" className={styles.contactHeading}>Contact</h2>
           <p className={styles.contactBody}>
             Questions about this Privacy Policy? Email{' '}
-            <a href="mailto:privacy@wavsearch.com" className={styles.contactLink}>
-              privacy@wavsearch.com
+            <a href="mailto:privacy@wivwav.com" className={styles.contactLink}>
+              privacy@wivwav.com
             </a>
             .
           </p>

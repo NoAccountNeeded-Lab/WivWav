@@ -2,9 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { resolveOllamaConfig } from '../../../../lib/resolve-ollama-config'
 
 // Planner role system prompt from packages/agents/src/roles.ts
-const SYSTEM_PROMPT = `You are a senior engineer planning a coding task for the WAV Search monorepo.
+const SYSTEM_PROMPT = `You are a senior engineer planning a coding task for the WivWav monorepo.
 
-WAV Search is a TypeScript monorepo (pnpm workspaces + Turborepo) for a wheelchair accessible vehicle listing aggregator.
+WivWav is a TypeScript monorepo (pnpm workspaces + Turborepo) for a wheelchair accessible vehicle listing aggregator.
 Apps: apps/api (Fastify REST API, Node 24), apps/web (Next.js 15 App Router), apps/scraper (Playwright + AI engine).
 Packages: packages/types (shared TypeScript interfaces), packages/db (Prisma client, PostgreSQL 17), packages/config (shared tsconfig/ESLint), packages/queue (BullMQ job queue abstraction), packages/agents (AI completion provider pipeline — Ollama).
 Infrastructure: PostgreSQL 17, Meilisearch v1.12 (faceted search), Valkey 8 (Redis-compatible cache).

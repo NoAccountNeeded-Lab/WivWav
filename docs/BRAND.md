@@ -1,6 +1,6 @@
 # Brand And UI Guidelines
 
-WAV Search is a practical search tool for wheelchair accessible vehicles. The product should feel clear, trustworthy, fast, and calm. It should not feel like a generic car marketplace or a marketing landing page.
+WivWav is a practical search tool for wheelchair accessible vehicles. The product should feel clear, trustworthy, fast, and calm. It should not feel like a generic car marketplace or a marketing landing page.
 
 ## Product Principles
 

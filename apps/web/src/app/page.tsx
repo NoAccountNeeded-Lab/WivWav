@@ -9,7 +9,7 @@ export default function HomePage() {
       </a>
       <header className={styles.siteHeader}>
         <div className={styles.headerInner}>
-          <a href="/" className={styles.logo} aria-label="WAV Search homepage">
+          <a href="/" className={styles.logo} aria-label="WivWav homepage">
             <span className={styles.logoAccent}>WAV</span> Search
           </a>
           <p className={styles.headerTagline}>Wheelchair Accessible Vehicles</p>

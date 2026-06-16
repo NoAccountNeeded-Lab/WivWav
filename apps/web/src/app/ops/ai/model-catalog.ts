@@ -15,7 +15,7 @@ export const MODEL_CATALOG: readonly CatalogModel[] = [
   {
     name: 'llama3.2',
     label: 'Llama 3.2 (3B)',
-    description: 'Meta\'s fast 3B model. Excellent at instruction following and structured text extraction — the best all-round default for most WAV Search tasks.',
+    description: 'Meta\'s fast 3B model. Excellent at instruction following and structured text extraction — the best all-round default for most WivWav tasks.',
     paramBillions: 3,
     sizeGB: 2.0,
   },

@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import styles from '@/styles/legal-page.module.css'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — WAV Search',
-  description: 'Terms governing your use of WAV Search, an informational tool for finding wheelchair accessible vehicles.',
+  title: 'Terms of Service — WivWav',
+  description: 'Terms governing your use of WivWav, an informational tool for finding wheelchair accessible vehicles.',
 }
 
 export default function TermsPage() {
@@ -16,7 +16,7 @@ export default function TermsPage() {
         <section className={styles.section} aria-labelledby="acceptance-heading">
           <h2 id="acceptance-heading" className={styles.sectionHeading}>Acceptance of Terms</h2>
           <p className={styles.body}>
-            By using WAV Search (&ldquo;the Service&rdquo;), you agree to these Terms of Service. If you
+            By using WivWav (&ldquo;the Service&rdquo;), you agree to these Terms of Service. If you
             do not agree, please do not use the Service.
           </p>
         </section>
@@ -24,7 +24,7 @@ export default function TermsPage() {
         <section className={styles.section} aria-labelledby="informational-heading">
           <h2 id="informational-heading" className={styles.sectionHeading}>Informational Use Only</h2>
           <p className={styles.body}>
-            WAV Search is provided for <strong>informational purposes only</strong>. The Service
+            WivWav is provided for <strong>informational purposes only</strong>. The Service
             aggregates publicly available vehicle listings from dealer websites and public data sources.
             Nothing on this site constitutes:
           </p>
@@ -43,7 +43,7 @@ export default function TermsPage() {
           <h2 id="accuracy-heading" className={styles.sectionHeading}>Data Accuracy Limitations</h2>
           <p className={styles.body}>
             Listing data is sourced automatically from third-party dealer sites and the NHTSA public API.
-            WAV Search does not independently verify listing details. Data may be:
+            WivWav does not independently verify listing details. Data may be:
           </p>
           <ul className={styles.list}>
             <li>Out of date — vehicles may have sold or changed in price</li>
@@ -51,7 +51,7 @@ export default function TermsPage() {
             <li>Inaccurate — scraping and automated processing can introduce errors</li>
           </ul>
           <p className={styles.body}>
-            WAV Search makes no warranties, express or implied, about the accuracy, completeness, or
+            WivWav makes no warranties, express or implied, about the accuracy, completeness, or
             timeliness of any information presented on the site.
           </p>
         </section>
@@ -60,7 +60,7 @@ export default function TermsPage() {
           <h2 id="no-warranty-heading" className={styles.sectionHeading}>No Warranty</h2>
           <p className={styles.body}>
             The Service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo; without warranty
-            of any kind. To the fullest extent permitted by law, WAV Search disclaims all warranties,
+            of any kind. To the fullest extent permitted by law, WivWav disclaims all warranties,
             including implied warranties of merchantability, fitness for a particular purpose, and
             non-infringement.
           </p>
@@ -69,7 +69,7 @@ export default function TermsPage() {
         <section className={styles.section} aria-labelledby="liability-heading">
           <h2 id="liability-heading" className={styles.sectionHeading}>Limitation of Liability</h2>
           <p className={styles.body}>
-            To the maximum extent permitted by applicable law, WAV Search and its operators shall not be
+            To the maximum extent permitted by applicable law, WivWav and its operators shall not be
             liable for any indirect, incidental, special, consequential, or punitive damages arising
             from your use of, or inability to use, the Service or any information obtained through it.
           </p>
@@ -110,8 +110,8 @@ export default function TermsPage() {
           <h2 id="terms-contact-heading" className={styles.contactHeading}>Contact</h2>
           <p className={styles.contactBody}>
             Questions about these Terms? Email{' '}
-            <a href="mailto:legal@wavsearch.com" className={styles.contactLink}>
-              legal@wavsearch.com
+            <a href="mailto:legal@wivwav.com" className={styles.contactLink}>
+              legal@wivwav.com
             </a>
             .
           </p>

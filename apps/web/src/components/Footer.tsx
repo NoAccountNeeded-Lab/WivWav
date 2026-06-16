@@ -8,7 +8,7 @@ export function Footer() {
     <footer className={styles.footer} aria-label="Site footer">
       <div className={styles.inner}>
         <p className={styles.copy}>
-          &copy; {year} WAV Search. Informational use only.
+          &copy; {year} WivWav. Informational use only.
         </p>
         <nav aria-label="Legal links">
           <ul className={styles.nav}>

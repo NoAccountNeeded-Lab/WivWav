@@ -79,7 +79,7 @@ async function getVinReport(vin: string): Promise<{ data: VinSafetyReport | null
 export async function generateMetadata({ params }: { params: Promise<{ vin: string }> }): Promise<Metadata> {
   const { vin } = await params
   return {
-    title: `${vin.toUpperCase()} Safety Report — WAV Search`,
+    title: `${vin.toUpperCase()} Safety Report — WivWav`,
     description: 'NHTSA recall, complaint, and safety rating summary for this VIN.',
   }
 }
@@ -128,7 +128,7 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
         <section className={styles.section} aria-labelledby="vin-unknown-heading">
           <h2 className={styles.sectionTitle} id="vin-unknown-heading">No decoded vehicle</h2>
           <div className={styles.notice}>
-            <strong>WAV Search could not decode this VIN through NHTSA.</strong> Check the VIN for typos or try another vehicle.
+            <strong>WivWav could not decode this VIN through NHTSA.</strong> Check the VIN for typos or try another vehicle.
           </div>
         </section>
       )}
@@ -184,7 +184,7 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
             <h2 className={styles.sectionTitle} id="recalls-heading">Recall campaigns</h2>
             {report.recalls.length === 0 ? (
               <div className={styles.notice}>
-                <strong>No open recalls found</strong> in WAV Search safety data for this decoded vehicle model as of {formatDate(report.checkedAt)}.
+                <strong>No open recalls found</strong> in WivWav safety data for this decoded vehicle model as of {formatDate(report.checkedAt)}.
               </div>
             ) : (
               <ul className={styles.recallList}>
