@@ -146,6 +146,18 @@ describe('PrismaListingRepository', () => {
       }))
     })
 
+    it('skips the DB write when a source fallback buyer URL would replace an enriched buyer URL', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        buyerUrl: 'https://dealer.example.com/inventory/5TDYRKEC8RS205440',
+        priceCents: 3000000,
+      })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({ priceCents: 3000000 }))
+
+      expect(db.listing.upsert).not.toHaveBeenCalled()
+    })
+
     it('writes the DB and updates sourceUrl when the listing slug changes on re-scrape', async () => {
       const db = makeDb({ id: 'list-1', sourceUrl: 'http://example.com/old-slug', priceCents: 3000000 })
       const repo = new PrismaListingRepository(db as never)
@@ -153,6 +165,17 @@ describe('PrismaListingRepository', () => {
 
       expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
         update: expect.objectContaining({ sourceUrl: 'http://example.com/new-slug' }),
+      }))
+    })
+
+    it('preserves an enriched buyer URL when updating other listing data', async () => {
+      const enrichedUrl = 'https://dealer.example.com/inventory/5TDYRKEC8RS205440'
+      const db = makeDb({ id: 'list-1', buyerUrl: enrichedUrl, priceCents: 2500000 })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({ priceCents: 3000000 }))
+
+      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ buyerUrl: enrichedUrl }),
       }))
     })
 

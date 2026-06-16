@@ -1,5 +1,6 @@
 const BLVD_BASE_URL = 'https://www.blvd.com'
 const BLVD_HOSTS = new Set(['blvd.com', 'www.blvd.com'])
+const LISTING_CATEGORIES = new Set(['wheelchair-vans', 'wheelchair-trucks'])
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
 const DEFAULT_RATE_LIMIT_MS = 1_000
 const DEFAULT_MAX_DEALER_PAGES = 1
@@ -92,7 +93,7 @@ export function deriveBlvdDealerProfileUrl(sourceUrl: string): string | null {
   if (!BLVD_HOSTS.has(url.hostname.toLowerCase())) return null
 
   const [category, dealerSlug, vin] = url.pathname.split('/').filter(Boolean)
-  if (category !== 'wheelchair-vans' || !dealerSlug || !vin) return null
+  if (!LISTING_CATEGORIES.has(category ?? '') || !dealerSlug || !vin) return null
 
   return `${BLVD_BASE_URL}/wheelchair-van-dealers/${dealerSlug}`
 }
