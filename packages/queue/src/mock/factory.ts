@@ -89,7 +89,7 @@ export class MockQueueAdapter implements QueueAdapter {
   }
 
   async getRepeatableJobs(): Promise<RepeatableJob[]> { return [] }
-  async addRepeatable(): Promise<void> {}
+  async addRepeatable(_name: string, _data: unknown, _pattern: string, _tz?: string, _jobId?: string, _options?: JobOptions): Promise<void> {}
   async removeRepeatableByKey(): Promise<boolean> { return true }
 
   async close(): Promise<void> {}

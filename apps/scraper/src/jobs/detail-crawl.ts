@@ -1,6 +1,7 @@
 import { chromium } from '@playwright/test'
 import { getDb } from '@wivwav/db'
 import type { JobContext, QueueAdapter } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 50
@@ -80,7 +81,17 @@ export async function runDetailCrawlJob(sourceId: string, context?: JobContext, 
               where: { sourceUrl, status: { not: 'gone' } },
               data: { status: 'gone', goneAt: new Date() },
             })
-            await listingSyncQueue?.add({})
+            if (listingSyncQueue !== undefined) {
+              try {
+                await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+              } catch (enqueueErr) {
+                context?.logger?.error(
+                  { err: enqueueErr, sourceUrl },
+                  '[detail-crawl] Failed to enqueue listing-sync job',
+                )
+                await report(context, `[detail-crawl] Failed to enqueue listing-sync job: ${enqueueErr}`)
+              }
+            }
             await report(context, `[detail-crawl] ${is404 ? '404' : 'Off-domain redirect'} — marked ${sourceUrl} as gone`)
           } else {
             const html = await page.content()

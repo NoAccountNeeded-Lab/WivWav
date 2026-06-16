@@ -14,8 +14,8 @@ process.on('uncaughtException', (err) => {
 
 import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
-import { BullMQQueueFactory, QUEUES } from '@wivwav/queue'
-import type { QueueAdapter } from '@wivwav/queue'
+import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, QUEUES } from '@wivwav/queue'
+import type { JobOptions, QueueAdapter } from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
 import { BlvdAdapter } from './sources/blvd.js'
 import { MobilityWorksAdapter } from './sources/mobilityworks.js'
@@ -272,6 +272,7 @@ interface ScheduleDef {
   pattern: string
   tz: string
   jobId?: string // stable ID used to identify per-source repeatable jobs
+  options?: JobOptions
 }
 
 const tz = blvdSource.timezone
@@ -300,6 +301,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     pattern: '0 * * * *',
     tz,
     jobId: 'blvd-crawl',
+    options: CRITICAL_JOB_OPTIONS,
   },
   {
     queue: crawlQueue,
@@ -308,6 +310,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     pattern: '0 * * * *',
     tz: mwSource.timezone,
     jobId: 'mw-crawl',
+    options: CRITICAL_JOB_OPTIONS,
   },
   {
     queue: extractQueue,
@@ -316,6 +319,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     pattern: '*/5 * * * *',
     tz,
     jobId: 'blvd-extract',
+    options: CRITICAL_JOB_OPTIONS,
   },
   {
     queue: extractQueue,
@@ -324,6 +328,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     pattern: '*/5 * * * *',
     tz: mwSource.timezone,
     jobId: 'mw-extract',
+    options: CRITICAL_JOB_OPTIONS,
   },
   // Pipeline jobs are staggered to minimise concurrent listing mutations.
   // Row-level locking (processingLockedAt) provides defence-in-depth if
@@ -366,7 +371,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     tz,
   },
   { queue: modelResearchQueue, name: QUEUES.MODEL_RESEARCH, data: {}, pattern: '30 5 * * 0', tz },
-  { queue: listingSyncQueue, name: QUEUES.LISTING_SYNC, data: {}, pattern: '30 1 * * *', tz },
+  { queue: listingSyncQueue, name: QUEUES.LISTING_SYNC, data: {}, pattern: '30 1 * * *', tz, options: CRITICAL_JOB_OPTIONS },
   { queue: rawPageCleanupQueue, name: QUEUES.RAWPAGE_CLEANUP, data: {}, pattern: '0 0 * * *', tz },
 ]
 
@@ -377,7 +382,7 @@ for (const def of SCHEDULE_DEFS) {
     : existing.some((r) => r.name === def.name)
 
   if (!alreadyScheduled) {
-    await def.queue.addRepeatable(def.name, def.data, def.pattern, def.tz, def.jobId)
+    await def.queue.addRepeatable(def.name, def.data, def.pattern, def.tz, def.jobId, def.options)
     logger.info(
       { queue: def.name, jobId: def.jobId, pattern: def.pattern, tz: def.tz },
       'Schedule registered',
