@@ -7,7 +7,7 @@ import { Footer } from '@/components/Footer'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 
 export const metadata: Metadata = {
-  title: 'WAV Search — Find Wheelchair Accessible Vehicles',
+  title: 'WivWav — Find Wheelchair Accessible Vehicles',
   description:
     'Search thousands of wheelchair accessible vehicles from dealers and private sellers across the US. Filter by conversion type, lift, ramp, hand controls, and more.',
 }

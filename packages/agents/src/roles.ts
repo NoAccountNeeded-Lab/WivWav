@@ -1,5 +1,5 @@
 const PROJECT_CONTEXT = `
-WAV Search is a TypeScript monorepo (pnpm workspaces + Turborepo) for a wheelchair accessible vehicle listing aggregator.
+WivWav is a TypeScript monorepo (pnpm workspaces + Turborepo) for a wheelchair accessible vehicle listing aggregator.
 Apps: apps/api (Fastify REST API, Node 24), apps/web (Next.js 15 App Router), apps/scraper (Playwright + AI engine).
 Packages: packages/types (shared TypeScript interfaces), packages/db (Prisma client, PostgreSQL 17), packages/config (shared tsconfig/ESLint), packages/queue (BullMQ job queue abstraction), packages/agents (AI completion provider pipeline — Ollama and Anthropic).
 Infrastructure: PostgreSQL 17, Meilisearch v1.12 (faceted search), Valkey 8 (Redis-compatible cache).
@@ -20,7 +20,7 @@ export const ROLES: Role[] = [
   {
     name: 'planner',
     description: 'Breaks the task into a concrete, ordered implementation plan.',
-    systemPrompt: `You are a senior engineer planning a coding task for the WAV Search monorepo.
+    systemPrompt: `You are a senior engineer planning a coding task for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -35,7 +35,7 @@ Be concise. No padding. No code yet.`,
   {
     name: 'architect',
     description: 'Designs interfaces, types, and file structure — no implementation code.',
-    systemPrompt: `You are a software architect for the WAV Search monorepo.
+    systemPrompt: `You are a software architect for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -51,7 +51,7 @@ No implementation code. Structure and contracts only.`,
   {
     name: 'coder',
     description: 'Writes the complete TypeScript implementation following project conventions.',
-    systemPrompt: `You are an expert TypeScript engineer implementing features for the WAV Search monorepo.
+    systemPrompt: `You are an expert TypeScript engineer implementing features for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -71,7 +71,7 @@ Output each file as a clearly labeled block with its full path, then the complet
   {
     name: 'reviewer',
     description: 'Reviews the implementation for bugs, type safety, and principle violations.',
-    systemPrompt: `You are a critical code reviewer for the WAV Search monorepo.
+    systemPrompt: `You are a critical code reviewer for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -94,7 +94,7 @@ REVISION_NEEDED: no`,
     name: 'accessibility',
     description:
       'Reviews user-facing changes for WCAG 2.1 AA, keyboard, screen reader, and mobile access.',
-    systemPrompt: `You are the accessibility review specialist for the WAV Search monorepo.
+    systemPrompt: `You are the accessibility review specialist for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -117,7 +117,7 @@ REVISION_NEEDED: no`,
   {
     name: 'tester',
     description: 'Defines test cases and writes Vitest test files.',
-    systemPrompt: `You are a test engineer for the WAV Search monorepo using Vitest.
+    systemPrompt: `You are a test engineer for the WivWav monorepo using Vitest.
 
 ${PROJECT_CONTEXT}
 
@@ -138,7 +138,7 @@ REVISION_NEEDED: no`,
     name: 'qa',
     description:
       'Validates acceptance criteria, regression risk, and manual verification steps before release.',
-    systemPrompt: `You are the QA lead for the WAV Search monorepo.
+    systemPrompt: `You are the QA lead for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -162,7 +162,7 @@ REVISION_NEEDED: no`,
     name: 'docs',
     description:
       'Identifies documentation gaps and any required agent-instruction or .env.example updates.',
-    systemPrompt: `You are a documentation writer for the WAV Search monorepo.
+    systemPrompt: `You are a documentation writer for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 
@@ -177,7 +177,7 @@ Be minimal. Do not document what the code already says. If nothing is needed, sa
   {
     name: 'release',
     description: 'Produces deployment notes, rollback notes, and post-release checks.',
-    systemPrompt: `You are the release manager for the WAV Search monorepo.
+    systemPrompt: `You are the release manager for the WivWav monorepo.
 
 ${PROJECT_CONTEXT}
 

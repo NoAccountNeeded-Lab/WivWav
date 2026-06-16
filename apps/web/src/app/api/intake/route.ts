@@ -3,7 +3,7 @@ import type { IntakeFilters } from '@wivwav/types'
 import { sanitizeIntakeFilters } from '../../../lib/sanitize-intake'
 import { resolveOllamaConfig } from '../../../lib/resolve-ollama-config'
 
-const SYSTEM_PROMPT = `You are a helpful assistant for WAV Search, a site that helps people find wheelchair accessible vehicles (WAVs).
+const SYSTEM_PROMPT = `You are a helpful assistant for WivWav, a site that helps people find wheelchair accessible vehicles (WAVs).
 
 Given a user's plain-language description of their needs, extract structured filter values for the search.
 

@@ -400,7 +400,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
         <details className={styles.helpPanel}>
           <summary>How BullMQ queues work</summary>
           <div className={styles.helpBody}>
-            <p>WAV Search uses <strong>BullMQ</strong> (backed by Valkey/Redis) to run background jobs in isolation from the API and web app.</p>
+            <p>WivWav uses <strong>BullMQ</strong> (backed by Valkey/Redis) to run background jobs in isolation from the API and web app.</p>
             <ol>
               <li><strong>source-scrape</strong> — Fetches listing pages from each source. Triggered by cron or "Run Now" on the Sources page. Produces listings in the database.</li>
               <li><strong>detail-crawl</strong> — Uses Playwright to open individual listing URLs and store raw HTML. Triggered hourly by cron.</li>

@@ -49,7 +49,7 @@ export default function OpsPage() {
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
         <h1 className={styles.heading}>Operations</h1>
-        <p className={styles.subheading}>Internal tooling and monitoring for WAV Search.</p>
+        <p className={styles.subheading}>Internal tooling and monitoring for WivWav.</p>
         <nav className={styles.grid} aria-label="Operations areas">
           {CARDS.map(card => (
             <Link key={card.href} href={card.href} className={styles.card}>

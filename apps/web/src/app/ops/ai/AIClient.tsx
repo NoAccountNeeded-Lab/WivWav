@@ -674,9 +674,9 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
         )}
 
         <details className={styles.helpPanel}>
-          <summary>How AI fits into WAV Search</summary>
+          <summary>How AI fits into WivWav</summary>
           <div className={styles.helpBody}>
-            <p>WAV Search uses a local <strong>Ollama</strong> instance for all AI features:</p>
+            <p>WivWav uses a local <strong>Ollama</strong> instance for all AI features:</p>
             <ol>
               <li>
                 <strong>Intake</strong> — The home page search assistant interprets plain-language descriptions

@@ -8,7 +8,7 @@ export default function StatusPage() {
     <>
       <header className={styles.siteHeader}>
         <div className={styles.headerInner}>
-          <Link href="/" className={styles.logo} aria-label="WAV Search — go to home">
+          <Link href="/" className={styles.logo} aria-label="WivWav — go to home">
             <span className={styles.logoAccent}>WAV</span> Search
           </Link>
           <span className={styles.divider} aria-hidden="true">/</span>

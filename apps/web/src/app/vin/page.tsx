@@ -5,7 +5,7 @@ import { VinSearchForm } from './VinSearchForm'
 import styles from './page.module.css'
 
 export const metadata: Metadata = {
-  title: 'VIN Safety Lookup — WAV Search',
+  title: 'VIN Safety Lookup — WivWav',
   description: 'Check a VIN for NHTSA recall campaigns, complaint trends, and safety ratings.',
 }
 
@@ -21,7 +21,7 @@ export default function VinLookupPage() {
         <p className={styles.eyebrow}>NHTSA Safety Lookup</p>
         <h1 className={styles.title}>Check recalls, complaints, and crash ratings by VIN</h1>
         <p className={styles.lede}>
-          Decode a vehicle identification number and see the safety data WAV Search has collected for that vehicle model.
+          Decode a vehicle identification number and see the safety data WivWav has collected for that vehicle model.
         </p>
         <VinSearchForm />
       </header>
