@@ -283,7 +283,20 @@ git commit -m "type(scope): description (fixes #N)" \
   --trailer "Agent-Role: worker" \
   --trailer "Co-Authored-By: Codex GPT-4o <noreply@openai.com>"
 git push -u origin {branch}
-gh pr create --draft --title "type(scope): description" --body "..."
+gh pr create --draft --title "type(scope): description" --body "$(cat <<'EOF'
+## Summary
+{what changed and why}
+
+## Acceptance Evidence
+{one line per AC item — command output, test name, log line, or explicit gap note}
+
+## Risk level
+- [x] Low / [ ] Medium / [ ] High
+
+## QA Notes
+{what a human reviewer should manually verify before approving}
+EOF
+)"
 ```
 
 Tell the user: "Draft PR is open. Run `/wivwav-code-review` (Claude Code) or manually review the diff before marking ready for merge."
