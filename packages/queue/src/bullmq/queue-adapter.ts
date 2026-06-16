@@ -81,11 +81,14 @@ export class BullMQQueueAdapter implements QueueAdapter {
     }))
   }
 
-  async addRepeatable(name: string, data: unknown, pattern: string, tz?: string, jobId?: string): Promise<void> {
-    await this.queue.add(name, data as object, {
+  async addRepeatable(name: string, data: unknown, pattern: string, tz?: string, jobId?: string, options?: JobOptions): Promise<void> {
+    const opts: JobsOptions = {
       repeat: { pattern, ...(tz ? { tz } : {}) },
       ...(jobId ? { jobId } : {}),
-    })
+    }
+    if (options?.attempts !== undefined) opts.attempts = options.attempts
+    if (options?.backoff !== undefined) opts.backoff = options.backoff
+    await this.queue.add(name, data as object, opts)
   }
 
   async removeRepeatableByKey(key: string): Promise<boolean> {
