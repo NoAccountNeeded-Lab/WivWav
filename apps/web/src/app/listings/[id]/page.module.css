@@ -124,3 +124,53 @@
   height: calc(72px + env(safe-area-inset-bottom, 0px));
   background: var(--clr-bg);
 }
+
+/* ── Wide-screen layout (≥ 768 px) ─────────────────────────────────────────
+   Switch from a stacked mobile layout to a two-column side-by-side view.
+   Left column: header + photo gallery (sticky within the fixed viewport).
+   Right column: tab navigation + panel content (scrollable).
+   The bottom-sheet overlay is hidden; content flows naturally in the grid.
+──────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header   header"
+      "gallery  sheet";
+  }
+
+  /* Span the header across both columns */
+  .header {
+    grid-area: header;
+  }
+
+  /* Gallery fills the left column */
+  .galleryWrap {
+    grid-area: gallery;
+    border-right: 1px solid var(--clr-border);
+  }
+
+  /* Sheet/tabs fill the right column as a natural flex column */
+  .sheetWrap {
+    grid-area: sheet;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Sheet spacer is not needed on wide screens */
+  .sheetSpacer {
+    display: none;
+  }
+}
+
+/* ── Extra-wide: cap column widths so content doesn't over-stretch (≥ 1200 px) */
+@media (min-width: 1200px) {
+  .page {
+    /* At very wide widths, balance the columns: gallery capped, tabs get the rest */
+    grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
+  }
+}

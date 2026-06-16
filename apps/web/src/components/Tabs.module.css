@@ -60,6 +60,41 @@
   transition: opacity 0.15s ease;
 }
 
+/* ── Wide-screen tab overrides (≥ 768 px) ──────────────────────────────────
+   On wider displays tabs are horizontal inline items, not equally-stretched
+   columns. This removes the awkward full-width stretching while keeping the
+   same underline-indicator active state.
+──────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .tabList {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 4px;
+  }
+
+  .tabList::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    /* Natural width — no more equal-share stretching */
+    flex: none;
+    min-width: 0;
+    /* Inline icon + label instead of stacked */
+    flex-direction: row;
+    gap: 6px;
+    padding: 10px 16px 12px;
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+
+  .tab::after {
+    /* Align indicator inset to wider padding */
+    left: 12px;
+    right: 12px;
+  }
+}
+
 .tab[data-active="true"] {
   color: var(--clr-primary);
 }
@@ -105,5 +140,6 @@
 }
 
 .panel:focus-visible {
-  outline: none; /* panels get focus for keyboard nav; suppress visible ring */
+  outline: 2px solid var(--clr-focus);
+  outline-offset: -3px;
 }

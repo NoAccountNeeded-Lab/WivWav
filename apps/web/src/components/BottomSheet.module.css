@@ -28,8 +28,13 @@
 
   /* Default: peek (no data-snap yet during SSR) */
   top: calc(100dvh - 72px);
-  transition: top 0.32s cubic-bezier(0.32, 0.72, 0, 1);
   will-change: top;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet {
+    transition: top 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  }
 }
 
 .sheet[data-snap="peek"] { top: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)); }
@@ -79,4 +84,57 @@
   overflow: hidden;
   /* Push content above the home indicator when sheet is open */
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Wide-screen overrides (≥ 768 px) ──────────────────────────────────────
+   The bottom-sheet pattern is a mobile affordance. On wide screens it becomes
+   a static content column — no overlay, no fixed positioning, no snap states.
+   The drag handle is hidden; the sheet just fills its parent column.
+──────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .root {
+    /* Fill the column handed to us by the page grid */
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .backdrop {
+    display: none;
+  }
+
+  .sheet {
+    position: static;
+    top: unset;
+    left: unset;
+    right: unset;
+    bottom: unset;
+    z-index: auto;
+    border-radius: 0;
+    box-shadow: none;
+    transition: none;
+    will-change: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Snap state overrides don't apply on wide screens */
+  .sheet[data-snap="peek"],
+  .sheet[data-snap="mid"],
+  .sheet[data-snap="full"] {
+    top: unset;
+  }
+
+  .sheet[data-dragging="true"] {
+    top: unset;
+  }
+
+  .handleArea {
+    display: none;
+  }
+
+  .content {
+    padding-bottom: 0;
+  }
 }
