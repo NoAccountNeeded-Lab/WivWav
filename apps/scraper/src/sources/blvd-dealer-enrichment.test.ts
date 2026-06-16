@@ -17,6 +17,12 @@ describe('deriveBlvdDealerProfileUrl', () => {
     expect(deriveBlvdDealerProfileUrl(SOURCE_URL)).toBe(PROFILE_URL)
   })
 
+  it('derives the dealer profile URL from a BLVD wheelchair truck source URL', () => {
+    expect(deriveBlvdDealerProfileUrl(
+      'https://www.blvd.com/wheelchair-trucks/united-access-sacramento-ca/5TDYRKEC8RS205440',
+    )).toBe(PROFILE_URL)
+  })
+
   it('returns null for non-BLVD URLs and unsupported BLVD paths', () => {
     expect(deriveBlvdDealerProfileUrl('https://dealer.example.com/listing/123')).toBeNull()
     expect(deriveBlvdDealerProfileUrl('https://www.blvd.com/wheelchair-vans-for-sale')).toBeNull()
