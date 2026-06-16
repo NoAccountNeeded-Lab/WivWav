@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { SiteHeader } from '@/components/SiteHeader'
 import styles from '@/styles/legal-page.module.css'
 
 export const metadata: Metadata = {
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
+    <>
+      <SiteHeader section="Privacy Policy" />
     <div className={styles.page}>
       <div className={styles.container}>
         <h1 className={styles.heading}>Privacy Policy</h1>
@@ -109,5 +112,6 @@ export default function PrivacyPage() {
         </aside>
       </div>
     </div>
+    </>
   )
 }
