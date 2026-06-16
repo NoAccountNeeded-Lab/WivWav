@@ -78,6 +78,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Build api
+        run: pnpm build --filter=@wivwav/api...
+
+      - name: Build scraper
+        run: pnpm build --filter=@wivwav/scraper...
+
       - name: Lint
         run: pnpm lint
 
@@ -131,12 +137,6 @@ jobs:
             --from-config-datasource \
             --to-schema ./prisma/schema.prisma \
             --exit-code
-
-      - name: Build api
-        run: pnpm build --filter=@wivwav/api...
-
-      - name: Build scraper
-        run: pnpm build --filter=@wivwav/scraper...
 
       - name: Test
         run: pnpm test
