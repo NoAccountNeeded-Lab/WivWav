@@ -1,5 +1,5 @@
 ---
-description: Run the WivWav code review pipeline against actual changed files. Auto-detects change type and routes to the matching pipeline — only the relevant sub-agents run. Use after implementation, before /wivwav-finish-issue.
+description: Run the WivWav code review pipeline against actual changed files. Auto-detects change type and routes to the matching pipeline — only the relevant sub-agents run. Can be used before or after a PR is open.
 argument-hint: "[issue-number]"
 ---
 
@@ -224,15 +224,68 @@ Do not apply SUGGESTION-level items unless the user explicitly asks.
 
 ---
 
-## Step 8 — Verify and leave changes for finish
+## Step 8 — Detect whether a PR is already open
 
-After fixes are applied OR if the tester sub-agent wrote new test files:
+Before deciding what to do with fixes, check whether this branch already has an open PR:
+
+```bash
+PR_NUMBER=$(gh pr list --head $(git branch --show-current) --state open --json number --jq '.[0].number')
+```
+
+- If `PR_NUMBER` is non-empty: the PR exists — follow **Step 8A (post-PR path)**.
+- If `PR_NUMBER` is empty: no PR yet — follow **Step 8B (pre-PR path)**.
+
+---
+
+## Step 8A — Post-PR path (PR is already open)
+
+The review ran against a branch that already has a draft PR. Fixes (if any) need to be committed and pushed, and if the review is clean the PR should be marked ready.
+
+1. Run `git status --short` and list every uncommitted file to the user.
+2. Run `pnpm test` (from the repo root) to confirm everything still passes.
+3. If tests fail: report the failure and ask the user how to proceed. Do not continue.
+4. If tests pass and there are uncommitted changes: commit them.
+   ```bash
+   git add {changed files}
+   git commit -m "fix({scope}): address code review findings (refs #{N})
+   
+   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+   git push
+   ```
+5. If the overall verdict is **READY TO FINISH** (no CRITICAL or WARNING findings remain):
+   - Post a summary comment on the PR:
+     ```bash
+     gh pr comment {PR_NUMBER} --body "$(cat <<'EOF'
+     **code-review[1]** · `wivwav-code-review` · {YYYY-MM-DD}
+     
+     ## Review verdict: READY FOR HUMAN REVIEW ✓
+     
+     All sub-agents passed. No CRITICAL or WARNING findings.
+     
+     **Reviewed:** {comma-separated list of sub-agents that ran}
+     **Changed files:** {N files}
+     **Tests:** passing
+     
+     Marking PR ready for human review.
+     EOF
+     )"
+     ```
+   - Mark the PR ready:
+     ```bash
+     gh pr ready {PR_NUMBER}
+     ```
+   - Tell the user: "PR #{PR_NUMBER} is marked ready for review. A human reviewer can now approve and merge."
+6. If the verdict is still **REVISION NEEDED** after two fix cycles: post a comment noting the outstanding issues and tell the user manual intervention is needed.
+
+---
+
+## Step 8B — Pre-PR path (no PR open yet)
 
 1. Run `git status --short` and list every uncommitted file to the user.
 2. Run `pnpm test` (from the repo root) to confirm everything still passes.
 3. If tests fail: report the failure and ask the user how to proceed.
 4. If tests pass: leave all review-cycle fixes uncommitted in the working tree.
-5. Do **not** commit or push from `/wivwav-code-review`. `/wivwav-finish-issue` is the only command that should run final validation, commit, push, and open the draft PR. This keeps the issue history in one final commit unless the worker intentionally committed earlier implementation checkpoints.
+5. Do **not** commit or push. `/wivwav-finish-issue` is the command that runs final validation, commits, pushes, and opens the draft PR.
 
 ---
 
@@ -240,7 +293,12 @@ After fixes are applied OR if the tester sub-agent wrote new test files:
 
 After reporting the verdict and completing any fixes or verification, tell the user explicitly which of these applies:
 
-- **READY TO FINISH, no uncommitted changes** → "Run `/wivwav-finish-issue` to validate, push if needed, and open the draft PR."
+**Post-PR path (PR already open):**
+- **READY, PR marked ready** → "PR #{PR_NUMBER} is ready for human review. Approve and run `/wivwav-merge-pr` to land it."
+- **REVISION NEEDED, issues remain** → "Outstanding findings are listed above. Fix them and re-run `/wivwav-code-review {N}`."
+
+**Pre-PR path (no PR open):**
+- **READY TO FINISH, no uncommitted changes** → "Run `/wivwav-finish-issue` to validate, push, and open the draft PR."
 - **READY TO FINISH, review fixes left uncommitted** → "Run `/wivwav-finish-issue {N}` to run final validation, commit, push, and open the draft PR."
 - **REVISION NEEDED, fixes applied and selective re-review passed** → "Run `/wivwav-finish-issue {N}` to validate, commit, push, and open the draft PR."
 - **REVISION NEEDED, fixes applied but issues remain after two cycles** → "Manual review needed — the remaining findings are listed above. Fix them, then run `/wivwav-code-review {N}` for a fresh pass."
