@@ -22,6 +22,7 @@ Before merge:
 
 - CI must pass.
 - Code review must pass.
+- Merge through the `main` merge queue with `gh pr merge --auto --rebase --delete-branch`; do not direct-merge to `main`.
 - Every linked issue acceptance criterion must have a concise evidence line in the PR.
 - Accessibility review must pass for user-facing changes.
 - QA notes must be present.
