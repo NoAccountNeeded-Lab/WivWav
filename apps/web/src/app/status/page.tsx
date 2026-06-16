@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 import { StatusDashboard } from './StatusDashboard'
 import { SiteHeader } from '@/components/SiteHeader'
