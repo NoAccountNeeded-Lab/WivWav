@@ -8,7 +8,6 @@
   overflow: hidden;
 }
 
-.skipNav:focus,
 .skipNav:focus-visible {
   position: fixed;
   top: 0;
