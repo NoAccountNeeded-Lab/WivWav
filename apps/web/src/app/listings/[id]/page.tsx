@@ -151,10 +151,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const listing = await getListing(id)
-  if (!listing) return { title: 'Listing not found — WAV Search' }
+  if (!listing) return { title: 'Listing not found — WivWav' }
   const title = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   return {
-    title: `${title} — WAV Search`,
+    title: `${title} — WivWav`,
     description: `${formatPrice(listing.priceCents)} · ${listing.location.city && listing.location.state ? `${listing.location.city}, ${listing.location.state} · ` : ''}Wheelchair accessible vehicle`,
   }
 }

@@ -1,4 +1,4 @@
-# Design System Audit — WAV Search
+# Design System Audit — WivWav
 
 **Date:** 2026-05-29 | **Scope:** `apps/web` + `packages/charts` | **Maturity:** Early / ad hoc
 

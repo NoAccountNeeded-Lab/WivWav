@@ -79,7 +79,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!listing) return { title: 'Listing not found' }
   const title = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   return {
-    title: `${title} — WAV Search`,
+    title: `${title} — WivWav`,
     description: `${formatPrice(listing.priceCents)} · ${listing.city && listing.state ? `${listing.city}, ${listing.state} · ` : ''}Wheelchair accessible vehicle`,
   }
 }

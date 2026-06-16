@@ -21,7 +21,7 @@
 }
 
 /* ── shadcn/ui CSS variables ────────────────────────────────────────────────
-   Mapped to WAV Search brand palette so shadcn components inherit the look.
+   Mapped to WivWav brand palette so shadcn components inherit the look.
    Using hsl values for compatibility with shadcn's opacity modifier pattern.
 ────────────────────────────────────────────────────────────────────────── */
 :root {

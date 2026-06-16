@@ -1,4 +1,4 @@
-# Listing page design — WAV Search
+# Listing page design — WivWav
 
 **Status:** Design exploration (mockup, not yet implemented)
 **Mockup file:** `docs/design/listing-page-mockup.html` — open in any browser
