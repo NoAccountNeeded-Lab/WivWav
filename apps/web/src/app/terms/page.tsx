@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { SiteHeader } from '@/components/SiteHeader'
 import styles from '@/styles/legal-page.module.css'
 
 export const metadata: Metadata = {
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
+    <>
+      <SiteHeader section="Terms of Service" />
     <div className={styles.page}>
       <div className={styles.container}>
         <h1 className={styles.heading}>Terms of Service</h1>
@@ -118,5 +121,6 @@ export default function TermsPage() {
         </aside>
       </div>
     </div>
+    </>
   )
 }
