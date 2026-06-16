@@ -7,22 +7,59 @@ import { adminRoutes } from './admin.js'
 
 const mockSearch = { syncAll: vi.fn(async () => 42) }
 
-function buildTestApp(db: unknown, factory: MockQueueFactory, search = mockSearch) {
-  const app = Fastify()
-  void app.register(sensible)
-  void app.register(adminRoutes, { db: db as never, queueFactory: factory as never, search: search as never })
-  return app
+function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
+  return {
+    findById: vi.fn(async () => null),
+    findByIdForSafety: vi.fn(async () => null),
+    findVehicleModelWithSafetyData: vi.fn(async () => null),
+    findManyActive: vi.fn(async () => []),
+    countActive: vi.fn(async () => 0),
+    findPriceHistory: vi.fn(async () => []),
+    findPageForSync: vi.fn(async () => []),
+    ...overrides,
+  }
 }
 
-const emptyDb = {
-  scraperRun: { findMany: vi.fn(async () => []) },
-  source: { findMany: vi.fn(async () => []), findUnique: vi.fn(async () => null) },
+function buildDefaultSourceRepo(overrides: Record<string, unknown> = {}) {
+  return {
+    count: vi.fn(async () => 0),
+    countActive: vi.fn(async () => 0),
+    findAll: vi.fn(async () => []),
+    findById: vi.fn(async () => null),
+    findManyByIds: vi.fn(async () => []),
+    findScheduledSources: vi.fn(async () => []),
+    ...overrides,
+  }
+}
+
+function buildDefaultScraperRunRepo(overrides: Record<string, unknown> = {}) {
+  return {
+    findRecent: vi.fn(async () => []),
+    findLastSuccessful: vi.fn(async () => null),
+    ...overrides,
+  }
+}
+
+function buildTestApp(
+  sourceRepoOverrides: Record<string, unknown> = {},
+  scraperRunRepoOverrides: Record<string, unknown> = {},
+  factory: MockQueueFactory,
+  search = mockSearch,
+  listingRepoOverrides: Record<string, unknown> = {},
+) {
+  const app = Fastify()
+  void app.register(sensible)
+  const listings = buildDefaultListingRepo(listingRepoOverrides)
+  const sources = buildDefaultSourceRepo(sourceRepoOverrides)
+  const scraperRuns = buildDefaultScraperRunRepo(scraperRunRepoOverrides)
+  void app.register(adminRoutes, { listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, queueFactory: factory as never, search: search as never })
+  return { app, listings, sources, scraperRuns }
 }
 
 describe('GET /queues', () => {
   it('returns all queue names with stats', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'GET', url: '/queues' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -51,7 +88,7 @@ describe('GET /queues', () => {
       createWorker: vi.fn(),
       close: vi.fn(),
     }
-    const app = buildTestApp(emptyDb, factory as never)
+    const { app } = buildTestApp({}, {}, factory as never)
     const res = await app.inject({ method: 'GET', url: '/queues' })
     expect(res.statusCode).toBe(503)
     expect(res.json()).toEqual({ error: { code: 'SERVICE_UNAVAILABLE', message: 'Queue service is unavailable' } })
@@ -63,7 +100,7 @@ describe('GET /queues/:name', () => {
   it('returns stats and jobs for a known queue', async () => {
     const factory = new MockQueueFactory()
     factory.createQueue(QUEUES.SOURCE_SCRAPE)
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'GET', url: `/queues/${QUEUES.SOURCE_SCRAPE}` })
     expect(res.statusCode).toBe(200)
     const { data } = res.json()
@@ -75,7 +112,7 @@ describe('GET /queues/:name', () => {
 
   it('returns 404 for an unknown queue name', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'GET', url: '/queues/nonexistent' })
     expect(res.statusCode).toBe(404)
     await app.close()
@@ -85,7 +122,7 @@ describe('GET /queues/:name', () => {
 describe('POST /queues/:name/jobs', () => {
   it('enqueues a job and returns its id', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
 
     const res = await app.inject({
       method: 'POST',
@@ -108,7 +145,7 @@ describe('POST /queues/:name/jobs', () => {
 
   it('enqueues with empty data when body is omitted', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
 
     const res = await app.inject({ method: 'POST', url: `/queues/${QUEUES.GEOCODE}/jobs` })
     expect(res.statusCode).toBe(201)
@@ -121,7 +158,7 @@ describe('POST /queues/:name/jobs', () => {
 
   it('rejects non-object job data', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
 
     const res = await app.inject({
       method: 'POST',
@@ -137,7 +174,7 @@ describe('POST /queues/:name/jobs', () => {
 
   it('strips unknown top-level job body fields', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
 
     const res = await app.inject({
       method: 'POST',
@@ -157,7 +194,7 @@ describe('POST /queues/:name/jobs', () => {
 describe('POST /queues/:name/pause and /resume', () => {
   it('pauses and resumes a queue', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
 
     const pauseRes = await app.inject({ method: 'POST', url: `/queues/${QUEUES.SOURCE_SCRAPE}/pause` })
     expect(pauseRes.statusCode).toBe(200)
@@ -177,14 +214,14 @@ describe('POST /queues/:name/pause and /resume', () => {
 })
 
 describe('GET /runs', () => {
-  it('returns recent scraper runs from db', async () => {
+  it('returns recent scraper runs from repository', async () => {
     const run = { id: 'run-1', sourceId: 'src-1', startedAt: new Date(), finishedAt: null, success: null, listingsFound: null, listingsNew: null, listingsUpdated: null, errorMessage: null }
-    const db = {
-      scraperRun: { findMany: vi.fn(async () => [run]) },
-      source: { findMany: vi.fn(async () => []), findUnique: vi.fn(async () => null) },
-    }
     const factory = new MockQueueFactory()
-    const app = buildTestApp(db, factory)
+    const { app } = buildTestApp(
+      { findManyByIds: vi.fn(async () => []) },
+      { findRecent: vi.fn(async () => [run]) },
+      factory,
+    )
 
     const res = await app.inject({ method: 'GET', url: '/runs' })
     expect(res.statusCode).toBe(200)
@@ -192,19 +229,17 @@ describe('GET /runs', () => {
     expect(res.json().data[0].id).toBe('run-1')
     expect(res.json().data[0].sourceName).toBeNull()
 
-    expect(db.scraperRun.findMany).toHaveBeenCalledWith({ orderBy: { startedAt: 'desc' }, take: 100 })
-
     await app.close()
   })
 
   it('includes sourceName when a matching source exists', async () => {
     const run = { id: 'run-1', sourceId: 'src-1', startedAt: new Date(), finishedAt: null, success: null, listingsFound: null, listingsNew: null, listingsUpdated: null, errorMessage: null }
-    const db = {
-      scraperRun: { findMany: vi.fn(async () => [run]) },
-      source: { findMany: vi.fn(async () => [{ id: 'src-1', name: 'BLVD.com' }]), findUnique: vi.fn(async () => null) },
-    }
     const factory = new MockQueueFactory()
-    const app = buildTestApp(db, factory)
+    const { app } = buildTestApp(
+      { findManyByIds: vi.fn(async () => [{ id: 'src-1', name: 'BLVD.com' }]) },
+      { findRecent: vi.fn(async () => [run]) },
+      factory,
+    )
 
     const res = await app.inject({ method: 'GET', url: '/runs' })
     expect(res.statusCode).toBe(200)
@@ -216,12 +251,12 @@ describe('GET /runs', () => {
 
 describe('POST /sources/:id/run', () => {
   it('enqueues a source-scrape job when source exists', async () => {
-    const db = {
-      scraperRun: { findMany: vi.fn(async () => []) },
-      source: { findMany: vi.fn(async () => []), findUnique: vi.fn(async () => ({ id: 'src-1', name: 'Test Source' })) },
-    }
     const factory = new MockQueueFactory()
-    const app = buildTestApp(db, factory)
+    const { app } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'Test Source' })) },
+      {},
+      factory,
+    )
 
     const res = await app.inject({ method: 'POST', url: '/sources/src-1/run' })
     expect(res.statusCode).toBe(201)
@@ -238,7 +273,7 @@ describe('POST /sources/:id/run', () => {
 
   it('returns 404 when source does not exist', async () => {
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory)
+    const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'POST', url: '/sources/nonexistent/run' })
     expect(res.statusCode).toBe(404)
     await app.close()
@@ -248,12 +283,12 @@ describe('POST /sources/:id/run', () => {
 describe('GET /sources', () => {
   it('returns source rows', async () => {
     const source = { id: 'src-1', name: 'test-source', baseUrl: 'https://example.com', status: 'active', cronExpression: '0 * * * *', lastScrapedAt: null, listingCount: 0, errorMessage: null }
-    const db = {
-      scraperRun: { findMany: vi.fn(async () => []) },
-      source: { findMany: vi.fn(async () => [source]), findUnique: vi.fn(async () => null) },
-    }
     const factory = new MockQueueFactory()
-    const app = buildTestApp(db, factory)
+    const { app } = buildTestApp(
+      { findAll: vi.fn(async () => [source]) },
+      {},
+      factory,
+    )
 
     const res = await app.inject({ method: 'GET', url: '/sources' })
     expect(res.statusCode).toBe(200)
@@ -268,7 +303,7 @@ describe('POST /sync', () => {
   it('re-indexes all listings and returns the count', async () => {
     const search = { syncAll: vi.fn(async () => 7) }
     const factory = new MockQueueFactory()
-    const app = buildTestApp(emptyDb, factory, search)
+    const { app } = buildTestApp({}, {}, factory, search)
 
     const res = await app.inject({ method: 'POST', url: '/sync' })
     expect(res.statusCode).toBe(200)
