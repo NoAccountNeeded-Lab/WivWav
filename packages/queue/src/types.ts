@@ -63,6 +63,7 @@ export interface QueueAdapter {
     pattern: string,
     tz?: string,
     jobId?: string,
+    options?: JobOptions,
   ): Promise<void>
   removeRepeatableByKey(key: string): Promise<boolean>
   close(): Promise<void>
