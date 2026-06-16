@@ -90,6 +90,7 @@ html {
   --clr-danger-text: #991b1b;
   --clr-neutral-muted: #64748b;
   --clr-neutral-muted-text: #475569;
+  --clr-info: #0090ff;         /* Blue 9 — fixed across all themes per BRAND.md */
 
   --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     sans-serif;
