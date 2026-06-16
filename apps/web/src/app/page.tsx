@@ -5,9 +5,6 @@ import styles from './page.module.css'
 export default function HomePage() {
   return (
     <>
-      <a href="#main-content" className={styles.skipNav}>
-        Skip to main content
-      </a>
       <SiteHeader section="Wheelchair Accessible Vehicles" />
 
       <main id="main-content" tabIndex={-1} className={styles.main}>
