@@ -77,6 +77,11 @@ make test
 `status:ready` → `status:in-progress` → draft PR opened → merged
 Failure path: `status:in-progress` → `status:stuck`
 
+## Acceptance criteria markers
+
+An issue has acceptance criteria if its body contains at least one of (case-insensitive):
+`acceptance criteria` · `done when` · `## ac` · a non-empty checklist (`- [ ]`)
+
 ## Attribution — all agent output
 
 **Git trailers** on every agent commit:

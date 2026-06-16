@@ -38,13 +38,26 @@ You receive a GitHub issue number and are responsible for implementing it comple
    - If the task touches `apps/scraper/`, note the `page.evaluate` pitfall: tsx's esbuild wraps named arrow functions with `__name()`, which is not defined in the Playwright browser sandbox — use `function` declarations instead of `const fn = () => {}` inside `page.evaluate`.
    - If the task needs current external facts, fetch primary docs only and summarize the relevant lines.
 
-5. **Implement** — write code following all conventions in `.claude/core.md`.
+5. **Implement** — write code and tests following all conventions in `.claude/core.md`. Read `.claude/roles/tester.md` for test-writing conventions.
 
-6. **Review** — run `/wivwav-code-review {N}`. The pipeline classifies changed files, dispatches domain-appropriate sub-agents in parallel, and returns READY TO FINISH or REVISION NEEDED with a prioritized fix list.
+6. **Review** — classify changed files, then spawn ONE Reviewer agent (foreground, blocking). Pass: worktree root, `git diff origin/main` output, issue AC, and which role files to read:
+   - Always: `reviewer.md`, `qa.md`
+   - Add `accessibility.md` if `apps/web/` files changed
+   - Add `performance.md` if `apps/api/`, `apps/scraper/`, `packages/db/`, or `packages/queue/` files changed
+   - Add `docs-accuracy.md` if `apps/api/src/routes/` or `.md` files changed
 
-7. **Fix and re-review** — up to 2 cycles if REVISION NEEDED.
+   Reviewer prompt template:
+   ```
+   Read the following role files for instructions: [list role files]
+   Issue #{N} AC: [gh issue view {N} --json body output]
+   Worktree root: {WORKTREE_ROOT}
+   Diff: [git diff origin/main output]
+   End with REVISION_NEEDED: yes or REVISION_NEEDED: no.
+   ```
 
-8. **Finish** — run `/wivwav-finish-issue {N}`. Pass your Agent-Index and Sprint-Run ID so they appear as git trailers.
+7. **Fix** — apply all findings (CRITICAL, WARNING, and SUGGESTION). Skip if reviewer returned REVISION_NEEDED: no. If the Reviewer agent fails to return findings, proceed to step 8 — the test suite is the fallback quality gate.
+
+8. **Finish** — run `/wivwav-finish-issue {N}`.
 
 ## Attribution
 
