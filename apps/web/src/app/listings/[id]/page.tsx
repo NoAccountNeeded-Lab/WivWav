@@ -258,8 +258,10 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
       {/* Spacer so gallery doesn't hide under the sheet peek */}
       <div className={styles.sheetSpacer} aria-hidden />
 
-      {/* Bottom sheet with tabs */}
-      <ListingSheet tabs={tabs} />
+      {/* Bottom sheet with tabs (wrapper gives wide-screen grid a stable target) */}
+      <div className={styles.sheetWrap}>
+        <ListingSheet tabs={tabs} />
+      </div>
     </main>
   )
 }
