@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { GlobalErrorHandlers } from '@/components/GlobalErrorHandlers'
 import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
 import { Footer } from '@/components/Footer'
+import { NavigationFocusReset } from '@/components/NavigationFocusReset'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 
 export const metadata: Metadata = {
@@ -28,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body data-api-url={apiBaseUrl}>
+        <NavigationFocusReset />
+        <div id="focus-reset" tabIndex={-1} aria-hidden="true" style={{ outline: 'none', position: 'absolute', width: 0, height: 0 }} />
         <GlobalErrorHandlers />
         <FetchErrorMonitor />
         <a href="#main-content" className="skip-link">
