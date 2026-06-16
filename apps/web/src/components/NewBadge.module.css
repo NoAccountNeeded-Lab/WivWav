@@ -1,0 +1,36 @@
+/*
+ * "New" badge for listings added since the user's last visit.
+ *
+ * When rendered inside a position:relative card image wrapper it is placed
+ * in the top-right corner. Uses --color-info (Blue 9) to be visually distinct
+ * from the green WAV-feature badges. Color is never the only signal — the
+ * text "New" carries the meaning.
+ */
+.badge {
+  position: absolute;
+  top: 0.625rem;
+  right: 0.625rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  white-space: nowrap;
+  /* Blue 9 from Radix — fixed, not theme-dependent */
+  background: #0090ff;
+  color: #fff;
+  line-height: 1.4;
+  /* Sit above the image gradient */
+  z-index: 1;
+}
+
+@media (forced-colors: active) {
+  .badge {
+    background: Highlight;
+    color: HighlightText;
+    outline: 1px solid currentColor;
+  }
+}

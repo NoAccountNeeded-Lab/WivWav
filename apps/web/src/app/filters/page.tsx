@@ -8,6 +8,8 @@ import type { MapListing } from '../../components/ListingsMap'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { SiteHeader } from '@/components/SiteHeader'
+import { NewBadge } from '@/components/NewBadge'
+import { VisitTracker } from './VisitTracker'
 import styles from './page.module.css'
 
 // ── Types ────────────────────────────────────────────────
@@ -32,6 +34,7 @@ interface ListingDoc {
   rampType: string
   sourceUrl: string
   images: string[]
+  listedAt: string
 }
 
 interface Pagination {
@@ -143,6 +146,8 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
           )}
           <div className={styles.cardImageGradient} aria-hidden />
           <span className={styles.cardImagePrice}>{formatPrice(l.priceCents)}</span>
+          {/* NewBadge renders only on the client after reading localStorage */}
+          <NewBadge listedAt={l.listedAt} />
         </div>
 
         <div className={styles.cardBody}>
@@ -307,6 +312,10 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
 
         </div>
       </main>
+
+      {/* Records the current visit timestamp so the next page load can
+          identify listings that appeared after this session. */}
+      <VisitTracker />
     </>
   )
 }
