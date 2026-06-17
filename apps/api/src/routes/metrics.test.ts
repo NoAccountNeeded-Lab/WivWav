@@ -11,9 +11,7 @@ function buildTestApp() {
   }
 
   const cache = {
-    status: 'ready' as const,
-    ping: vi.fn(async () => 'PONG'),
-    connect: vi.fn(),
+    ping: vi.fn(async () => undefined),
   }
 
   const meili = {
@@ -142,7 +140,7 @@ describe('GET /metrics', () => {
     expect(res.payload).toMatch(/wivwav_db_listing_count\s+99/)
   })
 
-  it('calls cache.connect() when status is "wait"', async () => {
+  it('reports valkey_up=1 and calls ping() when cache responds', async () => {
     const app = Fastify()
     void app.register(sensible)
 
@@ -151,9 +149,7 @@ describe('GET /metrics', () => {
       listing: { count: vi.fn(async () => 0) },
     }
     const cache = {
-      status: 'wait' as const,
-      ping: vi.fn(async () => 'PONG'),
-      connect: vi.fn(async () => undefined),
+      ping: vi.fn(async () => undefined),
     }
     const meili = {
       health: vi.fn(async () => ({ status: 'available' as const })),
@@ -170,7 +166,7 @@ describe('GET /metrics', () => {
     const res = await app.inject({ method: 'GET', url: '/' })
     await app.close()
 
-    expect(cache.connect).toHaveBeenCalledOnce()
+    expect(cache.ping).toHaveBeenCalledOnce()
     expect(res.payload).toMatch(/wivwav_valkey_up\s+1/)
   })
 
@@ -224,9 +220,7 @@ describe('GET /metrics', () => {
       listing: { count: vi.fn(async () => 0) },
     }
     const cache = {
-      status: 'ready' as const,
-      ping: vi.fn(async () => 'PONG'),
-      connect: vi.fn(),
+      ping: vi.fn(async () => undefined),
     }
     const meili = {
       health: vi.fn(async () => ({ status: 'available' as const })),

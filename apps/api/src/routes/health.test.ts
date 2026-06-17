@@ -18,7 +18,7 @@ const baseConfig = {
 
 const baseDeps = {
   meili: { health: vi.fn(async () => ({ status: 'available' })) } as never,
-  cache: { status: 'ready', ping: vi.fn(async () => 'PONG') } as never,
+  cache: { ping: vi.fn(async () => undefined) } as never,
   config: baseConfig,
 }
 

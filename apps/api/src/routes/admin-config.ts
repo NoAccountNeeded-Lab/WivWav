@@ -1,12 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { Redis } from 'ioredis'
+import type { CacheService } from '../services/cache/index.js'
 import type { PrismaClient } from '@wivwav/db'
 import { ConfigService } from '../services/config-service.js'
 import type { ConfigValueType, ConfigValue } from '../services/config-service.js'
 
 interface AdminConfigPluginOptions {
   db: PrismaClient
-  cache: Redis
+  cache: CacheService
   encryptionSecret: string | undefined
   internalApiSecret: string | undefined
 }

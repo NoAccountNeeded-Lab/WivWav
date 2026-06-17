@@ -14,6 +14,7 @@ process.on('uncaughtException', (err) => {
 
 import { Meilisearch } from 'meilisearch'
 import { Redis } from 'ioredis'
+import { RedisCacheService } from './services/cache/index.js'
 import { getDb } from '@wivwav/db'
 import { BullMQQueueFactory } from '@wivwav/queue'
 import { loadConfig } from './config.js'
@@ -30,7 +31,8 @@ if (!config.CONFIG_ENCRYPTION_SECRET) {
 }
 const db = getDb()
 const meili = new Meilisearch({ host: config.MEILISEARCH_HOST, apiKey: config.MEILISEARCH_API_KEY })
-const cache = new Redis(config.VALKEY_URL, { lazyConnect: true, enableOfflineQueue: false })
+const redis = new Redis(config.VALKEY_URL, { lazyConnect: true, enableOfflineQueue: false })
+const cache = new RedisCacheService(redis)
 const searchService = new MeilisearchService(meili)
 const search = new ListingSearchService(searchService)
 const facets = new ListingFacetsService(searchService, cache)
@@ -40,12 +42,12 @@ const app = await buildApp(config, db, meili, cache, search, facets, queueFactor
 let shutdownPromise: Promise<void> | undefined
 
 async function closeCache(): Promise<void> {
-  if (cache.status === 'ready') {
-    await cache.quit()
+  if (redis.status === 'ready') {
+    await redis.quit()
     return
   }
 
-  cache.disconnect()
+  redis.disconnect()
 }
 
 function shutdown(signal: NodeJS.Signals): Promise<void> {

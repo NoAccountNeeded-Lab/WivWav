@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { PrismaClient } from '@wivwav/db'
-import type { Redis } from 'ioredis'
+import type { CacheService } from '../services/cache/index.js'
 import type { Meilisearch } from 'meilisearch'
 import type { QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
@@ -14,7 +14,7 @@ import {
 
 export interface MetricsPluginOptions {
   db: PrismaClient
-  cache: Redis
+  cache: CacheService
   meili: Meilisearch
   queueFactory: QueueFactory
   /** Pre-created registry shared with the root app so HTTP hooks can populate it from outside the plugin scope. */
@@ -164,7 +164,6 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
       // Valkey
       (async () => {
         try {
-          if (cache.status === 'wait') await cache.connect()
           await cache.ping()
           valkeyUp.set(1)
         } catch {
