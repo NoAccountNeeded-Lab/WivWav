@@ -57,7 +57,18 @@ You receive a GitHub issue number and are responsible for implementing it comple
 
 7. **Fix** — apply all findings (CRITICAL, WARNING, and SUGGESTION). Skip if reviewer returned REVISION_NEEDED: no. If the Reviewer agent fails to return findings, proceed to step 8 — the test suite is the fallback quality gate.
 
-8. **Finish** — run `/wivwav-finish-issue {N}`.
+8. **Post review evidence** — after the review cycle completes, post a comment on the issue so there is an audit trail:
+   ```bash
+   gh issue comment {N} --body "🤖 **worker[{index}]** · \`run-sprint\` · {date}
+
+   Review pipeline complete.
+   Roles: {comma-separated list of role files passed to reviewer}
+   Verdict: REVISION_NEEDED: {yes|no}
+   Findings fixed: {count} (or 'none')"
+   ```
+   If the reviewer agent failed to return, note that explicitly: `Reviewer agent did not return findings — test suite used as fallback gate.`
+
+9. **Finish** — run `/wivwav-finish-issue {N}`.
 
 ## Attribution
 
