@@ -1,29 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { WivWavLogger } from '@wivwav/logger'
+import { MockBrowserService } from '../browser/index.js'
+import type { MockPageRecord } from '../browser/index.js'
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
-// vi.mock is hoisted to the top — cannot reference outer `vi.fn()` variables.
-// Store the mock on a module-level object so beforeEach can reset it.
-
-const chromiumMocks = {
-  pageGoto: vi.fn(),
-  pageUrl: vi.fn(),
-  pageContent: vi.fn(),
-  pageClose: vi.fn(),
-  browserNewPage: vi.fn(),
-  browserClose: vi.fn(),
-}
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
-
-vi.mock('@playwright/test', () => ({
-  chromium: {
-    launch: vi.fn().mockResolvedValue({
-      get newPage() { return chromiumMocks.browserNewPage },
-      get close() { return chromiumMocks.browserClose },
-    }),
-  },
-}))
 
 import { getDb } from '@wivwav/db'
 import { MockQueueAdapter, CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
@@ -45,16 +27,8 @@ function makeDb(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function setupPage(opts: { status?: number; url?: string } = {}) {
-  const page = {
-    goto: vi.fn().mockResolvedValue({ status: () => opts.status ?? 200 }),
-    url: vi.fn().mockReturnValue(opts.url ?? 'https://example.com/listing/1'),
-    content: vi.fn().mockResolvedValue('<html></html>'),
-    close: vi.fn().mockResolvedValue(undefined),
-  }
-  chromiumMocks.browserNewPage.mockResolvedValue(page)
-  chromiumMocks.browserClose.mockResolvedValue(undefined)
-  return page
+function makeBrowserService(pages: Map<string, MockPageRecord> = new Map()) {
+  return new MockBrowserService(pages)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -74,11 +48,14 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
       },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
-    setupPage({ status: 404 })
 
+    const pages = new Map<string, MockPageRecord>([
+      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
+    ])
+    const browser = makeBrowserService(pages)
     const listingSyncQueue = new MockQueueAdapter('listing-sync')
 
-    await runDetailCrawlJob('src-1', undefined, listingSyncQueue)
+    await runDetailCrawlJob('src-1', undefined, listingSyncQueue, browser)
 
     const enqueued = listingSyncQueue.getEnqueued()
     expect(enqueued).toHaveLength(1)
@@ -95,7 +72,11 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
       },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
-    setupPage({ status: 404 })
+
+    const pages = new Map<string, MockPageRecord>([
+      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
+    ])
+    const browser = makeBrowserService(pages)
 
     const failingQueue = new MockQueueAdapter('listing-sync')
     vi.spyOn(failingQueue, 'add').mockRejectedValue(new Error('queue unavailable'))
@@ -115,6 +96,7 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
         'src-1',
         { logger: mockLogger, log: async () => {}, updateProgress: async () => {} },
         failingQueue,
+        browser,
       ),
     ).resolves.toBeUndefined()
 
@@ -132,9 +114,57 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
       },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
-    setupPage({ status: 404 })
+
+    const pages = new Map<string, MockPageRecord>([
+      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
+    ])
+    const browser = makeBrowserService(pages)
 
     // No listingSyncQueue — must not throw
-    await expect(runDetailCrawlJob('src-1')).resolves.toBeUndefined()
+    await expect(runDetailCrawlJob('src-1', undefined, undefined, browser)).resolves.toBeUndefined()
+  })
+
+  it('upserts raw page HTML for a successful 200 crawl', async () => {
+    const db = makeDb({
+      listing: {
+        findMany: vi.fn().mockResolvedValue([
+          { sourceUrl: 'https://example.com/listing/2', status: 'active' },
+        ]),
+        updateMany: vi.fn(),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    const pages = new Map<string, MockPageRecord>([
+      ['https://example.com/listing/2', { url: 'https://example.com/listing/2', html: '<html>van</html>', statusCode: 200 }],
+    ])
+    const browser = makeBrowserService(pages)
+
+    await runDetailCrawlJob('src-1', undefined, undefined, browser)
+
+    expect(db.rawPage.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { url: 'https://example.com/listing/2' },
+        create: expect.objectContaining({ html: '<html>van</html>' }),
+      }),
+    )
+  })
+
+  it('closes the browser session when all pages are processed', async () => {
+    const db = makeDb({
+      listing: {
+        findMany: vi.fn().mockResolvedValue([
+          { sourceUrl: 'https://example.com/listing/3', status: 'active' },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    const browser = makeBrowserService()
+    await runDetailCrawlJob('src-1', undefined, undefined, browser)
+
+    const [session] = browser.sessions
+    expect(session?.closed).toBe(true)
   })
 })

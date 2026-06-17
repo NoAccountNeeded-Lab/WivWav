@@ -1,17 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { chromium } from '@playwright/test'
+import { PlaywrightBrowserService } from '../browser/index.js'
+import type { BrowserSession } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from './blvd-detail.js'
 
 const BASE_URL = 'https://www.blvd.com'
 const LISTINGS_PATH = '/wheelchair-vans-for-sale'
 
-async function getFirstDetailUrl(browser: Awaited<ReturnType<typeof chromium.launch>>): Promise<string> {
-  const page = await browser.newPage()
+async function getFirstDetailUrl(session: BrowserSession): Promise<string> {
+  const page = await session.newPage()
   try {
     await page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-    const href = await page.evaluate(() =>
-      document.querySelector<HTMLAnchorElement>('a.more-van-details-btn')?.getAttribute('href') ?? null
-    )
+    const href = await page.evaluate(function () {
+      return document.querySelector<HTMLAnchorElement>('a.more-van-details-btn')?.getAttribute('href') ?? null
+    })
     if (!href) throw new Error('No detail link found on listing page — BLVD structure may have changed')
     return href.startsWith('http') ? href : `${BASE_URL}${href}`
   } finally {
@@ -21,11 +22,12 @@ async function getFirstDetailUrl(browser: Awaited<ReturnType<typeof chromium.lau
 
 describe('evaluateBlvdDetail (integration)', () => {
   it('extracts structured fields from a live BLVD detail page', async () => {
-    const browser = await chromium.launch()
+    const service = new PlaywrightBrowserService()
+    const session = await service.launch()
     try {
-      const detailUrl = await getFirstDetailUrl(browser)
+      const detailUrl = await getFirstDetailUrl(session)
 
-      const page = await browser.newPage()
+      const page = await session.newPage()
       await page.goto(detailUrl, { waitUntil: 'networkidle', timeout: 45_000 })
       const raw = await evaluateBlvdDetail(page)
       await page.close()
@@ -60,24 +62,25 @@ describe('evaluateBlvdDetail (integration)', () => {
       expect(detail.images.length).toBe(raw.imageUrls.length)
 
     } finally {
-      await browser.close()
+      await session.close()
     }
   }, 60_000)
 
   it('setContent roundtrip produces identical output to live evaluation', async () => {
-    const browser = await chromium.launch()
+    const service = new PlaywrightBrowserService()
+    const session = await service.launch()
     try {
-      const detailUrl = await getFirstDetailUrl(browser)
+      const detailUrl = await getFirstDetailUrl(session)
 
       // Simulate detail-crawl: goto + store html
-      const crawlPage = await browser.newPage()
+      const crawlPage = await session.newPage()
       await crawlPage.goto(detailUrl, { waitUntil: 'networkidle', timeout: 45_000 })
       const rawLive = await evaluateBlvdDetail(crawlPage)
       const html = await crawlPage.content()
       await crawlPage.close()
 
       // Simulate detail-extract: setContent + evaluate
-      const extractPage = await browser.newPage()
+      const extractPage = await session.newPage()
       await extractPage.setContent(html, { waitUntil: 'domcontentloaded' })
       const rawFromHtml = await evaluateBlvdDetail(extractPage)
       await extractPage.close()
@@ -89,7 +92,7 @@ describe('evaluateBlvdDetail (integration)', () => {
       expect(rawFromHtml.dealerAddressText).toEqual(rawLive.dealerAddressText)
 
     } finally {
-      await browser.close()
+      await session.close()
     }
   }, 90_000)
 })
