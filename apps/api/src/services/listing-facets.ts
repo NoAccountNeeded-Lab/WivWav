@@ -1,4 +1,4 @@
-import type { Redis } from 'ioredis'
+import type { CacheService } from './cache/index.js'
 import type { SearchService } from './search/index.js'
 import { INDEX_NAME, buildListingFilters } from './listing-search.js'
 import type { SearchParams } from './listing-search.js'
@@ -28,7 +28,7 @@ const CACHE_TTL_SECONDS = 60
 export class ListingFacetsService {
   constructor(
     private readonly searchService: SearchService,
-    private readonly cache: Redis,
+    private readonly cache: CacheService,
   ) {}
 
   async getFacets(params: FacetsParams): Promise<FacetsResult> {
@@ -72,7 +72,7 @@ export class ListingFacetsService {
     }
 
     await this.cache
-      .setex(cacheKey, CACHE_TTL_SECONDS, JSON.stringify(facetsResult))
+      .set(cacheKey, JSON.stringify(facetsResult), CACHE_TTL_SECONDS)
       .catch(() => {})
 
     return facetsResult

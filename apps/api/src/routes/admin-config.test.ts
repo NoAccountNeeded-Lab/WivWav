@@ -422,7 +422,6 @@ describe('Valkey cache integration', () => {
     expect(cache.set).toHaveBeenCalledWith(
       'config:ai.intake.provider',
       expect.any(String),
-      'EX',
       60,
     )
 

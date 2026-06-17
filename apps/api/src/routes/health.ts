@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { Redis } from 'ioredis'
+import type { CacheService } from '../services/cache/index.js'
 import type { Meilisearch } from 'meilisearch'
 import type { PrismaClient } from '@wivwav/db'
 import type { HealthResponse, OverallHealthStatus, ServiceHealth } from '@wivwav/types'
@@ -21,7 +21,7 @@ interface HealthPluginOptions {
   sources: SourceRepository
   scraperRuns: ScraperRunRepository
   meili: Meilisearch
-  cache: Redis
+  cache: CacheService
   config: Config
 }
 
@@ -32,12 +32,7 @@ export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app,
     const [postgres, meilisearch, valkey, ollama, scraper] = await Promise.all([
       probe('postgres', () => db.$queryRaw`SELECT 1`),
       probe('meilisearch', () => meili.health()),
-      probe('valkey', async () => {
-        if (cache.status === 'wait') {
-          await cache.connect()
-        }
-        await cache.ping()
-      }),
+      probe('valkey', () => cache.ping()),
       probeOllama(config),
       getScraperHealth(sources, scraperRuns),
     ])
