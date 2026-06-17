@@ -1,6 +1,6 @@
-import type { Meilisearch } from 'meilisearch'
 import type { Redis } from 'ioredis'
-import { INDEX_NAME, q } from './listing-search.js'
+import type { SearchService } from './search/index.js'
+import { INDEX_NAME, buildListingFilters } from './listing-search.js'
 import type { SearchParams } from './listing-search.js'
 
 export type FacetsParams = Omit<SearchParams, 'page' | 'perPage' | 'sort'>
@@ -26,14 +26,10 @@ export interface FacetsResult {
 const CACHE_TTL_SECONDS = 60
 
 export class ListingFacetsService {
-  private readonly index
-
   constructor(
-    private readonly client: Meilisearch,
+    private readonly searchService: SearchService,
     private readonly cache: Redis,
-  ) {
-    this.index = client.index(INDEX_NAME)
-  }
+  ) {}
 
   async getFacets(params: FacetsParams): Promise<FacetsResult> {
     const cacheKey = `facets:${stableKey(params)}`
@@ -41,25 +37,12 @@ export class ListingFacetsService {
     const cached = await this.cache.get(cacheKey).catch(() => null)
     if (cached) return JSON.parse(cached) as FacetsResult
 
-    const filters: string[] = ['status = "active"']
+    const { filters, rangeFilters } = buildListingFilters(params)
 
-    if (params.make?.length) filters.push(`make IN [${params.make.map(q).join(', ')}]`)
-    if (params.model?.length) filters.push(`model IN [${params.model.map(q).join(', ')}]`)
-    if (params.yearMin != null) filters.push(`year >= ${params.yearMin}`)
-    if (params.yearMax != null) filters.push(`year <= ${params.yearMax}`)
-    if (params.priceMin != null) filters.push(`priceCents >= ${params.priceMin}`)
-    if (params.priceMax != null) filters.push(`priceCents <= ${params.priceMax}`)
-    if (params.mileageMax != null) filters.push(`mileage <= ${params.mileageMax}`)
-    if (params.condition?.length) filters.push(`condition IN [${params.condition.map(q).join(', ')}]`)
-    if (params.conversionType?.length) filters.push(`conversionType IN [${params.conversionType.map(q).join(', ')}]`)
-    if (params.rampType?.length) filters.push(`rampType IN [${params.rampType.map(q).join(', ')}]`)
-    if (params.hasLift != null) filters.push(`hasLift = ${params.hasLift}`)
-    if (params.handControls != null) filters.push(`handControls = ${params.handControls}`)
-    if (params.color?.length) filters.push(`color IN [${params.color.map(q).join(', ')}]`)
-    if (params.state?.length) filters.push(`state IN [${params.state.map(q).join(', ')}]`)
-
-    const result = await this.index.search(params.q ?? '', {
-      filter: filters.join(' AND '),
+    const result = await this.searchService.search(INDEX_NAME, {
+      ...(params.q != null ? { query: params.q } : {}),
+      filters,
+      ...(rangeFilters.length ? { rangeFilters } : {}),
       facets: [
         'make', 'model', 'year', 'condition', 'conversionType',
         'rampType', 'hasLift', 'handControls', 'color', 'state',
@@ -68,10 +51,10 @@ export class ListingFacetsService {
       limit: 0,
     })
 
-    const dist = result.facetDistribution ?? {}
+    const dist = (result.facetDistribution ?? {}) as Record<string, Record<string, number>>
 
     const facetsResult: FacetsResult = {
-      total: result.estimatedTotalHits ?? 0,
+      total: result.total,
       priceDistribution: toSortedBuckets(dist['priceBucket'] ?? {}),
       yearDistribution: toYearDist(dist['year'] ?? {}),
       mileageDistribution: toSortedBuckets(dist['mileageBucket'] ?? {}),

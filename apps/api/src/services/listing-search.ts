@@ -4,6 +4,7 @@ import {
   INDEX_NAME,
   toDocument,
 } from '@wivwav/search'
+import type { SearchService, SearchFilters, RangeFilter } from './search/index.js'
 import type { ListingRepository } from '../repositories/index.js'
 
 export { INDEX_NAME, priceBucket, mileageBucket } from '@wivwav/search'
@@ -38,6 +39,12 @@ export interface SearchResult {
 
 const BATCH_SIZE = 1000
 
+/**
+ * Configure the Meilisearch listings index with required settings.
+ * This function is intentionally Meilisearch-specific because index settings
+ * (filterable attributes, sortable attributes, pagination limits) are not
+ * part of the generic SearchService interface.
+ */
 export async function configureListingsIndex(client: Meilisearch): Promise<void> {
   const index = client.index(INDEX_NAME)
   const task = await index.updateSettings({
@@ -63,44 +70,70 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
   }
 }
 
-export class ListingSearchService {
-  private readonly index
+/**
+ * Translate listing search/facet params into provider-agnostic filter structures.
+ * Extracted so `ListingSearchService` and `ListingFacetsService` share the same
+ * filter-building logic without duplicating it.
+ */
+export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage' | 'sort'>): {
+  filters: SearchFilters
+  rangeFilters: RangeFilter[]
+} {
+  const filters: SearchFilters = { status: 'active' }
+  if (params.make?.length) filters['make'] = params.make
+  if (params.model?.length) filters['model'] = params.model
+  if (params.condition?.length) filters['condition'] = params.condition
+  if (params.conversionType?.length) filters['conversionType'] = params.conversionType
+  if (params.rampType?.length) filters['rampType'] = params.rampType
+  if (params.hasLift != null) filters['hasLift'] = params.hasLift
+  if (params.handControls != null) filters['handControls'] = params.handControls
+  if (params.color?.length) filters['color'] = params.color
+  if (params.state?.length) filters['state'] = params.state
 
-  constructor(private readonly client: Meilisearch) {
-    this.index = client.index<ListingDocument>(INDEX_NAME)
+  const rangeFilters: RangeFilter[] = []
+  if (params.yearMin != null || params.yearMax != null) {
+    rangeFilters.push({
+      field: 'year',
+      ...(params.yearMin != null ? { gte: params.yearMin } : {}),
+      ...(params.yearMax != null ? { lte: params.yearMax } : {}),
+    })
   }
+  if (params.priceMin != null || params.priceMax != null) {
+    rangeFilters.push({
+      field: 'priceCents',
+      ...(params.priceMin != null ? { gte: params.priceMin } : {}),
+      ...(params.priceMax != null ? { lte: params.priceMax } : {}),
+    })
+  }
+  if (params.mileageMax != null) {
+    rangeFilters.push({ field: 'mileage', lte: params.mileageMax })
+  }
+
+  return { filters, rangeFilters }
+}
+
+export class ListingSearchService {
+  constructor(private readonly searchService: SearchService) {}
 
   async search(params: SearchParams): Promise<SearchResult> {
     const page = params.page ?? 1
     const perPage = params.perPage ?? 20
-    const filters: string[] = ['status = "active"']
 
-    if (params.make?.length) filters.push(`make IN [${params.make.map(q).join(', ')}]`)
-    if (params.model?.length) filters.push(`model IN [${params.model.map(q).join(', ')}]`)
-    if (params.yearMin != null) filters.push(`year >= ${params.yearMin}`)
-    if (params.yearMax != null) filters.push(`year <= ${params.yearMax}`)
-    if (params.priceMin != null) filters.push(`priceCents >= ${params.priceMin}`)
-    if (params.priceMax != null) filters.push(`priceCents <= ${params.priceMax}`)
-    if (params.mileageMax != null) filters.push(`mileage <= ${params.mileageMax}`)
-    if (params.condition?.length) filters.push(`condition IN [${params.condition.map(q).join(', ')}]`)
-    if (params.conversionType?.length) filters.push(`conversionType IN [${params.conversionType.map(q).join(', ')}]`)
-    if (params.rampType?.length) filters.push(`rampType IN [${params.rampType.map(q).join(', ')}]`)
-    if (params.hasLift != null) filters.push(`hasLift = ${params.hasLift}`)
-    if (params.handControls != null) filters.push(`handControls = ${params.handControls}`)
-    if (params.color?.length) filters.push(`color IN [${params.color.map(q).join(', ')}]`)
-    if (params.state?.length) filters.push(`state IN [${params.state.map(q).join(', ')}]`)
+    const { filters, rangeFilters } = buildListingFilters(params)
 
-    const result = await this.index.search(params.q ?? '', {
-      ...(filters.length ? { filter: filters.join(' AND ') } : {}),
+    const result = await this.searchService.search<ListingDocument>(INDEX_NAME, {
+      ...(params.q != null ? { query: params.q } : {}),
+      filters,
+      ...(rangeFilters.length ? { rangeFilters } : {}),
       facets: ['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state'],
-      offset: (page - 1) * perPage,
-      limit: perPage,
       ...(params.sort ? { sort: [params.sort] } : {}),
+      limit: perPage,
+      offset: (page - 1) * perPage,
     })
 
     return {
       hits: result.hits,
-      total: result.estimatedTotalHits ?? 0,
+      total: result.total,
       facets: (result.facetDistribution ?? {}) as Record<string, Record<string, number>>,
     }
   }
@@ -113,7 +146,7 @@ export class ListingSearchService {
       const rows = await listings.findPageForSync(BATCH_SIZE, cursor)
       if (rows.length === 0) break
 
-      await this.index.addDocuments(rows.map(toDocument), { primaryKey: 'id' })
+      await this.searchService.upsert(INDEX_NAME, rows.map(toDocument))
       synced += rows.length
       cursor = rows[rows.length - 1]!.id
       if (rows.length < BATCH_SIZE) break
@@ -123,6 +156,7 @@ export class ListingSearchService {
   }
 }
 
+/** @deprecated Use buildFilterString from ./search/meilisearch-service.js for new code. */
 export function q(v: string): string {
   return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }

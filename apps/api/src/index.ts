@@ -20,6 +20,7 @@ import { loadConfig } from './config.js'
 import { buildApp } from './app.js'
 import { configureListingsIndex, ListingSearchService } from './services/listing-search.js'
 import { ListingFacetsService } from './services/listing-facets.js'
+import { MeilisearchService } from './services/search/index.js'
 import { PrismaListingRepository } from './repositories/index.js'
 
 const config = loadConfig()
@@ -30,8 +31,9 @@ if (!config.CONFIG_ENCRYPTION_SECRET) {
 const db = getDb()
 const meili = new Meilisearch({ host: config.MEILISEARCH_HOST, apiKey: config.MEILISEARCH_API_KEY })
 const cache = new Redis(config.VALKEY_URL, { lazyConnect: true, enableOfflineQueue: false })
-const search = new ListingSearchService(meili)
-const facets = new ListingFacetsService(meili, cache)
+const searchService = new MeilisearchService(meili)
+const search = new ListingSearchService(searchService)
+const facets = new ListingFacetsService(searchService, cache)
 const queueFactory = new BullMQQueueFactory()
 const app = await buildApp(config, db, meili, cache, search, facets, queueFactory)
 
