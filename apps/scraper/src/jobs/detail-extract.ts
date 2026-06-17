@@ -1,8 +1,8 @@
-import { chromium, type Page } from '@playwright/test'
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { RampType, SaleStatus } from '@wivwav/types'
 import { syncListings } from '@wivwav/search'
+import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
 import {
   createRateLimitedFetcher,
@@ -100,7 +100,7 @@ export function buildListingDetailUpdateData(
   }
 }
 
-async function extractDetail(page: Page, url: string): Promise<DetailResult> {
+async function extractDetail(page: BrowserPage, url: string): Promise<DetailResult> {
   if (url.includes('mobilityworks.com')) {
     const raw = await evaluateMwDetail(page)
     return parseMwDetail(raw)
@@ -109,7 +109,11 @@ async function extractDetail(page: Page, url: string): Promise<DetailResult> {
   return parseBlvdDetail(raw)
 }
 
-export async function runDetailExtractJob(sourceId: string, context?: JobContext): Promise<void> {
+export async function runDetailExtractJob(
+  sourceId: string,
+  context?: JobContext,
+  browserService?: BrowserService,
+): Promise<void> {
   const db = getDb()
 
   const rawPages = await db.rawPage.findMany({
@@ -134,7 +138,11 @@ export async function runDetailExtractJob(sourceId: string, context?: JobContext
     total: rawPages.length,
   })
 
-  const browser = await chromium.launch()
+  // Lazy import so callers that inject MockBrowserService never trigger a
+  // real Playwright import at all.
+  const { PlaywrightBrowserService } = await import('../browser/index.js')
+  const service = browserService ?? new PlaywrightBrowserService()
+  const browser = await service.launch()
   const fetchDealerPage = createRateLimitedFetcher(fetchHtml)
   let success = 0
   let failed = 0
