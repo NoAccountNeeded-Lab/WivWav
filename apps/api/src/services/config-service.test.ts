@@ -87,7 +87,7 @@ describe('ConfigService.get', () => {
     const cache = makeCache()
     const svc = new ConfigService(db as never, cache as never, TEST_SECRET)
     await svc.get('ai.provider')
-    expect(cache.set).toHaveBeenCalledWith('config:ai.provider', expect.any(String), 'EX', 60)
+    expect(cache.set).toHaveBeenCalledWith('config:ai.provider', expect.any(String), 60)
   })
 
   it('returns cached value without hitting DB on cache hit', async () => {

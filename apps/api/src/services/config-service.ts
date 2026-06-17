@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
-import type { Redis } from 'ioredis'
+import type { CacheService } from './cache/index.js'
 import { Prisma, type PrismaClient } from '@wivwav/db'
 
 export type ConfigValueType = 'string' | 'number' | 'boolean' | 'json' | 'secret'
@@ -82,7 +82,7 @@ function mapRow(raw: {
 export class ConfigService {
   constructor(
     private readonly db: PrismaClient,
-    private readonly cache: Redis,
+    private readonly cache: CacheService,
     private readonly encryptionSecret: string | undefined,
   ) {}
 
@@ -111,7 +111,7 @@ export class ConfigService {
 
     const mapped = mapRow(row)
     await this.cache
-      .set(cacheKey(key), JSON.stringify(mapped), 'EX', CACHE_TTL_SECONDS)
+      .set(cacheKey(key), JSON.stringify(mapped), CACHE_TTL_SECONDS)
       .catch(() => undefined)
 
     return mapped

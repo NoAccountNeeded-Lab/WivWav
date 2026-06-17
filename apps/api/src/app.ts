@@ -6,7 +6,7 @@ import sensible from '@fastify/sensible'
 import rateLimit from '@fastify/rate-limit'
 import { createBullBoard } from '@bull-board/api'
 import { FastifyAdapter } from '@bull-board/fastify'
-import type { Redis } from 'ioredis'
+import type { CacheService } from './services/cache/index.js'
 import type { Meilisearch } from 'meilisearch'
 import type { PrismaClient } from '@wivwav/db'
 import { createPinoLoggerOptions } from '@wivwav/logger'
@@ -56,7 +56,7 @@ export async function buildApp(
   config: Config,
   db: PrismaClient,
   meili: Meilisearch,
-  cache: Redis,
+  cache: CacheService,
   search: ListingSearchService,
   facets: ListingFacetsService,
   queueFactory: BullMQQueueFactory,
