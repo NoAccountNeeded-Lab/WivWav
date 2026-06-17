@@ -4,9 +4,8 @@ import type { CacheService } from './types.js'
 /**
  * Production CacheService implementation backed by ioredis.
  *
- * Handles lazy connection (`lazyConnect: true`) by calling `connect()` inside
- * `ping()` when the underlying client is in the `wait` state, matching the
- * pattern previously used directly in the health and metrics routes.
+ * Handles the initial lazy-connect state (`lazyConnect: true`) by calling
+ * `connect()` inside `ping()` when the underlying client status is `wait`.
  */
 export class RedisCacheService implements CacheService {
   constructor(private readonly redis: Redis) {}
@@ -43,8 +42,4 @@ export class RedisCacheService implements CacheService {
     return value
   }
 
-  /** Expose the underlying ioredis client for graceful shutdown in index.ts. */
-  get client(): Redis {
-    return this.redis
-  }
 }

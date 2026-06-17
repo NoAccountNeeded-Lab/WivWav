@@ -104,11 +104,4 @@ describe('RedisCacheService', () => {
     })
   })
 
-  describe('client getter', () => {
-    it('exposes the underlying redis instance', () => {
-      const redis = makeRedis()
-      const svc = new RedisCacheService(redis as never)
-      expect(svc.client).toBe(redis)
-    })
-  })
 })
