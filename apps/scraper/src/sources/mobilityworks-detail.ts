@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { BrowserPage } from '../browser/index.js'
 import type { RampType, SaleStatus } from '@wivwav/types'
 import { parseSaleStatus } from './blvd-detail.js'
 
@@ -74,7 +74,7 @@ export function parseMwDetail(raw: RawMwDetail): MwDetailFields {
   }
 }
 
-export async function evaluateMwDetail(page: Page): Promise<RawMwDetail> {
+export async function evaluateMwDetail(page: BrowserPage): Promise<RawMwDetail> {
   return page.evaluate(function (baseUrl: string): RawMwDetail {
     // Specs: key-value pairs in definition lists or table rows
     const specs: Record<string, string> = {}

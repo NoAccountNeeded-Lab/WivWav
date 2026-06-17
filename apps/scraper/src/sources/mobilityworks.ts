@@ -1,8 +1,8 @@
-import { chromium } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import type { SourceAdapter, ScrapeResult, StructureCheckResult, Page1CheckResult } from '../engine/source-adapter.js'
 import type { ConversionType, Listing, ListingCondition, RampType } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
+import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 
 const SOURCE_ID = 'mobilityworks'
@@ -13,6 +13,7 @@ const PAGE1_SORT_URL = `${BASE_URL}${LISTINGS_PATH}?sortby=yearnew`
 interface MobilityWorksConfig {
   maxPages?: number
   previousPage1Hash?: string | null
+  browserService?: BrowserService
 }
 
 // Shape returned from page.evaluate — must be JSON-serializable.
@@ -36,15 +37,24 @@ export class MobilityWorksAdapter implements SourceAdapter {
   private readonly previousHash: string | null
   private readonly previousPage1Hash: string | null
   private readonly maxPages: number
+  private readonly browserService: BrowserService | null
 
   constructor(previousHash: string | null = null, config: MobilityWorksConfig = {}) {
     this.previousHash = previousHash
     this.previousPage1Hash = config.previousPage1Hash ?? null
     this.maxPages = config.maxPages ?? Infinity
+    this.browserService = config.browserService ?? null
+  }
+
+  private async getBrowserService(): Promise<BrowserService> {
+    if (this.browserService) return this.browserService
+    const { PlaywrightBrowserService } = await import('../browser/index.js')
+    return new PlaywrightBrowserService()
   }
 
   async checkPage1(): Promise<Page1CheckResult> {
-    const browser = await chromium.launch()
+    const service = await this.getBrowserService()
+    const browser = await service.launch()
     try {
       const page = await browser.newPage()
       await page.goto(PAGE1_SORT_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 })
@@ -98,16 +108,17 @@ export class MobilityWorksAdapter implements SourceAdapter {
   }
 
   async checkStructure(): Promise<StructureCheckResult> {
-    const browser = await chromium.launch()
+    const service = await this.getBrowserService()
+    const browser = await service.launch()
     try {
       const page = await browser.newPage()
       await page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       await page.waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 }).catch(() => {})
 
-      const signature = await page.evaluate(() => {
+      const signature = await page.evaluate(function (): string {
         const anchors = Array.from(
           document.querySelectorAll<HTMLAnchorElement>('a[href*="/wheelchair-vans-for-sale/"]'),
-        ).filter(a => /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? ''))
+        ).filter(function (a) { return /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? '') })
 
         const first = anchors[0]
         if (!first) return 'no-listings'
@@ -157,7 +168,8 @@ export class MobilityWorksAdapter implements SourceAdapter {
   }
 
   async scrape(context?: JobContext): Promise<ScrapeResult> {
-    const browser = await chromium.launch()
+    const service = await this.getBrowserService()
+    const browser = await service.launch()
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
 
     try {
@@ -187,13 +199,13 @@ export class MobilityWorksAdapter implements SourceAdapter {
         await page.waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 }).catch(() => {})
 
         const cards = await page.evaluate(
-          ({ baseUrl }: { baseUrl: string }): RawCard[] => {
+          function ({ baseUrl }: { baseUrl: string }): RawCard[] {
             const results: RawCard[] = []
             const seen = new Set<string>()
 
             const anchors = Array.from(
               document.querySelectorAll<HTMLAnchorElement>('a[href*="/wheelchair-vans-for-sale/"]'),
-            ).filter(a => /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? ''))
+            ).filter(function (a) { return /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? '') })
 
             for (const anchor of anchors) {
               const href = anchor.getAttribute('href') ?? ''
@@ -219,7 +231,7 @@ export class MobilityWorksAdapter implements SourceAdapter {
               // footnote markers next to prices/mileage which get concatenated into textContent
               // as plain ASCII digits (e.g. "$71,991" + <sup>1</sup> → "$71,9911" → wrong parse).
               const clone = container.cloneNode(true) as Element
-              clone.querySelectorAll('sup').forEach((s: Element) => s.remove())
+              clone.querySelectorAll('sup').forEach(function (s: Element) { s.remove() })
               const txt = clone.textContent ?? ''
               // Strip unicode superscript footnote markers (¹²³⁴⁵⁶⁷⁸⁹) from a match group
               const sup = /[¹²³⁴-⁹]/g
@@ -292,12 +304,13 @@ export class MobilityWorksAdapter implements SourceAdapter {
           listings: listings.length,
         })
 
-        const hasNext = await page.evaluate((nextPageNum: number) => {
-          return Array.from(document.querySelectorAll<HTMLAnchorElement>('a')).some(
-            a =>
+        const hasNext = await page.evaluate(function (nextPageNum: number): boolean {
+          return Array.from(document.querySelectorAll<HTMLAnchorElement>('a')).some(function (a) {
+            return (
               a.href.includes(`/page/${nextPageNum}/`) ||
-              a.textContent?.trim() === String(nextPageNum),
-          )
+              a.textContent?.trim() === String(nextPageNum)
+            )
+          })
         }, pageNum + 1)
 
         if (!hasNext) {

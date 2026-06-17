@@ -40,6 +40,7 @@ import { runModelResearchJob } from './jobs/model-research.js'
 import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
 import { withSentryCapture } from './lib/capture-job-error.js'
+import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
 
 const db = getDb()
@@ -53,6 +54,8 @@ const engine = new ScraperEngine({
   sources: new PrismaSourceRepository(db),
   listings: new PrismaListingRepository(db),
 })
+
+const browserService = new PlaywrightBrowserService()
 
 /** Read a string config value from the DB. Falls back to null if unavailable. */
 async function readConfigValue(key: string): Promise<string | null> {
@@ -136,14 +139,14 @@ queueFactory.createWorker<{ sourceId: string }>(
 queueFactory.createWorker<{ sourceId: string }>(
   QUEUES.DETAIL_CRAWL,
   withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, ({ sourceId }, context) =>
-    runDetailCrawlJob(sourceId, context, listingSyncQueue),
+    runDetailCrawlJob(sourceId, context, listingSyncQueue, browserService),
   ),
   { lockDuration: 120_000, logger },
 )
 queueFactory.createWorker<{ sourceId: string }>(
   QUEUES.DETAIL_EXTRACT,
   withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, ({ sourceId }, context) =>
-    runDetailExtractJob(sourceId, context),
+    runDetailExtractJob(sourceId, context, browserService),
   ),
   { lockDuration: 60_000, logger },
 )
@@ -240,7 +243,7 @@ const blvdSource = await db.source.upsert({
 })
 
 engine.register(
-  new BlvdAdapter(blvdSource.fingerprintHash, { previousPage1Hash: blvdSource.page1Hash }),
+  new BlvdAdapter(blvdSource.fingerprintHash, { previousPage1Hash: blvdSource.page1Hash, browserService }),
   blvdSource.id,
 )
 
@@ -256,7 +259,7 @@ const mwSource = await db.source.upsert({
 })
 
 engine.register(
-  new MobilityWorksAdapter(mwSource.fingerprintHash, { previousPage1Hash: mwSource.page1Hash }),
+  new MobilityWorksAdapter(mwSource.fingerprintHash, { previousPage1Hash: mwSource.page1Hash, browserService }),
   mwSource.id,
 )
 

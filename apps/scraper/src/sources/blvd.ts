@@ -1,8 +1,8 @@
-import { chromium, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import type { SourceAdapter, ScrapeResult, StructureCheckResult, Page1CheckResult } from '../engine/source-adapter.js'
 import type { ConversionType, Listing, ListingCondition } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
+import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 
 const SOURCE_ID = 'blvd'
@@ -16,6 +16,7 @@ const NAVIGATION_TIMEOUT_MS = 30_000
 interface BlvdConfig {
   maxPages?: number
   previousPage1Hash?: string | null
+  browserService?: BrowserService
 }
 
 // Shape returned from page.evaluate — must be JSON-serializable.
@@ -39,15 +40,24 @@ export class BlvdAdapter implements SourceAdapter {
   private readonly previousHash: string | null
   private readonly previousPage1Hash: string | null
   private readonly maxPages: number
+  private readonly browserService: BrowserService | null
 
   constructor(previousHash: string | null = null, config: BlvdConfig = {}) {
     this.previousHash = previousHash
     this.previousPage1Hash = config.previousPage1Hash ?? null
     this.maxPages = config.maxPages ?? Infinity
+    this.browserService = config.browserService ?? null
+  }
+
+  private async getBrowserService(): Promise<BrowserService> {
+    if (this.browserService) return this.browserService
+    const { PlaywrightBrowserService } = await import('../browser/index.js')
+    return new PlaywrightBrowserService()
   }
 
   async checkPage1(): Promise<Page1CheckResult> {
-    const browser = await chromium.launch()
+    const service = await this.getBrowserService()
+    const browser = await service.launch()
     try {
       const page = await browser.newPage()
 
@@ -84,7 +94,8 @@ export class BlvdAdapter implements SourceAdapter {
   }
 
   async checkStructure(): Promise<StructureCheckResult> {
-    const browser = await chromium.launch()
+    const service = await this.getBrowserService()
+    const browser = await service.launch()
     try {
       const page = await browser.newPage()
       await page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
@@ -125,7 +136,8 @@ export class BlvdAdapter implements SourceAdapter {
   }
 
   async scrape(context?: JobContext): Promise<ScrapeResult> {
-    const browser = await chromium.launch()
+    const service = await this.getBrowserService()
+    const browser = await service.launch()
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
 
     try {
@@ -151,7 +163,7 @@ export class BlvdAdapter implements SourceAdapter {
           })
 
           try {
-            await gotoListingPage(page, url)
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS })
           } catch (err) {
             if (pageNum > 1 && isNavigationTimeout(err)) {
               await report(context, `[blvd] Stopping pagination after timeout loading page ${pageNum}: ${url}`, {
@@ -290,10 +302,6 @@ export class BlvdAdapter implements SourceAdapter {
       await browser.close()
     }
   }
-}
-
-async function gotoListingPage(page: Page, url: string): Promise<void> {
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS })
 }
 
 function getPage1CheckUrl(path: string): string {

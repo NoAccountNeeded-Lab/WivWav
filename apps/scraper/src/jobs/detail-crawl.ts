@@ -1,7 +1,7 @@
-import { chromium } from '@playwright/test'
 import { getDb } from '@wivwav/db'
 import type { JobContext, QueueAdapter } from '@wivwav/queue'
 import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
+import type { BrowserService } from '../browser/index.js'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 50
@@ -12,7 +12,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export async function runDetailCrawlJob(sourceId: string, context?: JobContext, listingSyncQueue?: QueueAdapter): Promise<void> {
+export async function runDetailCrawlJob(
+  sourceId: string,
+  context?: JobContext,
+  listingSyncQueue?: QueueAdapter,
+  browserService?: BrowserService,
+): Promise<void> {
   const db = getDb()
 
   const staleThreshold = new Date(Date.now() - STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000)
@@ -46,7 +51,11 @@ export async function runDetailCrawlJob(sourceId: string, context?: JobContext, 
     total: listings.length,
   })
 
-  const browser = await chromium.launch()
+  // Lazy import so callers that inject MockBrowserService never trigger a
+  // real Playwright import at all.
+  const { PlaywrightBrowserService } = await import('../browser/index.js')
+  const service = browserService ?? new PlaywrightBrowserService()
+  const browser = await service.launch()
   let success = 0
   let failed = 0
 
@@ -56,7 +65,7 @@ export async function runDetailCrawlJob(sourceId: string, context?: JobContext, 
       const page = await browser.newPage()
 
       try {
-        let response: Awaited<ReturnType<typeof page.goto>> = null
+        let response: { status(): number } | null = null
         let navFailed = false
 
         try {

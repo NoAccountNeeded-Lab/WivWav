@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { BrowserPage } from '../browser/index.js'
 import type { RampType, SaleStatus } from '@wivwav/types'
 
 const BASE_URL = 'https://www.blvd.com'
@@ -81,11 +81,11 @@ export function parseBlvdDetail(raw: RawDetail): BlvdDetailFields {
   }
 }
 
-export async function evaluateBlvdDetail(page: Page): Promise<RawDetail> {
-  return page.evaluate((baseUrl: string): RawDetail => {
+export async function evaluateBlvdDetail(page: BrowserPage): Promise<RawDetail> {
+  return page.evaluate(function (baseUrl: string): RawDetail {
     // Specs: table rows with label in first td, value in second td
     const specs: Record<string, string> = {}
-    document.querySelectorAll('table tr').forEach(tr => {
+    document.querySelectorAll('table tr').forEach(function (tr) {
       const cells = Array.from(tr.querySelectorAll('td'))
       if (cells.length >= 2) {
         const label = cells[0]?.textContent?.trim()
@@ -96,9 +96,9 @@ export async function evaluateBlvdDetail(page: Page): Promise<RawDetail> {
 
     // Description: walk up from "Vehicle Description" h2 to find a <p> in its ancestor
     let descriptionText = ''
-    const descH2 = Array.from(document.querySelectorAll('h2')).find(h =>
-      /Vehicle Description/i.test(h.textContent ?? '')
-    )
+    const descH2 = Array.from(document.querySelectorAll('h2')).find(function (h) {
+      return /Vehicle Description/i.test(h.textContent ?? '')
+    })
     if (descH2) {
       let node: Element | null = descH2
       while (node.parentElement) {
@@ -114,7 +114,7 @@ export async function evaluateBlvdDetail(page: Page): Promise<RawDetail> {
     // Gallery: all <a href> links pointing to large images, deduped
     const seen = new Set<string>()
     const imageUrls: string[] = []
-    document.querySelectorAll<HTMLAnchorElement>('a[href*="_large.jpg"]').forEach(a => {
+    document.querySelectorAll<HTMLAnchorElement>('a[href*="_large.jpg"]').forEach(function (a) {
       const href = a.getAttribute('href') ?? ''
       const abs = href.startsWith('http') ? href : `${baseUrl}${href}`
       if (!seen.has(abs)) { seen.add(abs); imageUrls.push(abs) }
