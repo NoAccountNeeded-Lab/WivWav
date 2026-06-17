@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { configureListingsIndex, q, priceBucket, mileageBucket, ListingSearchService } from './listing-search.js'
 import type { SearchParams } from './listing-search.js'
+import type { SearchService, SearchOptions, SearchResult } from './search/index.js'
+import type { ListingDocument } from '@wivwav/search'
 
 // ---------------------------------------------------------------------------
 // q() — filter value quoting
@@ -178,29 +180,43 @@ describe('configureListingsIndex', () => {
 })
 
 // ---------------------------------------------------------------------------
-// ListingSearchService.search() — filter string construction
+// ListingSearchService.search() — SearchService-level mock
 // ---------------------------------------------------------------------------
 //
-// These tests verify that search() builds the Meilisearch filter string
-// correctly for each SearchParams field. We mock only the index boundary.
+// ListingSearchService now depends on SearchService, not the Meilisearch client
+// directly. Tests mock SearchService.search() and verify that the service
+// builds correct SearchOptions (filters, rangeFilters, facets, sort, limit, offset).
+
+function makeEmptySearchResult(): SearchResult<ListingDocument> {
+  return {
+    hits: [],
+    total: 0,
+    facetDistribution: {},
+  }
+}
+
+function makeService() {
+  const searchMock = vi.fn(
+    async (_indexName: string, _opts: SearchOptions): Promise<SearchResult<ListingDocument>> =>
+      makeEmptySearchResult(),
+  )
+  const mockSearchService: SearchService = {
+    // Cast needed: the SearchService interface declares search as generic <T>,
+    // but this mock always returns ListingDocument results.
+    search: searchMock as SearchService['search'],
+    upsert: vi.fn(async () => {}),
+    delete: vi.fn(async () => {}),
+  }
+  const service = new ListingSearchService(mockSearchService)
+  return { service, searchMock }
+}
 
 describe('ListingSearchService.search', () => {
-  function makeService() {
-    const searchMock = vi.fn(async (_query: string, _opts: Record<string, unknown>) => ({
-      hits: [] as unknown[],
-      estimatedTotalHits: 0 as number | undefined,
-      facetDistribution: {} as Record<string, Record<string, number>> | undefined,
-    }))
-    const client = { index: vi.fn(() => ({ search: searchMock })) }
-    const service = new ListingSearchService(client as never)
-    return { service, searchMock }
-  }
-
   it('always includes status = "active" filter', async () => {
     const { service, searchMock } = makeService()
     await service.search({})
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toMatch(/status = "active"/)
+    expect(opts.filters?.['status']).toBe('active')
   })
 
   it('defaults to page 1 and perPage 20', async () => {
@@ -223,58 +239,68 @@ describe('ListingSearchService.search', () => {
     const { service, searchMock } = makeService()
     await service.search({ make: ['Toyota', 'Ford'] })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('make IN ["Toyota", "Ford"]')
+    expect(opts.filters?.['make']).toEqual(['Toyota', 'Ford'])
   })
 
-  it('adds yearMin and yearMax filters', async () => {
+  it('adds yearMin and yearMax as range filters', async () => {
     const { service, searchMock } = makeService()
     await service.search({ yearMin: 2018, yearMax: 2022 })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('year >= 2018')
-    expect(opts.filter).toContain('year <= 2022')
+    const yearRange = opts.rangeFilters?.find(r => r.field === 'year')
+    expect(yearRange).toEqual({ field: 'year', gte: 2018, lte: 2022 })
   })
 
-  it('adds price range filters', async () => {
+  it('adds only yearMin when yearMax is absent', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({ yearMin: 2018 })
+    const [, opts] = searchMock.mock.calls[0]!
+    const yearRange = opts.rangeFilters?.find(r => r.field === 'year')
+    expect(yearRange?.gte).toBe(2018)
+    expect(yearRange?.lte).toBeUndefined()
+  })
+
+  it('adds price range as rangeFilters on priceCents', async () => {
     const { service, searchMock } = makeService()
     await service.search({ priceMin: 1000000, priceMax: 5000000 })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('priceCents >= 1000000')
-    expect(opts.filter).toContain('priceCents <= 5000000')
+    const priceRange = opts.rangeFilters?.find(r => r.field === 'priceCents')
+    expect(priceRange).toEqual({ field: 'priceCents', gte: 1000000, lte: 5000000 })
   })
 
-  it('adds mileageMax filter', async () => {
+  it('adds mileageMax as a rangeFilter lte', async () => {
     const { service, searchMock } = makeService()
     await service.search({ mileageMax: 50000 })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('mileage <= 50000')
+    const mileageRange = opts.rangeFilters?.find(r => r.field === 'mileage')
+    expect(mileageRange?.lte).toBe(50000)
   })
 
   it('adds hasLift filter for true', async () => {
     const { service, searchMock } = makeService()
     await service.search({ hasLift: true })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('hasLift = true')
+    expect(opts.filters?.['hasLift']).toBe(true)
   })
 
   it('adds hasLift filter for false', async () => {
     const { service, searchMock } = makeService()
     await service.search({ hasLift: false })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('hasLift = false')
+    expect(opts.filters?.['hasLift']).toBe(false)
   })
 
   it('adds handControls filter', async () => {
     const { service, searchMock } = makeService()
     await service.search({ handControls: true })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('handControls = true')
+    expect(opts.filters?.['handControls']).toBe(true)
   })
 
-  it('adds state filter', async () => {
+  it('adds state filter as string array', async () => {
     const { service, searchMock } = makeService()
     await service.search({ state: ['CA', 'TX'] })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filter).toContain('state IN ["CA", "TX"]')
+    expect(opts.filters?.['state']).toEqual(['CA', 'TX'])
   })
 
   it('passes sort when provided', async () => {
@@ -284,19 +310,19 @@ describe('ListingSearchService.search', () => {
     expect(opts.sort).toEqual(['priceCents:asc'])
   })
 
-  it('omits sort key when sort is not provided', async () => {
+  it('omits sort when not provided', async () => {
     const { service, searchMock } = makeService()
     await service.search({})
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts).not.toHaveProperty('sort')
+    expect(opts.sort).toBeUndefined()
   })
 
-  it('returns hits, total, and facets from the index response', async () => {
+  it('returns hits, total, and facets from the SearchService response', async () => {
     const { service, searchMock } = makeService()
-    const mockHit = { id: 'abc' }
+    const mockHit = { id: 'abc' } as unknown as ListingDocument
     searchMock.mockResolvedValueOnce({
       hits: [mockHit],
-      estimatedTotalHits: 42,
+      total: 42,
       facetDistribution: { make: { Toyota: 5 } },
     })
     const result = await service.search({})
@@ -305,16 +331,16 @@ describe('ListingSearchService.search', () => {
     expect(result.facets).toEqual({ make: { Toyota: 5 } })
   })
 
-  it('returns total 0 when estimatedTotalHits is undefined', async () => {
+  it('returns total 0 when SearchService returns 0', async () => {
     const { service, searchMock } = makeService()
-    searchMock.mockResolvedValueOnce({ hits: [], estimatedTotalHits: undefined, facetDistribution: {} })
+    searchMock.mockResolvedValueOnce({ hits: [], total: 0, facetDistribution: {} })
     const result = await service.search({})
     expect(result.total).toBe(0)
   })
 
-  it('returns empty facets object when facetDistribution is undefined', async () => {
+  it('returns empty facets object when facetDistribution is absent', async () => {
     const { service, searchMock } = makeService()
-    searchMock.mockResolvedValueOnce({ hits: [], estimatedTotalHits: 0, facetDistribution: undefined })
+    searchMock.mockResolvedValueOnce({ hits: [], total: 0 })
     const result = await service.search({})
     expect(result.facets).toEqual({})
   })
@@ -322,23 +348,33 @@ describe('ListingSearchService.search', () => {
   it('passes the search query string through', async () => {
     const { service, searchMock } = makeService()
     await service.search({ q: 'wheelchair van' })
-    const [query] = searchMock.mock.calls[0]!
-    expect(query).toBe('wheelchair van')
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.query).toBe('wheelchair van')
   })
 
-  it('passes empty string when q is not provided', async () => {
+  it('passes undefined query when q is not provided', async () => {
     const { service, searchMock } = makeService()
     await service.search({})
-    const [query] = searchMock.mock.calls[0]!
-    expect(query).toBe('')
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.query).toBeUndefined()
   })
 
-  it('combines multiple filters with AND', async () => {
+  it('combines make, yearMin, and hasLift into separate filter structures', async () => {
     const params: SearchParams = { make: ['Toyota'], yearMin: 2020, hasLift: true }
     const { service, searchMock } = makeService()
     await service.search(params)
     const [, opts] = searchMock.mock.calls[0]!
-    const parts = (opts.filter as string).split(' AND ')
-    expect(parts.length).toBeGreaterThanOrEqual(3)
+    expect(opts.filters?.['make']).toEqual(['Toyota'])
+    expect(opts.filters?.['hasLift']).toBe(true)
+    expect(opts.rangeFilters?.find(r => r.field === 'year')?.gte).toBe(2020)
+  })
+
+  it('passes standard listing facet fields', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({})
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.facets).toEqual(
+      expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state']),
+    )
   })
 })
