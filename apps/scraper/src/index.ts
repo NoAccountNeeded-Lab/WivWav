@@ -75,7 +75,7 @@ async function buildOllamaProvider(): Promise<OllamaProvider> {
   const model = await readConfigValue('ai.scraper.structure.model')
   return new OllamaProvider({
     baseUrl: process.env['OLLAMA_BASE_URL'] ?? 'http://localhost:11434',
-    model: model ?? process.env['OLLAMA_MODEL'] ?? 'llama3.2',
+    model: model ?? process.env['OLLAMA_MODEL'] ?? 'llama3.2:3b',
   })
 }
 

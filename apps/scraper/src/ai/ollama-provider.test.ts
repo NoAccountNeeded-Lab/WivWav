@@ -52,7 +52,7 @@ describe('OllamaProvider', () => {
     await provider.complete('s', 'u')
 
     const body = JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string) as Record<string, unknown>
-    expect(body['model']).toBe('llama3.2')
+    expect(body['model']).toBe('llama3.2:3b')
     expect((mockFetch.mock.calls[0] as [string])[0]).toContain('localhost:11434')
   })
 })

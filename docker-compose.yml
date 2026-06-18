@@ -121,7 +121,7 @@ services:
       SCRAPER_HEADLESS: "true"
       # Docker service name resolves automatically — no user config needed
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
       LOG_LEVEL: debug
       LOG_FORMAT: json
     depends_on:
@@ -140,14 +140,19 @@ services:
   # Optional local AI container for testing the self-healing scraper engine.
   # Start with: docker compose --profile ai up
   # First run pulls the model (cached to a named volume — subsequent starts are fast).
+  #
+  # Resource requirements: llama3.2:3b needs ~4 GB RAM; no GPU required.
+  # Ollama is NOT included in the default production stack — the scraper
+  # degrades gracefully to needs_remapping when OLLAMA_BASE_URL is unreachable.
+  # See docs/design/scraper-ai-provider-production.md for the production decision record.
   ollama:
     image: ollama/ollama:0.30.6
     profiles: [ai]
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "ollama serve & until ollama list > /dev/null 2>&1; do sleep 1; done && ollama pull ${OLLAMA_MODEL:-llama3.2}; wait"
+      - "ollama serve & until ollama list > /dev/null 2>&1; do sleep 1; done && ollama pull ${OLLAMA_MODEL:-llama3.2:3b}; wait"
     environment:
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
     ports:
       - "11434:11434"
     volumes:
