@@ -7,8 +7,8 @@
  *   3. Claim issues, create isolated worktrees, write recovery state
  *   4. Print worker instructions for the agent layer
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { mkdirSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { run } from '../lib/git.js'
 import {
   type IssueData,
@@ -390,14 +390,38 @@ function claimIssue(target: SprintTarget, sprintId: string, today: string, dryRu
   postComment(target.issue.number, comment)
 }
 
+const ENV_FILES_TO_COPY = [
+  'apps/api/.env',
+  'apps/api/.env.local',
+  'apps/scraper/.env',
+  'apps/web/.env.local',
+  'packages/db/.env',
+]
+
+function copyEnvFiles(worktreePath: string, dryRun: boolean): void {
+  for (const rel of ENV_FILES_TO_COPY) {
+    const src = join(process.cwd(), rel)
+    const dest = join(process.cwd(), worktreePath, rel)
+    if (!existsSync(src)) continue
+    if (dryRun) {
+      console.log(`  [dry-run] cp ${rel} → ${worktreePath}/${rel}`)
+      continue
+    }
+    mkdirSync(dirname(dest), { recursive: true })
+    copyFileSync(src, dest)
+  }
+}
+
 function createWorktree(target: SprintTarget, dryRun: boolean): void {
   if (dryRun) {
     console.log(`  [dry-run] git worktree add -b ${target.branch} ${target.worktreePath} origin/main`)
+    copyEnvFiles(target.worktreePath, dryRun)
     return
   }
 
   mkdirSync(dirname(target.worktreePath), { recursive: true })
   run(`git worktree add -b ${target.branch} ${target.worktreePath} origin/main`)
+  copyEnvFiles(target.worktreePath, dryRun)
 }
 
 function markMissingAcceptanceCriteria(issue: IssueData, today: string, dryRun: boolean): void {
