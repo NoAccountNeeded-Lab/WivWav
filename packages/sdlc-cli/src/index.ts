@@ -50,6 +50,8 @@ Options (run-sprint):
   --limit <n>       Max ready issues to prepare in sequential mode
   --parallel <n>    Max ready issues to prepare with unique agent indexes
   -p <n>            Alias for --parallel
+  --effort <level>  Effort guidance: auto|low|standard|high. Default: auto
+  --model <name>    Provider-specific model hint, or auto. Default: auto
 
 Examples:
   pnpm wivwav start 304
@@ -187,6 +189,19 @@ async function main(): Promise<void> {
         if (limitStr !== undefined) opts.limit = parseInt(limitStr, 10)
         const parallelStr = strFlag(flags, 'parallel')
         if (parallelStr !== undefined) opts.parallel = parseInt(parallelStr, 10)
+        const effort = strFlag(flags, 'effort')
+        if (
+          effort === 'auto' ||
+          effort === 'low' ||
+          effort === 'standard' ||
+          effort === 'high'
+        ) {
+          opts.effort = effort
+        } else if (effort !== undefined) {
+          throw new CliError('Usage: --effort must be one of auto|low|standard|high')
+        }
+        const model = strFlag(flags, 'model')
+        if (model !== undefined) opts.model = model
         await runSprintCommand(opts)
         break
       }
