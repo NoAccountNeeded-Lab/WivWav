@@ -85,6 +85,10 @@ describe('hasAcceptanceCriteria', () => {
   it('returns false for body with unrelated bullet points (no checkbox)', () => {
     expect(hasAcceptanceCriteria('- some plain bullet\n- another')).toBe(false)
   })
+
+  it('returns true when "done when" appears mid-sentence (broad gate)', () => {
+    expect(hasAcceptanceCriteria('This feature is done when all tests pass.')).toBe(true)
+  })
 })
 
 describe('extractAcceptanceCriteria', () => {
@@ -105,6 +109,14 @@ describe('extractAcceptanceCriteria', () => {
     expect(extractAcceptanceCriteria('Done when: users can search by zip code.')).toEqual([
       'Done when: users can search by zip code.',
     ])
+  })
+
+  it('returns empty array for a bare acceptance criteria heading with no body', () => {
+    expect(extractAcceptanceCriteria('## Acceptance Criteria\n')).toEqual([])
+  })
+
+  it('does not match done-when mid-sentence (extraction is conservative)', () => {
+    expect(extractAcceptanceCriteria('This is done when all tests pass.')).toEqual([])
   })
 })
 

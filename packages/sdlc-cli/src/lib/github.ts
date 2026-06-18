@@ -79,7 +79,10 @@ export function labelNames(issue: IssueData): string[] {
 
 /** Detect acceptance criteria in an issue body. */
 export function hasAcceptanceCriteria(body: string): boolean {
-  return extractAcceptanceCriteria(body).length > 0
+  if (!body || body.trim() === '') return false
+  if (extractAcceptanceCriteria(body).length > 0) return true
+  // preserve old broad match: any issue mentioning "done when" anywhere passes the gate
+  return /done when\b/i.test(body)
 }
 
 /** Extract reusable acceptance criteria lines from an issue body. */
@@ -107,7 +110,12 @@ export function extractAcceptanceCriteria(body: string): string[] {
     if (line.trim() !== '') criteria.push(line.trim())
   }
 
-  if (criteria.length === 0) return [lines[start]?.trim() ?? ''].filter((line) => line !== '')
+  if (criteria.length === 0) {
+    const matchedLine = lines[start]?.trim() ?? ''
+    // return the line itself only for inline criteria like "Done when: X", not bare headings
+    if (matchedLine && !/^#{1,6}[ \t]+/.test(matchedLine)) return [matchedLine]
+    return []
+  }
 
   return criteria
 }

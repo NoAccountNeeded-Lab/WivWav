@@ -88,7 +88,7 @@ function effortForIssue(issue: IssueData, requested: EffortLevel = 'auto'): Excl
 
   const labels = labelNames(issue)
   const bodyLength = issue.body.length
-  if (labels.some((label) => label === 'complexity:high' || label === 'risk:high')) return 'high'
+  if (labels.some((label) => label === 'complexity:high' || label === 'risk')) return 'high'
   if (bodyLength > 4_000) return 'high'
   if (labels.some((label) => label.startsWith('docs') || label === 'type:docs')) return 'low'
   if (bodyLength < 1_200) return 'low'
@@ -155,7 +155,7 @@ function likelyFileHints(issue: IssueData, dryRun: boolean): string[] {
 
 function bulletList(items: string[], fallback: string): string {
   if (items.length === 0) return `- ${fallback}`
-  return items.map((item) => `- ${item}`).join('\n')
+  return items.map((item) => (item.startsWith('- ') ? item : `- ${item}`)).join('\n')
 }
 
 function writeWorktreeFile(target: SprintTarget, relativePath: string, contents: string, dryRun: boolean): void {
@@ -245,7 +245,7 @@ function reviewContext(target: SprintTarget): string {
     '## Evidence Map Stub',
     '',
     target.acceptanceCriteria.length > 0
-      ? target.acceptanceCriteria.map((criterion) => `- ${criterion} -> _pending evidence_`).join('\n')
+      ? target.acceptanceCriteria.map((criterion) => `${criterion} -> _pending evidence_`).join('\n')
       : '- _pending evidence_',
     '',
     '## Role Hints',
@@ -272,7 +272,7 @@ function finishContext(target: SprintTarget): string {
     '## Acceptance Evidence',
     '',
     target.acceptanceCriteria.length > 0
-      ? target.acceptanceCriteria.map((criterion) => `- ${criterion} -> _add proof line_`).join('\n')
+      ? target.acceptanceCriteria.map((criterion) => `${criterion} -> _add proof line_`).join('\n')
       : '- _add proof line_',
     '',
     '## Usage Reporting',
