@@ -203,18 +203,32 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
   app.get<{ Params: { id: string } }>('/:id/safety', async (req, reply) => {
     const listing = await listings.findByIdForSafety(req.params.id)
     if (!listing) return reply.notFound('Listing not found')
-    if (!listing.vehicleModelId) return reply.send({ data: { vehicleModel: null, recalls: [], complaints: [], safetyRatings: [] } })
+    if (!listing.vehicleModelId) return reply.send({ data: { vehicleModel: null, recalls: [], complaints: [], safetyRatings: [], safetyFreshnessDate: null } })
 
     const vehicleModel = await listings.findVehicleModelWithSafetyData(listing.vehicleModelId)
+
+    const rawRecalls = vehicleModel?.recalls ?? []
+    const recalls = rawRecalls.map((r) => ({ ...r, status: normalizeRecallStatus(r.remedy) }))
+
+    // Freshness date: the most recent refreshedAt from safety ratings, or null when unavailable
+    const rawRatings = vehicleModel?.safetyRatings ?? []
+    const safetyFreshnessDate = rawRatings.reduce<string | null>((latest, r) => {
+      if (!r.refreshedAt) return latest
+      const iso = r.refreshedAt.toISOString()
+      return latest === null || iso > latest ? iso : latest
+    }, null)
+    // Strip refreshedAt from each rating — it is already aggregated into safetyFreshnessDate
+    const safetyRatings = rawRatings.map(({ refreshedAt: _unused, ...rest }) => rest)
 
     return reply.send({
       data: {
         vehicleModel: vehicleModel
           ? { id: vehicleModel.id, make: vehicleModel.make, model: vehicleModel.model, year: vehicleModel.year, trim: vehicleModel.trim, bodyType: vehicleModel.bodyType }
           : null,
-        recalls: vehicleModel?.recalls ?? [],
+        recalls,
         complaints: vehicleModel?.complaints ?? [],
-        safetyRatings: vehicleModel?.safetyRatings ?? [],
+        safetyRatings,
+        safetyFreshnessDate,
       },
     })
   })
@@ -226,6 +240,14 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
     return reply.send({ data: history })
   })
 
+}
+
+type RecallStatus = 'open' | 'remedied' | 'unknown'
+
+function normalizeRecallStatus(remedy: string | null | undefined): RecallStatus {
+  if (remedy === null || remedy === undefined || remedy.trim() === '') return 'open'
+  if (remedy.trim().toLowerCase() === 'unknown') return 'unknown'
+  return 'remedied'
 }
 
 function parseArr(v: string | undefined): string[] | undefined {

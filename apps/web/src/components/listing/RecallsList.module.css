@@ -111,3 +111,26 @@
   background: var(--clr-feature-bg);
   color: #14532d;
 }
+
+.iconUnknown {
+  width: 28px;
+  height: 28px;
+  border-radius: 0.4375rem;
+  background: var(--clr-border);
+  color: var(--clr-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statusUnknown {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 0.5rem;
+  margin-top: 0.1875rem;
+  background: var(--clr-border);
+  color: var(--clr-text-secondary);
+}

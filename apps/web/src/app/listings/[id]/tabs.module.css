@@ -297,3 +297,24 @@
   text-transform: none;
   letter-spacing: 0;
 }
+
+/* ── Freshness banner ────────────────────────────────────────────────────── */
+.freshnessBanner {
+  font-size: 0.75rem;
+  color: var(--clr-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--clr-border);
+  margin-bottom: 0.25rem;
+}
+
+.staleWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-warning, #b45309);
+  font-weight: 500;
+}
