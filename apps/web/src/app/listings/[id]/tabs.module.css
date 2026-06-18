@@ -167,6 +167,31 @@
   outline-offset: 2px;
 }
 
+.descriptionSnippet {
+  font-size: 0.8125rem;
+  color: var(--clr-text);
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+}
+
+.descriptionSourceLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--clr-primary);
+  text-decoration: none;
+  min-height: 2.75rem; /* 44px WCAG 2.5.5 touch target */
+  padding: 0.25rem 0;
+}
+.descriptionSourceLink:hover {
+  text-decoration: underline;
+}
+.descriptionSourceLink:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
 .footerMeta {
   font-size: 0.75rem;
   color: var(--clr-text-muted);

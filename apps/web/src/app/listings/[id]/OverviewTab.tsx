@@ -43,6 +43,9 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
   const verificationDateLabel = formatVerificationDate(verificationTimestamp)
   const isStale = isVerificationStale(verificationTimestamp)
 
+  const sourceLink = listing.buyerUrl ?? listing.sourceUrl
+  const sourceName = listing.provenance?.sourceName ?? 'source'
+
   return (
     <div className={styles.tabContent}>
       {/* Verification banner */}
@@ -126,7 +129,7 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
       {/* CTAs */}
       <div className={styles.ctaWrap}>
         <a
-          href={listing.buyerUrl ?? listing.sourceUrl}
+          href={sourceLink}
           target="_blank"
           rel="noopener noreferrer"
           className={styles.ctaPrimary}
@@ -141,6 +144,24 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
           </Link>
         )}
       </div>
+
+      {/* Seller description snippet — capped at 300 chars by the API; source link directs to full copy */}
+      {listing.description && (
+        <div className={styles.section}>
+          <h3 className={styles.sectionLabel}>From the listing</h3>
+          <p className={styles.descriptionSnippet}>{listing.description}</p>
+          <a
+            href={sourceLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.descriptionSourceLink}
+          >
+            <ExternalLink size={11} aria-hidden />
+            View full listing on {sourceName}
+            <span className="sr-only"> (opens in new tab)</span>
+          </a>
+        </div>
+      )}
 
       {/* Dealer info */}
       {hasDealerInfo && (

@@ -6,6 +6,22 @@ import type { ListingRepository } from '../repositories/index.js'
 
 type ListingWithRequiredSource = Listing & { source: { name: string; baseUrl: string } }
 
+/**
+ * Maximum characters of third-party dealer copy exposed in the public API.
+ * Full descriptions are retained in the database for WAV-feature extraction
+ * by the scraper agents, but the public detail response is capped here to
+ * avoid reproducing potentially-copyrighted seller copy verbatim.
+ * Source attribution and an outbound link are always included in provenance.
+ */
+const DESCRIPTION_SNIPPET_LENGTH = 300
+
+export function snippetDescription(description: string | null): string | null {
+  if (description === null) return null
+  const trimmed = description.trim()
+  if (trimmed.length <= DESCRIPTION_SNIPPET_LENGTH) return trimmed
+  return trimmed.slice(0, DESCRIPTION_SNIPPET_LENGTH).trimEnd() + '…'
+}
+
 function toListingDetailResponse(listing: ListingWithRequiredSource) {
   const {
     source,
@@ -19,12 +35,14 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
     lat, lng, zip, city, state,
     conversionType, conversionManufacturer, floorLoweringInches,
     rampType, hasLift, handControls, transferSeat, wheelchairCapacity,
+    description,
     ...rest
   } = listing
   void sourceId
 
   return {
     ...rest,
+    description: snippetDescription(description),
     location: { zip, city, state, lat, lng },
     dealer: { name: dealerName, phone: dealerPhone, website: dealerWebsite },
     wav: { conversionType, conversionManufacturer, floorLoweringInches, rampType, hasLift, handControls, transferSeat, wheelchairCapacity },

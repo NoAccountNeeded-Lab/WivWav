@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { describe, expect, it, vi } from 'vitest'
-import { listingRoutes } from './listings.js'
+import { listingRoutes, snippetDescription } from './listings.js'
 
 const defaultDbListing = {
   id: 'listing-1',
@@ -482,6 +482,68 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
     expect(res.statusCode).toBe(500)
+
+    await app.close()
+  })
+})
+
+describe('snippetDescription', () => {
+  it('returns null for null input', () => {
+    expect(snippetDescription(null)).toBeNull()
+  })
+
+  it('returns the full text when it is at or below the limit', () => {
+    const short = 'A'.repeat(300)
+    expect(snippetDescription(short)).toBe(short)
+  })
+
+  it('truncates text that exceeds the limit and appends an ellipsis', () => {
+    const long = 'A'.repeat(400)
+    const result = snippetDescription(long)
+    expect(result).not.toBeNull()
+    expect(result!.endsWith('…')).toBe(true)
+    // The snippet must be no longer than DESCRIPTION_SNIPPET_LENGTH chars + the ellipsis character
+    // (300 chars from the original text, then '…' which is 1 char)
+    expect(result!.length).toBeLessThanOrEqual(301)
+  })
+
+  it('trims leading and trailing whitespace before measuring', () => {
+    const padded = '  hello  '
+    expect(snippetDescription(padded)).toBe('hello')
+  })
+
+  it('does not append ellipsis when trimmed text fits within the limit', () => {
+    const justRight = 'B'.repeat(299)
+    const result = snippetDescription(justRight)
+    expect(result).toBe(justRight)
+    expect(result!.endsWith('…')).toBe(false)
+  })
+
+  it('does not expose full descriptions in the GET /:id response', async () => {
+    const longDesc = 'X'.repeat(600)
+    const listing = { ...defaultDbListing, description: longDesc }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: { description: string } }>()
+    expect(body.data.description.length).toBeLessThanOrEqual(301)
+    expect(body.data.description.endsWith('…')).toBe(true)
+
+    await app.close()
+  })
+
+  it('passes through a short description unchanged in the GET /:id response', async () => {
+    const shortDesc = 'Great WAV in excellent condition.'
+    const listing = { ...defaultDbListing, description: shortDesc }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: { description: string } }>()
+    expect(body.data.description).toBe(shortDesc)
 
     await app.close()
   })
