@@ -17,6 +17,10 @@ interface ScheduleEntry {
   key: string | null
   pattern: string
   next: number | null
+  lastRunAt: string | null
+  lastStatus: 'active' | 'completed' | 'failed' | null
+  recentFailureCount: number
+  recentFailureReason: string | null
 }
 
 interface SchedulesClientProps {
@@ -168,6 +172,8 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                   <th>Pattern</th>
                   <th>Timezone</th>
                   <th>Next run</th>
+                  <th>Last run</th>
+                  <th>Recent failures</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -221,6 +227,35 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                       <td className={styles.muted} style={{ fontSize: '0.8125rem' }}>{entry.tz}</td>
                       <td className={styles.muted} style={{ fontSize: '0.8125rem' }}>
                         {entry.next ? fmtDateTime(entry.next) : '—'}
+                      </td>
+                      <td>
+                        <div className={styles.queueNameWrap}>
+                          <span className={styles.muted} style={{ fontSize: '0.8125rem' }}>
+                            {entry.lastRunAt ? fmtDateTime(entry.lastRunAt) : 'No recent run'}
+                          </span>
+                          {entry.lastStatus && (
+                            <span
+                              className={styles.badge}
+                              data-variant={entry.lastStatus === 'failed' ? 'danger' : entry.lastStatus === 'active' ? 'success' : 'neutral'}
+                            >
+                              {entry.lastStatus}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        {entry.recentFailureCount > 0 ? (
+                          <div className={styles.queueNameWrap}>
+                            <span className={styles.errorMsg}>
+                              {entry.recentFailureCount} failed
+                            </span>
+                            {entry.recentFailureReason && (
+                              <span className={styles.queueDesc}>{entry.recentFailureReason}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className={styles.muted} style={{ fontSize: '0.8125rem' }}>0</span>
+                        )}
                       </td>
                       <td>
                         <span
@@ -284,9 +319,10 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
               <li><strong>Disable</strong> removes the repeatable from BullMQ. The job won't fire until re-enabled. A scraper restart will not re-add it.</li>
               <li><strong>Enable</strong> adds it back with the same (or default) pattern.</li>
               <li><strong>Edit</strong> lets you change the cron pattern without restarting anything. Changes take effect immediately — the next run is rescheduled in BullMQ.</li>
+              <li><strong>NHTSA refresh jobs</strong> are listed here as canonical schedules: <code>vin-enrich</code> every 6 hours from 4 AM, <code>nhtsa-recalls</code> daily at 4:30 AM, <code>nhtsa-complaints</code> weekly Sunday at 5 AM, and <code>nhtsa-safety-ratings</code> weekly Sunday at 6 AM.</li>
             </ul>
             <p>Cron syntax: <code>minute hour day-of-month month day-of-week</code>. Examples: <code>0 2 * * *</code> = 2 AM daily, <code>*/5 * * * *</code> = every 5 minutes, <code>0 */6 * * *</code> = every 6 hours.</p>
-            <p>To trigger a job immediately without waiting for the schedule, use the <Link href="/ops/queues" style={{ color: 'var(--clr-primary)' }}>Queues page</Link>.</p>
+            <p>Use the last-run and recent-failure columns for schedule health. To inspect payloads, logs, stack traces, or trigger a job immediately without waiting for the schedule, use the <Link href="/ops/queues" style={{ color: 'var(--clr-primary)' }}>Queues page</Link>.</p>
           </div>
         </details>
       </div>
@@ -298,9 +334,9 @@ function fmtTime(date: Date): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(date)
 }
 
-function fmtDateTime(ms: number): string {
+function fmtDateTime(value: number | string): string {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit',
-  }).format(new Date(ms))
+  }).format(new Date(value))
 }

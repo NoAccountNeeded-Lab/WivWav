@@ -143,6 +143,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     tz: string
   }
 
+  function isMatchingJob(job: { name: string }, def: CanonicalDef): boolean {
+    return job.name === def.name || job.name === def.queue
+  }
+
   async function getCanonicalDefs(): Promise<CanonicalDef[]> {
     const scheduledSources = await sources.findScheduledSources(['BLVD.com', 'MobilityWorks'])
     const blvd = scheduledSources.find((s) => s.name === 'BLVD.com')
@@ -156,6 +160,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       { id: 'geocode',         queue: 'geocode',         label: 'Geocode (city → GPS)',      name: 'geocode',         data: {},                          defaultPattern: '0 2 * * *',   tz },
       { id: 'deduplicate',     queue: 'deduplicate',     label: 'Deduplicate (VIN)',         name: 'deduplicate',     data: {},                          defaultPattern: '0 3 * * *',   tz },
       { id: 'rawpage-cleanup', queue: 'rawpage-cleanup', label: 'RawPage cleanup (TTL)',      name: 'rawpage-cleanup', data: {},                          defaultPattern: '0 1 * * *',   tz },
+      { id: 'vin-enrich',      queue: QUEUES.VIN_ENRICH,           label: 'VIN enrichment (NHTSA vPIC)',     name: QUEUES.VIN_ENRICH,           data: {}, defaultPattern: '0 4/6 * * *', tz },
+      { id: 'nhtsa-recalls',   queue: QUEUES.NHTSA_RECALLS,        label: 'NHTSA recalls refresh',           name: QUEUES.NHTSA_RECALLS,        data: {}, defaultPattern: '30 4 * * *',  tz },
+      { id: 'nhtsa-complaints', queue: QUEUES.NHTSA_COMPLAINTS,    label: 'NHTSA complaints refresh',        name: QUEUES.NHTSA_COMPLAINTS,     data: {}, defaultPattern: '0 5 * * 0',   tz },
+      { id: 'nhtsa-safety-ratings', queue: QUEUES.NHTSA_SAFETY_RATINGS, label: 'NHTSA safety ratings refresh', name: QUEUES.NHTSA_SAFETY_RATINGS, data: {}, defaultPattern: '0 6 * * 0',   tz },
     ]
   }
 
@@ -165,8 +173,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
     // Collect current repeatables from all relevant queues
     const liveByQueue = new Map<string, Awaited<ReturnType<QueueAdapter['getRepeatableJobs']>>>()
+    const jobsByQueue = new Map<string, Awaited<ReturnType<QueueAdapter['getJobs']>>>()
     for (const q of queues.values()) {
-      liveByQueue.set(q.name, await q.getRepeatableJobs())
+      const [repeatableJobs, jobs] = await Promise.all([
+        q.getRepeatableJobs(),
+        q.getJobs(['active', 'completed', 'failed']),
+      ])
+      liveByQueue.set(q.name, repeatableJobs)
+      jobsByQueue.set(q.name, jobs)
     }
 
     const data = defs.map((def) => {
@@ -174,6 +188,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       const match = def.jobId
         ? live.find((r) => r.id === def.jobId)
         : live.find((r) => r.name === def.name)
+      const jobs = (jobsByQueue.get(def.queue) ?? []).filter((job) => isMatchingJob(job, def))
+      const latestJob = [...jobs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+      const failedJobs = jobs.filter((job) => job.status === 'failed')
+      const latestFailedJob = [...failedJobs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
 
       return {
         id: def.id,
@@ -188,6 +206,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
         key: match?.key ?? null,
         pattern: match?.pattern ?? def.defaultPattern,
         next: match?.next ?? null,
+        lastRunAt: latestJob?.createdAt ?? null,
+        lastStatus: latestJob?.status ?? null,
+        recentFailureCount: failedJobs.length,
+        recentFailureReason: latestFailedJob?.failedReason ?? null,
       }
     })
 
