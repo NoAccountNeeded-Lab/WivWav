@@ -213,6 +213,8 @@ function workerContext(target: SprintTarget): string {
     '- Read `.claude/core.md` and `.claude/roles/worker.md`.',
     '- Write a scoped plan before reading source files.',
     '- Treat likely-file hints as non-authoritative.',
+    `- Completed issues must close on merge: use \`pnpm wivwav finish ${target.issue.number}\` without \`--refs\`.`,
+    `- Use \`pnpm wivwav finish ${target.issue.number} --refs\` only for intentionally partial work that should leave the issue open.`,
     '- Append your model and token usage to `.agents/usage-report.md` before finishing.',
     '',
     '## Acceptance Criteria',
@@ -274,6 +276,11 @@ function finishContext(target: SprintTarget): string {
     target.acceptanceCriteria.length > 0
       ? target.acceptanceCriteria.map((criterion) => `${criterion} -> _add proof line_`).join('\n')
       : '- _add proof line_',
+    '',
+    '## Issue Closure',
+    '',
+    `- Run \`pnpm wivwav finish ${target.issue.number}\` for completed work. The default uses GitHub closing keywords in the commit and PR body.`,
+    `- Use \`pnpm wivwav finish ${target.issue.number} --refs\` only when the PR is intentionally partial and issue #${target.issue.number} should remain open.`,
     '',
     '## Usage Reporting',
     '',

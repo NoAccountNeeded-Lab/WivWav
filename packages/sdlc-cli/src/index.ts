@@ -40,7 +40,7 @@ Options (finish):
   --type <type>     Commit type (feat|fix|chore|docs|refactor|test). Default: feat
   --scope <scope>   Commit scope. Default: derived from changed files
   --desc <text>     Short commit description. Default: derived from issue title
-  --refs            Use "refs #N" instead of "fixes #N" in the commit message
+  --refs            Use non-closing "refs #N" for partial work. Default closes with "fixes #N"
   --agent-role <r>  Agent role for git trailers (e.g. worker)
   --agent-index <i> Agent index for git trailers
   --sprint-run <id> Sprint run ID for git trailers

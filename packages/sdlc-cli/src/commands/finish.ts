@@ -163,7 +163,8 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
   const changed = changedFiles()
   const commitScope = opts.commitScope ?? deriveScope(changed)
   const description = opts.description ?? titleToDescription(issue.title)
-  const issueRef = opts.fixes !== false ? `fixes #${issueNumber}` : `refs #${issueNumber}`
+  const closesIssue = opts.fixes !== false
+  const issueRef = closesIssue ? `fixes #${issueNumber}` : `refs #${issueNumber}`
   const commitMsg = `${commitType}(${commitScope}): ${description} (${issueRef})`
 
   // Build trailers
@@ -206,6 +207,8 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
   const prBody = [
     '## Summary',
     description,
+    '',
+    closesIssue ? `Closes #${issueNumber}` : `Refs #${issueNumber}`,
     '',
     '## Acceptance Evidence',
     acceptanceEvidence,
