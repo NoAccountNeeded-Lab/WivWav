@@ -19,7 +19,7 @@ export class OllamaProvider implements CompletionProvider {
 
   constructor(config: OllamaConfig = {}) {
     this.baseUrl = config.baseUrl ?? 'http://localhost:11434'
-    this.model = config.model ?? 'llama3.2'
+    this.model = config.model ?? 'llama3.2:3b'
   }
 
   async isAvailable(): Promise<boolean> {
