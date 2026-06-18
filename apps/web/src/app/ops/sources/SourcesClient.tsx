@@ -100,7 +100,10 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
         <div className={styles.pageHeader}>
-          <h1 className={styles.heading}>Sources</h1>
+          <div>
+            <h1 className={styles.heading}>Source health</h1>
+            <p className={styles.pageIntro}>Review source status, listing counts, scrape timing, and source-specific errors.</p>
+          </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
@@ -116,11 +119,11 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
         </div>
 
         {error ? (
-          <p className={styles.error}>{error}</p>
+          <p className={styles.error}>Sources could not load: {error}. Check the API, then refresh this page.</p>
         ) : !sources ? (
-          <p className={styles.empty}>Loading sources…</p>
+          <p className={styles.empty}>Loading source health. If this does not finish, confirm the API is running and refresh.</p>
         ) : !sources.length ? (
-          <p className={styles.empty}>No sources found.</p>
+          <p className={styles.empty}>No sources found. Add or seed sources before running listing imports.</p>
         ) : (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>

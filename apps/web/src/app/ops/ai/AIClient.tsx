@@ -366,7 +366,10 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
         <div className={styles.pageHeader}>
-          <h1 className={styles.heading}>AI</h1>
+          <div>
+            <h1 className={styles.heading}>Source repair</h1>
+            <p className={styles.pageIntro}>Check AI service health and repair sources whose page layout changed.</p>
+          </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
@@ -387,9 +390,9 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
         </div>
 
         {error ? (
-          <p className={styles.error}>{error}</p>
+          <p className={styles.error}>Source repair status could not load: {error}. Check the API and AI service, then refresh.</p>
         ) : !status ? (
-          <p className={styles.empty}>Loading AI status…</p>
+          <p className={styles.empty}>Loading source repair status. If this does not finish, confirm the API is running and refresh.</p>
         ) : (
           <>
             {/* ── Ollama status ──────────────────────────── */}
@@ -409,7 +412,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                   <span className={styles.statusRowLabel}>Models</span>
                   <div className={styles.modelList}>
                     {installedModels.length === 0 ? (
-                      <span className={styles.muted}>None detected</span>
+                      <span className={styles.muted}>None detected. Install an approved model before running local source repair.</span>
                     ) : (
                       installedModels.map(m => (
                         <code key={m} className={styles.modelChip}>{m}</code>
@@ -434,7 +437,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                 <div>
                   <h3 className={styles.subsectionHeading}>Loaded right now</h3>
                   {status.ollama.runningModels.length === 0 ? (
-                    <p className={styles.emptyCompact}>No models currently loaded in Ollama memory.</p>
+                    <p className={styles.emptyCompact}>No models are loaded right now. Run a source repair or warm the selected model if repair work is pending.</p>
                   ) : (
                     <div className={styles.tableWrapper}>
                       <table className={styles.table}>
@@ -466,7 +469,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                 </div>
                 {!ollamaAvailable && (
                   <p className={styles.errorMsg} style={{ margin: 0 }}>
-                    Ollama is not reachable at the configured URL. All AI features will fall back to empty results until it is restored.
+                    The local AI service is not reachable at the configured URL. Restore it before running source repair with a local model.
                   </p>
                 )}
               </div>
@@ -484,7 +487,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
               </h2>
               {status.sourcesNeedingRemap.length === 0 ? (
                 <p className={styles.empty} style={{ padding: '0.75rem 0' }}>
-                  All sources are healthy — no remapping needed.
+                  All sources are healthy. No repair action is needed right now.
                 </p>
               ) : (
                 <div className={styles.tableWrapper}>

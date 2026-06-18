@@ -143,7 +143,10 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
         <div className={styles.pageHeader}>
-          <h1 className={styles.heading}>Schedules</h1>
+          <div>
+            <h1 className={styles.heading}>Recurring jobs</h1>
+            <p className={styles.pageIntro}>Control when automatic listing refresh, geocoding, and safety-data jobs run.</p>
+          </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
@@ -159,9 +162,11 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
         </div>
 
         {error ? (
-          <p className={styles.error}>{error}</p>
+          <p className={styles.error}>Recurring jobs could not load: {error}. Check the API and worker services, then refresh this page.</p>
         ) : !schedules ? (
-          <p className={styles.empty}>Loading schedules…</p>
+          <p className={styles.empty}>Loading recurring jobs. If this does not finish, confirm the API and worker services are running.</p>
+        ) : schedules.length === 0 ? (
+          <p className={styles.empty}>No recurring jobs are registered. Start the scraper worker so default schedules can be registered, then refresh.</p>
         ) : (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
@@ -322,7 +327,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
               <li><strong>NHTSA refresh jobs</strong> are listed here as canonical schedules: <code>vin-enrich</code> every 6 hours from 4 AM, <code>nhtsa-recalls</code> daily at 4:30 AM, <code>nhtsa-complaints</code> weekly Sunday at 5 AM, and <code>nhtsa-safety-ratings</code> weekly Sunday at 6 AM.</li>
             </ul>
             <p>Cron syntax: <code>minute hour day-of-month month day-of-week</code>. Examples: <code>0 2 * * *</code> = 2 AM daily, <code>*/5 * * * *</code> = every 5 minutes, <code>0 */6 * * *</code> = every 6 hours.</p>
-            <p>Use the last-run and recent-failure columns for schedule health. To inspect payloads, logs, stack traces, or trigger a job immediately without waiting for the schedule, use the <Link href="/ops/queues" style={{ color: 'var(--clr-primary)' }}>Queues page</Link>.</p>
+            <p>Use the last-run and recent-failure columns for schedule health. To inspect payloads, logs, stack traces, or trigger a job immediately without waiting for the schedule, use <Link href="/ops/queues" style={{ color: 'var(--clr-primary)' }}>Advanced queue diagnostics</Link>.</p>
           </div>
         </details>
       </div>

@@ -102,7 +102,10 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
         <div className={styles.pageHeader}>
-          <h1 className={styles.heading}>Scraper Runs</h1>
+          <div>
+            <h1 className={styles.heading}>Listing import activity</h1>
+            <p className={styles.pageIntro}>Track recent source runs, listing changes, failures, and stuck imports.</p>
+          </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
@@ -134,11 +137,13 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
         </div>
 
         {error ? (
-          <p className={styles.error}>{error}</p>
+          <p className={styles.error}>Listing import activity could not load: {error}. Check the API, then refresh this page.</p>
         ) : !filtered ? (
-          <p className={styles.empty}>Loading runs…</p>
+          <p className={styles.empty}>Loading recent listing import activity. If this takes too long, confirm the API is running and refresh.</p>
         ) : !filtered.length ? (
-          <p className={styles.empty}>No {filter !== 'all' ? filter : ''} runs found.</p>
+          <p className={styles.empty}>
+            No {filter !== 'all' ? `${filter} ` : ''}runs found. Run a source from Source health or choose a different filter.
+          </p>
         ) : (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
@@ -196,7 +201,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
               <li><strong>Updated</strong> — listings that already existed but had changed fields</li>
             </ul>
             <p>A run marked <strong>In progress</strong> is currently executing (or crashed before it could write a result — check the scraper service logs if a run stays in this state for more than 30 minutes).</p>
-            <p>Runs only cover the index-page scrape step. Detail crawling, geocoding, and deduplication are tracked separately as BullMQ jobs — see the <Link href="/ops/queues" style={{ color: 'var(--clr-primary)' }}>Queues page</Link> for those.</p>
+            <p>Runs only cover the source listing step. Detail refreshes, geocoding, deduplication, and search sync are tracked on <Link href="/ops/queues" style={{ color: 'var(--clr-primary)' }}>Advanced queue diagnostics</Link>.</p>
           </div>
         </details>
       </div>

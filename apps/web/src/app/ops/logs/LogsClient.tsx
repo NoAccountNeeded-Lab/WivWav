@@ -247,7 +247,7 @@ export function LogsClient({ apiBaseUrl }: LogsClientProps) {
         <div className={styles.pageHeader}>
           <div>
             <h1 className={styles.heading}>Logs</h1>
-            <p className={styles.pageIntro}>Application log stream — last hour across all services.</p>
+            <p className={styles.pageIntro}>Search recent application events across services by source, severity, and message text.</p>
           </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
@@ -315,20 +315,20 @@ export function LogsClient({ apiBaseUrl }: LogsClientProps) {
         {unavailable ? (
           <div className={logsStyles.unavailable} role="status">
             <strong>Log backend unavailable.</strong>
-            {' '}Start the Loki service to query application logs:{' '}
+            {' '}Start the observability stack, then refresh this page to query application logs:{' '}
             <code className={logsStyles.mono}>docker compose --profile obs up</code>
           </div>
         ) : error ? (
-          <p className={styles.error} role="alert">{error}</p>
+          <p className={styles.error} role="alert">Logs could not load: {error}. Check the API and observability stack, then refresh.</p>
         ) : !filtered ? (
-          <p className={styles.empty} role="status">Loading logs…</p>
+          <p className={styles.empty} role="status">Loading recent logs. If this does not finish, confirm the API and observability stack are running.</p>
         ) : filtered.length === 0 ? (
           <p className={styles.empty} role="status">
             No log entries found
             {levelFilter !== 'all' ? ` at ${levelFilter} level or above` : ''}
             {debouncedSearch ? ` matching "${debouncedSearch}"` : ''}
             {serviceFilter !== 'all' ? ` for service "${serviceFilter}"` : ''}
-            {'.'}
+            {'.'} Clear filters or widen the search to inspect more events.
           </p>
         ) : (
           <div className={styles.tableWrapper}>
