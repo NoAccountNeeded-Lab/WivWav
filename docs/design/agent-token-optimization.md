@@ -67,9 +67,30 @@ Local models do not always expose provider-side prompt caching. The best optimiz
 4. Add concise Gemini and Cursor entry points that point to `AGENTS.md` only for deep reference.
 5. Keep Copilot repository instructions short and path/task-oriented.
 6. Measure token usage by sprint run:
-   - Claude Code: compare `ccusage` or account usage before/after a sprint.
+   - `pnpm wivwav run-sprint` writes `.agents/usage-report.md` into each worker worktree.
+   - Workers, reviewers, and finish steps record provider, model, input tokens, output tokens, cache read/write tokens, tool calls, and notes by phase.
+   - Claude Code: use `ccusage` or account usage when available and copy the phase totals into the local usage report.
    - `packages/agents`: log provider usage fields when APIs expose cached token counts.
    - GitHub issue/PR data: track completion, stuck labels, and review cycles per issue.
+
+## Sprint Context Artifacts
+
+`pnpm wivwav run-sprint` writes provider-neutral context files into each prepared worktree under `.agents/`:
+
+- `issue-context.md` — full issue body, labels, branch/worktree metadata, extracted acceptance criteria, effort/model guidance, and advisory likely-file hints.
+- `worker-context.md` — compact worker start packet that points to the full issue context.
+- `review-context.md` — acceptance criteria and an evidence-map stub for review.
+- `finish-context.md` — validation checklist and PR evidence inputs.
+- `usage-report.md` — model and token usage table for run-sprint, worker, reviewer, and finish phases.
+
+The likely-file hints are deterministic filename matches and are explicitly non-authoritative. Agents must still verify by reading source code before editing.
+
+`run-sprint` also accepts provider-neutral routing hints:
+
+- `--effort auto|low|standard|high` sets the expected reasoning effort. `auto` is based on labels and issue body size.
+- `--model auto|<provider-specific-model>` records a model hint without hard-coding provider mappings in the generic workflow.
+
+Provider-specific model selection belongs to the agent runtime. The SDLC CLI only records guidance and the eventual model used in `.agents/usage-report.md`.
 
 ## Follow-Ups
 
