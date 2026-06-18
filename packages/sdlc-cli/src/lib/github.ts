@@ -79,14 +79,37 @@ export function labelNames(issue: IssueData): string[] {
 
 /** Detect acceptance criteria in an issue body. */
 export function hasAcceptanceCriteria(body: string): boolean {
-  if (!body || body.trim() === '') return false
-  const lower = body.toLowerCase()
-  return (
-    lower.includes('acceptance criteria') ||
-    lower.includes('done when') ||
-    /^##[ \t]+ac\b/im.test(body) ||
-    /^[ \t]*-[ \t]\[[ xX]\][ \t]+\S/m.test(body)
+  return extractAcceptanceCriteria(body).length > 0
+}
+
+/** Extract reusable acceptance criteria lines from an issue body. */
+export function extractAcceptanceCriteria(body: string): string[] {
+  if (!body || body.trim() === '') return []
+
+  const checklistItems = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^-[ \t]\[[ xX]\][ \t]+\S/.test(line))
+
+  if (checklistItems.length > 0) return checklistItems
+
+  const lines = body.split(/\r?\n/)
+  const start = lines.findIndex((line) =>
+    /(^#{1,6}[ \t]+(?:acceptance criteria|ac)\b|acceptance criteria|^done when\b)/i.test(
+      line.trim(),
+    ),
   )
+  if (start === -1) return []
+
+  const criteria: string[] = []
+  for (const line of lines.slice(start + 1)) {
+    if (/^#{1,6}[ \t]+\S/.test(line.trim())) break
+    if (line.trim() !== '') criteria.push(line.trim())
+  }
+
+  if (criteria.length === 0) return [lines[start]?.trim() ?? ''].filter((line) => line !== '')
+
+  return criteria
 }
 
 /** Structured error for CLI user-facing failures. */

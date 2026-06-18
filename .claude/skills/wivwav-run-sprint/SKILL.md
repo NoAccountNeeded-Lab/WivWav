@@ -22,6 +22,7 @@ The CLI will:
 - verify issue state and acceptance criteria
 - move selected issues to `status:in-progress`
 - create one isolated worktree per selected issue
+- write `.agents/` context artifacts into each worktree
 - write `/tmp/wivwav-{N}.md` recovery state
 - print worker instructions for each selected issue
 
@@ -34,7 +35,7 @@ For each worker instruction block printed by the CLI:
 - In sequential mode, run workers foreground/blocking one at a time.
 - In parallel mode, spawn all listed workers in one message with `run_in_background: true`.
 
-The worker prompt is the instruction block printed by the CLI. Do not add the full issue body to the spawn prompt; the worker fetches it.
+The worker prompt is the instruction block printed by the CLI. Do not add the full issue body to the spawn prompt; the worker reads `.agents/worker-context.md` and `.agents/issue-context.md` from the prepared worktree before fetching live issue details.
 
 ## 3. Handle completions
 
@@ -43,6 +44,7 @@ As workers complete:
 - Success: post an issue comment with draft PR URL, commit SHA, and sprint ID; update `/tmp/wivwav-{N}.md` to `Status: success` and add the PR URL.
 - Failure: label the issue `status:stuck`, post a failure comment, and update `/tmp/wivwav-{N}.md` to `Status: stuck`.
 - Clean up each completed worktree with `git worktree remove --force {worktree}` followed by `git worktree prune`.
+- Preserve the worker's `.agents/usage-report.md` contents in the PR or issue evidence when reviewing sprint cost.
 
 Never cancel other running workers because one failed. A partial success is still a valid sprint run.
 

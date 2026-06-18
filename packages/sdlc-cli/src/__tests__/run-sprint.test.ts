@@ -13,6 +13,7 @@ vi.mock('../lib/github.js', () => ({
   fetchIssue: vi.fn(),
   listReadyIssues: vi.fn(),
   hasAcceptanceCriteria: vi.fn(() => true),
+  extractAcceptanceCriteria: vi.fn(() => ['- [ ] works']),
   labelNames: vi.fn((issue: { labels: Array<{ name: string }> }) => issue.labels.map((l) => l.name)),
   editIssueLabels: vi.fn(),
   postComment: vi.fn(),
@@ -35,6 +36,7 @@ const mockRun = gitMod.run as ReturnType<typeof vi.fn>
 const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
 const mockListReadyIssues = githubMod.listReadyIssues as ReturnType<typeof vi.fn>
 const mockHasAC = githubMod.hasAcceptanceCriteria as ReturnType<typeof vi.fn>
+const mockExtractAC = githubMod.extractAcceptanceCriteria as ReturnType<typeof vi.fn>
 const mockEditIssueLabels = githubMod.editIssueLabels as ReturnType<typeof vi.fn>
 const mockPostComment = githubMod.postComment as ReturnType<typeof vi.fn>
 
@@ -55,6 +57,7 @@ beforeEach(() => {
   mockListReadyIssues.mockReturnValue([{ number: 42, title: 'feat(api): add listing search' }])
   mockFetchIssue.mockReturnValue(makeIssue())
   mockHasAC.mockReturnValue(true)
+  mockExtractAC.mockReturnValue(['- [ ] works'])
 })
 
 afterEach(() => {
@@ -72,7 +75,9 @@ describe('runSprintCommand — dry-run', () => {
     expect(mockPostComment).not.toHaveBeenCalled()
     expect(mockRun).not.toHaveBeenCalled()
     expect(mockWriteFileSync).not.toHaveBeenCalled()
-    expect(log.mock.calls.map((c) => String(c[0])).join('\n')).toContain('[dry-run]')
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(output).toContain('[dry-run]')
+    expect(output).toContain('[dry-run] write')
   })
 })
 
@@ -93,7 +98,73 @@ describe('runSprintCommand — issue selection', () => {
     expect(mockPostComment).toHaveBeenCalledWith(42, expect.stringContaining('Sprint worker starting'))
     expect(mockMkdirSync).toHaveBeenCalled()
     expect(mockWriteFileSync).toHaveBeenCalledWith('/tmp/wivwav-42.md', expect.stringContaining('Status: running'))
-    expect(log.mock.calls.map((c) => String(c[0])).join('\n')).toContain('Worker instructions')
+    const writtenFiles = mockWriteFileSync.mock.calls.map((call) => String(call[0]))
+    expect(writtenFiles).toContain(
+      '.claude/worktrees/issue-42-featapi-add-listing-search/.agents/issue-context.md',
+    )
+    expect(writtenFiles).toContain(
+      '.claude/worktrees/issue-42-featapi-add-listing-search/.agents/usage-report.md',
+    )
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([, contents]) =>
+          String(contents).includes('## Acceptance Criteria') &&
+          String(contents).includes('- [ ] works'),
+      ),
+    ).toBe(true)
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([, contents]) =>
+          String(contents).includes('| Phase | Agent role/index | Provider | Model | Input tokens |'),
+      ),
+    ).toBe(true)
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(output).toContain('Worker instructions')
+    expect(output).toContain('read `.agents/worker-context.md`')
+    expect(output).toContain('Track model and token usage')
+  })
+
+  it('writes provider-neutral effort and model guidance', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42, effort: 'high', model: 'provider/model-v1' })
+
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([, contents]) =>
+          String(contents).includes('- Effort guidance: high') &&
+          String(contents).includes('- Model guidance: provider/model-v1'),
+      ),
+    ).toBe(true)
+  })
+
+  it('writes non-authoritative likely-file hints from deterministic git filenames', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockRun.mockImplementation((command: string) =>
+      command === 'git ls-files'
+        ? [
+          'packages/sdlc-cli/src/commands/run-sprint.ts',
+          'packages/sdlc-cli/src/__tests__/run-sprint.test.ts',
+          'apps/web/src/app/page.tsx',
+        ].join('\n')
+        : '',
+    )
+    mockFetchIssue.mockReturnValue(
+      makeIssue({
+        title: 'Optimize run sprint context',
+        body: '## Acceptance Criteria\n- [ ] run-sprint writes context',
+      }),
+    )
+
+    await runSprintCommand({ issueNumber: 42 })
+
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([, contents]) =>
+          String(contents).includes('These hints come from deterministic filename matching') &&
+          String(contents).includes('packages/sdlc-cli/src/commands/run-sprint.ts'),
+      ),
+    ).toBe(true)
   })
 
   it('assigns unique agent indexes in parallel mode', async () => {

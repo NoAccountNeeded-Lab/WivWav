@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { labelNames, hasAcceptanceCriteria, shellQuote, CliError } from '../lib/github.js'
+import {
+  labelNames,
+  hasAcceptanceCriteria,
+  extractAcceptanceCriteria,
+  shellQuote,
+  CliError,
+} from '../lib/github.js'
 import type { IssueData } from '../lib/github.js'
 
 function makeIssue(overrides: Partial<IssueData> = {}): IssueData {
@@ -78,6 +84,27 @@ describe('hasAcceptanceCriteria', () => {
 
   it('returns false for body with unrelated bullet points (no checkbox)', () => {
     expect(hasAcceptanceCriteria('- some plain bullet\n- another')).toBe(false)
+  })
+})
+
+describe('extractAcceptanceCriteria', () => {
+  it('returns markdown task-list items', () => {
+    expect(extractAcceptanceCriteria('- [ ] first\n- [x] second')).toEqual([
+      '- [ ] first',
+      '- [x] second',
+    ])
+  })
+
+  it('returns lines under an acceptance criteria heading', () => {
+    expect(
+      extractAcceptanceCriteria('Intro\n## Acceptance Criteria\n- first\n- second\n## Notes\nlater'),
+    ).toEqual(['- first', '- second'])
+  })
+
+  it('returns an inline done-when criterion', () => {
+    expect(extractAcceptanceCriteria('Done when: users can search by zip code.')).toEqual([
+      'Done when: users can search by zip code.',
+    ])
   })
 })
 
