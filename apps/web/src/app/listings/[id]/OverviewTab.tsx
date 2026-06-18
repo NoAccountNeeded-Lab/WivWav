@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import {
+  AlertTriangle,
   ExternalLink,
   Gauge,
   MapPin,
@@ -18,6 +19,11 @@ import {
   formatDate,
   formatPrice,
 } from './utils'
+import {
+  formatVerificationDate,
+  getVerificationTimestamp,
+  isVerificationStale,
+} from './verificationUtils'
 import type { ListingDetail, PricePoint } from './types'
 import styles from './tabs.module.css'
 
@@ -33,8 +39,32 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
   const hasDealerInfo = listing.dealer.name ?? listing.dealer.phone ?? listing.dealer.website
 
+  const verificationTimestamp = getVerificationTimestamp(listing.provenance)
+  const verificationDateLabel = formatVerificationDate(verificationTimestamp)
+  const isStale = isVerificationStale(verificationTimestamp)
+
   return (
     <div className={styles.tabContent}>
+      {/* Verification banner */}
+      <div className={styles.verificationBanner} role="note" aria-label="Listing verification status">
+        {verificationDateLabel !== null ? (
+          <>
+            <span>Last verified {verificationDateLabel}</span>
+            {isStale && (
+              <span className={styles.verificationStaleWarning}>
+                <AlertTriangle size={12} aria-hidden />
+                {' '}Listing may be outdated — verify with the seller
+              </span>
+            )}
+          </>
+        ) : (
+          <span className={styles.verificationStaleWarning}>
+            <AlertTriangle size={12} aria-hidden />
+            {' '}Verification date unavailable — confirm with the seller
+          </span>
+        )}
+      </div>
+
       {/* Price block */}
       <div className={styles.priceBlock}>
         <div className={styles.price}>{formatPrice(listing.priceCents)}</div>
