@@ -9,6 +9,8 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { DealerCard } from '@/components/listing/DealerCard'
+import { ProvenanceBadge } from '@/components/listing/ProvenanceBadge'
+import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import {
   conditionLabel,
   daysListed,
@@ -120,6 +122,12 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
           />
         </div>
       )}
+
+      {/* Provenance + disclaimer — near decision-impacting data */}
+      <div className={styles.section}>
+        <ProvenanceBadge provenance={listing.provenance} />
+        <ListingDisclaimer />
+      </div>
 
       <p className={styles.footerMeta}>
         Listed {formatDate(listing.listedAt)} · Updated {formatDate(listing.updatedAt)}
