@@ -4,6 +4,9 @@ import type { SentryBuildOptions } from '@sentry/nextjs'
 
 const config: NextConfig = {
   output: 'standalone',
+  turbopack: {
+    root: '../../'
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.blvd.com' },
