@@ -318,3 +318,24 @@
   color: var(--color-warning, #b45309);
   font-weight: 500;
 }
+
+/* ── Listing verification banner ─────────────────────────────────────────── */
+.verificationBanner {
+  font-size: 0.75rem;
+  color: var(--clr-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--clr-border);
+  margin-bottom: 0.25rem;
+}
+
+.verificationStaleWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-warning, #b45309);
+  font-weight: 500;
+}
