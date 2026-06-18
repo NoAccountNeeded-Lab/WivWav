@@ -64,10 +64,25 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="third-party-heading">
           <h2 id="third-party-heading" className={styles.sectionHeading}>Third-Party Data Sources</h2>
           <p className={styles.body}>
-            Listing data on WivWav is sourced from publicly accessible dealer websites and the
+            Listing data on WivWav is sourced from publicly accessible vehicle listing websites and the
             U.S. National Highway Traffic Safety Administration (NHTSA) public API. We aggregate and
             index this information to make it searchable. We do not control the privacy practices of
             those sources.
+          </p>
+          <p className={styles.body}>
+            Some listing sources include private-party ("For Sale By Owner") vehicle listings. When
+            WivWav indexes a private-seller listing, we store publicly available vehicle and location
+            details (such as make, model, year, price, mileage, city, and state) along with any
+            images published on the source listing page. We do not display or index the personal phone
+            number of a private seller.
+          </p>
+          <p className={styles.body}>
+            If you are a private seller and would like your listing removed from WivWav, please
+            contact{' '}
+            <a href="mailto:privacy@wivwav.com" className={styles.contactLink}>
+              privacy@wivwav.com
+            </a>
+            {' '}with the listing URL and we will remove it promptly.
           </p>
           <p className={styles.body}>
             We do not share visitor data with dealers or any third party for marketing purposes.
