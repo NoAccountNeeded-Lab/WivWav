@@ -39,6 +39,7 @@ export type SafetyRatingRow = {
   sideCrashRating: string | null
   rolloverRating: string | null
   rolloverRatingText: string | null
+  refreshedAt: Date | null
 }
 
 export type VehicleModelWithSafetyData = {
@@ -97,7 +98,7 @@ export class PrismaListingRepository implements ListingRepository {
       include: {
         recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true } },
         complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true } },
-        safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true } },
+        safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true, refreshedAt: true } },
       },
     }) as Promise<VehicleModelWithSafetyData | null>
   }

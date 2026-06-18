@@ -1,5 +1,6 @@
-import { AlertTriangle, Check } from 'lucide-react'
+import { AlertTriangle, Check, HelpCircle } from 'lucide-react'
 import { formatDate } from '@/app/listings/[id]/utils'
+import { recallStatusLabel } from '@/app/listings/[id]/safetyTabUtils'
 import type { Recall, SafetyData } from '@/app/listings/[id]/types'
 import styles from './RecallsList.module.css'
 
@@ -9,7 +10,7 @@ interface RecallsListProps {
 }
 
 export function RecallsList({ vin, safety }: RecallsListProps) {
-  const openRecalls = (safety?.recalls ?? []).filter((r) => !r.remedy || r.remedy.trim() === '')
+  const openRecalls = (safety?.recalls ?? []).filter((r) => r.status === 'open')
 
   return (
     <div>
@@ -42,11 +43,18 @@ export function RecallsList({ vin, safety }: RecallsListProps) {
 }
 
 function RecallItem({ recall }: { recall: Recall }) {
-  const isOpen = !recall.remedy || recall.remedy.trim() === ''
+  const { status } = recall
+  const isOpen = status === 'open'
+  const isUnknown = status === 'unknown'
+
+  const statusClass = isOpen ? styles.statusOpen : isUnknown ? styles.statusUnknown : styles.statusDone
+  const iconClass = isOpen ? styles.iconWarn : isUnknown ? styles.iconUnknown : styles.iconOk
+  const Icon = isOpen ? AlertTriangle : isUnknown ? HelpCircle : Check
+
   return (
     <li className={styles.item}>
-      <div className={isOpen ? styles.iconWarn : styles.iconOk} aria-hidden>
-        {isOpen ? <AlertTriangle size={14} /> : <Check size={14} />}
+      <div className={iconClass} aria-hidden>
+        <Icon size={14} />
       </div>
       <div>
         <div className={styles.title}>
@@ -54,8 +62,8 @@ function RecallItem({ recall }: { recall: Recall }) {
         </div>
         <div className={styles.sub}>Issued {formatDate(recall.reportedAt)}</div>
         {recall.summary && <div className={styles.sub}>{recall.summary}</div>}
-        <span className={isOpen ? styles.statusOpen : styles.statusDone}>
-          {isOpen ? 'Remedy open — schedule service' : 'Completed'}
+        <span className={statusClass}>
+          {recallStatusLabel(status)}
         </span>
       </div>
     </li>
