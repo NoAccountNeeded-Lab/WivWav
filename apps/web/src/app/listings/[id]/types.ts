@@ -53,6 +53,8 @@ export interface Recall {
   summary: string
   remedy: string | null
   reportedAt: string
+  /** Normalized recall status: 'open', 'remedied', or 'unknown' when remedy text cannot be determined. */
+  status: 'open' | 'remedied' | 'unknown'
 }
 
 export interface SafetyRating {
@@ -63,6 +65,8 @@ export interface SafetyRating {
   rolloverRating: number | null
   rolloverRatingText: string | null
   description: string | null
+  /** ISO-8601 date of last NHTSA data refresh, or null when unavailable. */
+  refreshedAt: string | null
 }
 
 export interface SafetyData {
@@ -76,6 +80,8 @@ export interface SafetyData {
     mileage: number | null
   }[]
   safetyRatings: SafetyRating[]
+  /** ISO-8601 date from the most recent NHTSA safety rating refresh, or null when unavailable. */
+  safetyFreshnessDate: string | null
 }
 
 export interface MarketPricing {

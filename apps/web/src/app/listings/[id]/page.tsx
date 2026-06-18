@@ -179,9 +179,7 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   const location = [listing.location.city, listing.location.state].filter(Boolean).join(', ')
 
-  const openRecallCount = (safety?.recalls ?? []).filter(
-    (r) => !r.remedy || r.remedy.trim() === '',
-  ).length
+  const openRecallCount = (safety?.recalls ?? []).filter((r) => r.status === 'open').length
 
   const tabs = [
     {

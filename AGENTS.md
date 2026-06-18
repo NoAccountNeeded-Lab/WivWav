@@ -355,7 +355,7 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 | GET    | /v1/listings/facets            | Facet aggregations (cached 60s)      |
 | GET    | /v1/listings/:id               | Single listing detail                |
 | GET    | /v1/listings/:id/price-history | Listing price history                |
-| GET    | /v1/listings/:id/safety        | Safety summary (recalls, complaints, ratings) for a listing |
+| GET    | /v1/listings/:id/safety        | Safety summary (recalls with `status: open|remedied|unknown`, complaints, ratings, `safetyFreshnessDate`) for a listing |
 | GET    | /v1/vin/:vin/safety            | Decode a VIN and return NHTSA safety summary when data is available |
 | GET    | /v1/market/pricing                     | Price stats (percentiles, days listed, drop rate) for a make/model spec |
 | GET    | /v1/market/popular                     | Top 10 makes, models, and conversion brands by active listing count |
