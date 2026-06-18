@@ -19,6 +19,22 @@ interface ComplaintGroup {
   }>
 }
 
+interface RawRecall {
+  id: string
+  nhtsaCampaignId: string
+  component: string
+  summary: string
+  remedy: string | null
+  reportedAt: Date
+}
+
+type RecallStatus = 'open' | 'remedied'
+
+function normalizeRecallStatus(remedy: string | null): RecallStatus {
+  if (remedy === null || remedy.trim() === '') return 'open'
+  return 'remedied'
+}
+
 export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { db }) => {
   app.get<{ Params: { vin: string } }>('/:vin/safety', async (req, reply) => {
     const vin = normalizeVin(req.params.vin)
@@ -48,7 +64,7 @@ export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { db 
         include: {
           recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true } },
           complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true } },
-          safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true } },
+          safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true, refreshedAt: true } },
         },
       }),
       db.listing.findFirst({
@@ -58,6 +74,8 @@ export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { db 
     ])
 
     const complaints = vehicleModel?.complaints ?? []
+    const rawRecalls: RawRecall[] = vehicleModel?.recalls ?? []
+    const recalls = rawRecalls.map((r) => ({ ...r, status: normalizeRecallStatus(r.remedy) }))
 
     return reply.send({
       data: {
@@ -68,7 +86,7 @@ export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { db 
           : null,
         conversionManufacturer: sourceListing?.conversionManufacturer ?? null,
         sourceListingId: sourceListing?.id ?? null,
-        recalls: vehicleModel?.recalls ?? [],
+        recalls,
         complaints,
         complaintGroups: groupComplaints(complaints),
         safetyRatings: vehicleModel?.safetyRatings ?? [],
