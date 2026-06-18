@@ -1,4 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(gh issue comment *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
