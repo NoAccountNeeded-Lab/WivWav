@@ -210,7 +210,12 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
         <div className={styles.pageHeader}>
-          <h1 className={styles.heading}>Queues</h1>
+          <div>
+            <h1 className={styles.heading}>Advanced queue diagnostics</h1>
+            <p className={styles.pageIntro}>
+              Inspect raw background jobs, trigger maintenance work, and sync listing changes into search.
+            </p>
+          </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
@@ -223,7 +228,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
             <a href={`${apiBaseUrl}/admin/board`} target="_blank" rel="noopener noreferrer" className={`${styles.btn} ${styles.btnGhost}`}>
-              Bull Board ↗
+              Bull Board diagnostics ↗
             </a>
             <button
               className={`${styles.btn} ${styles.btnPrimary}`}
@@ -242,9 +247,13 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
         )}
 
         {error ? (
-          <p className={styles.error}>{error}</p>
+          <p className={styles.error}>
+            Queue diagnostics could not load: {error}. Check that the API and worker services are running, then refresh this page.
+          </p>
         ) : !queues ? (
-          <p className={styles.empty}>Loading queues…</p>
+          <p className={styles.empty}>Loading queue diagnostics. If this takes more than a few seconds, confirm the API is running and refresh.</p>
+        ) : queues.length === 0 ? (
+          <p className={styles.empty}>No background job queues were returned. Start the worker stack, then refresh diagnostics.</p>
         ) : (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
@@ -364,11 +373,13 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                               </button>
                             </div>
                             {detailError ? (
-                              <p className={`${styles.error}`} style={{ margin: '1rem' }}>{detailError}</p>
+                              <p className={`${styles.error}`} style={{ margin: '1rem' }}>
+                                Activity could not load: {detailError}. Retry with Refresh or open Bull Board diagnostics for raw job details.
+                              </p>
                             ) : !queueDetail || queueDetail.name !== q.name ? (
-                              <p className={styles.empty} style={{ padding: '1rem' }}>Loading activity…</p>
+                              <p className={styles.empty} style={{ padding: '1rem' }}>Loading recent activity for this queue.</p>
                             ) : queueDetail.jobs.length === 0 ? (
-                              <p className={styles.empty} style={{ padding: '1rem' }}>No recent jobs.</p>
+                              <p className={styles.empty} style={{ padding: '1rem' }}>No recent jobs. Trigger a supported job or wait for the next schedule, then refresh activity.</p>
                             ) : (
                               <div className={styles.jobList}>
                                 {queueDetail.jobs.map(job => (
@@ -418,9 +429,9 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
         )}
 
         <details className={styles.helpPanel}>
-          <summary>How BullMQ queues work</summary>
+          <summary>How advanced queue diagnostics work</summary>
           <div className={styles.helpBody}>
-            <p>WivWav uses <strong>BullMQ</strong> (backed by Valkey/Redis) to run background jobs in isolation from the API and web app.</p>
+            <p>WivWav runs listing refresh work as background jobs so operators can trigger or pause maintenance without restarting the app.</p>
             <ol>
               <li><strong>source-scrape</strong> — Fetches listing pages from each source. Triggered by cron or "Run Now" on the Sources page. Produces listings in the database.</li>
               <li><strong>detail-crawl</strong> — Uses Playwright to open individual listing URLs and store raw HTML. Triggered hourly by cron.</li>
@@ -434,7 +445,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
             </ol>
             <p><strong>After geocoding completes, click "Sync Meilisearch"</strong> (top right) to push the new coordinates into the search index — that&apos;s what makes pins appear on the map. Geocode updates Postgres; sync copies it to Meilisearch.</p>
             <p><strong>Pausing</strong> a queue stops workers from picking up new jobs — jobs already in progress finish. <strong>Triggering</strong> enqueues a job immediately without waiting for the cron schedule.</p>
-            <p>For a full visual view of queue internals (job payloads, retry counts, stack traces), open <a href={`${apiBaseUrl}/admin/board`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>Bull Board ↗</a>.</p>
+            <p>For raw queue internals such as job payloads, retry counts, and stack traces, open <a href={`${apiBaseUrl}/admin/board`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>Bull Board diagnostics ↗</a>.</p>
           </div>
         </details>
       </div>

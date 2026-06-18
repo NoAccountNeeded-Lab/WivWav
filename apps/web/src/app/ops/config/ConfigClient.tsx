@@ -271,15 +271,15 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
       <div className={styles.container}>
         <div className={styles.pageHeader}>
           <div>
-            <h1 className={styles.heading}>AI Config</h1>
-            <p className={styles.pageIntro}>Edit provider, model, and API key settings used by AI-powered jobs.</p>
+            <h1 className={styles.heading}>AI provider settings</h1>
+            <p className={styles.pageIntro}>Advanced configuration for AI providers, model names, and write-only API key secrets.</p>
           </div>
-          <Link href="/ops" className={styles.backLink}>Operations</Link>
+          <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
         <div className={styles.controlsBar}>
           <span className={styles.refreshMeta}>
-            {loading ? 'Loading config...' : `${entries.length} active config entries`}
+            {loading ? 'Loading provider settings...' : `${entries.length} active config entries`}
           </span>
           <div className={styles.controlsBarRight}>
             <button
@@ -293,7 +293,9 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
           </div>
         </div>
 
-        {loadError ? <p className={styles.error}>{loadError}</p> : null}
+        {loadError ? (
+          <p className={styles.error}>Provider settings could not load: {loadError}. Check the API, then refresh this page.</p>
+        ) : null}
 
         <section aria-labelledby="ai-config-heading">
           <h2 id="ai-config-heading" className={styles.sectionHeading}>AI job settings</h2>
@@ -411,7 +413,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
           </p>
 
           {secrets.length === 0 ? (
-            <p className={styles.emptyCompact}>No API key secrets are stored.</p>
+            <p className={styles.emptyCompact}>No API key secrets are stored. Add a write-only key below before selecting that provider for jobs.</p>
           ) : (
             <div className={styles.tableWrapper}>
               <table className={styles.table}>

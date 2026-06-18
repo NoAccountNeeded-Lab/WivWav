@@ -12,7 +12,7 @@ const schema = z.object({
   OLLAMA_REQUIRED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   // Loki log aggregation — used by the /admin/logs proxy endpoint
   LOKI_URL: z.url().default('http://localhost:3100'),
-  CORS_ORIGIN: z.string().default('http://localhost:3002,http://localhost:3000').transform(v =>
+  CORS_ORIGIN: z.string().default('http://localhost:4002,http://localhost:3000').transform(v =>
     v.includes(',') ? v.split(',').map(s => s.trim()) : v
   ),
   // 32-byte hex string — required for secret config entries (AES-256-GCM encryption)
