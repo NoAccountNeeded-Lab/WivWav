@@ -67,6 +67,26 @@ const QUEUE_META: Record<string, QueueMeta> = {
     detail: 'Matches by VIN. Picks the canonical listing by completeness score (non-null optional fields + image count). Others get isDuplicate=true. Runs nightly at 3 AM.',
     canTrigger: true,
   },
+  'vin-enrich': {
+    short: 'Decodes listing VINs through NHTSA vPIC and links listings to vehicle models',
+    detail: 'Refreshes every 6 hours starting at 4 AM. Recent failures indicate VIN decode or model upsert problems before downstream NHTSA refresh jobs run.',
+    canTrigger: true,
+  },
+  'nhtsa-recalls': {
+    short: 'Refreshes NHTSA recall records for vehicle models currently in inventory',
+    detail: 'Runs daily at 4:30 AM after VIN enrichment. Use Activity to verify the latest run, job logs, and failed API/model refresh attempts.',
+    canTrigger: true,
+  },
+  'nhtsa-complaints': {
+    short: 'Refreshes NHTSA complaint records for vehicle models currently in inventory',
+    detail: 'Runs weekly on Sunday at 5 AM. Use Activity to inspect recent failures and the per-model refresh log output.',
+    canTrigger: true,
+  },
+  'nhtsa-safety-ratings': {
+    short: 'Refreshes NHTSA safety ratings for vehicle models currently in inventory',
+    detail: 'Runs weekly on Sunday at 6 AM. Use Activity to inspect rating lookup progress and failures.',
+    canTrigger: true,
+  },
 }
 
 interface ActionState {
@@ -407,6 +427,10 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
               <li><strong>detail-extract</strong> — Parses the stored HTML to pull out WAV-specific fields (ramp type, lift, controls, etc.). Runs every 5 minutes.</li>
               <li><strong>geocode</strong> — Resolves city + state to GPS coordinates using Nominatim (OpenStreetMap). Deduplicates by unique location — each city/state is looked up once regardless of how many listings share it. Runs nightly at 2 AM.</li>
               <li><strong>deduplicate</strong> — Finds the same vehicle listed at multiple sources (matched by VIN) and marks one as canonical. Runs nightly at 3 AM.</li>
+              <li><strong>vin-enrich</strong> — Decodes VINs through NHTSA vPIC and links listings to vehicle models. Runs every 6 hours starting at 4 AM.</li>
+              <li><strong>nhtsa-recalls</strong> — Refreshes recall data for inventory vehicle models. Runs daily at 4:30 AM.</li>
+              <li><strong>nhtsa-complaints</strong> — Refreshes complaint data for inventory vehicle models. Runs weekly Sunday at 5 AM.</li>
+              <li><strong>nhtsa-safety-ratings</strong> — Refreshes safety ratings for inventory vehicle models. Runs weekly Sunday at 6 AM.</li>
             </ol>
             <p><strong>After geocoding completes, click "Sync Meilisearch"</strong> (top right) to push the new coordinates into the search index — that&apos;s what makes pins appear on the map. Geocode updates Postgres; sync copies it to Meilisearch.</p>
             <p><strong>Pausing</strong> a queue stops workers from picking up new jobs — jobs already in progress finish. <strong>Triggering</strong> enqueues a job immediately without waiting for the cron schedule.</p>

@@ -313,3 +313,52 @@ describe('POST /sync', () => {
     await app.close()
   })
 })
+
+describe('GET /repeatables', () => {
+  it('includes canonical NHTSA and VIN refresh schedules with monitoring metadata', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp({}, {}, factory)
+
+    const res = await app.inject({ method: 'GET', url: '/repeatables' })
+
+    expect(res.statusCode).toBe(200)
+    const schedules = res.json().data as Array<{
+      id: string
+      queue: string
+      defaultPattern: string
+      lastRunAt: string | null
+      lastStatus: string | null
+      recentFailureCount: number
+      recentFailureReason: string | null
+    }>
+
+    expect(schedules).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'vin-enrich',
+        queue: QUEUES.VIN_ENRICH,
+        defaultPattern: '0 4/6 * * *',
+        lastRunAt: null,
+        lastStatus: null,
+        recentFailureCount: 0,
+        recentFailureReason: null,
+      }),
+      expect.objectContaining({
+        id: 'nhtsa-recalls',
+        queue: QUEUES.NHTSA_RECALLS,
+        defaultPattern: '30 4 * * *',
+      }),
+      expect.objectContaining({
+        id: 'nhtsa-complaints',
+        queue: QUEUES.NHTSA_COMPLAINTS,
+        defaultPattern: '0 5 * * 0',
+      }),
+      expect.objectContaining({
+        id: 'nhtsa-safety-ratings',
+        queue: QUEUES.NHTSA_SAFETY_RATINGS,
+        defaultPattern: '0 6 * * 0',
+      }),
+    ]))
+
+    await app.close()
+  })
+})
