@@ -2,6 +2,17 @@ import type { ListingDealer, ListingLocation, WavFeatures } from '@wivwav/types'
 
 export type { ListingDealer, ListingLocation, WavFeatures }
 
+export interface ListingProvenance {
+  sourceName: string
+  sourceBaseUrl: string
+  sourceUrl: string
+  buyerUrl: string | null
+  scrapedAt: string
+  detailScrapedAt: string | null
+  /** Reserved for future UI use — not currently rendered. */
+  vehicleModelMatchConfidence: string | null
+}
+
 export interface ListingDetail {
   id: string
   sourceUrl: string
@@ -25,6 +36,8 @@ export interface ListingDetail {
   description: string | null
   listedAt: string
   updatedAt: string
+  /** May be null when the source join is unavailable; components must handle gracefully. */
+  provenance: ListingProvenance | null
 }
 
 export interface PricePoint {
