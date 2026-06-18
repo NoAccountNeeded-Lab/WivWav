@@ -27,6 +27,8 @@ import {
 } from 'lucide-react'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
+import { ProvenanceBadge } from '@/components/listing/ProvenanceBadge'
+import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { HeroGallery } from './HeroGallery'
 import { Collapsible } from './Collapsible'
 import styles from './page.module.css'
@@ -69,6 +71,16 @@ interface ListingDetail {
   description: string | null
   listedAt: string
   updatedAt: string
+  provenance: {
+    sourceName: string
+    sourceBaseUrl: string
+    sourceUrl: string
+    buyerUrl: string | null
+    scrapedAt: string
+    detailScrapedAt: string | null
+    /** Reserved for future UI use — not currently rendered. */
+    vehicleModelMatchConfidence: string | null
+  } | null
 }
 
 interface PricePoint {
@@ -922,6 +934,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <div className={styles.divider} />
         </>
       )}
+
+      {/* Provenance + disclaimer */}
+      <div className={styles.section}>
+        <ProvenanceBadge provenance={listing.provenance} />
+        <ListingDisclaimer />
+      </div>
 
       <p className={styles.footerMeta}>
         Listed {formatDate(listing.listedAt)} · Updated {formatDate(listing.updatedAt)}
