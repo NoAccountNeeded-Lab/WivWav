@@ -125,6 +125,10 @@ model Listing {
   dealerWebsite String?
 
   images      String[]
+  // Raw third-party seller copy. Retained in full for WAV-feature extraction
+  // by scraper agents. The public API truncates this to a short snippet
+  // (see apps/api/src/routes/listings.ts snippetDescription) so that full
+  // dealer copy is not reproduced verbatim in public responses.
   description String?
 
   // Deduplication
