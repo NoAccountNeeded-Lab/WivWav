@@ -338,6 +338,44 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
     await app.close()
   })
 
+  it('suppresses dealer.phone for private-seller listings', async () => {
+    const listing = {
+      ...defaultDbListing,
+      sellerType: 'private',
+      dealerName: 'Jane Smith',
+      dealerPhone: '720-555-0199',
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: Record<string, unknown> }>()
+    // Phone number is personal data for a private seller — must not be exposed
+    expect(body.data.dealer).toEqual({ name: 'Jane Smith', phone: null, website: null })
+
+    await app.close()
+  })
+
+  it('retains dealer.phone for dealer listings', async () => {
+    const listing = {
+      ...defaultDbListing,
+      sellerType: 'dealer',
+      dealerName: 'Mobility Motors',
+      dealerPhone: '303-555-0101',
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: Record<string, unknown> }>()
+    // Dealer phone is business contact info — must be retained
+    expect(body.data.dealer).toEqual({ name: 'Mobility Motors', phone: '303-555-0101', website: null })
+
+    await app.close()
+  })
+
   it('nests location fields under data.location', async () => {
     const listing = {
       ...defaultDbListing,
