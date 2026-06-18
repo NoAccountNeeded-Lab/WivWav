@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
 import type { SentryBuildOptions } from '@sentry/nextjs'
@@ -5,7 +6,7 @@ import type { SentryBuildOptions } from '@sentry/nextjs'
 const config: NextConfig = {
   output: 'standalone',
   turbopack: {
-    root: '../../'
+    root: path.resolve(__dirname, '../..'),
   },
   images: {
     remotePatterns: [
