@@ -20,21 +20,60 @@
   margin: 0 0 2rem;
   color: var(--clr-text-muted);
   font-size: 0.9375rem;
+  line-height: 1.55;
+  max-width: 48rem;
 }
 
-.grid {
+.groupList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1.125rem;
+}
+
+.group {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) 1fr;
   gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--clr-border);
+}
+
+.group:last-child {
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.groupHeader {
+  min-width: 0;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--clr-text);
+}
+
+.groupIntro {
+  margin: 0.35rem 0 0;
+  color: var(--clr-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .card {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 1.25rem 1.5rem;
+  min-height: 9.25rem;
+  padding: 1rem;
   border: 1.5px solid var(--clr-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   background: var(--clr-surface);
   text-decoration: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -45,16 +84,22 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
 }
 
+.card:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
 .cardTitle {
   margin: 0;
-  font-size: 1.0625rem;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 800;
   color: var(--clr-text);
+  line-height: 1.25;
 }
 
 .cardDesc {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--clr-text-secondary);
   line-height: 1.5;
 }
@@ -65,4 +110,23 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--clr-primary);
+}
+
+@media (max-width: 700px) {
+  .main {
+    padding-top: 1.75rem;
+  }
+
+  .group {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    min-height: 0;
+  }
 }
