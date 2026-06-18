@@ -262,4 +262,30 @@ describe('finishCommand — happy path', () => {
     )
     expect(String(commitCall?.[0])).toContain('Co-Authored-By: Test Bot <bot@example.com>')
   })
+
+  it('adds a closing keyword to the draft PR body by default', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+
+    expect(mockCreateDraftPr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Closes #304'),
+      }),
+    )
+  })
+
+  it('uses non-closing references only when refs mode is requested', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true, fixes: false })
+
+    const commitCall = (mockRun.mock.calls as unknown[][]).find((c) =>
+      String(c[0]).includes('git commit'),
+    )
+    expect(String(commitCall?.[0])).toContain('refs #304')
+    expect(mockCreateDraftPr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Refs #304'),
+      }),
+    )
+  })
 })

@@ -24,10 +24,11 @@ Do not commit, push, or open a PR if validation fails.
 7. If validation fails, stop. Report the failure and do not commit.
 8. Stage only relevant files for this issue. Do not stage `.env` files, generated caches, unrelated work, or dirty files outside the issue scope.
 9. Commit using the required format:
-   - `type(scope): description (refs #N)` — use `fixes #N` when the issue fully resolves on merge
+   - `type(scope): description (fixes #N)` for completed issue work so GitHub auto-closes on merge
+   - Use `refs #N` only for intentionally partial work that should leave the issue open
    - If Agent-Role, Agent-Index, and Sprint-Run are available in your context (you were spawned as a worker), add git trailers:
      ```bash
-     git commit -m "type(scope): description (refs #N)" \
+     git commit -m "type(scope): description (fixes #N)" \
        --trailer "Agent-Role: {role}" \
        --trailer "Agent-Index: {index}" \
        --trailer "Sprint-Run: {sprint-run-id}" \

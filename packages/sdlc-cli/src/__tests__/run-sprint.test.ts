@@ -118,6 +118,22 @@ describe('runSprintCommand — issue selection', () => {
           String(contents).includes('| Phase | Agent role/index | Provider | Model | Input tokens |'),
       ),
     ).toBe(true)
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([path, contents]) =>
+          String(path).endsWith('.agents/worker-context.md') &&
+          String(contents).includes('Completed issues must close on merge') &&
+          String(contents).includes('without `--refs`'),
+      ),
+    ).toBe(true)
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([path, contents]) =>
+          String(path).endsWith('.agents/finish-context.md') &&
+          String(contents).includes('The default uses GitHub closing keywords') &&
+          String(contents).includes('should remain open'),
+      ),
+    ).toBe(true)
     const output = log.mock.calls.map((c) => String(c[0])).join('\n')
     expect(output).toContain('Worker instructions')
     expect(output).toContain('read `.agents/worker-context.md`')
