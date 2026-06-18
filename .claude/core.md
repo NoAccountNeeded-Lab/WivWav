@@ -42,10 +42,10 @@ Infrastructure: PostgreSQL 17 · Meilisearch v1.12 (faceted search) · Valkey 8 
 ## Commit format
 
 ```
-type(scope): description (refs #N)
+type(scope): description (fixes #N)
 ```
 
-Use `fixes #N` when the commit fully resolves the issue (GitHub auto-closes on merge).
+Use `fixes #N` for completed issue work so GitHub auto-closes on merge. Use `refs #N` only for intentionally partial work that should leave the issue open.
 Types: `feat` `fix` `chore` `docs` `refactor` `test`
 
 Agent commits add trailers — see Attribution below.
