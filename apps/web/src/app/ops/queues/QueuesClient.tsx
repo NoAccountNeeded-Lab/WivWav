@@ -2,7 +2,9 @@
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
+import { QUEUE_RUNBOOK_IDS } from '../runbooks'
 
 interface QueueStats {
   waiting: number
@@ -245,6 +247,8 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
             {syncState.feedback}
           </p>
         )}
+
+        <OpsRunbooks ids={QUEUE_RUNBOOK_IDS} />
 
         {error ? (
           <p className={styles.error}>

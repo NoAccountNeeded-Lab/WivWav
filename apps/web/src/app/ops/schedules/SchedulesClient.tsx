@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
+import { SCHEDULE_RUNBOOK_IDS } from '../runbooks'
 
 interface ScheduleEntry {
   id: string
@@ -160,6 +162,8 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
             </button>
           </div>
         </div>
+
+        <OpsRunbooks ids={SCHEDULE_RUNBOOK_IDS} />
 
         {error ? (
           <p className={styles.error}>Recurring jobs could not load: {error}. Check the API and worker services, then refresh this page.</p>
