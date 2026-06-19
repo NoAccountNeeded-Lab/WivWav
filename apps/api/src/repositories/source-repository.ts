@@ -24,6 +24,13 @@ export type SourceScheduleRow = {
   timezone: string
 }
 
+export type SourceRemappingRow = {
+  id: string
+  name: string
+  errorMessage: string | null
+  lastScrapedAt: Date | null
+}
+
 // ── Interface ────────────────────────────────────────────────────────────────
 
 export interface SourceRepository {
@@ -33,6 +40,7 @@ export interface SourceRepository {
   findById(id: string): Promise<SourceIdRow | null>
   findManyByIds(ids: string[]): Promise<SourceNameRow[]>
   findScheduledSources(names: string[]): Promise<SourceScheduleRow[]>
+  findNeedingRemapping(): Promise<SourceRemappingRow[]>
 }
 
 // ── Prisma implementation ────────────────────────────────────────────────────
@@ -77,6 +85,14 @@ export class PrismaSourceRepository implements SourceRepository {
     return this.db.source.findMany({
       where: { name: { in: names } },
       select: { id: true, name: true, cronExpression: true, timezone: true },
+    })
+  }
+
+  findNeedingRemapping(): Promise<SourceRemappingRow[]> {
+    return this.db.source.findMany({
+      where: { status: 'needs_remapping' },
+      select: { id: true, name: true, errorMessage: true, lastScrapedAt: true },
+      orderBy: { name: 'asc' },
     })
   }
 }
