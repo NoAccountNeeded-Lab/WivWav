@@ -58,10 +58,11 @@ export function mileageBucket(mileage: number | null, bucketSize = 25000): strin
 }
 
 export function toDocument(row: Listing): ListingDocument {
-  // Suppress personal phone numbers for private-seller listings.
-  // A private seller's phone is personal data (CCPA/state privacy laws);
-  // dealer phone numbers are business contact info and are retained.
-  const dealerPhone = row.sellerType === 'private' ? null : row.dealerPhone
+  const isPrivate = row.sellerType === 'private'
+  // Suppress personal phone numbers; normalize name to a generic label for private sellers.
+  // Both are personal data under CCPA/state privacy laws; dealer equivalents are business info.
+  const dealerPhone = isPrivate ? null : row.dealerPhone
+  const dealerName = isPrivate ? 'For Sale By Owner' : row.dealerName
 
   return {
     id: row.id,
@@ -95,7 +96,7 @@ export function toDocument(row: Listing): ListingDocument {
     state: row.state,
     lat: row.lat,
     lng: row.lng,
-    dealerName: row.dealerName,
+    dealerName,
     dealerPhone,
     images: row.images,
     description: row.description,
