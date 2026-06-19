@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
+  existsSync: vi.fn(() => true),
 }))
 
 vi.mock('../lib/git.js', () => ({
