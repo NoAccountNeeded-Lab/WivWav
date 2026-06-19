@@ -4,6 +4,7 @@ vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
   existsSync: vi.fn(() => true),
+  copyFileSync: vi.fn(),
 }))
 
 vi.mock('../lib/git.js', () => ({
