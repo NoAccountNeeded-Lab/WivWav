@@ -1,4 +1,4 @@
-import type { VehicleStats } from './types.js'
+import type { VehicleStats } from './types'
 
 export function deriveVisibleVehicleStats(
   vehicleStats: VehicleStats | null,
