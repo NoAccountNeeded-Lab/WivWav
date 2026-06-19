@@ -21,6 +21,7 @@ describe('OPS_NAV_GROUPS', () => {
     const hrefs = new Set(OPS_NAV_GROUPS.flatMap(group => group.items.map(item => item.href)))
 
     expect(hrefs).toEqual(new Set([
+      '/ops/readiness',
       '/status',
       '/ops/queues',
       '/ops/sources',
