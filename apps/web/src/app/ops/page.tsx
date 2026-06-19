@@ -36,7 +36,6 @@ export default function OpsPage() {
 
 function OpsNavCard({ item, apiBaseUrl }: { item: OpsNavItem; apiBaseUrl: string }) {
   const href = item.href === '/admin/board' ? `${apiBaseUrl}/admin/board` : item.href
-  const arrow = item.external ? 'Open in new tab' : 'Open'
 
   if (item.external) {
     return (
@@ -47,18 +46,16 @@ function OpsNavCard({ item, apiBaseUrl }: { item: OpsNavItem; apiBaseUrl: string
         className={styles.card}
         aria-label={`${item.title}: ${item.desc} Opens in a new tab.`}
       >
-        <h3 className={styles.cardTitle}>{item.title}</h3>
+        <h3 className={styles.cardTitle}>{item.title} <span className={styles.cardArrow} aria-hidden="true">↗</span></h3>
         <p className={styles.cardDesc}>{item.desc}</p>
-        <span className={styles.cardArrow} aria-hidden="true">{arrow} ↗</span>
       </a>
     )
   }
 
   return (
     <Link href={href} className={styles.card} aria-label={`${item.title}: ${item.desc}`}>
-      <h3 className={styles.cardTitle}>{item.title}</h3>
+      <h3 className={styles.cardTitle}>{item.title} <span className={styles.cardArrow} aria-hidden="true">→</span></h3>
       <p className={styles.cardDesc}>{item.desc}</p>
-      <span className={styles.cardArrow} aria-hidden="true">{arrow} →</span>
     </Link>
   )
 }
