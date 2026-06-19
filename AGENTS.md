@@ -373,6 +373,7 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 | GET    | /admin/sources                 | Sources with status and listing count|
 | POST   | /admin/sources/:id/run         | Enqueue an immediate source-scrape job |
 | POST   | /admin/sync                    | Re-index all listings into Meilisearch |
+| GET    | /admin/listing-refresh/status  | Aggregate source, queue, listing, and map-readiness state for the guided refresh workflow |
 | GET    | /admin/repeatables             | Canonical repeatable jobs merged with live BullMQ state |
 | DELETE | /admin/repeatables/:queue      | Disable a repeatable job (remove from BullMQ by key) |
 | POST   | /admin/repeatables/:queue      | Enable a repeatable job (add to BullMQ) |

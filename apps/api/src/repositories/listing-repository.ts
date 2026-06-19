@@ -68,6 +68,8 @@ export interface ListingRepository {
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null>
   findManyActive(skip: number, take: number): Promise<Listing[]>
   countActive(): Promise<number>
+  countActiveWithCoordinates(): Promise<number>
+  countActiveMissingCoordinates(): Promise<number>
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]>
   /** Cursor-based page for bulk sync operations. Returns listings in id order. */
   findPageForSync(take: number, afterId?: string): Promise<Listing[]>
@@ -109,6 +111,28 @@ export class PrismaListingRepository implements ListingRepository {
 
   countActive(): Promise<number> {
     return this.db.listing.count({ where: { status: 'active' } })
+  }
+
+  countActiveWithCoordinates(): Promise<number> {
+    return this.db.listing.count({
+      where: {
+        status: 'active',
+        lat: { not: null },
+        lng: { not: null },
+      },
+    })
+  }
+
+  countActiveMissingCoordinates(): Promise<number> {
+    return this.db.listing.count({
+      where: {
+        status: 'active',
+        OR: [
+          { lat: null },
+          { lng: null },
+        ],
+      },
+    })
   }
 
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]> {

@@ -29,6 +29,7 @@ interface OverviewData {
 const REFRESH_MS = 30_000
 
 const OPS_LINKS = [
+  { href: '/ops/refresh-listings', label: 'Refresh Listings', detail: 'Guided workflow for scrape sources, process details, geocode locations, sync search, and verify map readiness.' },
   { href: '/ops/queues', label: 'Queues', detail: 'Inspect jobs, trigger geocode, and sync Meilisearch.' },
   { href: '/ops/sources', label: 'Sources', detail: 'Run scrapes and review source remapping status.' },
   { href: '/ops/runs', label: 'Runs', detail: 'Audit scraper run history and listing changes.' },

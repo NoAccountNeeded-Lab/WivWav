@@ -192,6 +192,16 @@
   max-width: 24rem;
 }
 
+.warningPanel {
+  padding: 0.875rem 1rem;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius);
+  background: #fffbeb;
+  color: var(--clr-warning-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 /* ── Controls bar (above table) ─────────────────────────── */
 
 .controlsBar {
@@ -796,6 +806,130 @@
   overflow-wrap: anywhere;
 }
 
+/* ── Listing refresh workflow ───────────────────────────── */
+
+.workflowSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.625rem;
+  margin-bottom: 1.25rem;
+}
+
+.workflowSummary .metric {
+  min-height: 5rem;
+}
+
+.workflowSummary strong {
+  display: block;
+  color: var(--clr-text);
+  font-size: 1.125rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.workflowList {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.workflowStep {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-bg);
+}
+
+.workflowStepMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text);
+  font-size: 0.875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.workflowStepBody {
+  min-width: 0;
+}
+
+.workflowStepTopline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.workflowStepTitle {
+  margin: 0;
+  color: var(--clr-text);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.workflowFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.workflowFacts div {
+  min-width: 0;
+}
+
+.workflowFacts dt {
+  margin-bottom: 0.125rem;
+  color: var(--clr-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workflowFacts dd {
+  margin: 0;
+  color: var(--clr-text);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.workflowRecommendation {
+  margin: 0.75rem 0 0;
+  color: var(--clr-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.workflowActions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+}
+
+.workflowActionGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-height: 2rem;
+}
+
+.workflowActionGroup .btn {
+  min-height: 2.75rem;
+}
+
 @media (max-width: 700px) {
   .metricGrid {
     grid-template-columns: 1fr;
@@ -803,6 +937,20 @@
 
   .statusRow {
     grid-template-columns: 1fr;
+  }
+
+  .workflowSummary,
+  .workflowFacts {
+    grid-template-columns: 1fr;
+  }
+
+  .workflowStep {
+    grid-template-columns: 1fr;
+  }
+
+  .workflowStepTopline {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
