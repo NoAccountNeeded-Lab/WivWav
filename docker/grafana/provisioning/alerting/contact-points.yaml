@@ -1,0 +1,32 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: wivwav-beta-warning-email
+    receivers:
+      - uid: wivwav-warning-email
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: $WIVWAV_ALERT_EMAIL_TO
+          singleEmail: true
+          subject: '[WivWav beta][warning] {{ .CommonLabels.alertname }}'
+          message: |
+            WivWav beta warning alert.
+
+            Review Grafana first, then follow docs/ops/grafana-alerting.md.
+
+  - orgId: 1
+    name: wivwav-beta-critical-email
+    receivers:
+      - uid: wivwav-critical-email
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: $WIVWAV_ALERT_EMAIL_TO
+          singleEmail: true
+          subject: '[WivWav beta][critical] {{ .CommonLabels.alertname }}'
+          message: |
+            WivWav beta critical alert.
+
+            Check Grafana, acknowledge the incident in the team channel, then follow docs/ops/grafana-alerting.md.

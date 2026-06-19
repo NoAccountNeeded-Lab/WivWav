@@ -47,7 +47,7 @@ make dev       # apply pending migrations, then start api, web, scraper with hot
 | Loki          | http://localhost:3100      | Log aggregation (internal; Alloy writes here)   |
 | API metrics   | http://localhost:3001/metrics | Prometheus text format — prom-client           |
 
-Metrics exposed at `/metrics`: Node.js process defaults (heap, GC, event loop lag), HTTP request counts/latency/error-rate by route and status class, BullMQ queue depths (waiting/active/completed/failed/delayed) per queue, DB size and listing count, Valkey and Meilisearch availability gauges.
+Metrics exposed at `/metrics`: Node.js process defaults (heap, GC, event loop lag), HTTP request counts/latency/error-rate by route and status class, BullMQ queue depths (waiting/active/completed/failed/delayed) per queue, DB size and listing count, Valkey and Meilisearch availability gauges, Loki availability gauge (`wivwav_loki_up`), last successful source scrape timestamp (`wivwav_scraper_last_successful_run_timestamp_seconds`), and NHTSA refresh recency by queue (`wivwav_nhtsa_queue_last_completed_timestamp_seconds`).
 
 **Known limitations:** The `/metrics` endpoint is unauthenticated and served on the same port as the public API (3001) — local development only. Only the API process is scraped; scraper and web services emit observability via logs/Loki instead. Queue depth is a point-in-time snapshot refreshed every 15 s by Prometheus. Job duration is not tracked.
 
@@ -388,7 +388,7 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 | GET    | /admin/logs/services           | Distinct service label values from Loki; response: `{ data: string[] }` |
 | POST   | /admin/client-events           | Ingest a browser error event (js-error, unhandled-rejection, fetch-error, react-error) and log it via pino with `service: "web-client"` so it appears in the Loki pipeline. Returns 204. Unauthenticated. |
 | GET    | /admin/board                   | Queue job inspector UI               |
-| GET    | /metrics                       | Prometheus text-format scrape endpoint (prom-client). Exposes Node.js process metrics, HTTP request counts/latency by route, BullMQ queue depths per queue and status, DB size/listing count, Valkey and Meilisearch up gauges. Scraped by Prometheus every 15 s when the `obs` profile is active. |
+| GET    | /metrics                       | Prometheus text-format scrape endpoint (prom-client). Exposes Node.js process metrics, HTTP request counts/latency by route, BullMQ queue depths per queue and status, DB size/listing count, Valkey and Meilisearch up gauges, Loki up gauge, last successful source scrape timestamp, and NHTSA refresh recency by queue. Scraped by Prometheus every 15 s when the `obs` profile is active. |
 
 Most responses use `{ data: T }` for success and `{ error: { code, message } }` for errors. Exceptions: `GET /v1/listings` returns `{ data, facets, pagination }`; `GET /v1/sources` returns `{ sources: [] }`.
 
