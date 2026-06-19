@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { vinRoutes } from './vin.js'
+import type { VehicleRepository, ListingRepository, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow } from '../repositories/index.js'
 
 function vpicResponse(make: string | null, model: string | null, year: string | null) {
   return {
@@ -15,11 +16,34 @@ function vpicResponse(make: string | null, model: string | null, year: string | 
   }
 }
 
-function buildTestApp(db: unknown) {
+function buildTestApp(vehicles: Partial<VehicleRepository>, listings: Partial<ListingRepository>) {
   const app = Fastify()
   void app.register(sensible)
-  void app.register(vinRoutes, { db: db as never })
+  void app.register(vinRoutes, {
+    vehicles: vehicles as VehicleRepository,
+    listings: listings as ListingRepository,
+  })
   return app
+}
+
+const VEHICLE_MODEL_ROW = { id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015 }
+
+function makeVehicleModelWithSafety(overrides: {
+  recalls?: SafetyRecallRow[]
+  complaints?: SafetyComplaintRow[]
+  safetyRatings?: SafetyRatingRow[]
+} = {}) {
+  return {
+    id: 'vm-1',
+    make: 'TOYOTA',
+    model: 'SIENNA',
+    year: 2015,
+    trim: 'XLE',
+    bodyType: 'Van',
+    recalls: overrides.recalls ?? [],
+    complaints: overrides.complaints ?? [],
+    safetyRatings: overrides.safetyRatings ?? [],
+  }
 }
 
 describe('GET /:vin/safety', () => {
@@ -30,7 +54,7 @@ describe('GET /:vin/safety', () => {
   it('rejects invalid VINs before calling NHTSA', async () => {
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
-    const app = buildTestApp({})
+    const app = buildTestApp({}, {})
 
     const res = await app.inject({ method: 'GET', url: '/not-a-vin/safety' })
 
@@ -45,7 +69,7 @@ describe('GET /:vin/safety', () => {
       ok: true,
       json: async () => vpicResponse(null, null, null),
     })))
-    const app = buildTestApp({})
+    const app = buildTestApp({}, {})
 
     const res = await app.inject({ method: 'GET', url: '/5TDYK3DC1FS123456/safety' })
 
@@ -69,50 +93,39 @@ describe('GET /:vin/safety', () => {
 
     const reportedAt = new Date('2024-01-02T00:00:00.000Z')
     const refreshedAt = new Date('2024-06-01T00:00:00.000Z')
-    const db = {
-      vehicleModel: {
-        findFirst: vi.fn(async () => ({
-          id: 'vm-1',
-          make: 'TOYOTA',
-          model: 'SIENNA',
-          year: 2015,
-          trim: 'XLE',
-          bodyType: 'Van',
-          recalls: [
-            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer remedy', reportedAt },
-          ],
-          complaints: [
-            { id: 'complaint-1', nhtsaId: '1001', component: 'ELECTRICAL SYSTEM', summary: 'Battery drain', mileage: 50000, crashInvolved: false, reportedAt },
-            { id: 'complaint-2', nhtsaId: '1002', component: 'ELECTRICAL SYSTEM', summary: 'Door power failure', mileage: null, crashInvolved: false, reportedAt },
-            { id: 'complaint-3', nhtsaId: '1003', component: 'STRUCTURE', summary: 'Ramp door complaint', mileage: 75000, crashInvolved: false, reportedAt },
-          ],
-          safetyRatings: [
-            { id: 'rating-1', nhtsaVehicleId: 12345, description: '2015 Toyota Sienna', overallRating: 5, frontCrashRating: 4, sideCrashRating: 5, rolloverRating: 4, rolloverRatingText: '4-star', refreshedAt },
-          ],
-        })),
-      },
-      listing: {
-        findFirst: vi.fn(async () => ({ id: 'listing-1', conversionManufacturer: 'BraunAbility' })),
-      },
+
+    const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+    const listings = {
+      findByVin: vi.fn(async () => ({ id: 'listing-1', conversionManufacturer: 'BraunAbility' })),
+      findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+        recalls: [
+          { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer remedy', reportedAt },
+        ],
+        complaints: [
+          { id: 'complaint-1', nhtsaId: '1001', component: 'ELECTRICAL SYSTEM', summary: 'Battery drain', mileage: 50000, crashInvolved: false, reportedAt },
+          { id: 'complaint-2', nhtsaId: '1002', component: 'ELECTRICAL SYSTEM', summary: 'Door power failure', mileage: null, crashInvolved: false, reportedAt },
+          { id: 'complaint-3', nhtsaId: '1003', component: 'STRUCTURE', summary: 'Ramp door complaint', mileage: 75000, crashInvolved: false, reportedAt },
+        ],
+        safetyRatings: [
+          { id: 'rating-1', nhtsaVehicleId: '12345', description: '2015 Toyota Sienna', overallRating: '5', frontCrashRating: '4', sideCrashRating: '5', rolloverRating: '4', rolloverRatingText: '4-star', refreshedAt },
+        ],
+      })),
     }
-    const app = buildTestApp(db)
+    const app = buildTestApp(vehicles, listings)
 
     const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
     expect(res.statusCode).toBe(200)
-    expect(db.vehicleModel.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { make: 'TOYOTA', model: 'SIENNA', year: 2015 },
-    }))
-    expect(db.listing.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { vin: '5TDYK3DC1FS123456' },
-    }))
+    expect(vehicles.findModel).toHaveBeenCalledWith('TOYOTA', 'SIENNA', 2015)
+    expect(listings.findByVin).toHaveBeenCalledWith('5TDYK3DC1FS123456')
+    expect(listings.findVehicleModelWithSafetyData).toHaveBeenCalledWith('vm-1')
     expect(res.json().data).toMatchObject({
       vin: '5TDYK3DC1FS123456',
       decoded: { make: 'TOYOTA', model: 'SIENNA', year: 2015 },
       conversionManufacturer: 'BraunAbility',
       sourceListingId: 'listing-1',
       recalls: [{ nhtsaCampaignId: '24V001' }],
-      safetyRatings: [{ overallRating: 5 }],
+      safetyRatings: [{ overallRating: '5' }],
       complaintGroups: [
         { component: 'ELECTRICAL SYSTEM', count: 2 },
         { component: 'STRUCTURE', count: 1 },
@@ -130,20 +143,16 @@ describe('GET /:vin/safety', () => {
       })))
 
       const refreshedAt = new Date('2024-06-01T00:00:00.000Z')
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [],
-            complaints: [],
-            safetyRatings: [
-              { id: 'rating-1', nhtsaVehicleId: 12345, description: '2015 Toyota Sienna', overallRating: 5, frontCrashRating: 4, sideCrashRating: 5, rolloverRating: 4, rolloverRatingText: '4-star', refreshedAt },
-            ],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+          safetyRatings: [
+            { id: 'rating-1', nhtsaVehicleId: '12345', description: '2015 Toyota Sienna', overallRating: '5', frontCrashRating: '4', sideCrashRating: '5', rolloverRating: '4', rolloverRatingText: '4-star', refreshedAt },
+          ],
+        })),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
@@ -161,22 +170,17 @@ describe('GET /:vin/safety', () => {
         json: async () => vpicResponse('TOYOTA', 'SIENNA', '2015'),
       })))
 
-      // A very old refreshedAt date indicating stale data
       const staleRefreshedAt = new Date('2020-01-01T00:00:00.000Z')
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [],
-            complaints: [],
-            safetyRatings: [
-              { id: 'rating-1', nhtsaVehicleId: 12345, description: '2015 Toyota Sienna', overallRating: 3, frontCrashRating: 3, sideCrashRating: 3, rolloverRating: 3, rolloverRatingText: '3-star', refreshedAt: staleRefreshedAt },
-            ],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+          safetyRatings: [
+            { id: 'rating-1', nhtsaVehicleId: '12345', description: '2015 Toyota Sienna', overallRating: '3', frontCrashRating: '3', sideCrashRating: '3', rolloverRating: '3', rolloverRatingText: '3-star', refreshedAt: staleRefreshedAt },
+          ],
+        })),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
@@ -193,18 +197,12 @@ describe('GET /:vin/safety', () => {
         json: async () => vpicResponse('TOYOTA', 'SIENNA', '2015'),
       })))
 
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [],
-            complaints: [],
-            safetyRatings: [],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety()),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
@@ -223,20 +221,16 @@ describe('GET /:vin/safety', () => {
       })))
 
       const reportedAt = new Date('2024-01-02T00:00:00.000Z')
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [
-              { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer will replace inflator', reportedAt },
-            ],
-            complaints: [],
-            safetyRatings: [],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+          recalls: [
+            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer will replace inflator', reportedAt },
+          ],
+        })),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
@@ -254,20 +248,16 @@ describe('GET /:vin/safety', () => {
       })))
 
       const reportedAt = new Date('2024-01-02T00:00:00.000Z')
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [
-              { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt },
-            ],
-            complaints: [],
-            safetyRatings: [],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+          recalls: [
+            { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt },
+          ],
+        })),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
@@ -285,20 +275,16 @@ describe('GET /:vin/safety', () => {
       })))
 
       const reportedAt = new Date('2024-01-02T00:00:00.000Z')
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [
-              { id: 'recall-3', nhtsaCampaignId: '24V003', component: 'BRAKES', summary: 'Brake failure', remedy: '', reportedAt },
-            ],
-            complaints: [],
-            safetyRatings: [],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+          recalls: [
+            { id: 'recall-3', nhtsaCampaignId: '24V003', component: 'BRAKES', summary: 'Brake failure', remedy: '', reportedAt },
+          ],
+        })),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 
@@ -316,21 +302,17 @@ describe('GET /:vin/safety', () => {
       })))
 
       const reportedAt = new Date('2024-01-02T00:00:00.000Z')
-      const db = {
-        vehicleModel: {
-          findFirst: vi.fn(async () => ({
-            id: 'vm-1', make: 'TOYOTA', model: 'SIENNA', year: 2015, trim: 'XLE', bodyType: 'Van',
-            recalls: [
-              { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Replace inflator at dealer', reportedAt },
-              { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt },
-            ],
-            complaints: [],
-            safetyRatings: [],
-          })),
-        },
-        listing: { findFirst: vi.fn(async () => null) },
+      const vehicles = { findModel: vi.fn(async () => VEHICLE_MODEL_ROW) }
+      const listings = {
+        findByVin: vi.fn(async () => null),
+        findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
+          recalls: [
+            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Replace inflator at dealer', reportedAt },
+            { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt },
+          ],
+        })),
       }
-      const app = buildTestApp(db)
+      const app = buildTestApp(vehicles, listings)
 
       const res = await app.inject({ method: 'GET', url: '/5tdyk3dc1fs123456/safety' })
 

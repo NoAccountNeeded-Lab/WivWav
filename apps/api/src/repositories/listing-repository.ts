@@ -60,11 +60,17 @@ export type PriceHistoryRow = {
   recordedAt: Date
 }
 
+export type ListingVinRow = {
+  id: string
+  conversionManufacturer: string | null
+}
+
 // ── Interface ────────────────────────────────────────────────────────────────
 
 export interface ListingRepository {
   findById(id: string): Promise<ListingWithSource | null>
   findByIdForSafety(id: string): Promise<ListingSafetyResult | null>
+  findByVin(vin: string): Promise<ListingVinRow | null>
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null>
   findManyActive(skip: number, take: number): Promise<Listing[]>
   countActive(): Promise<number>
@@ -91,6 +97,13 @@ export class PrismaListingRepository implements ListingRepository {
     return this.db.listing.findUnique({
       where: { id },
       select: { id: true, vehicleModelId: true },
+    })
+  }
+
+  findByVin(vin: string): Promise<ListingVinRow | null> {
+    return this.db.listing.findFirst({
+      where: { vin },
+      select: { id: true, conversionManufacturer: true },
     })
   }
 

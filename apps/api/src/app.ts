@@ -20,6 +20,7 @@ import {
   PrismaVehicleRepository,
   PrismaSourceRepository,
   PrismaScraperRunRepository,
+  PrismaMarketRepository,
 } from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
@@ -127,17 +128,18 @@ export async function buildApp(
   const vehicleRepo = new PrismaVehicleRepository(db)
   const sourceRepo = new PrismaSourceRepository(db)
   const scraperRunRepo = new PrismaScraperRunRepository(db)
+  const marketRepo = new PrismaMarketRepository(db)
 
   await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
   await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets })
   await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
-  await app.register(vinRoutes, { prefix: '/v1/vin', db })
-  await app.register(marketRoutes, { prefix: '/v1/market', db })
+  await app.register(vinRoutes, { prefix: '/v1/vin', vehicles: vehicleRepo, listings: listingRepo })
+  await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
   await app.register(adminRoutes, { prefix: '/admin', listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
   await app.register(adminAiRoutes, {
     prefix: '/admin/ai',
-    db,
+    sources: sourceRepo,
     ollamaBaseUrl: config.OLLAMA_BASE_URL,
   })
   await app.register(adminConfigRoutes, {
