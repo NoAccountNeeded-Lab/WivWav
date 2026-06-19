@@ -17,6 +17,7 @@ export interface MetricsPluginOptions {
   cache: CacheService
   meili: Meilisearch
   queueFactory: QueueFactory
+  lokiUrl: string
   /** Pre-created registry shared with the root app so HTTP hooks can populate it from outside the plugin scope. */
   registry: Registry
 }
@@ -53,6 +54,7 @@ export function createMetricsRegistry() {
  *   - BullMQ queue depths (waiting / active / completed / failed / delayed) per queue
  *   - Database size and connection health gauge
  *   - Cache (Valkey) and search (Meilisearch) availability gauges
+ *   - Loki availability, last successful source scrape, and NHTSA refresh recency gauges
  *
  * Scrape this endpoint from the Prometheus config:
  *   scrape_configs:
@@ -70,7 +72,7 @@ export function createMetricsRegistry() {
  */
 export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
   app,
-  { db, cache, meili, queueFactory, registry },
+  { db, cache, meili, queueFactory, lokiUrl, registry },
 ) => {
   // ── Queue depth gauges ──────────────────────────────────────────────────────
 
@@ -132,6 +134,29 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
     registers: [registry],
   })
 
+  // ── Log pipeline diagnostics ───────────────────────────────────────────────
+
+  const lokiUp = new Gauge({
+    name: 'wivwav_loki_up',
+    help: '1 if Loki responds to its readiness endpoint, 0 otherwise',
+    registers: [registry],
+  })
+
+  // ── Scraper freshness diagnostics ─────────────────────────────────────────
+
+  const lastSuccessfulScrapeTimestamp = new Gauge({
+    name: 'wivwav_scraper_last_successful_run_timestamp_seconds',
+    help: 'Unix timestamp of the most recent successful source scrape run',
+    registers: [registry],
+  })
+
+  const nhtsaLastCompletedTimestamp = new Gauge({
+    name: 'wivwav_nhtsa_queue_last_completed_timestamp_seconds',
+    help: 'Unix timestamp of the most recent completed NHTSA refresh job by queue',
+    labelNames: ['queue'] as const,
+    registers: [registry],
+  })
+
   // ── Scrape endpoint ─────────────────────────────────────────────────────────
 
   app.get('/', { logLevel: 'silent', config: { rateLimit: false } }, async (_req, reply) => {
@@ -179,6 +204,50 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
         } catch {
           meilisearchUp.set(0)
         }
+      })(),
+
+      // Loki
+      (async () => {
+        try {
+          const response = await fetch(`${lokiUrl}/ready`, { signal: AbortSignal.timeout(1500) })
+          lokiUp.set(response.ok ? 1 : 0)
+        } catch {
+          lokiUp.set(0)
+        }
+      })(),
+
+      // Last successful source scrape
+      (async () => {
+        try {
+          const result = await db.source.aggregate({
+            where: { lastScrapedAt: { not: null } },
+            _max: { lastScrapedAt: true },
+          })
+          const lastScrapedAt = result._max.lastScrapedAt
+          if (lastScrapedAt) {
+            lastSuccessfulScrapeTimestamp.set(Math.floor(lastScrapedAt.getTime() / 1000))
+          }
+        } catch {
+          lastSuccessfulScrapeTimestamp.set(0)
+        }
+      })(),
+
+      // NHTSA refresh recency from completed queue jobs
+      (async () => {
+        await Promise.allSettled(
+          [QUEUES.NHTSA_RECALLS, QUEUES.NHTSA_COMPLAINTS, QUEUES.NHTSA_SAFETY_RATINGS].map(async (name) => {
+            try {
+              const jobs = await queueFactory.createQueue(name).getJobs(['completed'])
+              const latestFinishedAt = jobs.reduce<number>((latest, job) => {
+                const finishedAt = job.finishedAt?.getTime() ?? 0
+                return Math.max(latest, finishedAt)
+              }, 0)
+              nhtsaLastCompletedTimestamp.labels(name).set(Math.floor(latestFinishedAt / 1000))
+            } catch {
+              nhtsaLastCompletedTimestamp.labels(name).set(0)
+            }
+          }),
+        )
       })(),
     ])
 

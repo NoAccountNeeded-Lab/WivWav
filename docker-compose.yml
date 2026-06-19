@@ -296,6 +296,15 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_USERS_DEFAULT_THEME: dark
+      # Grafana OSS email notifications require SMTP. Set these in a local .env
+      # before testing or using the provisioned email contact points.
+      GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
+      GF_SMTP_HOST: ${GF_SMTP_HOST:-}
+      GF_SMTP_USER: ${GF_SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${GF_SMTP_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-}
+      GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-WivWav Grafana}
+      WIVWAV_ALERT_EMAIL_TO: ${WIVWAV_ALERT_EMAIL_TO:-ops@example.invalid}
     depends_on:
       loki:
         condition: service_healthy
