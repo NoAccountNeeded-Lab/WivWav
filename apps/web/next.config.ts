@@ -8,6 +8,19 @@ const config: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname, '../..'),
   },
+  webpack(config, { dev }) {
+    if (dev) {
+      const prev = config.watchOptions?.ignored
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          ...(Array.isArray(prev) ? prev : prev ? [prev] : []),
+          '**/OrbStack/**',
+        ],
+      }
+    }
+    return config
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.blvd.com' },
