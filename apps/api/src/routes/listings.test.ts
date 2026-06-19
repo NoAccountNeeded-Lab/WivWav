@@ -351,8 +351,8 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
 
     expect(res.statusCode).toBe(200)
     const body = res.json<{ data: Record<string, unknown> }>()
-    // Phone number is personal data for a private seller — must not be exposed
-    expect(body.data.dealer).toEqual({ name: 'Jane Smith', phone: null, website: null })
+    // Phone number is personal data; name is normalized to generic label for private sellers
+    expect(body.data.dealer).toEqual({ name: 'For Sale By Owner', phone: null, website: null })
 
     await app.close()
   })

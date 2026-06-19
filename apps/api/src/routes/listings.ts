@@ -23,15 +23,16 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
   } = listing
   void sourceId
 
-  // Suppress personal phone numbers for private-seller listings.
-  // A private seller's phone is personal data (CCPA/state privacy laws);
-  // dealer phone numbers are business contact info and are retained.
-  const phone = rest.sellerType === 'private' ? null : dealerPhone
+  const isPrivate = rest.sellerType === 'private'
+  // Suppress personal phone numbers; normalize name to a generic label for private sellers.
+  // Both are personal data under CCPA/state privacy laws; dealer equivalents are business info.
+  const phone = isPrivate ? null : dealerPhone
+  const name = isPrivate ? 'For Sale By Owner' : dealerName
 
   return {
     ...rest,
     location: { zip, city, state, lat, lng },
-    dealer: { name: dealerName, phone, website: dealerWebsite },
+    dealer: { name, phone, website: dealerWebsite },
     wav: { conversionType, conversionManufacturer, floorLoweringInches, rampType, hasLift, handControls, transferSeat, wheelchairCapacity },
     provenance: {
       sourceName: source.name,

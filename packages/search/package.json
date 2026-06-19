@@ -15,6 +15,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^25.9.2",
     "@wivwav/config": "workspace:*",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   }
 }
