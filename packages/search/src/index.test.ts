@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toDocument } from '@wivwav/search'
+import { toDocument } from './index.js'
 import type { Listing } from '@wivwav/db'
 
 // Minimal Listing row that satisfies the Prisma-generated type for toDocument.
@@ -59,11 +59,11 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
 }
 
 // ---------------------------------------------------------------------------
-// toDocument — private-seller phone suppression
+// toDocument — private-seller field normalization
 // ---------------------------------------------------------------------------
 
-describe('toDocument — dealerPhone suppression', () => {
-  it('retains dealerPhone for dealer listings', () => {
+describe('toDocument — private-seller field normalization', () => {
+  it('retains dealerPhone and dealerName for dealer listings', () => {
     const row = makeListing({
       sellerType: 'dealer',
       dealerName: 'Mobility Motors',
@@ -71,20 +71,21 @@ describe('toDocument — dealerPhone suppression', () => {
     })
     const doc = toDocument(row)
     expect(doc.dealerPhone).toBe('303-555-0101')
+    expect(doc.dealerName).toBe('Mobility Motors')
   })
 
-  it('suppresses dealerPhone for private-seller listings', () => {
+  it('suppresses dealerPhone and normalizes dealerName for private-seller listings', () => {
     const row = makeListing({
       sellerType: 'private',
       dealerName: 'Jane Smith',
       dealerPhone: '720-555-0199',
     })
     const doc = toDocument(row)
-    // Phone number is personal data for a private seller — must not be indexed
     expect(doc.dealerPhone).toBeNull()
+    expect(doc.dealerName).toBe('For Sale By Owner')
   })
 
-  it('does not alter other fields when suppressing phone for private seller', () => {
+  it('does not alter other fields when normalizing private seller', () => {
     const row = makeListing({
       sellerType: 'private',
       dealerName: 'Jane Smith',
@@ -95,7 +96,6 @@ describe('toDocument — dealerPhone suppression', () => {
     })
     const doc = toDocument(row)
     expect(doc.sellerType).toBe('private')
-    expect(doc.dealerName).toBe('Jane Smith')
     expect(doc.priceCents).toBe(3500000)
     expect(doc.city).toBe('Austin')
     expect(doc.state).toBe('TX')
