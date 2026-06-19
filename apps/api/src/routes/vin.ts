@@ -1,9 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { PrismaClient } from '@wivwav/db'
+import type { VehicleRepository, ListingRepository } from '../repositories/index.js'
 import { decodeVin, isValidVin, normalizeVin } from '../services/vin-decoder.js'
 
 interface VinPluginOptions {
-  db: PrismaClient
+  vehicles: VehicleRepository
+  listings: ListingRepository
 }
 
 interface ComplaintGroup {
@@ -35,7 +36,7 @@ function normalizeRecallStatus(remedy: string | null): RecallStatus {
   return 'remedied'
 }
 
-export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { db }) => {
+export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { vehicles, listings }) => {
   app.get<{ Params: { vin: string } }>('/:vin/safety', async (req, reply) => {
     const vin = normalizeVin(req.params.vin)
     if (!isValidVin(vin)) return reply.badRequest('VIN must be 17 characters and cannot contain I, O, or Q')
@@ -58,20 +59,14 @@ export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { db 
       })
     }
 
-    const [vehicleModel, sourceListing] = await Promise.all([
-      db.vehicleModel.findFirst({
-        where: { make: decoded.make, model: decoded.model, year: decoded.year },
-        include: {
-          recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true } },
-          complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true } },
-          safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true, refreshedAt: true } },
-        },
-      }),
-      db.listing.findFirst({
-        where: { vin },
-        select: { id: true, conversionManufacturer: true },
-      }),
+    const [vehicleModelRow, sourceListing] = await Promise.all([
+      vehicles.findModel(decoded.make, decoded.model, decoded.year),
+      listings.findByVin(vin),
     ])
+
+    const vehicleModel = vehicleModelRow
+      ? await listings.findVehicleModelWithSafetyData(vehicleModelRow.id)
+      : null
 
     const complaints = vehicleModel?.complaints ?? []
     const rawRecalls: RawRecall[] = vehicleModel?.recalls ?? []

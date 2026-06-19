@@ -2,17 +2,17 @@ import Fastify from 'fastify'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { adminAiRoutes } from './admin-ai.js'
 
-function buildTestApp(db: unknown) {
+function buildTestApp(sources: unknown) {
   const app = Fastify()
   void app.register(adminAiRoutes, {
-    db: db as never,
+    sources: sources as never,
     ollamaBaseUrl: 'http://ollama.test',
   })
   return app
 }
 
-const emptyDb = {
-  source: { findMany: vi.fn(async () => []) },
+const emptySources = {
+  findNeedingRemapping: vi.fn(async () => []),
 }
 
 afterEach(() => {
@@ -48,7 +48,7 @@ describe('GET /status', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const app = buildTestApp(emptyDb)
+    const app = buildTestApp(emptySources)
     const res = await app.inject({ method: 'GET', url: '/status' })
 
     expect(res.statusCode).toBe(200)
@@ -83,7 +83,7 @@ describe('GET /status', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const app = buildTestApp(emptyDb)
+    const app = buildTestApp(emptySources)
     const res = await app.inject({ method: 'GET', url: '/status' })
 
     expect(res.statusCode).toBe(200)

@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { PrismaClient } from '@wivwav/db'
+import type { SourceRepository } from '../repositories/index.js'
 
 interface AdminAiPluginOptions {
-  db: PrismaClient
+  sources: SourceRepository
   ollamaBaseUrl: string
 }
 
@@ -30,7 +30,7 @@ interface OllamaPsResponse {
 
 export const adminAiRoutes: FastifyPluginAsync<AdminAiPluginOptions> = async (
   app,
-  { db, ollamaBaseUrl },
+  { sources, ollamaBaseUrl },
 ) => {
   // GET /admin/ai/status — Ollama health, loaded models, installed models, and sources flagged for remapping
   app.get('/status', async (_req, reply) => {
@@ -79,11 +79,7 @@ export const adminAiRoutes: FastifyPluginAsync<AdminAiPluginOptions> = async (
       }
     }
 
-    const sourcesNeedingRemap = await db.source.findMany({
-      where: { status: 'needs_remapping' },
-      select: { id: true, name: true, errorMessage: true, lastScrapedAt: true },
-      orderBy: { name: 'asc' },
-    })
+    const sourcesNeedingRemap = await sources.findNeedingRemapping()
 
     return reply.send({
       data: {
