@@ -29,6 +29,11 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
     intro: 'Start with service health and the most common operator checks.',
     items: [
       {
+        href: '/ops/readiness',
+        title: 'Site readiness',
+        desc: 'Launch and handoff checklist — service health, inventory, search, schedules, queues, and recent scrape activity.',
+      },
+      {
         href: '/status',
         title: 'System status',
         desc: 'Check whether the API, database, search index, cache, and background services are reachable.',
