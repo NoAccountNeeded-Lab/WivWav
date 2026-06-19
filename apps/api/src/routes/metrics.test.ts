@@ -1,6 +1,6 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MockQueueFactory } from '@wivwav/queue'
 import { metricsRoutes, createMetricsRegistry } from './metrics.js'
 
@@ -8,6 +8,9 @@ function buildTestApp() {
   const db = {
     $queryRaw: vi.fn(async () => [{ size: BigInt(1024 * 1024) }]),
     listing: { count: vi.fn(async () => 42) },
+    source: {
+      aggregate: vi.fn(async () => ({ _max: { lastScrapedAt: new Date('2026-06-18T12:00:00Z') } })),
+    },
   }
 
   const cache = {
@@ -39,6 +42,7 @@ function buildTestApp() {
     cache: cache as never,
     meili: meili as never,
     queueFactory: queueFactory as never,
+    lokiUrl: 'http://loki.test',
     registry,
   })
 
@@ -46,6 +50,14 @@ function buildTestApp() {
 }
 
 describe('GET /metrics', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('ready', { status: 200 })))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('returns Prometheus text format with 200', async () => {
     const { app } = buildTestApp()
     const res = await app.inject({ method: 'GET', url: '/' })
@@ -68,6 +80,9 @@ describe('GET /metrics', () => {
     expect(res.payload).toContain('wivwav_db_size_bytes')
     expect(res.payload).toContain('wivwav_db_listing_count')
     expect(res.payload).toContain('wivwav_queue_depth')
+    expect(res.payload).toContain('wivwav_loki_up')
+    expect(res.payload).toContain('wivwav_scraper_last_successful_run_timestamp_seconds')
+    expect(res.payload).toContain('wivwav_nhtsa_queue_last_completed_timestamp_seconds')
   })
 
   it('reports db_up=1 when postgres is reachable', async () => {
@@ -105,6 +120,15 @@ describe('GET /metrics', () => {
     await app.close()
 
     expect(res.payload).toMatch(/wivwav_meilisearch_up\s+0/)
+  })
+
+  it('reports loki_up=0 when Loki readiness fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not ready', { status: 503 })))
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/' })
+    await app.close()
+
+    expect(res.payload).toMatch(/wivwav_loki_up\s+0/)
   })
 
   it('increments http request counter on each call', async () => {
@@ -147,6 +171,7 @@ describe('GET /metrics', () => {
     const db = {
       $queryRaw: vi.fn(async () => [{ size: BigInt(1024) }]),
       listing: { count: vi.fn(async () => 0) },
+      source: { aggregate: vi.fn(async () => ({ _max: { lastScrapedAt: null } })) },
     }
     const cache = {
       ping: vi.fn(async () => undefined),
@@ -160,6 +185,7 @@ describe('GET /metrics', () => {
       cache: cache as never,
       meili: meili as never,
       queueFactory: new MockQueueFactory() as never,
+      lokiUrl: 'http://loki.test',
       registry,
     })
 
@@ -218,6 +244,7 @@ describe('GET /metrics', () => {
     const db = {
       $queryRaw: vi.fn(async () => [{ size: BigInt(1024) }]),
       listing: { count: vi.fn(async () => 0) },
+      source: { aggregate: vi.fn(async () => ({ _max: { lastScrapedAt: null } })) },
     }
     const cache = {
       ping: vi.fn(async () => undefined),
@@ -236,6 +263,7 @@ describe('GET /metrics', () => {
       cache: cache as never,
       meili: meili as never,
       queueFactory: queueFactory as never,
+      lokiUrl: 'http://loki.test',
       registry,
     })
 
@@ -244,5 +272,13 @@ describe('GET /metrics', () => {
 
     // Should include a label line for source-scrape / waiting with count 1
     expect(res.payload).toMatch(/wivwav_queue_depth\{queue="source-scrape",status="waiting"\}\s+1/)
+  })
+
+  it('reports last successful scraper run timestamp when present', async () => {
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/' })
+    await app.close()
+
+    expect(res.payload).toMatch(/wivwav_scraper_last_successful_run_timestamp_seconds\s+1781784000/)
   })
 })

@@ -160,6 +160,7 @@ export async function buildApp(
     cache,
     meili,
     queueFactory,
+    lokiUrl: config.LOKI_URL,
     registry,
   })
 
