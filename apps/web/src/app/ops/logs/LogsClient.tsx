@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
+import { LOG_RUNBOOK_IDS } from '../runbooks'
 import logsStyles from './logs.module.css'
 
 interface LogEntry {
@@ -310,6 +312,8 @@ export function LogsClient({ apiBaseUrl }: LogsClientProps) {
             </button>
           </div>
         </div>
+
+        <OpsRunbooks ids={LOG_RUNBOOK_IDS} />
 
         {/* Status messages */}
         {unavailable ? (

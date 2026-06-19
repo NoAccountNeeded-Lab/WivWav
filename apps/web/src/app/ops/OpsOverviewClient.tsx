@@ -12,6 +12,8 @@ import {
   type ScheduleEntry,
   type SourceRow,
 } from './overview-helpers'
+import { OpsRunbooks } from './OpsRunbooks'
+import { OPS_RUNBOOK_IDS } from './runbooks'
 
 interface OpsOverviewClientProps {
   apiBaseUrl: string
@@ -172,6 +174,8 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
             </Link>
           ))}
         </nav>
+
+        <OpsRunbooks ids={OPS_RUNBOOK_IDS} />
       </div>
     </main>
   )

@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
+import { AI_RUNBOOK_IDS } from '../runbooks'
 import { MODEL_CATALOG, JOB_RECOMMENDATIONS } from './model-catalog'
 import { JobTestPanel } from './JobTestPanels'
 
@@ -388,6 +390,8 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
             </button>
           </div>
         </div>
+
+        <OpsRunbooks ids={AI_RUNBOOK_IDS} />
 
         {error ? (
           <p className={styles.error}>Source repair status could not load: {error}. Check the API and AI service, then refresh.</p>
