@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { QueueAdapter, QueueFactory } from '@wivwav/queue'
+import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingRepository, SourceRepository, ScraperRunRepository } from '../repositories/index.js'
@@ -14,6 +14,26 @@ interface AdminPluginOptions {
 
 interface QueueJobBody {
   data?: Record<string, unknown>
+}
+
+const LISTING_REFRESH_QUEUES = [
+  QUEUES.SOURCE_SCRAPE,
+  QUEUES.DETAIL_CRAWL,
+  QUEUES.DETAIL_EXTRACT,
+  QUEUES.GEOCODE,
+] as const
+
+type RefreshQueueName = (typeof LISTING_REFRESH_QUEUES)[number]
+
+interface ListingRefreshQueueState {
+  name: RefreshQueueName
+  paused: boolean
+  stats: JobStats
+  lastJobAt: Date | null
+  lastFinishedAt: Date | null
+  lastStatus: JobRecord['status'] | null
+  recentFailureCount: number
+  recentFailureReason: string | null
 }
 
 const queueJobBodySchema = {
@@ -125,6 +145,81 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   }, async (_req, reply) => {
     const count = await search.syncAll(listings)
     return reply.send({ data: { synced: count } })
+  })
+
+  // GET /admin/listing-refresh/status — aggregate status for the guided refresh workflow
+  app.get('/listing-refresh/status', async (_req, reply) => {
+    try {
+      const [
+        sourceList,
+        recentRuns,
+        activeListings,
+        mapReadyListings,
+        missingLocationListings,
+        queueStates,
+      ] = await Promise.all([
+        sources.findAll(),
+        scraperRuns.findRecent(20),
+        listings.countActive(),
+        listings.countActiveWithCoordinates(),
+        listings.countActiveMissingCoordinates(),
+        Promise.all(
+          LISTING_REFRESH_QUEUES.map(async (name): Promise<ListingRefreshQueueState> => {
+            const q = getQueueOrThrow(queues, name)
+            const [stats, paused, jobs] = await Promise.all([
+              q.getStats(),
+              q.isPaused(),
+              q.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed']),
+            ])
+            const latestJob = latestByCreatedAt(jobs)
+            const failedJobs = jobs.filter(job => job.status === 'failed')
+            const latestFailure = latestByCreatedAt(failedJobs)
+            return {
+              name,
+              paused,
+              stats,
+              lastJobAt: latestJob?.createdAt ?? null,
+              lastFinishedAt: latestJob?.finishedAt ?? null,
+              lastStatus: latestJob?.status ?? null,
+              recentFailureCount: failedJobs.length,
+              recentFailureReason: latestFailure?.failedReason ?? null,
+            }
+          }),
+        ),
+      ])
+      const sourceIds = [...new Set(recentRuns.map(run => run.sourceId))]
+      const sourceRows = await sources.findManyByIds(sourceIds)
+      const nameById = new Map(sourceRows.map(source => [source.id, source.name]))
+      const latestScrapeRun = recentRuns[0] ?? null
+
+      return reply.send({
+        data: {
+          generatedAt: new Date(),
+          sources: {
+            total: sourceList.length,
+            active: sourceList.filter(source => source.status === 'active').length,
+            needsAttention: sourceList.filter(source => source.status === 'error' || source.status === 'needs_remapping').length,
+            totalListings: sourceList.reduce((sum, source) => sum + source.listingCount, 0),
+            lastScrapedAt: latestDate(sourceList.map(source => source.lastScrapedAt)),
+          },
+          listings: {
+            active: activeListings,
+            mapReady: mapReadyListings,
+            missingLocations: missingLocationListings,
+          },
+          latestScrapeRun: latestScrapeRun
+            ? {
+                ...latestScrapeRun,
+                sourceName: nameById.get(latestScrapeRun.sourceId) ?? null,
+              }
+            : null,
+          queues: queueStates,
+        },
+      })
+    } catch (err) {
+      app.log.error(err, 'Listing refresh status unavailable')
+      return reply.code(503).send({ error: { code: 'SERVICE_UNAVAILABLE', message: 'Listing refresh status is unavailable' } })
+    }
   })
 
   // ── Repeatables ────────────────────────────────────────────────────────────
@@ -251,4 +346,21 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     await q.addRepeatable(name, data, pattern, tz, jobId)
     return reply.send({ data: { updated: true } })
   })
+}
+
+function latestByCreatedAt(jobs: JobRecord[]): JobRecord | undefined {
+  return [...jobs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+}
+
+function getQueueOrThrow(queues: Map<string, QueueAdapter>, name: RefreshQueueName): QueueAdapter {
+  const queue = queues.get(name)
+  if (!queue) throw new Error(`Queue "${name}" is not registered`)
+  return queue
+}
+
+function latestDate(values: Array<Date | null>): Date | null {
+  const dates = values.filter((value): value is Date => value !== null)
+  return dates.length > 0
+    ? new Date(Math.max(...dates.map(date => date.getTime())))
+    : null
 }
