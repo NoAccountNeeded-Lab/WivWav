@@ -83,6 +83,88 @@
   line-height: 1.5;
 }
 
+.runbooks {
+  margin: 1.25rem 0 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-surface);
+}
+
+.runbooksHeader {
+  margin-bottom: 0.75rem;
+}
+
+.runbookGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem;
+}
+
+.runbookItem {
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-bg);
+}
+
+.runbookItem summary {
+  padding: 0.75rem 0.875rem;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--clr-text);
+  line-height: 1.35;
+}
+
+.runbookItem summary:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.runbookBody {
+  padding: 0 0.875rem 0.875rem;
+}
+
+.runbookSymptom,
+.runbookEscalation {
+  margin: 0;
+  color: var(--clr-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.runbookSteps {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+  color: var(--clr-text);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.runbookSteps li {
+  padding-left: 0.125rem;
+}
+
+.runbookLink {
+  display: inline-flex;
+  margin-left: 0.375rem;
+  color: var(--clr-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.runbookLink:hover {
+  text-decoration: underline;
+}
+
+.runbookLink:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;

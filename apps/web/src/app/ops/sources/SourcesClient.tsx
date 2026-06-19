@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
+import { SOURCE_RUNBOOK_IDS } from '../runbooks'
 
 interface SourceRow {
   id: string
@@ -118,6 +120,8 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
           </div>
         </div>
 
+        <OpsRunbooks ids={SOURCE_RUNBOOK_IDS} />
+
         {error ? (
           <p className={styles.error}>Sources could not load: {error}. Check the API, then refresh this page.</p>
         ) : !sources ? (
@@ -218,7 +222,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
           <div className={styles.helpBody}>
             <p>Each source is a website that lists wheelchair accessible vehicles (WAVs). The scraper pipeline has several stages:</p>
             <ol>
-              <li><strong>source-scrape</strong> — Fetches the listing index page(s) from a source and upserts listings into the database. Before scraping, it checks whether the site's HTML structure has changed — if it has, Claude AI remaps the CSS selectors automatically.</li>
+              <li><strong>source-scrape</strong> — Fetches the listing index page(s) from a source and upserts listings into the database. Before scraping, it checks whether the site's HTML structure has changed — if it has, the configured AI provider remaps the CSS selectors automatically.</li>
               <li><strong>detail-crawl</strong> — Uses Playwright to open each listing's detail URL and store the full HTML. This is needed because many WAV-specific fields (ramp type, lift, controls) only appear on the detail page.</li>
               <li><strong>detail-extract</strong> — Parses the stored detail HTML without any network calls to extract WAV fields.</li>
               <li><strong>geocode</strong> — Converts city + state to GPS coordinates so listings can be shown on a map.</li>
