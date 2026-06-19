@@ -26,7 +26,9 @@ Infrastructure: PostgreSQL 17 · Meilisearch v1.12 (faceted search) · Valkey 8 
 - WCAG 2.1 AA accessibility on all user-facing output
 - MIT / Apache / BSD licenses only — check before adding dependencies
 - API responses: `{ data: T }` for success · `{ error: { code, message } }` for errors
-- ESM imports with `.js` extensions: `import { foo } from './foo.js'`
+- ESM import extensions differ by package — get this wrong and Next.js builds fail:
+  - `apps/api`, `apps/scraper`, `packages/*` use `moduleResolution: NodeNext` — **require** `.js` extensions: `import { foo } from './foo.js'`
+  - `apps/web` uses `moduleResolution: Bundler` (Next.js webpack) — **extensionless only** in source files: `import { foo } from './foo'`. Test files (`*.test.ts`) work with either since vitest resolves both.
 - Strict TypeScript — no `any`, no unjustified non-null assertions
 
 ## Database naming

@@ -1,4 +1,4 @@
-import type { ListingProvenance } from './types.js'
+import type { ListingProvenance } from './types'
 
 /** Number of hours after which a listing is considered stale. */
 export const STALE_THRESHOLD_HOURS = 12
