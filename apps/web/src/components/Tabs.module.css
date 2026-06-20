@@ -3,17 +3,26 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  /* Scroll happens here — tab list sticks to top, content slides under it */
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Tab list ─────────────────────────────────────────────────────────────── */
 .tabList {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   flex: none;
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid var(--clr-border);
-  background: var(--clr-bg);
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
 
   /* Prevent rubber-band scroll stealing from the sheet drag */
   overscroll-behavior-x: contain;
@@ -126,17 +135,12 @@
 
 /* ── Panels ───────────────────────────────────────────────────────────────── */
 .panels {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
   position: relative;
+  background: transparent;
 }
 
 .panel {
-  height: 100%;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
+  background: transparent;
 }
 
 .panel:focus-visible {

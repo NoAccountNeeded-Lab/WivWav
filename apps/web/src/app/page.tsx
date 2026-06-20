@@ -5,7 +5,7 @@ import styles from './page.module.css'
 export default function HomePage() {
   return (
     <>
-      <SiteHeader section="Wheelchair Accessible Vehicles" />
+      <SiteHeader />
 
       <main id="main-content" tabIndex={-1} className={styles.main}>
         <div className={styles.container}>

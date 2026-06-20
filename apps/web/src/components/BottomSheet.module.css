@@ -19,9 +19,10 @@
   right: 0;
   bottom: 0;
   z-index: 50;
-  background: var(--clr-bg);
+  background: var(--clr-surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.14);
+  border-top: 1px solid var(--clr-border);
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.1), var(--glass-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -56,6 +57,11 @@
   user-select: none;
   /* Extend tap/grab target slightly beyond visual handle */
   padding: 8px 0 4px;
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .handleArea:active {
@@ -66,13 +72,15 @@
   width: 36px;
   height: 4px;
   border-radius: 2px;
-  background: var(--clr-border-strong);
-  transition: background 0.15s ease;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .handleArea:hover .handle,
 .handleArea:focus-visible .handle {
-  background: var(--clr-text-muted);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
 }
 
 /* ── Content ──────────────────────────────────────────────────────────────── */
@@ -84,6 +92,7 @@
   overflow: hidden;
   /* Push content above the home indicator when sheet is open */
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* overflow must stay hidden here — .root (Tabs) owns the scroll */
 }
 
 /* ── Wide-screen overrides (≥ 768 px) ──────────────────────────────────────
@@ -112,6 +121,7 @@
     bottom: unset;
     z-index: auto;
     border-radius: 0;
+    border-top: none;
     box-shadow: none;
     transition: none;
     will-change: auto;

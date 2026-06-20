@@ -258,7 +258,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
 
   return (
     <>
-      <SiteHeader section="Wheelchair Accessible Vehicles" />
+      <SiteHeader />
 
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>

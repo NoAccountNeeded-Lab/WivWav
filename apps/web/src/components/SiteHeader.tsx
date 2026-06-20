@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { Logo } from './Logo'
 import styles from './SiteHeader.module.css'
 
 interface SiteHeaderProps {
@@ -11,13 +12,15 @@ export function SiteHeader({ section }: SiteHeaderProps) {
     <header className={styles.siteHeader}>
       <div className={styles.headerInner}>
         <Link href="/" className={styles.logo} aria-label="WivWav — go to home">
-          Wiv<span className={styles.logoAccent}>Wav</span>
+          <Logo />
         </Link>
-        {section && (
-          <>
-            <span className={styles.divider} aria-hidden="true">/</span>
-            <span className={styles.sectionText}>{section}</span>
-          </>
+        {section ? (
+          <span className={styles.sectionText}>{section}</span>
+        ) : (
+          <p className={styles.tagline} aria-label="Wheelchair Independence via Wheelchair Accessible Vehicles">
+            <span>Wheelchair Independence via</span>
+            <span>Wheelchair Accessible Vehicles</span>
+          </p>
         )}
       </div>
     </header>
