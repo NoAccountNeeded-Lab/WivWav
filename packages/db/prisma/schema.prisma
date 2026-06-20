@@ -81,6 +81,7 @@ model Listing {
   sourceUrl       String
   buyerUrl        String?
   externalId      String?
+  stockNumber     String?
   sourceRecordKey String
 
   make         String
