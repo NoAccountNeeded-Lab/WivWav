@@ -49,26 +49,8 @@
   border-bottom: 1px solid var(--glass-border);
 }
 
-.chatAvatar {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: var(--clr-primary);
-  color: #fff;
-  border-radius: 50%;
-  font-family: var(--font-logo), 'Raleway', sans-serif;
-  font-size: 0.6875rem;
-  font-weight: 700;
-}
-
-.chatName {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--clr-text);
-  letter-spacing: -0.01em;
+.chatLogo {
+  font-size: 1.125rem;
 }
 
 .chatOnline {
@@ -77,49 +59,21 @@
   height: 7px;
   background: #22c55e;
   border-radius: 50%;
-  margin-left: 1px;
 }
 
 /* ── Messages area ────────────────────────────────────────────────────── */
 
 .messages {
-  padding: 1rem 1rem 0.75rem;
+  padding: 1rem 1.25rem 0.75rem;
   flex: 1;
-}
-
-.aiBubbleRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-}
-
-.aiBubbleAvatar {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: var(--clr-primary);
-  color: #fff;
-  border-radius: 50%;
-  font-family: var(--font-logo), 'Raleway', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-top: 2px;
 }
 
 .aiBubble {
   margin: 0;
-  padding: 0.625rem 0.875rem;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 4px 16px 16px 16px;
   font-size: 0.9375rem;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--clr-text);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  min-height: 2.5rem;
+  min-height: 1.5em;
 }
 
 .cursor {
