@@ -13,7 +13,7 @@ const EXAMPLES = [
   'Power wheelchair, rear-entry van with in-floor ramp, used, under $45k in Florida',
   'Side-entry minivan with hand controls for my father, budget around $35k',
   'Van with lift for a power chair, used, Pacific Northwest',
-  'Accessible SUV conversion with a side ramp, newer model, anywhere in the Midwest',
+  'Accessible SUV with side ramp, newer model, Midwest',
 ]
 
 function buildFilterSearch(filters: IntakeFilters): string {
