@@ -355,6 +355,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
     sourceUrl,
     buyerUrl: sourceUrl,
     externalId,
+    stockNumber: null,
     sourceRecordKey: externalId ?? normalizeSourceUrl(sourceUrl),
     make,
     model,

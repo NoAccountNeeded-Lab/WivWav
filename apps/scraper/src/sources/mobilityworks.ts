@@ -252,15 +252,18 @@ export class MobilityWorksAdapter implements SourceAdapter {
                 .replace(/\s+(?:Stock|Mileage|Color|Conv Make|Conversion|Request|Schedule)\b.*/i, '')
                 .trim()
 
+              // Subsequent-field boundary used to truncate bleed when the card DOM has no newlines.
+              // stock is a single alphanumeric token; color/convMake/conversion truncate at the next field keyword.
+              const nextField = /\s+(?:Mileage|Color|Conv\s*Make|Conv\b|Conversion|Location|Stock[:\s]|Request|Schedule).*/i
               results.push({
                 href,
                 title,
                 price: (txt.match(/price\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
-                stock: (txt.match(/Stock\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
-                mileage: (txt.match(/Mileage\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
-                color: (txt.match(/Color\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
-                convMake: (txt.match(/Conv Make\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
-                conversion: (txt.match(/Conversion\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
+                stock: (txt.match(/Stock\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').replace(/\s.*$/, '').trim(),
+                mileage: (txt.match(/Mileage\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').replace(/\s.*$/, '').trim(),
+                color: (txt.match(/Color\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').replace(nextField, '').trim(),
+                convMake: (txt.match(/Conv Make\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').replace(nextField, '').trim(),
+                conversion: (txt.match(/Conversion\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').replace(nextField, '').trim(),
                 location: rawLocation,
                 imageUrl,
               })
@@ -366,13 +369,15 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   const priceCents = parsePrice(raw.price)
   const { city, state } = parseLocation(raw.location)
   const sourceUrl = raw.href.startsWith('http') ? raw.href : `${BASE_URL}${raw.href}`
-  const externalId = raw.stock || vin || null
+  const stockNumber = raw.stock || null
+  const externalId = stockNumber || vin || null
 
   return {
     sourceId: SOURCE_ID,
     sourceUrl,
     buyerUrl: sourceUrl,
     externalId,
+    stockNumber,
     sourceRecordKey: externalId ?? normalizeSourceUrl(sourceUrl),
     make,
     model,
