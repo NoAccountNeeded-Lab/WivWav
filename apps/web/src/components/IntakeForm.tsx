@@ -187,7 +187,7 @@ export function IntakeForm() {
             ref={textareaRef}
             id="intake-description"
             name="description"
-            rows={1}
+            rows={3}
             aria-describedby={errorMsg ? 'intake-error' : undefined}
             aria-invalid={errorMsg != null ? 'true' : undefined}
             className={styles.composerTextarea}
