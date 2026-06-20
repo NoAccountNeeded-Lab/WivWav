@@ -366,6 +366,7 @@ export function DiscoverPage() {
             <CategoryBarChart
               showMap={false}
               showHistograms={false}
+              singleColumn
               limitGroups={['make', 'model', 'condition', 'entry']}
             />
           </Suspense>
@@ -377,6 +378,7 @@ export function DiscoverPage() {
             <CategoryBarChart
               showMap={false}
               showHistograms={false}
+              singleColumn
               limitGroups={['color', 'state', 'features']}
             />
           </Suspense>
