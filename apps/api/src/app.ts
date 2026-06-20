@@ -21,6 +21,7 @@ import {
   PrismaSourceRepository,
   PrismaScraperRunRepository,
   PrismaMarketRepository,
+  PrismaConversionBrandRepository,
 } from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
@@ -34,6 +35,7 @@ import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { metricsRoutes, createMetricsRegistry } from './routes/metrics.js'
+import { conversionBrandRoutes } from './routes/conversion-brands.js'
 
 export function isAllowedCorsOrigin(origin: string | undefined, config: Config): boolean {
   if (!origin) return true
@@ -129,12 +131,14 @@ export async function buildApp(
   const sourceRepo = new PrismaSourceRepository(db)
   const scraperRunRepo = new PrismaScraperRunRepository(db)
   const marketRepo = new PrismaMarketRepository(db)
+  const conversionBrandRepo = new PrismaConversionBrandRepository(db)
 
   await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
   await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets })
   await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
   await app.register(vinRoutes, { prefix: '/v1/vin', vehicles: vehicleRepo, listings: listingRepo })
   await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo })
+  await app.register(conversionBrandRoutes, { prefix: '/v1/conversion-brands', conversionBrands: conversionBrandRepo })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
   await app.register(adminRoutes, { prefix: '/admin', listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
   await app.register(adminAiRoutes, {
