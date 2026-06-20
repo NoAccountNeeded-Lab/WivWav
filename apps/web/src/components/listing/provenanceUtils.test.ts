@@ -13,7 +13,7 @@ function makeProvenance(overrides: Partial<ListingProvenance> = {}): ListingProv
     sourceName: 'Ability Center',
     sourceBaseUrl: 'abilitycenter.com',
     sourceUrl: 'https://abilitycenter.com/listings/123',
-    buyerUrl: 'https://abilitycenter.com/listings/123?ref=wavsearch',
+    buyerUrl: 'https://abilitycenter.com/listings/123?ref=wivwav',
     scrapedAt: '2026-06-01T00:00:00.000Z',
     detailScrapedAt: '2026-06-01T01:00:00.000Z',
     vehicleModelMatchConfidence: 'high',
@@ -89,10 +89,10 @@ describe('hasProvenanceLink', () => {
 describe('resolveProvenanceHref', () => {
   it('returns buyerUrl when present', () => {
     const p = makeProvenance({
-      buyerUrl: 'https://abilitycenter.com/listings/123?ref=wavsearch',
+      buyerUrl: 'https://abilitycenter.com/listings/123?ref=wivwav',
       sourceUrl: 'https://abilitycenter.com/listings/123',
     })
-    expect(resolveProvenanceHref(p)).toBe('https://abilitycenter.com/listings/123?ref=wavsearch')
+    expect(resolveProvenanceHref(p)).toBe('https://abilitycenter.com/listings/123?ref=wivwav')
   })
 
   it('falls back to sourceUrl when buyerUrl is null', () => {

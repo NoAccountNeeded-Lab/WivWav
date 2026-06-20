@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { HealthResponse } from '@wivwav/types'
+import { Logo } from '@/components/Logo'
 import styles from './page.module.css'
 import {
   buildOpsOverview,
@@ -92,7 +93,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
         <header className={styles.hero}>
           <div>
             <p className={styles.kicker}>Operator overview</p>
-            <h1 className={styles.heading}>Is WivWav healthy right now?</h1>
+            <h1 className={styles.heading}>Is <Logo /> healthy right now?</h1>
             <p className={styles.subheading}>
               Site health, listing freshness, scraper status, and next actions from the existing operations data.
             </p>

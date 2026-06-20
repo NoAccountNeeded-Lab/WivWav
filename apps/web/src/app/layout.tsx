@@ -1,6 +1,21 @@
 import type { Metadata, Viewport } from 'next'
+import { Plus_Jakarta_Sans, Raleway } from 'next/font/google'
 import './globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+
+const font = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const logoFont = Raleway({
+  subsets: ['latin'],
+  weight: ['700'],
+  variable: '--font-logo',
+  display: 'swap',
+})
 import { GlobalErrorHandlers } from '@/components/GlobalErrorHandlers'
 import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
 import { Footer } from '@/components/Footer'
@@ -17,7 +32,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#b85c00',
+  themeColor: '#5c35c6',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const apiBaseUrl = getPublicApiBaseUrl()
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${font.variable} ${logoFont.variable}`}>
       <body data-api-url={apiBaseUrl}>
         <NavigationFocusReset />
         <GlobalErrorHandlers />

@@ -1,7 +1,10 @@
 .footer {
-  border-top: 1px solid var(--clr-border);
+  border-top: 1px solid var(--glass-border);
   padding: 0.625rem 1rem;
   margin-top: auto;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .inner {

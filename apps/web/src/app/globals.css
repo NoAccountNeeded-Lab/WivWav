@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 /* ── Tailwind theme — map brand tokens into Tailwind's color/radius system ── */
-/* Summer palette — swap --color-primary back to #0052a3 to restore original */
 @theme {
-  --color-primary: #b85c00;       /* warm amber-orange; 5.6:1 on white = WCAG AA ✓ */
-  --color-primary-dark: #8f4500;
-  --color-primary-light: #fff3e8;
-  --color-text: #1c1410;          /* warm near-black */
-  --color-text-secondary: #5c4a38;
-  --color-text-muted: #8a7060;
-  --color-surface: #fffaf6;       /* warm off-white surface */
-  --color-border: #ecddd0;
-  --color-border-strong: #d9c5b2;
+  --color-primary: #5c35c6;       /* deep violet; 5.2:1 on white = WCAG AA ✓ */
+  --color-primary-dark: #4a28a8;
+  --color-primary-light: #f0eeff;
+  --color-text: #100e1a;          /* near-black with violet cast */
+  --color-text-secondary: #3d3568;
+  --color-text-muted: #7b70a8;
+  --color-surface: #f8f7fe;       /* near-white with violet cast */
+  --color-border: #d8d3f2;
+  --color-border-strong: #bdb8e2;
   --color-feature: #166534;       /* keep green for WAV feature badges */
   --color-feature-bg: #dcfce7;
 
-  --radius-sm: 4px;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 6px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
 }
 
 /* ── shadcn/ui CSS variables ────────────────────────────────────────────────
@@ -34,26 +34,26 @@
   --popover: 0 0% 100%;
   --popover-foreground: 220 14% 7%;
 
-  --primary: 28 100% 36%;          /* #b85c00 */
+  --primary: 258 57% 49%;          /* #5c35c6 */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 28 30% 91%;
-  --secondary-foreground: 20 14% 11%;
+  --secondary: 258 30% 92%;
+  --secondary-foreground: 258 30% 15%;
 
-  --muted: 30 50% 98%;             /* --clr-surface warm */
-  --muted-foreground: 25 18% 53%;  /* --clr-text-muted warm */
+  --muted: 258 40% 98%;
+  --muted-foreground: 258 20% 52%;
 
-  --accent: 28 100% 95%;           /* --clr-primary-light */
-  --accent-foreground: 28 100% 36%;
+  --accent: 258 80% 95%;
+  --accent-foreground: 258 57% 49%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 25 30% 88%;            /* --clr-border warm */
-  --input: 25 30% 88%;
-  --ring: 28 100% 36%;             /* --clr-focus = --clr-primary */
+  --border: 258 25% 87%;
+  --input: 258 25% 87%;
+  --ring: 258 57% 49%;
 
-  --radius: 0.5rem;               /* matches --radius: 8px */
+  --radius: 0.875rem;             /* matches --radius: 14px */
 
   /* Chart palette — distinct, accessible colors */
   --chart-1: 211 100% 32%;
@@ -92,8 +92,15 @@ html {
   --clr-neutral-muted-text: #475569;
   --clr-info: #0090ff;         /* Blue 9 — fixed across all themes per BRAND.md */
 
-  --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    sans-serif;
+  --font: var(--font-sans), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* ── Glass UI tokens ──────────────────────────────── */
+  --glass-bg: rgba(255, 255, 255, 0.48);
+  --glass-bg-strong: rgba(255, 255, 255, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.42);
+  --glass-blur: blur(20px) saturate(180%);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
 
   font-size: 16px;
   line-height: 1.5;
@@ -104,7 +111,12 @@ body {
   margin: 0;
   font-family: var(--font);
   color: var(--clr-text);
-  background: var(--clr-bg);
+  background:
+    radial-gradient(ellipse 90% 60% at 15% 10%, rgba(214, 207, 254, 0.38) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 85%, rgba(233, 221, 254, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(242, 238, 255, 0.45) 0%, transparent 70%),
+    #ffffff;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
