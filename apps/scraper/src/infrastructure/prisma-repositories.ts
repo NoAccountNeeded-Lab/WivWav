@@ -144,6 +144,7 @@ export class PrismaListingRepository implements ListingRepository {
         sourceUrl: listing.sourceUrl,
         buyerUrl: listing.buyerUrl,
         externalId: listing.externalId,
+        stockNumber: listing.stockNumber,
         sourceRecordKey: listing.sourceRecordKey,
         make: listing.make,
         model: listing.model,
