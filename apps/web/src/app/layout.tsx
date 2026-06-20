@@ -18,7 +18,7 @@ const logoFont = Raleway({
 })
 import { GlobalErrorHandlers } from '@/components/GlobalErrorHandlers'
 import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
-import { Footer } from '@/components/Footer'
+import { ConditionalFooter } from '@/components/ConditionalFooter'
 import { NavigationFocusReset } from '@/components/NavigationFocusReset'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 
@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="main-content">
             {children}
           </main>
-          <Footer />
+          <ConditionalFooter />
         </ErrorBoundary>
       </body>
     </html>
