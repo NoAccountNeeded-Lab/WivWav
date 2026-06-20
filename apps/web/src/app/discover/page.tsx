@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { SiteHeader } from '../../components/SiteHeader'
 import { DiscoverPage } from './DiscoverPage'
 
@@ -12,7 +13,9 @@ export default function DiscoverRoute() {
     <>
       <SiteHeader section="Discover" />
       <main id="main-content" tabIndex={-1}>
-        <DiscoverPage />
+        <Suspense>
+          <DiscoverPage />
+        </Suspense>
       </main>
     </>
   )
