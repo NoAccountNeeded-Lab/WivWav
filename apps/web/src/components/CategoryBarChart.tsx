@@ -179,12 +179,15 @@ export function CategoryBarChart({
   showMap = true,
   showHistograms = true,
   limitGroups,
+  singleColumn = false,
 }: {
   mapListings?: MapListing[]
   showMap?: boolean
   showHistograms?: boolean
   /** When provided, only these group ids (and 'features') are rendered. */
   limitGroups?: string[]
+  /** Disables the internal multi-column layout so groups fill their container. */
+  singleColumn?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -342,7 +345,7 @@ export function CategoryBarChart({
   const showFeatures = !limitGroups || limitGroups.includes('features')
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root}${singleColumn ? ` ${styles.singleColumn}` : ''}`}>
       {showMap && (
         <div className={`${styles.group} ${styles.mapGroup}`}>
           <span className={styles.groupTitle}>Location</span>
