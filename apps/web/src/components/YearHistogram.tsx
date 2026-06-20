@@ -40,7 +40,7 @@ function YearTooltip({ active, payload }: TooltipProps) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function YearHistogram({ renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
+export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
