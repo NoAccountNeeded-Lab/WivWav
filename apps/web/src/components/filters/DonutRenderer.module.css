@@ -1,0 +1,104 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Donut SVG ────────────────────────────────────────────────────────────── */
+
+.donut {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+}
+
+.segment {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.segment:hover {
+  opacity: 0.85 !important;
+}
+
+.centerText {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  fill: var(--clr-text);
+}
+
+/* ── Legend ───────────────────────────────────────────────────────────────── */
+
+.legend {
+  flex: 1;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 0.25rem 0.375rem;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.13s;
+}
+
+.legendRow:hover:not(:disabled) {
+  background: rgba(92, 53, 198, 0.06);
+}
+
+.legendRow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.legendRow:focus-visible {
+  outline: 2px solid var(--clr-focus);
+  outline-offset: 1px;
+}
+
+.legendActive {
+  font-weight: 600;
+  color: var(--clr-primary);
+}
+
+.swatch {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legendLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.legendCount {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--clr-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.legendActive .legendCount {
+  color: var(--clr-primary);
+  opacity: 0.75;
+}

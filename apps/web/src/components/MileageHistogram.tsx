@@ -66,7 +66,7 @@ function MileageTooltip({ active, payload }: TooltipProps) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function MileageHistogram() {
+export function MileageHistogram({ renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
