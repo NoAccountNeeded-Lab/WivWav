@@ -47,7 +47,7 @@ export default function ListingsMap({ listings }: { listings: MapListing[] }) {
   return (
     <MapContainer
       center={[38, -96]}
-      zoom={4}
+      zoom={2}
       style={{ height: 220, width: '100%' }}
       scrollWheelZoom={false}
     >

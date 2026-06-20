@@ -1,45 +1,68 @@
 .siteHeader {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--clr-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0.625rem 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05), var(--glass-shadow);
 }
 
 .headerInner {
   max-width: 64rem;
   margin: 0 auto;
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem;
 }
 
+/* ── Logo ─────────────────────────────────────────── */
 .logo {
-  font-size: 1.375rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--clr-text);
+  flex: none;
+  font-size: 1.5rem;
   text-decoration: none;
+  line-height: 1;
+  transition: opacity 0.15s;
 }
 
 .logo:hover {
-  color: var(--clr-primary);
+  opacity: 0.75;
 }
 
 .logo:focus-visible {
   outline: 3px solid var(--clr-focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
   border-radius: var(--radius-sm);
 }
 
-.logoAccent {
-  color: var(--clr-primary);
-}
-
-.divider {
+/* ── Tagline ──────────────────────────────────────── */
+.tagline {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+  font-size: clamp(0.5625rem, 2.2vw, 0.75rem);
+  line-height: 1.35;
   color: var(--clr-text-muted);
-  font-weight: 400;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* Separate from logo with a hairline */
+  padding-left: 0.875rem;
+  border-left: 1px solid var(--clr-border);
 }
 
+.tagline span {
+  display: block;
+  white-space: nowrap;
+}
+
+/* ── Section label (utility pages) ───────────────── */
 .sectionText {
-  font-size: 0.9375rem;
-  color: var(--clr-text-muted);
+  padding-left: 0.875rem;
+  border-left: 1px solid var(--clr-border);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--clr-text-secondary);
 }

@@ -1,45 +1,3 @@
-/* ── Site header ──────────────────────────────────── */
-.siteHeader {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--clr-border);
-}
-
-.headerInner {
-  max-width: 64rem;
-  margin: 0 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.logo {
-  font-size: 1.375rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--clr-text);
-  text-decoration: none;
-}
-
-.logo:hover {
-  color: var(--clr-primary);
-}
-
-.logoAccent {
-  color: var(--clr-primary);
-}
-
-.divider {
-  color: var(--clr-text-muted);
-  font-size: 1.125rem;
-}
-
-.sectionText {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--clr-text-secondary);
-}
-
 /* ── Main layout ──────────────────────────────────── */
 .main {
   padding-bottom: 4rem;
@@ -138,21 +96,25 @@
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0 1rem;
-  background: var(--clr-bg);
-  border: 1.5px solid var(--clr-border-strong);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
   font-family: var(--font);
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--clr-text);
   text-decoration: none;
-  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
 }
 
 .paginationBtn:hover {
-  background: var(--clr-surface);
-  border-color: var(--clr-primary);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(184, 92, 0, 0.35);
   color: var(--clr-primary);
+  box-shadow: var(--glass-shadow-hover);
 }
 
 .paginationBtnDisabled {
@@ -170,16 +132,20 @@
 /* ── Listing card ─────────────────────────────────── */
 .card {
   height: 100%;
-  background: var(--clr-bg);
-  border: 1.5px solid var(--clr-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--glass-shadow);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 .card:hover {
-  border-color: var(--clr-primary);
-  box-shadow: 0 4px 20px rgba(184, 92, 0, 0.12);
+  border-color: rgba(184, 92, 0, 0.35);
+  box-shadow: var(--glass-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .cardLink {
