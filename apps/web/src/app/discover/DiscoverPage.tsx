@@ -83,6 +83,8 @@ function fmtLabel(key: string, value: string): string {
   if (key === 'hasLift') return 'Has lift'
   if (key === 'handControls') return 'Hand controls'
   if (key === 'mileageMax') return `Under ${parseInt(value, 10).toLocaleString()} mi`
+  if (key === 'yearMin') return `${value}+`
+  if (key === 'yearMax') return `Up to ${value}`
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
@@ -663,6 +665,34 @@ export function DiscoverPage() {
               </select>
             </div>
 
+            {/* Price min */}
+            <div className={styles.filterField}>
+              <label
+                htmlFor={`${formId}-priceMin`}
+                className={styles.filterLabel}
+              >
+                Min price ($)
+              </label>
+              <input
+                type="number"
+                id={`${formId}-priceMin`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. 20000"
+                min={0}
+                step={1000}
+                value={
+                  filters['priceMin'] != null
+                    ? String(Math.floor(parseInt(filters['priceMin'], 10) / 100))
+                    : ''
+                }
+                onChange={(e) => {
+                  const dollars = parseInt(e.target.value, 10)
+                  setManualFilter('priceMin', isNaN(dollars) ? null : String(dollars * 100))
+                }}
+              />
+            </div>
+
             {/* Price max */}
             <div className={styles.filterField}>
               <label
@@ -688,6 +718,98 @@ export function DiscoverPage() {
                   const dollars = parseInt(e.target.value, 10)
                   setManualFilter('priceMax', isNaN(dollars) ? null : String(dollars * 100))
                 }}
+              />
+            </div>
+
+            {/* Make */}
+            <div className={styles.filterField}>
+              <label htmlFor={`${formId}-make`} className={styles.filterLabel}>Make</label>
+              <input
+                type="text"
+                id={`${formId}-make`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. Toyota"
+                value={filters['make'] ?? ''}
+                onChange={(e) => setManualFilter('make', e.target.value || null)}
+              />
+            </div>
+
+            {/* Model */}
+            <div className={styles.filterField}>
+              <label htmlFor={`${formId}-model`} className={styles.filterLabel}>Model</label>
+              <input
+                type="text"
+                id={`${formId}-model`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. Sienna"
+                value={filters['model'] ?? ''}
+                onChange={(e) => setManualFilter('model', e.target.value || null)}
+              />
+            </div>
+
+            {/* Year from */}
+            <div className={styles.filterField}>
+              <label htmlFor={`${formId}-yearMin`} className={styles.filterLabel}>Year from</label>
+              <input
+                type="number"
+                id={`${formId}-yearMin`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. 2018"
+                min={1990}
+                max={2030}
+                step={1}
+                value={filters['yearMin'] ?? ''}
+                onChange={(e) => setManualFilter('yearMin', e.target.value || null)}
+              />
+            </div>
+
+            {/* Year to */}
+            <div className={styles.filterField}>
+              <label htmlFor={`${formId}-yearMax`} className={styles.filterLabel}>Year to</label>
+              <input
+                type="number"
+                id={`${formId}-yearMax`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. 2024"
+                min={1990}
+                max={2030}
+                step={1}
+                value={filters['yearMax'] ?? ''}
+                onChange={(e) => setManualFilter('yearMax', e.target.value || null)}
+              />
+            </div>
+
+            {/* Mileage max */}
+            <div className={styles.filterField}>
+              <label htmlFor={`${formId}-mileageMax`} className={styles.filterLabel}>Max mileage</label>
+              <input
+                type="number"
+                id={`${formId}-mileageMax`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. 50000"
+                min={0}
+                step={5000}
+                value={filters['mileageMax'] ?? ''}
+                onChange={(e) => setManualFilter('mileageMax', e.target.value || null)}
+              />
+            </div>
+
+            {/* Color */}
+            <div className={styles.filterField}>
+              <label htmlFor={`${formId}-color`} className={styles.filterLabel}>Color</label>
+              <input
+                type="text"
+                id={`${formId}-color`}
+                className={styles.filterInput}
+                disabled={!manualMode}
+                placeholder="e.g. White"
+                value={filters['color'] ?? ''}
+                onChange={(e) => setManualFilter('color', e.target.value || null)}
               />
             </div>
 
