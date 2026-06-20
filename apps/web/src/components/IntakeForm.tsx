@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { IntakeFilters } from '@wivwav/types'
-import { Logo } from './Logo'
 import styles from './IntakeForm.module.css'
 
 const AI_MESSAGE =
-  "Tell me what you're looking for — wheelchair type, ramp or lift, budget, and location. I'll set the filters."
+  "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you."
 
 const EXAMPLES = [
   'Power wheelchair, rear-entry van with in-floor ramp, used, under $45k in Florida',
@@ -166,9 +165,13 @@ export function IntakeForm() {
 
         {/* Chat header */}
         <div className={styles.chatHeader}>
-          <span className={styles.chatAvatar} aria-hidden="true">W</span>
-          <Logo />
-          <span className={styles.chatOnline} aria-label="Online" />
+          <span className={styles.chatAvatarWrap}>
+            <span className={styles.chatAvatar} aria-hidden="true">W</span>
+            <span className={styles.chatOnline} aria-label="Online" />
+          </span>
+          <h1 id="hero-heading" className={styles.chatHeading}>
+            Find the right accessible vehicle
+          </h1>
         </div>
 
         {/* AI message */}

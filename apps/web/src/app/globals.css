@@ -117,8 +117,14 @@ body {
     radial-gradient(ellipse 50% 40% at 50% 50%, rgba(242, 238, 255, 0.45) 0%, transparent 70%),
     #ffffff;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.site-main {
+  flex: 1;
 }
 
 /* ── Skip navigation ──────────────────────────────── */

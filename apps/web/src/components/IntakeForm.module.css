@@ -49,8 +49,13 @@
   border-bottom: 1px solid var(--glass-border);
 }
 
-.chatAvatar {
+.chatAvatarWrap {
+  position: relative;
   flex-shrink: 0;
+  display: inline-flex;
+}
+
+.chatAvatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -65,11 +70,26 @@
 }
 
 .chatOnline {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
+  position: absolute;
+  bottom: 0;
+  right: -1px;
+  width: 8px;
+  height: 8px;
   background: #22c55e;
   border-radius: 50%;
+  border: 1.5px solid #fff;
+}
+
+/* ── Chat heading ─────────────────────────────────────────────────────── */
+
+.chatHeading {
+  margin: 0;
+  font-family: var(--font-logo), 'Raleway', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--clr-primary);
+  white-space: nowrap;
 }
 
 /* ── Messages area ────────────────────────────────────────────────────── */
@@ -83,7 +103,7 @@
   margin: 0;
   font-size: 0.9375rem;
   line-height: 1.6;
-  color: var(--clr-text);
+  color: var(--clr-text-secondary);
   min-height: 1.5em;
 }
 

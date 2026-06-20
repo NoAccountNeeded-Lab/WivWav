@@ -11,14 +11,6 @@ export default function HomePage() {
         <div className={styles.container}>
 
           <section className={styles.heroSection} aria-labelledby="hero-heading">
-            <h1 id="hero-heading" className={styles.heroHeading}>
-              Find the right wheelchair accessible vehicle
-            </h1>
-            <p className={styles.heroLead}>
-              Describe what you need in plain language — we&apos;ll set the filters for you. Or skip
-              straight to the search.
-            </p>
-
             <IntakeForm />
           </section>
 
