@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { IntakeFilters } from '@wivwav/types'
-import { Logo } from './Logo'
 import styles from './IntakeForm.module.css'
 
 const AI_MESSAGE =
@@ -12,7 +11,7 @@ const AI_MESSAGE =
 const EXAMPLES = [
   'Power wheelchair, rear-entry van with in-floor ramp, used, under $45k in Florida',
   'Side-entry minivan with hand controls for my father, budget around $35k',
-  'Lift-equipped full-size van for a manual wheelchair, new or lightly used, Pacific Northwest',
+  'Van with lift for a power chair, used, Pacific Northwest',
   'Accessible SUV conversion with a side ramp, newer model, anywhere in the Midwest',
 ]
 
@@ -166,7 +165,8 @@ export function IntakeForm() {
 
         {/* Chat header */}
         <div className={styles.chatHeader}>
-          <span className={styles.chatLogo}><Logo /></span>
+          <span className={styles.chatAvatar} aria-hidden="true">W</span>
+          <span className={styles.chatName}>WivWav</span>
           <span className={styles.chatOnline} aria-label="Online" />
         </div>
 
