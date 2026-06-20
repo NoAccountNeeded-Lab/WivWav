@@ -33,16 +33,16 @@
 }
 
 .navLink {
-  display: inline-block;
-  padding: 0.125rem 0;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem;
   color: var(--clr-text-muted);
   text-decoration: none;
+  transition: color 0.15s;
 }
 
 .navLink:hover {
   color: var(--clr-primary);
-  text-decoration: underline;
 }
 
 .navLink:focus-visible {

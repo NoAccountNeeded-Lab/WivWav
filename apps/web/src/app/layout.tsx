@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <ErrorBoundary>
-          <main id="main-content">
+          <main id="main-content" className="site-main">
             {children}
           </main>
           <ConditionalFooter />
