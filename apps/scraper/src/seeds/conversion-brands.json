@@ -1,0 +1,182 @@
+[
+  {
+    "name": "BraunAbility",
+    "slug": "braunability",
+    "website": "https://www.braunability.com",
+    "nmedaCertified": true,
+    "founded": 1972,
+    "products": [
+      {
+        "name": "Chrysler Pacifica Foldout Rear-Entry",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      },
+      {
+        "name": "Chrysler Pacifica Foldout Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": 12.0,
+        "msrpCents": null
+      },
+      {
+        "name": "Toyota Sienna Foldout Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": 10.0,
+        "msrpCents": null
+      },
+      {
+        "name": "Honda Odyssey Foldout Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": 10.0,
+        "msrpCents": null
+      }
+    ]
+  },
+  {
+    "name": "VMI",
+    "slug": "vmi",
+    "website": "https://www.vmivans.com",
+    "nmedaCertified": true,
+    "founded": 1990,
+    "products": [
+      {
+        "name": "Northstar In-Floor Side-Entry (Chrysler Pacifica)",
+        "conversionType": "side_entry",
+        "rampType": "in_floor",
+        "floorLoweringInches": 12.0,
+        "msrpCents": null
+      },
+      {
+        "name": "Apex In-Floor Side-Entry (Toyota Sienna)",
+        "conversionType": "side_entry",
+        "rampType": "in_floor",
+        "floorLoweringInches": 10.0,
+        "msrpCents": null
+      },
+      {
+        "name": "Foldout Rear-Entry",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      }
+    ]
+  },
+  {
+    "name": "Vantage Mobility International",
+    "slug": "vantage-mobility",
+    "website": "https://www.vantagemobility.com",
+    "nmedaCertified": true,
+    "founded": 1984,
+    "products": [
+      {
+        "name": "Chrysler Pacifica In-Floor Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "in_floor",
+        "floorLoweringInches": 12.0,
+        "msrpCents": null
+      },
+      {
+        "name": "Toyota Sienna In-Floor Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "in_floor",
+        "floorLoweringInches": 10.0,
+        "msrpCents": null
+      }
+    ]
+  },
+  {
+    "name": "Freedom Motors",
+    "slug": "freedom-motors",
+    "website": "https://www.freedommotorsusa.com",
+    "nmedaCertified": true,
+    "founded": 1987,
+    "products": [
+      {
+        "name": "Chrysler Pacifica Foldout Rear-Entry",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      },
+      {
+        "name": "Chrysler Pacifica Foldout Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": 12.0,
+        "msrpCents": null
+      },
+      {
+        "name": "Toyota Sienna Foldout Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": 10.0,
+        "msrpCents": null
+      }
+    ]
+  },
+  {
+    "name": "Rollx Vans",
+    "slug": "rollx-vans",
+    "website": "https://www.rollxvans.com",
+    "nmedaCertified": true,
+    "founded": 1980,
+    "products": [
+      {
+        "name": "Chrysler Pacifica Foldout Rear-Entry",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      },
+      {
+        "name": "Toyota Sienna Foldout Rear-Entry",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      },
+      {
+        "name": "Full-Size Van In-Floor Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "in_floor",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      }
+    ]
+  },
+  {
+    "name": "AMS Vans",
+    "slug": "ams-vans",
+    "website": "https://www.amsvans.com",
+    "nmedaCertified": true,
+    "founded": 1989,
+    "products": [
+      {
+        "name": "Independence Foldout Rear-Entry (Toyota Sienna)",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      },
+      {
+        "name": "Chrysler Pacifica Foldout Rear-Entry",
+        "conversionType": "rear_entry",
+        "rampType": "fold_out",
+        "floorLoweringInches": null,
+        "msrpCents": null
+      },
+      {
+        "name": "Edge In-Floor Side-Entry",
+        "conversionType": "side_entry",
+        "rampType": "in_floor",
+        "floorLoweringInches": 12.0,
+        "msrpCents": null
+      }
+    ]
+  }
+]
