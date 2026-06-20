@@ -1,12 +1,10 @@
-/* ── Intake form ──────────────────────────────────────────────────────── */
+/* ── Form shell ───────────────────────────────────────────────────────── */
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 }
-
-/* ── Visually hidden (screen-reader only) ────────────────────────────── */
 
 .srOnly {
   position: absolute;
@@ -20,174 +18,257 @@
   border: 0;
 }
 
-/* ── Field group ─────────────────────────────────────────────────────── */
+/* ── Chat window ──────────────────────────────────────────────────────── */
 
-.fieldGroup {
+.chatWindow {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.label {
-  font-size: 1rem;
+.chatWindow:focus-within {
+  border-color: rgba(92, 53, 198, 0.3);
+  box-shadow: var(--glass-shadow), 0 0 0 3px rgba(92, 53, 198, 0.1);
+}
+
+/* ── Chat header ──────────────────────────────────────────────────────── */
+
+.chatHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.chatAvatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--clr-primary);
+  color: #fff;
+  border-radius: 50%;
+  font-family: var(--font-logo), 'Raleway', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.chatName {
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--clr-text);
+  letter-spacing: -0.01em;
 }
 
-.hint {
+.chatOnline {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #22c55e;
+  border-radius: 50%;
+  margin-left: 1px;
+}
+
+/* ── Messages area ────────────────────────────────────────────────────── */
+
+.messages {
+  padding: 1rem 1rem 0.75rem;
+  flex: 1;
+}
+
+.aiBubbleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.aiBubbleAvatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--clr-primary);
+  color: #fff;
+  border-radius: 50%;
+  font-family: var(--font-logo), 'Raleway', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.aiBubble {
   margin: 0;
-  font-size: 0.875rem;
-  color: var(--clr-text-muted);
-  line-height: 1.5;
+  padding: 0.625rem 0.875rem;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 4px 16px 16px 16px;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--clr-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  min-height: 2.5rem;
 }
 
-.textarea {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 88px;
-  padding: 0.75rem 1rem;
+.cursor {
+  display: inline-block;
+  width: 2px;
+  height: 0.8em;
+  background: var(--clr-primary);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor { animation: none; }
+}
+
+/* ── Composer ─────────────────────────────────────────────────────────── */
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem 0.75rem;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.composerTextarea {
+  flex: 1;
+  min-height: 36px;
+  max-height: 160px;
+  padding: 0.4375rem 0.625rem;
   font-family: var(--font);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   line-height: 1.5;
   color: var(--clr-text);
-  background: var(--clr-bg);
-  border: 1.5px solid var(--clr-border-strong);
-  border-radius: var(--radius);
-  resize: vertical;
-  transition: border-color 0.15s;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  resize: none;
+  overflow-y: auto;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.textarea::placeholder {
+.composerTextarea::placeholder {
   color: var(--clr-text-muted);
 }
 
-.textarea:focus {
-  outline: 3px solid var(--clr-focus);
-  outline-offset: 2px;
-  border-color: var(--clr-primary);
+.composerTextarea:focus {
+  outline: none;
+  border-color: rgba(92, 53, 198, 0.4);
+  background: rgba(255, 255, 255, 0.8);
 }
 
-.textarea[aria-invalid='true'] {
-  border-color: var(--clr-danger);
-}
-
-.textarea:disabled {
+.composerTextarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ── Send button ──────────────────────────────────────────────────────── */
+
+.sendBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--clr-primary);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s, transform 0.1s;
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: var(--clr-primary-dark);
+  transform: scale(1.05);
+}
+
+.sendBtn:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
+.sendBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 /* ── Error ───────────────────────────────────────────────────────────── */
 
 .error {
   margin: 0;
+  padding: 0.5rem 1rem 0.625rem;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--clr-danger-text);
 }
 
-/* ── Actions ─────────────────────────────────────────────────────────── */
+/* ── Below-card actions ───────────────────────────────────────────────── */
 
 .actions {
   display: flex;
-  flex-direction: row;
-  gap: 0.75rem;
-  align-items: stretch;
+  justify-content: center;
 }
-
-.actions > * {
-  flex: 1;
-}
-
-@media (min-width: 480px) {
-  .actions > * {
-    flex: none;
-  }
-}
-
-/* ── Submit button ───────────────────────────────────────────────────── */
-
-.submitBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  min-height: 48px;
-  font-family: var(--font);
-  font-size: 1rem;
-  font-weight: 600;
-  color: #fff;
-  background: var(--clr-primary);
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background-color 0.15s, opacity 0.15s;
-}
-
-.submitBtn:hover:not(:disabled) {
-  background: var(--clr-primary-dark);
-}
-
-.submitBtn:focus-visible {
-  outline: 3px solid var(--clr-focus);
-  outline-offset: 2px;
-}
-
-.submitBtn:disabled {
-  opacity: 0.7;
-  cursor: wait;
-}
-
-/* ── Skip button ─────────────────────────────────────────────────────── */
 
 .skipLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0.625rem 1.25rem;
   font-family: var(--font);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--clr-primary);
-  background: rgba(255, 255, 255, 0.5);
-  border: 1.5px solid var(--clr-primary);
-  border-radius: var(--radius);
+  color: var(--clr-text-muted);
   text-decoration: none;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s;
 }
 
 .skipLink:hover {
-  background: var(--color-primary-light);
-  color: var(--clr-primary-dark);
+  color: var(--clr-text-secondary);
 }
 
 .skipLink:focus-visible {
   outline: 3px solid var(--clr-focus);
   outline-offset: 2px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
 }
 
 /* ── Loading spinner ─────────────────────────────────────────────────── */
 
 .spinner {
   display: inline-block;
-  width: 1rem;
-  height: 1rem;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner {
-    display: none;
-  }
+  .spinner { display: none; }
 }

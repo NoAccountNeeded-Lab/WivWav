@@ -19,9 +19,7 @@ export default function HomePage() {
               straight to the search.
             </p>
 
-            <div className={styles.intakeCard}>
-              <IntakeForm />
-            </div>
+            <IntakeForm />
           </section>
 
         </div>
