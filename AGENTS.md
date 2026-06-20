@@ -363,6 +363,8 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 | GET    | /v1/vehicles/:make/:model/:year/recalls    | Open recalls for a vehicle           |
 | GET    | /v1/vehicles/:make/:model/:year/complaints | Complaints for a vehicle             |
 | GET    | /v1/vehicles/:make/:model/:year/research   | Latest cited model facts (EPA fuel economy, engine, drivetrain) with source URLs |
+| GET    | /v1/conversion-brands          | List conversion brands with product counts and NMEDA certification status |
+| GET    | /v1/conversion-brands/:slug    | Brand detail with full product catalog (conversionType, rampType, floorLoweringInches, msrpCents) |
 | GET    | /v1/sources                    | List configured scraper sources      |
 | GET    | /admin/queues                  | All queue names with stats           |
 | GET    | /admin/queues/:name            | Single queue stats + recent jobs     |

@@ -18,6 +18,8 @@ export const QUEUES = {
   MODEL_RESEARCH:        'model-research',
   LISTING_SYNC:          'listing-sync',
   RAWPAGE_CLEANUP:       'rawpage-cleanup',
+  CONVERSION_BRANDS_SEED: 'conversion-brands-seed',
+  NMEDA_DEALERS_SEED:     'nmeda-dealers-seed',
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]
