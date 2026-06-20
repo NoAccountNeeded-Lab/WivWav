@@ -1,6 +1,7 @@
 import type { SourceAdapter } from './source-adapter.js'
 import type { StructureDetector } from '../ai/structure-detector.js'
 import type { ScraperRunRepository, SourceRepository, ListingRepository } from './repositories.js'
+import { validateListing, summarizeQuality, SYSTEMIC_ERROR_THRESHOLD } from './listing-validator.js'
 import { runGeocodeJob } from '../jobs/geocode.js'
 import { report } from '../jobs/job-progress.js'
 import type { JobContext } from '@wivwav/queue'
@@ -119,10 +120,43 @@ export class ScraperEngine {
 
       const result = await adapter.scrape(context)
       await report(context, `[source-scrape] Scraped ${result.listings.length} listing(s) from ${adapter.name}`, {
-        stage: 'upserting',
+        stage: 'validating',
         current: 0,
         total: result.listings.length,
       })
+
+      // Validate all listings before upserting so dirty data is caught in the job log.
+      const validationResults = result.listings.map(l => ({
+        sourceRecordKey: l.sourceRecordKey,
+        issues: validateListing({ ...l, sourceId }),
+      }))
+      const quality = summarizeQuality(validationResults)
+
+      if (quality.listingsWithIssues > 0) {
+        for (const vr of validationResults) {
+          if (vr.issues.length === 0) continue
+          const summary = vr.issues.map(i => `${i.field}:${i.rule}[${i.severity}]`).join(' ')
+          await report(context, `[source-scrape] Quality issue on ${vr.sourceRecordKey}: ${summary}`, {
+            stage: 'validating',
+            qualityIssue: true,
+            sourceRecordKey: vr.sourceRecordKey,
+          })
+        }
+
+        const errorRate = quality.totalListings > 0 ? quality.errorListings / quality.totalListings : 0
+        const qualityMsg = `[source-scrape] Quality summary: ${quality.listingsWithIssues}/${quality.totalListings} listings have issues (${quality.errorListings} error, ${quality.warnListings} warn). Rules: ${JSON.stringify(quality.issuesByRule)}`
+
+        if (errorRate >= SYSTEMIC_ERROR_THRESHOLD && quality.totalListings >= 5) {
+          // >20% error-severity issues on a meaningful sample means extraction is systemically broken.
+          const failMsg = `Data quality check failed: ${Math.round(errorRate * 100)}% of listings have error-level issues (threshold ${Math.round(SYSTEMIC_ERROR_THRESHOLD * 100)}%). Likely DOM structure change. Run aborted to prevent dirty data from being written.`
+          await report(context, `[source-scrape] ${failMsg}`, { stage: 'blocked', reason: 'quality_check_failed' })
+          await this.runs.fail(run.id, failMsg)
+          await this.sources.markError(sourceId, failMsg)
+          return
+        }
+
+        await report(context, qualityMsg, { stage: 'upserting', quality })
+      }
 
       for (let i = 0; i < result.listings.length; i++) {
         const listing = result.listings[i]!
