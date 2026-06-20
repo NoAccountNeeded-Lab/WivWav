@@ -244,9 +244,13 @@ export class MobilityWorksAdapter implements SourceAdapter {
               const imageUrl = imgSrc.startsWith('http') ? imgSrc : imgSrc ? `${baseUrl}${imgSrc}` : ''
 
               // Inline each field to avoid named arrow functions (esbuild __name injection breaks page.evaluate)
-              // Strip market suffix from location: "North Las Vegas NV (Las Vegas)" → "North Las Vegas NV"
+              // Strip market suffix and any trailing fields that bleed in when the DOM has no newlines between cards.
+              // e.g. "South Salt Lake UT (Salt Lake City) Stock: TR218378 Request Information" → "South Salt Lake UT"
               const rawLocation = (txt.match(/Location\s*:?\s*([^\n]+)/i)?.[1] ?? '')
-                .replace(sup, '').replace(/\s*\([^)]+\)$/, '').trim()
+                .replace(sup, '')
+                .replace(/\s*\([^)]+\).*$/, '')
+                .replace(/\s+(?:Stock|Mileage|Color|Conv Make|Conversion|Request|Schedule)\b.*/i, '')
+                .trim()
 
               results.push({
                 href,
@@ -439,7 +443,12 @@ export function parseRampType(text: string): RampType {
 
 export function parseLocation(text: string): { city: string | null; state: string | null } {
   // "North Las Vegas NV" → city="North Las Vegas", state="NV"
-  const m = text.trim().match(/^(.+?)\s+([A-Z]{2})$/)
-  if (!m) return { city: text.trim() || null, state: null }
+  // Defensively strip trailing garbage (market suffix parens + anything that bled in from adjacent fields).
+  const clean = text
+    .replace(/\s*\([^)]+\).*$/, '')
+    .replace(/\s+(?:Stock|Mileage|Color|Conv Make|Conversion|Request|Schedule)\b.*/i, '')
+    .trim()
+  const m = clean.match(/^(.+?)\s+([A-Z]{2})$/)
+  if (!m) return { city: clean || null, state: null }
   return { city: m[1]! || null, state: m[2]! || null }
 }
