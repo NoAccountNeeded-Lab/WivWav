@@ -122,6 +122,20 @@ describe('parseLocation', () => {
     expect(result.city).toBeNull()
     expect(result.state).toBeNull()
   })
+
+  it('strips market suffix parenthetical and trailing field bleed', () => {
+    // When the DOM has no newlines between card fields, the location text can bleed
+    // into adjacent fields: "South Salt Lake UT (Salt Lake City) Stock: TR218378 Request Information Schedule a Test Drive"
+    const result = parseLocation('South Salt Lake UT (Salt Lake City) Stock: TR218378 Request Information Schedule a Test Drive')
+    expect(result.city).toBe('South Salt Lake')
+    expect(result.state).toBe('UT')
+  })
+
+  it('strips market suffix parenthetical alone', () => {
+    const result = parseLocation('North Las Vegas NV (Las Vegas)')
+    expect(result.city).toBe('North Las Vegas')
+    expect(result.state).toBe('NV')
+  })
 })
 
 // ─── parseCard ───────────────────────────────────────────────────────────────
