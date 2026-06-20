@@ -64,13 +64,6 @@
   font-weight: 700;
 }
 
-.chatName {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--clr-text);
-  letter-spacing: -0.01em;
-}
-
 .chatOnline {
   display: inline-block;
   width: 7px;

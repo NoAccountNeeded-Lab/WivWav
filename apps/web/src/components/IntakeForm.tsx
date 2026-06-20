@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { IntakeFilters } from '@wivwav/types'
+import { Logo } from './Logo'
 import styles from './IntakeForm.module.css'
 
 const AI_MESSAGE =
@@ -166,7 +167,7 @@ export function IntakeForm() {
         {/* Chat header */}
         <div className={styles.chatHeader}>
           <span className={styles.chatAvatar} aria-hidden="true">W</span>
-          <span className={styles.chatName}>WivWav</span>
+          <Logo />
           <span className={styles.chatOnline} aria-label="Online" />
         </div>
 
