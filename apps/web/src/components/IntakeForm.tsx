@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { IntakeFilters } from '@wivwav/types'
+import { Logo } from './Logo'
 import styles from './IntakeForm.module.css'
 
 const AI_MESSAGE =
@@ -165,20 +166,16 @@ export function IntakeForm() {
 
         {/* Chat header */}
         <div className={styles.chatHeader}>
-          <span className={styles.chatAvatar} aria-hidden="true">W</span>
-          <span className={styles.chatName}>WivWav</span>
+          <span className={styles.chatLogo}><Logo /></span>
           <span className={styles.chatOnline} aria-label="Online" />
         </div>
 
         {/* AI message */}
         <div className={styles.messages}>
-          <div className={styles.aiBubbleRow}>
-            <span className={styles.aiBubbleAvatar} aria-hidden="true">W</span>
-            <p className={styles.aiBubble}>
-              {aiText}
-              {!aiDone && <span className={styles.cursor} aria-hidden="true" />}
-            </p>
-          </div>
+          <p className={styles.aiBubble}>
+            {aiText}
+            {!aiDone && <span className={styles.cursor} aria-hidden="true" />}
+          </p>
         </div>
 
         {/* Composer */}
