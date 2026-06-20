@@ -49,8 +49,26 @@
   border-bottom: 1px solid var(--glass-border);
 }
 
-.chatLogo {
-  font-size: 1.125rem;
+.chatAvatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--clr-primary);
+  color: #fff;
+  border-radius: 50%;
+  font-family: var(--font-logo), 'Raleway', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chatName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--clr-text);
+  letter-spacing: -0.01em;
 }
 
 .chatOnline {
