@@ -178,10 +178,13 @@ export function CategoryBarChart({
   mapListings = [],
   showMap = true,
   showHistograms = true,
+  limitGroups,
 }: {
   mapListings?: MapListing[]
   showMap?: boolean
   showHistograms?: boolean
+  /** When provided, only these group ids (and 'features') are rendered. */
+  limitGroups?: string[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -332,6 +335,12 @@ export function CategoryBarChart({
     { id: 'state',     title: 'State',      bars: data.stateBreakdown,                                              param: 'state',          active: parseCommaSep(searchParams.get('state'))          },
   ].filter((g) => g.bars.length > 0) : []
 
+  const visibleGroups = limitGroups
+    ? groups.filter((g) => limitGroups.includes(g.id))
+    : groups
+
+  const showFeatures = !limitGroups || limitGroups.includes('features')
+
   return (
     <div className={styles.root}>
       {showMap && (
@@ -343,42 +352,58 @@ export function CategoryBarChart({
         </div>
       )}
 
-      {/* Interleave range and categorical filters so same types aren't grouped */}
-      {showHistograms && <PriceHistogram />}
-      {groups[0] && (
-        <BarGroup
-          key={groups[0].id}
-          title={groups[0].title}
-          bars={groups[0].bars}
-          activeValues={groups[0].active}
-          onToggle={(v) => toggleArray(groups[0]!.param, v)}
-          labelId={`cat-bar-${groups[0].id}`}
-        />
+      {showHistograms ? (
+        /* Interleave range and categorical filters so same types aren't grouped */
+        <>
+          <PriceHistogram />
+          {groups[0] && (
+            <BarGroup
+              key={groups[0].id}
+              title={groups[0].title}
+              bars={groups[0].bars}
+              activeValues={groups[0].active}
+              onToggle={(v) => toggleArray(groups[0]!.param, v)}
+              labelId={`cat-bar-${groups[0].id}`}
+            />
+          )}
+          <YearHistogram />
+          {groups[1] && (
+            <BarGroup
+              key={groups[1].id}
+              title={groups[1].title}
+              bars={groups[1].bars}
+              activeValues={groups[1].active}
+              onToggle={(v) => toggleArray(groups[1]!.param, v)}
+              labelId={`cat-bar-${groups[1].id}`}
+            />
+          )}
+          <MileageHistogram />
+          {groups.slice(2).map((g) => (
+            <BarGroup
+              key={g.id}
+              title={g.title}
+              bars={g.bars}
+              activeValues={g.active}
+              onToggle={(v) => toggleArray(g.param, v)}
+              labelId={`cat-bar-${g.id}`}
+            />
+          ))}
+        </>
+      ) : (
+        /* Flat list — used when histograms are omitted (e.g. discover page) */
+        visibleGroups.map((g) => (
+          <BarGroup
+            key={g.id}
+            title={g.title}
+            bars={g.bars}
+            activeValues={g.active}
+            onToggle={(v) => toggleArray(g.param, v)}
+            labelId={`cat-bar-${g.id}`}
+          />
+        ))
       )}
-      {showHistograms && <YearHistogram />}
-      {groups[1] && (
-        <BarGroup
-          key={groups[1].id}
-          title={groups[1].title}
-          bars={groups[1].bars}
-          activeValues={groups[1].active}
-          onToggle={(v) => toggleArray(groups[1]!.param, v)}
-          labelId={`cat-bar-${groups[1].id}`}
-        />
-      )}
-      {showHistograms && <MileageHistogram />}
-      {groups.slice(2).map((g) => (
-        <BarGroup
-          key={g.id}
-          title={g.title}
-          bars={g.bars}
-          activeValues={g.active}
-          onToggle={(v) => toggleArray(g.param, v)}
-          labelId={`cat-bar-${g.id}`}
-        />
-      ))}
 
-      {(featureBars.some((b) => b.count > 0) || featureActiveValues.length > 0) && (
+      {showFeatures && (featureBars.some((b) => b.count > 0) || featureActiveValues.length > 0) && (
         <BarGroup
           title="Features"
           bars={featureBars}

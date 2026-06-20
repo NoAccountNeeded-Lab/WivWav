@@ -1,66 +1,55 @@
 /* ── Page shell ─────────────────────────────────────────────────────────── */
 
 .page {
+  max-width: 1400px;
+  margin: 0 auto;
   padding: 1.5rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
-/* ── 3-column grid ───────────────────────────────────────────────────────── */
+/* ── Chat row (top, centered) ─────────────────────────────────────────────── */
 
-.grid {
+.chatRow {
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Chat column (70% wide on desktop, full width on mobile) ─────────────── */
+
+.chatCol {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 680px) {
+  .chatCol {
+    width: 70%;
+  }
+}
+
+/* ── Filter grid (3 equal columns below chat) ────────────────────────────── */
+
+.filterGrid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  align-items: start;
 }
 
-/* On medium screens show chat + right column side by side */
-@media (min-width: 680px) {
-  .grid {
-    grid-template-columns: 1fr 260px;
-    grid-template-areas:
-      'chat right'
-      'left right';
-  }
-
-  .chatCol  { grid-area: chat; }
-  .filtersLeft  { grid-area: left; }
-  .filtersRight { grid-area: right; }
-}
-
-/* Full 3-column layout on wide screens */
-@media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: 240px 1fr 240px;
-    grid-template-areas: 'left chat right';
-    align-items: start;
-  }
-
-  .chatCol      { grid-area: chat; }
-  .filtersLeft  { grid-area: left; }
-  .filtersRight { grid-area: right; }
-}
-
-@media (min-width: 1280px) {
-  .grid {
-    grid-template-columns: 270px 1fr 270px;
+@media (min-width: 600px) {
+  .filterGrid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-/* ── Filter sidebars ─────────────────────────────────────────────────────── */
-
-.filtersLeft,
-.filtersRight {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-/* On mobile, show left filters below chat */
-@media (max-width: 679px) {
-  .filtersLeft  { order: 2; }
-  .chatCol      { order: 0; }
-  .filtersRight { order: 1; }
+@media (min-width: 900px) {
+  .filterGrid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 }
 
 /* ── SR only ─────────────────────────────────────────────────────────────── */
@@ -75,18 +64,6 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-/* ── Chat column ─────────────────────────────────────────────────────────── */
-
-.chatCol {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  /* Sticky so chat stays in view while user scrolls filter panels */
-  position: sticky;
-  top: 1rem;
-  align-self: start;
 }
 
 /* ── Chat window (matches home page IntakeForm style) ────────────────────── */
@@ -168,7 +145,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
-  max-height: 320px;
+  max-height: 300px;
   overflow-y: auto;
   scroll-behavior: smooth;
 }
@@ -217,6 +194,8 @@
   border-radius: 14px 14px 4px 14px;
   max-width: 85%;
 }
+
+/* ── Cursor ───────────────────────────────────────────────────────────────── */
 
 .cursor {
   display: inline-block;

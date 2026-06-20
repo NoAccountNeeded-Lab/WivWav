@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState, useTransition, useId } from 'react'
+import { Suspense, useEffect, useRef, useState, useId } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { IntakeFilters } from '@wivwav/types'
 import { CategoryBarChart } from '@/components/CategoryBarChart'
@@ -183,7 +183,7 @@ function DiscoverChat() {
             "I didn't catch specific filter values from that — could you add a bit more detail?"
         } else {
           const labels = Object.entries(newParams).map(([k, v]) => fmtLabel(k, v)).join(', ')
-          replyText = `Got it! I've set: ${labels}. Use the panels to refine further, or keep chatting.`
+          replyText = `Got it! I've set: ${labels}. Use the panels below to refine further, or keep chatting.`
         }
 
         setMessages((prev) => [...prev, { role: 'ai', content: replyText }])
@@ -349,22 +349,41 @@ function DiscoverChat() {
 export function DiscoverPage() {
   return (
     <div className={styles.page}>
-      <div className={styles.grid}>
 
-        {/* Left: bar chart filter groups (make, model, condition, entry, color, state, features) */}
-        <aside className={styles.filtersLeft} aria-label="Filter by category">
-          <Suspense>
-            <CategoryBarChart showMap={false} showHistograms={false} />
-          </Suspense>
-        </aside>
-
-        {/* Center: chat */}
+      {/* Chat — full width, centered */}
+      <div className={styles.chatRow}>
         <Suspense>
           <DiscoverChat />
         </Suspense>
+      </div>
 
-        {/* Right: range histograms (price, year, mileage) */}
-        <aside className={styles.filtersRight} aria-label="Filter by range">
+      {/* 3-column filter area below chat */}
+      <div className={styles.filterGrid}>
+
+        {/* Col 1: make, model, condition, entry type */}
+        <aside aria-label="Filter by vehicle type">
+          <Suspense>
+            <CategoryBarChart
+              showMap={false}
+              showHistograms={false}
+              limitGroups={['make', 'model', 'condition', 'entry']}
+            />
+          </Suspense>
+        </aside>
+
+        {/* Col 2: color, state, WAV features */}
+        <aside aria-label="Filter by feature and location">
+          <Suspense>
+            <CategoryBarChart
+              showMap={false}
+              showHistograms={false}
+              limitGroups={['color', 'state', 'features']}
+            />
+          </Suspense>
+        </aside>
+
+        {/* Col 3: price, year, mileage histograms */}
+        <aside aria-label="Filter by price, year, and mileage">
           <Suspense><PriceHistogram /></Suspense>
           <Suspense><YearHistogram /></Suspense>
           <Suspense><MileageHistogram /></Suspense>
