@@ -174,7 +174,15 @@ function BarGroup({ title, bars, activeValues, onToggle, labelId }: BarGroupProp
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function CategoryBarChart({ mapListings = [] }: { mapListings?: MapListing[] }) {
+export function CategoryBarChart({
+  mapListings = [],
+  showMap = true,
+  showHistograms = true,
+}: {
+  mapListings?: MapListing[]
+  showMap?: boolean
+  showHistograms?: boolean
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -326,16 +334,17 @@ export function CategoryBarChart({ mapListings = [] }: { mapListings?: MapListin
 
   return (
     <div className={styles.root}>
-      {/* Map — always visible */}
-      <div className={`${styles.group} ${styles.mapGroup}`}>
-        <span className={styles.groupTitle}>Location</span>
-        <div className={styles.mapContainer}>
-          <ListingsMap listings={mapListings} />
+      {showMap && (
+        <div className={`${styles.group} ${styles.mapGroup}`}>
+          <span className={styles.groupTitle}>Location</span>
+          <div className={styles.mapContainer}>
+            <ListingsMap listings={mapListings} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Interleave range and categorical filters so same types aren't grouped */}
-      <PriceHistogram />
+      {showHistograms && <PriceHistogram />}
       {groups[0] && (
         <BarGroup
           key={groups[0].id}
@@ -346,7 +355,7 @@ export function CategoryBarChart({ mapListings = [] }: { mapListings?: MapListin
           labelId={`cat-bar-${groups[0].id}`}
         />
       )}
-      <YearHistogram />
+      {showHistograms && <YearHistogram />}
       {groups[1] && (
         <BarGroup
           key={groups[1].id}
@@ -357,7 +366,7 @@ export function CategoryBarChart({ mapListings = [] }: { mapListings?: MapListin
           labelId={`cat-bar-${groups[1].id}`}
         />
       )}
-      <MileageHistogram />
+      {showHistograms && <MileageHistogram />}
       {groups.slice(2).map((g) => (
         <BarGroup
           key={g.id}
