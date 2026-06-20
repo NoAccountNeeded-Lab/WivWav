@@ -1,0 +1,68 @@
+'use client'
+
+import { lazy, Suspense, useState } from 'react'
+import type { CategoricalRendererProps, CategoricalRendererType, FilterItem } from './types'
+import styles from './FilterGroup.module.css'
+
+// ── Renderer registry ─────────────────────────────────────────────────────────
+// Lazy-load so unused renderers don't ship in every bundle.
+
+const RENDERERS: Record<CategoricalRendererType, React.LazyExoticComponent<React.ComponentType<CategoricalRendererProps>>> = {
+  bars:     lazy(() => import('./BarsRenderer').then((m) => ({ default: m.BarsRenderer }))),
+  chips:    lazy(() => import('./ChipsRenderer').then((m) => ({ default: m.ChipsRenderer }))),
+  donut:    lazy(() => import('./DonutRenderer').then((m) => ({ default: m.DonutRenderer }))),
+  swatches: lazy(() => import('./SwatchesRenderer').then((m) => ({ default: m.SwatchesRenderer }))),
+}
+
+// ── FilterGroup ───────────────────────────────────────────────────────────────
+
+interface FilterGroupProps {
+  title: string
+  labelId: string
+  items: FilterItem[]
+  onToggle: (value: string) => void
+  renderer?: CategoricalRendererType
+  /** Max items shown before a "show more" button appears. undefined = show all. */
+  maxVisible?: number
+}
+
+export function FilterGroup({
+  title,
+  labelId,
+  items,
+  onToggle,
+  renderer = 'bars',
+  maxVisible = 8,
+}: FilterGroupProps) {
+  const [showAll, setShowAll] = useState(false)
+
+  const Renderer = RENDERERS[renderer]
+
+  const sorted = [...items].sort((a, b) => {
+    if (a.disabled !== b.disabled) return a.disabled ? 1 : -1
+    return b.count - a.count
+  })
+
+  const hasMore = sorted.length > maxVisible
+  const visible = hasMore && !showAll ? sorted.slice(0, maxVisible) : sorted
+  const maxCount = sorted.find((i) => !i.disabled)?.count ?? 1
+
+  return (
+    <div className={styles.group} role="group" aria-labelledby={labelId}>
+      <span id={labelId} className={styles.title}>{title}</span>
+      <Suspense fallback={null}>
+        <Renderer items={visible} onToggle={onToggle} maxCount={maxCount} />
+      </Suspense>
+      {hasMore && (
+        <button
+          type="button"
+          className={styles.showMore}
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+        >
+          {showAll ? 'Show fewer' : `Show ${sorted.length - maxVisible} more`}
+        </button>
+      )}
+    </div>
+  )
+}

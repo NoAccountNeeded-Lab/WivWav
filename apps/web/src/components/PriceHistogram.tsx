@@ -82,7 +82,7 @@ const FORWARD_PARAMS = [
   'mileageMax', 'condition', 'conversionType', 'rampType', 'hasLift', 'handControls', 'color', 'state',
 ]
 
-export function PriceHistogram() {
+export function PriceHistogram({ renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
