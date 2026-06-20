@@ -2,7 +2,7 @@
   padding: 0.75rem 0;
 }
 
-/* Side-by-side on larger screens — column-count avoids cross-column row alignment */
+/* Side-by-side on larger screens */
 @media (min-width: 700px) {
   .root:not(.singleColumn) {
     column-count: 2;
@@ -16,32 +16,17 @@
   }
 }
 
-/* ── Map group ────────────────────────────────────── */
+/* ── Map group ──────────────────────────────────────────────────────────── */
+
 .mapGroup {
-  margin-bottom: 1.5rem;
-}
-
-.mapContainer {
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1.5px solid var(--clr-border);
-  isolation: isolate;
-}
-
-/* ── Group ────────────────────────────────────────── */
-.group {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
   break-inside: avoid;
   margin-bottom: 1rem;
-  padding: 0.75rem;
-  background: rgba(92, 53, 198, 0.04);
-  border: 1px solid rgba(92, 53, 198, 0.13);
-  border-radius: 12px;
 }
 
-.groupTitle {
+.mapTitle {
   font-size: 0.8125rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -49,117 +34,9 @@
   color: var(--clr-text-muted);
 }
 
-/* ── Bar list ─────────────────────────────────────── */
-.barList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1875rem;
-}
-
-/* ── Bar button ───────────────────────────────────── */
-.barBtn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 2.125rem;
-  padding: 0.3125rem 0.625rem;
-  background: none;
-  border: none;
-  border-radius: 4px;
-  font-family: var(--font);
-  font-size: 0.875rem;
-  cursor: pointer;
-  text-align: left;
+.mapContainer {
+  border-radius: var(--radius);
   overflow: hidden;
-}
-
-.barBtn:focus-visible {
-  outline: 2px solid var(--clr-focus);
-  outline-offset: 1px;
-}
-
-/* Active state — stronger label */
-.barBtn[aria-pressed='true'] .barLabel {
-  color: var(--clr-primary);
-  font-weight: 600;
-}
-
-/* ── Bar fill — sits behind the text ─────────────── */
-.barFill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  height: 100%;
-  background: var(--clr-border);
-  border-radius: 4px;
-  transition: width 0.3s ease, background-color 0.15s;
-  pointer-events: none;
-}
-
-.barBtn:hover .barFill {
-  background: var(--clr-border-strong);
-}
-
-.barFill[data-active='true'] {
-  background: var(--clr-primary-light);
-}
-
-.barBtn:hover .barFill[data-active='true'] {
-  filter: brightness(0.95);
-}
-
-/* ── Label & count — float on top of fill ─────────── */
-.barLabel {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--clr-text);
-}
-
-.barCount {
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
-  font-size: 0.8125rem;
-  color: var(--clr-text-muted);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Disabled bar (count=0, not active) ──────────── */
-.barBtn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-/* ── Show more ────────────────────────────────────── */
-.showMoreBtn {
-  align-self: flex-start;
-  margin-top: 0.125rem;
-  padding: 0.125rem 0;
-  background: none;
-  border: none;
-  font-family: var(--font);
-  font-size: 0.8125rem;
-  color: var(--clr-primary);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.showMoreBtn:hover {
-  color: var(--clr-primary-dark);
-}
-
-.showMoreBtn:focus-visible {
-  outline: 2px solid var(--clr-focus);
-  outline-offset: 2px;
+  border: 1.5px solid var(--clr-border);
+  isolation: isolate;
 }

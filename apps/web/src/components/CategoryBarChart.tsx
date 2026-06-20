@@ -6,6 +6,9 @@ import dynamic from 'next/dynamic'
 import { PriceHistogram } from './PriceHistogram'
 import { YearHistogram } from './YearHistogram'
 import { MileageHistogram } from './MileageHistogram'
+import { FilterGroup } from './filters/FilterGroup'
+import type { FilterItem, CategoricalRendererType } from './filters/types'
+import { formatFilterLabel } from './filters/types'
 import type { MapListing } from './ListingsMap'
 import styles from './CategoryBarChart.module.css'
 
@@ -33,17 +36,10 @@ interface FacetsData {
 }
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
-//
-// Array-type params that support multi-select. For each group that has active
-// selections, we fire a parallel facets call *omitting that group's filter* so
-// the bars show counts as if that filter is not applied (while other filters
-// still narrow the results). Boolean params (hasLift, handControls) are
-// single-value toggles and don't need this treatment.
 
 const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
-// All params forwarded to the facets API
 const ALL_FILTER_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'hasLift',
@@ -68,10 +64,6 @@ function buildFacetsUrl(
   return url.toString()
 }
 
-function formatLabel(value: string): string {
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 function parseCommaSep(v: string | null): string[] {
   if (!v) return []
   return v.split(',').map((s) => s.trim()).filter(Boolean)
@@ -87,12 +79,6 @@ async function fetchFacets(url: string): Promise<FacetsData> {
   return json.data
 }
 
-// ── Stability helper ───────────────────────────────────────────────────────
-//
-// When a filter change causes bars to disappear from the API response, we keep
-// the previous bars visible at count=0 (disabled style) so layout height is
-// preserved and the user isn't disoriented by collapsing sections.
-
 function stabilizeBars(current: BarDatum[], previous: BarDatum[]): BarDatum[] {
   const currentSet = new Set(current.map((b) => b.value))
   const ghost = previous
@@ -102,77 +88,21 @@ function stabilizeBars(current: BarDatum[], previous: BarDatum[]): BarDatum[] {
   return [...current, ...ghost]
 }
 
-// ── Bar Group ──────────────────────────────────────────────────────────────
-
-interface BarGroupProps {
-  title: string
-  bars: BarDatum[]
-  activeValues: string[]
-  onToggle: (value: string) => void
-  labelId: string
-}
-
-function BarGroup({ title, bars, activeValues, onToggle, labelId }: BarGroupProps) {
-  const [showAll, setShowAll] = useState(false)
-
-  // Enabled bars (count > 0) first by count desc; disabled (count = 0) last
-  const sorted = [...bars].sort((a, b) => {
-    const aOff = a.count === 0
-    const bOff = b.count === 0
-    if (aOff !== bOff) return aOff ? 1 : -1
-    return b.count - a.count
-  })
-
-  const visible = showAll ? sorted : sorted.slice(0, MAX_BARS)
-  const maxCount = sorted.find((b) => b.count > 0)?.count ?? 1
-
-  return (
-    <div className={styles.group}>
-      <span id={labelId} className={styles.groupTitle}>{title}</span>
-      <ul className={styles.barList} role="group" aria-labelledby={labelId}>
-        {visible.map((bar) => {
-          const isActive = activeValues.includes(bar.value)
-          const isDisabled = bar.count === 0 && !isActive
-          const pct = bar.count > 0 ? Math.max(4, Math.round((bar.count / maxCount) * 100)) : 4
-          return (
-            <li key={bar.value}>
-              <button
-                type="button"
-                className={styles.barBtn}
-                aria-pressed={isActive}
-                disabled={isDisabled}
-                onClick={() => onToggle(bar.value)}
-              >
-                <span
-                  className={styles.barFill}
-                  style={{ width: `${pct}%` }}
-                  data-active={isActive}
-                  aria-hidden="true"
-                />
-                <span className={styles.barLabel}>{formatLabel(bar.value)}</span>
-                <span className={styles.barCount}>
-                  {bar.count > 0 ? bar.count.toLocaleString() : '—'}
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      {bars.length > MAX_BARS && (
-        <button
-          type="button"
-          className={styles.showMoreBtn}
-          onClick={() => setShowAll((v) => !v)}
-          aria-expanded={showAll}
-        >
-          {showAll ? 'Show fewer' : `Show ${bars.length - MAX_BARS} more`}
-        </button>
-      )}
-    </div>
-  )
+/** Convert BarDatum[] + active values into the normalized FilterItem[] the renderers expect. */
+function toFilterItems(bars: BarDatum[], activeValues: string[]): FilterItem[] {
+  return bars.map((b) => ({
+    value: b.value,
+    label: formatFilterLabel(b.value),
+    count: b.count,
+    active: activeValues.includes(b.value),
+    disabled: b.count === 0 && !activeValues.includes(b.value),
+  }))
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
+
+/** Per-group renderer overrides. Keys are group ids: make, model, condition, entry, color, state, features. */
+export type RendererMap = Partial<Record<string, CategoricalRendererType>>
 
 export function CategoryBarChart({
   mapListings = [],
@@ -180,6 +110,7 @@ export function CategoryBarChart({
   showHistograms = true,
   limitGroups,
   singleColumn = false,
+  renderers = {},
 }: {
   mapListings?: MapListing[]
   showMap?: boolean
@@ -188,6 +119,8 @@ export function CategoryBarChart({
   limitGroups?: string[]
   /** Disables the internal multi-column layout so groups fill their container. */
   singleColumn?: boolean
+  /** Per-group renderer overrides. Defaults to 'bars' for all groups. */
+  renderers?: RendererMap
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -200,7 +133,6 @@ export function CategoryBarChart({
   useEffect(() => {
     let cancelled = false
 
-    // Which array-type groups have active selections → need their own call
     const activeDisjunctive = DISJUNCTIVE_PARAMS.filter(
       (p) => parseCommaSep(searchParams.get(p)).length > 0,
     )
@@ -220,11 +152,8 @@ export function CategoryBarChart({
 
         if (cancelled || !base) return
 
-        // Start from base (reflects all active filters for every group)
         const merged: FacetsData = { ...base, wavFeatures: { ...base.wavFeatures } }
 
-        // For each active group, override with its own call's counts so the
-        // group shows all options (not just those matching its own filter)
         disjResults.forEach((d, i) => {
           const param = disjunctiveCalls[i]!.param as DisjunctiveParam
           switch (param) {
@@ -258,7 +187,7 @@ export function CategoryBarChart({
         prevFacetsRef.current = merged
         setData(stabilized)
       } catch {
-        // silent — chart just stays at last known state
+        // silent — chart stays at last known state
       }
     }
 
@@ -303,40 +232,41 @@ export function CategoryBarChart({
     [push, searchParams],
   )
 
-  // ── Render ───────────────────────────────────────────────────────────────
-
-  const featureBars: BarDatum[] = data ? [
-    { value: 'has_lift', count: data.wavFeatures.hasLift },
-    { value: 'hand_controls', count: data.wavFeatures.handControls },
-    ...data.wavFeatures.rampTypes.filter((r) => r.value !== 'unknown' && r.value !== 'none'),
-  ] : []
-
-  const featureActiveValues: string[] = [
-    ...(searchParams.get('hasLift') === 'true' ? ['has_lift'] : []),
-    ...(searchParams.get('handControls') === 'true' ? ['hand_controls'] : []),
-    ...parseCommaSep(searchParams.get('rampType')),
-  ]
-
-  const handleFeatureToggle = (value: string) => {
-    if (value === 'has_lift') { toggleBool('hasLift'); return }
-    if (value === 'hand_controls') { toggleBool('handControls'); return }
-    toggleArray('rampType', value)
-  }
+  // ── Build group definitions ──────────────────────────────────────────────
 
   const groups: Array<{
     id: string
     title: string
-    bars: BarDatum[]
+    items: FilterItem[]
     param: string
-    active: string[]
   }> = data ? [
-    { id: 'make',      title: 'Make',       bars: data.makeBreakdown,                                               param: 'make',           active: parseCommaSep(searchParams.get('make'))           },
-    { id: 'model',     title: 'Model',      bars: data.modelBreakdown,                                              param: 'model',          active: parseCommaSep(searchParams.get('model'))          },
-    { id: 'condition', title: 'Condition',  bars: data.conditionBreakdown,                                          param: 'condition',      active: parseCommaSep(searchParams.get('condition'))      },
-    { id: 'entry',     title: 'Entry type', bars: data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    param: 'conversionType', active: parseCommaSep(searchParams.get('conversionType')) },
-    { id: 'color',     title: 'Color',      bars: data.colorBreakdown,                                              param: 'color',          active: parseCommaSep(searchParams.get('color'))          },
-    { id: 'state',     title: 'State',      bars: data.stateBreakdown,                                              param: 'state',          active: parseCommaSep(searchParams.get('state'))          },
-  ].filter((g) => g.bars.length > 0) : []
+    { id: 'make',      title: 'Make',       items: toFilterItems(data.makeBreakdown,                                               parseCommaSep(searchParams.get('make'))),           param: 'make'           },
+    { id: 'model',     title: 'Model',      items: toFilterItems(data.modelBreakdown,                                              parseCommaSep(searchParams.get('model'))),          param: 'model'          },
+    { id: 'condition', title: 'Condition',  items: toFilterItems(data.conditionBreakdown,                                          parseCommaSep(searchParams.get('condition'))),      param: 'condition'      },
+    { id: 'entry',     title: 'Entry type', items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
+    { id: 'color',     title: 'Color',      items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
+    { id: 'state',     title: 'State',      items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
+  ].filter((g) => g.items.length > 0) : []
+
+  const featureItems: FilterItem[] = data ? [
+    { value: 'has_lift',      label: 'Has lift',      count: data.wavFeatures.hasLift,     active: searchParams.get('hasLift') === 'true',     disabled: data.wavFeatures.hasLift === 0     },
+    { value: 'hand_controls', label: 'Hand controls', count: data.wavFeatures.handControls, active: searchParams.get('handControls') === 'true', disabled: data.wavFeatures.handControls === 0 },
+    ...data.wavFeatures.rampTypes
+      .filter((r) => r.value !== 'unknown' && r.value !== 'none')
+      .map((r) => ({
+        value: r.value,
+        label: formatFilterLabel(r.value),
+        count: r.count,
+        active: parseCommaSep(searchParams.get('rampType')).includes(r.value),
+        disabled: r.count === 0,
+      })),
+  ] : []
+
+  const handleFeatureToggle = (value: string) => {
+    if (value === 'has_lift')      { toggleBool('hasLift'); return }
+    if (value === 'hand_controls') { toggleBool('handControls'); return }
+    toggleArray('rampType', value)
+  }
 
   const visibleGroups = limitGroups
     ? groups.filter((g) => limitGroups.includes(g.id))
@@ -344,11 +274,15 @@ export function CategoryBarChart({
 
   const showFeatures = !limitGroups || limitGroups.includes('features')
 
+  const r = (id: string): CategoricalRendererType => renderers[id] ?? 'bars'
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
     <div className={`${styles.root}${singleColumn ? ` ${styles.singleColumn}` : ''}`}>
       {showMap && (
-        <div className={`${styles.group} ${styles.mapGroup}`}>
-          <span className={styles.groupTitle}>Location</span>
+        <div className={`${styles.mapGroup}`}>
+          <span className={styles.mapTitle}>Location</span>
           <div className={styles.mapContainer}>
             <ListingsMap listings={mapListings} />
           </div>
@@ -356,63 +290,61 @@ export function CategoryBarChart({
       )}
 
       {showHistograms ? (
-        /* Interleave range and categorical filters so same types aren't grouped */
         <>
           <PriceHistogram />
           {groups[0] && (
-            <BarGroup
+            <FilterGroup
               key={groups[0].id}
               title={groups[0].title}
-              bars={groups[0].bars}
-              activeValues={groups[0].active}
-              onToggle={(v) => toggleArray(groups[0]!.param, v)}
               labelId={`cat-bar-${groups[0].id}`}
+              items={groups[0].items}
+              onToggle={(v) => toggleArray(groups[0]!.param, v)}
+              renderer={r(groups[0].id)}
             />
           )}
           <YearHistogram />
           {groups[1] && (
-            <BarGroup
+            <FilterGroup
               key={groups[1].id}
               title={groups[1].title}
-              bars={groups[1].bars}
-              activeValues={groups[1].active}
-              onToggle={(v) => toggleArray(groups[1]!.param, v)}
               labelId={`cat-bar-${groups[1].id}`}
+              items={groups[1].items}
+              onToggle={(v) => toggleArray(groups[1]!.param, v)}
+              renderer={r(groups[1].id)}
             />
           )}
           <MileageHistogram />
           {groups.slice(2).map((g) => (
-            <BarGroup
+            <FilterGroup
               key={g.id}
               title={g.title}
-              bars={g.bars}
-              activeValues={g.active}
-              onToggle={(v) => toggleArray(g.param, v)}
               labelId={`cat-bar-${g.id}`}
+              items={g.items}
+              onToggle={(v) => toggleArray(g.param, v)}
+              renderer={r(g.id)}
             />
           ))}
         </>
       ) : (
-        /* Flat list — used when histograms are omitted (e.g. discover page) */
         visibleGroups.map((g) => (
-          <BarGroup
+          <FilterGroup
             key={g.id}
             title={g.title}
-            bars={g.bars}
-            activeValues={g.active}
-            onToggle={(v) => toggleArray(g.param, v)}
             labelId={`cat-bar-${g.id}`}
+            items={g.items}
+            onToggle={(v) => toggleArray(g.param, v)}
+            renderer={r(g.id)}
           />
         ))
       )}
 
-      {showFeatures && (featureBars.some((b) => b.count > 0) || featureActiveValues.length > 0) && (
-        <BarGroup
+      {showFeatures && featureItems.some((i) => !i.disabled || i.active) && (
+        <FilterGroup
           title="Features"
-          bars={featureBars}
-          activeValues={featureActiveValues}
-          onToggle={handleFeatureToggle}
           labelId="cat-bar-features"
+          items={featureItems}
+          onToggle={handleFeatureToggle}
+          renderer={r('features')}
         />
       )}
     </div>
