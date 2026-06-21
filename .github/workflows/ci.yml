@@ -9,52 +9,38 @@ on:
 
 jobs:
   docker:
-    name: Docker builds
+    name: Docker build (${{ matrix.service }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            file: docker/api.Dockerfile
+            target: builder
+          - service: scraper
+            file: docker/scraper.Dockerfile
+            target: builder
+          - service: web
+            file: docker/web.Dockerfile
+            target: builder
+          - service: migrate
+            file: docker/migrate.Dockerfile
     steps:
       - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build api (builder stage)
+      - name: Build ${{ matrix.service }}
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/api.Dockerfile
-          target: builder
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
-
-      - name: Build scraper (builder stage)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: docker/scraper.Dockerfile
-          target: builder
-          push: false
-          cache-from: type=gha,scope=scraper
-          cache-to: type=gha,mode=max,scope=scraper
-
-      - name: Build web (builder stage)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: docker/web.Dockerfile
-          target: builder
-          push: false
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
-
-      - name: Build migrate
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: docker/migrate.Dockerfile
-          push: false
-          cache-from: type=gha,scope=migrate
-          cache-to: type=gha,mode=max,scope=migrate
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   lint-typecheck:
     name: Lint & Typecheck
