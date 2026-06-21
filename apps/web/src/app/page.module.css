@@ -1,5 +1,10 @@
 /* ── Main layout ──────────────────────────────────── */
 .main {
+  position: relative;
+  /* overflow: hidden clips the absolute-positioned UsMapBackground SVG to the
+     viewport. Note: this creates a new block formatting context, which means
+     any future position:sticky children inside .main will not stick. */
+  overflow: hidden;
   padding-bottom: 2rem;
 }
 
