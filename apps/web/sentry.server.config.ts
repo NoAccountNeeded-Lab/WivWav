@@ -10,7 +10,7 @@
  * data are removed before any event is sent to sentry.io.
  */
 import * as Sentry from '@sentry/nextjs'
-import { scrubPii, scrubSentryEvent } from './sentry-pii'
+import { scrubPii, scrubSentryEvent } from '@wivwav/observability'
 
 if (process.env['SENTRY_ENABLED'] === 'true' && process.env['SENTRY_DSN']) {
   Sentry.init({
