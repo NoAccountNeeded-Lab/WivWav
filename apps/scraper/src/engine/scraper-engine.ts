@@ -12,7 +12,6 @@ interface EngineOptions {
   runs: ScraperRunRepository
   sources: SourceRepository
   listings: ListingRepository
-  concurrency?: number
 }
 
 export class ScraperEngine {
