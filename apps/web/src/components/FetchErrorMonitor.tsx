@@ -7,9 +7,13 @@ import { reportError } from '@/lib/error-reporter'
  * Patches `window.fetch` to intercept 4xx/5xx responses from the API and
  * forward them to the ops log collector.
  *
- * Only paths that start with `/` or point to the same origin as the current
- * page are monitored — cross-origin requests (e.g. CDN assets, Meilisearch)
- * are skipped to avoid noise.
+ * Tracked origins:
+ * - Relative paths (always same-origin)
+ * - Absolute URLs on the same host+port as the current page
+ * - Absolute URLs on the configured API host (`data-api-url` on `<body>`)
+ *
+ * All other cross-origin requests (CDN assets, Meilisearch, etc.) are skipped
+ * to avoid noise.
  *
  * Renders nothing — this component exists only for its side-effects.
  * Place it in the root layout alongside GlobalErrorHandlers.
@@ -17,6 +21,18 @@ import { reportError } from '@/lib/error-reporter'
 export function FetchErrorMonitor(): null {
   useEffect(() => {
     const originalFetch = window.fetch
+
+    // Resolve the API host from the data attribute set in layout.tsx so that
+    // cross-origin API calls (e.g. localhost:3003 vs web on localhost:3000) are
+    // tracked even when the API runs on a different port in development.
+    const apiBaseUrl = document.body.dataset['apiUrl'] ?? ''
+    const apiHost = (() => {
+      try {
+        return new URL(apiBaseUrl).host
+      } catch {
+        return null
+      }
+    })()
 
     const patchedFetch = async function(
       input: RequestInfo | URL,
@@ -36,25 +52,30 @@ export function FetchErrorMonitor(): null {
         }
 
         // Skip the error-reporter endpoint unconditionally to prevent recursive loops.
-        // This guard fires before the same-origin check and protects against recursion in
+        // This guard fires before the origin check and protects against recursion in
         // both cross-origin API deployments and same-origin proxy deployments (where
-        // isSameOrigin would be true but we must never report on the reporting endpoint itself).
+        // isTracked would be true but we must never report on the reporting endpoint itself).
         if (path === '/admin/client-events') return response
 
-        // Only monitor same-origin requests — use host (hostname+port) not just hostname
-        // so that localhost:3003 (API) is treated as cross-origin from localhost:3000 (web)
-        // in development, avoiding false positives from the API being on a different port.
-        const isSameOrigin =
+        // Track same-origin requests and requests to the configured API host.
+        // Use host (hostname+port) not just hostname so that localhost:3003 and
+        // localhost:3000 are treated as distinct origins for CDN/Meilisearch exclusion,
+        // while still allowing the explicit API host through.
+        const isTracked =
           rawUrl.startsWith('/') ||
           (() => {
             try {
-              return new URL(rawUrl).host === window.location.host
+              const requestHost = new URL(rawUrl).host
+              return (
+                requestHost === window.location.host ||
+                (apiHost !== null && requestHost === apiHost)
+              )
             } catch {
               return false
             }
           })()
 
-        if (isSameOrigin) {
+        if (isTracked) {
           const method =
             (init?.method ?? (input instanceof Request ? input.method : undefined) ?? 'GET').toUpperCase()
 
