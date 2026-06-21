@@ -3,9 +3,9 @@
  *
  * FetchErrorMonitor is a React client component that uses useEffect; there is
  * no @testing-library/react available.  We test the pure decision logic
- * (URL normalisation, same-origin check, method derivation, reporting
- * predicate) by duplicating it here — the same pattern used for IntakeForm
- * and PhotoGallery.  Update this file if the implementation changes.
+ * (URL normalisation, origin check, API-host allowlist, method derivation,
+ * reporting predicate) by duplicating it here — the same pattern used for
+ * IntakeForm and PhotoGallery.  Update this file if the implementation changes.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -20,6 +20,8 @@ interface MonitoredRequest {
   status: number
   origin: string
   host: string
+  /** The resolved API host (hostname+port), or null when not configured */
+  apiHost?: string | null
 }
 
 interface MonitorDecision {
@@ -52,17 +54,23 @@ function evaluateFetchError(req: MonitoredRequest): MonitorDecision | null {
   // Never report the error-reporter endpoint itself
   if (path === '/admin/client-events') return null
 
-  const isSameOrigin =
+  const apiHost = req.apiHost ?? null
+
+  const isTracked =
     rawUrl.startsWith('/') ||
     (() => {
       try {
-        return new URL(rawUrl).host === req.host
+        const requestHost = new URL(rawUrl).host
+        return (
+          requestHost === req.host ||
+          (apiHost !== null && requestHost === apiHost)
+        )
       } catch {
         return false
       }
     })()
 
-  if (!isSameOrigin) return null
+  if (!isTracked) return null
 
   const method = (
     req.init?.method ??
@@ -81,6 +89,7 @@ function evaluateFetchError(req: MonitoredRequest): MonitorDecision | null {
 
 const ORIGIN = 'http://localhost:3000'
 const HOST = 'localhost:3000'
+const API_HOST = 'localhost:3003'
 
 describe('FetchErrorMonitor — status threshold', () => {
   it('does not report 2xx responses', () => {
@@ -155,6 +164,18 @@ describe('FetchErrorMonitor — error-reporter endpoint exclusion', () => {
     })
     expect(result).toBeNull()
   })
+
+  it('skips /admin/client-events even when called on the API host', () => {
+    // The loop guard fires before the origin check — must hold for cross-origin API too
+    const result = evaluateFetchError({
+      input: `http://${API_HOST}/admin/client-events`,
+      status: 500,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
+    })
+    expect(result).toBeNull()
+  })
 })
 
 describe('FetchErrorMonitor — same-origin detection', () => {
@@ -188,31 +209,72 @@ describe('FetchErrorMonitor — same-origin detection', () => {
     expect(result).toBeNull()
   })
 
-  it('skips absolute URL on same hostname but different port (API vs web)', () => {
-    // API runs on :3003, web on :3000 — in dev they must be separate origins
-    // /admin/client-events is excluded anyway, but even a different path on :3003
-    // should be treated as cross-origin
-    evaluateFetchError({
-      input: 'http://localhost:3003/admin/client-events',
-      status: 500,
-      origin: ORIGIN,
-      host: HOST,
-    })
-    const result2 = evaluateFetchError({
-      input: 'http://localhost:3003/v1/listings',
-      status: 500,
-      origin: ORIGIN,
-      host: HOST,
-    })
-    expect(result2).toBeNull()
-  })
-
-  it('skips cross-origin Meilisearch URL', () => {
+  it('skips cross-origin Meilisearch URL even when API host is configured', () => {
     const result = evaluateFetchError({
       input: 'http://search.internal:7700/indexes/listings/search',
       status: 400,
       origin: ORIGIN,
       host: HOST,
+      apiHost: API_HOST,
+    })
+    expect(result).toBeNull()
+  })
+})
+
+describe('FetchErrorMonitor — API-host allowlist', () => {
+  it('reports failed request to API host when it is on a different port', () => {
+    const result = evaluateFetchError({
+      input: `http://${API_HOST}/v1/listings`,
+      status: 500,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
+    })
+    expect(result?.shouldReport).toBe(true)
+  })
+
+  it('reports 4xx request to API host', () => {
+    const result = evaluateFetchError({
+      input: `http://${API_HOST}/v1/listings/999`,
+      status: 404,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
+    })
+    expect(result?.shouldReport).toBe(true)
+    expect(result?.path).toBe('/v1/listings/999')
+  })
+
+  it('still skips API-host requests when apiHost is null (not configured)', () => {
+    const result = evaluateFetchError({
+      input: `http://${API_HOST}/v1/listings`,
+      status: 500,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: null,
+    })
+    expect(result).toBeNull()
+  })
+
+  it('skips other cross-origin hosts that are not the API host', () => {
+    const result = evaluateFetchError({
+      input: 'https://cdn.example.com/asset.js',
+      status: 404,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
+    })
+    expect(result).toBeNull()
+  })
+
+  it('skips same hostname but different port that is not the API host', () => {
+    // e.g. a local Meilisearch on :7700 should still be excluded
+    const result = evaluateFetchError({
+      input: 'http://localhost:7700/indexes/listings/search',
+      status: 400,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
     })
     expect(result).toBeNull()
   })
@@ -246,6 +308,17 @@ describe('FetchErrorMonitor — path normalisation', () => {
       status: 503,
       origin: ORIGIN,
       host: HOST,
+    })
+    expect(result?.path).toBe('/v1/listings')
+  })
+
+  it('strips query string from cross-origin API URL', () => {
+    const result = evaluateFetchError({
+      input: `http://${API_HOST}/v1/listings?page=1`,
+      status: 500,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
     })
     expect(result?.path).toBe('/v1/listings')
   })
@@ -318,5 +391,17 @@ describe('FetchErrorMonitor — error message format', () => {
       host: HOST,
     })
     expect(result?.message).toBe('POST /v1/intake → 500')
+  })
+
+  it('formats cross-origin API error correctly', () => {
+    const result = evaluateFetchError({
+      input: `http://${API_HOST}/v1/listings`,
+      init: { method: 'GET' },
+      status: 503,
+      origin: ORIGIN,
+      host: HOST,
+      apiHost: API_HOST,
+    })
+    expect(result?.message).toBe('GET /v1/listings → 503')
   })
 })
