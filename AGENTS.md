@@ -202,7 +202,7 @@ When a worker agent is spawned by `/wivwav-run-sprint`, it follows this sequence
 
 7. Fix  — apply all findings (CRITICAL, WARNING, SUGGESTION)
 
-8. /wivwav-finish-issue N  — typecheck + lint + build + test → commit → push → draft PR → status:needs-review
+8. /wivwav-finish-issue N  — fetch + rebase origin/main → typecheck + lint + build + test → commit → push → draft PR → status:needs-review
 ```
 
 Spawned workers should receive the issue number and execution metadata, not the full issue body. Fetching the issue body inside the worker keeps spawn prompts smaller across Claude, Codex, Gemini, Copilot/Cursor, and local-agent implementations.
@@ -254,6 +254,7 @@ The CLI fails closed on:
 - Issue not open or already in-progress
 - Missing acceptance criteria
 - Branch on `main`/`master`
+- Rebase against `origin/main` fails (conflicts must be resolved before finish)
 - Validation suite failure (typecheck / lint / build / test)
 - Unstaged or untracked files during finish
 
@@ -285,6 +286,8 @@ Check for: type safety, security, logic bugs, AC coverage, WCAG 2.1 AA (web), ro
 
 **Finish:**
 ```bash
+git fetch origin main
+git rebase origin/main   # required — fail and fix conflicts before continuing
 pnpm typecheck && pnpm lint && pnpm build && pnpm test
 git status --short
 git add {relevant files only}
