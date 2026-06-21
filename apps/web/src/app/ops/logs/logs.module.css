@@ -1,5 +1,9 @@
 /* ── Logs page — additional styles beyond ops.module.css ──── */
 
+.logsPage {
+  min-width: 0;
+}
+
 /* Timestamp column — fixed narrow width */
 .tsCell {
   white-space: nowrap;
@@ -112,14 +116,6 @@
   font-size: 0.8125rem;
 }
 
-/* Badge variant overrides specific to log levels */
-/* "muted" variant for debug/trace */
-:global(.badge[data-variant="muted"]) {
-  background: var(--clr-surface);
-  color: var(--clr-text-muted);
-  border: 1px solid var(--clr-border);
-}
-
 /* Unavailable state */
 .unavailable {
   padding: 1rem 1.25rem;
@@ -142,7 +138,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :global(*), :global(*::before), :global(*::after) {
+  .logsPage :global(*),
+  .logsPage :global(*::before),
+  .logsPage :global(*::after) {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
