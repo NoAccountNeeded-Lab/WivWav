@@ -1,0 +1,88 @@
+{
+  "SiteHeader": {
+    "homeAriaLabel": "WivWav — ir al inicio",
+    "taglinePart1": "Independencia con silla de ruedas vía",
+    "taglinePart2": "Vehículos Accesibles para Silla de Ruedas",
+    "languageSwitcherLabel": "Idioma"
+  },
+  "IntakeForm": {
+    "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
+    "heading": "Encuentre el vehículo accesible adecuado",
+    "avatarOnlineLabel": "En línea",
+    "describeLabel": "Describa lo que necesita",
+    "searching": "Buscando…",
+    "send": "Enviar",
+    "searchingLive": "Buscando vehículos compatibles…",
+    "skipLink": "Omitir — buscar por mi cuenta",
+    "errorRequired": "Por favor describa lo que necesita antes de buscar.",
+    "formAriaLabel": "Describa las necesidades de su vehículo"
+  },
+  "FiltersPage": {
+    "searchResultsLabel": "Resultados de búsqueda",
+    "vehiclesFound": "{count, plural, =1 {# vehículo encontrado} other {# vehículos encontrados}}",
+    "noVehicles": "Ningún vehículo coincide con sus filtros actuales.",
+    "clearAllFilters": "Borrar todos los filtros",
+    "pagination": {
+      "ariaLabel": "Paginación",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "pageOf": "Página {page} de {totalPages}"
+    },
+    "listing": {
+      "privateSeller": "Vendedor privado",
+      "callForPrice": "Llame para precio",
+      "rearEntry": "Entrada trasera",
+      "sideEntry": "Entrada lateral",
+      "//inFloorRamp": "kept in English: industry-standard WAV conversion term used by dealers and recognized by Spanish-speaking buyers",
+      "inFloorRamp": "In-floor ramp",
+      "//foldOutRamp": "kept in English: industry-standard WAV conversion term used by dealers and recognized by Spanish-speaking buyers",
+      "foldOutRamp": "Fold-out ramp",
+      "//foldInRamp": "kept in English: industry-standard WAV conversion term used by dealers and recognized by Spanish-speaking buyers",
+      "foldInRamp": "Fold-in ramp",
+      "hasLift": "Tiene elevador",
+      "handControls": "Controles manuales",
+      "//cpo": "kept in English: CPO (Certified Pre-Owned) is a US automotive industry term widely understood as-is",
+      "cpo": "CPO",
+      "wavFeaturesLabel": "Características WAV"
+    }
+  },
+  "SearchFilters": {
+    "sortLabel": "Ordenar",
+    "sortOptions": {
+      "newestListings": "Anuncios más recientes",
+      "priceLowToHigh": "Precio: de menor a mayor",
+      "priceHighToLow": "Precio: de mayor a menor",
+      "lowestMileage": "Menor kilometraje",
+      "yearNewestFirst": "Año: más reciente primero"
+    }
+  },
+  "ActiveFilters": {
+    "ariaLabel": "Filtros activos",
+    "clearAll": "Borrar todo ×",
+    "clearAllAriaLabel": "Borrar todos los filtros"
+  },
+  "ListingDetail": {
+    "backAriaLabel": "Volver a los anuncios",
+    "viewOriginalListing": "Ver anuncio original ↗",
+    "listedDate": "Publicado {date}",
+    "callForPrice": "Llame para precio",
+    "listingNotFound": "Anuncio no encontrado — WivWav",
+    "notFoundMessage": "Anuncio no disponible.",
+    "notFoundDetail": "Es posible que haya sido eliminado o que la URL sea incorrecta.",
+    "browseAllListings": "Ver todos los anuncios",
+    "wavFeatures": "Características WAV",
+    "vehicleDetails": "Detalles del vehículo",
+    "locationAndSeller": "Ubicación y vendedor",
+    "description": "Descripción",
+    "yesLabel": "Sí",
+    "noLabel": "No",
+    "conversionTypeLabel": "Tipo de conversión",
+    "rampTypeLabel": "Tipo de rampa",
+    "hasLiftLabel": "Tiene elevador",
+    "handControlsLabel": "Controles manuales",
+    "floorLoweringLabel": "Bajada de piso",
+    "wcCapacityLabel": "Capacidad para silla de ruedas",
+    "transferSeatLabel": "Asiento de transferencia",
+    "openInNewTab": "(se abre en nueva pestaña)"
+  }
+}
