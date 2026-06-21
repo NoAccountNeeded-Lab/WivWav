@@ -275,25 +275,18 @@ describe('ListingSearchService.search', () => {
     expect(mileageRange?.lte).toBe(50000)
   })
 
-  it('adds hasLift filter for true', async () => {
+  it('adds wavFeatures filter as string array', async () => {
     const { service, searchMock } = makeService()
-    await service.search({ hasLift: true })
+    await service.search({ wavFeatures: ['has_lift'] })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filters?.['hasLift']).toBe(true)
+    expect(opts.filters?.['wavFeatures']).toEqual(['has_lift'])
   })
 
-  it('adds hasLift filter for false', async () => {
+  it('adds multiple wavFeatures as array', async () => {
     const { service, searchMock } = makeService()
-    await service.search({ hasLift: false })
+    await service.search({ wavFeatures: ['has_lift', 'hand_controls'] })
     const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filters?.['hasLift']).toBe(false)
-  })
-
-  it('adds handControls filter', async () => {
-    const { service, searchMock } = makeService()
-    await service.search({ handControls: true })
-    const [, opts] = searchMock.mock.calls[0]!
-    expect(opts.filters?.['handControls']).toBe(true)
+    expect(opts.filters?.['wavFeatures']).toEqual(['has_lift', 'hand_controls'])
   })
 
   it('adds state filter as string array', async () => {
@@ -359,13 +352,13 @@ describe('ListingSearchService.search', () => {
     expect(opts.query).toBeUndefined()
   })
 
-  it('combines make, yearMin, and hasLift into separate filter structures', async () => {
-    const params: SearchParams = { make: ['Toyota'], yearMin: 2020, hasLift: true }
+  it('combines make, yearMin, and wavFeatures into separate filter structures', async () => {
+    const params: SearchParams = { make: ['Toyota'], yearMin: 2020, wavFeatures: ['has_lift'] }
     const { service, searchMock } = makeService()
     await service.search(params)
     const [, opts] = searchMock.mock.calls[0]!
     expect(opts.filters?.['make']).toEqual(['Toyota'])
-    expect(opts.filters?.['hasLift']).toBe(true)
+    expect(opts.filters?.['wavFeatures']).toEqual(['has_lift'])
     expect(opts.rangeFilters?.find(r => r.field === 'year')?.gte).toBe(2020)
   })
 

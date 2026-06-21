@@ -1,4 +1,5 @@
-import type { IntakeFilters } from '@wivwav/types'
+import type { IntakeFilters, WavFeature } from '@wivwav/types'
+import { WAV_FEATURES } from '@wivwav/types'
 
 // US state abbreviations accepted in the filter
 export const US_STATES = new Set([
@@ -28,9 +29,13 @@ export function sanitizeIntakeFilters(raw: unknown): IntakeFilters {
     filters.rampType = rampType
   }
 
-  if (obj.hasLift === true) filters.hasLift = true
-
-  if (obj.handControls === true) filters.handControls = true
+  const rawWavFeatures = obj.wavFeatures
+  if (Array.isArray(rawWavFeatures)) {
+    const validFeatures = rawWavFeatures.filter(
+      (f): f is WavFeature => typeof f === 'string' && f in WAV_FEATURES,
+    )
+    if (validFeatures.length > 0) filters.wavFeatures = validFeatures
+  }
 
   const condition = obj.condition
   if (condition === 'new' || condition === 'used' || condition === 'certified_pre_owned') {

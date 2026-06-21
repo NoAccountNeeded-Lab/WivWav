@@ -130,26 +130,26 @@ describe('parseBlvdDetail', () => {
     expect(result.floorLoweringInches).toBe(14)
   })
 
-  it('detects hasLift when description mentions a lift', () => {
+  it('includes has_lift in wavFeatures when description mentions a lift', () => {
     const withLift = { ...baseRaw, descriptionText: 'Power lift included' }
-    expect(parseBlvdDetail(withLift).hasLift).toBe(true)
+    expect(parseBlvdDetail(withLift).wavFeatures).toContain('has_lift')
 
     const withoutLift = { ...baseRaw, descriptionText: 'Fold Out ramp' }
-    expect(parseBlvdDetail(withoutLift).hasLift).toBe(false)
+    expect(parseBlvdDetail(withoutLift).wavFeatures).not.toContain('has_lift')
   })
 
-  it('detects hand controls from description text', () => {
+  it('includes hand_controls in wavFeatures when description mentions hand controls', () => {
     const withControls = { ...baseRaw, descriptionText: 'Hand controls installed' }
-    expect(parseBlvdDetail(withControls).handControls).toBe(true)
+    expect(parseBlvdDetail(withControls).wavFeatures).toContain('hand_controls')
 
-    expect(parseBlvdDetail(baseRaw).handControls).toBe(false)
+    expect(parseBlvdDetail(baseRaw).wavFeatures).not.toContain('hand_controls')
   })
 
-  it('detects transfer seat from description text', () => {
+  it('includes transfer_seat in wavFeatures when description mentions transfer seat', () => {
     const withSeat = { ...baseRaw, descriptionText: 'Transfer seat included' }
-    expect(parseBlvdDetail(withSeat).transferSeat).toBe(true)
+    expect(parseBlvdDetail(withSeat).wavFeatures).toContain('transfer_seat')
 
-    expect(parseBlvdDetail(baseRaw).transferSeat).toBe(false)
+    expect(parseBlvdDetail(baseRaw).wavFeatures).not.toContain('transfer_seat')
   })
 
   it('passes through all image URLs', () => {

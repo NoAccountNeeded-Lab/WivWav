@@ -41,20 +41,27 @@ interface ListingDetail {
   color: string | null
   fuelType: string | null
   transmission: string | null
-  conversionType: string
-  conversionManufacturer: string | null
-  floorLoweringInches: number | null
-  rampType: string
-  hasLift: boolean
-  handControls: boolean
-  transferSeat: boolean
-  wheelchairCapacity: number | null
-  zip: string | null
-  city: string | null
-  state: string | null
-  dealerName: string | null
-  dealerPhone: string | null
-  dealerWebsite: string | null
+  wav: {
+    conversionType: string
+    conversionManufacturer: string | null
+    floorLoweringInches: number | null
+    rampType: string
+    conversionStatus: string
+    wavFeatures: string[]
+    wheelchairCapacity: number | null
+  }
+  location: {
+    zip: string | null
+    city: string | null
+    state: string | null
+    lat: number | null
+    lng: number | null
+  }
+  dealer: {
+    name: string | null
+    phone: string | null
+    website: string | null
+  }
   images: string[]
   description: string | null
   listedAt: string
@@ -80,7 +87,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const title = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   return {
     title: `${title} — WivWav`,
-    description: `${formatPrice(listing.priceCents)} · ${listing.city && listing.state ? `${listing.city}, ${listing.state} · ` : ''}Wheelchair accessible vehicle`,
+    description: `${formatPrice(listing.priceCents)} · ${listing.location.city && listing.location.state ? `${listing.location.city}, ${listing.location.state} · ` : ''}Wheelchair accessible vehicle`,
   }
 }
 
@@ -103,46 +110,65 @@ interface WavFeatureEntry {
   detail?: string
 }
 
+const WAV_FEATURE_ICONS: Record<string, LucideIcon> = {
+  has_lift:                ArrowUpDown,
+  hand_controls:           Settings2,
+  transfer_seat:           Armchair,
+  kneel_system:            MoveDown,
+  lowered_floor:           MoveDown,
+  power_ramp:              ArrowDownFromLine,
+  tie_down_system:         Users,
+  automatic_door:          DoorOpen,
+  motorized_running_board: Car,
+}
+
+const WAV_FEATURE_LABELS: Record<string, string> = {
+  has_lift:                'Wheelchair Lift',
+  hand_controls:           'Hand Controls',
+  transfer_seat:           'Transfer Seat',
+  kneel_system:            'Kneel System',
+  lowered_floor:           'Lowered Floor',
+  power_ramp:              'Power Ramp',
+  tie_down_system:         'Tie-Down System',
+  automatic_door:          'Automatic Door',
+  motorized_running_board: 'Motorized Running Board',
+}
+
 function buildWavFeatures(listing: ListingDetail): WavFeatureEntry[] {
   const features: WavFeatureEntry[] = []
+  const wav = listing.wav
 
-  if (listing.conversionType !== 'unknown') {
+  if (wav.conversionType !== 'unknown') {
     features.push({
-      Icon: listing.conversionType === 'side_entry' ? Car : DoorOpen,
-      label: `${formatEnum(listing.conversionType)} Conversion`,
-      ...(listing.conversionManufacturer ? { detail: listing.conversionManufacturer } : {}),
+      Icon: wav.conversionType === 'side_entry' ? Car : DoorOpen,
+      label: `${formatEnum(wav.conversionType)} Conversion`,
+      ...(wav.conversionManufacturer ? { detail: wav.conversionManufacturer } : {}),
     })
   }
 
-  if (listing.rampType !== 'unknown' && listing.rampType !== 'none') {
-    features.push({ Icon: ArrowDownFromLine, label: `${formatEnum(listing.rampType)} Ramp` })
+  if (wav.rampType !== 'unknown' && wav.rampType !== 'none') {
+    features.push({ Icon: ArrowDownFromLine, label: `${formatEnum(wav.rampType)} Ramp` })
   }
 
-  if (listing.hasLift) {
-    features.push({ Icon: ArrowUpDown, label: 'Lift Equipped' })
-  }
-
-  if (listing.floorLoweringInches !== null) {
+  if (wav.floorLoweringInches !== null) {
     features.push({
       Icon: MoveDown,
       label: 'Floor Lowering',
-      detail: `${listing.floorLoweringInches}" drop`,
+      detail: `${wav.floorLoweringInches}" drop`,
     })
   }
 
-  if (listing.handControls) {
-    features.push({ Icon: Settings2, label: 'Hand Controls' })
+  for (const f of wav.wavFeatures) {
+    const Icon = WAV_FEATURE_ICONS[f]
+    const label = WAV_FEATURE_LABELS[f]
+    if (Icon && label) features.push({ Icon, label })
   }
 
-  if (listing.transferSeat) {
-    features.push({ Icon: Armchair, label: 'Transfer Seat' })
-  }
-
-  if (listing.wheelchairCapacity !== null && listing.wheelchairCapacity > 0) {
+  if (wav.wheelchairCapacity !== null && wav.wheelchairCapacity > 0) {
     features.push({
       Icon: Users,
       label: 'Wheelchair Positions',
-      detail: String(listing.wheelchairCapacity),
+      detail: String(wav.wheelchairCapacity),
     })
   }
 
@@ -155,7 +181,9 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   if (!listing) notFound()
 
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
-  const location = [listing.city, listing.state].filter(Boolean).join(', ')
+  const loc = listing.location
+  const dealer = listing.dealer
+  const location = [loc.city, loc.state].filter(Boolean).join(', ')
   const wavFeatures = buildWavFeatures(listing)
 
   const vehicleSpecs = [
@@ -165,7 +193,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     listing.vin ? { label: 'VIN', value: listing.vin } : null,
   ].filter((s): s is { label: string; value: string } => s !== null)
 
-  const hasSeller = Boolean(location || listing.dealerName || listing.dealerPhone || listing.dealerWebsite)
+  const hasSeller = Boolean(location || dealer.name || dealer.phone || dealer.website)
 
   return (
     <main id="main-content" className={styles.page}>
@@ -247,29 +275,29 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         <section className={styles.section} aria-labelledby="seller-heading">
           <h2 className={styles.sectionTitle} id="seller-heading">Seller</h2>
           <ul className={styles.sellerList}>
-            {listing.dealerName && (
+            {dealer.name && (
               <li className={styles.sellerRow}>
                 <Building2 size={16} className={styles.sellerIcon} aria-hidden />
-                <span>{listing.dealerName}</span>
+                <span>{dealer.name}</span>
               </li>
             )}
             {location && (
               <li className={styles.sellerRow}>
                 <MapPin size={16} className={styles.sellerIcon} aria-hidden />
-                <span>{location}{listing.zip ? ` ${listing.zip}` : ''}</span>
+                <span>{location}{loc.zip ? ` ${loc.zip}` : ''}</span>
               </li>
             )}
-            {listing.dealerPhone && (
+            {dealer.phone && (
               <li className={styles.sellerRow}>
                 <Phone size={16} className={styles.sellerIcon} aria-hidden />
-                <a href={`tel:${listing.dealerPhone}`} className={styles.sellerLink}>{listing.dealerPhone}</a>
+                <a href={`tel:${dealer.phone}`} className={styles.sellerLink}>{dealer.phone}</a>
               </li>
             )}
-            {listing.dealerWebsite && (
+            {dealer.website && (
               <li className={styles.sellerRow}>
                 <Globe size={16} className={styles.sellerIcon} aria-hidden />
-                <a href={listing.dealerWebsite} target="_blank" rel="noopener noreferrer" className={styles.sellerLink}>
-                  {listing.dealerWebsite.replace(/^https?:\/\//, '')}
+                <a href={dealer.website} target="_blank" rel="noopener noreferrer" className={styles.sellerLink}>
+                  {dealer.website.replace(/^https?:\/\//, '')}
                 </a>
               </li>
             )}

@@ -10,6 +10,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     sourceUrl: 'https://blvd.com/wheelchair-vans-for-sale/1FMJK1HT0MEA12345',
     buyerUrl: null,
     externalId: null,
+    stockNumber: null,
     sourceRecordKey: '1FMJK1HT0MEA12345',
     make: 'Ford',
     model: 'Transit',
@@ -27,15 +28,15 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     conversionManufacturer: null,
     floorLoweringInches: null,
     rampType: 'in_floor',
-    hasLift: false,
-    handControls: false,
-    transferSeat: false,
+    conversionStatus: 'unknown',
+    wavFeatures: [],
     wheelchairCapacity: null,
     zip: null,
     city: null,
     state: 'TX',
     lat: null,
     lng: null,
+    vehicleId: null,
     vehicleModelId: null,
     vehicleModelMatchConfidence: null,
     dealerName: null,
@@ -105,5 +106,30 @@ describe('toDocument — private-seller field normalization', () => {
     const row = makeListing({ sellerType: 'private', dealerPhone: null })
     const doc = toDocument(row)
     expect(doc.dealerPhone).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// toDocument — wavFeatures array
+// ---------------------------------------------------------------------------
+
+describe('toDocument — wavFeatures', () => {
+  it('passes through an empty wavFeatures array', () => {
+    const row = makeListing({ wavFeatures: [] })
+    const doc = toDocument(row)
+    expect(doc.wavFeatures).toEqual([])
+  })
+
+  it('passes through a populated wavFeatures array', () => {
+    const row = makeListing({ wavFeatures: ['hand_controls', 'has_lift'] as never })
+    const doc = toDocument(row)
+    expect(doc.wavFeatures).toEqual(['hand_controls', 'has_lift'])
+  })
+
+  it('does not include hasLift, handControls, or transferSeat fields', () => {
+    const doc = toDocument(makeListing())
+    expect(doc).not.toHaveProperty('hasLift')
+    expect(doc).not.toHaveProperty('handControls')
+    expect(doc).not.toHaveProperty('transferSeat')
   })
 })

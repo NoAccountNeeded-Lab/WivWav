@@ -19,8 +19,7 @@ function buildFilterSearch(filters: IntakeFilters): string {
   const params = new URLSearchParams()
   if (filters.conversionType != null) params.set('conversionType', filters.conversionType)
   if (filters.rampType != null) params.set('rampType', filters.rampType)
-  if (filters.hasLift === true) params.set('hasLift', 'true')
-  if (filters.handControls === true) params.set('handControls', 'true')
+  if (filters.wavFeatures != null && filters.wavFeatures.length > 0) params.set('wavFeatures', filters.wavFeatures.join(','))
   if (filters.condition != null) params.set('condition', filters.condition)
   if (filters.priceMax != null && filters.priceMax > 0) {
     params.set('priceMax', String(filters.priceMax * 100))

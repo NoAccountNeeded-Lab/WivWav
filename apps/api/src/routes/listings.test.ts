@@ -9,6 +9,7 @@ const defaultDbListing = {
   sourceUrl: 'https://dealer.example.com/listing/1',
   buyerUrl: null,
   externalId: null,
+  stockNumber: null,
   make: 'Toyota',
   model: 'Sienna',
   year: 2022,
@@ -25,15 +26,15 @@ const defaultDbListing = {
   conversionManufacturer: null,
   floorLoweringInches: null,
   rampType: 'in_floor',
-  hasLift: false,
-  handControls: false,
-  transferSeat: false,
+  conversionStatus: 'unknown',
+  wavFeatures: [],
   wheelchairCapacity: null,
   zip: null,
   city: null,
   state: 'CO',
   lat: null,
   lng: null,
+  vehicleId: null,
   vehicleModelId: null,
   vehicleModelMatchConfidence: null,
   dealerName: null,
@@ -89,7 +90,7 @@ function buildTestApp(
       conditionBreakdown: [],
       conversionBreakdown: [],
       colorBreakdown: [],
-      wavFeatures: { hasLift: 0, handControls: 0, rampTypes: [] },
+      wavFeatureCounts: {},
     })),
     ...facetsOverrides,
   }
@@ -103,7 +104,7 @@ describe('GET /', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/?page=2&perPage=5&yearMin=2015&hasLift=true&make=Honda,Toyota',
+      url: '/?page=2&perPage=5&yearMin=2015&wavFeatures=has_lift,hand_controls&make=Honda,Toyota',
     })
 
     expect(res.statusCode).toBe(200)
@@ -111,7 +112,7 @@ describe('GET /', () => {
       page: 2,
       perPage: 5,
       yearMin: 2015,
-      hasLift: true,
+      wavFeatures: ['has_lift', 'hand_controls'],
       make: ['Honda', 'Toyota'],
     }))
 
@@ -170,13 +171,13 @@ describe('GET /facets', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/facets?priceMax=5000000&handControls=false&state=CO,UT',
+      url: '/facets?priceMax=5000000&wavFeatures=has_lift&state=CO,UT',
     })
 
     expect(res.statusCode).toBe(200)
     expect(facets.getFacets).toHaveBeenCalledWith(expect.objectContaining({
       priceMax: 5000000,
-      handControls: false,
+      wavFeatures: ['has_lift'],
       state: ['CO', 'UT'],
     }))
 
@@ -214,7 +215,7 @@ describe('GET /facets', () => {
       conditionBreakdown: [],
       conversionBreakdown: [],
       colorBreakdown: [],
-      wavFeatures: { hasLift: 0, handControls: 0, rampTypes: [] },
+      wavFeatureCounts: {},
     })
 
     await app.close()
@@ -422,9 +423,8 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       conversionManufacturer: 'BraunAbility',
       floorLoweringInches: 4,
       rampType: 'fold_out',
-      hasLift: true,
-      handControls: true,
-      transferSeat: true,
+      conversionStatus: 'complete',
+      wavFeatures: ['has_lift', 'hand_controls', 'transfer_seat'],
       wheelchairCapacity: 2,
     }
     const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
@@ -438,9 +438,8 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       conversionManufacturer: 'BraunAbility',
       floorLoweringInches: 4,
       rampType: 'fold_out',
-      hasLift: true,
-      handControls: true,
-      transferSeat: true,
+      conversionStatus: 'complete',
+      wavFeatures: ['has_lift', 'hand_controls', 'transfer_seat'],
       wheelchairCapacity: 2,
     })
 
@@ -459,9 +458,8 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       conversionManufacturer: null,
       floorLoweringInches: null,
       rampType: 'in_floor',
-      hasLift: false,
-      handControls: false,
-      transferSeat: false,
+      conversionStatus: 'unknown',
+      wavFeatures: [],
       wheelchairCapacity: null,
     })
 
@@ -496,7 +494,7 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
     expect(body.data.lng).toBeUndefined()
     expect(body.data.conversionType).toBeUndefined()
     expect(body.data.rampType).toBeUndefined()
-    expect(body.data.hasLift).toBeUndefined()
+    expect(body.data.wavFeatures).toBeUndefined()
 
     await app.close()
   })
