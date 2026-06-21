@@ -31,9 +31,16 @@ const MULTI_PARAM_LABELS: Record<string, { singular: string; plural: string }> =
   state:          { singular: 'State',      plural: 'States'      },
 }
 
-const BOOL_LABELS: Record<string, string> = {
-  hasLift:      'Has lift',
-  handControls: 'Hand controls',
+const WAV_FEATURE_LABELS: Record<string, string> = {
+  has_lift:                'Wheelchair Lift',
+  hand_controls:           'Hand Controls',
+  transfer_seat:           'Transfer Seat',
+  kneel_system:            'Kneel System',
+  lowered_floor:           'Lowered Floor',
+  power_ramp:              'Power Ramp',
+  tie_down_system:         'Tie-Down System',
+  automatic_door:          'Automatic Door',
+  motorized_running_board: 'Motorized Running Board',
 }
 
 // ── Pill building ──────────────────────────────────────────────────────────
@@ -85,14 +92,18 @@ function buildPills(params: URLSearchParams): Pill[] {
     })
   }
 
-  // Booleans
-  for (const [param, label] of Object.entries(BOOL_LABELS)) {
-    if (params.get(param) === 'true') {
+  // WAV features (comma-separated multi-value, one pill per selected feature)
+  const wavFeaturesParam = params.get('wavFeatures')
+  if (wavFeaturesParam) {
+    const featureKeys = parseCommaSep(wavFeaturesParam)
+    for (const key of featureKeys) {
+      const label = WAV_FEATURE_LABELS[key] ?? formatLabel(key)
+      const remaining = featureKeys.filter((k) => k !== key)
       pills.push({
-        key: param,
+        key: `wavFeatures:${key}`,
         label,
         ariaLabel: `Remove ${label.toLowerCase()} filter`,
-        paramsToDelete: [param],
+        paramsToDelete: remaining.length === 0 ? ['wavFeatures'] : [],
       })
     }
   }
@@ -135,8 +146,19 @@ export function ActiveFilters() {
 
   if (pills.length === 0) return null
 
-  const removePill = (paramsToDelete: string[]) => {
+  const removePill = (paramsToDelete: string[], pill: Pill) => {
     const next = new URLSearchParams(searchParams.toString())
+    // For wavFeatures pills, remove just this feature key from the comma list
+    if (pill.key.startsWith('wavFeatures:')) {
+      const featureKey = pill.key.slice('wavFeatures:'.length)
+      const current = parseCommaSep(next.get('wavFeatures'))
+      const remaining = current.filter((k) => k !== featureKey)
+      if (remaining.length === 0) {
+        next.delete('wavFeatures')
+      } else {
+        next.set('wavFeatures', remaining.join(','))
+      }
+    }
     for (const key of paramsToDelete) next.delete(key)
     next.delete('page')
     startTransition(() => {
@@ -164,7 +186,7 @@ export function ActiveFilters() {
             type="button"
             className={styles.pillRemove}
             aria-label={pill.ariaLabel}
-            onClick={() => removePill(pill.paramsToDelete)}
+            onClick={() => removePill(pill.paramsToDelete, pill)}
           >
             ×
           </button>

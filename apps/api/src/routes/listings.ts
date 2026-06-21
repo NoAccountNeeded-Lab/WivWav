@@ -34,7 +34,7 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
     dealerName, dealerPhone, dealerWebsite,
     lat, lng, zip, city, state,
     conversionType, conversionManufacturer, floorLoweringInches,
-    rampType, hasLift, handControls, transferSeat, wheelchairCapacity,
+    rampType, conversionStatus, wavFeatures, wheelchairCapacity,
     description,
     ...rest
   } = listing
@@ -51,7 +51,7 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
     description: snippetDescription(description),
     location: { zip, city, state, lat, lng },
     dealer: { name, phone, website: dealerWebsite },
-    wav: { conversionType, conversionManufacturer, floorLoweringInches, rampType, hasLift, handControls, transferSeat, wheelchairCapacity },
+    wav: { conversionType, conversionManufacturer, floorLoweringInches, rampType, conversionStatus, wavFeatures, wheelchairCapacity },
     provenance: {
       sourceName: source.name,
       sourceBaseUrl: source.baseUrl,
@@ -82,8 +82,7 @@ interface FilterQuery {
   condition?: string
   conversionType?: string
   rampType?: string
-  hasLift?: boolean
-  handControls?: boolean
+  wavFeatures?: string
   color?: string
   state?: string
   sort?: string
@@ -105,8 +104,7 @@ const filterQuerySchema = {
     condition: { type: 'string' },
     conversionType: { type: 'string' },
     rampType: { type: 'string' },
-    hasLift: { type: 'boolean' },
-    handControls: { type: 'boolean' },
+    wavFeatures: { type: 'string' },
     color: { type: 'string' },
     state: { type: 'string' },
     sort: { type: 'string' },
@@ -132,8 +130,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         condition: parseArr(q.condition),
         conversionType: parseArr(q.conversionType),
         rampType: parseArr(q.rampType),
-        hasLift: q.hasLift,
-        handControls: q.handControls,
+        wavFeatures: parseArr(q.wavFeatures),
         color: parseArr(q.color),
         state: parseArr(q.state),
       })
@@ -152,7 +149,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
           conditionBreakdown: [],
           conversionBreakdown: [],
           colorBreakdown: [],
-          wavFeatures: { hasLift: 0, handControls: 0, rampTypes: [] },
+          wavFeatureCounts: {},
         },
       })
     }
@@ -178,8 +175,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         condition: parseArr(q.condition),
         conversionType: parseArr(q.conversionType),
         rampType: parseArr(q.rampType),
-        hasLift: q.hasLift,
-        handControls: q.handControls,
+        wavFeatures: parseArr(q.wavFeatures),
         color: parseArr(q.color),
         state: parseArr(q.state),
         sort: q.sort,

@@ -24,8 +24,7 @@ export interface SearchParams {
   condition?: string[] | undefined
   conversionType?: string[] | undefined
   rampType?: string[] | undefined
-  hasLift?: boolean | undefined
-  handControls?: boolean | undefined
+  wavFeatures?: string[] | undefined
   color?: string[] | undefined
   state?: string[] | undefined
   sort?: string | undefined
@@ -50,8 +49,8 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
   const task = await index.updateSettings({
     filterableAttributes: [
       'make', 'model', 'year', 'condition', 'sellerType',
-      'conversionType', 'rampType', 'hasLift', 'handControls',
-      'transferSeat', 'color', 'state', 'city', 'sourceId',
+      'conversionType', 'rampType', 'wavFeatures',
+      'color', 'state', 'city', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
     ],
     sortableAttributes: ['priceCents', 'mileage', 'year', 'listedAt'],
@@ -85,8 +84,7 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   if (params.condition?.length) filters['condition'] = params.condition
   if (params.conversionType?.length) filters['conversionType'] = params.conversionType
   if (params.rampType?.length) filters['rampType'] = params.rampType
-  if (params.hasLift != null) filters['hasLift'] = params.hasLift
-  if (params.handControls != null) filters['handControls'] = params.handControls
+  if (params.wavFeatures?.length) filters['wavFeatures'] = params.wavFeatures
   if (params.color?.length) filters['color'] = params.color
   if (params.state?.length) filters['state'] = params.state
 

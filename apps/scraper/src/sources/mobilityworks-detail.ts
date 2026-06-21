@@ -1,5 +1,5 @@
 import type { BrowserPage } from '../browser/index.js'
-import type { RampType, SaleStatus } from '@wivwav/types'
+import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { parseSaleStatus } from './blvd-detail.js'
 
 const BASE_URL = 'https://www.mobilityworks.com'
@@ -18,11 +18,9 @@ export interface MwDetailFields {
   fuelType: string | null
   transmission: string | null
   rampType: RampType
-  hasLift: boolean
+  wavFeatures: WavFeature[]
   floorLoweringInches: number | null
   wheelchairCapacity: number | null
-  handControls: boolean
-  transferSeat: boolean
   description: string | null
   images: string[]
   zip: string | null
@@ -56,16 +54,25 @@ export function parseMwDetail(raw: RawMwDetail): MwDetailFields {
   const desc = raw.descriptionText
   const t = desc.toLowerCase()
 
+  const wavFeatures: WavFeature[] = []
+  if (/\blift\b/i.test(desc)) wavFeatures.push('has_lift')
+  if (/hand\s+control/i.test(t)) wavFeatures.push('hand_controls')
+  if (/transfer\s+seat/i.test(t)) wavFeatures.push('transfer_seat')
+  if (/lowered?\s+floor|floor\s+(?:low|drop)/i.test(t)) wavFeatures.push('lowered_floor')
+  if (/power\s+ramp/i.test(t)) wavFeatures.push('power_ramp')
+  if (/kneel\s+system|kneeling/i.test(t)) wavFeatures.push('kneel_system')
+  if (/tie[-\s]?down/i.test(t)) wavFeatures.push('tie_down_system')
+  if (/automatic\s+door/i.test(t)) wavFeatures.push('automatic_door')
+  if (/motorized\s+running\s+board/i.test(t)) wavFeatures.push('motorized_running_board')
+
   return {
     color: spec('Exterior Color') ?? spec('Color'),
     fuelType: spec('Engine') ?? spec('Fuel Type'),
     transmission: spec('Transmission'),
     rampType: parseMwRampType(desc),
-    hasLift: /\blift\b/i.test(desc),
+    wavFeatures,
     floorLoweringInches: parseMwFloorLowering(desc),
     wheelchairCapacity: null,
-    handControls: /hand\s+control/i.test(t),
-    transferSeat: /transfer\s+seat/i.test(t),
     description: desc || null,
     images: raw.imageUrls,
     zip: parseMwZip(raw.dealerAddressText),

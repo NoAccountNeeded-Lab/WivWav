@@ -29,8 +29,7 @@ interface ListingDoc {
   condition: string
   sellerType: string
   conversionType: string
-  hasLift: boolean
-  handControls: boolean
+  wavFeatures: string[]
   rampType: string
   sourceUrl: string
   images: string[]
@@ -60,7 +59,7 @@ async function fetchListings(
   const forward = [
     'q', 'page', 'make', 'model',
     'yearMin', 'yearMax', 'priceMin', 'priceMax', 'mileageMax',
-    'condition', 'conversionType', 'rampType', 'hasLift', 'handControls', 'color', 'state', 'sort',
+    'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
   ]
 
   for (const key of forward) {
@@ -113,14 +112,29 @@ function formatRampType(type: string): string | null {
 
 // ── Listing card ─────────────────────────────────────────
 
+const WAV_FEATURE_LABELS: Record<string, string> = {
+  has_lift:                'Wheelchair Lift',
+  hand_controls:           'Hand Controls',
+  transfer_seat:           'Transfer Seat',
+  kneel_system:            'Kneel System',
+  lowered_floor:           'Lowered Floor',
+  power_ramp:              'Power Ramp',
+  tie_down_system:         'Tie-Down System',
+  automatic_door:          'Automatic Door',
+  motorized_running_board: 'Motorized Running Board',
+}
+
 function ListingCard({ listing: l }: { listing: ListingDoc }) {
-  const wavFeatures: string[] = []
+  const badges: string[] = []
   const conversionLabel = formatConversionType(l.conversionType)
   const rampLabel = formatRampType(l.rampType)
-  if (conversionLabel) wavFeatures.push(conversionLabel)
-  if (l.hasLift) wavFeatures.push('Has lift')
-  if (l.handControls) wavFeatures.push('Hand controls')
-  if (rampLabel) wavFeatures.push(rampLabel)
+  if (conversionLabel) badges.push(conversionLabel)
+  if (rampLabel) badges.push(rampLabel)
+  for (const f of l.wavFeatures) {
+    const label = WAV_FEATURE_LABELS[f]
+    if (label) badges.push(label)
+  }
+  const wavFeatures = badges
 
   const title = [l.year, l.make, l.model, l.trim].filter(Boolean).join(' ')
   const location = [l.city, l.state].filter(Boolean).join(', ')

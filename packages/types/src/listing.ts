@@ -1,17 +1,36 @@
 export type ConversionType = 'rear_entry' | 'side_entry' | 'unknown'
 export type RampType = 'in_floor' | 'fold_out' | 'fold_in' | 'none' | 'unknown'
+export type ConversionStatus = 'proposed' | 'complete' | 'unknown'
 export type ListingCondition = 'new' | 'used' | 'certified_pre_owned'
 export type ListingSellerType = 'dealer' | 'private'
 export type SaleStatus = 'active' | 'pending' | 'sold'
+
+/**
+ * Controlled vocabulary for WAV features.
+ * Keys match the Prisma WavFeature enum. Values are human-readable display labels.
+ * Absence of a feature in wavFeatures means "not observed", not "confirmed absent".
+ */
+export const WAV_FEATURES = {
+  hand_controls:           'Hand Controls',
+  transfer_seat:           'Transfer Seat',
+  has_lift:                'Wheelchair Lift',
+  kneel_system:            'Kneel System',
+  lowered_floor:           'Lowered Floor',
+  power_ramp:              'Power Ramp',
+  tie_down_system:         'Tie-Down System',
+  automatic_door:          'Automatic Door',
+  motorized_running_board: 'Motorized Running Board',
+} as const
+
+export type WavFeature = keyof typeof WAV_FEATURES
 
 export interface WavFeatures {
   conversionType: ConversionType
   conversionManufacturer: string | null
   floorLoweringInches: number | null
   rampType: RampType
-  hasLift: boolean
-  handControls: boolean
-  transferSeat: boolean
+  conversionStatus: ConversionStatus
+  wavFeatures: WavFeature[]
   wheelchairCapacity: number | null
 }
 

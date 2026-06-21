@@ -5,7 +5,7 @@ Packages: packages/types (shared TypeScript interfaces), packages/db (Prisma cli
 Infrastructure: PostgreSQL 17, Meilisearch v1.12 (faceted search), Valkey 8 (Redis-compatible cache).
 Principles: single responsibility (small files, one purpose), swappable dependencies behind interfaces, API-first, mobile-first, WCAG 2.1 AA, MIT/Apache/BSD licenses only.
 API responses: { data: T } for success, { error: { code, message } } for errors.
-WAV-specific listing fields: conversionType, rampType, hasLift, floorLoweringInches, handControls, transferSeat, wheelchairCapacity.
+WAV-specific listing fields: conversionType, rampType, conversionStatus, wavFeatures (WavFeature[] enum array), floorLoweringInches, wheelchairCapacity.
 `.trim()
 
 import type { AgentRole } from './types.js'
