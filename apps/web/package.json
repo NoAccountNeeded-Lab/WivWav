@@ -22,6 +22,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^1.17.0",
     "next": "^16.2.7",
+    "next-intl": "^4.13.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-leaflet": "^5.0.0",
@@ -36,6 +37,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@wivwav/config": "workspace:*",
+    "eslint-plugin-i18next": "^6.1.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   }

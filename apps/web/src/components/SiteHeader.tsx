@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { Logo } from './Logo'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import styles from './SiteHeader.module.css'
 
 interface SiteHeaderProps {
@@ -22,6 +23,7 @@ export function SiteHeader({ section }: SiteHeaderProps) {
             <span>Wheelchair Accessible Vehicles</span>
           </p>
         )}
+        <LanguageSwitcher />
       </div>
     </header>
   )

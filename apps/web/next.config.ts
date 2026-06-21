@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
 import type { SentryBuildOptions } from '@sentry/nextjs'
+import createNextIntlPlugin from 'next-intl/plugin'
+
+const withNextIntl = createNextIntlPlugin('./i18n.ts')
 
 const config: NextConfig = {
   output: 'standalone',
@@ -41,4 +44,6 @@ const sentryOptions: SentryBuildOptions = {
 
 const isSentryEnabled = process.env['SENTRY_ENABLED'] === 'true'
 
-export default isSentryEnabled ? withSentryConfig(config, sentryOptions) : config
+const finalConfig = withNextIntl(config)
+
+export default isSentryEnabled ? withSentryConfig(finalConfig, sentryOptions) : finalConfig
