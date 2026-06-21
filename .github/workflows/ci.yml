@@ -42,6 +42,18 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
+  docker-done:
+    name: Docker builds
+    runs-on: ubuntu-latest
+    needs: docker
+    if: always()
+    steps:
+      - run: |
+          if [ "${{ needs.docker.result }}" != "success" ]; then
+            echo "One or more Docker builds failed."
+            exit 1
+          fi
+
   lint-typecheck:
     name: Lint & Typecheck
     runs-on: ubuntu-latest
