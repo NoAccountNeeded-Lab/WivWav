@@ -152,3 +152,14 @@ export interface VehicleStats {
   refreshedAt: string | null
   sources: VehicleStatsSource[]
 }
+
+export interface NmeaDealer {
+  id: string
+  name: string
+  city: string | null
+  state: string | null
+  phone: string | null
+  website: string | null
+  qapCertified: boolean
+  distanceMiles: number | null
+}
