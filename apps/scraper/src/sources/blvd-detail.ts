@@ -1,5 +1,5 @@
 import type { BrowserPage } from '../browser/index.js'
-import type { RampType, SaleStatus } from '@wivwav/types'
+import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
 
 const BASE_URL = 'https://www.blvd.com'
 
@@ -17,11 +17,9 @@ export interface BlvdDetailFields {
   fuelType: string | null
   transmission: string | null
   rampType: RampType
-  hasLift: boolean
+  wavFeatures: WavFeature[]
   floorLoweringInches: number | null
   wheelchairCapacity: number | null
-  handControls: boolean
-  transferSeat: boolean
   description: string | null
   images: string[]
   zip: string | null
@@ -63,16 +61,25 @@ export function parseBlvdDetail(raw: RawDetail): BlvdDetailFields {
   const desc = raw.descriptionText
   const t = desc.toLowerCase()
 
+  const wavFeatures: WavFeature[] = []
+  if (/\blift\b/i.test(desc)) wavFeatures.push('has_lift')
+  if (/hand\s+control/i.test(t)) wavFeatures.push('hand_controls')
+  if (/transfer\s+seat/i.test(t)) wavFeatures.push('transfer_seat')
+  if (/lowered?\s+floor|floor\s+(?:low|drop)/i.test(t)) wavFeatures.push('lowered_floor')
+  if (/power\s+ramp/i.test(t)) wavFeatures.push('power_ramp')
+  if (/kneel\s+system|kneeling/i.test(t)) wavFeatures.push('kneel_system')
+  if (/tie[-\s]?down/i.test(t)) wavFeatures.push('tie_down_system')
+  if (/automatic\s+door/i.test(t)) wavFeatures.push('automatic_door')
+  if (/motorized\s+running\s+board/i.test(t)) wavFeatures.push('motorized_running_board')
+
   return {
     color: spec('Color'),
     fuelType: spec('Engine'),
     transmission: spec('Transmission'),
     rampType: parseRampType(desc),
-    hasLift: /\blift\b/i.test(desc),
+    wavFeatures,
     floorLoweringInches: parseFloorLowering(desc),
     wheelchairCapacity: null,
-    handControls: /hand\s+control/i.test(t),
-    transferSeat: /transfer\s+seat/i.test(t),
     description: desc || null,
     images: raw.imageUrls,
     zip: parseZip(raw.dealerAddressText),

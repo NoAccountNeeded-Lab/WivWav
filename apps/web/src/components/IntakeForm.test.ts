@@ -10,8 +10,7 @@ function buildFilterSearch(filters: IntakeFilters): string {
 
   if (filters.conversionType != null) params.set('conversionType', filters.conversionType)
   if (filters.rampType != null) params.set('rampType', filters.rampType)
-  if (filters.hasLift === true) params.set('hasLift', 'true')
-  if (filters.handControls === true) params.set('handControls', 'true')
+  if (filters.wavFeatures != null && filters.wavFeatures.length > 0) params.set('wavFeatures', filters.wavFeatures.join(','))
   if (filters.condition != null) params.set('condition', filters.condition)
   if (filters.priceMax != null && filters.priceMax > 0) {
     // API accepts price in cents
@@ -47,14 +46,13 @@ describe('buildFilterSearch', () => {
     expect(buildFilterSearch({ rampType: 'fold_in' })).toBe('rampType=fold_in')
   })
 
-  it('includes hasLift only when true', () => {
-    expect(buildFilterSearch({ hasLift: true })).toBe('hasLift=true')
-    expect(buildFilterSearch({ hasLift: false })).toBe('')
+  it('includes wavFeatures as comma-separated string', () => {
+    expect(buildFilterSearch({ wavFeatures: ['has_lift'] })).toBe('wavFeatures=has_lift')
+    expect(buildFilterSearch({ wavFeatures: ['has_lift', 'hand_controls'] })).toBe('wavFeatures=has_lift%2Chand_controls')
   })
 
-  it('includes handControls only when true', () => {
-    expect(buildFilterSearch({ handControls: true })).toBe('handControls=true')
-    expect(buildFilterSearch({ handControls: false })).toBe('')
+  it('omits wavFeatures when empty array', () => {
+    expect(buildFilterSearch({ wavFeatures: [] })).toBe('')
   })
 
   it('includes condition when set', () => {
@@ -86,8 +84,7 @@ describe('buildFilterSearch', () => {
     const filters: IntakeFilters = {
       conversionType: 'rear_entry',
       rampType: 'in_floor',
-      hasLift: false,
-      handControls: true,
+      wavFeatures: ['hand_controls'],
       condition: 'used',
       priceMax: 35000,
       state: 'FL',
@@ -97,8 +94,7 @@ describe('buildFilterSearch', () => {
 
     expect(params.get('conversionType')).toBe('rear_entry')
     expect(params.get('rampType')).toBe('in_floor')
-    expect(params.has('hasLift')).toBe(false)
-    expect(params.get('handControls')).toBe('true')
+    expect(params.get('wavFeatures')).toBe('hand_controls')
     expect(params.get('condition')).toBe('used')
     expect(params.get('priceMax')).toBe('3500000')
     expect(params.get('state')).toBe('FL')

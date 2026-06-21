@@ -16,11 +16,8 @@ export interface FacetsResult {
   conditionBreakdown: Array<{ value: string; count: number }>
   conversionBreakdown: Array<{ value: string; count: number }>
   colorBreakdown: Array<{ value: string; count: number }>
-  wavFeatures: {
-    hasLift: number
-    handControls: number
-    rampTypes: Array<{ value: string; count: number }>
-  }
+  /** Counts per WavFeature key. Keyed by WavFeature enum value. */
+  wavFeatureCounts: Record<string, number>
 }
 
 const CACHE_TTL_SECONDS = 60
@@ -45,7 +42,7 @@ export class ListingFacetsService {
       ...(rangeFilters.length ? { rangeFilters } : {}),
       facets: [
         'make', 'model', 'year', 'condition', 'conversionType',
-        'rampType', 'hasLift', 'handControls', 'color', 'state',
+        'rampType', 'wavFeatures', 'color', 'state',
         'priceBucket', 'mileageBucket',
       ],
       limit: 0,
@@ -64,11 +61,7 @@ export class ListingFacetsService {
       conditionBreakdown: toValueCount(dist['condition'] ?? {}),
       conversionBreakdown: toValueCount(dist['conversionType'] ?? {}),
       colorBreakdown: toValueCount(dist['color'] ?? {}),
-      wavFeatures: {
-        hasLift: (dist['hasLift'] ?? {})['true'] ?? 0,
-        handControls: (dist['handControls'] ?? {})['true'] ?? 0,
-        rampTypes: toValueCount(dist['rampType'] ?? {}),
-      },
+      wavFeatureCounts: dist['wavFeatures'] ?? {},
     }
 
     await this.cache

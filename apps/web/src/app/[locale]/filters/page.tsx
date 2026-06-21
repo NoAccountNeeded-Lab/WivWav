@@ -30,8 +30,7 @@ interface ListingDoc {
   condition: string
   sellerType: string
   conversionType: string
-  hasLift: boolean
-  handControls: boolean
+  wavFeatures: string[]
   rampType: string
   sourceUrl: string
   images: string[]
@@ -61,7 +60,7 @@ async function fetchListings(
   const forward = [
     'q', 'page', 'make', 'model',
     'yearMin', 'yearMax', 'priceMin', 'priceMax', 'mileageMax',
-    'condition', 'conversionType', 'rampType', 'hasLift', 'handControls', 'color', 'state', 'sort',
+    'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
   ]
 
   for (const key of forward) {
@@ -101,6 +100,18 @@ function formatCondition(cond: string, cpoLabel: string): string {
 
 // ── Listing card ─────────────────────────────────────────
 
+const WAV_FEATURE_LABELS: Record<string, string> = {
+  has_lift:                'Wheelchair Lift',
+  hand_controls:           'Hand Controls',
+  transfer_seat:           'Transfer Seat',
+  kneel_system:            'Kneel System',
+  lowered_floor:           'Lowered Floor',
+  power_ramp:              'Power Ramp',
+  tie_down_system:         'Tie-Down System',
+  automatic_door:          'Automatic Door',
+  motorized_running_board: 'Motorized Running Board',
+}
+
 interface ListingCardProps {
   listing: ListingDoc
   locale: string
@@ -112,25 +123,27 @@ interface ListingCardProps {
     inFloorRamp: string
     foldOutRamp: string
     foldInRamp: string
-    hasLift: string
-    handControls: string
     privateSeller: string
     wavFeaturesLabel: string
   }
 }
 
 function ListingCard({ listing: l, locale, t }: ListingCardProps) {
-  const wavFeatures: string[] = []
+  const badges: string[] = []
 
-  if (l.conversionType === 'rear_entry') wavFeatures.push(t.rearEntry)
-  else if (l.conversionType === 'side_entry') wavFeatures.push(t.sideEntry)
+  if (l.conversionType === 'rear_entry') badges.push(t.rearEntry)
+  else if (l.conversionType === 'side_entry') badges.push(t.sideEntry)
 
-  if (l.hasLift) wavFeatures.push(t.hasLift)
-  if (l.handControls) wavFeatures.push(t.handControls)
+  if (l.rampType === 'in_floor') badges.push(t.inFloorRamp)
+  else if (l.rampType === 'fold_out') badges.push(t.foldOutRamp)
+  else if (l.rampType === 'fold_in') badges.push(t.foldInRamp)
 
-  if (l.rampType === 'in_floor') wavFeatures.push(t.inFloorRamp)
-  else if (l.rampType === 'fold_out') wavFeatures.push(t.foldOutRamp)
-  else if (l.rampType === 'fold_in') wavFeatures.push(t.foldInRamp)
+  for (const f of l.wavFeatures) {
+    const label = WAV_FEATURE_LABELS[f]
+    if (label) badges.push(label)
+  }
+
+  const wavFeatures = badges
 
   const title = [l.year, l.make, l.model, l.trim].filter(Boolean).join(' ')
   const location = [l.city, l.state].filter(Boolean).join(', ')
@@ -267,8 +280,6 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
     inFloorRamp: t('listing.inFloorRamp'),
     foldOutRamp: t('listing.foldOutRamp'),
     foldInRamp: t('listing.foldInRamp'),
-    hasLift: t('listing.hasLift'),
-    handControls: t('listing.handControls'),
     privateSeller: t('listing.privateSeller'),
     wavFeaturesLabel: t('listing.wavFeaturesLabel'),
   }

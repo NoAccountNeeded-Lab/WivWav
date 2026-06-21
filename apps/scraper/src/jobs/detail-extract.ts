@@ -1,6 +1,6 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import type { RampType, SaleStatus } from '@wivwav/types'
+import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { syncListings } from '@wivwav/search'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
@@ -60,11 +60,9 @@ export type DetailResult = {
   fuelType: string | null
   transmission: string | null
   rampType: RampType
-  hasLift: boolean
+  wavFeatures: WavFeature[]
   floorLoweringInches: number | null
   wheelchairCapacity: number | null
-  handControls: boolean
-  transferSeat: boolean
   description: string | null
   images: string[]
   zip: string | null
@@ -83,10 +81,8 @@ export function buildListingDetailUpdateData(
     fuelType: detail.fuelType,
     transmission: detail.transmission,
     rampType: detail.rampType,
-    hasLift: detail.hasLift,
+    wavFeatures: detail.wavFeatures,
     floorLoweringInches: detail.floorLoweringInches,
-    handControls: detail.handControls,
-    transferSeat: detail.transferSeat,
     wheelchairCapacity: detail.wheelchairCapacity,
     description: detail.description,
     ...(detail.images.length > 0 && { images: detail.images }),

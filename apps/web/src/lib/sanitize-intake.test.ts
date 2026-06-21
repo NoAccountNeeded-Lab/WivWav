@@ -20,8 +20,7 @@ describe('sanitizeIntakeFilters', () => {
     expect(sanitizeIntakeFilters({
       conversionType: null,
       rampType: null,
-      hasLift: null,
-      handControls: null,
+      wavFeatures: null,
       condition: null,
       priceMax: null,
       state: null,
@@ -67,17 +66,29 @@ describe('sanitizeIntakeFilters', () => {
     })
   })
 
-  describe('boolean flags', () => {
-    it('sets hasLift only when explicitly true', () => {
-      expect(sanitizeIntakeFilters({ hasLift: true })).toEqual({ hasLift: true })
-      expect(sanitizeIntakeFilters({ hasLift: false })).toEqual({})
-      expect(sanitizeIntakeFilters({ hasLift: 1 })).toEqual({})
-      expect(sanitizeIntakeFilters({ hasLift: 'true' })).toEqual({})
+  describe('wavFeatures', () => {
+    it('accepts known wav feature values', () => {
+      expect(sanitizeIntakeFilters({ wavFeatures: ['has_lift'] })).toEqual({ wavFeatures: ['has_lift'] })
+      expect(sanitizeIntakeFilters({ wavFeatures: ['hand_controls'] })).toEqual({ wavFeatures: ['hand_controls'] })
+      expect(sanitizeIntakeFilters({ wavFeatures: ['has_lift', 'transfer_seat'] })).toEqual({
+        wavFeatures: ['has_lift', 'transfer_seat'],
+      })
     })
 
-    it('sets handControls only when explicitly true', () => {
-      expect(sanitizeIntakeFilters({ handControls: true })).toEqual({ handControls: true })
-      expect(sanitizeIntakeFilters({ handControls: false })).toEqual({})
+    it('drops unknown wav feature values', () => {
+      expect(sanitizeIntakeFilters({ wavFeatures: ['has_lift', 'unknown_feature'] })).toEqual({
+        wavFeatures: ['has_lift'],
+      })
+      expect(sanitizeIntakeFilters({ wavFeatures: ['unknown_feature'] })).toEqual({})
+    })
+
+    it('omits wavFeatures when not an array', () => {
+      expect(sanitizeIntakeFilters({ wavFeatures: 'has_lift' })).toEqual({})
+      expect(sanitizeIntakeFilters({ wavFeatures: null })).toEqual({})
+    })
+
+    it('omits wavFeatures when array is empty', () => {
+      expect(sanitizeIntakeFilters({ wavFeatures: [] })).toEqual({})
     })
   })
 
@@ -165,8 +176,7 @@ describe('sanitizeIntakeFilters', () => {
       sanitizeIntakeFilters({
         conversionType: 'rear_entry',
         rampType: 'in_floor',
-        hasLift: false,
-        handControls: true,
+        wavFeatures: ['hand_controls'],
         condition: 'used',
         priceMax: 35000,
         state: 'FL',
@@ -174,7 +184,7 @@ describe('sanitizeIntakeFilters', () => {
     ).toEqual({
       conversionType: 'rear_entry',
       rampType: 'in_floor',
-      handControls: true,
+      wavFeatures: ['hand_controls'],
       condition: 'used',
       priceMax: 35000,
       state: 'FL',

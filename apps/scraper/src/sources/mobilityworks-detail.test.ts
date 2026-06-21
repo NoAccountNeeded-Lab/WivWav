@@ -94,16 +94,35 @@ describe('parseMwDetail', () => {
     expect(parseMwDetail(baseRaw).floorLoweringInches).toBe(14)
   })
 
-  it('detects hand controls from description', () => {
-    expect(parseMwDetail(baseRaw).handControls).toBe(true)
+  it('includes hand_controls in wavFeatures when description mentions hand controls', () => {
+    expect(parseMwDetail(baseRaw).wavFeatures).toContain('hand_controls')
   })
 
-  it('detects hasLift when description mentions a lift', () => {
+  it('includes has_lift in wavFeatures when description mentions a lift', () => {
     const withLift = { ...baseRaw, descriptionText: 'Power lift included' }
-    expect(parseMwDetail(withLift).hasLift).toBe(true)
+    expect(parseMwDetail(withLift).wavFeatures).toContain('has_lift')
+  })
 
+  it('does not include has_lift when description has no lift', () => {
     const withoutLift = { ...baseRaw, descriptionText: 'Fold Out ramp' }
-    expect(parseMwDetail(withoutLift).hasLift).toBe(false)
+    expect(parseMwDetail(withoutLift).wavFeatures).not.toContain('has_lift')
+  })
+
+  it('includes transfer_seat in wavFeatures when description mentions transfer seat', () => {
+    const withSeat = { ...baseRaw, descriptionText: 'Transfer seat installed' }
+    expect(parseMwDetail(withSeat).wavFeatures).toContain('transfer_seat')
+  })
+
+  it('returns empty wavFeatures when description has none of the features', () => {
+    const sparse: RawMwDetail = {
+      specs: {},
+      descriptionText: 'Clean wheelchair van',
+      imageUrls: [],
+      dealerPhone: '',
+      dealerAddressText: '',
+      statusBannerText: '',
+    }
+    expect(parseMwDetail(sparse).wavFeatures).toEqual([])
   })
 
   it('passes through all image URLs', () => {

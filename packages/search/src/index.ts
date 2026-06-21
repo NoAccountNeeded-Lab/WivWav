@@ -26,9 +26,7 @@ export interface ListingDocument {
   conversionManufacturer: string | null
   floorLoweringInches: number | null
   rampType: string
-  hasLift: boolean
-  handControls: boolean
-  transferSeat: boolean
+  wavFeatures: string[]
   wheelchairCapacity: number | null
   zip: string | null
   city: string | null
@@ -87,9 +85,7 @@ export function toDocument(row: Listing): ListingDocument {
     conversionManufacturer: row.conversionManufacturer,
     floorLoweringInches: row.floorLoweringInches,
     rampType: row.rampType,
-    hasLift: row.hasLift,
-    handControls: row.handControls,
-    transferSeat: row.transferSeat,
+    wavFeatures: row.wavFeatures as string[],
     wheelchairCapacity: row.wheelchairCapacity,
     zip: row.zip,
     city: row.city,

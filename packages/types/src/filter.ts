@@ -1,4 +1,4 @@
-import type { ConversionType, ListingCondition, ListingSellerType, RampType } from './listing.js'
+import type { ConversionType, ListingCondition, ListingSellerType, RampType, WavFeature } from './listing.js'
 
 export interface RangeFilter<T> {
   min: T | null
@@ -18,8 +18,7 @@ export interface ListingFilters {
   conversionTypes: ConversionType[]
   conversionManufacturers: string[]
   rampTypes: RampType[]
-  hasLift: boolean | null
-  handControls: boolean | null
+  wavFeatures: WavFeature[]
   sourceIds: string[]
 }
 

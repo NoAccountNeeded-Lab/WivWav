@@ -53,17 +53,17 @@ export function WavTab({ listing }: WavTabProps) {
         <WavFeatureItem
           icon={<Armchair size={16} aria-hidden />}
           label="Transfer seat"
-          value={wav.transferSeat ? 'Included' : null}
+          value={wav.wavFeatures.includes('transfer_seat') ? 'Included' : null}
         />
         <WavFeatureItem
           icon={<Settings2 size={16} aria-hidden />}
           label="Hand controls"
-          value={wav.handControls ? 'Included' : null}
+          value={wav.wavFeatures.includes('hand_controls') ? 'Included' : null}
         />
         <WavFeatureItem
           icon={<ArrowUpDown size={16} aria-hidden />}
           label="Lift"
-          value={wav.hasLift ? 'Included' : null}
+          value={wav.wavFeatures.includes('has_lift') ? 'Included' : null}
         />
       </div>
     </div>

@@ -29,6 +29,26 @@ enum RampType {
   unknown
 }
 
+/// Whether the WAV conversion is planned/ordered (proposed) or already installed (complete).
+/// Distinct from ConversionType, which describes the physical entry direction, not the build state.
+enum ConversionStatus {
+  proposed
+  complete
+  unknown
+}
+
+enum WavFeature {
+  hand_controls
+  transfer_seat
+  has_lift
+  kneel_system
+  lowered_floor
+  power_ramp
+  tie_down_system
+  automatic_door
+  motorized_running_board
+}
+
 enum ListingCondition {
   new
   used
@@ -50,6 +70,30 @@ enum SaleStatus {
   active
   pending
   sold
+}
+
+// ── Vehicle identity ───────────────────────────────────────────────────────
+
+/// A specific physical vehicle, anchored by VIN when available.
+/// Only created for listings with a valid, normalized 17-character VIN.
+/// Non-VIN listings remain listing-only until high-confidence matching is available.
+model Vehicle {
+  id             String        @id @default(cuid())
+  vin            String?       @unique
+  make           String
+  model          String
+  year           Int
+  trim           String?
+  vehicleModelId String?
+  vehicleModel   VehicleModel? @relation(fields: [vehicleModelId], references: [id])
+  firstSeenAt    DateTime      @default(now())
+  lastSeenAt     DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+
+  listings Listing[]
+
+  @@index([make, model, year])
+  @@map("vehicle")
 }
 
 model Source {
@@ -99,13 +143,12 @@ model Listing {
   transmission String?
 
   // WAV-specific
-  conversionType         ConversionType @default(unknown)
+  conversionType         ConversionType   @default(unknown)
   conversionManufacturer String?
   floorLoweringInches    Float?
-  rampType               RampType       @default(unknown)
-  hasLift                Boolean        @default(false)
-  handControls           Boolean        @default(false)
-  transferSeat           Boolean        @default(false)
+  rampType               RampType         @default(unknown)
+  conversionStatus       ConversionStatus @default(unknown)
+  wavFeatures            WavFeature[]
   wheelchairCapacity     Int?
 
   // Location
@@ -114,6 +157,10 @@ model Listing {
   state String?
   lat   Float?
   lng   Float?
+
+  // Vehicle identity (VIN-only; created for listings with a valid 17-char VIN)
+  vehicleId    String?
+  vehicle      Vehicle?      @relation(fields: [vehicleId], references: [id])
 
   // Normalized vehicle model reference (optional, populated during enrichment)
   vehicleModelId               String?
@@ -155,6 +202,8 @@ model Listing {
   @@index([sourceId])
   @@index([sourceUrl])
   @@index([vin])
+  @@index([vehicleId, status])
+  @@index([vehicleId, listedAt])
   @@index([isDuplicate])
   @@index([state])
   @@index([make, model])
@@ -217,7 +266,8 @@ model VehicleModel {
   trim     String?
   bodyType String?
 
-  listings      Listing[]
+  vehicles       Vehicle[]
+  listings       Listing[]
   recalls        Recall[]
   complaints     Complaint[]
   safetyRatings  SafetyRating[]

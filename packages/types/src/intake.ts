@@ -1,4 +1,4 @@
-import type { ConversionType, ListingCondition, RampType } from './listing.js'
+import type { ConversionType, ListingCondition, RampType, WavFeature } from './listing.js'
 
 export interface IntakeRequest {
   description: string
@@ -7,8 +7,7 @@ export interface IntakeRequest {
 export interface IntakeFilters {
   conversionType?: ConversionType
   rampType?: RampType
-  hasLift?: boolean
-  handControls?: boolean
+  wavFeatures?: WavFeature[]
   condition?: ListingCondition
   priceMax?: number
   state?: string

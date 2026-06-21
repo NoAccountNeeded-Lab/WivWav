@@ -368,7 +368,7 @@ async function main(): Promise<void> {
   let updated = 0
 
   for (const f of FIXTURES) {
-    const { externalId, dealerName, dealerPhone, wheelchairCapacity, ...fields } = f as typeof f & { wheelchairCapacity?: number }
+    const { externalId, dealerName, dealerPhone, wheelchairCapacity, hasLift: _hl, handControls: _hc, transferSeat: _ts, ...fields } = f as typeof f & { wheelchairCapacity?: number; hasLift?: boolean; handControls?: boolean; transferSeat?: boolean; wavFeatures?: string[] }
 
     const existing = await db.listing.findUnique({
       where: { sourceId_sourceRecordKey: { sourceId: source.id, sourceRecordKey: externalId } },
@@ -393,8 +393,7 @@ async function main(): Promise<void> {
           condition: fields.condition, sellerType: fields.sellerType,
           priceCents: fields.priceCents, mileage: fields.mileage, color: fields.color,
           conversionType: fields.conversionType, rampType: fields.rampType,
-          hasLift: fields.hasLift, handControls: fields.handControls,
-          transferSeat: fields.transferSeat,
+          wavFeatures: fields.wavFeatures ?? [],
           conversionManufacturer: fields.conversionManufacturer,
           floorLoweringInches: fields.floorLoweringInches,
           wheelchairCapacity: wheelchairCapacity ?? null,

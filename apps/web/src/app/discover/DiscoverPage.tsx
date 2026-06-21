@@ -28,8 +28,9 @@ function intakeFiltersToParams(intake: IntakeFilters): Record<string, string> {
   const params: Record<string, string> = {}
   if (intake.conversionType != null) params['conversionType'] = intake.conversionType
   if (intake.rampType != null) params['rampType'] = intake.rampType
-  if (intake.hasLift === true) params['hasLift'] = 'true'
-  if (intake.handControls === true) params['handControls'] = 'true'
+  if (intake.wavFeatures != null && intake.wavFeatures.length > 0) {
+    params['wavFeatures'] = intake.wavFeatures.join(',')
+  }
   if (intake.condition != null) params['condition'] = intake.condition
   if (intake.priceMax != null && intake.priceMax > 0) {
     params['priceMax'] = String(intake.priceMax * 100)
@@ -39,7 +40,7 @@ function intakeFiltersToParams(intake: IntakeFilters): Record<string, string> {
 }
 
 function filtersToIntakeContext(params: URLSearchParams): string {
-  const intakeKeys = ['conversionType', 'rampType', 'hasLift', 'handControls', 'condition', 'priceMax', 'state']
+  const intakeKeys = ['conversionType', 'rampType', 'wavFeatures', 'condition', 'priceMax', 'state']
   const active = intakeKeys.filter((k) => params.has(k)).map((k) => `${k}: ${params.get(k)}`)
   if (active.length === 0) return 'No filters currently set.'
   return `Current filters — ${active.join(', ')}.`
@@ -53,8 +54,7 @@ function fmtDollars(cents: number): string {
 
 function fmtLabel(key: string, value: string): string {
   if (key === 'priceMax') return `up to ${fmtDollars(parseInt(value, 10))}`
-  if (key === 'hasLift') return 'has lift'
-  if (key === 'handControls') return 'hand controls'
+  if (key === 'wavFeatures') return value.replace(/_/g, ' ')
   return value.replace(/_/g, ' ')
 }
 

@@ -1,3 +1,6 @@
 export { getDb, disconnectDb } from './client.js'
 export { PrismaClient, Prisma } from './generated/prisma/index.js'
-export type { Listing, Source, ScraperRun, ConfigEntry, ConfigEntryType } from './generated/prisma/index.js'
+export type { Listing, Source, ScraperRun, ConfigEntry, ConfigEntryType, Vehicle } from './generated/prisma/index.js'
+export { WavFeature, ConversionStatus } from './generated/prisma/index.js'
+export { normalizeVin, isValidVin } from './lib/vin.js'
+export { findOrCreateVehicle } from './lib/vehicle-upsert.js'
