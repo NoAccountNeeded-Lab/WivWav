@@ -21,6 +21,7 @@ import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
 import { ConditionalFooter } from '@/components/ConditionalFooter'
 import { NavigationFocusReset } from '@/components/NavigationFocusReset'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
+import { getLocale } from 'next-intl/server'
 
 export const metadata: Metadata = {
   title: 'WivWav — Find Wheelchair Accessible Vehicles',
@@ -35,14 +36,19 @@ export const viewport: Viewport = {
   themeColor: '#5c35c6',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Expose the public API base URL to client components via a data attribute
   // so the browser-side error reporter can POST to /admin/client-events without
   // needing next/headers or build-time environment variables in client code.
   const apiBaseUrl = getPublicApiBaseUrl()
 
+  // next-intl sets the locale via the middleware and request context for locale-
+  // prefixed routes. For non-locale routes (e.g. /api/, /ops/) the locale
+  // defaults to the configured defaultLocale ('en').
+  const locale = await getLocale()
+
   return (
-    <html lang="en" className={`${font.variable} ${logoFont.variable}`}>
+    <html lang={locale} className={`${font.variable} ${logoFont.variable}`}>
       <body data-api-url={apiBaseUrl}>
         <NavigationFocusReset />
         <GlobalErrorHandlers />

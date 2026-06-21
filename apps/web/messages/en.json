@@ -1,0 +1,84 @@
+{
+  "SiteHeader": {
+    "homeAriaLabel": "WivWav — go to home",
+    "taglinePart1": "Wheelchair Independence via",
+    "taglinePart2": "Wheelchair Accessible Vehicles",
+    "languageSwitcherLabel": "Language"
+  },
+  "IntakeForm": {
+    "aiMessage": "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
+    "heading": "Find the right accessible vehicle",
+    "avatarOnlineLabel": "Online",
+    "describeLabel": "Describe what you need",
+    "searching": "Searching…",
+    "send": "Send",
+    "searchingLive": "Searching for matching vehicles…",
+    "skipLink": "Skip — search on my own",
+    "errorRequired": "Please describe what you need before searching.",
+    "formAriaLabel": "Describe your vehicle needs"
+  },
+  "FiltersPage": {
+    "searchResultsLabel": "Search results",
+    "vehiclesFound": "{count, plural, =1 {# vehicle found} other {# vehicles found}}",
+    "noVehicles": "No vehicles match your current filters.",
+    "clearAllFilters": "Clear all filters",
+    "pagination": {
+      "ariaLabel": "Pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {totalPages}"
+    },
+    "listing": {
+      "privateSeller": "Private seller",
+      "callForPrice": "Call for price",
+      "rearEntry": "Rear entry",
+      "sideEntry": "Side entry",
+      "inFloorRamp": "In-floor ramp",
+      "foldOutRamp": "Fold-out ramp",
+      "foldInRamp": "Fold-in ramp",
+      "hasLift": "Has lift",
+      "handControls": "Hand controls",
+      "cpo": "CPO",
+      "wavFeaturesLabel": "WAV features"
+    }
+  },
+  "SearchFilters": {
+    "sortLabel": "Sort",
+    "sortOptions": {
+      "newestListings": "Newest listings",
+      "priceLowToHigh": "Price: Low to high",
+      "priceHighToLow": "Price: High to low",
+      "lowestMileage": "Lowest mileage",
+      "yearNewestFirst": "Year: Newest first"
+    }
+  },
+  "ActiveFilters": {
+    "ariaLabel": "Active filters",
+    "clearAll": "Clear all ×",
+    "clearAllAriaLabel": "Clear all filters"
+  },
+  "ListingDetail": {
+    "backAriaLabel": "Back to listings",
+    "viewOriginalListing": "View original listing ↗",
+    "listedDate": "Listed {date}",
+    "callForPrice": "Call for price",
+    "listingNotFound": "Listing not found — WivWav",
+    "notFoundMessage": "Listing unavailable.",
+    "notFoundDetail": "It may have been removed or the URL may be incorrect.",
+    "browseAllListings": "Browse all listings",
+    "wavFeatures": "WAV Features",
+    "vehicleDetails": "Vehicle Details",
+    "locationAndSeller": "Location & Seller",
+    "description": "Description",
+    "yesLabel": "Yes",
+    "noLabel": "No",
+    "conversionTypeLabel": "Conversion type",
+    "rampTypeLabel": "Ramp type",
+    "hasLiftLabel": "Has lift",
+    "handControlsLabel": "Hand controls",
+    "floorLoweringLabel": "Floor lowering",
+    "wcCapacityLabel": "WC capacity",
+    "transferSeatLabel": "Transfer seat",
+    "openInNewTab": "(opens in new tab)"
+  }
+}

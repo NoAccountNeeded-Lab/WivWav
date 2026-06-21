@@ -1,10 +1,11 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { Car } from 'lucide-react'
-import { SortSelect } from '../../components/SearchFilters'
-import { CategoryBarChart } from '../../components/CategoryBarChart'
-import { ActiveFilters } from '../../components/ActiveFilters'
-import type { MapListing } from '../../components/ListingsMap'
+import { Link } from '@/navigation'
+import { SortSelect } from '@/components/SearchFilters'
+import { CategoryBarChart } from '@/components/CategoryBarChart'
+import { ActiveFilters } from '@/components/ActiveFilters'
+import type { MapListing } from '@/components/ListingsMap'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { SiteHeader } from '@/components/SiteHeader'
@@ -79,8 +80,8 @@ async function fetchListings(
 
 // ── Helpers ──────────────────────────────────────────────
 
-function formatPrice(cents: number | null, locale = 'en-US'): string {
-  if (cents === null) return 'Call for price'
+function formatPrice(cents: number | null, locale: string, callForPriceLabel: string): string {
+  if (cents === null) return callForPriceLabel
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
@@ -88,43 +89,52 @@ function formatPrice(cents: number | null, locale = 'en-US'): string {
   }).format(cents / 100)
 }
 
-function formatMileage(miles: number | null, locale = 'en-US'): string | null {
+function formatMileage(miles: number | null, locale: string): string | null {
   if (miles === null) return null
   return `${new Intl.NumberFormat(locale).format(miles)} mi`
 }
 
-function formatCondition(cond: string): string {
-  if (cond === 'certified_pre_owned') return 'CPO'
+function formatCondition(cond: string, cpoLabel: string): string {
+  if (cond === 'certified_pre_owned') return cpoLabel
   return cond.charAt(0).toUpperCase() + cond.slice(1)
-}
-
-function formatConversionType(type: string): string | null {
-  if (type === 'rear_entry') return 'Rear entry'
-  if (type === 'side_entry') return 'Side entry'
-  return null
-}
-
-function formatRampType(type: string): string | null {
-  if (type === 'in_floor') return 'In-floor ramp'
-  if (type === 'fold_out') return 'Fold-out ramp'
-  if (type === 'fold_in') return 'Fold-in ramp'
-  return null
 }
 
 // ── Listing card ─────────────────────────────────────────
 
-function ListingCard({ listing: l }: { listing: ListingDoc }) {
+interface ListingCardProps {
+  listing: ListingDoc
+  locale: string
+  t: {
+    callForPrice: string
+    cpo: string
+    rearEntry: string
+    sideEntry: string
+    inFloorRamp: string
+    foldOutRamp: string
+    foldInRamp: string
+    hasLift: string
+    handControls: string
+    privateSeller: string
+    wavFeaturesLabel: string
+  }
+}
+
+function ListingCard({ listing: l, locale, t }: ListingCardProps) {
   const wavFeatures: string[] = []
-  const conversionLabel = formatConversionType(l.conversionType)
-  const rampLabel = formatRampType(l.rampType)
-  if (conversionLabel) wavFeatures.push(conversionLabel)
-  if (l.hasLift) wavFeatures.push('Has lift')
-  if (l.handControls) wavFeatures.push('Hand controls')
-  if (rampLabel) wavFeatures.push(rampLabel)
+
+  if (l.conversionType === 'rear_entry') wavFeatures.push(t.rearEntry)
+  else if (l.conversionType === 'side_entry') wavFeatures.push(t.sideEntry)
+
+  if (l.hasLift) wavFeatures.push(t.hasLift)
+  if (l.handControls) wavFeatures.push(t.handControls)
+
+  if (l.rampType === 'in_floor') wavFeatures.push(t.inFloorRamp)
+  else if (l.rampType === 'fold_out') wavFeatures.push(t.foldOutRamp)
+  else if (l.rampType === 'fold_in') wavFeatures.push(t.foldInRamp)
 
   const title = [l.year, l.make, l.model, l.trim].filter(Boolean).join(' ')
   const location = [l.city, l.state].filter(Boolean).join(', ')
-  const mileage = formatMileage(l.mileage)
+  const mileage = formatMileage(l.mileage, locale)
   const heroImage = l.images?.[0] ?? null
 
   return (
@@ -145,7 +155,9 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
             </div>
           )}
           <div className={styles.cardImageGradient} aria-hidden />
-          <span className={styles.cardImagePrice}>{formatPrice(l.priceCents)}</span>
+          <span className={styles.cardImagePrice}>
+            {formatPrice(l.priceCents, locale, t.callForPrice)}
+          </span>
           {/* NewBadge renders only on the client after reading localStorage */}
           <NewBadge listedAt={l.listedAt} />
         </div>
@@ -156,14 +168,14 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
           <p className={styles.cardMeta}>
             {mileage && <span className={styles.metaItem}>{mileage}</span>}
             {location && <span className={styles.metaItem}>{location}</span>}
-            <span className={styles.metaItem}>{formatCondition(l.condition)}</span>
+            <span className={styles.metaItem}>{formatCondition(l.condition, t.cpo)}</span>
             {l.sellerType === 'private' && (
-              <span className={styles.metaItem}>Private seller</span>
+              <span className={styles.metaItem}>{t.privateSeller}</span>
             )}
           </p>
 
           {wavFeatures.length > 0 && (
-            <ul className={styles.wavBadges} aria-label="WAV features">
+            <ul className={styles.wavBadges} aria-label={t.wavFeaturesLabel}>
               {wavFeatures.map((f) => (
                 <li key={f} className={`${styles.badge} ${styles.badgeGreen}`}>
                   {f}
@@ -179,50 +191,58 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
 
 // ── Pagination ───────────────────────────────────────────
 
+interface PaginationNavProps {
+  pagination: Pagination
+  currentParams: Record<string, string>
+  prevLabel: string
+  nextLabel: string
+  pageOfLabel: (page: number, totalPages: number) => string
+}
+
 function PaginationNav({
   pagination,
   currentParams,
-}: {
-  pagination: Pagination
-  currentParams: Record<string, string>
-}) {
+  prevLabel,
+  nextLabel,
+  pageOfLabel,
+}: PaginationNavProps) {
   const { page, totalPages } = pagination
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams(currentParams)
     params.set('page', String(p))
-    return `/filters?${params.toString()}`
+    return `/filters?${params.toString()}` as `/filters?${string}`
   }
 
   return (
     <nav aria-label="Pagination" className={styles.pagination}>
       {page > 1 ? (
         <Link href={buildHref(page - 1)} className={styles.paginationBtn}>
-          Previous
+          {prevLabel}
         </Link>
       ) : (
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
         >
-          Previous
+          {prevLabel}
         </span>
       )}
 
       <span className={styles.paginationInfo} aria-current="page">
-        Page {page} of {totalPages}
+        {pageOfLabel(page, totalPages)}
       </span>
 
       {page < totalPages ? (
         <Link href={buildHref(page + 1)} className={styles.paginationBtn}>
-          Next
+          {nextLabel}
         </Link>
       ) : (
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
         >
-          Next
+          {nextLabel}
         </span>
       )}
     </nav>
@@ -232,12 +252,29 @@ function PaginationNav({
 // ── Page ─────────────────────────────────────────────────
 
 interface ListingsPageProps {
+  params: Promise<{ locale: string }>
   searchParams: Promise<Record<string, string>>
 }
 
-export default async function ListingsPage({ searchParams }: ListingsPageProps) {
-  const params = await searchParams
-  const { data: listings, pagination } = await fetchListings(params)
+export default async function ListingsPage({ params: _params, searchParams }: ListingsPageProps) {
+  const locale = await getLocale()
+  const t = await getTranslations('FiltersPage')
+  const listingT = {
+    callForPrice: t('listing.callForPrice'),
+    cpo: t('listing.cpo'),
+    rearEntry: t('listing.rearEntry'),
+    sideEntry: t('listing.sideEntry'),
+    inFloorRamp: t('listing.inFloorRamp'),
+    foldOutRamp: t('listing.foldOutRamp'),
+    foldInRamp: t('listing.foldInRamp'),
+    hasLift: t('listing.hasLift'),
+    handControls: t('listing.handControls'),
+    privateSeller: t('listing.privateSeller'),
+    wavFeaturesLabel: t('listing.wavFeaturesLabel'),
+  }
+
+  const resolvedSearchParams = await searchParams
+  const { data: listings, pagination } = await fetchListings(resolvedSearchParams)
 
   const mappableListings: MapListing[] = listings.flatMap((l) =>
     l.lat != null && l.lng != null
@@ -270,15 +307,14 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
             </Suspense>
           </section>
 
-          <section aria-label="Search results" className={styles.resultsSection}>
+          <section aria-label={t('searchResultsLabel')} className={styles.resultsSection}>
             <div className={styles.resultsHeader}>
               <p
                 className={styles.resultsCount}
                 aria-live="polite"
                 aria-atomic="true"
               >
-                {pagination.total.toLocaleString()}{' '}
-                {pagination.total === 1 ? 'vehicle' : 'vehicles'} found
+                {t('vehiclesFound', { count: pagination.total })}
               </p>
               <Suspense>
                 <SortSelect />
@@ -293,19 +329,27 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                 <ul className={styles.listingsGrid} role="list">
                   {listings.map((listing) => (
                     <li key={listing.id}>
-                      <ListingCard listing={listing} />
+                      <ListingCard listing={listing} locale={locale} t={listingT} />
                     </li>
                   ))}
                 </ul>
 
                 {pagination.totalPages > 1 && (
-                  <PaginationNav pagination={pagination} currentParams={params} />
+                  <PaginationNav
+                    pagination={pagination}
+                    currentParams={resolvedSearchParams}
+                    prevLabel={t('pagination.previous')}
+                    nextLabel={t('pagination.next')}
+                    pageOfLabel={(page, totalPages) =>
+                      t('pagination.pageOf', { page, totalPages })
+                    }
+                  />
                 )}
               </>
             ) : (
               <div className={styles.emptyState} role="status">
-                <p>No vehicles match your current filters.</p>
-                <a href="/filters">Clear all filters</a>
+                <p>{t('noVehicles')}</p>
+                <Link href="/filters">{t('clearAllFilters')}</Link>
               </div>
             )}
           </section>
