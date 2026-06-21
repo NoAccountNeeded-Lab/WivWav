@@ -8,7 +8,9 @@ import {
 } from 'lucide-react'
 import { WavFeatureItem } from '@/components/listing/WavFeatureItem'
 import { WavConversionInfo } from '@/components/listing/WavConversionInfo'
+import { NmedaDealersNearby } from '@/components/listing/NmedaDealersNearby'
 import type { ConversionBrandDetail, ConversionProduct } from '@/components/listing/conversionBrand'
+import type { NmeaDealer } from './types'
 import { rampLabel } from './utils'
 import type { ListingDetail } from './types'
 import styles from './tabs.module.css'
@@ -17,9 +19,11 @@ interface WavTabProps {
   listing: ListingDetail
   conversionBrand?: ConversionBrandDetail | null
   matchedConversionProduct?: ConversionProduct | null
+  nearbyDealers?: NmeaDealer[]
+  hasCoordinates?: boolean
 }
 
-export function WavTab({ listing, conversionBrand, matchedConversionProduct }: WavTabProps) {
+export function WavTab({ listing, conversionBrand, matchedConversionProduct, nearbyDealers = [], hasCoordinates = false }: WavTabProps) {
   const { wav } = listing
   const ramp =
     wav.rampType !== 'none' && wav.rampType !== 'unknown'
@@ -71,6 +75,8 @@ export function WavTab({ listing, conversionBrand, matchedConversionProduct }: W
           value={wav.wavFeatures.includes('has_lift') ? 'Included' : null}
         />
       </div>
+
+      <NmedaDealersNearby dealers={nearbyDealers} hasCoordinates={hasCoordinates} />
     </div>
   )
 }

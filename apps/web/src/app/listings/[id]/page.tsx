@@ -20,6 +20,7 @@ import type {
   ListingDetail,
   MarketPricing,
   ModelResearch,
+  NmeaDealer,
   PricePoint,
   SafetyData,
   SimilarListing,
@@ -165,6 +166,24 @@ async function getSimilar(
   }
 }
 
+async function getNearbyDealers(
+  lat: number | null,
+  lng: number | null,
+): Promise<NmeaDealer[]> {
+  if (lat === null || lng === null) return []
+  try {
+    const url = new URL(`${getServerApiBaseUrl()}/v1/nmea-dealers`)
+    url.searchParams.set('lat', String(lat))
+    url.searchParams.set('lng', String(lng))
+    const res = await apiFetch(url.toString(), { next: { revalidate: 86400 } })
+    if (!res.ok) return []
+    const json = (await res.json()) as { data: NmeaDealer[] }
+    return json.data ?? []
+  } catch {
+    return []
+  }
+}
+
 // ── Metadata ───────────────────────────────────────────────────────────────
 
 export async function generateMetadata({
@@ -197,6 +216,7 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
     modelResearch,
     vehicleStats,
     conversionBrand,
+    nearbyDealers,
   ] =
     await Promise.all([
       getPriceHistory(id),
@@ -206,6 +226,7 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
       getModelResearch(listing.make, listing.model, listing.year),
       getVehicleStats(listing.make, listing.model, listing.year),
       getConversionBrand(listing.wav.conversionManufacturer),
+      getNearbyDealers(listing.location.lat, listing.location.lng),
     ])
 
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
@@ -231,6 +252,8 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
           listing={listing}
           conversionBrand={conversionBrand}
           matchedConversionProduct={matchedConversionProduct}
+          nearbyDealers={nearbyDealers}
+          hasCoordinates={listing.location.lat !== null && listing.location.lng !== null}
         />
       ),
     },
