@@ -1,5 +1,7 @@
 import type { BrowserPage } from '../browser/index.js'
 import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
+import { parseSaleStatus } from '../lib/sale-status.js'
+export type { SaleStatus } from '@wivwav/types'
 
 const BASE_URL = 'https://www.blvd.com'
 
@@ -25,13 +27,6 @@ export interface BlvdDetailFields {
   zip: string | null
   dealerPhone: string | null
   saleStatus: SaleStatus
-}
-
-export function parseSaleStatus(bannerText: string): SaleStatus {
-  const t = bannerText.toLowerCase()
-  if (t.includes('pending') || t.includes('under contract')) return 'pending'
-  if (t.includes('sold') || t.includes('no longer available') || t.includes('unavailable')) return 'sold'
-  return 'active'
 }
 
 export function parseRampType(text: string): RampType {

@@ -213,6 +213,7 @@ model Listing {
   @@index([mileage])
   @@index([listedAt])
   @@index([status])
+  @@index([saleStatus])
   @@index([vehicleModelId])
   @@index([processingLockedAt])
   @@map("listings")
