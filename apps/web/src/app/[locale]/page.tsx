@@ -1,5 +1,6 @@
 import { IntakeForm } from '@/components/IntakeForm'
 import { SiteHeader } from '@/components/SiteHeader'
+import { UsMapBackground } from '@/components/UsMapBackground'
 // The home page shares the layout styles defined alongside the root page.
 import styles from '../page.module.css'
 
@@ -9,6 +10,7 @@ export default function HomePage() {
       <SiteHeader />
 
       <main id="main-content" tabIndex={-1} className={styles.main}>
+        <UsMapBackground />
         <div className={styles.container}>
 
           <section className={styles.heroSection} aria-labelledby="hero-heading">
