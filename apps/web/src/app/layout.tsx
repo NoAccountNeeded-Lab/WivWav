@@ -21,7 +21,8 @@ import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
 import { ConditionalFooter } from '@/components/ConditionalFooter'
 import { NavigationFocusReset } from '@/components/NavigationFocusReset'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
-import { getLocale } from 'next-intl/server'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages } from 'next-intl/server'
 
 export const metadata: Metadata = {
   title: 'WivWav — Find Wheelchair Accessible Vehicles',
@@ -42,10 +43,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // needing next/headers or build-time environment variables in client code.
   const apiBaseUrl = getPublicApiBaseUrl()
 
-  // next-intl sets the locale via the middleware and request context for locale-
-  // prefixed routes. For non-locale routes (e.g. /api/, /ops/) the locale
-  // defaults to the configured defaultLocale ('en').
-  const locale = await getLocale()
+  // next-intl sets locale via middleware for locale-prefixed routes.
+  // Routes outside [locale] (e.g. /ops, /discover) have no intl context,
+  // so fall back to 'en' and load English messages so hooks like useLocale()
+  // and useTranslations() work in components like SiteHeader/LanguageSwitcher.
+  const locale = await getLocale().catch(() => 'en')
+  const messages = await getMessages({ locale }).catch(() => ({}))
 
   return (
     <html lang={locale} className={`${font.variable} ${logoFont.variable}`}>
@@ -56,12 +59,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <ErrorBoundary>
-          <main id="main-content" className="site-main">
-            {children}
-          </main>
-          <ConditionalFooter />
-        </ErrorBoundary>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ErrorBoundary>
+            <main id="main-content" className="site-main">
+              {children}
+            </main>
+            <ConditionalFooter />
+          </ErrorBoundary>
+        </NextIntlClientProvider>
       </body>
     </html>
   )

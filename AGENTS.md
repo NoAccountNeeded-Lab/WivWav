@@ -402,7 +402,7 @@ Most responses use `{ data: T }` for success and `{ error: { code, message } }` 
 
 ## Ops workflows
 
-Everything below is done through the web UI at **http://localhost:3002/ops** — never via CLI during normal operations. Direct the user to the relevant page; don't paste curl commands.
+Everything below is done through the web UI at **http://localhost:3000/ops** — never via CLI during normal operations. Direct the user to the relevant page; don't paste curl commands.
 
 ### Get listings on the map
 
