@@ -8,6 +8,7 @@ import styles from './LanguageSwitcher.module.css'
 // Human-readable display names for each supported locale.
 const LOCALE_LABELS: Record<string, string> = {
   en: 'English',
+  es: 'Español',
 }
 
 export function LanguageSwitcher() {
