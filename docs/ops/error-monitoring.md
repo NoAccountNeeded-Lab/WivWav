@@ -12,8 +12,10 @@ forward browser envelopes, or capture exceptions unless the relevant
 Once your Sentry project is configured, your dashboards are at:
 
 ```
-https://sentry.io/organizations/<your-org>/issues/
+https://sentry.io/organizations/wivwav/issues/
 ```
+
+<!-- TODO(#306): confirm org slug once Sentry project is created; update this URL and SENTRY_ORG in .env.example once the real slug is known -->
 
 Filter by project to narrow to a specific service:
 
@@ -36,7 +38,7 @@ Filter by project to narrow to a specific service:
    NEXT_PUBLIC_SENTRY_ENABLED=true
    NEXT_PUBLIC_SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
    SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
-   SENTRY_ORG=your-org-slug
+   SENTRY_ORG=wivwav
    SENTRY_PROJECT=wivwav-web
    SENTRY_AUTH_TOKEN=<token from sentry.io/settings/auth-tokens/>
    ```
@@ -181,4 +183,4 @@ so all items below must be done in staging before declaring Sentry live.
 - [ ] Confirm each error appears in Sentry with correct TypeScript source lines (not minified)
 - [ ] Confirm no VINs or IP addresses appear in the Sentry event payload
 - [ ] Configure P0/P1 alert rules in Sentry UI (see "Alerting" above)
-- [ ] Update the dashboard URL at the top of this file with the real Sentry org URL
+- [ ] Confirm the Sentry org slug (`wivwav`) once the project is created and update the dashboard URL and `SENTRY_ORG` references in this file if the slug differs

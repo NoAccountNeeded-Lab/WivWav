@@ -16,7 +16,7 @@
  * (it runs server-side), but the rule is included for defence-in-depth.
  */
 import * as Sentry from '@sentry/node'
-import { scrubPii, scrubSentryEvent } from './sentry-pii.js'
+import { scrubPii, scrubSentryEvent } from '@wivwav/observability'
 
 export const isSentryEnabled = process.env['SENTRY_ENABLED'] === 'true' && Boolean(process.env['SENTRY_DSN'])
 
