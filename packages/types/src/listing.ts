@@ -3,7 +3,7 @@ export type RampType = 'in_floor' | 'fold_out' | 'fold_in' | 'none' | 'unknown'
 export type ConversionStatus = 'proposed' | 'complete' | 'unknown'
 export type ListingCondition = 'new' | 'used' | 'certified_pre_owned'
 export type ListingSellerType = 'dealer' | 'private'
-export type SaleStatus = 'active' | 'pending' | 'sold'
+export type SaleStatus = 'active' | 'pending' | 'sold' | 'gone'
 
 /**
  * Controlled vocabulary for WAV features.
