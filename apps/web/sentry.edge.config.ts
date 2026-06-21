@@ -10,7 +10,7 @@
  * PII scrubbing mirrors the other Sentry configs.
  */
 import * as Sentry from '@sentry/nextjs'
-import { scrubPii, scrubSentryEvent } from './sentry-pii'
+import { scrubPii, scrubSentryEvent } from '@wivwav/observability'
 
 if (process.env['SENTRY_ENABLED'] === 'true' && process.env['SENTRY_DSN']) {
   Sentry.init({

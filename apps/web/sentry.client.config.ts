@@ -11,7 +11,7 @@
  * contact fields are stripped before any event leaves the browser.
  */
 import * as Sentry from '@sentry/nextjs'
-import { scrubPii, scrubSentryEvent } from './sentry-pii'
+import { scrubPii, scrubSentryEvent } from '@wivwav/observability'
 
 if (process.env['NEXT_PUBLIC_SENTRY_ENABLED'] === 'true' && process.env['NEXT_PUBLIC_SENTRY_DSN']) {
   Sentry.init({
