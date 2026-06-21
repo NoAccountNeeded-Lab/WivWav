@@ -118,11 +118,15 @@ export async function evaluateBlvdDetail(page: BrowserPage): Promise<RawDetail> 
       }
     }
 
-    // Gallery: all <a href> links pointing to large images, deduped
+    // Gallery: all <a href> links pointing to large images, deduped.
+    // The _large.jpg pattern is vehicle-gallery-specific; the path filter guards edge cases.
+    const NON_VEHICLE_PATH =
+      /\/(?:icon|logo|badge|banner|avatar|staff|team|person|social|sprite|header|footer|favicon|placeholder|tracking|pixel|spacer|arrow|bullet|star|rating|map|pin|marker)\b/i
     const seen = new Set<string>()
     const imageUrls: string[] = []
     document.querySelectorAll<HTMLAnchorElement>('a[href*="_large.jpg"]').forEach(function (a) {
       const href = a.getAttribute('href') ?? ''
+      if (!href || NON_VEHICLE_PATH.test(href)) return
       const abs = href.startsWith('http') ? href : `${baseUrl}${href}`
       if (!seen.has(abs)) { seen.add(abs); imageUrls.push(abs) }
     })
