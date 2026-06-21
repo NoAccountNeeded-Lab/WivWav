@@ -49,5 +49,6 @@ CREATE INDEX "listings_vehicleId_status_idx" ON "listings"("vehicleId", "status"
 -- CreateIndex: vehicleId + listedAt (for per-vehicle timeline queries)
 CREATE INDEX "listings_vehicleId_listedAt_idx" ON "listings"("vehicleId", "listedAt");
 
--- GIN index on wavFeatures for array-containment queries
-CREATE INDEX "listings_wav_features_gin" ON "listings" USING GIN ("wavFeatures");
+-- Index on wavFeatures for array-containment queries
+-- A GIN index would be more efficient for @> queries at scale; add one in a dedicated migration when needed.
+CREATE INDEX "listings_wavFeatures_idx" ON "listings"("wavFeatures");

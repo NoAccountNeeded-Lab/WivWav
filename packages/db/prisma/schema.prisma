@@ -148,7 +148,7 @@ model Listing {
   floorLoweringInches    Float?
   rampType               RampType         @default(unknown)
   conversionStatus       ConversionStatus @default(unknown)
-  wavFeatures            WavFeature[]
+  wavFeatures            WavFeature[]   @default([])
   wheelchairCapacity     Int?
 
   // Location
@@ -204,6 +204,7 @@ model Listing {
   @@index([vin])
   @@index([vehicleId, status])
   @@index([vehicleId, listedAt])
+  @@index([wavFeatures])
   @@index([isDuplicate])
   @@index([state])
   @@index([make, model])
