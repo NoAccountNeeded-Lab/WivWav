@@ -59,7 +59,7 @@ async function fetchListings(
   const forward = [
     'q', 'page', 'make', 'model',
     'yearMin', 'yearMax', 'priceMin', 'priceMax', 'mileageMax',
-    'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
+    'condition', 'conversionBrand', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
   ]
 
   for (const key of forward) {
@@ -252,6 +252,7 @@ interface ListingsPageProps {
 export default async function ListingsPage({ searchParams }: ListingsPageProps) {
   const params = await searchParams
   const { data: listings, pagination } = await fetchListings(params)
+  const hasConversionBrandFilter = Boolean(params.conversionBrand)
 
   const mappableListings: MapListing[] = listings.flatMap((l) =>
     l.lat != null && l.lng != null
@@ -318,7 +319,11 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
               </>
             ) : (
               <div className={styles.emptyState} role="status">
-                <p>No vehicles match your current filters.</p>
+                <p>
+                  {hasConversionBrandFilter
+                    ? 'No vehicles match the selected conversion brand. Try another brand or clear the brand filter.'
+                    : 'No vehicles match your current filters.'}
+                </p>
                 <a href="/filters">Clear all filters</a>
               </div>
             )}

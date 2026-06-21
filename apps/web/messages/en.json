@@ -21,6 +21,7 @@
     "searchResultsLabel": "Search results",
     "vehiclesFound": "{count, plural, =1 {# vehicle found} other {# vehicles found}}",
     "noVehicles": "No vehicles match your current filters.",
+    "noVehiclesForBrand": "No vehicles match the selected conversion brand. Try another brand or clear the brand filter.",
     "clearAllFilters": "Clear all filters",
     "pagination": {
       "ariaLabel": "Pagination",

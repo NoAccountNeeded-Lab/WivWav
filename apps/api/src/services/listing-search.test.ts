@@ -282,6 +282,13 @@ describe('ListingSearchService.search', () => {
     expect(opts.filters?.['wavFeatures']).toEqual(['has_lift'])
   })
 
+  it('adds conversionBrand filter as string array', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({ conversionBrand: ['braunability', 'vmi'] })
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['conversionBrand']).toEqual(['braunability', 'vmi'])
+  })
+
   it('adds multiple wavFeatures as array', async () => {
     const { service, searchMock } = makeService()
     await service.search({ wavFeatures: ['has_lift', 'hand_controls'] })
