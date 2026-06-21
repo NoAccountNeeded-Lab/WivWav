@@ -3,9 +3,9 @@ import {
   parseRampType,
   parseFloorLowering,
   parseZip,
-  parseSaleStatus,
   parseBlvdDetail,
 } from './blvd-detail.js'
+import { parseSaleStatus } from '../lib/sale-status.js'
 import type { RawDetail } from './blvd-detail.js'
 
 // ─── parseSaleStatus ──────────────────────────────────────────────────────────
