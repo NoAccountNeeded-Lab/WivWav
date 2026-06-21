@@ -58,6 +58,7 @@ describe('titleToDescription', () => {
 vi.mock('../lib/git.js', () => ({
   currentBranch: vi.fn(() => 'feat/issue-304-add-sdlc-cli'),
   isProtectedBranch: vi.fn(() => false),
+  isBehindOriginMain: vi.fn(() => false),
   stagedFiles: vi.fn(() => []),
   dirtyFiles: vi.fn(() => []),
   changedFiles: vi.fn(() => ['packages/sdlc-cli/src/index.ts']),
@@ -86,6 +87,7 @@ import * as githubMod from '../lib/github.js'
 
 const mockCurrentBranch = gitMod.currentBranch as ReturnType<typeof vi.fn>
 const mockIsProtected = gitMod.isProtectedBranch as ReturnType<typeof vi.fn>
+const mockIsBehind = gitMod.isBehindOriginMain as ReturnType<typeof vi.fn>
 const mockStagedFiles = gitMod.stagedFiles as ReturnType<typeof vi.fn>
 const mockDirtyFiles = gitMod.dirtyFiles as ReturnType<typeof vi.fn>
 const mockChangedFiles = gitMod.changedFiles as ReturnType<typeof vi.fn>
@@ -113,6 +115,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockCurrentBranch.mockReturnValue('feat/issue-304-add-sdlc-cli')
   mockIsProtected.mockReturnValue(false)
+  mockIsBehind.mockReturnValue(false)
   mockStagedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
   mockDirtyFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
   mockChangedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
@@ -145,6 +148,51 @@ describe('finishCommand — issue pre-flight', () => {
   it('throws when issue has no acceptance criteria', async () => {
     mockHasAC.mockReturnValue(false)
     await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('no acceptance criteria')
+  })
+})
+
+describe('finishCommand — pre-finish rebase', () => {
+  it('fetches origin/main before running validation', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304)
+    const tryCalls = (mockTryRun.mock.calls as unknown[][]).map((c) => String(c[0]))
+    expect(tryCalls.some((c) => c === 'git fetch origin main')).toBe(true)
+  })
+
+  it('rebases when branch is behind origin/main', async () => {
+    mockIsBehind.mockReturnValue(true)
+    mockTryRun.mockReturnValue({ stdout: '', ok: true })
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304)
+    const tryCalls = (mockTryRun.mock.calls as unknown[][]).map((c) => String(c[0]))
+    expect(tryCalls.some((c) => c === 'git rebase origin/main')).toBe(true)
+  })
+
+  it('throws when rebase fails', async () => {
+    mockIsBehind.mockReturnValue(true)
+    mockTryRun.mockImplementation((cmd: string) => {
+      if (cmd === 'git rebase origin/main') return { stdout: 'CONFLICT', ok: false }
+      return { stdout: '', ok: true }
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await expect(finishCommand(304)).rejects.toThrow('rebase against origin/main failed')
+  })
+
+  it('skips rebase when branch is up-to-date', async () => {
+    mockIsBehind.mockReturnValue(false)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304)
+    const tryCalls = (mockTryRun.mock.calls as unknown[][]).map((c) => String(c[0]))
+    expect(tryCalls.some((c) => c === 'git rebase origin/main')).toBe(false)
+  })
+
+  it('skips fetch and rebase when skipValidation is true', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+    const tryCalls = (mockTryRun.mock.calls as unknown[][]).map((c) => String(c[0]))
+    expect(tryCalls.some((c) => c === 'git fetch origin main')).toBe(false)
+    expect(tryCalls.some((c) => c === 'git rebase origin/main')).toBe(false)
   })
 })
 

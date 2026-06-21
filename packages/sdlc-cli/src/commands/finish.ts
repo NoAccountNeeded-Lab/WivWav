@@ -2,6 +2,7 @@
  * wivwav finish <issue-number>
  *
  * Encodes the "Finish an issue" section of AGENTS.md:
+ *   0. Fetch origin/main and rebase — fail closed when branch is behind
  *   1. Full validation (typecheck + lint + test)
  *   2. Detect staged / relevant files — fail on unstaged or untracked files
  *   3. Commit with required format and attribution trailers
@@ -13,6 +14,7 @@ import {
   tryRun,
   currentBranch,
   isProtectedBranch,
+  isBehindOriginMain,
   stagedFiles,
   changedFiles,
   dirtyFiles,
@@ -126,7 +128,31 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     )
   }
 
-  // 2. Full validation
+  // 2. Fetch origin/main and rebase to ensure the branch is up-to-date
+  if (!opts.skipValidation) {
+    console.log('\nFetching origin/main...')
+    const fetchResult = tryRun('git fetch origin main')
+    if (!fetchResult.ok) {
+      console.warn('[WARN] Could not fetch origin/main. Continuing without fetch.')
+    }
+
+    if (isBehindOriginMain()) {
+      console.log('  Branch is behind origin/main — rebasing...')
+      const rebaseResult = tryRun('git rebase origin/main')
+      if (!rebaseResult.ok) {
+        console.error('\nRebase failed:')
+        console.error(rebaseResult.stdout)
+        throw new CliError(
+          'Cannot finish: rebase against origin/main failed. Resolve conflicts and re-run finish.',
+        )
+      }
+      console.log('[OK] Rebased onto latest origin/main.')
+    } else {
+      console.log('[OK] Branch is up-to-date with origin/main.')
+    }
+  }
+
+  // 3. Full validation
   if (!opts.skipValidation) {
     console.log('\nRunning full validation suite (typecheck + lint + build + test)...')
     const { stdout, ok } = tryRun('pnpm typecheck && pnpm lint && pnpm build && pnpm test')
@@ -138,7 +164,7 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     console.log('[OK] Full validation passed.')
   }
 
-  // 3. Verify staged files and check for unrelated dirty files
+  // 4. Verify staged files and check for unrelated dirty files
   const staged = stagedFiles()
   if (staged.length === 0) {
     throw new CliError(
@@ -158,7 +184,7 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     )
   }
 
-  // 4. Derive commit message components
+  // 5. Derive commit message components
   const commitType = opts.commitType ?? expectedPrefix(issue.title)
   const changed = changedFiles()
   const commitScope = opts.commitScope ?? deriveScope(changed)
@@ -193,16 +219,16 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     return
   }
 
-  // 5. Commit
+  // 6. Commit
   console.log(`\nCommitting: ${commitMsg}`)
   const trailerArgs = trailers.map((t) => `--trailer ${JSON.stringify(t)}`).join(' ')
   run(`git commit -m ${JSON.stringify(commitMsg)} ${trailerArgs}`)
 
-  // 6. Push
+  // 7. Push
   console.log(`\nPushing branch ${branch}...`)
   run(`git push -u origin ${branch}`)
 
-  // 7. Build PR body
+  // 8. Build PR body
   const acceptanceEvidence = buildAcceptanceEvidence(issue.body)
   const prBody = [
     '## Summary',
@@ -220,7 +246,7 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     '_What a human reviewer should manually verify before approving._',
   ].join('\n')
 
-  // 8. Open draft PR
+  // 9. Open draft PR
   console.log('\nOpening draft PR...')
   const prTitle = `${commitType}(${commitScope}): ${description}`
   const prUrl = createDraftPr({ title: prTitle, body: prBody })
