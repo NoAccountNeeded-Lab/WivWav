@@ -134,12 +134,29 @@ export async function evaluateMwDetail(page: BrowserPage): Promise<RawMwDetail> 
       descriptionText = p?.textContent?.trim() ?? ''
     }
 
-    // Gallery images: MobilityWorks uses a slider with data-src or src attributes
+    // Gallery images: prefer a dedicated gallery/slider container; fall back to whole page.
+    const NON_VEHICLE_PATH =
+      /\/(?:icon|logo|badge|banner|avatar|staff|team|person|social|sprite|header|footer|favicon|placeholder|tracking|pixel|spacer|arrow|bullet|star|rating|map|pin|marker)\b/i
+    const MIN_W = 200
+    const MIN_H = 150
+    const galleryRoot =
+      document.querySelector<HTMLElement>(
+        '[class*="gallery"], [class*="slider"], [class*="carousel"], [class*="photo-"], [id*="gallery"], [id*="slider"]',
+      ) ??
+      document.querySelector<HTMLElement>('main, article, [role="main"]') ??
+      document.body
     const seen = new Set<string>()
     const imageUrls: string[] = []
-    document.querySelectorAll<HTMLImageElement>('img[data-src], img[src]').forEach(function (img) {
+    galleryRoot.querySelectorAll<HTMLImageElement>('img[data-src], img[src]').forEach(function (img) {
       const src = img.getAttribute('data-src') ?? img.getAttribute('src') ?? ''
-      if (!src || src.includes('placeholder') || src.includes('logo') || src.length < 10) return
+      if (!src || src.startsWith('data:') || src.length < 10) return
+      if (NON_VEHICLE_PATH.test(src)) return
+      const attrW = parseInt(img.getAttribute('width') ?? '0', 10)
+      const attrH = parseInt(img.getAttribute('height') ?? '0', 10)
+      if (attrW > 0 && attrW < MIN_W) return
+      if (attrH > 0 && attrH < MIN_H) return
+      if (img.naturalWidth > 0 && img.naturalWidth < MIN_W) return
+      if (img.naturalHeight > 0 && img.naturalHeight < MIN_H) return
       const abs = src.startsWith('http') ? src : `${baseUrl}${src}`
       if (!seen.has(abs) && /\.(jpg|jpeg|webp|png)/i.test(abs)) {
         seen.add(abs)
