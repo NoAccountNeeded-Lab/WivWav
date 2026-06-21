@@ -1,19 +1,104 @@
-import { DoorOpen, Truck } from 'lucide-react'
+import { DoorOpen, ExternalLink, ShieldCheck, Truck } from 'lucide-react'
 import { abbreviate } from '@/app/listings/[id]/utils'
+import type { ConversionBrandDetail, ConversionProduct } from './conversionBrand'
 import styles from './WavConversionInfo.module.css'
 
 interface WavConversionInfoProps {
   conversionType: string
   conversionManufacturer?: string | null
+  conversionBrand?: ConversionBrandDetail | null | undefined
+  matchedProduct?: ConversionProduct | null | undefined
 }
 
-export function WavConversionInfo({ conversionType, conversionManufacturer }: WavConversionInfoProps) {
+function conversionTypeLabel(value: string): string | null {
+  if (value === 'side_entry') return 'Side entry'
+  if (value === 'rear_entry') return 'Rear entry'
+  return null
+}
+
+function rampTypeLabel(value: string): string | null {
+  if (value === 'in_floor') return 'In-floor ramp'
+  if (value === 'fold_out') return 'Fold-out ramp'
+  if (value === 'fold_in') return 'Fold-in ramp'
+  return null
+}
+
+export function WavConversionInfo({
+  conversionType,
+  conversionManufacturer,
+  conversionBrand,
+  matchedProduct,
+}: WavConversionInfoProps) {
   const isSide = conversionType === 'side_entry'
   const isRear = conversionType === 'rear_entry'
   const hasType = isSide || isRear
+  const displayName = conversionBrand?.name ?? conversionManufacturer
+  const productSpecs = [
+    matchedProduct ? conversionTypeLabel(matchedProduct.conversionType) : null,
+    matchedProduct ? rampTypeLabel(matchedProduct.rampType) : null,
+    matchedProduct?.floorLoweringInches != null
+      ? `${matchedProduct.floorLoweringInches} inch lowered floor`
+      : null,
+  ].filter(Boolean)
 
   return (
     <>
+      {(displayName || conversionBrand) && (
+        <section className={styles.conversionSection} aria-labelledby="conversion-heading">
+          <div className={styles.sectionHeader}>
+            <h2 id="conversion-heading" className={styles.sectionTitle}>
+              Conversion
+            </h2>
+            {conversionBrand?.nmedaCertified && (
+              <span className={styles.nmedaBadge}>
+                <ShieldCheck size={13} aria-hidden />
+                NMEDA QAP
+              </span>
+            )}
+          </div>
+
+          {displayName && (
+            <div className={styles.convRow}>
+              <div className={styles.convLogo} aria-hidden>
+                {abbreviate(displayName)}
+              </div>
+              <div className={styles.convBody}>
+                <div className={styles.convName}>{displayName}</div>
+                <div className={styles.convSub}>
+                  {conversionBrand ? 'WAV conversion brand' : 'WAV conversion manufacturer'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {matchedProduct && (
+            <div className={styles.productBox}>
+              <div className={styles.productLabel}>Matched product</div>
+              <div className={styles.productName}>{matchedProduct.name}</div>
+              {productSpecs.length > 0 && (
+                <ul className={styles.specList} aria-label="Conversion product specs">
+                  {productSpecs.map((spec) => (
+                    <li key={spec}>{spec}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {conversionBrand?.website && (
+            <a
+              className={styles.websiteLink}
+              href={conversionBrand.website}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Brand website
+              <ExternalLink size={13} aria-hidden />
+            </a>
+          )}
+        </section>
+      )}
+
       {hasType && (
         <div className={styles.entryBanner}>
           <span className={styles.entryIcon} aria-hidden>
@@ -26,18 +111,6 @@ export function WavConversionInfo({ conversionType, conversionManufacturer }: Wa
             <div className={styles.entrySub}>
               {isSide ? 'Driver or passenger side access' : 'Rear ramp or lift access'}
             </div>
-          </div>
-        </div>
-      )}
-
-      {conversionManufacturer && (
-        <div className={styles.convRow}>
-          <div className={styles.convLogo} aria-hidden>
-            {abbreviate(conversionManufacturer)}
-          </div>
-          <div>
-            <div className={styles.convName}>{conversionManufacturer}</div>
-            <div className={styles.convSub}>WAV conversion manufacturer</div>
           </div>
         </div>
       )}

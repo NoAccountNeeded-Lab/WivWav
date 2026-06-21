@@ -5,6 +5,11 @@ import { getTranslations, getLocale } from 'next-intl/server'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { PhotoGallery } from '@/components/PhotoGallery'
+import {
+  conversionBrandSlug,
+  matchConversionProduct,
+  type ConversionBrandDetail,
+} from '@/components/listing/conversionBrand'
 import { BackButton } from './BackButton'
 import { ListingSheet } from './ListingSheet'
 import { OverviewTab } from './OverviewTab'
@@ -33,6 +38,24 @@ async function getListing(id: string): Promise<ListingDetail | null> {
     })
     if (!res.ok) return null
     const json = (await res.json()) as { data: ListingDetail }
+    return json.data
+  } catch {
+    return null
+  }
+}
+
+async function getConversionBrand(
+  conversionManufacturer: string | null,
+): Promise<ConversionBrandDetail | null> {
+  const slug = conversionBrandSlug(conversionManufacturer)
+  if (!slug) return null
+
+  try {
+    const res = await apiFetch(`${getServerApiBaseUrl()}/v1/conversion-brands/${slug}`, {
+      next: { revalidate: 86400 },
+    })
+    if (!res.ok) return null
+    const json = (await res.json()) as { data: ConversionBrandDetail }
     return json.data
   } catch {
     return null
@@ -177,7 +200,15 @@ export default async function ListingDetailV2Page({
   const listing = await getListing(id)
   if (!listing) notFound()
 
-  const [priceHistory, safety, marketPricing, similar, modelResearch, vehicleStats] =
+  const [
+    priceHistory,
+    safety,
+    marketPricing,
+    similar,
+    modelResearch,
+    vehicleStats,
+    conversionBrand,
+  ] =
     await Promise.all([
       getPriceHistory(id),
       getSafety(id),
@@ -185,10 +216,19 @@ export default async function ListingDetailV2Page({
       getSimilar(listing.make, listing.model, listing.year, id),
       getModelResearch(listing.make, listing.model, listing.year),
       getVehicleStats(listing.make, listing.model, listing.year),
+      getConversionBrand(listing.wav.conversionManufacturer),
     ])
 
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   const location = [listing.location.city, listing.location.state].filter(Boolean).join(', ')
+  const matchedConversionProduct = conversionBrand
+    ? matchConversionProduct(conversionBrand.products, {
+        make: listing.make,
+        model: listing.model,
+        conversionType: listing.wav.conversionType,
+        rampType: listing.wav.rampType,
+      })
+    : null
 
   const openRecallCount = (safety?.recalls ?? []).filter((r) => r.status === 'open').length
 
@@ -197,7 +237,13 @@ export default async function ListingDetailV2Page({
       id: 'wav',
       label: 'WAV',
       icon: <Accessibility size={14} aria-hidden />,
-      content: <WavTab listing={listing} />,
+      content: (
+        <WavTab
+          listing={listing}
+          conversionBrand={conversionBrand}
+          matchedConversionProduct={matchedConversionProduct}
+        />
+      ),
     },
     {
       id: 'vehicle',

@@ -8,15 +8,18 @@ import {
 } from 'lucide-react'
 import { WavFeatureItem } from '@/components/listing/WavFeatureItem'
 import { WavConversionInfo } from '@/components/listing/WavConversionInfo'
+import type { ConversionBrandDetail, ConversionProduct } from '@/components/listing/conversionBrand'
 import { rampLabel } from './utils'
 import type { ListingDetail } from './types'
 import styles from './tabs.module.css'
 
 interface WavTabProps {
   listing: ListingDetail
+  conversionBrand?: ConversionBrandDetail | null
+  matchedConversionProduct?: ConversionProduct | null
 }
 
-export function WavTab({ listing }: WavTabProps) {
+export function WavTab({ listing, conversionBrand, matchedConversionProduct }: WavTabProps) {
   const { wav } = listing
   const ramp =
     wav.rampType !== 'none' && wav.rampType !== 'unknown'
@@ -28,6 +31,8 @@ export function WavTab({ listing }: WavTabProps) {
       <WavConversionInfo
         conversionType={wav.conversionType}
         conversionManufacturer={wav.conversionManufacturer}
+        conversionBrand={conversionBrand}
+        matchedProduct={matchedConversionProduct}
       />
 
       <div className={styles.wavGrid} role="list" aria-label="WAV accessibility features">
