@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/navigation'
 import type { IntakeFilters } from '@wivwav/types'
 import styles from './IntakeForm.module.css'
 

@@ -1,21 +1,8 @@
-import { IntakeForm } from '../components/IntakeForm'
-import { SiteHeader } from '../components/SiteHeader'
-import styles from './page.module.css'
+// The middleware redirects all root requests to the appropriate locale prefix.
+// This file should never be reached in normal operation, but provides a
+// fallback redirect as a safety net.
+import { redirect } from 'next/navigation'
 
-export default function HomePage() {
-  return (
-    <>
-      <SiteHeader />
-
-      <main id="main-content" tabIndex={-1} className={styles.main}>
-        <div className={styles.container}>
-
-          <section className={styles.heroSection} aria-labelledby="hero-heading">
-            <IntakeForm />
-          </section>
-
-        </div>
-      </main>
-    </>
-  )
+export default function RootPage() {
+  redirect('/en')
 }
