@@ -24,6 +24,7 @@ export interface ListingDocument {
   transmission: string | null
   conversionType: string
   conversionManufacturer: string | null
+  conversionBrand: string | null
   floorLoweringInches: number | null
   rampType: string
   wavFeatures: string[]
@@ -40,6 +41,28 @@ export interface ListingDocument {
   status: string
   saleStatus: string
   listedAt: string
+}
+
+const BRAND_SLUG_ALIASES: Record<string, string> = {
+  ams: 'ams-vans',
+  'ams-and-vans': 'ams-vans',
+  freedom: 'freedom-motors',
+  rollx: 'rollx-vans',
+  vantage: 'vantage-mobility',
+  'vantage-mobility-international': 'vantage-mobility',
+}
+
+export function conversionBrandSlug(value: string | null | undefined): string | null {
+  const slug = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  if (!slug) return null
+
+  return BRAND_SLUG_ALIASES[slug] ?? slug
 }
 
 export function priceBucket(priceCents: number | null, bucketSizeDollars = 5000): string | null {
@@ -83,6 +106,7 @@ export function toDocument(row: Listing): ListingDocument {
     transmission: row.transmission,
     conversionType: row.conversionType,
     conversionManufacturer: row.conversionManufacturer,
+    conversionBrand: conversionBrandSlug(row.conversionManufacturer),
     floorLoweringInches: row.floorLoweringInches,
     rampType: row.rampType,
     wavFeatures: row.wavFeatures as string[],

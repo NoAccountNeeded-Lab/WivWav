@@ -21,6 +21,7 @@
     "searchResultsLabel": "Resultados de búsqueda",
     "vehiclesFound": "{count, plural, =1 {# vehículo encontrado} other {# vehículos encontrados}}",
     "noVehicles": "Ningún vehículo coincide con sus filtros actuales.",
+    "noVehiclesForBrand": "Ningún vehículo coincide con la marca de conversión seleccionada. Pruebe otra marca o borre el filtro de marca.",
     "clearAllFilters": "Borrar todos los filtros",
     "pagination": {
       "ariaLabel": "Paginación",

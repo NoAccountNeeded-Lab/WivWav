@@ -119,6 +119,38 @@ describe('GET /', () => {
     await app.close()
   })
 
+  it('passes conversion brand slugs as a multi-value search filter', async () => {
+    const { app, search } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/?conversionBrand=braunability,vmi',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(search.search).toHaveBeenCalledWith(expect.objectContaining({
+      conversionBrand: ['braunability', 'vmi'],
+    }))
+
+    await app.close()
+  })
+
+  it('accepts bracketed conversion brand query params', async () => {
+    const { app, search } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/?conversionBrand[]=braunability,vmi',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(search.search).toHaveBeenCalledWith(expect.objectContaining({
+      conversionBrand: ['braunability', 'vmi'],
+    }))
+
+    await app.close()
+  })
+
   it('rejects invalid pagination query params', async () => {
     const { app, search } = buildTestApp()
 
@@ -179,6 +211,22 @@ describe('GET /facets', () => {
       priceMax: 5000000,
       wavFeatures: ['has_lift'],
       state: ['CO', 'UT'],
+    }))
+
+    await app.close()
+  })
+
+  it('passes conversion brand slugs to facet filtering', async () => {
+    const { app, facets } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/facets?conversionBrand=braunability,vmi',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(facets.getFacets).toHaveBeenCalledWith(expect.objectContaining({
+      conversionBrand: ['braunability', 'vmi'],
     }))
 
     await app.close()
