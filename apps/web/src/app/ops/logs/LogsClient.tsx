@@ -243,7 +243,7 @@ export function LogsClient({ apiBaseUrl }: LogsClientProps) {
   }, [entries])
 
   return (
-    <main id="main-content" className={styles.main}>
+    <main id="main-content" className={`${styles.main} ${logsStyles.logsPage}`}>
       <p className={styles.srOnly} aria-live="polite" aria-atomic="true">{liveStatus}</p>
       <div className={styles.container}>
         <div className={styles.pageHeader}>

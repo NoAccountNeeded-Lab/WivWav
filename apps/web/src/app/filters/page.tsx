@@ -9,7 +9,7 @@ import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { SiteHeader } from '@/components/SiteHeader'
 import { NewBadge } from '@/components/NewBadge'
-import { VisitTracker } from './VisitTracker'
+import { ListingsVisitSession } from '@/components/ListingsVisitSession'
 import styles from './page.module.css'
 
 // ── Types ────────────────────────────────────────────────
@@ -304,7 +304,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
             </Suspense>
 
             {listings.length > 0 ? (
-              <>
+              <ListingsVisitSession>
                 <ul className={styles.listingsGrid} role="list">
                   {listings.map((listing) => (
                     <li key={listing.id}>
@@ -316,7 +316,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                 {pagination.totalPages > 1 && (
                   <PaginationNav pagination={pagination} currentParams={params} />
                 )}
-              </>
+              </ListingsVisitSession>
             ) : (
               <div className={styles.emptyState} role="status">
                 <p>
@@ -331,10 +331,6 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
 
         </div>
       </main>
-
-      {/* Records the current visit timestamp so the next page load can
-          identify listings that appeared after this session. */}
-      <VisitTracker />
     </>
   )
 }

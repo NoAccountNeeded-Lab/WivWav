@@ -256,6 +256,12 @@
   color: #92400e;
 }
 
+.badge[data-variant="muted"] {
+  background: var(--clr-surface);
+  color: var(--clr-text-muted);
+  border: 1px solid var(--clr-border);
+}
+
 /* ── Number cells ───────────────────── */
 
 .num {
@@ -1194,7 +1200,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :global(*), :global(*::before), :global(*::after) {
+  .main :global(*),
+  .main :global(*::before),
+  .main :global(*::after) {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }

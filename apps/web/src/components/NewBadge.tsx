@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { getLastVisitTimestamp } from '@/lib/last-visit'
+import { useLastListingsVisit } from './ListingsVisitSession'
+import { isListingNewSinceLastVisit } from './new-badge-utils'
 import styles from './NewBadge.module.css'
 
 interface NewBadgeProps {
@@ -10,24 +10,16 @@ interface NewBadgeProps {
 
 /**
  * Renders a "New" badge if the listing was added after the user's last visit.
- * Returns null on first visit (no stored timestamp) or when the listing is
- * not new relative to the last visit.
+ * Returns null before the visit timestamp is loaded, on first visit, or when
+ * the listing is not new relative to the previous session.
  *
- * Renders nothing during SSR — the badge is purely client-side to avoid
- * hydration mismatches with localStorage.
+ * The previous visit timestamp is captured once by ListingsVisitSession before
+ * the current visit is recorded, so soft navigations keep comparing against the
+ * previous session timestamp.
  */
 export function NewBadge({ listedAt }: NewBadgeProps) {
-  const [isNew, setIsNew] = useState(false)
-
-  useEffect(() => {
-    const lastVisit = getLastVisitTimestamp()
-    if (lastVisit === null) return
-
-    const listedDate = new Date(listedAt)
-    if (isNaN(listedDate.getTime())) return
-
-    setIsNew(listedDate > new Date(lastVisit))
-  }, [listedAt])
+  const lastVisit = useLastListingsVisit()
+  const isNew = isListingNewSinceLastVisit(listedAt, lastVisit)
 
   if (!isNew) return null
 
@@ -36,3 +28,5 @@ export function NewBadge({ listedAt }: NewBadgeProps) {
     <span className={styles.badge}>New</span>
   )
 }
+
+export { isListingNewSinceLastVisit }
