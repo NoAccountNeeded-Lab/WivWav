@@ -26,6 +26,15 @@ interface ListingConversionMatchInput {
   rampType: RampType
 }
 
+const BRAND_SLUG_ALIASES: Record<string, string> = {
+  ams: 'ams-vans',
+  'ams-and-vans': 'ams-vans',
+  freedom: 'freedom-motors',
+  rollx: 'rollx-vans',
+  vantage: 'vantage-mobility',
+  'vantage-mobility-international': 'vantage-mobility',
+}
+
 export function conversionBrandSlug(value: string | null | undefined): string | null {
   const slug = value
     ?.trim()
@@ -34,7 +43,9 @@ export function conversionBrandSlug(value: string | null | undefined): string | 
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-  return slug ? slug : null
+  if (!slug) return null
+
+  return BRAND_SLUG_ALIASES[slug] ?? slug
 }
 
 export function matchConversionProduct(
@@ -48,18 +59,20 @@ export function matchConversionProduct(
 
   const scored = products.map((product, index) => {
     const name = product.name.toLowerCase()
+    const makeMatches = name.includes(make)
+    const modelMatches = name.includes(model)
     let score = 0
 
-    if (name.includes(model)) score += 8
-    if (name.includes(make)) score += 3
+    if (modelMatches) score += 8
+    if (makeMatches) score += 3
     if (product.conversionType === listing.conversionType) score += 4
     if (product.rampType === listing.rampType) score += 2
 
-    return { product, index, score }
+    return { product, index, score: makeMatches || modelMatches ? score : 0 }
   })
 
   scored.sort((a, b) => b.score - a.score || a.index - b.index)
 
   const best = scored[0]
-  return best && best.score > 0 ? best.product : (products[0] ?? null)
+  return best && best.score > 0 ? best.product : null
 }
