@@ -1,6 +1,6 @@
 import type { BrowserPage } from '../browser/index.js'
 import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
-import { parseSaleStatus } from './blvd-detail.js'
+import { parseSaleStatus } from '../lib/sale-status.js'
 
 const BASE_URL = 'https://www.mobilityworks.com'
 
