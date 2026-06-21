@@ -25,6 +25,7 @@ const MULTI_PARAM_LABELS: Record<string, { singular: string; plural: string }> =
   make:           { singular: 'Make',       plural: 'Makes'       },
   model:          { singular: 'Model',      plural: 'Models'      },
   condition:      { singular: 'Condition',  plural: 'Conditions'  },
+  conversionBrand: { singular: 'Conversion brand', plural: 'Conversion brands' },
   conversionType: { singular: 'Entry type', plural: 'Entry types' },
   color:          { singular: 'Color',      plural: 'Colors'      },
   rampType:       { singular: 'Ramp type',  plural: 'Ramp types'  },
@@ -41,6 +42,15 @@ const WAV_FEATURE_LABELS: Record<string, string> = {
   tie_down_system:         'Tie-Down System',
   automatic_door:          'Automatic Door',
   motorized_running_board: 'Motorized Running Board',
+}
+
+const CONVERSION_BRAND_LABELS: Record<string, string> = {
+  'ams-vans': 'AMS Vans',
+  braunability: 'BraunAbility',
+  'freedom-motors': 'Freedom Motors',
+  'rollx-vans': 'Rollx Vans',
+  'vantage-mobility': 'Vantage Mobility',
+  vmi: 'VMI',
 }
 
 // ── Pill building ──────────────────────────────────────────────────────────
@@ -78,9 +88,15 @@ function buildPills(params: URLSearchParams): Pill[] {
     if (values.length === 0) continue
     let label: string
     if (values.length === 1) {
-      label = formatLabel(values[0]!)
+      label = param === 'conversionBrand'
+        ? CONVERSION_BRAND_LABELS[values[0]!] ?? formatLabel(values[0]!)
+        : formatLabel(values[0]!)
     } else if (values.length === 2) {
-      label = values.map(formatLabel).join(', ')
+      label = values
+        .map((value) => param === 'conversionBrand'
+          ? CONVERSION_BRAND_LABELS[value] ?? formatLabel(value)
+          : formatLabel(value))
+        .join(', ')
     } else {
       label = `${values.length} ${labels.plural}`
     }

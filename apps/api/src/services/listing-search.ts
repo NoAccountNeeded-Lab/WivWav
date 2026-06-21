@@ -22,6 +22,7 @@ export interface SearchParams {
   priceMax?: number | undefined
   mileageMax?: number | undefined
   condition?: string[] | undefined
+  conversionBrand?: string[] | undefined
   conversionType?: string[] | undefined
   rampType?: string[] | undefined
   wavFeatures?: string[] | undefined
@@ -50,7 +51,7 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
     filterableAttributes: [
       'make', 'model', 'year', 'condition', 'sellerType',
       'conversionType', 'rampType', 'wavFeatures',
-      'color', 'state', 'city', 'sourceId',
+      'conversionBrand', 'color', 'state', 'city', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
     ],
     sortableAttributes: ['priceCents', 'mileage', 'year', 'listedAt'],
@@ -82,6 +83,7 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   if (params.make?.length) filters['make'] = params.make
   if (params.model?.length) filters['model'] = params.model
   if (params.condition?.length) filters['condition'] = params.condition
+  if (params.conversionBrand?.length) filters['conversionBrand'] = params.conversionBrand
   if (params.conversionType?.length) filters['conversionType'] = params.conversionType
   if (params.rampType?.length) filters['rampType'] = params.rampType
   if (params.wavFeatures?.length) filters['wavFeatures'] = params.wavFeatures

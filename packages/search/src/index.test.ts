@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toDocument } from './index.js'
+import { conversionBrandSlug, toDocument } from './index.js'
 import type { Listing } from '@wivwav/db'
 
 // Minimal Listing row that satisfies the Prisma-generated type for toDocument.
@@ -106,6 +106,34 @@ describe('toDocument — private-seller field normalization', () => {
     const row = makeListing({ sellerType: 'private', dealerPhone: null })
     const doc = toDocument(row)
     expect(doc.dealerPhone).toBeNull()
+  })
+
+  it('adds the normalized conversionBrand slug', () => {
+    const row = makeListing({ conversionManufacturer: 'BraunAbility' })
+    const doc = toDocument(row)
+    expect(doc.conversionBrand).toBe('braunability')
+  })
+})
+
+describe('conversionBrandSlug', () => {
+  it('normalizes brand names to URL-safe slugs', () => {
+    expect(conversionBrandSlug(' BraunAbility ')).toBe('braunability')
+    expect(conversionBrandSlug('Freedom Motors')).toBe('freedom-motors')
+    expect(conversionBrandSlug('AMS Vans')).toBe('ams-vans')
+  })
+
+  it('maps common aliases to seeded brand slugs', () => {
+    expect(conversionBrandSlug('Rollx')).toBe('rollx-vans')
+    expect(conversionBrandSlug('AMS')).toBe('ams-vans')
+    expect(conversionBrandSlug('Freedom')).toBe('freedom-motors')
+    expect(conversionBrandSlug('Vantage')).toBe('vantage-mobility')
+    expect(conversionBrandSlug('Vantage Mobility International')).toBe('vantage-mobility')
+  })
+
+  it('returns null for missing or blank values', () => {
+    expect(conversionBrandSlug(null)).toBeNull()
+    expect(conversionBrandSlug(undefined)).toBeNull()
+    expect(conversionBrandSlug('   ')).toBeNull()
   })
 })
 

@@ -40,3 +40,68 @@
   border: 1.5px solid var(--clr-border);
   isolation: isolate;
 }
+
+/* ── Conversion brand group ─────────────────────────────────────────────── */
+
+.brandGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  break-inside: avoid;
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  background: rgba(92, 53, 198, 0.04);
+  border: 1px solid rgba(92, 53, 198, 0.13);
+  border-radius: 12px;
+}
+
+.brandTitle {
+  display: block;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--clr-text-muted);
+}
+
+.brandOptions {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.brandOption {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.brandOption:has(.brandCheckbox:checked) {
+  border-color: var(--color-primary-border, var(--clr-primary));
+  background: var(--color-primary-subtle, rgba(92, 53, 198, 0.08));
+}
+
+.brandCheckbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--clr-primary);
+  flex: 0 0 auto;
+}
+
+.brandCheckbox:focus-visible {
+  outline: 2px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
+.brandName {
+  min-width: 0;
+  line-height: 1.25;
+}

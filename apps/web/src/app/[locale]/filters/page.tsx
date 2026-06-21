@@ -60,7 +60,7 @@ async function fetchListings(
   const forward = [
     'q', 'page', 'make', 'model',
     'yearMin', 'yearMax', 'priceMin', 'priceMax', 'mileageMax',
-    'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
+    'condition', 'conversionBrand', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
   ]
 
   for (const key of forward) {
@@ -286,6 +286,7 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
 
   const resolvedSearchParams = await searchParams
   const { data: listings, pagination } = await fetchListings(resolvedSearchParams)
+  const hasConversionBrandFilter = Boolean(resolvedSearchParams.conversionBrand)
 
   const mappableListings: MapListing[] = listings.flatMap((l) =>
     l.lat != null && l.lng != null
@@ -359,7 +360,7 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
               </>
             ) : (
               <div className={styles.emptyState} role="status">
-                <p>{t('noVehicles')}</p>
+                <p>{hasConversionBrandFilter ? t('noVehiclesForBrand') : t('noVehicles')}</p>
                 <Link href="/filters">{t('clearAllFilters')}</Link>
               </div>
             )}

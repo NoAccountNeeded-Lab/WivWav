@@ -35,6 +35,13 @@ interface FacetsData {
   }
 }
 
+interface ConversionBrandSummary {
+  id: string
+  name: string
+  slug: string
+  productCount: number
+}
+
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
 const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state'] as const
@@ -43,7 +50,7 @@ type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 const ALL_FILTER_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'hasLift',
-  'handControls', 'color', 'state',
+  'handControls', 'conversionBrand', 'color', 'state',
 ]
 
 const MAX_BARS = 8
@@ -77,6 +84,18 @@ async function fetchFacets(url: string): Promise<FacetsData> {
   const res = await fetch(url)
   const json = (await res.json()) as { data: FacetsData }
   return json.data
+}
+
+async function fetchConversionBrands(): Promise<ConversionBrandSummary[]> {
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+  try {
+    const res = await fetch(`${base}/v1/conversion-brands`)
+    if (!res.ok) return []
+    const json = (await res.json()) as { data?: ConversionBrandSummary[] }
+    return json.data ?? []
+  } catch {
+    return []
+  }
 }
 
 function stabilizeBars(current: BarDatum[], previous: BarDatum[]): BarDatum[] {
@@ -128,7 +147,20 @@ export function CategoryBarChart({
   const [, startTransition] = useTransition()
 
   const [data, setData] = useState<FacetsData | null>(null)
+  const [conversionBrands, setConversionBrands] = useState<ConversionBrandSummary[]>([])
   const prevFacetsRef = useRef<FacetsData | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const doFetch = async () => {
+      const brands = await fetchConversionBrands()
+      if (!cancelled) setConversionBrands(brands)
+    }
+
+    void doFetch()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -273,8 +305,10 @@ export function CategoryBarChart({
     : groups
 
   const showFeatures = !limitGroups || limitGroups.includes('features')
+  const showConversionBrands = !limitGroups || limitGroups.includes('conversionBrand')
 
   const r = (id: string): CategoricalRendererType => renderers[id] ?? 'bars'
+  const activeConversionBrands = parseCommaSep(searchParams.get('conversionBrand'))
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -287,6 +321,25 @@ export function CategoryBarChart({
             <ListingsMap listings={mapListings} />
           </div>
         </div>
+      )}
+
+      {showConversionBrands && conversionBrands.length > 0 && (
+        <fieldset className={styles.brandGroup}>
+          <legend className={styles.brandTitle}>Conversion Brand</legend>
+          <div className={styles.brandOptions}>
+            {conversionBrands.map((brand) => (
+              <label key={brand.id} className={styles.brandOption}>
+                <input
+                  type="checkbox"
+                  className={styles.brandCheckbox}
+                  checked={activeConversionBrands.includes(brand.slug)}
+                  onChange={() => toggleArray('conversionBrand', brand.slug)}
+                />
+                <span className={styles.brandName}>{brand.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       )}
 
       {showHistograms ? (

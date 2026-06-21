@@ -80,6 +80,8 @@ interface FilterQuery {
   priceMax?: number
   mileageMax?: number
   condition?: string
+  conversionBrand?: string
+  'conversionBrand[]'?: string
   conversionType?: string
   rampType?: string
   wavFeatures?: string
@@ -102,6 +104,8 @@ const filterQuerySchema = {
     priceMax: { type: 'integer' },
     mileageMax: { type: 'integer' },
     condition: { type: 'string' },
+    conversionBrand: { type: 'string' },
+    'conversionBrand[]': { type: 'string' },
     conversionType: { type: 'string' },
     rampType: { type: 'string' },
     wavFeatures: { type: 'string' },
@@ -128,6 +132,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         priceMax: q.priceMax,
         mileageMax: q.mileageMax,
         condition: parseArr(q.condition),
+        conversionBrand: parseArrs(q.conversionBrand, q['conversionBrand[]']),
         conversionType: parseArr(q.conversionType),
         rampType: parseArr(q.rampType),
         wavFeatures: parseArr(q.wavFeatures),
@@ -173,6 +178,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         priceMax: q.priceMax,
         mileageMax: q.mileageMax,
         condition: parseArr(q.condition),
+        conversionBrand: parseArrs(q.conversionBrand, q['conversionBrand[]']),
         conversionType: parseArr(q.conversionType),
         rampType: parseArr(q.rampType),
         wavFeatures: parseArr(q.wavFeatures),
@@ -274,4 +280,9 @@ function parseArr(v: string | undefined): string[] | undefined {
   if (!v) return undefined
   const parts = v.split(',').map(s => s.trim()).filter(Boolean)
   return parts.length ? parts : undefined
+}
+
+function parseArrs(...values: Array<string | undefined>): string[] | undefined {
+  const parts = values.flatMap((value) => parseArr(value) ?? [])
+  return parts.length ? [...new Set(parts)] : undefined
 }
