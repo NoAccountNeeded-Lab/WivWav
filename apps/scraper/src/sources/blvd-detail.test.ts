@@ -16,9 +16,9 @@ describe('parseSaleStatus', () => {
     expect(parseSaleStatus('SOLD')).toBe('sold')
   })
 
-  it('returns sold for "No Longer Available" text', () => {
-    expect(parseSaleStatus('No Longer Available')).toBe('sold')
-    expect(parseSaleStatus('Vehicle Unavailable')).toBe('sold')
+  it('returns gone for unavailable banner text', () => {
+    expect(parseSaleStatus('No Longer Available')).toBe('gone')
+    expect(parseSaleStatus('Vehicle Unavailable')).toBe('gone')
   })
 
   it('returns pending for "Pending Sale" banner text', () => {

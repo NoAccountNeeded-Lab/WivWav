@@ -29,6 +29,7 @@ export type StatusUpdate =
  *
  * Rules:
  * - sold banner on any non-gone listing → gone (+ soldAt on first confirmation)
+ * - gone/unavailable banner on any non-gone listing → gone without soldAt
  * - pending banner on possibly_gone → restore to active (listing still live, just under contract)
  * - pending banner on active → no status change (stays visible in search with saleStatus label)
  * - possibly_gone + no banner → restore to active (confirmed still live)
@@ -40,11 +41,11 @@ export function resolveListingStatus(
   existingSoldAt: Date | null,
   now: Date,
 ): StatusUpdate {
-  if (saleStatus === 'sold' && currentStatus !== 'gone') {
+  if ((saleStatus === 'sold' || saleStatus === 'gone') && currentStatus !== 'gone') {
     return {
       status: 'gone',
       goneAt: now,
-      ...(existingSoldAt == null ? { soldAt: now } : {}),
+      ...(saleStatus === 'sold' && existingSoldAt == null ? { soldAt: now } : {}),
     }
   }
   if (currentStatus === 'possibly_gone' && saleStatus !== 'sold') {

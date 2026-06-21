@@ -11,6 +11,11 @@ describe('resolveListingStatus', () => {
     expect(result).toEqual({ status: 'gone', goneAt: NOW, soldAt: NOW })
   })
 
+  it('marks gone without soldAt when possibly_gone listing has unavailable banner', () => {
+    const result = resolveListingStatus('possibly_gone', 'gone', null, NOW)
+    expect(result).toEqual({ status: 'gone', goneAt: NOW })
+  })
+
   it('marks gone without overwriting existing soldAt when possibly_gone listing has sold banner', () => {
     const existingSoldAt = new Date('2026-01-01')
     const result = resolveListingStatus('possibly_gone', 'sold', existingSoldAt, NOW)
@@ -35,6 +40,11 @@ describe('resolveListingStatus', () => {
     expect(result).toEqual({ status: 'gone', goneAt: NOW, soldAt: NOW })
   })
 
+  it('marks gone without soldAt when active listing has unavailable banner', () => {
+    const result = resolveListingStatus('active', 'gone', null, NOW)
+    expect(result).toEqual({ status: 'gone', goneAt: NOW })
+  })
+
   it('marks gone without overwriting existing soldAt when active listing has sold banner', () => {
     const existingSoldAt = new Date('2026-01-15')
     const result = resolveListingStatus('active', 'sold', existingSoldAt, NOW)
@@ -56,6 +66,7 @@ describe('resolveListingStatus', () => {
 
   it('makes no status change when already-gone listing is re-processed', () => {
     expect(resolveListingStatus('gone', 'sold', null, NOW)).toEqual({})
+    expect(resolveListingStatus('gone', 'gone', null, NOW)).toEqual({})
     expect(resolveListingStatus('gone', 'pending', null, NOW)).toEqual({})
     expect(resolveListingStatus('gone', 'active', null, NOW)).toEqual({})
   })
