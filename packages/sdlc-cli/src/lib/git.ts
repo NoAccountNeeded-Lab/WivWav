@@ -79,3 +79,17 @@ export function issueNumberFromBranch(branch: string): number | null {
   const match = /\/issue-(\d+)/i.exec(branch)
   return match?.[1] !== undefined ? parseInt(match[1], 10) : null
 }
+
+/**
+ * Return true when origin/main has commits that the current branch does not
+ * yet include (i.e. the branch is behind origin/main and needs a rebase).
+ *
+ * Uses `git rev-list --count HEAD..origin/main`; a count > 0 means behind.
+ * Returns false on any git error (e.g. no remote access) so callers can
+ * decide how to handle the degraded case.
+ */
+export function isBehindOriginMain(): boolean {
+  const { stdout, ok } = tryRun('git rev-list --count HEAD..origin/main')
+  if (!ok) return false
+  return parseInt(stdout.trim(), 10) > 0
+}
