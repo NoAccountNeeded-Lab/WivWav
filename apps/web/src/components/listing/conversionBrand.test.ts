@@ -4,8 +4,16 @@ import { conversionBrandSlug, matchConversionProduct } from './conversionBrand'
 describe('conversionBrandSlug', () => {
   it('normalizes a conversion manufacturer string to the API slug format', () => {
     expect(conversionBrandSlug(' BraunAbility ')).toBe('braunability')
-    expect(conversionBrandSlug('Freedom Motors USA')).toBe('freedom-motors-usa')
-    expect(conversionBrandSlug('AMS & Vans')).toBe('ams-and-vans')
+    expect(conversionBrandSlug('Freedom Motors')).toBe('freedom-motors')
+    expect(conversionBrandSlug('AMS Vans')).toBe('ams-vans')
+  })
+
+  it('maps known scraper aliases to seeded brand slugs', () => {
+    expect(conversionBrandSlug('Rollx')).toBe('rollx-vans')
+    expect(conversionBrandSlug('AMS')).toBe('ams-vans')
+    expect(conversionBrandSlug('Freedom')).toBe('freedom-motors')
+    expect(conversionBrandSlug('Vantage')).toBe('vantage-mobility')
+    expect(conversionBrandSlug('Vantage Mobility International')).toBe('vantage-mobility')
   })
 
   it('returns null for empty or missing values', () => {
@@ -46,7 +54,7 @@ describe('matchConversionProduct', () => {
     ).toEqual(products[1])
   })
 
-  it('falls back to the first catalog product when no signal matches', () => {
+  it('does not guess a product when no vehicle name signal matches', () => {
     expect(
       matchConversionProduct(products, {
         make: 'Ford',
@@ -54,6 +62,17 @@ describe('matchConversionProduct', () => {
         conversionType: 'unknown',
         rampType: 'unknown',
       }),
-    ).toEqual(products[0])
+    ).toBeNull()
+  })
+
+  it('does not match solely on conversion specs', () => {
+    expect(
+      matchConversionProduct(products, {
+        make: 'Ford',
+        model: 'Transit',
+        conversionType: 'side_entry',
+        rampType: 'fold_out',
+      }),
+    ).toBeNull()
   })
 })
