@@ -435,9 +435,12 @@ model NmeaDealer {
   zip          String?
   phone        String?
   website      String?
-  qapCertified Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  qapCertified Boolean   @default(false)
+  city         String?
+  lat          Float?
+  lng          Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([state])
   @@map("nmea_dealers")
