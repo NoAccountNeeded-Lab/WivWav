@@ -117,6 +117,8 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://wav:wav@postgres:5432/wivwav
       QUEUE_REDIS_URL: redis://valkey:6379
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_API_KEY: wav_master_key
       SCRAPER_CONCURRENCY: 2
       SCRAPER_HEADLESS: "true"
       # Docker service name resolves automatically — no user config needed
