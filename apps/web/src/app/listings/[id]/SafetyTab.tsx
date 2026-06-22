@@ -3,7 +3,8 @@ import { RecallsList } from '@/components/listing/RecallsList'
 import { SafetyRatings } from '@/components/listing/SafetyRatings'
 import { formatFreshnessDate, isSafetyDataStale } from './safetyTabUtils'
 import { SafetyRefreshButton } from './SafetyRefreshButton'
-import type { ListingDetail, SafetyData } from './types'
+import { formatDate } from './utils'
+import type { Investigation, ListingDetail, ManufacturerCommunication, SafetyData } from './types'
 import styles from './tabs.module.css'
 
 interface SafetyTabProps {
@@ -19,6 +20,9 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
   const freshnessDate = safety?.safetyFreshnessDate ?? null
   const formattedDate = formatFreshnessDate(freshnessDate)
   const isStale = isSafetyDataStale(freshnessDate)
+
+  const investigations = safety?.investigations ?? []
+  const manufacturerCommunications = safety?.manufacturerCommunications ?? []
 
   return (
     <div className={styles.tabContent}>
@@ -76,6 +80,89 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
           No NHTSA safety ratings available for this vehicle yet.
         </p>
       )}
+
+      {investigations.length > 0 && (
+        <div className={styles.section}>
+          <div className={styles.sectionLabel}>NHTSA investigations</div>
+          <ul className={styles.safetyItemList} aria-label="NHTSA investigations">
+            {investigations.map((inv) => (
+              <InvestigationItem key={inv.id} investigation={inv} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {manufacturerCommunications.length > 0 && (
+        <div className={styles.section}>
+          <div className={styles.sectionLabel}>Technical service bulletins</div>
+          <ul className={styles.safetyItemList} aria-label="Technical service bulletins">
+            {manufacturerCommunications.map((comm) => (
+              <ManufacturerCommunicationItem key={comm.id} communication={comm} />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  )
+}
+
+function InvestigationItem({ investigation }: { investigation: Investigation }) {
+  const isOpen = investigation.closedDate === null
+  return (
+    <li className={styles.safetyItem}>
+      <div>
+        <div className={styles.safetyItemTitle}>
+          NHTSA #{investigation.nhtsaId} · {investigation.component}
+        </div>
+        <div className={styles.safetyItemSub}>
+          Opened {formatDate(investigation.openedDate)}
+          {isOpen ? (
+            <span className={styles.safetyItemBadgeOpen}>Open</span>
+          ) : (
+            <span className={styles.safetyItemBadgeClosed}>Closed</span>
+          )}
+        </div>
+        {investigation.summary && (
+          <div className={styles.safetyItemSub}>{investigation.summary}</div>
+        )}
+        {investigation.outcome && (
+          <div className={styles.safetyItemSub}>Outcome: {investigation.outcome}</div>
+        )}
+        <a
+          href={investigation.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.safetyItemSource}
+        >
+          NHTSA source
+          <span className="sr-only"> (opens in new tab)</span>
+        </a>
+      </div>
+    </li>
+  )
+}
+
+function ManufacturerCommunicationItem({ communication }: { communication: ManufacturerCommunication }) {
+  return (
+    <li className={styles.safetyItem}>
+      <div>
+        <div className={styles.safetyItemTitle}>
+          TSB #{communication.nhtsaId} · {communication.component}
+        </div>
+        <div className={styles.safetyItemSub}>Issued {formatDate(communication.issuedDate)}</div>
+        {communication.summary && (
+          <div className={styles.safetyItemSub}>{communication.summary}</div>
+        )}
+        <a
+          href={communication.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.safetyItemSource}
+        >
+          NHTSA source
+          <span className="sr-only"> (opens in new tab)</span>
+        </a>
+      </div>
+    </li>
   )
 }

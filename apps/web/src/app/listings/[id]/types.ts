@@ -69,6 +69,30 @@ export interface SafetyRating {
   refreshedAt: string | null
 }
 
+export interface Investigation {
+  id: string
+  nhtsaId: string
+  component: string
+  summary: string
+  openedDate: string
+  closedDate: string | null
+  outcome: string | null
+  /** Direct link to NHTSA record. Source-backed. */
+  sourceUrl: string
+  refreshedAt: string
+}
+
+export interface ManufacturerCommunication {
+  id: string
+  nhtsaId: string
+  component: string
+  summary: string
+  issuedDate: string
+  /** Direct link to NHTSA TSB record. Source-backed. */
+  sourceUrl: string
+  refreshedAt: string
+}
+
 export interface SafetyData {
   vehicleModel: { id: string; make: string; model: string; year: number } | null
   recalls: Recall[]
@@ -82,6 +106,8 @@ export interface SafetyData {
   safetyRatings: SafetyRating[]
   /** ISO-8601 date from the most recent NHTSA safety rating refresh, or null when unavailable. */
   safetyFreshnessDate: string | null
+  investigations: Investigation[]
+  manufacturerCommunications: ManufacturerCommunication[]
 }
 
 export interface MarketPricing {

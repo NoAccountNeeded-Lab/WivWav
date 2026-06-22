@@ -358,16 +358,18 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 | GET    | /v1/listings/facets            | Facet aggregations (cached 60s)      |
 | GET    | /v1/listings/:id               | Single listing detail                |
 | GET    | /v1/listings/:id/price-history | Listing price history                |
-| GET    | /v1/listings/:id/safety        | Safety summary (recalls with `status: open|remedied|unknown`, complaints, ratings, `safetyFreshnessDate`) for a listing |
-| POST   | /v1/listings/:id/refresh-safety | Trigger on-demand NHTSA refresh (recalls, complaints, ratings) for the vehicle model linked to this listing. Rate-limited to once per model per hour. Returns `{ enqueued: bool, reason?, retryAfter?, jobIds? }`. |
+| GET    | /v1/listings/:id/safety        | Safety summary (recalls with `status: open|remedied|unknown`, complaints, ratings, investigations, manufacturerCommunications, `safetyFreshnessDate`) for a listing |
+| POST   | /v1/listings/:id/refresh-safety | Trigger on-demand NHTSA refresh (recalls, complaints, ratings, investigations, manufacturer communications) for the vehicle model linked to this listing. Rate-limited to once per model per hour. Returns `{ enqueued: bool, reason?, retryAfter?, jobIds? }`. |
 | GET    | /v1/listings/:id/dealer        | Dealer profile + top 5 reviews for a listing. Returns `{ dealerProfile: null }` when no profile exists yet. |
 | GET    | /v1/vin/:vin/safety            | Decode a VIN and return NHTSA safety summary when data is available |
 | GET    | /v1/market/pricing                     | Price stats (percentiles, days listed, drop rate) for a make/model spec |
 | GET    | /v1/market/popular                     | Top 10 makes, models, and conversion brands by active listing count |
 | GET    | /v1/vehicles/:make/:model/stats            | Lifespan and reliability stats; returns `methodology` string and `sources: [{name, url}]` array (empty array when no source is recorded); optional `?year` falls back to aggregate row when no year-specific record exists |
-| GET    | /v1/vehicles/:make/:model/:year/recalls    | Open recalls for a vehicle           |
-| GET    | /v1/vehicles/:make/:model/:year/complaints | Complaints for a vehicle             |
-| GET    | /v1/vehicles/:make/:model/:year/research   | Latest cited model facts (EPA fuel economy, engine, drivetrain) with source URLs |
+| GET    | /v1/vehicles/:make/:model/:year/recalls        | Open recalls for a vehicle           |
+| GET    | /v1/vehicles/:make/:model/:year/complaints     | Complaints for a vehicle             |
+| GET    | /v1/vehicles/:make/:model/:year/research       | Latest cited model facts (EPA fuel economy, engine, drivetrain) with source URLs |
+| GET    | /v1/vehicles/:make/:model/:year/investigations | NHTSA investigations for a vehicle model; each record has `sourceUrl` |
+| GET    | /v1/vehicles/:make/:model/:year/communications | NHTSA TSBs (manufacturer communications) for a vehicle model; each record has `sourceUrl` |
 | GET    | /v1/conversion-brands          | List conversion brands with product counts and NMEDA certification status |
 | GET    | /v1/conversion-brands/:slug    | Brand detail with full product catalog (conversionType, rampType, floorLoweringInches, msrpCents) |
 | GET    | /v1/sources                    | List configured scraper sources      |

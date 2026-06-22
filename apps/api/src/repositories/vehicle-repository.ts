@@ -52,10 +52,15 @@ export type VehicleResearchRow = {
 
 // ── Interface ────────────────────────────────────────────────────────────────
 
+import type { InvestigationRow, ManufacturerCommunicationRow } from './listing-repository.js'
+export type { InvestigationRow, ManufacturerCommunicationRow }
+
 export interface VehicleRepository {
   findModel(make: string, model: string, year: number): Promise<VehicleModelRow | null>
   findRecalls(vehicleModelId: string): Promise<RecallRow[]>
   findComplaints(vehicleModelId: string): Promise<ComplaintRow[]>
+  findInvestigations(vehicleModelId: string): Promise<InvestigationRow[]>
+  findManufacturerCommunications(vehicleModelId: string): Promise<ManufacturerCommunicationRow[]>
   findStats(make: string, model: string, year: number | null): Promise<VehicleStatsRow | null>
   findResearch(vehicleModelId: string): Promise<VehicleResearchRow | null>
 }
@@ -96,6 +101,40 @@ export class PrismaVehicleRepository implements VehicleRepository {
         mileage: true,
         crashInvolved: true,
         reportedAt: true,
+      },
+    })
+  }
+
+  findInvestigations(vehicleModelId: string): Promise<InvestigationRow[]> {
+    return this.db.investigation.findMany({
+      where: { vehicleModelId },
+      orderBy: { openedDate: 'desc' },
+      select: {
+        id: true,
+        nhtsaId: true,
+        component: true,
+        summary: true,
+        openedDate: true,
+        closedDate: true,
+        outcome: true,
+        sourceUrl: true,
+        refreshedAt: true,
+      },
+    })
+  }
+
+  findManufacturerCommunications(vehicleModelId: string): Promise<ManufacturerCommunicationRow[]> {
+    return this.db.manufacturerCommunication.findMany({
+      where: { vehicleModelId },
+      orderBy: { issuedDate: 'desc' },
+      select: {
+        id: true,
+        nhtsaId: true,
+        component: true,
+        summary: true,
+        issuedDate: true,
+        sourceUrl: true,
+        refreshedAt: true,
       },
     })
   }

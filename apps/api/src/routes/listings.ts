@@ -128,6 +128,8 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
   const recallsQueue = queueFactory.createQueue(QUEUES.NHTSA_RECALLS)
   const complaintsQueue = queueFactory.createQueue(QUEUES.NHTSA_COMPLAINTS)
   const safetyRatingsQueue = queueFactory.createQueue(QUEUES.NHTSA_SAFETY_RATINGS)
+  const investigationsQueue = queueFactory.createQueue(QUEUES.NHTSA_INVESTIGATIONS)
+  const manufacturerCommunicationsQueue = queueFactory.createQueue(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS)
 
   app.get<{ Querystring: FilterQuery }>('/facets', { schema: { querystring: filterQuerySchema } }, async (req, reply) => {
     const q = req.query
@@ -240,7 +242,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
   app.get<{ Params: { id: string } }>('/:id/safety', async (req, reply) => {
     const listing = await listings.findByIdForSafety(req.params.id)
     if (!listing) return reply.notFound('Listing not found')
-    if (!listing.vehicleModelId) return reply.send({ data: { vehicleModel: null, recalls: [], complaints: [], safetyRatings: [], safetyFreshnessDate: null } })
+    if (!listing.vehicleModelId) return reply.send({ data: { vehicleModel: null, recalls: [], complaints: [], safetyRatings: [], safetyFreshnessDate: null, investigations: [], manufacturerCommunications: [] } })
 
     const vehicleModel = await listings.findVehicleModelWithSafetyData(listing.vehicleModelId)
 
@@ -257,6 +259,12 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
     // Strip refreshedAt from each rating — it is already aggregated into safetyFreshnessDate
     const safetyRatings = rawRatings.map(({ refreshedAt: _unused, ...rest }) => rest)
 
+    // Investigations: source URL is stored per record — expose as-is
+    const investigations = vehicleModel?.investigations ?? []
+
+    // Manufacturer communications (TSBs): source URL stored per record
+    const manufacturerCommunications = vehicleModel?.manufacturerCommunications ?? []
+
     return reply.send({
       data: {
         vehicleModel: vehicleModel
@@ -266,6 +274,8 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         complaints: vehicleModel?.complaints ?? [],
         safetyRatings,
         safetyFreshnessDate,
+        investigations,
+        manufacturerCommunications,
       },
     })
   })
@@ -291,14 +301,16 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
       refreshedAt.set(vehicleModelId, now)
 
       const jobData = { vehicleModelId }
-      const [recallsId, complaintsId, ratingsId] = await Promise.all([
+      const [recallsId, complaintsId, ratingsId, investigationsId, communicationsId] = await Promise.all([
         recallsQueue.add(jobData),
         complaintsQueue.add(jobData),
         safetyRatingsQueue.add(jobData),
+        investigationsQueue.add(jobData),
+        manufacturerCommunicationsQueue.add(jobData),
       ])
 
-      req.log.info({ vehicleModelId, recallsId, complaintsId, ratingsId }, '[listings/refresh-safety] enqueued scoped NHTSA refresh')
-      return reply.code(202).send({ data: { enqueued: true, jobIds: { recalls: recallsId, complaints: complaintsId, ratings: ratingsId } } })
+      req.log.info({ vehicleModelId, recallsId, complaintsId, ratingsId, investigationsId, communicationsId }, '[listings/refresh-safety] enqueued scoped NHTSA refresh')
+      return reply.code(202).send({ data: { enqueued: true, jobIds: { recalls: recallsId, complaints: complaintsId, ratings: ratingsId, investigations: investigationsId, communications: communicationsId } } })
     },
   )
 
