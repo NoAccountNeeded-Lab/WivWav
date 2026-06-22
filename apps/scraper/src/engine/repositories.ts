@@ -11,7 +11,7 @@ export interface ScraperRunRepository {
 }
 
 export interface SourceRepository {
-  markNeedsRemapping(id: string): Promise<void>
+  markNeedsRemapping(id: string, errorMessage?: string): Promise<void>
   markActive(id: string, data: { listingCount: number; fingerprintHash: string; page1Hash?: string }): Promise<void>
   markChecked(id: string): Promise<void>
   markError(id: string, errorMessage: string): Promise<void>

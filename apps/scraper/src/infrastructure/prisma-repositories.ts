@@ -33,10 +33,10 @@ export class PrismaScraperRunRepository implements ScraperRunRepository {
 export class PrismaSourceRepository implements SourceRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async markNeedsRemapping(id: string): Promise<void> {
+  async markNeedsRemapping(id: string, errorMessage = 'Structure changed — awaiting AI remap'): Promise<void> {
     await this.db.source.update({
       where: { id },
-      data: { status: 'needs_remapping', errorMessage: 'Structure changed — awaiting AI remap' },
+      data: { status: 'needs_remapping', errorMessage },
     })
   }
 
