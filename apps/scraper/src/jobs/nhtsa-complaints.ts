@@ -40,10 +40,15 @@ async function fetchComplaints(make: string, model: string, year: number): Promi
   return data.results ?? []
 }
 
-export async function runNhtsaComplaintsJob(context?: JobContext): Promise<void> {
+export interface NhtsaComplaintsJobData {
+  vehicleModelId?: string
+}
+
+export async function runNhtsaComplaintsJob(context?: JobContext, data?: NhtsaComplaintsJobData): Promise<void> {
   const db = getDb()
 
   const models = await db.vehicleModel.findMany({
+    ...(data?.vehicleModelId ? { where: { id: data.vehicleModelId } } : {}),
     select: { id: true, make: true, model: true, year: true },
   })
 

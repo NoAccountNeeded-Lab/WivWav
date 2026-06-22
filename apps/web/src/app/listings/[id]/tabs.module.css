@@ -352,6 +352,43 @@
   font-weight: 500;
 }
 
+.refreshButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--clr-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.refreshButton:hover {
+  color: var(--clr-primary-dark);
+}
+.refreshButton:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.refreshingText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--clr-text-muted);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
 /* ── Listing verification banner ─────────────────────────────────────────── */
 .verificationBanner {
   font-size: 0.75rem;
