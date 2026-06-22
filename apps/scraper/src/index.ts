@@ -35,6 +35,11 @@ import { runVinEnrichJob } from './jobs/vin-enrich.js'
 import { runNhtsaRecallsJob, type NhtsaRecallsJobData } from './jobs/nhtsa-recalls.js'
 import { runNhtsaComplaintsJob, type NhtsaComplaintsJobData } from './jobs/nhtsa-complaints.js'
 import { runNhtsaSafetyRatingsJob, type NhtsaSafetyRatingsJobData } from './jobs/nhtsa-safety-ratings.js'
+import { runNhtsaInvestigationsJob, type NhtsaInvestigationsJobData } from './jobs/nhtsa-investigations.js'
+import {
+  runNhtsaManufacturerCommunicationsJob,
+  type NhtsaManufacturerCommunicationsJobData,
+} from './jobs/nhtsa-manufacturer-communications.js'
 import { runVehicleStatsRefreshJob } from './jobs/vehicle-stats-refresh.js'
 import { runConversionBrandsSeedJob } from './sources/conversion-brands.js'
 import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
@@ -190,6 +195,20 @@ queueFactory.createWorker(
   { lockDuration: 600_000, logger },
 )
 queueFactory.createWorker(
+  QUEUES.NHTSA_INVESTIGATIONS,
+  withSentryCapture(QUEUES.NHTSA_INVESTIGATIONS, (data: NhtsaInvestigationsJobData, context) =>
+    runNhtsaInvestigationsJob(context, data),
+  ),
+  { lockDuration: 600_000, logger },
+)
+queueFactory.createWorker(
+  QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+  withSentryCapture(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS, (data: NhtsaManufacturerCommunicationsJobData, context) =>
+    runNhtsaManufacturerCommunicationsJob(context, data),
+  ),
+  { lockDuration: 600_000, logger },
+)
+queueFactory.createWorker(
   QUEUES.VEHICLE_STATS_REFRESH,
   withSentryCapture(QUEUES.VEHICLE_STATS_REFRESH, (_data: unknown, context) =>
     runVehicleStatsRefreshJob(context),
@@ -248,6 +267,8 @@ const vinEnrichQueue = queueFactory.createQueue(QUEUES.VIN_ENRICH)
 const nhtsaRecallsQueue = queueFactory.createQueue(QUEUES.NHTSA_RECALLS)
 const nhtsaComplaintsQueue = queueFactory.createQueue(QUEUES.NHTSA_COMPLAINTS)
 const nhtsaSafetyRatingsQueue = queueFactory.createQueue(QUEUES.NHTSA_SAFETY_RATINGS)
+const nhtsaInvestigationsQueue = queueFactory.createQueue(QUEUES.NHTSA_INVESTIGATIONS)
+const nhtsaManufacturerCommunicationsQueue = queueFactory.createQueue(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS)
 const vehicleStatsRefreshQueue = queueFactory.createQueue(QUEUES.VEHICLE_STATS_REFRESH)
 const conversionBrandsSeedQueue = queueFactory.createQueue(QUEUES.CONVERSION_BRANDS_SEED)
 const nmedaDealersSeedQueue = queueFactory.createQueue(QUEUES.NMEDA_DEALERS_SEED)
@@ -375,6 +396,8 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
   //   05:00  nhtsa-complaints   (Sunday only; no listing rows)
   //   05:30  model-research     (Sunday only; no listing rows)
   //   06:00  nhtsa-safety-ratings (Sunday only; no listing rows)
+  //   06:30  nhtsa-investigations (Sunday only; no listing rows)
+  //   07:00  nhtsa-manufacturer-communications (Sunday only; no listing rows)
   { queue: geocodeQueue, name: QUEUES.GEOCODE, data: {}, pattern: '0 2 * * *', tz },
   { queue: deduplicateQueue, name: QUEUES.DEDUPLICATE, data: {}, pattern: '0 3 * * *', tz },
   { queue: vinEnrichQueue, name: QUEUES.VIN_ENRICH, data: {}, pattern: '0 4/6 * * *', tz },
@@ -391,6 +414,20 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     name: QUEUES.NHTSA_SAFETY_RATINGS,
     data: {},
     pattern: '0 6 * * 0',
+    tz,
+  },
+  {
+    queue: nhtsaInvestigationsQueue,
+    name: QUEUES.NHTSA_INVESTIGATIONS,
+    data: {},
+    pattern: '30 6 * * 0',
+    tz,
+  },
+  {
+    queue: nhtsaManufacturerCommunicationsQueue,
+    name: QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+    data: {},
+    pattern: '0 7 * * 0',
     tz,
   },
   {

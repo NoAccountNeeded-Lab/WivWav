@@ -1,4 +1,4 @@
-export type { ListingRepository, ListingWithSource, ListingSafetyResult, ListingVinRow, VehicleModelWithSafetyData, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow, PriceHistoryRow } from './listing-repository.js'
+export type { ListingRepository, ListingWithSource, ListingSafetyResult, ListingVinRow, VehicleModelWithSafetyData, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow, InvestigationRow, ManufacturerCommunicationRow, PriceHistoryRow } from './listing-repository.js'
 export { PrismaListingRepository } from './listing-repository.js'
 
 export type { MarketRepository, PricingStats, PopularStats } from './market-repository.js'

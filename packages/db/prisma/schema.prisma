@@ -274,12 +274,14 @@ model VehicleModel {
   trim     String?
   bodyType String?
 
-  vehicles       Vehicle[]
-  listings       Listing[]
-  recalls        Recall[]
-  complaints     Complaint[]
-  safetyRatings  SafetyRating[]
-  modelResearch  VehicleModelResearch[]
+  vehicles                   Vehicle[]
+  listings                   Listing[]
+  recalls                    Recall[]
+  complaints                 Complaint[]
+  safetyRatings              SafetyRating[]
+  modelResearch              VehicleModelResearch[]
+  investigations             Investigation[]
+  manufacturerCommunications ManufacturerCommunication[]
 
   @@unique([make, model, year, trim])
   @@index([make, model])
@@ -381,6 +383,43 @@ model SafetyRating {
 
   @@index([vehicleModelId])
   @@map("safety_ratings")
+}
+
+/// NHTSA investigation record. Source: https://api.nhtsa.gov/investigations/investigationsByVehicle
+model Investigation {
+  id             String       @id @default(cuid())
+  nhtsaId        String       @unique
+  vehicleModelId String
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+  component      String
+  summary        String
+  openedDate     DateTime
+  closedDate     DateTime?
+  outcome        String?
+  sourceUrl      String
+  refreshedAt    DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([vehicleModelId])
+  @@map("investigation")
+}
+
+/// NHTSA manufacturer communication (Technical Service Bulletin or equivalent).
+/// Source: https://api.nhtsa.gov/tsbs/tsbsByVehicle
+model ManufacturerCommunication {
+  id             String       @id @default(cuid())
+  nhtsaId        String       @unique
+  vehicleModelId String
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+  component      String
+  summary        String
+  issuedDate     DateTime
+  sourceUrl      String
+  refreshedAt    DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([vehicleModelId])
+  @@map("manufacturer_communication")
 }
 
 model ConversionBrand {
