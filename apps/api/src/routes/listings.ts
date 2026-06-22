@@ -1,8 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { Listing } from '@wivwav/db'
+import type { BullMQQueueFactory } from '@wivwav/queue'
+import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
 import type { ListingRepository } from '../repositories/index.js'
+
+const REFRESH_RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour per vehicle model
+const refreshedAt = new Map<string, number>()
 
 type ListingWithRequiredSource = Listing & { source: { name: string; baseUrl: string } }
 
@@ -68,6 +73,7 @@ interface ListingsPluginOptions {
   listings: ListingRepository
   search: ListingSearchService
   facets: ListingFacetsService
+  queueFactory: BullMQQueueFactory
 }
 
 interface FilterQuery {
@@ -118,7 +124,11 @@ const filterQuerySchema = {
   additionalProperties: false,
 } as const
 
-export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (app, { listings, search, facets }) => {
+export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (app, { listings, search, facets, queueFactory }) => {
+  const recallsQueue = queueFactory.createQueue(QUEUES.NHTSA_RECALLS)
+  const complaintsQueue = queueFactory.createQueue(QUEUES.NHTSA_COMPLAINTS)
+  const safetyRatingsQueue = queueFactory.createQueue(QUEUES.NHTSA_SAFETY_RATINGS)
+
   app.get<{ Querystring: FilterQuery }>('/facets', { schema: { querystring: filterQuerySchema } }, async (req, reply) => {
     const q = req.query
     try {
@@ -258,6 +268,38 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
       },
     })
   })
+
+  app.post<{ Params: { id: string } }>(
+    '/:id/refresh-safety',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req, reply) => {
+      const listing = await listings.findByIdForSafety(req.params.id)
+      if (!listing) return reply.notFound('Listing not found')
+      if (!listing.vehicleModelId) {
+        return reply.send({ data: { enqueued: false, reason: 'no-vehicle-model' } })
+      }
+
+      const vehicleModelId = listing.vehicleModelId
+      const last = refreshedAt.get(vehicleModelId) ?? 0
+      const now = Date.now()
+
+      if (now - last < REFRESH_RATE_LIMIT_MS) {
+        return reply.send({ data: { enqueued: false, reason: 'rate-limited', retryAfter: Math.ceil((last + REFRESH_RATE_LIMIT_MS - now) / 1000) } })
+      }
+
+      refreshedAt.set(vehicleModelId, now)
+
+      const jobData = { vehicleModelId }
+      const [recallsId, complaintsId, ratingsId] = await Promise.all([
+        recallsQueue.add(jobData),
+        complaintsQueue.add(jobData),
+        safetyRatingsQueue.add(jobData),
+      ])
+
+      req.log.info({ vehicleModelId, recallsId, complaintsId, ratingsId }, '[listings/refresh-safety] enqueued scoped NHTSA refresh')
+      return reply.code(202).send({ data: { enqueued: true, jobIds: { recalls: recallsId, complaints: complaintsId, ratings: ratingsId } } })
+    },
+  )
 
   app.get<{ Params: { id: string } }>('/:id/price-history', async (req, reply) => {
     const listing = await listings.findByIdForSafety(req.params.id)

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Accessibility, Gauge, ShieldCheck, TrendingUp, Info } from 'lucide-react'
 import { notFound } from 'next/navigation'
-import { getServerApiBaseUrl } from '@/lib/api-url'
+import { getServerApiBaseUrl, getPublicApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { PhotoGallery } from '@/components/PhotoGallery'
 import {
@@ -288,7 +288,7 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
       id: 'safety',
       label: openRecallCount > 0 ? `Safety (${openRecallCount})` : 'Safety',
       icon: <ShieldCheck size={14} aria-hidden />,
-      content: <SafetyTab listing={listing} safety={safety} />,
+      content: <SafetyTab listing={listing} safety={safety} apiBaseUrl={getPublicApiBaseUrl()} />,
     },
   ]
 

@@ -2,15 +2,17 @@ import { AlertTriangle } from 'lucide-react'
 import { RecallsList } from '@/components/listing/RecallsList'
 import { SafetyRatings } from '@/components/listing/SafetyRatings'
 import { formatFreshnessDate, isSafetyDataStale } from './safetyTabUtils'
+import { SafetyRefreshButton } from './SafetyRefreshButton'
 import type { ListingDetail, SafetyData } from './types'
 import styles from './tabs.module.css'
 
 interface SafetyTabProps {
   listing: ListingDetail
   safety: SafetyData | null
+  apiBaseUrl: string
 }
 
-export function SafetyTab({ listing, safety }: SafetyTabProps) {
+export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
   const openRecallCount = (safety?.recalls ?? []).filter((r) => r.status === 'open').length
 
   const rating = safety?.safetyRatings?.[0]
@@ -38,6 +40,9 @@ export function SafetyTab({ listing, safety }: SafetyTabProps) {
               <AlertTriangle size={12} aria-hidden />
               {' '}Safety data freshness unknown — verify with NHTSA
             </span>
+          )}
+          {(isStale || formattedDate === null) && (
+            <SafetyRefreshButton listingId={listing.id} apiBaseUrl={apiBaseUrl} />
           )}
         </div>
       )}

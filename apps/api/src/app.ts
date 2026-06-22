@@ -134,7 +134,7 @@ export async function buildApp(
   const conversionBrandRepo = new PrismaConversionBrandRepository(db)
 
   await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
-  await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets })
+  await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets, queueFactory })
   await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
   await app.register(vinRoutes, { prefix: '/v1/vin', vehicles: vehicleRepo, listings: listingRepo })
   await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo })

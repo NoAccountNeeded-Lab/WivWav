@@ -56,10 +56,15 @@ async function fetchRatings(vehicleId: number): Promise<RatingsDetail | null> {
   return data.Results?.[0] ?? null
 }
 
-export async function runNhtsaSafetyRatingsJob(context?: JobContext): Promise<void> {
+export interface NhtsaSafetyRatingsJobData {
+  vehicleModelId?: string
+}
+
+export async function runNhtsaSafetyRatingsJob(context?: JobContext, data?: NhtsaSafetyRatingsJobData): Promise<void> {
   const db = getDb()
 
   const models = await db.vehicleModel.findMany({
+    ...(data?.vehicleModelId ? { where: { id: data.vehicleModelId } } : {}),
     select: { id: true, make: true, model: true, year: true },
   })
 

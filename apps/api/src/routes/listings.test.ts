@@ -94,7 +94,8 @@ function buildTestApp(
     })),
     ...facetsOverrides,
   }
-  void app.register(listingRoutes, { listings: listings as never, search: search as never, facets: facets as never })
+  const queueFactory = { createQueue: vi.fn(() => ({ add: vi.fn(async () => 'job-id') })) } as never
+  void app.register(listingRoutes, { listings: listings as never, search: search as never, facets: facets as never, queueFactory })
   return { app, listings, search, facets }
 }
 
