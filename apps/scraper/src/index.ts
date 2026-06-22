@@ -32,9 +32,9 @@ import { runDetailExtractJob } from './jobs/detail-extract.js'
 import { runGeocodeJob } from './jobs/geocode.js'
 import { runDeduplicateJob } from './jobs/deduplicate.js'
 import { runVinEnrichJob } from './jobs/vin-enrich.js'
-import { runNhtsaRecallsJob } from './jobs/nhtsa-recalls.js'
-import { runNhtsaComplaintsJob } from './jobs/nhtsa-complaints.js'
-import { runNhtsaSafetyRatingsJob } from './jobs/nhtsa-safety-ratings.js'
+import { runNhtsaRecallsJob, type NhtsaRecallsJobData } from './jobs/nhtsa-recalls.js'
+import { runNhtsaComplaintsJob, type NhtsaComplaintsJobData } from './jobs/nhtsa-complaints.js'
+import { runNhtsaSafetyRatingsJob, type NhtsaSafetyRatingsJobData } from './jobs/nhtsa-safety-ratings.js'
 import { runVehicleStatsRefreshJob } from './jobs/vehicle-stats-refresh.js'
 import { runConversionBrandsSeedJob } from './sources/conversion-brands.js'
 import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
@@ -169,22 +169,22 @@ queueFactory.createWorker(
 )
 queueFactory.createWorker(
   QUEUES.NHTSA_RECALLS,
-  withSentryCapture(QUEUES.NHTSA_RECALLS, (_data: unknown, context) =>
-    runNhtsaRecallsJob(context),
+  withSentryCapture(QUEUES.NHTSA_RECALLS, (data: NhtsaRecallsJobData, context) =>
+    runNhtsaRecallsJob(context, data),
   ),
   { lockDuration: 300_000, logger },
 )
 queueFactory.createWorker(
   QUEUES.NHTSA_COMPLAINTS,
-  withSentryCapture(QUEUES.NHTSA_COMPLAINTS, (_data: unknown, context) =>
-    runNhtsaComplaintsJob(context),
+  withSentryCapture(QUEUES.NHTSA_COMPLAINTS, (data: NhtsaComplaintsJobData, context) =>
+    runNhtsaComplaintsJob(context, data),
   ),
   { lockDuration: 600_000, logger },
 )
 queueFactory.createWorker(
   QUEUES.NHTSA_SAFETY_RATINGS,
-  withSentryCapture(QUEUES.NHTSA_SAFETY_RATINGS, (_data: unknown, context) =>
-    runNhtsaSafetyRatingsJob(context),
+  withSentryCapture(QUEUES.NHTSA_SAFETY_RATINGS, (data: NhtsaSafetyRatingsJobData, context) =>
+    runNhtsaSafetyRatingsJob(context, data),
   ),
   { lockDuration: 600_000, logger },
 )
