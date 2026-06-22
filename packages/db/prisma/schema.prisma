@@ -200,7 +200,9 @@ model Listing {
   detailScrapedAt    DateTime?
   processingLockedAt DateTime?
 
-  priceHistory ListingPriceHistory[]
+  priceHistory      ListingPriceHistory[]
+  mileageHistory    ListingMileageHistory[]
+  conversionHistory ListingConversionHistory[]
 
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
@@ -234,6 +236,29 @@ model ListingPriceHistory {
 
   @@index([listingId, recordedAt])
   @@map("listing_price_history")
+}
+
+model ListingMileageHistory {
+  id         String   @id @default(cuid())
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id])
+  mileage    Int
+  recordedAt DateTime @default(now())
+
+  @@index([listingId, recordedAt])
+  @@map("listing_mileage_history")
+}
+
+model ListingConversionHistory {
+  id               String           @id @default(cuid())
+  listingId        String
+  listing          Listing          @relation(fields: [listingId], references: [id])
+  conversionStatus ConversionStatus
+  wavFeatures      WavFeature[]
+  recordedAt       DateTime         @default(now())
+
+  @@index([listingId, recordedAt])
+  @@map("listing_conversion_history")
 }
 
 model RawPage {

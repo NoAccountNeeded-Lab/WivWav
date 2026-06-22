@@ -49,6 +49,9 @@ function makeDb(
     buyerUrl?: string | null
     sellerType?: 'dealer' | 'private'
     priceCents: number | null
+    mileage?: number | null
+    conversionStatus?: 'proposed' | 'complete' | 'unknown'
+    wavFeatures?: string[]
     status?: string
   } | null = null,
 ) {
@@ -58,6 +61,9 @@ function makeDb(
         buyerUrl: 'http://example.com/1',
         sellerType: 'dealer' as const,
         status: 'active',
+        mileage: null,
+        conversionStatus: 'unknown' as const,
+        wavFeatures: [],
         ...existingListing,
       }
     : null
@@ -68,6 +74,12 @@ function makeDb(
       upsert: vi.fn().mockResolvedValue({}),
     },
     listingPriceHistory: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    listingMileageHistory: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    listingConversionHistory: {
       create: vi.fn().mockResolvedValue({}),
     },
   }
@@ -108,6 +120,124 @@ describe('PrismaListingRepository', () => {
       await repo.upsert(makeListing({ priceCents: null }))
 
       expect(db.listingPriceHistory.create).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('upsert mileage history', () => {
+    it('writes a history row when mileage changes on re-scrape', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, mileage: 25000 })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({ priceCents: 3000000, mileage: 30000 }))
+
+      expect(db.listingMileageHistory.create).toHaveBeenCalledWith({
+        data: { listingId: 'list-1', mileage: 30000 },
+      })
+    })
+
+    it('does not write a history row when mileage is unchanged', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, mileage: 30000 })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({ priceCents: 3000000, mileage: 30000 }))
+
+      expect(db.listingMileageHistory.create).not.toHaveBeenCalled()
+    })
+
+    it('writes the DB when only mileage changed', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, mileage: 25000 })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({ priceCents: 3000000, mileage: 30000 }))
+
+      expect(db.listing.upsert).toHaveBeenCalled()
+    })
+
+    it('does not write a history row when changed mileage is null', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, mileage: 30000 })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({ priceCents: 3000000, mileage: null }))
+
+      expect(db.listingMileageHistory.create).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('upsert conversion history', () => {
+    it('writes a history row when conversion status changes on re-scrape', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        conversionStatus: 'proposed',
+        wavFeatures: [],
+      })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({
+        priceCents: 3000000,
+        wav: {
+          conversionType: 'unknown',
+          conversionManufacturer: null,
+          floorLoweringInches: null,
+          rampType: 'unknown',
+          conversionStatus: 'complete',
+          wavFeatures: [],
+          wheelchairCapacity: null,
+        },
+      }))
+
+      expect(db.listingConversionHistory.create).toHaveBeenCalledWith({
+        data: { listingId: 'list-1', conversionStatus: 'complete', wavFeatures: [] },
+      })
+    })
+
+    it('writes a history row with the full wavFeatures array when features change', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        conversionStatus: 'complete',
+        wavFeatures: ['has_lift'],
+      })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({
+        priceCents: 3000000,
+        wav: {
+          conversionType: 'unknown',
+          conversionManufacturer: null,
+          floorLoweringInches: null,
+          rampType: 'unknown',
+          conversionStatus: 'complete',
+          wavFeatures: ['has_lift', 'hand_controls', 'transfer_seat'],
+          wheelchairCapacity: null,
+        },
+      }))
+
+      expect(db.listingConversionHistory.create).toHaveBeenCalledWith({
+        data: {
+          listingId: 'list-1',
+          conversionStatus: 'complete',
+          wavFeatures: ['has_lift', 'hand_controls', 'transfer_seat'],
+        },
+      })
+    })
+
+    it('does not write a history row when conversion observation is unchanged', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        conversionStatus: 'complete',
+        wavFeatures: ['has_lift', 'hand_controls'],
+      })
+      const repo = new PrismaListingRepository(db as never)
+      await repo.upsert(makeListing({
+        priceCents: 3000000,
+        wav: {
+          conversionType: 'unknown',
+          conversionManufacturer: null,
+          floorLoweringInches: null,
+          rampType: 'unknown',
+          conversionStatus: 'complete',
+          wavFeatures: ['hand_controls', 'has_lift'],
+          wheelchairCapacity: null,
+        },
+      }))
+
+      expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
     })
   })
 
