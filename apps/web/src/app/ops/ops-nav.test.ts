@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import { OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
 
+/**
+ * All known Next.js page routes under apps/web/src/app.
+ * Update this set whenever a new page.tsx is added.
+ */
+const KNOWN_NEXT_ROUTES = new Set([
+  '/ops',
+  '/ops/ai',
+  '/ops/config',
+  '/ops/logs',
+  '/ops/queues',
+  '/ops/readiness',
+  '/ops/refresh-listings',
+  '/ops/runs',
+  '/ops/schedules',
+  '/ops/sources',
+  '/status',
+  '/filters',
+  '/filters/[id]',
+  '/listings/[id]',
+  '/discover',
+  '/privacy',
+  '/terms',
+  '/vin',
+  '/vin/[vin]',
+])
+
 describe('OPS_NAV_GROUPS', () => {
   it('should cover the operator intent groups required by the ops navigation', () => {
     const required: OpsNavGroupId[] = [
@@ -23,12 +49,13 @@ describe('OPS_NAV_GROUPS', () => {
     expect(hrefs).toEqual(new Set([
       '/ops/readiness',
       '/status',
-      '/ops/queues',
+      '/ops/refresh-listings',
       '/ops/sources',
       '/ops/runs',
       '/ops/ai',
       '/ops/schedules',
       '/ops/logs',
+      '/ops/queues',
       '/ops/config',
       '/admin/board',
     ]))
@@ -57,5 +84,50 @@ describe('OPS_NAV_GROUPS', () => {
       .join(' ')
 
     expect(primaryTitles).not.toMatch(/BullMQ|Meilisearch|scraper|queue/i)
+  })
+
+  it('should send inventory operators to the guided refresh-listings workflow, not raw queues', () => {
+    const inventory = OPS_NAV_GROUPS.find(group => group.id === 'inventory')
+
+    expect(inventory?.items.map(item => item.href)).toContain('/ops/refresh-listings')
+    expect(inventory?.items.map(item => item.href)).not.toContain('/ops/queues')
+  })
+
+  it('should map every internal (non-apiOrigin) href to a known Next.js app route', () => {
+    const internalItems = OPS_NAV_GROUPS
+      .flatMap(group => group.items)
+      .filter(item => !item.apiOrigin)
+
+    for (const item of internalItems) {
+      expect(
+        KNOWN_NEXT_ROUTES.has(item.href),
+        `"${item.href}" (title: "${item.title}") is not a known Next.js route`,
+      ).toBe(true)
+    }
+  })
+
+  it('should mark every API-origin destination with apiOrigin: true and external: true', () => {
+    const apiOriginItems = OPS_NAV_GROUPS
+      .flatMap(group => group.items)
+      .filter(item => item.apiOrigin)
+
+    // There must be at least one API-origin item (Bull Board)
+    expect(apiOriginItems.length).toBeGreaterThanOrEqual(1)
+
+    for (const item of apiOriginItems) {
+      expect(item.external, `"${item.title}" has apiOrigin but is missing external: true`).toBe(true)
+    }
+  })
+
+  it('should never render /admin/board as a same-origin Next.js route', () => {
+    const bullBoardItems = OPS_NAV_GROUPS
+      .flatMap(group => group.items)
+      .filter(item => item.href === '/admin/board')
+
+    expect(bullBoardItems.length).toBeGreaterThanOrEqual(1)
+
+    for (const item of bullBoardItems) {
+      expect(item.apiOrigin, 'Bull Board must have apiOrigin: true so renderers use the API base URL').toBe(true)
+    }
   })
 })

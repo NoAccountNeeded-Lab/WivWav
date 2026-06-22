@@ -9,9 +9,18 @@ export type OpsNavGroupId =
   | 'advanced'
 
 export interface OpsNavItem {
+  /**
+   * For internal Next.js routes: the pathname (e.g. `/ops/queues`).
+   * For API-hosted destinations: the path relative to the API origin (e.g. `/admin/board`).
+   * When `apiOrigin` is true, callers must build the URL from the public API base URL rather than
+   * rendering a same-origin Next `Link`.
+   */
   href: string
   title: string
   desc: string
+  /** True when `href` lives on the API origin rather than the Next.js web origin. */
+  apiOrigin?: boolean
+  /** True when the destination should open in a new tab (may be combined with `apiOrigin`). */
   external?: boolean
 }
 
@@ -46,9 +55,9 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
     intro: 'Keep listings searchable and visible to shoppers.',
     items: [
       {
-        href: '/ops/queues',
-        title: 'Listing refresh tools',
-        desc: 'Run geocoding, detail refreshes, deduplication, and search-index sync tasks for current listings.',
+        href: '/ops/refresh-listings',
+        title: 'Listing refresh workflow',
+        desc: 'Step through scrape, detail extract, geocode, deduplication, and search-index sync with guided status checks.',
       },
     ],
   },
@@ -131,6 +140,7 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         href: '/admin/board',
         title: 'Bull Board diagnostics',
         desc: 'Open the full raw queue inspector for payloads, retry details, and stack traces.',
+        apiOrigin: true,
         external: true,
       },
     ],
