@@ -53,6 +53,7 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
       'conversionType', 'rampType', 'wavFeatures',
       'conversionBrand', 'color', 'state', 'city', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
+      'vehicleId', 'vehicleGroupKey',
     ],
     sortableAttributes: ['priceCents', 'mileage', 'year', 'listedAt'],
     pagination: { maxTotalHits: 20000 },
@@ -60,6 +61,7 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
       'make', 'model', 'trim', 'description',
       'conversionManufacturer', 'city', 'state',
     ],
+    distinctAttribute: 'vehicleGroupKey',
   })
   // Wait for Meilisearch to finish applying settings before the server opens.
   // updateSettings only enqueues a task; without this the index may still have

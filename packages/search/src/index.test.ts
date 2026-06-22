@@ -113,6 +113,16 @@ describe('toDocument — private-seller field normalization', () => {
     const doc = toDocument(row)
     expect(doc.conversionBrand).toBe('braunability')
   })
+
+  it('uses vehicleId as the search grouping key when available', () => {
+    const doc = toDocument(makeListing({ id: 'listing-1', vehicleId: 'vehicle-1' }))
+    expect(doc.vehicleGroupKey).toBe('vehicle-1')
+  })
+
+  it('falls back to listing id as the search grouping key without vehicle identity', () => {
+    const doc = toDocument(makeListing({ id: 'listing-1', vehicleId: null }))
+    expect(doc.vehicleGroupKey).toBe('listing-1')
+  })
 })
 
 describe('conversionBrandSlug', () => {

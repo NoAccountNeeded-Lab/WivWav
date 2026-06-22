@@ -38,6 +38,17 @@ export interface ListingDetail {
   updatedAt: string
   /** May be null when the source join is unavailable; components must handle gracefully. */
   provenance: ListingProvenance | null
+  crossListings: CrossListing[]
+}
+
+export interface CrossListing {
+  id: string
+  sourceUrl: string
+  buyerUrl: string | null
+  sellerType: string
+  priceCents: number | null
+  location: Pick<ListingLocation, 'zip' | 'city' | 'state'>
+  dealer: ListingDealer
 }
 
 export interface PricePoint {

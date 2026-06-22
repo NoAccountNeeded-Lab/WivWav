@@ -5,16 +5,24 @@ import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 1000
-const DRIFT_ALERT_THRESHOLD = 0.05 // warn if counts diverge by more than 5%
+
+type VehicleAwareCountRow = {
+  count: number | bigint
+}
 
 export async function runMeilisearchSyncJob(context?: JobContext): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
   const index = client.index(INDEX_NAME)
 
-  const activeCount = await db.listing.count({ where: { status: 'active', isDuplicate: false } })
+  const activeCountRows = await db.$queryRaw<VehicleAwareCountRow[]>`
+    SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
+    FROM listings
+    WHERE status = 'active'
+  `
+  const activeCount = Number(activeCountRows[0]?.count ?? 0)
 
-  await report(context, `[meili-sync] Full re-index started — ${activeCount} active non-duplicate listing(s) in DB`, {
+  await report(context, `[meili-sync] Full re-index started — ${activeCount} active vehicle group(s) in DB`, {
     stage: 'syncing',
     current: 0,
     total: activeCount,
@@ -44,22 +52,14 @@ export async function runMeilisearchSyncJob(context?: JobContext): Promise<void>
     if (rows.length < BATCH_SIZE) break
   }
 
-  // Monitoring: compare Meilisearch document count against active DB count
+  // Monitoring: Meilisearch stats report raw documents, while search results
+  // collapse active vehicle groups via distinctAttribute.
   try {
     const stats = await index.getStats()
     const meiliCount = stats.numberOfDocuments
-    if (activeCount > 0) {
-      const drift = Math.abs(meiliCount - activeCount) / activeCount
-      if (drift > DRIFT_ALERT_THRESHOLD) {
-        await report(
-          context,
-          `[meili-sync] WARN: document count drift ${(drift * 100).toFixed(1)}% — Meilisearch has ${meiliCount}, DB active+non-duplicate has ${activeCount}`,
-        )
-      }
-    }
     await report(
       context,
-      `[meili-sync] Done. ${synced} doc(s) upserted. Meilisearch index has ${meiliCount} total document(s).`,
+      `[meili-sync] Done. ${synced} doc(s) upserted. DB has ${activeCount} active vehicle group(s); Meilisearch index has ${meiliCount} total document(s).`,
       { stage: 'complete', current: activeCount, total: activeCount },
     )
   } catch {

@@ -3,11 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Mock the DB module before importing the job
 vi.mock('@wivwav/db', () => ({
   getDb: vi.fn(),
+  findOrCreateVehicle: vi.fn(async () => ({ id: 'vehicle-1' })),
+  isValidVin: vi.fn((vin: string) => vin.length === 17),
+  normalizeVin: vi.fn((vin: string) => vin.trim().toUpperCase()),
 }))
 vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
-import { getDb } from '@wivwav/db'
+import { findOrCreateVehicle, getDb } from '@wivwav/db'
 import { runDeduplicateJob } from './deduplicate.js'
 
 function makeListing(overrides: Record<string, unknown> = {}) {
@@ -70,6 +73,7 @@ describe('runDeduplicateJob', () => {
   }
 
   beforeEach(() => {
+    vi.clearAllMocks()
     db = {
       $queryRaw: vi.fn(),
       // acquireListingLock uses $executeRaw; return 1 to simulate successful lock
@@ -83,6 +87,7 @@ describe('runDeduplicateJob', () => {
       $disconnect: vi.fn().mockResolvedValue(undefined),
     }
     vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(findOrCreateVehicle).mockResolvedValue({ id: 'vehicle-1' } as never)
   })
 
   it('does nothing when no cross-source VIN duplicates exist', async () => {
@@ -94,8 +99,8 @@ describe('runDeduplicateJob', () => {
     expect(db.$disconnect).toHaveBeenCalled()
   })
 
-  it('marks the less-complete listing as duplicate', async () => {
-    const vin = '1ABCDEF'
+  it('assigns the same vehicleId to every listing in a VIN group', async () => {
+    const vin = '1FMJK1HT0MEA12345'
     db.$queryRaw.mockResolvedValue([{ vin }])
 
     const complete = makeListing({
@@ -108,27 +113,62 @@ describe('runDeduplicateJob', () => {
       state: 'TX',
       description: 'Great WAV',
     })
-    const sparse = makeListing({ id: 'list-sparse', sourceId: 'src-2', vin })
+    const sparse = makeListing({
+      id: 'list-sparse',
+      sourceId: 'src-2',
+      vin,
+      scrapedAt: new Date('2026-01-01'),
+    })
 
     db.listing.findMany.mockResolvedValue([sparse, complete])
 
     await runDeduplicateJob()
 
-    // Canonical (complete) must be cleared
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'list-complete' },
-      data: { isDuplicate: false, canonicalId: null },
+      data: { vehicleId: 'vehicle-1' },
     })
-
-    // Sparse must be marked as duplicate pointing to complete
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'list-sparse' },
-      data: { isDuplicate: true, canonicalId: 'list-complete' },
+      data: { vehicleId: 'vehicle-1' },
     })
   })
 
-  it('selects the listing with more images as canonical when other scores tie', async () => {
-    const vin = '2XYZABC'
+  it('uses the most complete listing as the vehicle identity seed', async () => {
+    const vin = '1FMJK1HT0MEA12345'
+    db.$queryRaw.mockResolvedValue([{ vin }])
+
+    const complete = makeListing({
+      id: 'list-complete',
+      sourceId: 'src-1',
+      vin,
+      priceCents: 4500000,
+      mileage: 32000,
+      city: 'Austin',
+      state: 'TX',
+      description: 'Great WAV',
+      scrapedAt: new Date('2026-01-02'),
+      vehicleModelId: 'model-1',
+    })
+    const sparse = makeListing({ id: 'list-sparse', sourceId: 'src-2', vin, scrapedAt: new Date('2026-01-01') })
+
+    db.listing.findMany.mockResolvedValue([sparse, complete])
+
+    await runDeduplicateJob()
+
+    expect(findOrCreateVehicle).toHaveBeenCalledWith(db, {
+      vin,
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2022,
+      trim: null,
+      vehicleModelId: 'model-1',
+      observedAt: new Date('2026-01-02'),
+    })
+  })
+
+  it('does not write legacy duplicate fields as the source of truth', async () => {
+    const vin = '1FMJK1HT0MEA12345'
     db.$queryRaw.mockResolvedValue([{ vin }])
 
     const withImages = makeListing({ id: 'list-images', sourceId: 'src-1', vin, images: ['a.jpg', 'b.jpg'] })
@@ -138,18 +178,14 @@ describe('runDeduplicateJob', () => {
 
     await runDeduplicateJob()
 
-    expect(db.listing.update).toHaveBeenCalledWith({
-      where: { id: 'list-images' },
-      data: { isDuplicate: false, canonicalId: null },
-    })
-    expect(db.listing.update).toHaveBeenCalledWith({
-      where: { id: 'list-no-images' },
-      data: { isDuplicate: true, canonicalId: 'list-images' },
-    })
+    for (const call of db.listing.update.mock.calls) {
+      expect(call[0].data).not.toHaveProperty('isDuplicate')
+      expect(call[0].data).not.toHaveProperty('canonicalId')
+    }
   })
 
   it('skips a VIN group entirely when a listing in the group is locked by another job', async () => {
-    const vin = '3LOCKED'
+    const vin = '1FMJK1HT0MEA12345'
     db.$queryRaw.mockResolvedValue([{ vin }])
 
     const locked = makeListing({ id: 'list-locked', sourceId: 'src-1', vin })
@@ -167,7 +203,7 @@ describe('runDeduplicateJob', () => {
   })
 
   it('releases partially acquired locks when a later listing in the group is locked', async () => {
-    const vin = '4PARTIAL'
+    const vin = '1FMJK1HT0MEA12345'
     db.$queryRaw.mockResolvedValue([{ vin }])
 
     const first = makeListing({ id: 'list-first', sourceId: 'src-1', vin })

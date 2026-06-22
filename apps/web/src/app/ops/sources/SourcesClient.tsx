@@ -226,7 +226,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
               <li><strong>detail-crawl</strong> — Uses Playwright to open each listing's detail URL and store the full HTML. This is needed because many WAV-specific fields (ramp type, lift, controls) only appear on the detail page.</li>
               <li><strong>detail-extract</strong> — Parses the stored detail HTML without any network calls to extract WAV fields.</li>
               <li><strong>geocode</strong> — Converts city + state to GPS coordinates so listings can be shown on a map.</li>
-              <li><strong>deduplicate</strong> — Detects the same vehicle sold across multiple sources (matched by VIN) and marks the most complete listing as canonical.</li>
+              <li><strong>deduplicate</strong> — Detects the same vehicle sold across multiple sources (matched by VIN) and assigns one vehicle identity across those rows.</li>
             </ol>
             <p><strong>Run Now</strong> immediately enqueues a source-scrape job, bypassing the cron schedule. Useful after fixing an error or adding a new source.</p>
             <p>Status <strong>error</strong> means the last run failed. This includes low-confidence AI remaps (confidence below 0.7) where the AI's notes and score are stored in the Error column. The source will retry automatically on its next scheduled run.</p>

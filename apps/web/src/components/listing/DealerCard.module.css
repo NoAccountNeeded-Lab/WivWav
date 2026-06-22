@@ -43,3 +43,18 @@
   word-break: break-all;
 }
 .link:hover { text-decoration: underline; }
+
+.listingLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--clr-primary);
+  text-decoration: none;
+}
+.listingLink:hover {
+  text-decoration: underline;
+}
+.listingLink:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}

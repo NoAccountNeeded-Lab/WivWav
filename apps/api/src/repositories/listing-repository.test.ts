@@ -3,6 +3,7 @@ import { PrismaListingRepository } from './listing-repository.js'
 
 function buildDb(overrides: Record<string, unknown> = {}) {
   return {
+    $queryRaw: vi.fn(async () => []),
     listing: {
       findUnique: vi.fn(async () => null),
       findMany: vi.fn(async () => []),
@@ -51,25 +52,25 @@ describe('PrismaListingRepository.findPageForSync', () => {
 })
 
 describe('PrismaListingRepository.findManyActive', () => {
-  it('queries with status:active filter ordered by listedAt desc', async () => {
+  it('queries active representative vehicle groups ordered by listedAt desc', async () => {
     const db = buildDb()
     const repo = new PrismaListingRepository(db as never)
     await repo.findManyActive(10, 5)
-    expect(db.listing.findMany).toHaveBeenCalledWith({
-      skip: 10,
-      take: 5,
-      where: { status: 'active' },
-      orderBy: { listedAt: 'desc' },
-    })
+    const sql = (db.$queryRaw as ReturnType<typeof vi.fn>).mock.calls[0]![0].join('?')
+    expect(sql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+    expect(sql).toContain('LIMIT')
+    expect(sql).toContain('OFFSET')
   })
 })
 
 describe('PrismaListingRepository.countActive', () => {
-  it('counts with status:active filter', async () => {
-    const db = buildDb({ count: vi.fn(async () => 7) })
+  it('counts active representative vehicle groups', async () => {
+    const db = buildDb()
+    db.$queryRaw = vi.fn(async () => [{ count: 7 }])
     const repo = new PrismaListingRepository(db as never)
     const result = await repo.countActive()
     expect(result).toBe(7)
-    expect(db.listing.count).toHaveBeenCalledWith({ where: { status: 'active' } })
+    const sql = db.$queryRaw.mock.calls[0]![0].join('?')
+    expect(sql).toContain('COUNT(DISTINCT COALESCE("vehicleId", id))')
   })
 })

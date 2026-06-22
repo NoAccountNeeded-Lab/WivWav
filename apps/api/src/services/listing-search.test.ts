@@ -140,6 +140,16 @@ describe('configureListingsIndex', () => {
     expect(waitForTask).toHaveBeenCalledWith(expect.any(Number), { timeout: 15_000 })
   })
 
+  it('sets vehicleGroupKey as the distinct attribute', async () => {
+    const { client, updateSettings } = makeClient()
+
+    await configureListingsIndex(client as never)
+
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      distinctAttribute: 'vehicleGroupKey',
+    }))
+  })
+
   it('propagates errors thrown by updateSettings', async () => {
     const err = new Error('Meilisearch unreachable')
     const client = {

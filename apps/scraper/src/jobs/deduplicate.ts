@@ -1,4 +1,4 @@
-import { getDb } from '@wivwav/db'
+import { findOrCreateVehicle, getDb, isValidVin, normalizeVin } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { syncListings } from '@wivwav/search'
@@ -51,14 +51,25 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
     total: rows.length,
   })
 
-  let canonicalised = 0
-  let marked = 0
+  let vehicleGroupsLinked = 0
+  let listingsLinked = 0
   let skippedGroups = 0
   const touchedIds: string[] = []
 
   for (let i = 0; i < rows.length; i++) {
-    const { vin } = rows[i]!
-    const group = await db.listing.findMany({ where: { vin } })
+    const rawVin = rows[i]!.vin
+    const vin = normalizeVin(rawVin)
+    if (!isValidVin(vin)) {
+      skippedGroups++
+      await report(context, `[deduplicate] ${i + 1}/${rows.length} VIN group(s) — VIN ${rawVin}: invalid VIN, skipping group`, {
+        stage: 'deduplicating',
+        current: i + 1,
+        total: rows.length,
+      })
+      continue
+    }
+
+    const group = await db.listing.findMany({ where: { vin: rawVin } })
 
     // Acquire a lock on every listing in this VIN group before mutating them.
     // If any listing is actively locked by another job, skip the entire group
@@ -88,28 +99,34 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
       continue
     }
 
-    // Pick the listing with the highest completeness score as canonical
+    // Pick the listing with the highest completeness score as the vehicle identity seed.
     const sorted = [...group].sort((a, b) => completenessScore(b) - completenessScore(a))
-    const canonical = sorted[0]!
-    const duplicates = sorted.slice(1)
+    const representative = sorted[0]!
+    const latestObservedAt = sorted.reduce(
+      (latest, listing) => listing.scrapedAt > latest ? listing.scrapedAt : latest,
+      representative.scrapedAt,
+    )
 
     try {
-      // Promote canonical: clear duplicate flags in case it was previously demoted
-      await db.listing.update({
-        where: { id: canonical.id },
-        data: { isDuplicate: false, canonicalId: null },
+      const vehicle = await findOrCreateVehicle(db, {
+        vin,
+        make: representative.make,
+        model: representative.model,
+        year: representative.year,
+        trim: representative.trim,
+        vehicleModelId: representative.vehicleModelId,
+        observedAt: latestObservedAt,
       })
-      touchedIds.push(canonical.id)
-      canonicalised++
 
-      for (const dupe of duplicates) {
+      for (const listing of sorted) {
         await db.listing.update({
-          where: { id: dupe.id },
-          data: { isDuplicate: true, canonicalId: canonical.id },
+          where: { id: listing.id },
+          data: { vehicleId: vehicle.id },
         })
-        touchedIds.push(dupe.id)
-        marked++
+        touchedIds.push(listing.id)
+        listingsLinked++
       }
+      vehicleGroupsLinked++
     } finally {
       await releaseListingLocks(db, lockedIds)
     }
@@ -122,7 +139,7 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
   }
 
   await syncListings(touchedIds, db, getMeiliClient())
-  await report(context, `[deduplicate] Done. ${canonicalised} canonicals, ${marked} duplicates marked, ${skippedGroups} group(s) skipped (locked). ${touchedIds.length} listing(s) synced to Meilisearch.`, {
+  await report(context, `[deduplicate] Done. ${vehicleGroupsLinked} vehicle group(s) linked, ${listingsLinked} listing(s) assigned vehicleId, ${skippedGroups} group(s) skipped. ${touchedIds.length} listing(s) synced to Meilisearch.`, {
     stage: 'complete',
     current: rows.length,
     total: rows.length,

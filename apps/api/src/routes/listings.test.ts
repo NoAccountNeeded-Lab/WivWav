@@ -61,6 +61,7 @@ const defaultDbListing = {
 function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
   return {
     findById: vi.fn(async () => null),
+    findCrossListingsByVehicleId: vi.fn(async () => []),
     findByIdForSafety: vi.fn(async () => null),
     findVehicleModelWithSafetyData: vi.fn(async () => null),
     findManyActive: vi.fn(async () => [] as unknown[]),
@@ -305,6 +306,64 @@ describe('GET /:id — provenance', () => {
       detailScrapedAt: '2024-01-03T00:00:00.000Z',
       vehicleModelMatchConfidence: 'high',
     })
+
+    await app.close()
+  })
+
+  it('includes active cross-listings for the same vehicle', async () => {
+    const listing = {
+      ...defaultDbListing,
+      vehicleId: 'vehicle-1',
+    }
+    const crossListing = {
+      id: 'listing-2',
+      sourceUrl: 'https://dealer-two.example.com/listing/2',
+      buyerUrl: 'https://dealer-two.example.com/buy/2',
+      sellerType: 'dealer',
+      priceCents: 3600000,
+      zip: '78701',
+      city: 'Austin',
+      state: 'TX',
+      dealerName: 'Austin Mobility',
+      dealerPhone: '512-555-0100',
+      dealerWebsite: 'https://austinmobility.example.com',
+    }
+    const { app, listings } = buildTestApp(undefined, {
+      findById: vi.fn(async () => listing),
+      findCrossListingsByVehicleId: vi.fn(async () => [crossListing]),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(listings.findCrossListingsByVehicleId).toHaveBeenCalledWith('vehicle-1', 'listing-1')
+    expect(res.json().data.crossListings).toEqual([
+      {
+        id: 'listing-2',
+        sourceUrl: 'https://dealer-two.example.com/listing/2',
+        buyerUrl: 'https://dealer-two.example.com/buy/2',
+        sellerType: 'dealer',
+        priceCents: 3600000,
+        location: { zip: '78701', city: 'Austin', state: 'TX' },
+        dealer: {
+          name: 'Austin Mobility',
+          phone: '512-555-0100',
+          website: 'https://austinmobility.example.com',
+        },
+      },
+    ])
+
+    await app.close()
+  })
+
+  it('does not query cross-listings when the listing has no vehicle identity', async () => {
+    const { app, listings } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(listings.findCrossListingsByVehicleId).not.toHaveBeenCalled()
+    expect(res.json().data.crossListings).toEqual([])
 
     await app.close()
   })

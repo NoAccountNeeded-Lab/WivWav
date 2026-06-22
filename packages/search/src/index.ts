@@ -5,6 +5,8 @@ export const INDEX_NAME = 'listings'
 
 export interface ListingDocument {
   id: string
+  vehicleId: string | null
+  vehicleGroupKey: string
   sourceId: string
   sourceUrl: string
   buyerUrl: string | null
@@ -87,6 +89,8 @@ export function toDocument(row: Listing): ListingDocument {
 
   return {
     id: row.id,
+    vehicleId: row.vehicleId,
+    vehicleGroupKey: row.vehicleId ?? row.id,
     sourceId: row.sourceId,
     sourceUrl: row.sourceUrl,
     buyerUrl: row.buyerUrl,
