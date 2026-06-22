@@ -16,6 +16,7 @@ export interface FacetsResult {
   conditionBreakdown: Array<{ value: string; count: number }>
   conversionBreakdown: Array<{ value: string; count: number }>
   colorBreakdown: Array<{ value: string; count: number }>
+  rampTypeBreakdown: Array<{ value: string; count: number }>
   /** Counts per WavFeature key. Keyed by WavFeature enum value. */
   wavFeatureCounts: Record<string, number>
 }
@@ -61,6 +62,7 @@ export class ListingFacetsService {
       conditionBreakdown: toValueCount(dist['condition'] ?? {}),
       conversionBreakdown: toValueCount(dist['conversionType'] ?? {}),
       colorBreakdown: toValueCount(dist['color'] ?? {}),
+      rampTypeBreakdown: toValueCount(dist['rampType'] ?? {}),
       wavFeatureCounts: dist['wavFeatures'] ?? {},
     }
 
