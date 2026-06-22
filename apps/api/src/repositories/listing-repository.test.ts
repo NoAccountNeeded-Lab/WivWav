@@ -66,11 +66,11 @@ describe('PrismaListingRepository.findManyActive', () => {
 describe('PrismaListingRepository.countActive', () => {
   it('counts active representative vehicle groups', async () => {
     const db = buildDb()
-    db.$queryRaw = vi.fn(async () => [{ count: 7 }])
+    ;(db as unknown as Record<string, unknown>).$queryRaw = vi.fn(async () => [{ count: 7 }])
     const repo = new PrismaListingRepository(db as never)
     const result = await repo.countActive()
     expect(result).toBe(7)
-    const sql = db.$queryRaw.mock.calls[0]![0].join('?')
+    const sql = (db.$queryRaw as ReturnType<typeof vi.fn>).mock.calls[0]![0].join('?')
     expect(sql).toContain('COUNT(DISTINCT COALESCE("vehicleId", id))')
   })
 })
