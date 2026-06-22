@@ -41,6 +41,7 @@ import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
 import { runModelResearchJob } from './jobs/model-research.js'
 import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
+import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
@@ -230,6 +231,13 @@ queueFactory.createWorker(
   ),
   { lockDuration: 120_000, logger },
 )
+queueFactory.createWorker(
+  QUEUES.DEALER_ENRICH,
+  withSentryCapture(QUEUES.DEALER_ENRICH, (_data: unknown, context) =>
+    runDealerEnrichJob(context),
+  ),
+  { lockDuration: 300_000, logger },
+)
 
 const scrapeQueue = queueFactory.createQueue(QUEUES.SOURCE_SCRAPE)
 const crawlQueue = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
@@ -246,6 +254,7 @@ const nmedaDealersSeedQueue = queueFactory.createQueue(QUEUES.NMEDA_DEALERS_SEED
 const modelResearchQueue = queueFactory.createQueue(QUEUES.MODEL_RESEARCH)
 const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
+const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 
 // --- Source registration ---
 
@@ -396,6 +405,9 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
   { queue: modelResearchQueue, name: QUEUES.MODEL_RESEARCH, data: {}, pattern: '30 5 * * 0', tz },
   { queue: listingSyncQueue, name: QUEUES.LISTING_SYNC, data: {}, pattern: '30 1 * * *', tz, options: CRITICAL_JOB_OPTIONS },
   { queue: rawPageCleanupQueue, name: QUEUES.RAWPAGE_CLEANUP, data: {}, pattern: '0 0 * * *', tz },
+  // dealer-enrich runs nightly at 07:00 — after the main pipeline windows.
+  // At 50 dealers * 2 requests each = 100 requests, staying within the free-tier budget.
+  { queue: dealerEnrichQueue, name: QUEUES.DEALER_ENRICH, data: {}, pattern: '0 7 * * *', tz },
 ]
 
 for (const def of SCHEDULE_DEFS) {
