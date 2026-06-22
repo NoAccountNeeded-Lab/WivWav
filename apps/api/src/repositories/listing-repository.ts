@@ -42,6 +42,28 @@ export type SafetyRatingRow = {
   refreshedAt: Date | null
 }
 
+export type InvestigationRow = {
+  id: string
+  nhtsaId: string
+  component: string
+  summary: string
+  openedDate: Date
+  closedDate: Date | null
+  outcome: string | null
+  sourceUrl: string
+  refreshedAt: Date
+}
+
+export type ManufacturerCommunicationRow = {
+  id: string
+  nhtsaId: string
+  component: string
+  summary: string
+  issuedDate: Date
+  sourceUrl: string
+  refreshedAt: Date
+}
+
 export type VehicleModelWithSafetyData = {
   id: string
   make: string
@@ -52,6 +74,8 @@ export type VehicleModelWithSafetyData = {
   recalls: SafetyRecallRow[]
   complaints: SafetyComplaintRow[]
   safetyRatings: SafetyRatingRow[]
+  investigations: InvestigationRow[]
+  manufacturerCommunications: ManufacturerCommunicationRow[]
 }
 
 export type PriceHistoryRow = {
@@ -178,6 +202,8 @@ export class PrismaListingRepository implements ListingRepository {
         recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true } },
         complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true } },
         safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true, refreshedAt: true } },
+        investigations: { orderBy: { openedDate: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, openedDate: true, closedDate: true, outcome: true, sourceUrl: true, refreshedAt: true } },
+        manufacturerCommunications: { orderBy: { issuedDate: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, issuedDate: true, sourceUrl: true, refreshedAt: true } },
       },
     }) as Promise<VehicleModelWithSafetyData | null>
   }

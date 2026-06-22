@@ -574,6 +574,114 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
   })
 })
 
+// ── GET /:id/safety — investigations and manufacturer communications ────────
+
+describe('GET /:id/safety', () => {
+  it('returns empty investigations and manufacturerCommunications when vehicleModelId is null', async () => {
+    const listing = { id: 'listing-1', vehicleModelId: null }
+    const { app } = buildTestApp(undefined, {
+      findByIdForSafety: vi.fn(async () => listing),
+    })
+    const res = await app.inject({ method: 'GET', url: '/listing-1/safety' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data.vehicleModel).toBeNull()
+    expect(data.investigations).toEqual([])
+    expect(data.manufacturerCommunications).toEqual([])
+    await app.close()
+  })
+
+  it('includes investigations and manufacturerCommunications from vehicleModel safety data', async () => {
+    const now = new Date('2026-06-01T00:00:00.000Z')
+    const listing = { id: 'listing-1', vehicleModelId: 'vm-1' }
+    const vehicleModel = {
+      id: 'vm-1',
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2020,
+      trim: null,
+      bodyType: null,
+      recalls: [],
+      complaints: [],
+      safetyRatings: [],
+      investigations: [
+        {
+          id: 'inv-1',
+          nhtsaId: 'PE24001',
+          component: 'Steering',
+          summary: 'Potential steering loss',
+          openedDate: new Date('2024-01-15'),
+          closedDate: null,
+          outcome: null,
+          sourceUrl: 'https://www.nhtsa.gov/vehicle-safety/recalls-and-investigations#investigations&investigationId=PE24001',
+          refreshedAt: now,
+        },
+      ],
+      manufacturerCommunications: [
+        {
+          id: 'comm-1',
+          nhtsaId: 'TSB-2024-001',
+          component: 'Electrical system',
+          summary: 'Battery drain',
+          issuedDate: new Date('2024-02-01'),
+          sourceUrl: 'https://www.nhtsa.gov/vehicle/safety-issues/tsbs?tsbId=TSB-2024-001',
+          refreshedAt: now,
+        },
+      ],
+    }
+    const { app } = buildTestApp(undefined, {
+      findByIdForSafety: vi.fn(async () => listing),
+      findVehicleModelWithSafetyData: vi.fn(async () => vehicleModel),
+    })
+    const res = await app.inject({ method: 'GET', url: '/listing-1/safety' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    // Investigations are source-backed: each record has sourceUrl pointing to NHTSA
+    expect(data.investigations).toHaveLength(1)
+    expect(data.investigations[0]).toMatchObject({
+      nhtsaId: 'PE24001',
+      component: 'Steering',
+      sourceUrl: expect.stringContaining('nhtsa.gov'),
+    })
+    // Manufacturer communications (TSBs) likewise source-backed
+    expect(data.manufacturerCommunications).toHaveLength(1)
+    expect(data.manufacturerCommunications[0]).toMatchObject({
+      nhtsaId: 'TSB-2024-001',
+      component: 'Electrical system',
+      sourceUrl: expect.stringContaining('nhtsa.gov'),
+    })
+    await app.close()
+  })
+
+  it('returns empty investigations and manufacturerCommunications when vehicleModel has none', async () => {
+    const listing = { id: 'listing-1', vehicleModelId: 'vm-1' }
+    const vehicleModel = {
+      id: 'vm-1',
+      make: 'Honda',
+      model: 'Odyssey',
+      year: 2022,
+      trim: null,
+      bodyType: null,
+      recalls: [],
+      complaints: [],
+      safetyRatings: [],
+      investigations: [],
+      manufacturerCommunications: [],
+    }
+    const { app } = buildTestApp(undefined, {
+      findByIdForSafety: vi.fn(async () => listing),
+      findVehicleModelWithSafetyData: vi.fn(async () => vehicleModel),
+    })
+    const res = await app.inject({ method: 'GET', url: '/listing-1/safety' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    // Missing source state: both arrays are empty — handled gracefully
+    expect(data.investigations).toEqual([])
+    expect(data.manufacturerCommunications).toEqual([])
+    await app.close()
+  })
+})
+
 describe('snippetDescription', () => {
   it('returns null for null input', () => {
     expect(snippetDescription(null)).toBeNull()

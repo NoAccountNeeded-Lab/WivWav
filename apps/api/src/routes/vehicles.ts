@@ -60,6 +60,36 @@ export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (a
     },
   )
 
+  app.get<{ Params: { make: string; model: string; year: string } }>(
+    '/:make/:model/:year/investigations',
+    async (req, reply) => {
+      const year = parseInt(req.params.year)
+      if (isNaN(year)) return reply.badRequest('year must be a number')
+
+      const vm = await vehicles.findModel(req.params.make, req.params.model, year)
+      if (!vm) return reply.send({ data: [] })
+
+      const investigations = await vehicles.findInvestigations(vm.id)
+
+      return reply.send({ data: investigations })
+    },
+  )
+
+  app.get<{ Params: { make: string; model: string; year: string } }>(
+    '/:make/:model/:year/communications',
+    async (req, reply) => {
+      const year = parseInt(req.params.year)
+      if (isNaN(year)) return reply.badRequest('year must be a number')
+
+      const vm = await vehicles.findModel(req.params.make, req.params.model, year)
+      if (!vm) return reply.send({ data: [] })
+
+      const communications = await vehicles.findManufacturerCommunications(vm.id)
+
+      return reply.send({ data: communications })
+    },
+  )
+
   // GET /v1/vehicles/:make/:model/:year/research — latest cited model facts
   app.get<{ Params: { make: string; model: string; year: string } }>(
     '/:make/:model/:year/research',

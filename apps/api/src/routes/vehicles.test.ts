@@ -8,6 +8,8 @@ function buildDefaultVehicleRepo(overrides: Record<string, unknown> = {}) {
     findModel: vi.fn(async () => null),
     findRecalls: vi.fn(async () => []),
     findComplaints: vi.fn(async () => []),
+    findInvestigations: vi.fn(async () => []),
+    findManufacturerCommunications: vi.fn(async () => []),
     findStats: vi.fn(async () => null),
     findResearch: vi.fn(async () => null),
     ...overrides,
@@ -317,6 +319,134 @@ describe('GET /:make/:model/:year/research', () => {
       claimText: '20 MPG combined',
     })
 
+    await app.close()
+  })
+})
+
+// ── GET /:make/:model/:year/investigations ────────────────────────────────────
+
+describe('GET /:make/:model/:year/investigations', () => {
+  it('returns 400 when year is not a number', async () => {
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/notanumber/investigations' })
+    expect(res.statusCode).toBe(400)
+    await app.close()
+  })
+
+  it('returns empty data when no VehicleModel is found', async () => {
+    const { app } = buildTestApp({ findModel: vi.fn(async () => null) })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/investigations' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual([])
+    await app.close()
+  })
+
+  it('returns investigations with source-backed sourceUrl when VehicleModel exists', async () => {
+    const vm = { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 }
+    const investigations = [
+      {
+        id: 'inv-1',
+        nhtsaId: 'PE24001',
+        component: 'Steering',
+        summary: 'Potential steering loss',
+        openedDate: new Date('2024-01-15'),
+        closedDate: null,
+        outcome: null,
+        sourceUrl: 'https://www.nhtsa.gov/vehicle-safety/recalls-and-investigations#investigations&investigationId=PE24001',
+        refreshedAt: new Date('2026-06-01'),
+      },
+    ]
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findInvestigations: vi.fn(async () => investigations),
+    })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/investigations' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data).toHaveLength(1)
+    expect(data[0]).toMatchObject({
+      nhtsaId: 'PE24001',
+      component: 'Steering',
+      // sourceUrl proves facts are source-backed, not computed by WivWav
+      sourceUrl: expect.stringContaining('nhtsa.gov'),
+    })
+    expect(data[0].closedDate).toBeNull()
+    await app.close()
+  })
+
+  it('exposes closedDate and outcome when investigation is closed', async () => {
+    const vm = { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 }
+    const investigations = [
+      {
+        id: 'inv-2',
+        nhtsaId: 'PE23005',
+        component: 'Engine',
+        summary: 'Engine stall',
+        openedDate: new Date('2023-03-01'),
+        closedDate: new Date('2023-09-01'),
+        outcome: 'Recall issued — see campaign NC-23005',
+        sourceUrl: 'https://www.nhtsa.gov/vehicle-safety/recalls-and-investigations#investigations&investigationId=PE23005',
+        refreshedAt: new Date('2026-06-01'),
+      },
+    ]
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findInvestigations: vi.fn(async () => investigations),
+    })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/investigations' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data[0].outcome).toBe('Recall issued — see campaign NC-23005')
+    expect(data[0].closedDate).toBeTruthy()
+    await app.close()
+  })
+})
+
+// ── GET /:make/:model/:year/communications ────────────────────────────────────
+
+describe('GET /:make/:model/:year/communications', () => {
+  it('returns 400 when year is not a number', async () => {
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/notanumber/communications' })
+    expect(res.statusCode).toBe(400)
+    await app.close()
+  })
+
+  it('returns empty data when no VehicleModel is found', async () => {
+    const { app } = buildTestApp({ findModel: vi.fn(async () => null) })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/communications' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual([])
+    await app.close()
+  })
+
+  it('returns TSBs with source-backed sourceUrl when VehicleModel exists', async () => {
+    const vm = { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 }
+    const communications = [
+      {
+        id: 'comm-1',
+        nhtsaId: 'TSB-2024-001',
+        component: 'Electrical system',
+        summary: 'Battery drain in cold weather',
+        issuedDate: new Date('2024-02-01'),
+        sourceUrl: 'https://www.nhtsa.gov/vehicle/safety-issues/tsbs?tsbId=TSB-2024-001',
+        refreshedAt: new Date('2026-06-01'),
+      },
+    ]
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findManufacturerCommunications: vi.fn(async () => communications),
+    })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/communications' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data).toHaveLength(1)
+    expect(data[0]).toMatchObject({
+      nhtsaId: 'TSB-2024-001',
+      component: 'Electrical system',
+      // sourceUrl proves facts are source-backed, not computed by WivWav
+      sourceUrl: expect.stringContaining('nhtsa.gov'),
+    })
     await app.close()
   })
 })

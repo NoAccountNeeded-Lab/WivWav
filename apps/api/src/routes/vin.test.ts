@@ -43,6 +43,8 @@ function makeVehicleModelWithSafety(overrides: {
     recalls: overrides.recalls ?? [],
     complaints: overrides.complaints ?? [],
     safetyRatings: overrides.safetyRatings ?? [],
+    investigations: [],
+    manufacturerCommunications: [],
   }
 }
 
