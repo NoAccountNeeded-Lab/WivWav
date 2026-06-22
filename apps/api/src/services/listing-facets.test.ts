@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { ListingFacetsService } from './listing-facets.js'
 import { priceBucket, mileageBucket } from './listing-search.js'
+import type { CacheService } from './cache/index.js'
+import type { SearchService } from './search/index.js'
 
 describe('priceBucket', () => {
   it('returns null for null price', () => {
@@ -46,5 +49,39 @@ describe('mileageBucket', () => {
 
   it('puts 87 000 miles in the 75000-100000 bucket', () => {
     expect(mileageBucket(87000)).toBe('75000-100000')
+  })
+})
+
+describe('ListingFacetsService', () => {
+  it('returns ramp type breakdown from facet distribution', async () => {
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [],
+        total: 3,
+        facetDistribution: {
+          rampType: { in_floor: 2, fold_out: 1 },
+          wavFeatures: { has_lift: 2, hand_controls: 1 },
+        },
+      })),
+    } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      del: vi.fn(async () => {}),
+      ping: vi.fn(async () => {}),
+      getOrSet: vi.fn(),
+    } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
+      facets: expect.arrayContaining(['rampType', 'wavFeatures']),
+      limit: 0,
+    }))
+    expect(result.rampTypeBreakdown).toEqual([
+      { value: 'in_floor', count: 2 },
+      { value: 'fold_out', count: 1 },
+    ])
+    expect(result.wavFeatureCounts).toEqual({ has_lift: 2, hand_controls: 1 })
   })
 })
