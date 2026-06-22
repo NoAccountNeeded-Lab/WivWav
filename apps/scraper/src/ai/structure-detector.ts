@@ -25,8 +25,8 @@ export class StructureDetector {
 Previous mappings:
 ${JSON.stringify(options.previousMappings, null, 2)}
 
-Updated HTML sample (first 8000 chars):
-${options.sampleHtml.slice(0, 8000)}
+Updated HTML sample (first 32000 chars):
+${options.sampleHtml.slice(0, 32000)}
 
 Return JSON: { "mappings": [{ "targetField": string, "selector": string, "attribute": string|null, "transform": string|null }], "confidence": 0-1, "notes": string }`
 

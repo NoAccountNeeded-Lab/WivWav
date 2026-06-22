@@ -153,7 +153,7 @@ describe('ScraperEngine', () => {
 
   // ─── structure change: no sampleHtml ────────────────────────────────────────
 
-  it('marks needs_remapping when structure changes and no sampleHtml is provided', async () => {
+  it('marks needs_remapping with structured message when structure changes and no sampleHtml is provided', async () => {
     const engine = build()
     const context = makeContext()
     const changed: StructureCheckResult = { changed: true, currentHash: 'new', previousHash: 'old' }
@@ -162,8 +162,8 @@ describe('ScraperEngine', () => {
 
     await engine.runSource('src-1', context)
 
-    expect(sources.markNeedsRemapping).toHaveBeenCalledWith('src-1')
-    expect(runs.fail).toHaveBeenCalledWith('run-1', 'Structure change detected')
+    expect(sources.markNeedsRemapping).toHaveBeenCalledWith('src-1', expect.stringContaining('no HTML sample captured'))
+    expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('no HTML sample captured'))
     expect(adapter.scrape).not.toHaveBeenCalled()
     expect(context.log).toHaveBeenCalledWith(expect.stringContaining('no sample HTML was captured'))
     expect(context.updateProgress).toHaveBeenCalledWith(expect.objectContaining({
@@ -172,7 +172,7 @@ describe('ScraperEngine', () => {
     }))
   })
 
-  it('marks needs_remapping when structure changes, sampleHtml is present, but detector is null (AI unavailable)', async () => {
+  it('marks needs_remapping with structured message when structure changes, sampleHtml is present, but detector is null (AI unavailable)', async () => {
     const engine = new ScraperEngine({ runs, sources, listings })
     const context = makeContext()
     const changed: StructureCheckResult = {
@@ -183,8 +183,8 @@ describe('ScraperEngine', () => {
 
     await engine.runSource('src-1', context, null)
 
-    expect(sources.markNeedsRemapping).toHaveBeenCalledWith('src-1')
-    expect(runs.fail).toHaveBeenCalledWith('run-1', 'Structure change detected')
+    expect(sources.markNeedsRemapping).toHaveBeenCalledWith('src-1', expect.stringContaining('AI remapping unavailable'))
+    expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('AI remapping unavailable'))
     expect(adapter.scrape).not.toHaveBeenCalled()
     expect(context.log).toHaveBeenCalledWith(expect.stringContaining('AI remapping is unavailable'))
     expect(context.updateProgress).toHaveBeenCalledWith(expect.objectContaining({
@@ -231,7 +231,7 @@ describe('ScraperEngine', () => {
 
   // ─── structure change: with sampleHtml, low confidence ──────────────────────
 
-  it('marks needs_remapping and fails run on low-confidence remap', async () => {
+  it('marks error (not needs_remapping) and fails run on low-confidence remap so source retries automatically', async () => {
     const engine = build()
     const detector = makeDetector(0.4)
     const context = makeContext()
@@ -243,9 +243,14 @@ describe('ScraperEngine', () => {
 
     await engine.runSource('src-1', context, detector)
 
-    expect(sources.markNeedsRemapping).toHaveBeenCalledWith('src-1')
+    // Low-confidence remap: use markError (retried automatically) not markNeedsRemapping (operator block)
+    expect(sources.markNeedsRemapping).not.toHaveBeenCalled()
+    expect(sources.markError).toHaveBeenCalledWith('src-1', expect.stringContaining('low-confidence'))
     expect(adapter.scrape).not.toHaveBeenCalled()
     expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('low-confidence'))
+    // Error message includes AI notes and confidence score
+    expect(sources.markError).toHaveBeenCalledWith('src-1', expect.stringContaining('Selectors updated'))
+    expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('0.40'))
     expect(context.updateProgress).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'blocked',
       reason: 'structure_changed_low_confidence_remap',
