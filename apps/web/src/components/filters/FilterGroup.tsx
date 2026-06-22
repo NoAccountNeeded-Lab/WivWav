@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { CategoricalRendererProps, CategoricalRendererType, FilterItem } from './types'
 import { FacetModal } from './FacetModal'
 import styles from './FilterGroup.module.css'
@@ -35,6 +36,7 @@ export function FilterGroup({
   renderer = 'bars',
   maxVisible = 8,
 }: FilterGroupProps) {
+  const t = useTranslations('FilterControls')
   const [showAll, setShowAll] = useState(false)
 
   const Renderer = RENDERERS[renderer]
@@ -67,7 +69,7 @@ export function FilterGroup({
             onClick={() => setShowAll(true)}
             aria-haspopup="dialog"
           >
-            {`Show ${sorted.length - maxVisible} more`}
+            {t('showMore', { count: sorted.length - maxVisible })}
           </button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { getTranslations } from 'next-intl/server'
 import { SiteHeader } from '@/components/SiteHeader'
 import { DiscoverPage } from './DiscoverPage'
 
@@ -14,10 +15,11 @@ interface DiscoverRouteProps {
 
 export default async function DiscoverRoute({ params }: DiscoverRouteProps) {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'DiscoverPage' })
 
   return (
     <>
-      <SiteHeader section="Discover" />
+      <SiteHeader locale={locale} section={t('sectionTitle')} />
       <main id="main-content" tabIndex={-1}>
         <Suspense>
           <DiscoverPage resultsPath={`/${locale}/results`} />

@@ -10,4 +10,7 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, 'src'),
     },
   },
+  test: {
+    exclude: ['**/node_modules/**', '**/e2e/**'],
+  },
 })

@@ -103,28 +103,21 @@ function formatMileage(miles: number | null, locale: string): string | null {
   return `${new Intl.NumberFormat(locale).format(miles)} mi`
 }
 
-function formatCondition(cond: string, cpo: string): string {
-  if (cond === 'certified_pre_owned') return cpo
-  return cond.charAt(0).toUpperCase() + cond.slice(1)
+function formatCondition(cond: string, labels: Pick<ListingLabels, 'cpo' | 'conditionUsed' | 'conditionNew' | 'conditionUnknown'>): string {
+  if (cond === 'certified_pre_owned') return labels.cpo
+  if (cond === 'used') return labels.conditionUsed
+  if (cond === 'new') return labels.conditionNew
+  return labels.conditionUnknown
 }
 
 // ── Listing card ─────────────────────────────────────────
 
-const WAV_FEATURE_LABELS: Record<string, string> = {
-  has_lift:                'Wheelchair Lift',
-  hand_controls:           'Hand Controls',
-  transfer_seat:           'Transfer Seat',
-  kneel_system:            'Kneel System',
-  lowered_floor:           'Lowered Floor',
-  power_ramp:              'Power Ramp',
-  tie_down_system:         'Tie-Down System',
-  automatic_door:          'Automatic Door',
-  motorized_running_board: 'Motorized Running Board',
-}
-
 interface ListingLabels {
   callForPrice: string
   cpo: string
+  conditionUsed: string
+  conditionNew: string
+  conditionUnknown: string
   rearEntry: string
   sideEntry: string
   inFloorRamp: string
@@ -132,6 +125,15 @@ interface ListingLabels {
   foldInRamp: string
   privateSeller: string
   wavFeaturesLabel: string
+  wavFeature_has_lift: string
+  wavFeature_hand_controls: string
+  wavFeature_transfer_seat: string
+  wavFeature_kneel_system: string
+  wavFeature_lowered_floor: string
+  wavFeature_power_ramp: string
+  wavFeature_tie_down_system: string
+  wavFeature_automatic_door: string
+  wavFeature_motorized_running_board: string
 }
 
 function ListingCard({
@@ -163,7 +165,8 @@ function ListingCard({
   if (conversionLabel) badges.push(conversionLabel)
   if (rampLabel) badges.push(rampLabel)
   for (const f of l.wavFeatures) {
-    const label = WAV_FEATURE_LABELS[f]
+    const key = `wavFeature_${f}` as keyof ListingLabels
+    const label = (labels as Record<string, string | undefined>)[key]
     if (label) badges.push(label)
   }
   const wavFeatures = badges
@@ -204,7 +207,7 @@ function ListingCard({
           <p className={styles.cardMeta}>
             {mileage && <span className={styles.metaItem}>{mileage}</span>}
             {location && <span className={styles.metaItem}>{location}</span>}
-            <span className={styles.metaItem}>{formatCondition(l.condition, labels.cpo)}</span>
+            <span className={styles.metaItem}>{formatCondition(l.condition, labels)}</span>
             {l.sellerType === 'private' && (
               <span className={styles.metaItem}>{labels.privateSeller}</span>
             )}
@@ -323,6 +326,9 @@ async function getPageLabels(): Promise<PageLabels> {
     listing: {
       callForPrice: t('listing.callForPrice'),
       cpo: t('listing.cpo'),
+      conditionUsed: t('listing.conditionUsed'),
+      conditionNew: t('listing.conditionNew'),
+      conditionUnknown: t('listing.conditionUnknown'),
       rearEntry: t('listing.rearEntry'),
       sideEntry: t('listing.sideEntry'),
       inFloorRamp: t('listing.inFloorRamp'),
@@ -330,6 +336,15 @@ async function getPageLabels(): Promise<PageLabels> {
       foldInRamp: t('listing.foldInRamp'),
       privateSeller: t('listing.privateSeller'),
       wavFeaturesLabel: t('listing.wavFeaturesLabel'),
+      wavFeature_has_lift: t('listing.wavFeature_has_lift'),
+      wavFeature_hand_controls: t('listing.wavFeature_hand_controls'),
+      wavFeature_transfer_seat: t('listing.wavFeature_transfer_seat'),
+      wavFeature_kneel_system: t('listing.wavFeature_kneel_system'),
+      wavFeature_lowered_floor: t('listing.wavFeature_lowered_floor'),
+      wavFeature_power_ramp: t('listing.wavFeature_power_ramp'),
+      wavFeature_tie_down_system: t('listing.wavFeature_tie_down_system'),
+      wavFeature_automatic_door: t('listing.wavFeature_automatic_door'),
+      wavFeature_motorized_running_board: t('listing.wavFeature_motorized_running_board'),
     },
   }
 }
@@ -368,7 +383,7 @@ export async function ListingsResults({
   if (!result.ok) {
     return (
       <>
-        <SiteHeader />
+        <SiteHeader locale={locale} />
         <main id="main-content" className={styles.main}>
           <div className={styles.container}>
             <div className={styles.emptyState} role="alert">
@@ -385,7 +400,7 @@ export async function ListingsResults({
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader locale={locale} />
 
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
 import styles from './PriceHistogram.module.css'
@@ -49,9 +50,10 @@ const FORWARD_PARAMS = [
 interface TooltipProps {
   active?: boolean
   payload?: Array<{ payload: BucketDatum }>
+  formatListingCount: (count: number) => string
 }
 
-function MileageTooltip({ active, payload }: TooltipProps) {
+function MileageTooltip({ active, payload, formatListingCount }: TooltipProps) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   if (!d) return null
@@ -60,7 +62,7 @@ function MileageTooltip({ active, payload }: TooltipProps) {
       <span className={styles.tooltipRange}>
         {fmtMiles(d.lo)}k–{fmtMiles(d.hi)}k mi
       </span>
-      <span className={styles.tooltipCount}>{d.count} listing{d.count !== 1 ? 's' : ''}</span>
+      <span className={styles.tooltipCount}>{formatListingCount(d.count)}</span>
     </div>
   )
 }
@@ -68,6 +70,7 @@ function MileageTooltip({ active, payload }: TooltipProps) {
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function MileageHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
+  const t = useTranslations('FilterControls')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -172,9 +175,12 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
   }, [facetsTotal, data])
 
   const ariaLabel = useMemo(() => {
-    const suffix = hasFilter ? `, filtered to ${fmtMiles(displayMax)}k miles or less` : ', no mileage filter active'
-    return `Mileage distribution histogram showing listing counts per ${BUCKET_SIZE_MILES.toLocaleString('en-US')}-mile bracket${suffix}`
-  }, [hasFilter, displayMax])
+    return hasFilter
+      ? t('mileage.ariaFiltered', { max: `${fmtMiles(displayMax)}k` })
+      : t('mileage.ariaUnfiltered')
+  }, [hasFilter, displayMax, t])
+
+  const formatListingCount = useCallback((count: number) => t('listingCount', { count }), [t])
 
   const highLabel = displayMax >= rangeMax ? `${fmtMiles(rangeMax)}k+ mi` : `${fmtMiles(displayMax)}k mi`
 
@@ -183,13 +189,13 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <span className={styles.label}>Mileage</span>
+        <span className={styles.label}>{t('mileage.label')}</span>
       </div>
 
       <div className={styles.chartWrapper} role="img" aria-label={ariaLabel}>
         <ResponsiveContainer width="100%" height={80}>
           <BarChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap="10%">
-            <Tooltip content={<MileageTooltip />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
+            <Tooltip content={<MileageTooltip formatListingCount={formatListingCount} />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
             <Bar
               dataKey="count"
               radius={[2, 2, 0, 0]}
@@ -215,7 +221,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
           value={[displayMax]}
           onValueChange={handleSliderChange}
           onValueCommit={handleSliderCommit}
-          aria-label="Maximum mileage"
+          aria-label={t('mileage.maxLabel')}
           className={styles.slider}
         />
       </div>
@@ -224,14 +230,14 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
         <span className={styles.sliderLow}>0 mi</span>
         {matchingCount !== null && (
           <span className={styles.sliderCount}>
-            {matchingCount.toLocaleString()} listing{matchingCount !== 1 ? 's' : ''}
+            {t('listingCount', { count: matchingCount })}
           </span>
         )}
         <span className={styles.sliderHigh}>{highLabel}</span>
       </div>
       {withoutMileage !== null && (
         <p className={styles.noDataNote}>
-          + {withoutMileage.toLocaleString()} without mileage listed
+          {t('mileage.withoutMileage', { count: withoutMileage })}
         </p>
       )}
     </div>

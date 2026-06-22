@@ -1,12 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from '@/navigation'
 import type { IntakeFilters } from '@wivwav/types'
 import styles from './IntakeForm.module.css'
-
-const AI_MESSAGE =
-  "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you."
 
 const EXAMPLES = [
   'Power wheelchair, rear-entry van with in-floor ramp, used, under $45k in Florida',
@@ -29,6 +27,7 @@ function buildFilterSearch(filters: IntakeFilters): string {
 }
 
 export function IntakeForm() {
+  const t = useTranslations('IntakeForm')
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -37,11 +36,13 @@ export function IntakeForm() {
   const [animPlaceholder, setAnimPlaceholder] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const aiMessage = t('aiMessage')
+
   // Type out the AI message on load
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduced) {
-      setAiText(AI_MESSAGE)
+      setAiText(aiMessage)
       setAiDone(true)
       return
     }
@@ -51,8 +52,8 @@ export function IntakeForm() {
 
     function tick() {
       i++
-      setAiText(AI_MESSAGE.slice(0, i))
-      if (i < AI_MESSAGE.length) {
+      setAiText(aiMessage.slice(0, i))
+      if (i < aiMessage.length) {
         timer = setTimeout(tick, 22)
       } else {
         setAiDone(true)
@@ -124,7 +125,7 @@ export function IntakeForm() {
     e.preventDefault()
     const description = textareaRef.current?.value.trim() ?? ''
     if (!description) {
-      setErrorMsg('Please describe what you need before searching.')
+      setErrorMsg(t('errorRequired'))
       textareaRef.current?.focus()
       return
     }
@@ -156,7 +157,7 @@ export function IntakeForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      aria-label="Describe your vehicle needs"
+      aria-label={t('formAriaLabel')}
       noValidate
       className={styles.form}
     >
@@ -166,10 +167,10 @@ export function IntakeForm() {
         <div className={styles.chatHeader}>
           <span className={styles.chatAvatarWrap}>
             <span className={styles.chatAvatar} aria-hidden="true">W</span>
-            <span className={styles.chatOnline} role="img" aria-label="Online" />
+            <span className={styles.chatOnline} role="img" aria-label={t('avatarOnlineLabel')} />
           </span>
           <h1 id="hero-heading" className={styles.chatHeading}>
-            Find the right accessible vehicle
+            {t('heading')}
           </h1>
         </div>
 
@@ -184,7 +185,7 @@ export function IntakeForm() {
         {/* Composer */}
         <div className={styles.composer}>
           <label htmlFor="intake-description" className={styles.srOnly}>
-            Describe what you need
+            {t('describeLabel')}
           </label>
           <textarea
             ref={textareaRef}
@@ -204,7 +205,7 @@ export function IntakeForm() {
             type="submit"
             className={styles.sendBtn}
             disabled={isPending}
-            aria-label={isPending ? 'Searching…' : 'Send'}
+            aria-label={isPending ? t('searching') : t('send')}
           >
             {isPending ? (
               <span className={styles.spinner} aria-hidden="true" />
@@ -230,12 +231,12 @@ export function IntakeForm() {
       </div>
 
       <span className={styles.srOnly} aria-live="polite" aria-atomic="true">
-        {isPending ? 'Searching for matching vehicles…' : ' '}
+        {isPending ? t('searchingLive') : ' '}
       </span>
 
       <div className={styles.actions}>
         <a href="/filters" className={styles.skipLink}>
-          Skip — search on my own
+          {t('skipLink')}
         </a>
       </div>
     </form>
