@@ -1,4 +1,4 @@
-import type { PrismaClient, Listing } from '@wivwav/db'
+import type { PrismaClient, Listing, Prisma } from '@wivwav/db'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -65,11 +65,40 @@ export type ListingVinRow = {
   conversionManufacturer: string | null
 }
 
+export type DealerReviewRow = {
+  id: string
+  authorName: string
+  rating: number
+  text: string
+  publishedAt: Date
+  source: string
+}
+
+export type DealerProfileResult = {
+  id: string
+  name: string
+  zip: string
+  googlePlaceId: string | null
+  rating: number | null
+  reviewCount: number | null
+  /** Raw JSON from Google Places opening_hours — shape varies by API version. */
+  hours: Prisma.JsonValue | null
+  enrichedAt: Date | null
+  reviews: DealerReviewRow[]
+}
+
+export type ListingDealerResult = {
+  id: string
+  dealerProfileId: string | null
+}
+
 // ── Interface ────────────────────────────────────────────────────────────────
 
 export interface ListingRepository {
   findById(id: string): Promise<ListingWithSource | null>
   findByIdForSafety(id: string): Promise<ListingSafetyResult | null>
+  findByIdForDealer(id: string): Promise<ListingDealerResult | null>
+  findDealerProfile(dealerProfileId: string): Promise<DealerProfileResult | null>
   findByVin(vin: string): Promise<ListingVinRow | null>
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null>
   findManyActive(skip: number, take: number): Promise<Listing[]>
@@ -97,6 +126,41 @@ export class PrismaListingRepository implements ListingRepository {
     return this.db.listing.findUnique({
       where: { id },
       select: { id: true, vehicleModelId: true },
+    })
+  }
+
+  findByIdForDealer(id: string): Promise<ListingDealerResult | null> {
+    return this.db.listing.findUnique({
+      where: { id },
+      select: { id: true, dealerProfileId: true },
+    })
+  }
+
+  findDealerProfile(dealerProfileId: string): Promise<DealerProfileResult | null> {
+    return this.db.dealerProfile.findUnique({
+      where: { id: dealerProfileId },
+      select: {
+        id: true,
+        name: true,
+        zip: true,
+        googlePlaceId: true,
+        rating: true,
+        reviewCount: true,
+        hours: true,
+        enrichedAt: true,
+        reviews: {
+          orderBy: [{ rating: 'desc' }, { publishedAt: 'desc' }],
+          take: 5,
+          select: {
+            id: true,
+            authorName: true,
+            rating: true,
+            text: true,
+            publishedAt: true,
+            source: true,
+          },
+        },
+      },
     })
   }
 

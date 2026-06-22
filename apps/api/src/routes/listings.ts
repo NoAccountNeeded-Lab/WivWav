@@ -309,6 +309,16 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
     return reply.send({ data: history })
   })
 
+  app.get<{ Params: { id: string } }>('/:id/dealer', async (req, reply) => {
+    const listing = await listings.findByIdForDealer(req.params.id)
+    if (!listing) return reply.notFound('Listing not found')
+    if (!listing.dealerProfileId) {
+      return reply.send({ data: { dealerProfile: null } })
+    }
+    const dealerProfile = await listings.findDealerProfile(listing.dealerProfileId)
+    return reply.send({ data: { dealerProfile } })
+  })
+
 }
 
 type RecallStatus = 'open' | 'remedied' | 'unknown'

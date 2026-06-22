@@ -169,9 +169,12 @@ model Listing {
   vehicleModel                 VehicleModel? @relation(fields: [vehicleModelId], references: [id])
 
   // Dealer
-  dealerName    String?
-  dealerPhone   String?
-  dealerWebsite String?
+  dealerName      String?
+  dealerPhone     String?
+  dealerWebsite   String?
+  dealerProfileId String?
+  dealerProfile   DealerProfile? @relation(fields: [dealerProfileId], references: [id])
+
 
   images      String[]
   // Raw third-party seller copy. Retained in full for WAV-feature extraction
@@ -217,6 +220,8 @@ model Listing {
   @@index([saleStatus])
   @@index([vehicleModelId])
   @@index([processingLockedAt])
+  @@index([dealerProfileId])
+  @@index([dealerName, zip])
   @@map("listings")
 }
 
@@ -446,6 +451,42 @@ model NmeaDealer {
 
   @@index([state])
   @@map("nmea_dealers")
+}
+
+// ── Dealer enrichment ─────────────────────────────────────────────────────
+
+model DealerProfile {
+  id            String   @id @default(cuid())
+  name          String
+  zip           String
+  googlePlaceId String?  @unique
+  rating        Float?
+  reviewCount   Int?
+  hours         Json?
+  enrichedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  reviews  DealerReview[]
+  listings Listing[]
+
+  @@unique([name, zip])
+  @@map("dealer_profiles")
+}
+
+model DealerReview {
+  id          String        @id @default(cuid())
+  dealerId    String
+  dealer      DealerProfile @relation(fields: [dealerId], references: [id])
+  authorName  String
+  rating      Int
+  text        String
+  publishedAt DateTime
+  source      String        // "google", "dealerrater", etc.
+
+  @@unique([dealerId, source, publishedAt, authorName])
+  @@index([dealerId])
+  @@map("dealer_reviews")
 }
 
 // ── Remote config (append-only) ────────────────────────────────────────────
