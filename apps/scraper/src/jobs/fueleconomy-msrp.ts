@@ -29,8 +29,34 @@ interface FuelEconomyVehicleListResponse {
   vehicle?: FuelEconomyVehicle | FuelEconomyVehicle[]
 }
 
+interface FuelEconomyMenuItem {
+  text?: string
+  value?: string
+}
+
+interface FuelEconomyMenuResponse {
+  menuItem?: FuelEconomyMenuItem | FuelEconomyMenuItem[]
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Fetch all model name variants for a given year/make (e.g. "Sienna 2WD", "Sienna AWD"). */
+async function fetchModelNames(year: number, make: string): Promise<string[]> {
+  const url = `${FUELECONOMY_BASE}/vehicle/menu/model?year=${year}&make=${encodeURIComponent(make)}`
+  const res = await fetch(url, {
+    headers: { Accept: 'application/json', 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+  })
+  if (!res.ok) return []
+  try {
+    const data = (await res.json()) as FuelEconomyMenuResponse
+    if (!data.menuItem) return []
+    const items = Array.isArray(data.menuItem) ? data.menuItem : [data.menuItem]
+    return items.map((m) => m.value ?? m.text ?? '').filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -118,7 +144,24 @@ export async function runFuelEconomyMsrpJob(
   for (let i = 0; i < models.length; i++) {
     const vm = models[i]!
 
-    const variants = await fetchVehiclesByYearMakeModel(vm.year, vm.make, vm.model)
+    const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase())
+    const apiMake = titleCase(vm.make)
+    const apiModelBase = titleCase(vm.model)
+
+    // fueleconomy.gov appends drivetrain suffixes ("Sienna 2WD", "Sienna AWD"),
+    // so we fetch all model names for the year/make and prefix-match.
+    await sleep(RATE_LIMIT_MS)
+    const modelNames = await fetchModelNames(vm.year, apiMake)
+    const matchingModelNames = modelNames.filter((name) =>
+      name.toLowerCase().startsWith(apiModelBase.toLowerCase()),
+    )
+
+    const variants: FuelEconomyVehicle[] = []
+    for (const modelName of matchingModelNames) {
+      await sleep(RATE_LIMIT_MS)
+      const found = await fetchVehiclesByYearMakeModel(vm.year, apiMake, modelName)
+      variants.push(...found)
+    }
 
     // Collect per-variant MSRP candidates via detail endpoint when the list
     // response does not include msrpLow directly.
@@ -171,7 +214,6 @@ export async function runFuelEconomyMsrpJob(
       { stage: 'fetching', current: i + 1, total: models.length },
     )
 
-    if (variants.length > 0 && i < models.length - 1) await sleep(RATE_LIMIT_MS)
   }
 
   await report(
