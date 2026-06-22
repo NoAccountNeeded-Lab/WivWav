@@ -307,6 +307,7 @@ model VehicleModel {
   modelResearch              VehicleModelResearch[]
   investigations             Investigation[]
   manufacturerCommunications ManufacturerCommunication[]
+  pricing                    VehicleModelPricing?
 
   @@unique([make, model, year, trim])
   @@index([make, model])
@@ -576,4 +577,23 @@ model ConfigEntry {
 
   @@index([key, createdAt])
   @@map("config_entry")
+}
+
+/// Original MSRP stored at the model/trim level. Source: fueleconomy.gov.
+model VehicleModelPricing {
+  id                  String       @id @default(cuid())
+  vehicleModelId      String
+  vehicleModel        VehicleModel @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
+  originalMsrpCents   Int?
+  destinationFeeCents Int?
+  currency            String       @default("USD")
+  sourceName          String
+  sourceUrl           String
+  sourceFetchedAt     DateTime     @default(now())
+  sourcePayload       Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@unique([vehicleModelId])
+  @@map("vehicle_model_pricing")
 }

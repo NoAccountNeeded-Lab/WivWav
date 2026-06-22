@@ -115,4 +115,33 @@ export const vehicleRoutes: FastifyPluginAsync<VehiclesPluginOptions> = async (a
       })
     },
   )
+
+  // GET /v1/vehicles/:make/:model/:year/msrp — original MSRP from fueleconomy.gov
+  app.get<{ Params: { make: string; model: string; year: string } }>(
+    '/:make/:model/:year/msrp',
+    async (req, reply) => {
+      const year = parseInt(req.params.year)
+      if (isNaN(year)) return reply.badRequest('year must be a number')
+
+      const vm = await vehicles.findModel(req.params.make, req.params.model, year)
+      if (!vm) return reply.send({ data: null })
+
+      const msrp = await vehicles.findMsrp(vm.id)
+      if (!msrp) return reply.send({ data: null })
+
+      return reply.send({
+        data: {
+          vehicleModel: { id: vm.id, make: vm.make, model: vm.model, year: vm.year },
+          originalMsrpCents: msrp.originalMsrpCents,
+          destinationFeeCents: msrp.destinationFeeCents,
+          currency: msrp.currency,
+          source: {
+            name: msrp.sourceName,
+            url: msrp.sourceUrl,
+            fetchedAt: msrp.sourceFetchedAt,
+          },
+        },
+      })
+    },
+  )
 }

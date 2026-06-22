@@ -12,6 +12,7 @@ function buildDefaultVehicleRepo(overrides: Record<string, unknown> = {}) {
     findManufacturerCommunications: vi.fn(async () => []),
     findStats: vi.fn(async () => null),
     findResearch: vi.fn(async () => null),
+    findMsrp: vi.fn(async () => null),
     ...overrides,
   }
 }
@@ -447,6 +448,88 @@ describe('GET /:make/:model/:year/communications', () => {
       // sourceUrl proves facts are source-backed, not computed by WivWav
       sourceUrl: expect.stringContaining('nhtsa.gov'),
     })
+    await app.close()
+  })
+})
+
+// ── GET /:make/:model/:year/msrp ──────────────────────────────────────────────
+
+describe('GET /:make/:model/:year/msrp', () => {
+  it('returns 400 when year is not a number', async () => {
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/abc/msrp' })
+    expect(res.statusCode).toBe(400)
+    await app.close()
+  })
+
+  it('returns null data when no VehicleModel is found', async () => {
+    const { app } = buildTestApp({ findModel: vi.fn(async () => null) })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/msrp' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toBeNull()
+    await app.close()
+  })
+
+  it('returns null data when VehicleModel exists but no pricing record', async () => {
+    const vm = { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 }
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findMsrp: vi.fn(async () => null),
+    })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/msrp' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toBeNull()
+    await app.close()
+  })
+
+  it('returns source-backed MSRP with currency and source metadata', async () => {
+    const vm = { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 }
+    const msrp = {
+      originalMsrpCents: 3499000,
+      destinationFeeCents: 120000,
+      currency: 'USD',
+      sourceName: 'fueleconomy.gov (U.S. Dept. of Energy)',
+      sourceUrl: 'https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=12345',
+      sourceFetchedAt: new Date('2026-06-01'),
+    }
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findMsrp: vi.fn(async () => msrp),
+    })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/msrp' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data).toMatchObject({
+      vehicleModel: { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 },
+      originalMsrpCents: 3499000,
+      destinationFeeCents: 120000,
+      currency: 'USD',
+      source: {
+        name: 'fueleconomy.gov (U.S. Dept. of Energy)',
+        url: expect.stringContaining('fueleconomy.gov'),
+      },
+    })
+    await app.close()
+  })
+
+  it('returns MSRP with null destination fee when not available', async () => {
+    const vm = { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 }
+    const msrp = {
+      originalMsrpCents: 2899000,
+      destinationFeeCents: null,
+      currency: 'USD',
+      sourceName: 'fueleconomy.gov (U.S. Dept. of Energy)',
+      sourceUrl: 'https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=99999',
+      sourceFetchedAt: new Date('2026-06-01'),
+    }
+    const { app } = buildTestApp({
+      findModel: vi.fn(async () => vm),
+      findMsrp: vi.fn(async () => msrp),
+    })
+    const res = await app.inject({ method: 'GET', url: '/Toyota/Sienna/2020/msrp' })
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data.destinationFeeCents).toBeNull()
     await app.close()
   })
 })

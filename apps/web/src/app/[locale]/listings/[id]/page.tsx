@@ -20,6 +20,7 @@ import { SafetyTab } from './SafetyTab'
 import type {
   ListingDetail,
   MarketPricing,
+  ModelMsrp,
   ModelResearch,
   PricePoint,
   SafetyData,
@@ -144,6 +145,24 @@ async function getVehicleStats(
   }
 }
 
+async function getModelMsrp(
+  make: string,
+  model: string,
+  year: number,
+): Promise<ModelMsrp | null> {
+  try {
+    const res = await apiFetch(
+      `${getServerApiBaseUrl()}/v1/vehicles/${encodeURIComponent(make)}/${encodeURIComponent(model)}/${year}/msrp`,
+      { next: { revalidate: 86400 } },
+    )
+    if (!res.ok) return null
+    const json = (await res.json()) as { data: ModelMsrp | null }
+    return json.data
+  } catch {
+    return null
+  }
+}
+
 async function getSimilar(
   make: string,
   model: string,
@@ -207,6 +226,7 @@ export default async function ListingDetailV2Page({
     similar,
     modelResearch,
     vehicleStats,
+    modelMsrp,
     conversionBrand,
   ] =
     await Promise.all([
@@ -216,6 +236,7 @@ export default async function ListingDetailV2Page({
       getSimilar(listing.make, listing.model, listing.year, id),
       getModelResearch(listing.make, listing.model, listing.year),
       getVehicleStats(listing.make, listing.model, listing.year),
+      getModelMsrp(listing.make, listing.model, listing.year),
       getConversionBrand(listing.wav.conversionManufacturer),
     ])
 
@@ -250,7 +271,7 @@ export default async function ListingDetailV2Page({
       label: 'Vehicle',
       icon: <Gauge size={14} aria-hidden />,
       content: (
-        <VehicleTab listing={listing} modelResearch={modelResearch} vehicleStats={vehicleStats} />
+        <VehicleTab listing={listing} modelResearch={modelResearch} vehicleStats={vehicleStats} modelMsrp={modelMsrp} />
       ),
     },
     {

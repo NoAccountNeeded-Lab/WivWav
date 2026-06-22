@@ -47,6 +47,7 @@ import { runModelResearchJob } from './jobs/model-research.js'
 import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
 import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
+import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fueleconomy-msrp.js'
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
@@ -257,6 +258,13 @@ queueFactory.createWorker(
   ),
   { lockDuration: 300_000, logger },
 )
+queueFactory.createWorker(
+  QUEUES.FUELECONOMY_MSRP,
+  withSentryCapture(QUEUES.FUELECONOMY_MSRP, (data: FuelEconomyMsrpJobData, context) =>
+    runFuelEconomyMsrpJob(context, data),
+  ),
+  { lockDuration: 600_000, logger },
+)
 
 const scrapeQueue = queueFactory.createQueue(QUEUES.SOURCE_SCRAPE)
 const crawlQueue = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
@@ -276,6 +284,7 @@ const modelResearchQueue = queueFactory.createQueue(QUEUES.MODEL_RESEARCH)
 const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
+const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 
 // --- Source registration ---
 
@@ -445,6 +454,8 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
   // dealer-enrich runs nightly at 07:00 — after the main pipeline windows.
   // At 50 dealers * 2 requests each = 100 requests, staying within the free-tier budget.
   { queue: dealerEnrichQueue, name: QUEUES.DEALER_ENRICH, data: {}, pattern: '0 7 * * *', tz },
+  // fueleconomy-msrp runs weekly on Sunday 07:30 — after dealer-enrich, no listing writes.
+  { queue: fuelEconomyMsrpQueue, name: QUEUES.FUELECONOMY_MSRP, data: {}, pattern: '30 7 * * 0', tz },
 ]
 
 for (const def of SCHEDULE_DEFS) {

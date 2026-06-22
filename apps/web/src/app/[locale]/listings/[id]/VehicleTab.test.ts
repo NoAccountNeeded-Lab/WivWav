@@ -271,3 +271,83 @@ describe('deriveShowVehicleStats', () => {
     ).toBe(true)
   })
 })
+
+// ── MSRP display logic ────────────────────────────────────────────────────────
+// formatMsrp is a module-private function in VehicleTab.tsx; we test the
+// equivalent logic inline here following the same isolation pattern used above.
+
+function formatMsrp(cents: number, currency: string): string {
+  const dollars = cents / 100
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(dollars)
+  } catch {
+    return `$${dollars.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  }
+}
+
+describe('formatMsrp (VehicleTab MSRP display helper)', () => {
+  it('formats USD cents as a dollar string with no decimal', () => {
+    expect(formatMsrp(3499000, 'USD')).toBe('$34,990')
+  })
+
+  it('formats round thousands correctly', () => {
+    expect(formatMsrp(2000000, 'USD')).toBe('$20,000')
+  })
+
+  it('rounds fractional cents to the nearest dollar', () => {
+    // 3499050 cents = $34,990.50 → rounded to $34,991
+    expect(formatMsrp(3499050, 'USD')).toBe('$34,991')
+  })
+
+  it('falls back gracefully for unsupported currency codes', () => {
+    // The fallback path returns a $ prefix with locale formatting when
+    // Intl.NumberFormat throws on an unknown currency code
+    const result = formatMsrp(2000000, 'INVALID')
+    expect(typeof result).toBe('string')
+    expect(result.length).toBeGreaterThan(0)
+  })
+})
+
+// ── MSRP visibility guard ─────────────────────────────────────────────────────
+// The VehicleTab only renders the MSRP section when originalMsrpCents is
+// non-null. The guard is: modelMsrp?.originalMsrpCents != null
+// Test the predicate logic directly.
+
+import type { ModelMsrp } from './types.js'
+
+function shouldShowMsrp(modelMsrp: ModelMsrp | null): boolean {
+  return modelMsrp?.originalMsrpCents != null
+}
+
+function makeMsrp(overrides: Partial<ModelMsrp> = {}): ModelMsrp {
+  return {
+    vehicleModel: { id: 'vm-1', make: 'Toyota', model: 'Sienna', year: 2020 },
+    originalMsrpCents: 3499000,
+    destinationFeeCents: null,
+    currency: 'USD',
+    source: {
+      name: 'fueleconomy.gov (U.S. Dept. of Energy)',
+      url: 'https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=12345',
+      fetchedAt: '2026-06-01T00:00:00.000Z',
+    },
+    ...overrides,
+  }
+}
+
+describe('shouldShowMsrp (MSRP section visibility guard)', () => {
+  it('returns false when modelMsrp is null', () => {
+    expect(shouldShowMsrp(null)).toBe(false)
+  })
+
+  it('returns false when originalMsrpCents is null', () => {
+    expect(shouldShowMsrp(makeMsrp({ originalMsrpCents: null }))).toBe(false)
+  })
+
+  it('returns true when originalMsrpCents is a positive integer', () => {
+    expect(shouldShowMsrp(makeMsrp({ originalMsrpCents: 3499000 }))).toBe(true)
+  })
+
+  it('returns true when originalMsrpCents is zero (edge: stored as 0)', () => {
+    expect(shouldShowMsrp(makeMsrp({ originalMsrpCents: 0 }))).toBe(true)
+  })
+})
