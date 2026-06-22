@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { useTranslations } from 'next-intl'
 import { PriceHistogram } from './PriceHistogram'
 import { YearHistogram } from './YearHistogram'
 import { MileageHistogram } from './MileageHistogram'
@@ -121,6 +122,7 @@ export function CategoryBarChart({
   /** Per-group renderer overrides. Defaults to 'bars' for all groups. */
   renderers?: RendererMap
 }) {
+  const t = useTranslations('FilterControls')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -266,15 +268,15 @@ export function CategoryBarChart({
     items: FilterItem[]
     param: string
   }> = data ? [
-    { id: 'make',      title: 'Make',       items: toFilterItems(data.makeBreakdown,                                               parseCommaSep(searchParams.get('make'))),           param: 'make'           },
-    { id: 'model',     title: 'Model',      items: toFilterItems(data.modelBreakdown,                                              parseCommaSep(searchParams.get('model'))),          param: 'model'          },
-    { id: 'trim',      title: 'Trim',       items: toFilterItems(data.trimBreakdown,                                               parseCommaSep(searchParams.get('trim'))),           param: 'trim'           },
-    { id: 'condition', title: 'Condition',  items: toFilterItems(data.conditionBreakdown,                                          parseCommaSep(searchParams.get('condition'))),      param: 'condition'      },
-    { id: 'entry',     title: 'Entry type', items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
-    { id: 'conversionBrand', title: 'Conversion brand', items: brandItems,                                                                                                             param: 'conversionBrand' },
-    { id: 'color',     title: 'Color',      items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
-    { id: 'state',     title: 'State',      items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
-    { id: 'seller',    title: 'Seller type', items: toFilterItems(data.sellerTypeBreakdown,                                        parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
+    { id: 'make',      title: t('groups.make'),      items: toFilterItems(data.makeBreakdown,                                               parseCommaSep(searchParams.get('make'))),           param: 'make'           },
+    { id: 'model',     title: t('groups.model'),     items: toFilterItems(data.modelBreakdown,                                              parseCommaSep(searchParams.get('model'))),          param: 'model'          },
+    { id: 'trim',      title: t('groups.trim'),      items: toFilterItems(data.trimBreakdown,                                               parseCommaSep(searchParams.get('trim'))),           param: 'trim'           },
+    { id: 'condition', title: t('groups.condition'), items: toFilterItems(data.conditionBreakdown,                                          parseCommaSep(searchParams.get('condition'))),      param: 'condition'      },
+    { id: 'entry',     title: t('groups.entry'),     items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
+    { id: 'conversionBrand', title: t('groups.conversionBrand'), items: brandItems,                                                                                                             param: 'conversionBrand' },
+    { id: 'color',     title: t('groups.color'),     items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
+    { id: 'state',     title: t('groups.state'),     items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
+    { id: 'seller',    title: t('groups.seller'),    items: toFilterItems(data.sellerTypeBreakdown,                                         parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
   ].filter((g) => g.items.length > 0) : []
 
   const activeWavFeatures = parseCommaSep(searchParams.get('wavFeatures'))
@@ -283,14 +285,14 @@ export function CategoryBarChart({
   const featureItems: FilterItem[] = data ? [
     {
       value: 'has_lift',
-      label: 'Has lift',
+      label: t('features.hasLift'),
       count: data.wavFeatures.hasLift,
       active: activeWavFeatures.includes('has_lift'),
       disabled: data.wavFeatures.hasLift === 0 && !activeWavFeatures.includes('has_lift'),
     },
     {
       value: 'hand_controls',
-      label: 'Hand controls',
+      label: t('features.handControls'),
       count: data.wavFeatures.handControls,
       active: activeWavFeatures.includes('hand_controls'),
       disabled: data.wavFeatures.handControls === 0 && !activeWavFeatures.includes('hand_controls'),
@@ -328,7 +330,7 @@ export function CategoryBarChart({
     <div className={`${styles.root}${singleColumn ? ` ${styles.singleColumn}` : ''}`}>
       {showMap && (
         <div className={`${styles.mapGroup}`}>
-          <span className={styles.mapTitle}>Listings by state</span>
+          <span className={styles.mapTitle}>{t('groups.location')}</span>
           <div className={styles.mapContainer}>
             <StateHeatMap
               data={data?.stateBreakdown ?? []}
@@ -390,7 +392,7 @@ export function CategoryBarChart({
 
       {showFeatures && featureItems.some((i) => !i.disabled || i.active) && (
         <FilterGroup
-          title="Features"
+          title={t('groups.features')}
           labelId="cat-bar-features"
           items={featureItems}
           onToggle={handleFeatureToggle}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   BarChart,
   Bar,
@@ -57,9 +58,10 @@ function fmtFull(dollars: number): string {
 interface TooltipProps {
   active?: boolean
   payload?: Array<{ payload: BucketDatum }>
+  formatListingCount: (count: number) => string
 }
 
-function PriceTooltip({ active, payload }: TooltipProps) {
+function PriceTooltip({ active, payload, formatListingCount }: TooltipProps) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   if (!d) return null
@@ -68,7 +70,7 @@ function PriceTooltip({ active, payload }: TooltipProps) {
       <span className={styles.tooltipRange}>
         {fmtFull(d.lo)}–{fmtFull(d.hi)}
       </span>
-      <span className={styles.tooltipCount}>{d.count} listing{d.count !== 1 ? 's' : ''}</span>
+      <span className={styles.tooltipCount}>{formatListingCount(d.count)}</span>
     </div>
   )
 }
@@ -84,6 +86,7 @@ const FORWARD_PARAMS = [
 ]
 
 export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
+  const t = useTranslations('FilterControls')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -198,11 +201,12 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   )
 
   const ariaLabel = useMemo(() => {
-    const suffix = hasFilter
-      ? `, filtered from ${fmtFull(committedMin)} to ${fmtFull(committedMax)}`
-      : ', no price filter active'
-    return `Price distribution histogram showing listing counts per $5,000 price bracket${suffix}`
-  }, [hasFilter, committedMin, committedMax])
+    return hasFilter
+      ? t('price.ariaFiltered', { min: fmtFull(committedMin), max: fmtFull(committedMax) })
+      : t('price.ariaUnfiltered')
+  }, [hasFilter, committedMin, committedMax, t])
+
+  const formatListingCount = useCallback((count: number) => t('listingCount', { count }), [t])
 
   const [displayMin, displayMax] = sliderDisplay
 
@@ -235,7 +239,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <span className={styles.label}>Price</span>
+        <span className={styles.label}>{t('price.label')}</span>
       </div>
 
       {/* Bar chart */}
@@ -246,7 +250,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
       >
         <ResponsiveContainer width="100%" height={80}>
           <BarChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap="10%">
-            <Tooltip content={<PriceTooltip />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
+            <Tooltip content={<PriceTooltip formatListingCount={formatListingCount} />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
             <Bar
               dataKey="count"
               radius={[2, 2, 0, 0]}
@@ -273,7 +277,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
           value={[displayMin, displayMax]}
           onValueChange={handleSliderChange}
           onValueCommit={handleSliderCommit}
-          aria-label="Price range"
+          aria-label={t('price.rangeLabel')}
           className={styles.slider}
         />
       </div>
@@ -283,14 +287,14 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
         <span className={styles.sliderLow}>{fmtFull(displayMin)}</span>
         {matchingCount !== null && (
           <span className={styles.sliderCount}>
-            {matchingCount.toLocaleString()} listing{matchingCount !== 1 ? 's' : ''}
+            {t('listingCount', { count: matchingCount })}
           </span>
         )}
         <span className={styles.sliderHigh}>{highLabel}</span>
       </div>
       {withoutPrice !== null && (
         <p className={styles.noDataNote}>
-          + {withoutPrice.toLocaleString()} without price listed
+          {t('price.withoutPrice', { count: withoutPrice })}
         </p>
       )}
 

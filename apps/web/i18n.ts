@@ -1,5 +1,6 @@
 import { getRequestConfig } from 'next-intl/server'
 import { routing } from './routing'
+import { getMessagesForLocale } from './messages'
 
 export default getRequestConfig(async ({ requestLocale }) => {
   // Validate that the incoming locale is supported; fall back to default.
@@ -10,6 +11,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
-    messages: (await import(`./messages/${locale}.json`)).default as Record<string, unknown>,
+    messages: getMessagesForLocale(locale),
   }
 })

@@ -1,6 +1,9 @@
 import { NextIntlClientProvider, hasLocale } from 'next-intl'
-import { getMessages } from 'next-intl/server'
+import { getMessages, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
+import { ConditionalFooter } from '@/components/ConditionalFooter'
+import { Footer } from '@/components/Footer'
+import { ConditionalSkipLink } from '@/components/ConditionalSkipLink'
 import { routing } from '../../../routing'
 
 interface LocaleLayoutProps {
@@ -15,11 +18,15 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     notFound()
   }
 
-  const messages = await getMessages()
+  setRequestLocale(locale)
+  const messages = await getMessages({ locale })
+  const commonMessages = messages.Common as { skipToMainContent: string }
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <ConditionalSkipLink label={commonMessages.skipToMainContent} />
       {children}
+      <ConditionalFooter footer={<Footer locale={locale} />} />
     </NextIntlClientProvider>
   )
 }

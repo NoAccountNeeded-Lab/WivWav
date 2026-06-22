@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
 import styles from './PriceHistogram.module.css'
@@ -25,16 +26,17 @@ const FORWARD_PARAMS = [
 interface TooltipProps {
   active?: boolean
   payload?: Array<{ payload: YearDatum }>
+  formatListingCount: (count: number) => string
 }
 
-function YearTooltip({ active, payload }: TooltipProps) {
+function YearTooltip({ active, payload, formatListingCount }: TooltipProps) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   if (!d) return null
   return (
     <div className={styles.tooltip}>
       <span className={styles.tooltipRange}>{d.year}</span>
-      <span className={styles.tooltipCount}>{d.count} listing{d.count !== 1 ? 's' : ''}</span>
+      <span className={styles.tooltipCount}>{formatListingCount(d.count)}</span>
     </div>
   )
 }
@@ -42,6 +44,7 @@ function YearTooltip({ active, payload }: TooltipProps) {
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
+  const t = useTranslations('FilterControls')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -149,24 +152,25 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
   }, [data, displayMin, displayMax])
 
   const ariaLabel = useMemo(() => {
-    const suffix = hasFilter
-      ? `, filtered from ${displayMin} to ${displayMax}`
-      : ', no year filter active'
-    return `Year distribution histogram showing listing counts per model year${suffix}`
-  }, [hasFilter, displayMin, displayMax])
+    return hasFilter
+      ? t('year.ariaFiltered', { min: displayMin, max: displayMax })
+      : t('year.ariaUnfiltered')
+  }, [hasFilter, displayMin, displayMax, t])
+
+  const formatListingCount = useCallback((count: number) => t('listingCount', { count }), [t])
 
   if (!data.length) return null
 
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <span className={styles.label}>Year</span>
+        <span className={styles.label}>{t('year.label')}</span>
       </div>
 
       <div className={styles.chartWrapper} role="img" aria-label={ariaLabel}>
         <ResponsiveContainer width="100%" height={80}>
           <BarChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap="10%">
-            <Tooltip content={<YearTooltip />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
+            <Tooltip content={<YearTooltip formatListingCount={formatListingCount} />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
             <Bar
               dataKey="count"
               radius={[2, 2, 0, 0]}
@@ -192,7 +196,7 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
           value={[displayMin, displayMax]}
           onValueChange={handleSliderChange}
           onValueCommit={handleSliderCommit}
-          aria-label="Year range"
+          aria-label={t('year.rangeLabel')}
           className={styles.slider}
         />
       </div>
@@ -201,7 +205,7 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
         <span className={styles.sliderLow}>{displayMin}</span>
         {matchingCount !== null && (
           <span className={styles.sliderCount}>
-            {matchingCount.toLocaleString()} listing{matchingCount !== 1 ? 's' : ''}
+            {t('listingCount', { count: matchingCount })}
           </span>
         )}
         <span className={styles.sliderHigh}>{displayMax}</span>
