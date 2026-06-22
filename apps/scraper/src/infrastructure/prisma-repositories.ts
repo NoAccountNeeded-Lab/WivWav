@@ -8,6 +8,14 @@ import type {
   ListingUpsertData,
 } from '../engine/repositories.js'
 
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+
+  const normalizedLeft = [...left].sort()
+  const normalizedRight = [...right].sort()
+  return normalizedLeft.every((value, index) => value === normalizedRight[index])
+}
+
 export class PrismaScraperRunRepository implements ScraperRunRepository {
   constructor(private readonly db: PrismaClient) {}
 
@@ -90,13 +98,32 @@ export class PrismaListingRepository implements ListingRepository {
           sourceRecordKey: listing.sourceRecordKey,
         },
       },
-      select: { id: true, sourceUrl: true, buyerUrl: true, sellerType: true, priceCents: true, status: true },
+      select: {
+        id: true,
+        sourceUrl: true,
+        buyerUrl: true,
+        sellerType: true,
+        priceCents: true,
+        mileage: true,
+        conversionStatus: true,
+        wavFeatures: true,
+        status: true,
+      },
     })
 
     const priceChanged =
       existing !== null &&
       listing.priceCents !== undefined &&
       listing.priceCents !== existing.priceCents
+
+    const mileageChanged =
+      existing !== null &&
+      listing.mileage !== existing.mileage
+
+    const conversionChanged =
+      existing !== null &&
+      (listing.wav.conversionStatus !== existing.conversionStatus ||
+        !sameStringSet(listing.wav.wavFeatures, existing.wavFeatures))
 
     const cameBack =
       existing !== null &&
@@ -111,7 +138,7 @@ export class PrismaListingRepository implements ListingRepository {
       existing !== null &&
       (existing.buyerUrl !== buyerUrl || existing.sellerType !== listing.sellerType || existing.sourceUrl !== listing.sourceUrl)
 
-    if (existing !== null && !priceChanged && !cameBack && !metadataChanged) {
+    if (existing !== null && !priceChanged && !mileageChanged && !conversionChanged && !cameBack && !metadataChanged) {
       return
     }
 
@@ -179,12 +206,37 @@ export class PrismaListingRepository implements ListingRepository {
         ...(listing.priceCents != null
           ? { priceHistory: { create: { priceCents: listing.priceCents } } }
           : {}),
+        ...(listing.mileage != null
+          ? { mileageHistory: { create: { mileage: listing.mileage } } }
+          : {}),
+        conversionHistory: {
+          create: {
+            conversionStatus: listing.wav.conversionStatus,
+            wavFeatures: listing.wav.wavFeatures,
+          },
+        },
       },
     })
 
     if (priceChanged && listing.priceCents != null) {
       await this.db.listingPriceHistory.create({
         data: { listingId: existing!.id, priceCents: listing.priceCents },
+      })
+    }
+
+    if (mileageChanged && listing.mileage != null) {
+      await this.db.listingMileageHistory.create({
+        data: { listingId: existing!.id, mileage: listing.mileage },
+      })
+    }
+
+    if (conversionChanged) {
+      await this.db.listingConversionHistory.create({
+        data: {
+          listingId: existing!.id,
+          conversionStatus: listing.wav.conversionStatus,
+          wavFeatures: listing.wav.wavFeatures,
+        },
       })
     }
   }
