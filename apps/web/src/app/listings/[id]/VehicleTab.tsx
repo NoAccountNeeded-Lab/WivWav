@@ -1,5 +1,5 @@
 import { MileageGauge } from '@/components/listing/MileageGauge'
-import type { ListingDetail, ModelResearch, ModelResearchSource, VehicleStats } from './types'
+import type { ListingDetail, ModelMsrp, ModelResearch, ModelResearchSource, VehicleStats } from './types'
 import { deriveShowVehicleStats, deriveVisibleVehicleStats } from './vehicleTabUtils'
 import styles from './tabs.module.css'
 
@@ -7,6 +7,17 @@ interface VehicleTabProps {
   listing: ListingDetail
   modelResearch: ModelResearch | null
   vehicleStats: VehicleStats | null
+  modelMsrp: ModelMsrp | null
+}
+
+/** Format cents as a currency string for MSRP display. */
+function formatMsrp(cents: number, currency: string): string {
+  const dollars = cents / 100
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(dollars)
+  } catch {
+    return `$${dollars.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  }
 }
 
 /** Human-readable label for each research claim field. */
@@ -31,7 +42,7 @@ const RESEARCH_FIELD_ORDER = [
   'transmission',
 ]
 
-export function VehicleTab({ listing, modelResearch, vehicleStats }: VehicleTabProps) {
+export function VehicleTab({ listing, modelResearch, vehicleStats, modelMsrp }: VehicleTabProps) {
   // Build a map from sourceId → source for inline citation links
   const sourceMap = new Map<string, ModelResearchSource>(
     (modelResearch?.sources ?? []).map((s) => [s.id, s]),
@@ -122,6 +133,38 @@ export function VehicleTab({ listing, modelResearch, vehicleStats }: VehicleTabP
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Original MSRP — model-level, source-backed */}
+      {modelMsrp?.originalMsrpCents != null && (
+        <div className={styles.section}>
+          <h3 className={styles.sectionLabel}>Original MSRP</h3>
+          <dl className={styles.specList}>
+            <div className={styles.specRow}>
+              <dt className={styles.specLabel}>Base MSRP</dt>
+              <dd className={styles.specValueCited}>
+                {formatMsrp(modelMsrp.originalMsrpCents, modelMsrp.currency)}
+                <a
+                  href={modelMsrp.source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.citationLink}
+                >
+                  {modelMsrp.source.name}
+                  <span className="sr-only"> (opens in new tab)</span>
+                </a>
+              </dd>
+            </div>
+            {modelMsrp.destinationFeeCents != null && (
+              <div className={styles.specRow}>
+                <dt className={styles.specLabel}>Destination fee</dt>
+                <dd className={styles.specValue}>
+                  {formatMsrp(modelMsrp.destinationFeeCents, modelMsrp.currency)}
+                </dd>
+              </div>
+            )}
+          </dl>
         </div>
       )}
 

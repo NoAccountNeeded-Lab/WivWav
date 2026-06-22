@@ -50,6 +50,15 @@ export type VehicleResearchRow = {
   claims: { id: string; field: string; claimText: string; confidence: string; sourceId: string | null }[]
 }
 
+export type MsrpRow = {
+  originalMsrpCents: number | null
+  destinationFeeCents: number | null
+  currency: string
+  sourceName: string
+  sourceUrl: string
+  sourceFetchedAt: Date
+}
+
 // ── Interface ────────────────────────────────────────────────────────────────
 
 import type { InvestigationRow, ManufacturerCommunicationRow } from './listing-repository.js'
@@ -63,6 +72,7 @@ export interface VehicleRepository {
   findManufacturerCommunications(vehicleModelId: string): Promise<ManufacturerCommunicationRow[]>
   findStats(make: string, model: string, year: number | null): Promise<VehicleStatsRow | null>
   findResearch(vehicleModelId: string): Promise<VehicleResearchRow | null>
+  findMsrp(vehicleModelId: string): Promise<MsrpRow | null>
 }
 
 // ── Prisma implementation ────────────────────────────────────────────────────
@@ -189,6 +199,20 @@ export class PrismaVehicleRepository implements VehicleRepository {
             sourceId: true,
           },
         },
+      },
+    })
+  }
+
+  findMsrp(vehicleModelId: string): Promise<MsrpRow | null> {
+    return this.db.vehicleModelPricing.findUnique({
+      where: { vehicleModelId },
+      select: {
+        originalMsrpCents: true,
+        destinationFeeCents: true,
+        currency: true,
+        sourceName: true,
+        sourceUrl: true,
+        sourceFetchedAt: true,
       },
     })
   }

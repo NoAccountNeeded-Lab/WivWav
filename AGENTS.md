@@ -370,6 +370,7 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 | GET    | /v1/vehicles/:make/:model/:year/research       | Latest cited model facts (EPA fuel economy, engine, drivetrain) with source URLs |
 | GET    | /v1/vehicles/:make/:model/:year/investigations | NHTSA investigations for a vehicle model; each record has `sourceUrl` |
 | GET    | /v1/vehicles/:make/:model/:year/communications | NHTSA TSBs (manufacturer communications) for a vehicle model; each record has `sourceUrl` |
+| GET    | /v1/vehicles/:make/:model/:year/msrp           | Original MSRP from fueleconomy.gov; returns `originalMsrpCents`, `destinationFeeCents`, `currency`, and `source: {name, url, fetchedAt}` |
 | GET    | /v1/conversion-brands          | List conversion brands with product counts and NMEDA certification status |
 | GET    | /v1/conversion-brands/:slug    | Brand detail with full product catalog (conversionType, rampType, floorLoweringInches, msrpCents) |
 | GET    | /v1/sources                    | List configured scraper sources      |
