@@ -78,7 +78,8 @@ function buildTestApp() {
       conditionBreakdown: [],
       conversionBreakdown: [],
       colorBreakdown: [],
-      wavFeatures: { hasLift: 0, handControls: 0, rampTypes: [] },
+      rampTypeBreakdown: [],
+      wavFeatureCounts: {},
     })),
   }
   const queueFactory = new MockQueueFactory() as MockQueueFactory & { getBullMQQueues: () => [] }

@@ -10,30 +10,13 @@ import { FilterGroup } from './filters/FilterGroup'
 import type { FilterItem, CategoricalRendererType } from './filters/types'
 import { formatFilterLabel } from './filters/types'
 import type { MapListing } from './ListingsMap'
+import { normalizeFacetsData } from './category-facets'
+import type { BarDatum, FacetsData } from './category-facets'
 import styles from './CategoryBarChart.module.css'
 
 const ListingsMap = dynamic(() => import('./ListingsMap'), { ssr: false })
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface BarDatum {
-  value: string
-  count: number
-}
-
-interface FacetsData {
-  makeBreakdown: BarDatum[]
-  modelBreakdown: BarDatum[]
-  conditionBreakdown: BarDatum[]
-  conversionBreakdown: BarDatum[]
-  colorBreakdown: BarDatum[]
-  stateBreakdown: BarDatum[]
-  wavFeatures: {
-    hasLift: number
-    handControls: number
-    rampTypes: BarDatum[]
-  }
-}
 
 interface ConversionBrandSummary {
   id: string
@@ -49,8 +32,8 @@ type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
-  'mileageMax', 'condition', 'conversionType', 'rampType', 'hasLift',
-  'handControls', 'conversionBrand', 'color', 'state',
+  'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures',
+  'conversionBrand', 'color', 'state',
 ]
 
 const MAX_BARS = 8
@@ -82,8 +65,8 @@ function toggleInList(list: string[], value: string): string[] {
 
 async function fetchFacets(url: string): Promise<FacetsData> {
   const res = await fetch(url)
-  const json = (await res.json()) as { data: FacetsData }
-  return json.data
+  const json = (await res.json()) as { data: unknown }
+  return normalizeFacetsData(json.data)
 }
 
 async function fetchConversionBrands(): Promise<ConversionBrandSummary[]> {
@@ -256,14 +239,6 @@ export function CategoryBarChart({
     [push, searchParams],
   )
 
-  const toggleBool = useCallback(
-    (param: string) => {
-      const current = searchParams.get(param) === 'true'
-      push({ [param]: current ? null : 'true' })
-    },
-    [push, searchParams],
-  )
-
   // ── Build group definitions ──────────────────────────────────────────────
 
   const groups: Array<{
@@ -280,23 +255,40 @@ export function CategoryBarChart({
     { id: 'state',     title: 'State',      items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
   ].filter((g) => g.items.length > 0) : []
 
+  const activeWavFeatures = parseCommaSep(searchParams.get('wavFeatures'))
+  const activeRampTypes = parseCommaSep(searchParams.get('rampType'))
+
   const featureItems: FilterItem[] = data ? [
-    { value: 'has_lift',      label: 'Has lift',      count: data.wavFeatures.hasLift,     active: searchParams.get('hasLift') === 'true',     disabled: data.wavFeatures.hasLift === 0     },
-    { value: 'hand_controls', label: 'Hand controls', count: data.wavFeatures.handControls, active: searchParams.get('handControls') === 'true', disabled: data.wavFeatures.handControls === 0 },
+    {
+      value: 'has_lift',
+      label: 'Has lift',
+      count: data.wavFeatures.hasLift,
+      active: activeWavFeatures.includes('has_lift'),
+      disabled: data.wavFeatures.hasLift === 0 && !activeWavFeatures.includes('has_lift'),
+    },
+    {
+      value: 'hand_controls',
+      label: 'Hand controls',
+      count: data.wavFeatures.handControls,
+      active: activeWavFeatures.includes('hand_controls'),
+      disabled: data.wavFeatures.handControls === 0 && !activeWavFeatures.includes('hand_controls'),
+    },
     ...data.wavFeatures.rampTypes
       .filter((r) => r.value !== 'unknown' && r.value !== 'none')
       .map((r) => ({
         value: r.value,
         label: formatFilterLabel(r.value),
         count: r.count,
-        active: parseCommaSep(searchParams.get('rampType')).includes(r.value),
-        disabled: r.count === 0,
+        active: activeRampTypes.includes(r.value),
+        disabled: r.count === 0 && !activeRampTypes.includes(r.value),
       })),
   ] : []
 
   const handleFeatureToggle = (value: string) => {
-    if (value === 'has_lift')      { toggleBool('hasLift'); return }
-    if (value === 'hand_controls') { toggleBool('handControls'); return }
+    if (value === 'has_lift' || value === 'hand_controls') {
+      toggleArray('wavFeatures', value)
+      return
+    }
     toggleArray('rampType', value)
   }
 

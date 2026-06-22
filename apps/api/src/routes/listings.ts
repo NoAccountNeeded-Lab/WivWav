@@ -164,6 +164,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
           conditionBreakdown: [],
           conversionBreakdown: [],
           colorBreakdown: [],
+          rampTypeBreakdown: [],
           wavFeatureCounts: {},
         },
       })
