@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, useId } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import type { IntakeFilters } from '@wivwav/types'
 import { CategoryBarChart } from '@/components/CategoryBarChart'
 import { PriceHistogram } from '@/components/PriceHistogram'
@@ -10,11 +11,6 @@ import { MileageHistogram } from '@/components/MileageHistogram'
 import { ActiveFilters } from '@/components/ActiveFilters'
 import { buildSearchHref } from '@/lib/results-url'
 import styles from './DiscoverPage.module.css'
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const OPENING_MESSAGE =
-  "Describe what you need — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you."
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,6 +92,7 @@ function useTypewriter(text: string, delay = 500, speed = 22) {
 // ── Chat panel ────────────────────────────────────────────────────────────────
 
 function DiscoverChat({ resultsPath }: { resultsPath: string }) {
+  const t = useTranslations('DiscoverChat')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -112,13 +109,14 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
   const formId = useId()
   const inputId = `${formId}-input`
 
-  const { displayed: openingText, done: openingDone } = useTypewriter(OPENING_MESSAGE)
+  const openingMessage = t('openingMessage')
+  const { displayed: openingText, done: openingDone } = useTypewriter(openingMessage)
 
   useEffect(() => {
     if (openingDone && liveRegionRef.current) {
-      liveRegionRef.current.textContent = OPENING_MESSAGE
+      liveRegionRef.current.textContent = openingMessage
     }
-  }, [openingDone])
+  }, [openingDone, openingMessage])
 
   useEffect(() => {
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -145,7 +143,7 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
   async function handleSend() {
     const text = inputValue.trim()
     if (!text) {
-      setInputError('Please describe what you need.')
+      setInputError(t('errorRequired'))
       textareaRef.current?.focus()
       return
     }
@@ -159,7 +157,7 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setIsThinking(true)
 
-    if (liveRegionRef.current) liveRegionRef.current.textContent = 'WivWav is thinking…'
+    if (liveRegionRef.current) liveRegionRef.current.textContent = t('thinkingLabel')
 
     const description = `${filtersToIntakeContext(searchParams)}\n\nUser: ${text}`
 
@@ -220,16 +218,15 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
         <div className={styles.chatHeader}>
           <span className={styles.chatAvatarWrap}>
             <span className={styles.chatAvatar} aria-hidden="true">W</span>
-            <span className={styles.chatOnline} role="img" aria-label="Online" />
+            <span className={styles.chatOnline} role="img" aria-label={t('avatarOnlineLabel')} />
           </span>
-          <h1 className={styles.chatHeading}>Find the right accessible vehicle</h1>
+          <h1 className={styles.chatHeading}>{t('heading')}</h1>
         </div>
 
         {/* Messages */}
         <div
           className={styles.messages}
           role="log"
-          aria-label="Conversation"
           aria-live="polite"
         >
           {/* Opening AI message */}
@@ -262,7 +259,7 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
               <div
                 className={styles.thinkingDots}
                 role="status"
-                aria-label="WivWav is thinking"
+                aria-label={t('thinkingLabel')}
               >
                 <span aria-hidden="true" />
                 <span aria-hidden="true" />
@@ -276,12 +273,11 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
 
         {/* Composer */}
         <div className={styles.composer}>
-          <label htmlFor={inputId} className={styles.srOnly}>Type your reply</label>
+          <label htmlFor={inputId} className={styles.srOnly}>{t('replyLabel')}</label>
           <textarea
             ref={textareaRef}
             id={inputId}
             rows={2}
-            placeholder="Type your reply…"
             className={styles.composerTextarea}
             disabled={isThinking}
             maxLength={2000}
@@ -294,7 +290,7 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
             type="button"
             className={styles.sendBtn}
             disabled={isThinking}
-            aria-label={isThinking ? 'Sending…' : 'Send'}
+            aria-label={isThinking ? t('sendingLabel') : t('sendLabel')}
             onClick={() => void handleSend()}
           >
             {isThinking ? (
@@ -331,9 +327,9 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
           className={styles.ctaBtn}
           onClick={handleSeeMatches}
         >
-          See Matches →
+          {t('seeMatches')}
         </button>
-        <a href={resultsPath} className={styles.skipLink}>Browse on my own</a>
+        <a href={resultsPath} className={styles.skipLink}>{t('browseOnMyOwn')}</a>
       </div>
 
       {/* SR live region */}

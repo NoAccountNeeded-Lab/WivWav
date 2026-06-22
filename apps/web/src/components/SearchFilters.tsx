@@ -3,9 +3,11 @@
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useCallback, useTransition } from 'react'
 import { buildSearchHref } from '@/lib/results-url'
+import { useTranslations } from 'next-intl'
 import styles from './SearchFilters.module.css'
 
 export function SortSelect() {
+  const t = useTranslations('SearchFilters')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -27,7 +29,7 @@ export function SortSelect() {
   return (
     <div className={styles.sortGroup}>
       <label htmlFor="sort-select" className={styles.sortLabel}>
-        Sort
+        {t('sortLabel')}
       </label>
       <select
         id="sort-select"
@@ -35,11 +37,11 @@ export function SortSelect() {
         value={sort}
         onChange={(e) => push({ sort: e.target.value })}
       >
-        <option value="listedAt:desc">Newest listings</option>
-        <option value="priceCents:asc">Price: Low to high</option>
-        <option value="priceCents:desc">Price: High to low</option>
-        <option value="mileage:asc">Lowest mileage</option>
-        <option value="year:desc">Year: Newest first</option>
+        <option value="listedAt:desc">{t('sortOptions.newestListings')}</option>
+        <option value="priceCents:asc">{t('sortOptions.priceLowToHigh')}</option>
+        <option value="priceCents:desc">{t('sortOptions.priceHighToLow')}</option>
+        <option value="mileage:asc">{t('sortOptions.lowestMileage')}</option>
+        <option value="year:desc">{t('sortOptions.yearNewestFirst')}</option>
       </select>
     </div>
   )

@@ -1,9 +1,31 @@
 {
+  "Common": {
+    "skipToMainContent": "Saltar al contenido principal"
+  },
   "SiteHeader": {
     "homeAriaLabel": "WivWav — ir al inicio",
     "taglinePart1": "Independencia con silla de ruedas vía",
     "taglinePart2": "Vehículos Accesibles para Silla de Ruedas",
+    "taglineAriaLabel": "Independencia con silla de ruedas vía Vehículos Accesibles para Silla de Ruedas",
     "languageSwitcherLabel": "Idioma"
+  },
+  "Footer": {
+    "informational": "Solo para fines informativos."
+  },
+  "DiscoverPage": {
+    "sectionTitle": "Descubrir"
+  },
+  "DiscoverChat": {
+    "heading": "Encuentre el vehículo accesible adecuado",
+    "avatarOnlineLabel": "En línea",
+    "openingMessage": "Describa lo que necesita — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
+    "replyLabel": "Escriba su respuesta",
+    "sendLabel": "Enviar",
+    "sendingLabel": "Enviando…",
+    "thinkingLabel": "WivWav está pensando",
+    "seeMatches": "Ver coincidencias →",
+    "browseOnMyOwn": "Explorar por mi cuenta",
+    "errorRequired": "Por favor describa lo que necesita."
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
@@ -49,7 +71,19 @@
       "handControls": "Controles manuales",
       "//cpo": "kept in English: CPO (Certified Pre-Owned) is a US automotive industry term widely understood as-is",
       "cpo": "CPO",
-      "wavFeaturesLabel": "Características WAV"
+      "wavFeaturesLabel": "Características WAV",
+      "wavFeature_has_lift": "Elevador para silla de ruedas",
+      "wavFeature_hand_controls": "Controles manuales",
+      "wavFeature_transfer_seat": "Asiento de transferencia",
+      "wavFeature_kneel_system": "Sistema de arrodillamiento",
+      "wavFeature_lowered_floor": "Piso rebajado",
+      "wavFeature_power_ramp": "Rampa eléctrica",
+      "wavFeature_tie_down_system": "Sistema de sujeción",
+      "wavFeature_automatic_door": "Puerta automática",
+      "wavFeature_motorized_running_board": "Estribo motorizado",
+      "conditionUsed": "Usado",
+      "conditionNew": "Nuevo",
+      "conditionUnknown": "Desconocido"
     }
   },
   "SearchFilters": {
@@ -66,6 +100,48 @@
     "ariaLabel": "Filtros activos",
     "clearAll": "Borrar todo ×",
     "clearAllAriaLabel": "Borrar todos los filtros"
+  },
+  "FilterControls": {
+    "showFewer": "Mostrar menos",
+    "showMore": "Mostrar {count} más",
+    "listingCount": "{count, plural, =1 {# anuncio} other {# anuncios}}",
+    "groups": {
+      "location": "Ubicación",
+      "make": "Marca",
+      "model": "Modelo",
+      "trim": "Versión",
+      "condition": "Condición",
+      "entry": "Tipo de entrada",
+      "color": "Color",
+      "state": "Estado",
+      "seller": "Tipo de vendedor",
+      "features": "Características",
+      "conversionBrand": "Marca de conversión"
+    },
+    "features": {
+      "hasLift": "Tiene elevador",
+      "handControls": "Controles manuales"
+    },
+    "price": {
+      "label": "Precio",
+      "rangeLabel": "Rango de precio",
+      "ariaUnfiltered": "Histograma de distribución de precios que muestra recuentos de anuncios por tramo de $5,000, sin filtro de precio activo",
+      "ariaFiltered": "Histograma de distribución de precios que muestra recuentos de anuncios por tramo de $5,000, filtrado de {min} a {max}",
+      "withoutPrice": "+ {count, number} sin precio publicado"
+    },
+    "year": {
+      "label": "Año",
+      "rangeLabel": "Rango de año",
+      "ariaUnfiltered": "Histograma de distribución por año que muestra recuentos de anuncios por año del modelo, sin filtro de año activo",
+      "ariaFiltered": "Histograma de distribución por año que muestra recuentos de anuncios por año del modelo, filtrado de {min} a {max}"
+    },
+    "mileage": {
+      "label": "Millaje",
+      "maxLabel": "Millaje máximo",
+      "ariaUnfiltered": "Histograma de distribución de millaje que muestra recuentos de anuncios por tramo de 10,000 millas, sin filtro de millaje activo",
+      "ariaFiltered": "Histograma de distribución de millaje que muestra recuentos de anuncios por tramo de 10,000 millas, filtrado hasta {max} millas o menos",
+      "withoutMileage": "+ {count, number} sin millaje publicado"
+    }
   },
   "ListingDetail": {
     "backAriaLabel": "Volver a los anuncios",

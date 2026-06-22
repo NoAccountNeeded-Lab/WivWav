@@ -3,10 +3,8 @@
 import { usePathname } from 'next/navigation'
 import { routing } from '../../routing'
 
-const VEHICLE_DETAIL_PATH = /^(?:\/[a-z]{2})?\/vehicle\//
-
-interface Props {
-  footer: React.ReactNode
+interface ConditionalSkipLinkProps {
+  label: string
   hideLocalePaths?: boolean
 }
 
@@ -15,11 +13,15 @@ function stripLocalePrefix(pathname: string) {
   return pathname.replace(localePattern, '') || '/'
 }
 
-export function ConditionalFooter({ footer, hideLocalePaths = false }: Props) {
+export function ConditionalSkipLink({ label, hideLocalePaths = false }: ConditionalSkipLinkProps) {
   const pathname = usePathname()
   const pathnameWithoutLocale = stripLocalePrefix(pathname)
 
   if (hideLocalePaths && pathnameWithoutLocale !== pathname) return null
-  if (VEHICLE_DETAIL_PATH.test(pathnameWithoutLocale)) return null
-  return <>{footer}</>
+
+  return (
+    <a href="#main-content" className="skip-link">
+      {label}
+    </a>
+  )
 }

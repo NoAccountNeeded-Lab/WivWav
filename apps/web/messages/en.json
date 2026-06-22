@@ -1,9 +1,31 @@
 {
+  "Common": {
+    "skipToMainContent": "Skip to main content"
+  },
   "SiteHeader": {
     "homeAriaLabel": "WivWav — go to home",
     "taglinePart1": "Wheelchair Independence via",
     "taglinePart2": "Wheelchair Accessible Vehicles",
+    "taglineAriaLabel": "Wheelchair Independence via Wheelchair Accessible Vehicles",
     "languageSwitcherLabel": "Language"
+  },
+  "Footer": {
+    "informational": "Informational use only."
+  },
+  "DiscoverPage": {
+    "sectionTitle": "Discover"
+  },
+  "DiscoverChat": {
+    "heading": "Find the right accessible vehicle",
+    "avatarOnlineLabel": "Online",
+    "openingMessage": "Describe what you need — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
+    "replyLabel": "Type your reply",
+    "sendLabel": "Send",
+    "sendingLabel": "Sending…",
+    "thinkingLabel": "WivWav is thinking",
+    "seeMatches": "See Matches →",
+    "browseOnMyOwn": "Browse on my own",
+    "errorRequired": "Please describe what you need."
   },
   "IntakeForm": {
     "aiMessage": "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
@@ -45,7 +67,19 @@
       "hasLift": "Has lift",
       "handControls": "Hand controls",
       "cpo": "CPO",
-      "wavFeaturesLabel": "WAV features"
+      "wavFeaturesLabel": "WAV features",
+      "wavFeature_has_lift": "Wheelchair Lift",
+      "wavFeature_hand_controls": "Hand Controls",
+      "wavFeature_transfer_seat": "Transfer Seat",
+      "wavFeature_kneel_system": "Kneel System",
+      "wavFeature_lowered_floor": "Lowered Floor",
+      "wavFeature_power_ramp": "Power Ramp",
+      "wavFeature_tie_down_system": "Tie-Down System",
+      "wavFeature_automatic_door": "Automatic Door",
+      "wavFeature_motorized_running_board": "Motorized Running Board",
+      "conditionUsed": "Used",
+      "conditionNew": "New",
+      "conditionUnknown": "Unknown"
     }
   },
   "SearchFilters": {
@@ -62,6 +96,48 @@
     "ariaLabel": "Active filters",
     "clearAll": "Clear all ×",
     "clearAllAriaLabel": "Clear all filters"
+  },
+  "FilterControls": {
+    "showFewer": "Show fewer",
+    "showMore": "Show {count} more",
+    "listingCount": "{count, plural, =1 {# listing} other {# listings}}",
+    "groups": {
+      "location": "Location",
+      "make": "Make",
+      "model": "Model",
+      "trim": "Trim",
+      "condition": "Condition",
+      "entry": "Entry type",
+      "color": "Color",
+      "state": "State",
+      "seller": "Seller type",
+      "features": "Features",
+      "conversionBrand": "Conversion Brand"
+    },
+    "features": {
+      "hasLift": "Has lift",
+      "handControls": "Hand controls"
+    },
+    "price": {
+      "label": "Price",
+      "rangeLabel": "Price range",
+      "ariaUnfiltered": "Price distribution histogram showing listing counts per $5,000 price bracket, no price filter active",
+      "ariaFiltered": "Price distribution histogram showing listing counts per $5,000 price bracket, filtered from {min} to {max}",
+      "withoutPrice": "+ {count, number} without price listed"
+    },
+    "year": {
+      "label": "Year",
+      "rangeLabel": "Year range",
+      "ariaUnfiltered": "Year distribution histogram showing listing counts per model year, no year filter active",
+      "ariaFiltered": "Year distribution histogram showing listing counts per model year, filtered from {min} to {max}"
+    },
+    "mileage": {
+      "label": "Mileage",
+      "maxLabel": "Maximum mileage",
+      "ariaUnfiltered": "Mileage distribution histogram showing listing counts per 10,000-mile bracket, no mileage filter active",
+      "ariaFiltered": "Mileage distribution histogram showing listing counts per 10,000-mile bracket, filtered to {max} miles or less",
+      "withoutMileage": "+ {count, number} without mileage listed"
+    }
   },
   "ListingDetail": {
     "backAriaLabel": "Back to listings",

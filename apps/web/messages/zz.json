@@ -1,0 +1,161 @@
+{
+  "Common": {
+    "skipToMainContent": "**** ** **** *******"
+  },
+  "SiteHeader": {
+    "homeAriaLabel": "****** * ** ** ****",
+    "taglinePart1": "********** ************ ***",
+    "taglinePart2": "********** ********** ********",
+    "taglineAriaLabel": "**",
+    "languageSwitcherLabel": "********"
+  },
+  "Footer": {
+    "informational": "****** *** ****"
+  },
+  "DiscoverPage": {
+    "sectionTitle": "********"
+  },
+  "DiscoverChat": {
+    "heading": "**** *** ***** ********** *******",
+    "avatarOnlineLabel": "******",
+    "openingMessage": "******** **** *** **** *** *** ******* **** ** **** ****** *** **** ** ***** *** *** *** *** *******",
+    "replyLabel": "**** **** *****",
+    "sendLabel": "****",
+    "sendingLabel": "********",
+    "thinkingLabel": "****** ** *******",
+    "seeMatches": "*** ******* ***",
+    "browseOnMyOwn": "****** ** ** ****",
+    "errorRequired": "****** ******** **** *** ****"
+  },
+  "IntakeForm": {
+    "aiMessage": "******** **** *** **** ** ***** ******** * ********** ***** **** ** ***** ******* ******** * *** **** *** *** ******* *** ****",
+    "heading": "**** *** ***** ********** *******",
+    "avatarOnlineLabel": "******",
+    "describeLabel": "******** **** *** ****",
+    "searching": "**********",
+    "send": "****",
+    "searchingLive": "********* *** ******** *********",
+    "skipLink": "**** * ****** ** ** ***",
+    "errorRequired": "****** ******** **** *** **** ****** **********",
+    "formAriaLabel": "******** **** ******* *****"
+  },
+  "FiltersPage": {
+    "searchResultsLabel": "****** *******",
+    "vehiclesFound": "{count, plural, =1 {# *******} other {# ********}}",
+    "noVehicles": "** ******** ***** **** ******* ********",
+    "noVehiclesForBrand": "** ******** ***** *** ******** ********** ****** *** ******* ***** ** ***** *** ***** *******",
+    "clearAllFilters": "***** *** *******",
+    "pagination": {
+      "ariaLabel": "**********",
+      "previous": "********",
+      "next": "****",
+      "pageOf": "**** {page} ** {totalPages}"
+    },
+    "listing": {
+      "privateSeller": "******* ******",
+      "callForPrice": "**** *** *****",
+      "rearEntry": "**** *****",
+      "sideEntry": "**** *****",
+      "inFloorRamp": "******** ****",
+      "foldOutRamp": "******** ****",
+      "foldInRamp": "******* ****",
+      "hasLift": "*** ****",
+      "handControls": "**** ********",
+      "cpo": "***",
+      "wavFeaturesLabel": "*** ********",
+      "wavFeature_has_lift": "********** ****",
+      "wavFeature_hand_controls": "**** ********",
+      "wavFeature_transfer_seat": "******** ****",
+      "wavFeature_kneel_system": "***** ******",
+      "wavFeature_lowered_floor": "******* *****",
+      "wavFeature_power_ramp": "***** ****",
+      "wavFeature_tie_down_system": "******* ******",
+      "wavFeature_automatic_door": "********* ****",
+      "wavFeature_motorized_running_board": "********* ******* *****",
+      "conditionUsed": "****",
+      "conditionNew": "***",
+      "conditionUnknown": "*******"
+    }
+  },
+  "SearchFilters": {
+    "sortLabel": "****",
+    "sortOptions": {
+      "newestListings": "****** ********",
+      "priceLowToHigh": "****** *** ** ****",
+      "priceHighToLow": "****** **** ** ***",
+      "lowestMileage": "****** *******",
+      "yearNewestFirst": "***** ****** *****"
+    }
+  },
+  "ActiveFilters": {
+    "ariaLabel": "****** *******",
+    "clearAll": "***** *** *",
+    "clearAllAriaLabel": "***** *** *******"
+  },
+  "FilterControls": {
+    "showFewer": "**** *****",
+    "showMore": "**** {count} ****",
+    "listingCount": "{count, plural, =1 {# *******} other {# ********}}",
+    "groups": {
+      "location": "********",
+      "make": "****",
+      "model": "*****",
+      "trim": "*****",
+      "condition": "*********",
+      "entry": "***** ****",
+      "color": "*****",
+      "state": "*****",
+      "seller": "****** ****",
+      "features": "********",
+      "conversionBrand": "********** *****"
+    },
+    "features": {
+      "hasLift": "*** ****",
+      "handControls": "**** ********"
+    },
+    "price": {
+      "label": "*****",
+      "rangeLabel": "***** *****",
+      "ariaUnfiltered": "***** ************ ********* ******* ******* ****** *** ***** ******* *** ****** ***** ****** **** ****** ******",
+      "ariaFiltered": "***** ************ ********* ******* ******* ****** *** ***** ******* *** ****** ***** ******** **** {min} ** {max}",
+      "withoutPrice": "* {count, number} ******* ***** ******"
+    },
+    "year": {
+      "label": "****",
+      "rangeLabel": "**** *****",
+      "ariaUnfiltered": "**** ************ ********* ******* ******* ****** *** ***** **** ** **** ****** ******",
+      "ariaFiltered": "**** ************ ********* ******* ******* ****** *** ***** **** ******** **** {min} ** {max}"
+    },
+    "mileage": {
+      "label": "*******",
+      "maxLabel": "******* *******",
+      "ariaUnfiltered": "******* ************ ********* ******* ******* ****** *** ****** ***** ******* ***** ****** **** ****** ******",
+      "ariaFiltered": "******* ************ ********* ******* ******* ****** *** ****** ***** ******** ** {max} ***** ** ****",
+      "withoutMileage": "* {count, number} ******* ******* ******"
+    }
+  },
+  "ListingDetail": {
+    "backAriaLabel": "**** ** ********",
+    "viewOriginalListing": "**** ******** ******* *",
+    "listedDate": "****** {date}",
+    "callForPrice": "**** *** *****",
+    "listingNotFound": "******* *** ***** * ******",
+    "notFoundMessage": "******* ************",
+    "notFoundDetail": "** *** **** **** ******* ** *** *** *** ** **********",
+    "browseAllListings": "****** *** ********",
+    "wavFeatures": "*** ********",
+    "vehicleDetails": "******* *******",
+    "locationAndSeller": "******** * ******",
+    "description": "***********",
+    "yesLabel": "***",
+    "noLabel": "**",
+    "conversionTypeLabel": "********** ****",
+    "rampTypeLabel": "**** ****",
+    "hasLiftLabel": "*** ****",
+    "handControlsLabel": "**** ********",
+    "floorLoweringLabel": "***** ********",
+    "wcCapacityLabel": "** ********",
+    "transferSeatLabel": "******** ****",
+    "openInNewTab": "****** ** *** ****"
+  }
+}

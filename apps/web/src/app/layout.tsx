@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, Raleway } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
@@ -19,10 +20,14 @@ const logoFont = Raleway({
 import { GlobalErrorHandlers } from '@/components/GlobalErrorHandlers'
 import { FetchErrorMonitor } from '@/components/FetchErrorMonitor'
 import { ConditionalFooter } from '@/components/ConditionalFooter'
+import { ConditionalSkipLink } from '@/components/ConditionalSkipLink'
+import { Footer } from '@/components/Footer'
 import { NavigationFocusReset } from '@/components/NavigationFocusReset'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
+import { getTranslations } from 'next-intl/server'
 import { NextIntlClientProvider } from 'next-intl'
-import { getLocale, getMessages } from 'next-intl/server'
+import { routing } from '../../routing'
+import { getMessagesForLocale } from '../../messages'
 
 export const metadata: Metadata = {
   title: 'WivWav — Find Wheelchair Accessible Vehicles',
@@ -37,34 +42,41 @@ export const viewport: Viewport = {
   themeColor: '#5c35c6',
 }
 
+async function getRequestLocale() {
+  const locale = (await headers()).get('X-NEXT-INTL-LOCALE')
+  return locale && routing.locales.includes(locale as (typeof routing.locales)[number])
+    ? locale
+    : routing.defaultLocale
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Expose the public API base URL to client components via a data attribute
   // so the browser-side error reporter can POST to /telemetry/client-events without
   // needing next/headers or build-time environment variables in client code.
   const apiBaseUrl = getPublicApiBaseUrl()
 
-  // next-intl sets locale via middleware for locale-prefixed routes.
-  // Routes outside [locale] (e.g. /discover) have no intl context,
-  // so fall back to 'en' and load English messages so hooks like useLocale()
-  // and useTranslations() work in components like SiteHeader/LanguageSwitcher.
-  const locale = await getLocale().catch(() => 'en')
-  const messages = await getMessages({ locale }).catch(() => ({}))
+  // next-intl's middleware only sets locale context for [locale]-prefixed routes.
+  // Routes outside [locale] (e.g. /discover) have no intl context, so this reads
+  // the locale next-intl's middleware still stamps on the request headers and
+  // loads messages directly from the bundled JSON rather than relying on
+  // next-intl/server's getLocale()/getMessages(), which require that context.
+  const locale = await getRequestLocale()
+  const t = await getTranslations({ locale, namespace: 'Common' })
+  const messages = getMessagesForLocale(locale)
 
   return (
     <html lang={locale} className={`${font.variable} ${logoFont.variable}`}>
       <body data-api-url={apiBaseUrl}>
-        <NavigationFocusReset />
-        <GlobalErrorHandlers />
-        <FetchErrorMonitor />
-        <a href="#main-content" className="skip-link">
-          Skip to main content
-        </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
+          <NavigationFocusReset />
+          <GlobalErrorHandlers />
+          <FetchErrorMonitor />
+          <ConditionalSkipLink label={t('skipToMainContent')} hideLocalePaths />
           <ErrorBoundary>
             <main id="main-content" className="site-main">
               {children}
             </main>
-            <ConditionalFooter />
+            <ConditionalFooter footer={<Footer locale={locale} />} hideLocalePaths />
           </ErrorBoundary>
         </NextIntlClientProvider>
       </body>
