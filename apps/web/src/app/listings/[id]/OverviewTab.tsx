@@ -38,6 +38,7 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
   const hasDealerInfo = listing.dealer.name ?? listing.dealer.phone ?? listing.dealer.website
+  const crossListings = listing.crossListings ?? []
 
   const verificationTimestamp = getVerificationTimestamp(listing.provenance)
   const verificationDateLabel = formatVerificationDate(verificationTimestamp)
@@ -170,8 +171,27 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
             dealer={listing.dealer}
             location={listing.location}
             sellerType={listing.sellerType}
+            listingUrl={sourceLink}
           />
         </div>
+      )}
+
+      {crossListings.length > 0 && (
+        <section className={styles.section} aria-labelledby="also-available-at">
+          <h3 id="also-available-at" className={styles.sectionLabel}>Also available at</h3>
+          <div className={styles.alternateDealers}>
+            {crossListings.map((crossListing) => (
+              <DealerCard
+                key={crossListing.id}
+                dealer={crossListing.dealer}
+                location={crossListing.location}
+                sellerType={crossListing.sellerType}
+                listingUrl={crossListing.buyerUrl ?? crossListing.sourceUrl}
+                priceLabel={formatPrice(crossListing.priceCents)}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Provenance + disclaimer — near decision-impacting data */}

@@ -65,8 +65,8 @@ const QUEUE_META: Record<string, QueueMeta> = {
     canTrigger: true,
   },
   'deduplicate': {
-    short: 'Finds vehicles appearing across multiple sources and marks the best one as canonical',
-    detail: 'Matches by VIN. Picks the canonical listing by completeness score (non-null optional fields + image count). Others get isDuplicate=true. Runs nightly at 3 AM.',
+    short: 'Finds vehicles appearing across multiple sources and assigns one vehicle identity',
+    detail: 'Matches by VIN. Assigns the same vehicle identity to cross-listed rows so search can show one card per vehicle. Runs nightly at 3 AM.',
     canTrigger: true,
   },
   'vin-enrich': {
@@ -441,7 +441,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
               <li><strong>detail-crawl</strong> — Uses Playwright to open individual listing URLs and store raw HTML. Triggered hourly by cron.</li>
               <li><strong>detail-extract</strong> — Parses the stored HTML to pull out WAV-specific fields (ramp type, lift, controls, etc.). Runs every 5 minutes.</li>
               <li><strong>geocode</strong> — Resolves city + state to GPS coordinates using Nominatim (OpenStreetMap). Deduplicates by unique location — each city/state is looked up once regardless of how many listings share it. Runs nightly at 2 AM.</li>
-              <li><strong>deduplicate</strong> — Finds the same vehicle listed at multiple sources (matched by VIN) and marks one as canonical. Runs nightly at 3 AM.</li>
+              <li><strong>deduplicate</strong> — Finds the same vehicle listed at multiple sources (matched by VIN) and assigns one vehicle identity across those rows. Runs nightly at 3 AM.</li>
               <li><strong>vin-enrich</strong> — Decodes VINs through NHTSA vPIC and links listings to vehicle models. Runs every 6 hours starting at 4 AM.</li>
               <li><strong>nhtsa-recalls</strong> — Refreshes recall data for inventory vehicle models. Runs daily at 4:30 AM.</li>
               <li><strong>nhtsa-complaints</strong> — Refreshes complaint data for inventory vehicle models. Runs weekly Sunday at 5 AM.</li>

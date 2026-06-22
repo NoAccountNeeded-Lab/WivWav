@@ -398,7 +398,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
   //   01:00  vehicle-stats-refresh (Sunday only, no listing writes)
   //   01:30  listing-sync       (read-only index rebuild)
   //   02:00  geocode            (writes lat/lng; ~30-60 min at volume)
-  //   03:00  deduplicate        (writes isDuplicate/canonicalId; ~15-30 min)
+  //   03:00  deduplicate        (assigns vehicleId across VIN groups; ~15-30 min)
   //   04:00  vin-enrich         (writes vehicleModelId; runs 4:00 then every
   //                              6 h; avoids the 02:00 and 03:00 windows)
   //   04:30  nhtsa-recalls      (writes to recalls table, no listing rows)

@@ -6,6 +6,21 @@ export type ListingWithSource = Listing & {
   source: { name: string; baseUrl: string } | null
 }
 
+export type CrossListingRow = Pick<
+  Listing,
+  | 'id'
+  | 'sourceUrl'
+  | 'buyerUrl'
+  | 'sellerType'
+  | 'priceCents'
+  | 'zip'
+  | 'city'
+  | 'state'
+  | 'dealerName'
+  | 'dealerPhone'
+  | 'dealerWebsite'
+>
+
 export type ListingSafetyResult = {
   id: string
   vehicleModelId: string | null
@@ -116,10 +131,15 @@ export type ListingDealerResult = {
   dealerProfileId: string | null
 }
 
+type CountRow = {
+  count: number | bigint
+}
+
 // ── Interface ────────────────────────────────────────────────────────────────
 
 export interface ListingRepository {
   findById(id: string): Promise<ListingWithSource | null>
+  findCrossListingsByVehicleId(vehicleId: string, excludeListingId: string): Promise<CrossListingRow[]>
   findByIdForSafety(id: string): Promise<ListingSafetyResult | null>
   findByIdForDealer(id: string): Promise<ListingDealerResult | null>
   findDealerProfile(dealerProfileId: string): Promise<DealerProfileResult | null>
@@ -143,6 +163,33 @@ export class PrismaListingRepository implements ListingRepository {
     return this.db.listing.findUnique({
       where: { id },
       include: { source: { select: { name: true, baseUrl: true } } },
+    })
+  }
+
+  findCrossListingsByVehicleId(vehicleId: string, excludeListingId: string): Promise<CrossListingRow[]> {
+    return this.db.listing.findMany({
+      where: {
+        vehicleId,
+        status: 'active',
+        id: { not: excludeListingId },
+      },
+      orderBy: [
+        { listedAt: 'desc' },
+        { id: 'asc' },
+      ],
+      select: {
+        id: true,
+        sourceUrl: true,
+        buyerUrl: true,
+        sellerType: true,
+        priceCents: true,
+        zip: true,
+        city: true,
+        state: true,
+        dealerName: true,
+        dealerPhone: true,
+        dealerWebsite: true,
+      },
     })
   }
 
@@ -209,11 +256,28 @@ export class PrismaListingRepository implements ListingRepository {
   }
 
   findManyActive(skip: number, take: number): Promise<Listing[]> {
-    return this.db.listing.findMany({ skip, take, where: { status: 'active' }, orderBy: { listedAt: 'desc' } })
+    return this.db.$queryRaw<Listing[]>`
+      WITH representative_listings AS (
+        SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
+        FROM listings
+        WHERE status = 'active'
+        ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+      )
+      SELECT *
+      FROM representative_listings
+      ORDER BY "listedAt" DESC, id ASC
+      LIMIT ${take}
+      OFFSET ${skip}
+    `
   }
 
-  countActive(): Promise<number> {
-    return this.db.listing.count({ where: { status: 'active' } })
+  async countActive(): Promise<number> {
+    const rows = await this.db.$queryRaw<CountRow[]>`
+      SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
+      FROM listings
+      WHERE status = 'active'
+    `
+    return Number(rows[0]?.count ?? 0)
   }
 
   countActiveWithCoordinates(): Promise<number> {

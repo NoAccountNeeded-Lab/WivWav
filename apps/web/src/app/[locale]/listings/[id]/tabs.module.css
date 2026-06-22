@@ -196,6 +196,12 @@
   outline-offset: 2px;
 }
 
+.alternateDealers {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .footerMeta {
   font-size: 0.75rem;
   color: var(--clr-text-muted);

@@ -46,6 +46,13 @@ type PriceDropRow = {
   dropped: number | bigint
 }
 
+type PopularRow = {
+  make?: string
+  model?: string
+  conversionManufacturer?: string | null
+  count: number | bigint
+}
+
 // ── Prisma implementation ────────────────────────────────────────────────────
 
 export class PrismaMarketRepository implements MarketRepository {
@@ -54,6 +61,17 @@ export class PrismaMarketRepository implements MarketRepository {
   async getPricingStats(make: string, model: string, year: number | null, conversionType: string | null): Promise<PricingStats> {
     const [pricingRows, dropRows] = await Promise.all([
       this.db.$queryRaw<PricingRow[]>`
+        WITH representative_listings AS (
+          SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
+          FROM listings
+          WHERE status = 'active'
+            AND "priceCents" IS NOT NULL
+            AND make = ${make}
+            AND model = ${model}
+            AND (${year}::int IS NULL OR year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
+            AND (${conversionType}::text IS NULL OR "conversionType"::text = ${conversionType}::text)
+          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        )
         SELECT
           COUNT(*)::int                                                                                    AS count,
           PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY "priceCents")                                     AS p10,
@@ -63,20 +81,23 @@ export class PrismaMarketRepository implements MarketRepository {
           PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY "priceCents")                                     AS p90,
           PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY mileage)                                          AS "medianMileage",
           PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM NOW() - "listedAt") / 86400)   AS "medianDaysListed"
-        FROM listings
-        WHERE status = 'active'
-          AND "isDuplicate" = false
-          AND "priceCents" IS NOT NULL
-          AND make = ${make}
-          AND model = ${model}
-          AND (${year}::int IS NULL OR year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
-          AND (${conversionType}::text IS NULL OR "conversionType"::text = ${conversionType}::text)
+        FROM representative_listings
       `,
       this.db.$queryRaw<PriceDropRow[]>`
+        WITH representative_listings AS (
+          SELECT DISTINCT ON (COALESCE("vehicleId", id)) id, make, model, year, "conversionType"
+          FROM listings
+          WHERE status = 'active'
+            AND make = ${make}
+            AND model = ${model}
+            AND (${year}::int IS NULL OR year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
+            AND (${conversionType}::text IS NULL OR "conversionType"::text = ${conversionType}::text)
+          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        )
         SELECT
           COUNT(DISTINCT l.id)::int                                                                       AS total,
           COUNT(DISTINCT CASE WHEN fp."priceCents" > lp."priceCents" THEN l.id END)::int                 AS dropped
-        FROM listings l
+        FROM representative_listings l
         INNER JOIN (
           SELECT DISTINCT ON ("listingId") "listingId", "priceCents"
           FROM listing_price_history
@@ -87,12 +108,6 @@ export class PrismaMarketRepository implements MarketRepository {
           FROM listing_price_history
           ORDER BY "listingId", "recordedAt" DESC
         ) lp ON lp."listingId" = l.id
-        WHERE l.status = 'active'
-          AND l."isDuplicate" = false
-          AND l.make = ${make}
-          AND l.model = ${model}
-          AND (${year}::int IS NULL OR l.year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
-          AND (${conversionType}::text IS NULL OR l."conversionType"::text = ${conversionType}::text)
       `,
     ])
 
@@ -115,35 +130,54 @@ export class PrismaMarketRepository implements MarketRepository {
 
   async getPopular(): Promise<PopularStats> {
     const [makes, models, brands] = await Promise.all([
-      this.db.listing.groupBy({
-        by: ['make'],
-        where: { status: 'active', isDuplicate: false },
-        _count: { make: true },
-        orderBy: { _count: { make: 'desc' } },
-        take: 10,
-      }),
-      this.db.listing.groupBy({
-        by: ['make', 'model'],
-        where: { status: 'active', isDuplicate: false },
-        _count: { make: true },
-        orderBy: { _count: { make: 'desc' } },
-        take: 10,
-      }),
-      this.db.listing.groupBy({
-        by: ['conversionManufacturer'],
-        where: { status: 'active', isDuplicate: false, conversionManufacturer: { not: null } },
-        _count: { conversionManufacturer: true },
-        orderBy: { _count: { conversionManufacturer: 'desc' } },
-        take: 10,
-      }),
+      this.db.$queryRaw<PopularRow[]>`
+        WITH representative_listings AS (
+          SELECT DISTINCT ON (COALESCE("vehicleId", id)) make
+          FROM listings
+          WHERE status = 'active'
+          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        )
+        SELECT make, COUNT(*)::int AS count
+        FROM representative_listings
+        GROUP BY make
+        ORDER BY count DESC, make ASC
+        LIMIT 10
+      `,
+      this.db.$queryRaw<PopularRow[]>`
+        WITH representative_listings AS (
+          SELECT DISTINCT ON (COALESCE("vehicleId", id)) make, model
+          FROM listings
+          WHERE status = 'active'
+          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        )
+        SELECT make, model, COUNT(*)::int AS count
+        FROM representative_listings
+        GROUP BY make, model
+        ORDER BY count DESC, make ASC, model ASC
+        LIMIT 10
+      `,
+      this.db.$queryRaw<PopularRow[]>`
+        WITH representative_listings AS (
+          SELECT DISTINCT ON (COALESCE("vehicleId", id)) "conversionManufacturer"
+          FROM listings
+          WHERE status = 'active'
+          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        )
+        SELECT "conversionManufacturer", COUNT(*)::int AS count
+        FROM representative_listings
+        WHERE "conversionManufacturer" IS NOT NULL
+        GROUP BY "conversionManufacturer"
+        ORDER BY count DESC, "conversionManufacturer" ASC
+        LIMIT 10
+      `,
     ])
 
     return {
-      makes: makes.map((r) => ({ make: r.make, count: r._count.make })),
-      models: models.map((r) => ({ make: r.make, model: r.model, count: r._count.make })),
+      makes: makes.map((r) => ({ make: r.make ?? '', count: Number(r.count) })),
+      models: models.map((r) => ({ make: r.make ?? '', model: r.model ?? '', count: Number(r.count) })),
       conversionBrands: brands
         .filter((r) => r.conversionManufacturer !== null)
-        .map((r) => ({ conversionManufacturer: r.conversionManufacturer as string, count: r._count.conversionManufacturer })),
+        .map((r) => ({ conversionManufacturer: r.conversionManufacturer as string, count: Number(r.count) })),
     }
   }
 }

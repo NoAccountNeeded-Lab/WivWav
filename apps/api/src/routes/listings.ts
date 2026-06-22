@@ -4,12 +4,13 @@ import type { BullMQQueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
-import type { ListingRepository } from '../repositories/index.js'
+import type { CrossListingRow, ListingRepository } from '../repositories/index.js'
 
 const REFRESH_RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour per vehicle model
 const refreshedAt = new Map<string, number>()
 
 type ListingWithRequiredSource = Listing & { source: { name: string; baseUrl: string } }
+type CrossListingResponse = ReturnType<typeof toCrossListingResponse>
 
 /**
  * Maximum characters of third-party dealer copy exposed in the public API.
@@ -27,7 +28,7 @@ export function snippetDescription(description: string | null): string | null {
   return trimmed.slice(0, DESCRIPTION_SNIPPET_LENGTH).trimEnd() + '…'
 }
 
-function toListingDetailResponse(listing: ListingWithRequiredSource) {
+function toListingDetailResponse(listing: ListingWithRequiredSource, crossListings: CrossListingResponse[] = []) {
   const {
     source,
     sourceId,
@@ -53,10 +54,13 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
 
   return {
     ...rest,
+    sourceUrl,
+    buyerUrl,
     description: snippetDescription(description),
     location: { zip, city, state, lat, lng },
     dealer: { name, phone, website: dealerWebsite },
     wav: { conversionType, conversionManufacturer, floorLoweringInches, rampType, conversionStatus, wavFeatures, wheelchairCapacity },
+    crossListings,
     provenance: {
       sourceName: source.name,
       sourceBaseUrl: source.baseUrl,
@@ -65,6 +69,27 @@ function toListingDetailResponse(listing: ListingWithRequiredSource) {
       scrapedAt,
       detailScrapedAt,
       vehicleModelMatchConfidence,
+    },
+  }
+}
+
+function toCrossListingResponse(listing: CrossListingRow) {
+  const isPrivate = listing.sellerType === 'private'
+  return {
+    id: listing.id,
+    sourceUrl: listing.sourceUrl,
+    buyerUrl: listing.buyerUrl,
+    sellerType: listing.sellerType,
+    priceCents: listing.priceCents,
+    location: {
+      zip: listing.zip,
+      city: listing.city,
+      state: listing.state,
+    },
+    dealer: {
+      name: isPrivate ? 'For Sale By Owner' : listing.dealerName,
+      phone: isPrivate ? null : listing.dealerPhone,
+      website: listing.dealerWebsite,
     },
   }
 }
@@ -232,7 +257,16 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
       if (!listing) return reply.notFound('Listing not found')
       if (!listing.source) return reply.internalServerError('Listing source not found')
 
-      return reply.send({ data: toListingDetailResponse(listing as ListingWithRequiredSource) })
+      const crossListings = listing.vehicleId
+        ? await listings.findCrossListingsByVehicleId(listing.vehicleId, listing.id)
+        : []
+
+      return reply.send({
+        data: toListingDetailResponse(
+          listing as ListingWithRequiredSource,
+          crossListings.map(toCrossListingResponse),
+        ),
+      })
     } catch (err) {
       req.log.error(err, '[listings/:id] failed to fetch listing')
       return reply.internalServerError('Failed to fetch listing')

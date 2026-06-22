@@ -1,4 +1,4 @@
-import { Globe, MapPin, Phone } from 'lucide-react'
+import { DollarSign, ExternalLink, Globe, MapPin, Phone } from 'lucide-react'
 import type { ListingDealer, ListingLocation } from '@wivwav/types'
 import styles from './DealerCard.module.css'
 
@@ -6,9 +6,11 @@ interface DealerCardProps {
   dealer: ListingDealer
   location: Pick<ListingLocation, 'city' | 'state' | 'zip'>
   sellerType: string
+  listingUrl?: string | null
+  priceLabel?: string | null
 }
 
-export function DealerCard({ dealer, location, sellerType }: DealerCardProps) {
+export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabel }: DealerCardProps) {
   const locationStr = [location.city, location.state].filter(Boolean).join(', ')
 
   return (
@@ -29,6 +31,12 @@ export function DealerCard({ dealer, location, sellerType }: DealerCardProps) {
             {location.zip ? ` ${location.zip}` : ''}
           </li>
         )}
+        {priceLabel && (
+          <li className={styles.contactRow}>
+            <DollarSign size={16} className={styles.contactIcon} aria-hidden />
+            <span>{priceLabel}</span>
+          </li>
+        )}
         {dealer.phone && (
           <li className={styles.contactRow}>
             <Phone size={16} className={styles.contactIcon} aria-hidden />
@@ -47,6 +55,20 @@ export function DealerCard({ dealer, location, sellerType }: DealerCardProps) {
               className={styles.link}
             >
               {dealer.website.replace(/^https?:\/\//, '')}
+            </a>
+          </li>
+        )}
+        {listingUrl && (
+          <li className={styles.contactRow}>
+            <ExternalLink size={16} className={styles.contactIcon} aria-hidden />
+            <a
+              href={listingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.listingLink}
+            >
+              View listing
+              <span className="sr-only"> (opens in new tab)</span>
             </a>
           </li>
         )}
