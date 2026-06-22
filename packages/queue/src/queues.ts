@@ -22,6 +22,7 @@ export const QUEUES = {
   RAWPAGE_CLEANUP:                      'rawpage-cleanup',
   CONVERSION_BRANDS_SEED:               'conversion-brands-seed',
   NMEDA_DEALERS_SEED:                   'nmeda-dealers-seed',
+  FUELECONOMY_MSRP:                      'fueleconomy-msrp',
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]

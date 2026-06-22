@@ -178,3 +178,28 @@ export interface VehicleStats {
   refreshedAt: string | null
   sources: VehicleStatsSource[]
 }
+
+export interface ModelMsrpSource {
+  name: string
+  url: string
+  fetchedAt: string
+}
+
+export interface ModelMsrp {
+  vehicleModel: { id: string; make: string; model: string; year: number }
+  originalMsrpCents: number | null
+  destinationFeeCents: number | null
+  currency: string
+  source: ModelMsrpSource
+}
+
+export interface NmeaDealer {
+  id: string
+  name: string
+  city: string | null
+  state: string | null
+  phone: string | null
+  website: string | null
+  qapCertified: boolean
+  distanceMiles: number | null
+}
