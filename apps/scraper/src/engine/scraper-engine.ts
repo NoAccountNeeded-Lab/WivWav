@@ -86,33 +86,42 @@ export class ScraperEngine {
           await this.sources.setMappings(sourceId, remap.mappings)
 
           if (remap.confidence >= REMAP_CONFIDENCE_THRESHOLD) {
-            await report(context, `[source-scrape] Structure changed for ${adapter.name}; AI remapped with confidence ${remap.confidence.toFixed(2)}. Proceeding with scrape.`, {
+            await report(context, `[source-scrape] Structure changed for ${adapter.name}; AI remapped with confidence ${remap.confidence.toFixed(2)}. Proceeding with scrape using updated mappings.`, {
               stage: 'scraping',
               current: 0,
               total: 0,
             })
-            // Fall through: attempt scrape with existing adapter (hardcoded selectors may still work)
+            // Fall through: attempt scrape with existing adapter now that mappings are updated.
+            // If the scrape produces low-quality data the quality gate below will abort the run.
           } else {
-            const message = `Structure changed — low-confidence remap (${remap.confidence.toFixed(2)}): ${remap.notes}`
-            await report(context, `[source-scrape] ${message}. Marked source needs_remapping; scrape skipped.`, {
+            // Low confidence: record failure with full AI context but do NOT mark needs_remapping.
+            // Leaving the source in error state means the next scheduled run will retry automatically.
+            const message = `Structure changed — low-confidence remap (confidence ${remap.confidence.toFixed(2)}): ${remap.notes}`
+            await report(context, `[source-scrape] ${message}. Source left in error state for automatic retry on next run.`, {
               stage: 'blocked',
               reason: 'structure_changed_low_confidence_remap',
               current: 0,
               total: 0,
             })
-            await this.sources.markNeedsRemapping(sourceId)
+            await this.sources.markError(sourceId, message)
             await this.runs.fail(run.id, message)
             return
           }
         } else {
+          // No sample HTML or AI unavailable: requires operator intervention, mark needs_remapping
+          // with a structured message that identifies which failure mode occurred.
+          const failureMode = structureCheck.sampleHtml ? 'structure_changed_ai_unavailable' : 'structure_changed_no_sample_html'
+          const errorMessage = structureCheck.sampleHtml
+            ? 'Structure changed — AI remapping unavailable; operator intervention required'
+            : 'Structure changed — no HTML sample captured; operator intervention required'
           await report(context, `[source-scrape] Structure changed for ${adapter.name}, but ${structureCheck.sampleHtml ? 'AI remapping is unavailable' : 'no sample HTML was captured'}. Marked source needs_remapping; scrape skipped.`, {
             stage: 'blocked',
-            reason: structureCheck.sampleHtml ? 'structure_changed_ai_unavailable' : 'structure_changed_no_sample_html',
+            reason: failureMode,
             current: 0,
             total: 0,
           })
-          await this.sources.markNeedsRemapping(sourceId)
-          await this.runs.fail(run.id, 'Structure change detected')
+          await this.sources.markNeedsRemapping(sourceId, errorMessage)
+          await this.runs.fail(run.id, errorMessage)
           return
         }
       }

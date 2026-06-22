@@ -138,7 +138,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                     Status
                     <span
                       className={styles.tip}
-                      data-tip="active = scraping normally · error = last run failed · needs_remapping = HTML structure changed and AI remapping is needed · paused = manually paused"
+                      data-tip="active = scraping normally · error = last run failed (retried automatically next cycle) · needs_remapping = HTML structure changed but AI could not remap (no sample HTML or AI unavailable); operator intervention required · paused = manually paused"
                       tabIndex={0}
                       aria-label="Status field explanation"
                     >?</span>
@@ -229,7 +229,8 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
               <li><strong>deduplicate</strong> — Detects the same vehicle sold across multiple sources (matched by VIN) and marks the most complete listing as canonical.</li>
             </ol>
             <p><strong>Run Now</strong> immediately enqueues a source-scrape job, bypassing the cron schedule. Useful after fixing an error or adding a new source.</p>
-            <p>Status <strong>needs_remapping</strong> means the site's HTML changed and AI auto-remapping didn't meet the confidence threshold. Check the scraper logs and re-run once the selector mapping is corrected.</p>
+            <p>Status <strong>error</strong> means the last run failed. This includes low-confidence AI remaps (confidence below 0.7) where the AI's notes and score are stored in the Error column. The source will retry automatically on its next scheduled run.</p>
+            <p>Status <strong>needs_remapping</strong> means the site's HTML changed but the AI could not attempt a remap at all — either no HTML sample was captured or the AI provider was unavailable. The Error column shows which failure mode occurred. Operator intervention is required: fix the underlying cause, then use <strong>Run Now</strong> to trigger a retry.</p>
           </div>
         </details>
       </div>
