@@ -81,3 +81,30 @@ describe('recordCurrentVisit', () => {
     expect(() => recordCurrentVisit()).not.toThrow()
   })
 })
+
+describe('read-before-write ordering', () => {
+  // ListingsVisitSession fixes the "New badges disappear on page 2+" bug by
+  // reading the previous-session timestamp before calling recordCurrentVisit().
+  // This test verifies that the read captures the old value even after the write
+  // overwrites localStorage — ensuring components that receive the snapshot
+  // via context compare against the previous session, not the current one.
+  it('snapshot taken before recording holds the previous session timestamp', () => {
+    const previousSession = '2026-01-01T12:00:00.000Z'
+    localStorage.setItem('wav-last-visit', previousSession)
+
+    const snapshot = getLastVisitTimestamp() // read first — mirrors ListingsVisitSession
+    recordCurrentVisit()                     // write second — overwrites storage
+
+    expect(snapshot).toBe(previousSession)
+    expect(getLastVisitTimestamp()).not.toBe(previousSession)
+  })
+
+  it('snapshot is null for first-time visitors even after recording', () => {
+    // No prior timestamp in storage
+    const snapshot = getLastVisitTimestamp()
+    recordCurrentVisit()
+
+    expect(snapshot).toBeNull()
+    expect(getLastVisitTimestamp()).not.toBeNull() // session is now recorded
+  })
+})
