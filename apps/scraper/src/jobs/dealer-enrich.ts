@@ -2,6 +2,8 @@ import { getDb } from '@wivwav/db'
 import type { Prisma } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const PLACES_TEXT_SEARCH_URL = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
 const PLACES_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json'
@@ -16,9 +18,6 @@ const ENRICH_STALE_DAYS = 30
  *  Each dealer costs 2 requests (text search + details). So 50 dealers = 100 requests. */
 const MAX_DEALERS_PER_RUN = 50
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 // Minimum gap between API calls to stay within rate limits. At 50 dealers
 // * 2 calls each = 100 calls, spread over a reasonable window.
@@ -74,11 +73,14 @@ async function findPlaceId(
     key: apiKey,
   })
 
-  const res = await fetch(`${PLACES_TEXT_SEARCH_URL}?${params}`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-
-  if (!res.ok) return null
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${PLACES_TEXT_SEARCH_URL}?${params}`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return null
+  }
 
   const data: PlaceTextSearchResponse = await res.json()
 
@@ -97,11 +99,14 @@ async function fetchPlaceDetails(
     key: apiKey,
   })
 
-  const res = await fetch(`${PLACES_DETAILS_URL}?${params}`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-
-  if (!res.ok) return null
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${PLACES_DETAILS_URL}?${params}`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return null
+  }
 
   const data: PlaceDetailsResponse = await res.json()
 
@@ -170,7 +175,7 @@ export async function runDealerEnrichJob(context?: JobContext): Promise<void> {
     try {
       // 1. Find the Place ID
       const placeId = await findPlaceId(dealerName, zip, apiKey)
-      await sleep(RATE_LIMIT_MS)
+      await jitteredSleep(RATE_LIMIT_MS)
 
       if (!placeId) {
         failed++
@@ -184,7 +189,7 @@ export async function runDealerEnrichJob(context?: JobContext): Promise<void> {
 
       // 2. Fetch details
       const details = await fetchPlaceDetails(placeId, apiKey)
-      await sleep(RATE_LIMIT_MS)
+      await jitteredSleep(RATE_LIMIT_MS)
 
       // 3. Upsert DealerProfile
       // Prisma's Json? column requires InputJsonValue. With exactOptionalPropertyTypes

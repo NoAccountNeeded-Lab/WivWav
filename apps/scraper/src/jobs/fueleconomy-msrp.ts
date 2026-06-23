@@ -1,6 +1,8 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 // Source: https://www.fueleconomy.gov/feg/ws/index.shtml#vehicle
 // The fueleconomy.gov API is a U.S. Department of Energy public service with no
@@ -38,17 +40,18 @@ interface FuelEconomyMenuResponse {
   menuItem?: FuelEconomyMenuItem | FuelEconomyMenuItem[]
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 /** Fetch all model name variants for a given year/make (e.g. "Sienna 2WD", "Sienna AWD"). */
 async function fetchModelNames(year: number, make: string): Promise<string[]> {
   const url = `${FUELECONOMY_BASE}/vehicle/menu/model?year=${year}&make=${encodeURIComponent(make)}`
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-  if (!res.ok) return []
+  let res: Response
+  try {
+    res = await fetchWithRetry(url, {
+      headers: { Accept: 'application/json', 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return []
+  }
   try {
     const data = (await res.json()) as FuelEconomyMenuResponse
     if (!data.menuItem) return []
@@ -79,13 +82,17 @@ async function fetchVehiclesByYearMakeModel(
   model: string,
 ): Promise<FuelEconomyVehicle[]> {
   const url = `${FUELECONOMY_BASE}/vehicle/menu/options?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
-  const res = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'WivWav/1.0 (wivwav.com)',
-    },
-  })
-  if (!res.ok) return []
+  let res: Response
+  try {
+    res = await fetchWithRetry(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'WivWav/1.0 (wivwav.com)',
+      },
+    })
+  } catch {
+    return []
+  }
   try {
     const data = (await res.json()) as FuelEconomyVehicleListResponse
     // API returns a single object when there is exactly one result
@@ -98,13 +105,17 @@ async function fetchVehiclesByYearMakeModel(
 
 async function fetchVehicleDetail(vehicleId: number): Promise<FuelEconomyVehicle | null> {
   const url = `${FUELECONOMY_BASE}/vehicle/${vehicleId}`
-  const res = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'WivWav/1.0 (wivwav.com)',
-    },
-  })
-  if (!res.ok) return null
+  let res: Response
+  try {
+    res = await fetchWithRetry(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'WivWav/1.0 (wivwav.com)',
+      },
+    })
+  } catch {
+    return null
+  }
   try {
     return (await res.json()) as FuelEconomyVehicle
   } catch {
@@ -150,7 +161,7 @@ export async function runFuelEconomyMsrpJob(
 
     // fueleconomy.gov appends drivetrain suffixes ("Sienna 2WD", "Sienna AWD"),
     // so we fetch all model names for the year/make and prefix-match.
-    await sleep(RATE_LIMIT_MS)
+    await jitteredSleep(RATE_LIMIT_MS)
     const modelNames = await fetchModelNames(vm.year, apiMake)
     const matchingModelNames = modelNames.filter((name) =>
       name.toLowerCase().startsWith(apiModelBase.toLowerCase()),
@@ -158,7 +169,7 @@ export async function runFuelEconomyMsrpJob(
 
     const variants: FuelEconomyVehicle[] = []
     for (const modelName of matchingModelNames) {
-      await sleep(RATE_LIMIT_MS)
+      await jitteredSleep(RATE_LIMIT_MS)
       const found = await fetchVehiclesByYearMakeModel(vm.year, apiMake, modelName)
       variants.push(...found)
     }
@@ -172,7 +183,7 @@ export async function runFuelEconomyMsrpJob(
     for (const variant of variants) {
       // Only fetch and sleep when there is a numeric vehicle ID to request
       if (!variant.id) continue
-      await sleep(RATE_LIMIT_MS)
+      await jitteredSleep(RATE_LIMIT_MS)
       const detail = await fetchVehicleDetail(variant.id)
       if (!detail) continue
 

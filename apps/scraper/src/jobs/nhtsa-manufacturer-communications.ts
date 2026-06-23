@@ -2,6 +2,8 @@ import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
 import { parseNhtsaYMD } from './nhtsa-date-utils.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 // NHTSA Technical Service Bulletins (TSBs) are the primary manufacturer
 // communication artifact exposed by the public NHTSA API.
@@ -20,14 +22,11 @@ interface TsbsResponse {
   results?: NhtsaTsb[]
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function fetchTsbs(make: string, model: string, year: number): Promise<NhtsaTsb[]> {
   const params = new URLSearchParams({ make, model, modelYear: String(year) })
   try {
-    const res = await fetch(`${TSBS_URL}?${params}`, {
+    const res = await fetchWithRetry(`${TSBS_URL}?${params}`, {
       headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
       signal: AbortSignal.timeout(10_000),
     })
@@ -99,7 +98,7 @@ export async function runNhtsaManufacturerCommunicationsJob(
       { stage: 'fetching', current: i + 1, total: models.length },
     )
 
-    if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+    if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
   await report(

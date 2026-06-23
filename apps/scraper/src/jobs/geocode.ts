@@ -4,6 +4,8 @@ import { syncListings } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { acquireListingLock, releaseListingLocks, unlockableWhere } from './listing-lock.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
 const RATE_LIMIT_MS = 1100 // Nominatim policy: max 1 req/sec
@@ -20,11 +22,15 @@ async function geocode(city: string, state: string): Promise<{ lat: number; lng:
     limit: '1',
   })
 
-  const res = await fetch(`${NOMINATIM_URL}?${params}`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-
-  if (!res.ok) return null
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${NOMINATIM_URL}?${params}`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    // fetchWithRetry throws on non-ok responses after exhausting retries; treat as no result
+    return null
+  }
 
   const results: NominatimResult[] = await res.json()
   if (results.length === 0) return null
@@ -32,9 +38,6 @@ async function geocode(city: string, state: string): Promise<{ lat: number; lng:
   return { lat: parseFloat(results[0]!.lat), lng: parseFloat(results[0]!.lon) }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 export async function runGeocodeJob(context?: JobContext): Promise<void> {
   const db = getDb()
@@ -100,7 +103,7 @@ export async function runGeocodeJob(context?: JobContext): Promise<void> {
         `[geocode] ${i + 1}/${uniquePairs.length} locations — ${city}, ${state}: all ${ids.length} listing(s) locked, skipping`,
         { stage: 'geocoding', current: i + 1, total: uniquePairs.length },
       )
-      if (i < uniquePairs.length - 1) await sleep(RATE_LIMIT_MS)
+      if (i < uniquePairs.length - 1) await jitteredSleep(RATE_LIMIT_MS)
       continue
     }
 
@@ -128,7 +131,7 @@ export async function runGeocodeJob(context?: JobContext): Promise<void> {
     )
 
     if (i < uniquePairs.length - 1) {
-      await sleep(RATE_LIMIT_MS)
+      await jitteredSleep(RATE_LIMIT_MS)
     }
   }
 

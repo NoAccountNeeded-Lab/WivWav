@@ -140,10 +140,13 @@ describe('createRateLimitedFetcher', () => {
       await expect(limitedFetch('https://dealer.example.com/profile')).resolves.toBe('https://dealer.example.com/profile')
 
       const secondFetch = limitedFetch('https://dealer.example.com/inventory')
-      await vi.advanceTimersByTimeAsync(999)
-      expect(fetchPage).toHaveBeenCalledTimes(1)
 
-      await vi.advanceTimersByTimeAsync(1)
+      // The second fetch is delayed by jitteredSleep. The actual delay is the
+      // remaining interval (1000ms) adjusted by ±20% jitter, so anywhere
+      // between 800ms and 1200ms. Advance past the maximum jitter window to
+      // guarantee the timer has fired.
+      expect(fetchPage).toHaveBeenCalledTimes(1) // no immediate second call
+      await vi.advanceTimersByTimeAsync(1_200)
       await expect(secondFetch).resolves.toBe('https://dealer.example.com/inventory')
       expect(fetchPage).toHaveBeenCalledTimes(2)
     } finally {
