@@ -1,0 +1,484 @@
+/* ── Ops app themes ─────────────────────────────────────────────────────────
+   Each [data-theme="..."] block defines the full design token set.
+   Apply via <html data-theme="..."> in layout.tsx.
+   Switched at runtime by ThemePicker (stored in localStorage).
+
+   Available themes:
+     terminal    — dark cinematic command-center (default)
+     grafana     — Grafana neutral dark
+     midnight    — Vercel/Supabase deep black + indigo
+     nord        — Arctic blue-gray
+     dracula     — Dark charcoal + purple/pink
+     catppuccin  — Cozy dark purple (Mocha variant)
+     tokyo       — Tokyo Night VS Code theme
+     rose        — Rose Pinê warm dark
+     hacker      — Classic green-on-black terminal
+     classic     — Light functional admin
+──────────────────────────────────────────────────────────────────────────── */
+
+/* ── Terminal — dark cinematic ──────────────────────────────────────────── */
+
+:root,
+[data-theme="terminal"] {
+  /* Header */
+  --clr-header-bg: #020810;
+  --clr-header-text: #00d4ff;
+  --clr-header-muted: #2d6080;
+
+  /* Core palette */
+  --clr-bg: #050d17;
+  --clr-surface: #081525;
+  --clr-border: #0e2238;
+  --clr-border-strong: #163450;
+  --clr-text: #c4dff0;
+  --clr-text-secondary: #6fa8c4;
+  --clr-text-muted: #2e6585;
+
+  /* Brand accent */
+  --clr-primary: #00d4ff;
+  --clr-primary-dark: #009fcc;
+
+  /* Status colours */
+  --clr-success: #00e87a;
+  --clr-success-text: #00e87a;
+  --clr-warning: #ffb800;
+  --clr-warning-text: #ffc933;
+  --clr-danger: #ff3b30;
+  --clr-danger-text: #ff5c52;
+  --clr-neutral-muted: #2e6585;
+  --clr-neutral-muted-text: #4a85a0;
+
+  /* Layout */
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
+
+  /* Glow effects */
+  --glow-cyan: 0 0 8px rgba(0, 212, 255, 0.35), 0 0 24px rgba(0, 212, 255, 0.1);
+  --glow-green: 0 0 8px rgba(0, 232, 122, 0.35), 0 0 24px rgba(0, 232, 122, 0.1);
+  --glow-amber: 0 0 8px rgba(255, 184, 0, 0.35), 0 0 24px rgba(255, 184, 0, 0.1);
+  --glow-red: 0 0 8px rgba(255, 59, 48, 0.45), 0 0 24px rgba(255, 59, 48, 0.15);
+
+  /* Background texture (used in globals.css body rule) */
+  --bg-texture:
+    linear-gradient(rgba(0, 212, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.025) 1px, transparent 1px);
+  --bg-texture-size: 48px 48px;
+
+  /* Code blocks */
+  --clr-code-bg: #020810;
+  --clr-code-text: #7fc8e0;
+}
+
+/* ── Grafana — neutral dark, familiar ops aesthetic ─────────────────────── */
+
+[data-theme="grafana"] {
+  /* Header */
+  --clr-header-bg: #0b0c0e;
+  --clr-header-text: #ffffff;
+  --clr-header-muted: #6e7175;
+
+  /* Core palette */
+  --clr-bg: #111217;
+  --clr-surface: #181b1f;
+  --clr-border: #2d3035;
+  --clr-border-strong: #41444b;
+  --clr-text: #d9d9d9;
+  --clr-text-secondary: #adb5bd;
+  --clr-text-muted: #6e7175;
+
+  /* Brand accent */
+  --clr-primary: #5794f2;
+  --clr-primary-dark: #3d7de0;
+
+  /* Status colours */
+  --clr-success: #73bf69;
+  --clr-success-text: #73bf69;
+  --clr-warning: #f2cc0c;
+  --clr-warning-text: #f2cc0c;
+  --clr-danger: #f2495c;
+  --clr-danger-text: #f2495c;
+  --clr-neutral-muted: #6e7175;
+  --clr-neutral-muted-text: #adb5bd;
+
+  /* Layout */
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-lg: 6px;
+
+  /* No glow in Grafana theme */
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-amber: none;
+  --glow-red: none;
+
+  /* No texture */
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  /* Code blocks */
+  --clr-code-bg: #0b0c0e;
+  --clr-code-text: #d9d9d9;
+}
+
+/* ── Midnight — Vercel/Supabase style deep black with indigo accent ──────── */
+
+[data-theme="midnight"] {
+  /* Header */
+  --clr-header-bg: #050505;
+  --clr-header-text: #f0f0f0;
+  --clr-header-muted: #545454;
+
+  /* Core palette */
+  --clr-bg: #0a0a0a;
+  --clr-surface: #111111;
+  --clr-border: #1f1f1f;
+  --clr-border-strong: #2e2e2e;
+  --clr-text: #f0f0f0;
+  --clr-text-secondary: #a0a0a0;
+  --clr-text-muted: #545454;
+
+  /* Brand accent */
+  --clr-primary: #818cf8;
+  --clr-primary-dark: #6366f1;
+
+  /* Status colours */
+  --clr-success: #4ade80;
+  --clr-success-text: #4ade80;
+  --clr-warning: #facc15;
+  --clr-warning-text: #facc15;
+  --clr-danger: #f87171;
+  --clr-danger-text: #f87171;
+  --clr-neutral-muted: #545454;
+  --clr-neutral-muted-text: #a0a0a0;
+
+  /* Layout */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* Subtle indigo glow */
+  --glow-cyan: 0 0 12px rgba(129, 140, 248, 0.2);
+  --glow-green: 0 0 12px rgba(74, 222, 128, 0.2);
+  --glow-amber: 0 0 12px rgba(250, 204, 21, 0.2);
+  --glow-red: 0 0 12px rgba(248, 113, 113, 0.2);
+
+  /* No texture */
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  /* Code blocks */
+  --clr-code-bg: #050505;
+  --clr-code-text: #d4d4d8;
+}
+
+/* ── Nord — arctic blue-gray ─────────────────────────────────────────────── */
+
+[data-theme="nord"] {
+  --clr-header-bg: #2e3440;
+  --clr-header-text: #eceff4;
+  --clr-header-muted: #4c566a;
+
+  --clr-bg: #2e3440;
+  --clr-surface: #3b4252;
+  --clr-border: #434c5e;
+  --clr-border-strong: #4c566a;
+  --clr-text: #eceff4;
+  --clr-text-secondary: #d8dee9;
+  --clr-text-muted: #4c566a;
+
+  --clr-primary: #88c0d0;
+  --clr-primary-dark: #5e81ac;
+
+  --clr-success: #a3be8c;
+  --clr-success-text: #a3be8c;
+  --clr-warning: #ebcb8b;
+  --clr-warning-text: #ebcb8b;
+  --clr-danger: #bf616a;
+  --clr-danger-text: #bf616a;
+  --clr-neutral-muted: #4c566a;
+  --clr-neutral-muted-text: #616e88;
+
+  --radius-sm: 3px;
+  --radius: 5px;
+  --radius-lg: 8px;
+
+  --glow-cyan: 0 0 10px rgba(136, 192, 208, 0.25);
+  --glow-green: 0 0 10px rgba(163, 190, 140, 0.25);
+  --glow-amber: 0 0 10px rgba(235, 203, 139, 0.25);
+  --glow-red: 0 0 10px rgba(191, 97, 106, 0.3);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #2e3440;
+  --clr-code-text: #d8dee9;
+}
+
+/* ── Dracula — charcoal + purple/pink ────────────────────────────────────── */
+
+[data-theme="dracula"] {
+  --clr-header-bg: #1e1f29;
+  --clr-header-text: #f8f8f2;
+  --clr-header-muted: #6272a4;
+
+  --clr-bg: #282a36;
+  --clr-surface: #21222c;
+  --clr-border: #343746;
+  --clr-border-strong: #44475a;
+  --clr-text: #f8f8f2;
+  --clr-text-secondary: #cdd3de;
+  --clr-text-muted: #6272a4;
+
+  --clr-primary: #bd93f9;
+  --clr-primary-dark: #9a6fd0;
+
+  --clr-success: #50fa7b;
+  --clr-success-text: #50fa7b;
+  --clr-warning: #f1fa8c;
+  --clr-warning-text: #f1fa8c;
+  --clr-danger: #ff5555;
+  --clr-danger-text: #ff5555;
+  --clr-neutral-muted: #6272a4;
+  --clr-neutral-muted-text: #7b8db8;
+
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  --glow-cyan: 0 0 10px rgba(189, 147, 249, 0.3);
+  --glow-green: 0 0 10px rgba(80, 250, 123, 0.25);
+  --glow-amber: 0 0 10px rgba(241, 250, 140, 0.2);
+  --glow-red: 0 0 10px rgba(255, 85, 85, 0.35);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #1e1f29;
+  --clr-code-text: #f8f8f2;
+}
+
+/* ── Catppuccin Mocha — cozy dark purple ─────────────────────────────────── */
+
+[data-theme="catppuccin"] {
+  --clr-header-bg: #11111b;
+  --clr-header-text: #cdd6f4;
+  --clr-header-muted: #585b70;
+
+  --clr-bg: #1e1e2e;
+  --clr-surface: #181825;
+  --clr-border: #313244;
+  --clr-border-strong: #45475a;
+  --clr-text: #cdd6f4;
+  --clr-text-secondary: #bac2de;
+  --clr-text-muted: #585b70;
+
+  --clr-primary: #cba6f7;
+  --clr-primary-dark: #b4a0e0;
+
+  --clr-success: #a6e3a1;
+  --clr-success-text: #a6e3a1;
+  --clr-warning: #f9e2af;
+  --clr-warning-text: #f9e2af;
+  --clr-danger: #f38ba8;
+  --clr-danger-text: #f38ba8;
+  --clr-neutral-muted: #585b70;
+  --clr-neutral-muted-text: #737994;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --glow-cyan: 0 0 10px rgba(203, 166, 247, 0.25);
+  --glow-green: 0 0 10px rgba(166, 227, 161, 0.25);
+  --glow-amber: 0 0 10px rgba(249, 226, 175, 0.2);
+  --glow-red: 0 0 10px rgba(243, 139, 168, 0.3);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #11111b;
+  --clr-code-text: #cdd6f4;
+}
+
+/* ── Tokyo Night ─────────────────────────────────────────────────────────── */
+
+[data-theme="tokyo"] {
+  --clr-header-bg: #16161e;
+  --clr-header-text: #a9b1d6;
+  --clr-header-muted: #3b3f5c;
+
+  --clr-bg: #1a1b26;
+  --clr-surface: #16161e;
+  --clr-border: #2a2b3d;
+  --clr-border-strong: #3b3f5c;
+  --clr-text: #a9b1d6;
+  --clr-text-secondary: #787c99;
+  --clr-text-muted: #3b3f5c;
+
+  --clr-primary: #7aa2f7;
+  --clr-primary-dark: #5d7fd6;
+
+  --clr-success: #9ece6a;
+  --clr-success-text: #9ece6a;
+  --clr-warning: #e0af68;
+  --clr-warning-text: #e0af68;
+  --clr-danger: #f7768e;
+  --clr-danger-text: #f7768e;
+  --clr-neutral-muted: #3b3f5c;
+  --clr-neutral-muted-text: #565f89;
+
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
+
+  --glow-cyan: 0 0 10px rgba(122, 162, 247, 0.25);
+  --glow-green: 0 0 10px rgba(158, 206, 106, 0.2);
+  --glow-amber: 0 0 10px rgba(224, 175, 104, 0.2);
+  --glow-red: 0 0 10px rgba(247, 118, 142, 0.3);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #16161e;
+  --clr-code-text: #a9b1d6;
+}
+
+/* ── Rose Pinê — warm dark ───────────────────────────────────────────────── */
+
+[data-theme="rose"] {
+  --clr-header-bg: #191724;
+  --clr-header-text: #e0def4;
+  --clr-header-muted: #524f67;
+
+  --clr-bg: #191724;
+  --clr-surface: #1f1d2e;
+  --clr-border: #26233a;
+  --clr-border-strong: #403d52;
+  --clr-text: #e0def4;
+  --clr-text-secondary: #908caa;
+  --clr-text-muted: #524f67;
+
+  --clr-primary: #c4a7e7;
+  --clr-primary-dark: #a780c5;
+
+  --clr-success: #31748f;
+  --clr-success-text: #9ccfd8;
+  --clr-warning: #f6c177;
+  --clr-warning-text: #f6c177;
+  --clr-danger: #eb6f92;
+  --clr-danger-text: #eb6f92;
+  --clr-neutral-muted: #524f67;
+  --clr-neutral-muted-text: #6e6a86;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --glow-cyan: 0 0 12px rgba(196, 167, 231, 0.2);
+  --glow-green: 0 0 10px rgba(49, 116, 143, 0.3);
+  --glow-amber: 0 0 10px rgba(246, 193, 119, 0.2);
+  --glow-red: 0 0 10px rgba(235, 111, 146, 0.3);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #191724;
+  --clr-code-text: #e0def4;
+}
+
+/* ── Hacker — classic green-on-black ─────────────────────────────────────── */
+
+[data-theme="hacker"] {
+  --clr-header-bg: #000000;
+  --clr-header-text: #00ff41;
+  --clr-header-muted: #006614;
+
+  --clr-bg: #0d0d0d;
+  --clr-surface: #111111;
+  --clr-border: #1a2e1a;
+  --clr-border-strong: #1e4d1e;
+  --clr-text: #00ff41;
+  --clr-text-secondary: #00cc33;
+  --clr-text-muted: #006614;
+
+  --clr-primary: #00ff41;
+  --clr-primary-dark: #00cc33;
+
+  --clr-success: #00ff41;
+  --clr-success-text: #00ff41;
+  --clr-warning: #ffff00;
+  --clr-warning-text: #ffff00;
+  --clr-danger: #ff0000;
+  --clr-danger-text: #ff4444;
+  --clr-neutral-muted: #006614;
+  --clr-neutral-muted-text: #009922;
+
+  --radius-sm: 0px;
+  --radius: 2px;
+  --radius-lg: 2px;
+
+  --glow-cyan: 0 0 8px rgba(0, 255, 65, 0.5), 0 0 20px rgba(0, 255, 65, 0.15);
+  --glow-green: 0 0 8px rgba(0, 255, 65, 0.5);
+  --glow-amber: 0 0 8px rgba(255, 255, 0, 0.5);
+  --glow-red: 0 0 8px rgba(255, 0, 0, 0.6);
+
+  --bg-texture:
+    linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+  --bg-texture-size: 32px 32px;
+
+  --clr-code-bg: #000000;
+  --clr-code-text: #00ff41;
+}
+
+/* ── Classic — light functional admin ───────────────────────────────────── */
+
+[data-theme="classic"] {
+  /* Header */
+  --clr-header-bg: #1e293b;
+  --clr-header-text: #f1f5f9;
+  --clr-header-muted: #94a3b8;
+
+  /* Core palette */
+  --clr-bg: #f8fafc;
+  --clr-surface: #ffffff;
+  --clr-border: #e2e8f0;
+  --clr-border-strong: #cbd5e1;
+  --clr-text: #0f172a;
+  --clr-text-secondary: #334155;
+  --clr-text-muted: #64748b;
+
+  /* Brand accent */
+  --clr-primary: #1d4ed8;
+  --clr-primary-dark: #1e40af;
+
+  /* Status colours */
+  --clr-success: #15803d;
+  --clr-success-text: #166534;
+  --clr-warning: #b45309;
+  --clr-warning-text: #92400e;
+  --clr-danger: #b42318;
+  --clr-danger-text: #991b1b;
+  --clr-neutral-muted: #64748b;
+  --clr-neutral-muted-text: #475569;
+
+  /* Layout */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* No glow in classic theme */
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-amber: none;
+  --glow-red: none;
+
+  /* No texture in classic theme */
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  /* Code blocks */
+  --clr-code-bg: #0f172a;
+  --clr-code-text: #e2e8f0;
+}
