@@ -7,8 +7,40 @@ import {
   parseCard,
   hashPage1Entries,
   isNavigationTimeout,
+  BlvdAdapter,
 } from './blvd.js'
 import type { RawCard } from './blvd.js'
+import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from '../browser/types.js'
+
+// Minimal browser service factory for checkPage1 unit tests.
+// `gotoErrors` maps URL substrings to errors that goto() should throw.
+// evaluate() always returns [] (no DOM needed — checkPage1 only needs a hash).
+function makeTimeoutService(gotoErrors: Record<string, Error> = {}): BrowserService {
+  function makePage(): BrowserPage {
+    return {
+      async goto(url: string): Promise<BrowserResponse | null> {
+        for (const [fragment, err] of Object.entries(gotoErrors)) {
+          if (url.includes(fragment)) throw err
+        }
+        return { status: () => 200 }
+      },
+      async setContent(): Promise<void> {},
+      async content(): Promise<string> { return '' },
+      url(): string { return '' },
+      evaluate<T>(): Promise<T> { return Promise.resolve([] as unknown as T) },
+      async waitForSelector(): Promise<void> {},
+      async close(): Promise<void> {},
+    }
+  }
+  return {
+    async launch(): Promise<BrowserSession> {
+      return {
+        newPage: async () => makePage(),
+        async close(): Promise<void> {},
+      }
+    },
+  }
+}
 
 // ─── parseMileage ────────────────────────────────────────────────────────────
 
@@ -214,5 +246,28 @@ describe('isNavigationTimeout', () => {
   it('does not match unrelated errors', () => {
     expect(isNavigationTimeout(new Error('net::ERR_ABORTED'))).toBe(false)
     expect(isNavigationTimeout('Timeout 30000ms exceeded')).toBe(false)
+  })
+})
+
+describe('BlvdAdapter.checkPage1 timeout handling', () => {
+  it('returns a valid hash and does not throw when the FSBO path times out', async () => {
+    const service = makeTimeoutService({
+      'by-owner': new Error('page.goto: Timeout 30000ms exceeded.'),
+    })
+    const adapter = new BlvdAdapter(null, { browserService: service })
+
+    await expect(adapter.checkPage1()).resolves.toMatchObject({
+      currentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      changed: expect.any(Boolean),
+    })
+  })
+
+  it('re-throws non-timeout errors from goto', async () => {
+    const service = makeTimeoutService({
+      'by-owner': new Error('net::ERR_CONNECTION_REFUSED'),
+    })
+    const adapter = new BlvdAdapter(null, { browserService: service })
+
+    await expect(adapter.checkPage1()).rejects.toThrow('net::ERR_CONNECTION_REFUSED')
   })
 })
