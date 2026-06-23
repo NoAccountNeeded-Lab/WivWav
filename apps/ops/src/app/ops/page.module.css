@@ -494,6 +494,136 @@ a.metricCard:focus-visible {
   font-family: var(--font-ui);
 }
 
+/* ── Alert ticker ──────────────────────────────────────────────────────────── */
+
+.ticker {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  min-height: 2.25rem;
+}
+
+.tickerCritical {
+  border-color: color-mix(in srgb, var(--clr-danger) 45%, var(--clr-border));
+  background: color-mix(in srgb, var(--clr-danger) 3%, var(--clr-surface));
+}
+
+.tickerWarning {
+  border-color: color-mix(in srgb, var(--clr-warning) 45%, var(--clr-border));
+  background: color-mix(in srgb, var(--clr-warning) 3%, var(--clr-surface));
+}
+
+.tickerBadge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 0.875rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--clr-border);
+  white-space: nowrap;
+}
+
+.tickerCritical .tickerBadge {
+  background: color-mix(in srgb, var(--clr-danger) 10%, transparent);
+  color: var(--clr-danger-text);
+  border-right-color: color-mix(in srgb, var(--clr-danger) 30%, var(--clr-border));
+}
+
+.tickerWarning .tickerBadge {
+  background: color-mix(in srgb, var(--clr-warning) 10%, transparent);
+  color: var(--clr-warning-text);
+  border-right-color: color-mix(in srgb, var(--clr-warning) 30%, var(--clr-border));
+}
+
+.tickerViewport {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.tickerTrack {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: ticker-scroll linear infinite;
+  will-change: transform;
+}
+
+.tickerTrack:hover,
+.tickerTrack:focus-within {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.tickerItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.5rem 1.5rem;
+  white-space: nowrap;
+  color: var(--clr-text-secondary);
+}
+
+.tickerItem[data-severity="critical"] { color: var(--clr-danger-text); }
+.tickerItem[data-severity="warning"]  { color: var(--clr-warning-text); }
+
+.tickerSep {
+  margin-left: 1.25rem;
+  color: var(--clr-border-strong);
+  font-size: 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tickerTrack { animation: none; }
+  .tickerViewport { overflow-x: auto; }
+}
+
+/* ── Status dot tooltip ────────────────────────────────────────────────────── */
+
+.statusDot { cursor: help; }
+
+/* ── Expand button (inline, inside attention detail) ───────────────────────── */
+
+.expandBtn {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--clr-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.expandBtn:hover {
+  opacity: 0.75;
+}
+
+.expandBtn:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ── Animations ────────────────────────────────────────────────────────────── */
 
 @keyframes pulse-critical {

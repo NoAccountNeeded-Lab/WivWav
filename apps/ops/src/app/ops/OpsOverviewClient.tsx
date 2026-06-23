@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import Link from 'next/link'
 import {
   Activity,
@@ -31,6 +31,7 @@ import type { HealthResponse } from '@wivwav/types'
 import styles from './page.module.css'
 import {
   buildOpsOverview,
+  type AttentionItem,
   type OverviewCard,
   type OverviewModel,
   type OverviewSeverity,
@@ -173,6 +174,8 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
         </div>
       </header>
 
+      {overview && <AlertTicker items={overview.attention} />}
+
       {!overview ? (
         <div className={styles.loadingPanel} aria-live="polite">Loading…</div>
       ) : (
@@ -201,7 +204,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
                     <SeverityIcon severity={item.severity} size={14} />
                     <div>
                       <strong className={styles.attentionTitle}>{item.title}</strong>
-                      <span className={styles.attentionDetail}>{item.detail}</span>
+                      <ExpandableDetail text={item.detail} />
                     </div>
                   </Link>
                   <CopyButton
@@ -273,7 +276,12 @@ function MetricCard({ card, span }: { card: OverviewCard; span: number }) {
           <Icon size={15} />
         </span>
         <span className={styles.metricLabel}>{card.label}</span>
-        <span className={styles.statusDot} data-severity={card.severity} />
+        <span
+          className={styles.statusDot}
+          data-severity={card.severity}
+          title={`${severityLabel(card.severity)}: ${card.detail}`}
+          aria-label={`${card.label} status: ${card.severity}`}
+        />
       </div>
       <strong className={styles.metricValue}>{card.value}</strong>
       <span className={styles.metricDetail}>{card.detail}</span>
@@ -301,6 +309,68 @@ function SeverityIcon({ severity, size }: { severity: OverviewSeverity; size: nu
   if (severity === 'critical') return <AlertCircle   size={size} className={styles.iconCritical} />
   if (severity === 'warning')  return <AlertTriangle size={size} className={styles.iconWarning} />
   return <HelpCircle size={size} className={styles.iconUnknown} />
+}
+
+function AlertTicker({ items }: { items: AttentionItem[] }) {
+  const alerts = items.filter(i => i.severity === 'critical' || i.severity === 'warning')
+  if (alerts.length === 0) return null
+
+  const hasCritical = alerts.some(i => i.severity === 'critical')
+  const doubled = [...alerts, ...alerts]
+  const durationS = Math.max(15, alerts.length * 8)
+
+  return (
+    <div
+      className={`${styles.ticker} ${hasCritical ? styles.tickerCritical : styles.tickerWarning}`}
+      role="status"
+      aria-label="Active system alerts"
+    >
+      <span className={styles.tickerBadge} aria-hidden="true">
+        {hasCritical ? 'Critical' : 'Alert'}
+      </span>
+      <div className={styles.tickerViewport}>
+        <div className={styles.tickerTrack} style={{ animationDuration: `${durationS}s` }}>
+          {doubled.map((item, i) => (
+            <span key={i} className={styles.tickerItem} data-severity={item.severity}>
+              <SeverityIcon severity={item.severity} size={11} />
+              <strong>{item.title}</strong>
+              {' — '}
+              {item.detail.length > 90 ? item.detail.slice(0, 90) + '…' : item.detail}
+              <span className={styles.tickerSep} aria-hidden="true">·</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ExpandableDetail({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const MAX = 110
+
+  if (text.length <= MAX) return <span className={styles.attentionDetail}>{text}</span>
+
+  return (
+    <span className={styles.attentionDetail}>
+      {expanded ? text : text.slice(0, MAX) + '…'}
+      {' '}
+      <button
+        type="button"
+        className={styles.expandBtn}
+        onClick={e => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v) }}
+      >
+        {expanded ? 'show less' : 'show more'}
+      </button>
+    </span>
+  )
+}
+
+function severityLabel(severity: OverviewSeverity): string {
+  if (severity === 'good')     return 'Healthy'
+  if (severity === 'warning')  return 'Warning'
+  if (severity === 'critical') return 'Critical'
+  return 'Unknown'
 }
 
 async function fetchData<T>(url: string): Promise<{ data: T | null; error?: string }> {

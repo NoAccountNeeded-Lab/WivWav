@@ -72,8 +72,8 @@ async function probe(name: ProbeName, fn: () => Promise<unknown>): Promise<Servi
       status: latencyMs > LATENCY_THRESHOLDS_MS[name] ? 'degraded' : 'up',
       latencyMs,
     }
-  } catch {
-    return { status: 'down' }
+  } catch (err) {
+    return { status: 'down', message: err instanceof Error ? err.message : 'Service did not respond' }
   }
 }
 
@@ -88,19 +88,24 @@ async function getScraperHealth(sources: SourceRepository, scraperRuns: ScraperR
       PROBE_TIMEOUT_MS
     )
 
-    if (sourceCount === 0) return { status: 'degraded' }
-    if (activeSourceCount === 0) return { status: 'down' }
-    if (!lastRun || !lastRun.finishedAt) return { status: 'up' }
+    if (sourceCount === 0) return { status: 'degraded', message: 'No sources are configured' }
+    if (activeSourceCount === 0) return {
+      status: 'degraded',
+      message: `All ${sourceCount} source${sourceCount !== 1 ? 's' : ''} are inactive — check source errors`,
+    }
+    if (!lastRun || !lastRun.finishedAt) return { status: 'up', message: 'No completed scraper run on record yet' }
 
     const finishedAt = lastRun.finishedAt
     const lastRunAt = finishedAt.toISOString()
     const ageMs = Date.now() - finishedAt.getTime()
+    const stale = ageMs > SCRAPER_STALE_MS
     return {
-      status: ageMs > SCRAPER_STALE_MS ? 'degraded' : 'up',
+      status: stale ? 'degraded' : 'up',
       lastRunAt,
+      ...(stale ? { message: `Last successful scrape was ${Math.round(ageMs / 3_600_000)}h ago` } : {}),
     }
-  } catch {
-    return { status: 'down' }
+  } catch (err) {
+    return { status: 'down', message: err instanceof Error ? err.message : 'Scraper health check failed' }
   }
 }
 

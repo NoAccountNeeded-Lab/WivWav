@@ -268,7 +268,7 @@ function serviceDetail(health: ServiceHealth | null | undefined): string {
   if (health.message) return health.message
   if (health.lastRunAt) return `Last successful run ${formatDateTime(health.lastRunAt)}`
   if (health.latencyMs != null) return `${health.latencyMs} ms response`
-  return 'Telemetry available without detail'
+  return 'No diagnostic detail returned — check service logs'
 }
 
 function queueSummary(queues: QueueRow[] | null): string {
