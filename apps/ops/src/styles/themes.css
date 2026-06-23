@@ -22,6 +22,75 @@
      hacker-light    matrix-light
 ──────────────────────────────────────────────────────────────────────────── */
 
+/* ── Per-theme font overrides ────────────────────────────────────────────────
+   --font     → monospace font (data values, timestamps, code, IDs)
+   --font-ui  → sans-serif font (headings, labels, buttons, prose)
+   Falls back to globals.css :root system fonts if a Google Font fails to load.
+──────────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="terminal"],
+[data-theme="terminal-light"] {
+  --font:    var(--font-jetbrains-mono);
+  --font-ui: var(--font-rajdhani);
+}
+
+[data-theme="grafana"],
+[data-theme="grafana-light"] {
+  --font:    var(--font-source-code-pro);
+  --font-ui: var(--font-inter);
+}
+
+[data-theme="midnight"],
+[data-theme="midnight-light"] {
+  --font:    var(--font-space-mono);
+  --font-ui: var(--font-space-grotesk);
+}
+
+[data-theme="nord"],
+[data-theme="nord-light"] {
+  --font:    var(--font-ibm-plex-mono);
+  --font-ui: var(--font-ibm-plex-sans);
+}
+
+[data-theme="dracula"],
+[data-theme="dracula-light"],
+[data-theme="tokyo"],
+[data-theme="tokyo-light"] {
+  --font:    var(--font-fira-code);
+  --font-ui: var(--font-dm-sans);
+}
+
+[data-theme="catppuccin"],
+[data-theme="catppuccin-light"] {
+  --font:    var(--font-jetbrains-mono);
+  --font-ui: var(--font-nunito);
+}
+
+[data-theme="rose"],
+[data-theme="rose-light"] {
+  --font:    var(--font-dm-mono);
+  --font-ui: var(--font-lora);
+}
+
+[data-theme="hacker"],
+[data-theme="hacker-light"] {
+  --font:    var(--font-share-tech-mono);
+  --font-ui: var(--font-share-tech-mono);
+}
+
+[data-theme="matrix"],
+[data-theme="matrix-light"] {
+  --font:    var(--font-vt323);
+  --font-ui: var(--font-vt323);
+}
+
+[data-theme="classic"],
+[data-theme="classic-dark"] {
+  --font:    var(--font-roboto-mono);
+  --font-ui: var(--font-roboto);
+}
+
 /* ── Terminal — dark cinematic ──────────────────────────────────────────── */
 
 :root,
@@ -916,7 +985,9 @@
   --clr-code-text: #003300;
 }
 
-/* ── Classic — light functional admin ───────────────────────────────────── */
+/* ── Classic — light functional admin ─────────────────────────────────────
+   Classic dark variant: [data-theme="classic-dark"] below.
+──────────────────────────────────────────────────────────────────────────── */
 
 [data-theme="classic"] {
   /* Header */
@@ -965,4 +1036,55 @@
   /* Code blocks */
   --clr-code-bg: #0f172a;
   --clr-code-text: #e2e8f0;
+}
+
+/* ── Classic Dark — neutral dark admin (GitHub-dark palette) ─────────────── */
+
+[data-theme="classic-dark"] {
+  /* Header */
+  --clr-header-bg: #1c2128;
+  --clr-header-text: #e6edf3;
+  --clr-header-muted: #8b949e;
+
+  /* Core palette */
+  --clr-bg: #0d1117;
+  --clr-surface: #161b22;
+  --clr-border: #30363d;
+  --clr-border-strong: #3d444d;
+  --clr-text: #e6edf3;
+  --clr-text-secondary: #8d96a0;
+  --clr-text-muted: #656d76;
+
+  /* Brand accent */
+  --clr-primary: #388bfd;
+  --clr-primary-dark: #1f6feb;
+
+  /* Status colours */
+  --clr-success: #3fb950;
+  --clr-success-text: #3fb950;
+  --clr-warning: #d29922;
+  --clr-warning-text: #d29922;
+  --clr-danger: #f85149;
+  --clr-danger-text: #f85149;
+  --clr-neutral-muted: #656d76;
+  --clr-neutral-muted-text: #8d96a0;
+
+  /* Layout — same radii as classic light */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* No glow in classic dark */
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-amber: none;
+  --glow-red: none;
+
+  /* No texture in classic dark */
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  /* Code blocks */
+  --clr-code-bg: #0d1117;
+  --clr-code-text: #e6edf3;
 }

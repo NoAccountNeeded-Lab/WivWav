@@ -74,9 +74,8 @@ const THEME_FAMILIES: ThemeFamily[] = [
     lightBg: '#f0fff0', lightSurface: '#e8ffe8', lightAccent: '#008020', lightText: '#003300',
   },
   {
-    // classic is light-only: both dark and light variants point to classic itself
-    id: 'classic', lightId: 'classic', name: 'Classic',
-    darkBg: '#f8fafc', darkSurface: '#ffffff', darkAccent: '#1d4ed8', darkText: '#0f172a',
+    id: 'classic-dark', lightId: 'classic', name: 'Classic',
+    darkBg: '#0d1117', darkSurface: '#161b22', darkAccent: '#388bfd', darkText: '#e6edf3',
     lightBg: '#f8fafc', lightSurface: '#ffffff', lightAccent: '#1d4ed8', lightText: '#0f172a',
   },
 ]
@@ -88,7 +87,7 @@ const THEME_KEY = 'ops-theme'
 const MODE_KEY  = 'ops-mode'
 
 const DEFAULT_DARK_FAMILY  = 'terminal'
-const DEFAULT_LIGHT_FAMILY = 'classic'
+const DEFAULT_LIGHT_FAMILY = 'classic-dark'
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
