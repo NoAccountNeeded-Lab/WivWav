@@ -31,7 +31,6 @@ import type { HealthResponse } from '@wivwav/types'
 import styles from './page.module.css'
 import {
   buildOpsOverview,
-  type AttentionItem,
   type OverviewCard,
   type OverviewModel,
   type OverviewSeverity,
@@ -206,7 +205,12 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           <p className={styles.kicker}>Operator overview</p>
           <h1 className={styles.heading}>WivWav Health</h1>
         </div>
-        {overview && <AlertTicker items={overview.attention} className={styles.tickerInline} />}
+        {overview && (
+          <div className={styles.heroStatus} data-severity={overview.overall.severity}>
+            <SeverityIcon severity={overview.overall.severity} size={16} />
+            <span className={styles.heroStatusLabel}>{overview.overall.label}</span>
+          </div>
+        )}
         <div className={styles.heroRefresh}>
           <span className={styles.updatedAt} aria-live="polite">
             {updatedAt ? formatTime(updatedAt) : '—'}
@@ -228,17 +232,8 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       ) : (
         <div className={styles.bentoGrid}>
 
-          {/* ── Status card (2×2) ─────────────────────────────────────── */}
-          <div className={`${styles.bentoCard} ${styles.span2} ${styles.tall} ${styles.statusCard}`} data-severity={overview.overall.severity}>
-            <div className={styles.statusCardInner}>
-              <SeverityIcon severity={overview.overall.severity} size={36} />
-              <p className={styles.statusLabel}>{overview.overall.label}</p>
-              <p className={styles.statusDetail}>{overview.overall.detail}</p>
-            </div>
-          </div>
-
-          {/* ── Attention panel (2×2) ─────────────────────────────────── */}
-          <aside className={`${styles.bentoCard} ${styles.span2} ${styles.tall} ${styles.attentionCard}`} aria-label="Attention needed">
+          {/* ── Attention panel (4 cols) ───────────────────────────────── */}
+          <aside className={`${styles.bentoCard} ${styles.span4} ${styles.attentionCard}`} aria-label="Attention needed">
             <div className={styles.cardHeader}>
               <AlertCircle size={14} />
               <span>Attention Needed</span>
@@ -390,40 +385,6 @@ function SeverityIcon({ severity, size }: { severity: OverviewSeverity; size: nu
   if (severity === 'critical') return <AlertCircle   size={size} className={styles.iconCritical} />
   if (severity === 'warning')  return <AlertTriangle size={size} className={styles.iconWarning} />
   return <HelpCircle size={size} className={styles.iconUnknown} />
-}
-
-function AlertTicker({ items, className }: { items: AttentionItem[]; className?: string | undefined }) {
-  const alerts = items.filter(i => i.severity === 'critical' || i.severity === 'warning')
-  if (alerts.length === 0) return null
-
-  const hasCritical = alerts.some(i => i.severity === 'critical')
-  const doubled = [...alerts, ...alerts]
-  const durationS = Math.max(15, alerts.length * 8)
-
-  return (
-    <div
-      className={`${styles.ticker} ${hasCritical ? styles.tickerCritical : styles.tickerWarning}${className ? ` ${className}` : ''}`}
-      role="status"
-      aria-label="Active system alerts"
-    >
-      <span className={styles.tickerBadge} aria-hidden="true">
-        {hasCritical ? 'Critical' : 'Alert'}
-      </span>
-      <div className={styles.tickerViewport}>
-        <div className={styles.tickerTrack} style={{ animationDuration: `${durationS}s` }}>
-          {doubled.map((item, i) => (
-            <span key={i} className={styles.tickerItem} data-severity={item.severity}>
-              <SeverityIcon severity={item.severity} size={11} />
-              <strong>{item.title}</strong>
-              {' — '}
-              {item.detail.length > 90 ? item.detail.slice(0, 90) + '…' : item.detail}
-              <span className={styles.tickerSep} aria-hidden="true">·</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function ExpandableDetail({ text }: { text: string }) {
