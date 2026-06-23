@@ -2,16 +2,44 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  Bot,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Cpu,
+  Database,
+  FileText,
+  Globe,
+  HelpCircle,
+  Layers,
+  List,
+  MapPin,
+  RefreshCw,
+  Search,
+  Server,
+  Settings2,
+  ShieldCheck,
+  Terminal,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import type { HealthResponse } from '@wivwav/types'
 import styles from './page.module.css'
 import {
   buildOpsOverview,
+  type OverviewCard,
   type OverviewModel,
+  type OverviewSeverity,
   type QueueRow,
   type RunRow,
   type ScheduleEntry,
   type SourceRow,
 } from './overview-helpers'
+import { CopyButton } from '@/components/CopyButton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
 
@@ -31,16 +59,51 @@ interface OverviewData {
 const REFRESH_MS = 30_000
 
 const OPS_LINKS = [
-  { href: '/ops/refresh-listings', label: 'Refresh Listings', detail: 'Guided workflow for scrape sources, process details, geocode locations, sync search, and verify map readiness.' },
-  { href: '/ops/queues', label: 'Queues', detail: 'Inspect jobs, trigger geocode, and sync Meilisearch.' },
-  { href: '/ops/sources', label: 'Sources', detail: 'Run scrapes and review source remapping status.' },
-  { href: '/ops/runs', label: 'Runs', detail: 'Audit scraper run history and listing changes.' },
-  { href: '/ops/schedules', label: 'Schedules', detail: 'Enable, disable, or edit repeatable jobs.' },
-  { href: '/ops/logs', label: 'Logs', detail: 'Search application and worker logs.' },
-  { href: '/ops/ai', label: 'AI', detail: 'Check Ollama and remapping support.' },
-  { href: '/ops/config', label: 'AI Config', detail: 'Manage AI providers, models, and secrets.' },
-  { href: '/status', label: 'System Status', detail: 'View raw service health details.' },
+  { href: '/ops/refresh-listings', label: 'Refresh Listings', detail: 'Guided scrape → process → geocode → sync workflow.', Icon: RefreshCw },
+  { href: '/ops/queues',           label: 'Queues',           detail: 'Inspect jobs, trigger geocode, sync Meilisearch.',   Icon: Layers },
+  { href: '/ops/sources',          label: 'Sources',          detail: 'Run scrapes, review source remapping status.',       Icon: Globe },
+  { href: '/ops/runs',             label: 'Runs',             detail: 'Audit scraper run history and listing changes.',     Icon: Activity },
+  { href: '/ops/schedules',        label: 'Schedules',        detail: 'Enable, disable, or edit repeatable jobs.',          Icon: Calendar },
+  { href: '/ops/logs',             label: 'Logs',             detail: 'Search application and worker logs.',                Icon: Terminal },
+  { href: '/ops/ai',               label: 'AI',               detail: 'Check Ollama and remapping support.',                Icon: Bot },
+  { href: '/ops/config',           label: 'AI Config',        detail: 'Manage AI providers, models, and secrets.',         Icon: Settings2 },
+  { href: '/status',               label: 'System Status',    detail: 'View raw service health details.',                  Icon: ShieldCheck },
 ]
+
+const CARD_ICONS: Record<string, LucideIcon> = {
+  api:                        Zap,
+  postgres:                   Database,
+  valkey:                     Server,
+  meilisearch:                Search,
+  queues:                     Layers,
+  scraper:                    Bot,
+  'active-listings':          List,
+  'last-successful-scrape':   Clock,
+  'sources-needing-remap':    AlertTriangle,
+  'geocode-readiness':        MapPin,
+  'search-readiness':         Search,
+  'missing-coordinates':      MapPin,
+  'search-sync-age':          RefreshCw,
+  'listing-freshness-window': Clock,
+}
+
+/* Column span for each card in the 4-column bento grid */
+const CARD_COL_SPAN: Record<string, number> = {
+  api:                        1,
+  postgres:                   1,
+  valkey:                     1,
+  meilisearch:                1,
+  queues:                     2,
+  scraper:                    2,
+  'active-listings':          2,
+  'last-successful-scrape':   1,
+  'sources-needing-remap':    1,
+  'geocode-readiness':        2,
+  'search-readiness':         2,
+  'missing-coordinates':      2,
+  'search-sync-age':          1,
+  'listing-freshness-window': 1,
+}
 
 export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   const [data, setData] = useState<OverviewData | null>(null)
@@ -56,7 +119,6 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       fetchData<RunRow[]>(`${apiBaseUrl}/admin/runs`),
       fetchData<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`),
     ])
-
     setData({
       health: health.data,
       queues: queues.data,
@@ -64,10 +126,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       runs: runs.data,
       schedules: schedules.data,
       errors: {
-        ...(health.error ? { health: health.error } : {}),
-        ...(queues.error ? { queues: queues.error } : {}),
-        ...(sources.error ? { sources: sources.error } : {}),
-        ...(runs.error ? { runs: runs.error } : {}),
+        ...(health.error    ? { health:    health.error    } : {}),
+        ...(queues.error    ? { queues:    queues.error    } : {}),
+        ...(sources.error   ? { sources:   sources.error   } : {}),
+        ...(runs.error      ? { runs:      runs.error      } : {}),
         ...(schedules.error ? { schedules: schedules.error } : {}),
       },
     })
@@ -77,8 +139,8 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
 
   useEffect(() => {
     void refresh()
-    const interval = window.setInterval(() => void refresh(), REFRESH_MS)
-    return () => window.clearInterval(interval)
+    const id = window.setInterval(() => void refresh(), REFRESH_MS)
+    return () => window.clearInterval(id)
   }, [refresh])
 
   const overview = useMemo<OverviewModel | null>(() => {
@@ -88,126 +150,157 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
 
   return (
     <main id="main-content" className={styles.main}>
-      <div className={styles.container}>
-        <header className={styles.hero}>
-          <div>
-            <p className={styles.kicker}>Operator overview</p>
-            <h1 className={styles.heading}>Is WivWav healthy right now?</h1>
-            <p className={styles.subheading}>
-              Site health, listing freshness, scraper status, and next actions from the existing operations data.
-            </p>
-          </div>
-          <div className={styles.refreshPanel}>
-            <p className={styles.updatedAt} aria-live="polite">
-              {updatedAt ? `Updated ${formatTime(updatedAt)}` : 'Loading overview...'}
-            </p>
-            <button className={styles.refreshButton} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
-              {isRefreshing ? 'Refreshing' : 'Refresh'}
-            </button>
-          </div>
-        </header>
 
-        {!overview ? (
-          <section className={styles.loadingPanel} aria-live="polite">
-            Loading operator overview...
-          </section>
-        ) : (
-          <>
-            <section className={styles.summaryBand} data-severity={overview.overall.severity} aria-labelledby="overview-summary-heading">
-              <div>
-                <h2 id="overview-summary-heading" className={styles.summaryTitle}>{overview.overall.label}</h2>
-                <p className={styles.summaryDetail}>{overview.overall.detail}</p>
-              </div>
-              <span className={styles.statusPill} data-severity={overview.overall.severity}>
-                Status: {formatSeverity(overview.overall.severity)}
-              </span>
-            </section>
+      {/* ── Compact hero ─────────────────────────────────────────────────── */}
+      <header className={styles.hero}>
+        <div>
+          <p className={styles.kicker}>Operator overview</p>
+          <h1 className={styles.heading}>WivWav Health</h1>
+        </div>
+        <div className={styles.heroRefresh}>
+          <span className={styles.updatedAt} aria-live="polite">
+            {updatedAt ? formatTime(updatedAt) : '—'}
+          </span>
+          <button
+            className={styles.refreshButton}
+            type="button"
+            onClick={() => void refresh()}
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={13} className={isRefreshing ? styles.spinning : undefined} />
+            {isRefreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+      </header>
 
-            <section className={styles.section} aria-labelledby="attention-heading">
-              <div className={styles.sectionHeader}>
-                <h2 id="attention-heading" className={styles.sectionTitle}>Attention Needed</h2>
-                <Link href="/ops/logs" className={styles.inlineLink}>Open logs</Link>
-              </div>
-              <div className={styles.attentionList}>
-                {overview.attention.map(item => (
-                  <Link key={item.id} href={item.href} className={styles.attentionItem} data-severity={item.severity}>
-                    <span className={styles.attentionBadge} data-severity={item.severity}>{formatSeverity(item.severity)}</span>
-                    <span>
-                      <strong>{item.title}</strong>
-                      <span>{item.detail}</span>
-                    </span>
+      {!overview ? (
+        <div className={styles.loadingPanel} aria-live="polite">Loading…</div>
+      ) : (
+        <div className={styles.bentoGrid}>
+
+          {/* ── Status card (2×2) ─────────────────────────────────────── */}
+          <div className={`${styles.bentoCard} ${styles.span2} ${styles.tall} ${styles.statusCard}`} data-severity={overview.overall.severity}>
+            <div className={styles.statusCardInner}>
+              <SeverityIcon severity={overview.overall.severity} size={36} />
+              <p className={styles.statusLabel}>{overview.overall.label}</p>
+              <p className={styles.statusDetail}>{overview.overall.detail}</p>
+            </div>
+          </div>
+
+          {/* ── Attention panel (2×2) ─────────────────────────────────── */}
+          <aside className={`${styles.bentoCard} ${styles.span2} ${styles.tall} ${styles.attentionCard}`} aria-label="Attention needed">
+            <div className={styles.cardHeader}>
+              <AlertCircle size={14} />
+              <span>Attention Needed</span>
+              <Link href="/ops/logs" className={styles.cardHeaderLink}>Logs →</Link>
+            </div>
+            <div className={styles.attentionList}>
+              {overview.attention.map(item => (
+                <div key={item.id} className={styles.attentionItemWrap}>
+                  <Link href={item.href} className={styles.attentionItem} data-severity={item.severity}>
+                    <SeverityIcon severity={item.severity} size={14} />
+                    <div>
+                      <strong className={styles.attentionTitle}>{item.title}</strong>
+                      <span className={styles.attentionDetail}>{item.detail}</span>
+                    </div>
                   </Link>
-                ))}
-              </div>
-            </section>
+                  <CopyButton
+                    text={`${item.title}: ${item.detail}`}
+                    label={`Copy ${item.title}`}
+                    className={styles.attentionCopyBtn}
+                  />
+                </div>
+              ))}
+            </div>
+          </aside>
 
-            <section className={styles.section} aria-labelledby="health-heading">
-              <div className={styles.sectionHeader}>
-                <h2 id="health-heading" className={styles.sectionTitle}>Service And Queue Health</h2>
-                <Link href="/status" className={styles.inlineLink}>Raw status</Link>
-              </div>
-              <CardGrid cards={overview.healthCards} />
-            </section>
-
-            <section className={styles.section} aria-labelledby="freshness-heading">
-              <div className={styles.sectionHeader}>
-                <h2 id="freshness-heading" className={styles.sectionTitle}>Listing Freshness</h2>
-                <Link href="/ops/runs" className={styles.inlineLink}>Scraper runs</Link>
-              </div>
-              <CardGrid cards={overview.freshnessCards} />
-            </section>
-
-            <section className={styles.section} aria-labelledby="telemetry-heading">
-              <div className={styles.sectionHeader}>
-                <h2 id="telemetry-heading" className={styles.sectionTitle}>Telemetry Gaps</h2>
-              </div>
-              <CardGrid cards={overview.telemetry} />
-            </section>
-          </>
-        )}
-
-        <nav className={styles.linkGrid} aria-label="Operations areas">
-          {OPS_LINKS.map(link => (
-            <Link key={link.href} href={link.href} className={styles.areaLink}>
-              <strong>{link.label}</strong>
-              <span>{link.detail}</span>
-            </Link>
+          {/* ── Section: Service & Queue Health ───────────────────────── */}
+          <div className={`${styles.bentoLabel} ${styles.span4}`}>
+            <Cpu size={13} />
+            <span>Service &amp; Queue Health</span>
+            <Link href="/status" className={styles.labelLink}>Raw status →</Link>
+          </div>
+          {overview.healthCards.map(card => (
+            <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
           ))}
-        </nav>
 
-        <OpsRunbooks ids={OPS_RUNBOOK_IDS} />
-      </div>
+          {/* ── Section: Listing Freshness ────────────────────────────── */}
+          <div className={`${styles.bentoLabel} ${styles.span4}`}>
+            <Activity size={13} />
+            <span>Listing Freshness</span>
+            <Link href="/ops/runs" className={styles.labelLink}>Scraper runs →</Link>
+          </div>
+          {overview.freshnessCards.map(card => (
+            <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
+          ))}
+
+          {/* ── Section: Telemetry Gaps ───────────────────────────────── */}
+          <div className={`${styles.bentoLabel} ${styles.span4}`}>
+            <FileText size={13} />
+            <span>Telemetry Gaps</span>
+          </div>
+          {overview.telemetry.map(card => (
+            <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
+          ))}
+
+        </div>
+      )}
+
+      {/* ── Nav grid ──────────────────────────────────────────────────────── */}
+      <nav className={styles.linkGrid} aria-label="Operations areas">
+        {OPS_LINKS.map(link => (
+          <Link key={link.href} href={link.href} className={styles.areaLink}>
+            <span className={styles.areaIcon}><link.Icon size={18} /></span>
+            <strong className={styles.areaLabel}>{link.label}</strong>
+            <span className={styles.areaDetail}>{link.detail}</span>
+          </Link>
+        ))}
+      </nav>
+
+      <OpsRunbooks ids={OPS_RUNBOOK_IDS} />
     </main>
   )
 }
 
-function CardGrid({ cards }: { cards: OverviewModel['healthCards'] }) {
-  return (
-    <div className={styles.metricGrid}>
-      {cards.map(card => {
-        const content = (
-          <>
-            <span className={styles.metricTopline}>
-              <span className={styles.metricLabel}>{card.label}</span>
-              <span className={styles.statusPill} data-severity={card.severity}>{formatSeverity(card.severity)}</span>
-            </span>
-            <strong className={styles.metricValue}>{card.value}</strong>
-            <span className={styles.metricDetail}>{card.detail}</span>
-          </>
-        )
+function MetricCard({ card, span }: { card: OverviewCard; span: number }) {
+  const Icon = CARD_ICONS[card.id] ?? Activity
+  const spanClass = span === 2 ? styles.span2 : span === 3 ? styles.span3 : undefined
 
-        return card.href ? (
-          <Link key={card.id} href={card.href} className={styles.metricCard} data-severity={card.severity}>
-            {content}
-          </Link>
-        ) : (
-          <article key={card.id} className={styles.metricCard} data-severity={card.severity}>
-            {content}
-          </article>
-        )
-      })}
+  const content = (
+    <>
+      <div className={styles.metricTop}>
+        <span className={styles.metricIcon} data-severity={card.severity}>
+          <Icon size={15} />
+        </span>
+        <span className={styles.metricLabel}>{card.label}</span>
+        <span className={styles.statusDot} data-severity={card.severity} />
+      </div>
+      <strong className={styles.metricValue}>{card.value}</strong>
+      <span className={styles.metricDetail}>{card.detail}</span>
+    </>
+  )
+
+  const cardCls = [styles.bentoCard, styles.metricCard].filter(Boolean).join(' ')
+  const wrapCls = [styles.metricCardWrap, spanClass].filter(Boolean).join(' ')
+  const copyText = `${card.label}: ${card.value}\n${card.detail}`
+
+  return (
+    <div className={wrapCls}>
+      {card.href ? (
+        <Link href={card.href} className={cardCls} data-severity={card.severity}>{content}</Link>
+      ) : (
+        <article className={cardCls} data-severity={card.severity}>{content}</article>
+      )}
+      <CopyButton text={copyText} label={`Copy ${card.label}`} className={styles.cardCopyBtn} />
     </div>
   )
+}
+
+function SeverityIcon({ severity, size }: { severity: OverviewSeverity; size: number }) {
+  if (severity === 'good')     return <CheckCircle2  size={size} className={styles.iconGood} />
+  if (severity === 'critical') return <AlertCircle   size={size} className={styles.iconCritical} />
+  if (severity === 'warning')  return <AlertTriangle size={size} className={styles.iconWarning} />
+  return <HelpCircle size={size} className={styles.iconUnknown} />
 }
 
 async function fetchData<T>(url: string): Promise<{ data: T | null; error?: string }> {
@@ -226,17 +319,6 @@ function isDataEnvelope<T>(body: T | { data: T }): body is { data: T } {
   return typeof body === 'object' && body !== null && 'data' in body
 }
 
-function formatSeverity(severity: string): string {
-  if (severity === 'good') return 'Healthy'
-  if (severity === 'critical') return 'Critical'
-  if (severity === 'warning') return 'Needs review'
-  return 'Unavailable'
-}
-
 function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date)
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(date)
 }

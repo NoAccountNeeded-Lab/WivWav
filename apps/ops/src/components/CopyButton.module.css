@@ -1,0 +1,30 @@
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-bg);
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.12s, border-color 0.12s, opacity 0.12s;
+}
+
+.copyBtn:hover {
+  color: var(--clr-primary);
+  border-color: var(--clr-primary);
+}
+
+.copyBtn:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
+.copyBtn[data-copied="true"] {
+  color: var(--clr-success-text);
+  border-color: var(--clr-success);
+}
