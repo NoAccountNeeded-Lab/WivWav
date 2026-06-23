@@ -107,6 +107,7 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
   let enriched = 0
   let failed = 0
   let skipped = 0
+  const enrichedIds: string[] = []
 
   for (let i = 0; i < listings.length; i++) {
     const { id, vin } = listings[i]!
@@ -147,7 +148,7 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
           where: { id },
           data: { vehicleModelId, vehicleModelMatchConfidence: confidence },
         })
-        await syncListings([id], db, getMeiliClient())
+        enrichedIds.push(id)
         enriched++
       } else {
         failed++
@@ -164,6 +165,8 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
 
     if (i < listings.length - 1) await sleep(RATE_LIMIT_MS)
   }
+
+  if (enrichedIds.length > 0) await syncListings(enrichedIds, db, getMeiliClient())
 
   await report(context, `[vin-enrich] Done. ${enriched} enriched, ${failed} failed, ${skipped} skipped (locked).`, {
     stage: 'complete',
