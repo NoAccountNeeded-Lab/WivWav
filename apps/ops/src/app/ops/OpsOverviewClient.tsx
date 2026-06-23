@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Activity,
@@ -43,6 +43,7 @@ import {
 import { CopyButton } from '@/components/CopyButton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
+import { ScrapeRunChart, QueueDepthChart, type ScrapeRunPoint, type QueueDepthPoint } from '@/components/SparklineChart'
 
 interface OpsOverviewClientProps {
   apiBaseUrl: string
@@ -58,6 +59,8 @@ interface OverviewData {
 }
 
 const REFRESH_MS = 30_000
+/** Maximum number of polling-cycle samples to retain in the ring buffers */
+const RING_BUFFER_SIZE = 20
 
 const OPS_LINKS = [
   { href: '/ops/refresh-listings', label: 'Refresh Listings', detail: 'Guided scrape → process → geocode → sync workflow.', Icon: RefreshCw },
@@ -111,6 +114,12 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
+  // Ring buffers — accumulate samples across 30-second polling cycles
+  const [queueDepthSeries, setQueueDepthSeries] = useState<Record<string, QueueDepthPoint[]>>({})
+  // We track the run IDs we've already added to the scrape run chart to avoid duplicates
+  const seenRunIdsRef = useRef<Set<string>>(new Set())
+  const [scrapeRunPoints, setScrapeRunPoints] = useState<ScrapeRunPoint[]>([])
+
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     const [health, queues, sources, runs, schedules] = await Promise.all([
@@ -120,6 +129,45 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       fetchData<RunRow[]>(`${apiBaseUrl}/admin/runs`),
       fetchData<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`),
     ])
+    const now = new Date()
+
+    // Update queue depth ring buffer — one sample per queue per poll
+    if (queues.data) {
+      const ts = now.getTime()
+      setQueueDepthSeries(prev => {
+        const next: Record<string, QueueDepthPoint[]> = {}
+        for (const q of queues.data!) {
+          const existing = prev[q.name] ?? []
+          const point: QueueDepthPoint = {
+            timestamp: ts,
+            depth: q.stats.waiting + q.stats.active + q.stats.delayed,
+            failed: q.stats.failed,
+          }
+          const updated = [...existing, point]
+          next[q.name] = updated.length > RING_BUFFER_SIZE ? updated.slice(-RING_BUFFER_SIZE) : updated
+        }
+        return next
+      })
+    }
+
+    // Update scrape run list — add only runs not yet seen, preserving order
+    if (runs.data) {
+      const newRuns = runs.data.filter(r => !seenRunIdsRef.current.has(r.id))
+      if (newRuns.length > 0) {
+        newRuns.forEach(r => seenRunIdsRef.current.add(r.id))
+        setScrapeRunPoints(prev => {
+          const added: ScrapeRunPoint[] = newRuns.map(r => ({
+            label: r.sourceName ?? r.sourceId,
+            success: r.success,
+            listingsFound: r.listingsFound,
+          }))
+          // Keep oldest first; trim to RING_BUFFER_SIZE
+          const combined = [...prev, ...added]
+          return combined.length > RING_BUFFER_SIZE ? combined.slice(-RING_BUFFER_SIZE) : combined
+        })
+      }
+    }
+
     setData({
       health: health.data,
       queues: queues.data,
@@ -134,7 +182,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
         ...(schedules.error ? { schedules: schedules.error } : {}),
       },
     })
-    setUpdatedAt(new Date())
+    setUpdatedAt(now)
     setIsRefreshing(false)
   }, [apiBaseUrl])
 
@@ -158,7 +206,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           <p className={styles.kicker}>Operator overview</p>
           <h1 className={styles.heading}>WivWav Health</h1>
         </div>
-        {overview && <AlertTicker items={overview.attention} className={styles.tickerInline ?? ''} />}
+        {overview && <AlertTicker items={overview.attention} className={styles.tickerInline} />}
         <div className={styles.heroRefresh}>
           <span className={styles.updatedAt} aria-live="polite">
             {updatedAt ? formatTime(updatedAt) : '—'}
@@ -226,6 +274,24 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
             <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
           ))}
 
+          {/* ── Queue depth charts ──────────────────────────────────── */}
+          {Object.entries(queueDepthSeries).map(([queueName, series]) => (
+            <div key={queueName} className={`${styles.bentoCard} ${styles.chartCard} ${styles.span2}`}>
+              <div className={styles.chartCardHeader}>
+                <Layers size={12} />
+                <span>{queueName}</span>
+                <span className={styles.chartHint}>depth over time · — pending · ╌ failed</span>
+              </div>
+              <div className={styles.chartCardBody}>
+                <QueueDepthChart
+                  series={series}
+                  queueName={queueName}
+                  ariaLabel={`Line chart of ${queueName} queue depth over recent polling cycles; solid line is pending jobs, dashed line is failed jobs`}
+                />
+              </div>
+            </div>
+          ))}
+
           {/* ── Section: Listing Freshness ────────────────────────────── */}
           <div className={`${styles.bentoLabel} ${styles.span4}`}>
             <Activity size={13} />
@@ -235,6 +301,22 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           {overview.freshnessCards.map(card => (
             <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
           ))}
+
+          {/* ── Scrape success chart ────────────────────────────────── */}
+          <div className={`${styles.bentoCard} ${styles.chartCard} ${styles.span4}`}>
+            <div className={styles.chartCardHeader}>
+              <Activity size={12} />
+              <span>Scrape Run History</span>
+              <span className={styles.chartHint}>Last {scrapeRunPoints.length > 0 ? scrapeRunPoints.length : '…'} runs · success/failure per run · height = listings found</span>
+            </div>
+            <div className={styles.chartCardBody}>
+              <ScrapeRunChart
+                runs={scrapeRunPoints}
+                maxBars={RING_BUFFER_SIZE}
+                ariaLabel="Bar chart of recent scrape run results; green bars are successful runs, red bars are failed runs, height indicates listings found"
+              />
+            </div>
+          </div>
 
           {/* ── Section: Telemetry Gaps ───────────────────────────────── */}
           <div className={`${styles.bentoLabel} ${styles.span4}`}>
