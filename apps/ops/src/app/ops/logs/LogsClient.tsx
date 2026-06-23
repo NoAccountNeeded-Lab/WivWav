@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { CopyButton } from '@/components/CopyButton'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { LOG_RUNBOOK_IDS } from '../runbooks'
@@ -68,18 +69,25 @@ function hasDetails(entry: LogEntry): boolean {
 
 function EntryDetails({ entry }: { entry: LogEntry }) {
   const extraKeys = Object.keys(entry.extra)
+  const contextJson = extraKeys.length > 0 ? JSON.stringify(entry.extra, null, 2) : null
   return (
     <div className={logsStyles.entryDetails}>
       {entry.stack ? (
         <div className={logsStyles.detailSection}>
-          <p className={logsStyles.detailLabel}>Stack trace</p>
+          <div className={logsStyles.detailSectionHead}>
+            <p className={logsStyles.detailLabel}>Stack trace</p>
+            <CopyButton text={entry.stack} label="Copy stack trace" />
+          </div>
           <pre className={styles.miniCode}>{entry.stack}</pre>
         </div>
       ) : null}
-      {extraKeys.length > 0 ? (
+      {contextJson ? (
         <div className={logsStyles.detailSection}>
-          <p className={logsStyles.detailLabel}>Context</p>
-          <pre className={styles.miniCode}>{JSON.stringify(entry.extra, null, 2)}</pre>
+          <div className={logsStyles.detailSectionHead}>
+            <p className={logsStyles.detailLabel}>Context</p>
+            <CopyButton text={contextJson} label="Copy context JSON" />
+          </div>
+          <pre className={styles.miniCode}>{contextJson}</pre>
         </div>
       ) : null}
     </div>
@@ -117,7 +125,12 @@ function EntryRow({ entry, rowId }: EntryRowProps) {
           )}
         </td>
         <td className={logsStyles.msgCell}>
-          <span className={logsStyles.msgText}>{entry.message ?? '—'}</span>
+          <div className={logsStyles.msgRow}>
+            <span className={logsStyles.msgText}>{entry.message ?? '—'}</span>
+            {entry.message ? (
+              <CopyButton text={entry.message} label="Copy message" className={logsStyles.msgCopyBtn} />
+            ) : null}
+          </div>
           {entry.requestId ? (
             <span className={logsStyles.metaChip}>req:{entry.requestId.slice(0, 8)}</span>
           ) : null}
