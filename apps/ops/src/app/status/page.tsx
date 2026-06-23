@@ -1,12 +1,12 @@
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 import { StatusDashboard } from './StatusDashboard'
-import { SiteHeader } from '@/components/SiteHeader'
+import { OpsHeader } from '@/components/OpsHeader'
 import styles from './page.module.css'
 
 export default function StatusPage() {
   return (
     <>
-      <SiteHeader section="System Status" />
+      <OpsHeader section="System Status" />
 
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>
