@@ -3,7 +3,7 @@
    Apply via <html data-theme="..."> in layout.tsx.
    Switched at runtime by ThemePicker (stored in localStorage).
 
-   Available themes:
+   Available themes (dark variants):
      terminal    — dark cinematic command-center (default)
      grafana     — Grafana neutral dark
      midnight    — Vercel/Supabase deep black + indigo
@@ -13,7 +13,13 @@
      tokyo       — Tokyo Night VS Code theme
      rose        — Rose Pinê warm dark
      hacker      — Classic green-on-black terminal
-     classic     — Light functional admin
+     matrix      — Digital rain phosphor green, animated background
+     classic     — Light functional admin (always light, no dark variant)
+
+   Light variants (companion to each dark theme):
+     terminal-light  grafana-light  midnight-light  nord-light
+     dracula-light   catppuccin-light  tokyo-light  rose-light
+     hacker-light    matrix-light
 ──────────────────────────────────────────────────────────────────────────── */
 
 /* ── Terminal — dark cinematic ──────────────────────────────────────────── */
@@ -70,6 +76,51 @@
   --clr-code-text: #7fc8e0;
 }
 
+/* ── Terminal Light ──────────────────────────────────────────────────────── */
+
+[data-theme="terminal-light"] {
+  --clr-header-bg: #0a1929;
+  --clr-header-text: #ffffff;
+  --clr-header-muted: #90b8cc;
+
+  --clr-bg: #f0f7fb;
+  --clr-surface: #ffffff;
+  --clr-border: #bddaea;
+  --clr-border-strong: #8fbdd2;
+  --clr-text: #0a2233;
+  --clr-text-secondary: #1a5070;
+  --clr-text-muted: #5a8fa8;
+
+  --clr-primary: #0088b0;
+  --clr-primary-dark: #006680;
+
+  --clr-success: #007a42;
+  --clr-success-text: #005a30;
+  --clr-warning: #a06000;
+  --clr-warning-text: #7a4800;
+  --clr-danger: #c0281e;
+  --clr-danger-text: #9a1e15;
+  --clr-neutral-muted: #5a8fa8;
+  --clr-neutral-muted-text: #3d7090;
+
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
+
+  --glow-cyan: 0 0 8px rgba(0, 136, 176, 0.2);
+  --glow-green: 0 0 8px rgba(0, 122, 66, 0.2);
+  --glow-amber: 0 0 8px rgba(160, 96, 0, 0.2);
+  --glow-red: 0 0 8px rgba(192, 40, 30, 0.25);
+
+  --bg-texture:
+    linear-gradient(rgba(0, 136, 176, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 136, 176, 0.04) 1px, transparent 1px);
+  --bg-texture-size: 48px 48px;
+
+  --clr-code-bg: #e0eef5;
+  --clr-code-text: #1a5070;
+}
+
 /* ── Grafana — neutral dark, familiar ops aesthetic ─────────────────────── */
 
 [data-theme="grafana"] {
@@ -119,6 +170,49 @@
   /* Code blocks */
   --clr-code-bg: #0b0c0e;
   --clr-code-text: #d9d9d9;
+}
+
+/* ── Grafana Light ────────────────────────────────────────────────────────── */
+
+[data-theme="grafana-light"] {
+  --clr-header-bg: #1f2329;
+  --clr-header-text: #ffffff;
+  --clr-header-muted: #9fa6ae;
+
+  --clr-bg: #f4f5f5;
+  --clr-surface: #ffffff;
+  --clr-border: #d5d9dd;
+  --clr-border-strong: #b0b7bf;
+  --clr-text: #1b1c1e;
+  --clr-text-secondary: #3d4045;
+  --clr-text-muted: #6e7175;
+
+  --clr-primary: #3274d9;
+  --clr-primary-dark: #1f60c4;
+
+  --clr-success: #3d9142;
+  --clr-success-text: #2a6b2e;
+  --clr-warning: #c08000;
+  --clr-warning-text: #916000;
+  --clr-danger: #cc3345;
+  --clr-danger-text: #a01e2d;
+  --clr-neutral-muted: #8a9099;
+  --clr-neutral-muted-text: #5a6169;
+
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-lg: 6px;
+
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-amber: none;
+  --glow-red: none;
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #e8eaec;
+  --clr-code-text: #1b1c1e;
 }
 
 /* ── Midnight — Vercel/Supabase style deep black with indigo accent ──────── */
@@ -172,6 +266,49 @@
   --clr-code-text: #d4d4d8;
 }
 
+/* ── Midnight Light ───────────────────────────────────────────────────────── */
+
+[data-theme="midnight-light"] {
+  --clr-header-bg: #1e1e2e;
+  --clr-header-text: #f0f0f0;
+  --clr-header-muted: #9090a0;
+
+  --clr-bg: #f5f5ff;
+  --clr-surface: #ffffff;
+  --clr-border: #ddddf0;
+  --clr-border-strong: #c0c0e0;
+  --clr-text: #12122a;
+  --clr-text-secondary: #30306a;
+  --clr-text-muted: #7070a0;
+
+  --clr-primary: #4f55d9;
+  --clr-primary-dark: #3b40b8;
+
+  --clr-success: #15803d;
+  --clr-success-text: #0f5f2d;
+  --clr-warning: #a06000;
+  --clr-warning-text: #7a4800;
+  --clr-danger: #c44040;
+  --clr-danger-text: #a02020;
+  --clr-neutral-muted: #7070a0;
+  --clr-neutral-muted-text: #505080;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --glow-cyan: 0 0 12px rgba(79, 85, 217, 0.15);
+  --glow-green: 0 0 12px rgba(21, 128, 61, 0.15);
+  --glow-amber: 0 0 12px rgba(160, 96, 0, 0.15);
+  --glow-red: 0 0 12px rgba(196, 64, 64, 0.15);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #e8e8ff;
+  --clr-code-text: #12122a;
+}
+
 /* ── Nord — arctic blue-gray ─────────────────────────────────────────────── */
 
 [data-theme="nord"] {
@@ -213,6 +350,49 @@
 
   --clr-code-bg: #2e3440;
   --clr-code-text: #d8dee9;
+}
+
+/* ── Nord Light ───────────────────────────────────────────────────────────── */
+
+[data-theme="nord-light"] {
+  --clr-header-bg: #2e3440;
+  --clr-header-text: #eceff4;
+  --clr-header-muted: #9099a8;
+
+  --clr-bg: #eceff4;
+  --clr-surface: #e5e9f0;
+  --clr-border: #cdd3de;
+  --clr-border-strong: #b8c0cc;
+  --clr-text: #2e3440;
+  --clr-text-secondary: #3b4252;
+  --clr-text-muted: #5e6a7a;
+
+  --clr-primary: #5e81ac;
+  --clr-primary-dark: #4c6b8e;
+
+  --clr-success: #4a7c3f;
+  --clr-success-text: #365c2e;
+  --clr-warning: #9c7b2a;
+  --clr-warning-text: #7a5e1a;
+  --clr-danger: #a04850;
+  --clr-danger-text: #803038;
+  --clr-neutral-muted: #6e7a8a;
+  --clr-neutral-muted-text: #4c566a;
+
+  --radius-sm: 3px;
+  --radius: 5px;
+  --radius-lg: 8px;
+
+  --glow-cyan: 0 0 8px rgba(94, 129, 172, 0.2);
+  --glow-green: 0 0 8px rgba(74, 124, 63, 0.2);
+  --glow-amber: 0 0 8px rgba(156, 123, 42, 0.2);
+  --glow-red: 0 0 8px rgba(160, 72, 80, 0.25);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #dce0e8;
+  --clr-code-text: #2e3440;
 }
 
 /* ── Dracula — charcoal + purple/pink ────────────────────────────────────── */
@@ -258,6 +438,49 @@
   --clr-code-text: #f8f8f2;
 }
 
+/* ── Dracula Light ────────────────────────────────────────────────────────── */
+
+[data-theme="dracula-light"] {
+  --clr-header-bg: #282a36;
+  --clr-header-text: #f8f8f2;
+  --clr-header-muted: #9090c0;
+
+  --clr-bg: #f8f8ff;
+  --clr-surface: #ffffff;
+  --clr-border: #e0ddf5;
+  --clr-border-strong: #c8c0ee;
+  --clr-text: #282a36;
+  --clr-text-secondary: #44475a;
+  --clr-text-muted: #7070a0;
+
+  --clr-primary: #7c4fc4;
+  --clr-primary-dark: #6038a8;
+
+  --clr-success: #1e8f4a;
+  --clr-success-text: #166638;
+  --clr-warning: #9a8800;
+  --clr-warning-text: #766800;
+  --clr-danger: #cc2222;
+  --clr-danger-text: #aa1a1a;
+  --clr-neutral-muted: #7070a0;
+  --clr-neutral-muted-text: #4e5080;
+
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  --glow-cyan: 0 0 8px rgba(124, 79, 196, 0.15);
+  --glow-green: 0 0 8px rgba(30, 143, 74, 0.15);
+  --glow-amber: 0 0 8px rgba(154, 136, 0, 0.15);
+  --glow-red: 0 0 8px rgba(204, 34, 34, 0.2);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #eeeeff;
+  --clr-code-text: #282a36;
+}
+
 /* ── Catppuccin Mocha — cozy dark purple ─────────────────────────────────── */
 
 [data-theme="catppuccin"] {
@@ -299,6 +522,49 @@
 
   --clr-code-bg: #11111b;
   --clr-code-text: #cdd6f4;
+}
+
+/* ── Catppuccin Latte (light) ─────────────────────────────────────────────── */
+
+[data-theme="catppuccin-light"] {
+  --clr-header-bg: #4c4f69;
+  --clr-header-text: #eff1f5;
+  --clr-header-muted: #9ca0b0;
+
+  --clr-bg: #eff1f5;
+  --clr-surface: #e6e9ef;
+  --clr-border: #ccd0da;
+  --clr-border-strong: #b5bac1;
+  --clr-text: #4c4f69;
+  --clr-text-secondary: #5c5f77;
+  --clr-text-muted: #6c6f85;
+
+  --clr-primary: #8839ef;
+  --clr-primary-dark: #7527d4;
+
+  --clr-success: #40a02b;
+  --clr-success-text: #2e7720;
+  --clr-warning: #df8e1d;
+  --clr-warning-text: #b56c10;
+  --clr-danger: #d20f39;
+  --clr-danger-text: #a6082a;
+  --clr-neutral-muted: #8c8fa1;
+  --clr-neutral-muted-text: #6c6f85;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --glow-cyan: 0 0 8px rgba(136, 57, 239, 0.15);
+  --glow-green: 0 0 8px rgba(64, 160, 43, 0.15);
+  --glow-amber: 0 0 8px rgba(223, 142, 29, 0.15);
+  --glow-red: 0 0 8px rgba(210, 15, 57, 0.2);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #dce0e8;
+  --clr-code-text: #4c4f69;
 }
 
 /* ── Tokyo Night ─────────────────────────────────────────────────────────── */
@@ -344,6 +610,49 @@
   --clr-code-text: #a9b1d6;
 }
 
+/* ── Tokyo Night Day (light) ─────────────────────────────────────────────── */
+
+[data-theme="tokyo-light"] {
+  --clr-header-bg: #343b58;
+  --clr-header-text: #d5d6db;
+  --clr-header-muted: #8089a4;
+
+  --clr-bg: #d5d6db;
+  --clr-surface: #cbccd1;
+  --clr-border: #b0b1bb;
+  --clr-border-strong: #9899a8;
+  --clr-text: #343b58;
+  --clr-text-secondary: #4c527a;
+  --clr-text-muted: #6a6f8e;
+
+  --clr-primary: #2959aa;
+  --clr-primary-dark: #1e4290;
+
+  --clr-success: #485e30;
+  --clr-success-text: #364522;
+  --clr-warning: #8f5e15;
+  --clr-warning-text: #6e4710;
+  --clr-danger: #8c4351;
+  --clr-danger-text: #6e3040;
+  --clr-neutral-muted: #686b8a;
+  --clr-neutral-muted-text: #4c527a;
+
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
+
+  --glow-cyan: 0 0 8px rgba(41, 89, 170, 0.2);
+  --glow-green: 0 0 8px rgba(72, 94, 48, 0.2);
+  --glow-amber: 0 0 8px rgba(143, 94, 21, 0.2);
+  --glow-red: 0 0 8px rgba(140, 67, 81, 0.25);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #bbbcc5;
+  --clr-code-text: #343b58;
+}
+
 /* ── Rose Pinê — warm dark ───────────────────────────────────────────────── */
 
 [data-theme="rose"] {
@@ -385,6 +694,49 @@
 
   --clr-code-bg: #191724;
   --clr-code-text: #e0def4;
+}
+
+/* ── Rose Pinê Dawn (light) ──────────────────────────────────────────────── */
+
+[data-theme="rose-light"] {
+  --clr-header-bg: #2a273f;
+  --clr-header-text: #faf4ed;
+  --clr-header-muted: #9893a5;
+
+  --clr-bg: #faf4ed;
+  --clr-surface: #fffaf3;
+  --clr-border: #e8dfd0;
+  --clr-border-strong: #d8cebc;
+  --clr-text: #575279;
+  --clr-text-secondary: #6e6a86;
+  --clr-text-muted: #9893a5;
+
+  --clr-primary: #907aa9;
+  --clr-primary-dark: #745d8c;
+
+  --clr-success: #286983;
+  --clr-success-text: #1e4f62;
+  --clr-warning: #a07040;
+  --clr-warning-text: #7a5230;
+  --clr-danger: #b4637a;
+  --clr-danger-text: #8f4a5f;
+  --clr-neutral-muted: #9893a5;
+  --clr-neutral-muted-text: #7b7491;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --glow-cyan: 0 0 8px rgba(144, 122, 169, 0.15);
+  --glow-green: 0 0 8px rgba(40, 105, 131, 0.15);
+  --glow-amber: 0 0 8px rgba(160, 112, 64, 0.15);
+  --glow-red: 0 0 8px rgba(180, 99, 122, 0.2);
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #f0e8dc;
+  --clr-code-text: #575279;
 }
 
 /* ── Hacker — classic green-on-black ─────────────────────────────────────── */
@@ -430,6 +782,138 @@
 
   --clr-code-bg: #000000;
   --clr-code-text: #00ff41;
+}
+
+/* ── Hacker Light — green terminal on cream ──────────────────────────────── */
+
+[data-theme="hacker-light"] {
+  --clr-header-bg: #0a1a0a;
+  --clr-header-text: #00cc33;
+  --clr-header-muted: #4a8a4a;
+
+  --clr-bg: #f0f5f0;
+  --clr-surface: #e8f0e8;
+  --clr-border: #c0d8c0;
+  --clr-border-strong: #90b890;
+  --clr-text: #003300;
+  --clr-text-secondary: #005500;
+  --clr-text-muted: #4a7a4a;
+
+  --clr-primary: #006600;
+  --clr-primary-dark: #004d00;
+
+  --clr-success: #007700;
+  --clr-success-text: #005500;
+  --clr-warning: #885500;
+  --clr-warning-text: #664000;
+  --clr-danger: #880000;
+  --clr-danger-text: #660000;
+  --clr-neutral-muted: #5a7a5a;
+  --clr-neutral-muted-text: #3a5a3a;
+
+  --radius-sm: 0px;
+  --radius: 2px;
+  --radius-lg: 2px;
+
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-amber: none;
+  --glow-red: none;
+
+  --bg-texture:
+    linear-gradient(rgba(0, 102, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 102, 0, 0.04) 1px, transparent 1px);
+  --bg-texture-size: 32px 32px;
+
+  --clr-code-bg: #ddeedd;
+  --clr-code-text: #003300;
+}
+
+/* ── Matrix — digital rain phosphor green ────────────────────────────────── */
+
+[data-theme="matrix"] {
+  --clr-header-bg: #000000;
+  --clr-header-text: #00ff41;
+  --clr-header-muted: #00a82a;
+
+  --clr-bg: #000000;
+  --clr-surface: #050e05;
+  --clr-border: #003810;
+  --clr-border-strong: #006020;
+  --clr-text: #00ff41;
+  --clr-text-secondary: #00c030;
+  --clr-text-muted: #00a82a;
+
+  --clr-primary: #00ff41;
+  --clr-primary-dark: #00d030;
+
+  --clr-success: #00ff41;
+  --clr-success-text: #00ff41;
+  --clr-warning: #ccff00;
+  --clr-warning-text: #ccff00;
+  --clr-danger: #ff4400;
+  --clr-danger-text: #ff6622;
+  --clr-neutral-muted: #00a82a;
+  --clr-neutral-muted-text: #00c030;
+
+  --radius-sm: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
+
+  --glow-cyan: 0 0 10px rgba(0, 255, 65, 0.6), 0 0 30px rgba(0, 255, 65, 0.2);
+  --glow-green: 0 0 10px rgba(0, 255, 65, 0.6), 0 0 30px rgba(0, 255, 65, 0.2);
+  --glow-amber: 0 0 10px rgba(204, 255, 0, 0.5);
+  --glow-red: 0 0 10px rgba(255, 68, 0, 0.6);
+
+  /* Matrix rain background handled by animation in globals.css */
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #000000;
+  --clr-code-text: #00ff41;
+}
+
+/* ── Matrix Light ─────────────────────────────────────────────────────────── */
+
+[data-theme="matrix-light"] {
+  --clr-header-bg: #001a00;
+  --clr-header-text: #00cc33;
+  --clr-header-muted: #4a8a50;
+
+  --clr-bg: #f0fff0;
+  --clr-surface: #e8ffe8;
+  --clr-border: #b0e0b0;
+  --clr-border-strong: #70c070;
+  --clr-text: #003300;
+  --clr-text-secondary: #005500;
+  --clr-text-muted: #4a7a4a;
+
+  --clr-primary: #008020;
+  --clr-primary-dark: #006010;
+
+  --clr-success: #007700;
+  --clr-success-text: #005500;
+  --clr-warning: #888800;
+  --clr-warning-text: #666600;
+  --clr-danger: #880000;
+  --clr-danger-text: #660000;
+  --clr-neutral-muted: #5a7a5a;
+  --clr-neutral-muted-text: #3a5a3a;
+
+  --radius-sm: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
+
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-amber: none;
+  --glow-red: none;
+
+  --bg-texture: none;
+  --bg-texture-size: auto;
+
+  --clr-code-bg: #d8f8d8;
+  --clr-code-text: #003300;
 }
 
 /* ── Classic — light functional admin ───────────────────────────────────── */
