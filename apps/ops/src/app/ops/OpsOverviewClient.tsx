@@ -158,6 +158,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           <p className={styles.kicker}>Operator overview</p>
           <h1 className={styles.heading}>WivWav Health</h1>
         </div>
+        {overview && <AlertTicker items={overview.attention} className={styles.tickerInline ?? ''} />}
         <div className={styles.heroRefresh}>
           <span className={styles.updatedAt} aria-live="polite">
             {updatedAt ? formatTime(updatedAt) : '—'}
@@ -173,8 +174,6 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           </button>
         </div>
       </header>
-
-      {overview && <AlertTicker items={overview.attention} />}
 
       {!overview ? (
         <div className={styles.loadingPanel} aria-live="polite">Loading…</div>
@@ -311,7 +310,7 @@ function SeverityIcon({ severity, size }: { severity: OverviewSeverity; size: nu
   return <HelpCircle size={size} className={styles.iconUnknown} />
 }
 
-function AlertTicker({ items }: { items: AttentionItem[] }) {
+function AlertTicker({ items, className }: { items: AttentionItem[]; className?: string }) {
   const alerts = items.filter(i => i.severity === 'critical' || i.severity === 'warning')
   if (alerts.length === 0) return null
 
@@ -321,7 +320,7 @@ function AlertTicker({ items }: { items: AttentionItem[] }) {
 
   return (
     <div
-      className={`${styles.ticker} ${hasCritical ? styles.tickerCritical : styles.tickerWarning}`}
+      className={`${styles.ticker} ${hasCritical ? styles.tickerCritical : styles.tickerWarning}${className ? ` ${className}` : ''}`}
       role="status"
       aria-label="Active system alerts"
     >
