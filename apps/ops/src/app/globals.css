@@ -1,45 +1,32 @@
 /* ── Ops app global styles ─────────────────────────────────────────────────
-   Simple functional admin styles — no public WAV brand theme.
-   Uses system fonts, neutral palette, clean layout.
+   Theme tokens live in src/styles/themes.css.
+   Base styles here use those tokens.
 ──────────────────────────────────────────────────────────────────────────── */
 
+@import '../styles/themes.css';
+
+/* ── Font ──────────────────────────────────────────────────────────────────── */
+
 :root {
-  /* Header */
-  --clr-header-bg: #1e293b;
-  --clr-header-text: #f1f5f9;
-  --clr-header-muted: #94a3b8;
-
-  /* Core palette */
-  --clr-bg: #f8fafc;
-  --clr-surface: #ffffff;
-  --clr-border: #e2e8f0;
-  --clr-border-strong: #cbd5e1;
-  --clr-text: #0f172a;
-  --clr-text-secondary: #334155;
-  --clr-text-muted: #64748b;
-
-  /* Brand accent (toned down for admin context) */
-  --clr-primary: #1d4ed8;
-  --clr-primary-dark: #1e40af;
-
-  /* Status colours */
-  --clr-success: #15803d;
-  --clr-success-text: #166534;
-  --clr-warning: #b45309;
-  --clr-warning-text: #92400e;
-  --clr-danger: #b42318;
-  --clr-danger-text: #991b1b;
-  --clr-neutral-muted: #64748b;
-  --clr-neutral-muted-text: #475569;
-
-  /* Layout */
-  --radius-sm: 4px;
-  --radius: 8px;
-  --radius-lg: 12px;
-
-  /* Font */
-  --font: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  /* Monospace — data values, timestamps, code, IDs. Overridden by next/font. */
+  --font: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  /* Sans-serif — headings, labels, prose. Overridden by next/font (Inter). */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes pulse-critical {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 59, 48, 0.3); }
+  50%       { box-shadow: 0 0 14px rgba(255, 59, 48, 0.6), 0 0 28px rgba(255, 59, 48, 0.2); }
+}
+
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
 
 *,
 *::before,
@@ -47,15 +34,35 @@
   box-sizing: border-box;
 }
 
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+
 html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--clr-bg);
+  background-color: var(--clr-bg);
+  background-image: var(--bg-texture);
+  background-size: var(--bg-texture-size);
   color: var(--clr-text);
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
+}
+
+/* Scanline overlay — terminal theme only, ignored by classic */
+[data-theme="terminal"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.06) 3px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 9997;
 }
 
 a {
@@ -64,7 +71,8 @@ a {
 }
 
 a:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  opacity: 0.8;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -74,7 +82,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Accessibility ─────────────────────────────────────────────────────────── */
 
-/* WCAG 2.4.1 — skip navigation link, off-screen until focused */
 .skip-link {
   position: absolute;
   top: 0;
@@ -82,7 +89,7 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-100%);
   padding: 0.5rem 1rem;
   background: var(--clr-primary);
-  color: #fff;
+  color: #000;
   font-weight: 700;
   border-radius: 0 0 4px 4px;
   z-index: 9999;
@@ -92,4 +99,15 @@ h1, h2, h3, h4, h5, h6 {
 
 .skip-link:focus {
   transform: translateY(0);
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
