@@ -11,7 +11,8 @@
     "lint": "eslint src",
     "test": "vitest run src --exclude '**/*.integration.test.ts'",
     "test:integration": "vitest run src/**/*.integration.test.ts",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "eval": "node --import tsx evals/run-eval.ts"
   },
   "dependencies": {
     "@playwright/test": "^1.60.0",

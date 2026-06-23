@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    { "targetField": "year", "selector": "table tr:nth-child(1) td:nth-child(2)", "attribute": null, "transform": "parseInt" },
+    { "targetField": "make", "selector": "table tr:nth-child(2) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "model", "selector": "table tr:nth-child(3) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "mileage", "selector": "table tr:nth-child(4) td:nth-child(2)", "attribute": null, "transform": "parseNumber" },
+    { "targetField": "color", "selector": "table tr:nth-child(5) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "fuelType", "selector": "table tr:nth-child(6) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "transmission", "selector": "table tr:nth-child(7) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "stockNumber", "selector": "table tr:nth-child(8) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "vin", "selector": "table tr:nth-child(9) td:nth-child(2)", "attribute": null, "transform": null },
+    { "targetField": "price", "selector": ".listing-price", "attribute": null, "transform": "parseCents" },
+    { "targetField": "description", "selector": ".desc-wrapper p", "attribute": null, "transform": null },
+    { "targetField": "dealerPhone", "selector": "a[href^='tel:']", "attribute": null, "transform": null },
+    { "targetField": "dealerAddress", "selector": ".sidebarfeature address", "attribute": null, "transform": null }
+  ],
+  "confidence": 0.96,
+  "notes": "New vehicle with BraunAbility Entervan in-floor ramp. Wheelchair capacity 1 and 14 inch floor lowering in description."
+}
