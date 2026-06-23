@@ -9,8 +9,7 @@
 .hero {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1rem;
   padding-bottom: 1.25rem;
   margin-bottom: 1.25rem;
   border-bottom: 1px solid var(--clr-border);
@@ -561,9 +560,16 @@ a.metricCard:focus-visible {
   will-change: transform;
 }
 
-.tickerTrack:hover,
+.tickerViewport:hover .tickerTrack,
 .tickerTrack:focus-within {
   animation-play-state: paused;
+}
+
+.tickerInline {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+  align-self: stretch;
 }
 
 @keyframes ticker-scroll {
