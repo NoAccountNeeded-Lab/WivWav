@@ -392,7 +392,7 @@ function SeverityIcon({ severity, size }: { severity: OverviewSeverity; size: nu
   return <HelpCircle size={size} className={styles.iconUnknown} />
 }
 
-function AlertTicker({ items, className }: { items: AttentionItem[]; className?: string }) {
+function AlertTicker({ items, className }: { items: AttentionItem[]; className?: string | undefined }) {
   const alerts = items.filter(i => i.severity === 'critical' || i.severity === 'warning')
   if (alerts.length === 0) return null
 
