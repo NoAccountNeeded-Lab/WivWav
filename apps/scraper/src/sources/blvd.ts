@@ -63,7 +63,12 @@ export class BlvdAdapter implements SourceAdapter {
 
       const entries: string[] = []
       for (const listingPath of LISTING_PATHS) {
-        await page.goto(getPage1CheckUrl(listingPath), { waitUntil: 'domcontentloaded', timeout: 30_000 })
+        try {
+          await page.goto(getPage1CheckUrl(listingPath), { waitUntil: 'domcontentloaded', timeout: 30_000 })
+        } catch (err) {
+          if (isNavigationTimeout(err)) continue
+          throw err
+        }
 
         // Hash "id:price" per card so a price change triggers a full crawl even when
         // the set of listings on page 1 is unchanged.
