@@ -26,6 +26,57 @@
   50%       { opacity: 0.2; }
 }
 
+/* ── Matrix rain animation ─────────────────────────────────────────────────── */
+
+@keyframes matrix-rain-shift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 200px; }
+}
+
+/* Applied to body::before in matrix theme — falls vertically as a tiled gradient */
+[data-theme="matrix"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  /* Vertical rain strips using repeating-linear-gradient */
+  background-image:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 16px,
+      rgba(0, 255, 65, 0.08) 16px,
+      rgba(0, 255, 65, 0.08) 18px,
+      transparent 18px,
+      transparent 32px,
+      rgba(0, 255, 65, 0.04) 32px,
+      rgba(0, 255, 65, 0.04) 33px,
+      transparent 33px,
+      transparent 48px,
+      rgba(0, 255, 65, 0.10) 48px,
+      rgba(0, 255, 65, 0.10) 50px,
+      transparent 50px,
+      transparent 64px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 18px,
+      rgba(0, 255, 65, 0.03) 18px,
+      rgba(0, 255, 65, 0.03) 20px
+    );
+  background-size: 20px 64px;
+  animation: matrix-rain-shift 2s linear infinite;
+  pointer-events: none;
+  z-index: 9996;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="matrix"] body::before {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 
 *,
