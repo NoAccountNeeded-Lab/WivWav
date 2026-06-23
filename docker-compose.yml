@@ -126,6 +126,12 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
       LOG_LEVEL: debug
       LOG_FORMAT: json
+    # Mount an in-memory tmpfs at /tmp so Playwright's per-session Chromium
+    # profile directories never compete with the container overlay filesystem.
+    # Without this, /tmp fills under disk pressure and Chromium crashes with
+    # "Less than 64MB of free space in temporary directory for shared memory files".
+    tmpfs:
+      - /tmp:size=512m
     depends_on:
       migrate:
         condition: service_completed_successfully
