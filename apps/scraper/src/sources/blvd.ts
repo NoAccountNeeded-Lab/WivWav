@@ -4,6 +4,7 @@ import type { ConversionType, Listing, ListingCondition } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
+import { RobotsCache } from '../util/robots-cache.js'
 
 const SOURCE_ID = 'blvd'
 const BASE_URL = 'https://www.blvd.com'
@@ -17,6 +18,8 @@ interface BlvdConfig {
   maxPages?: number
   previousPage1Hash?: string | null
   browserService?: BrowserService
+  /** Inject a RobotsCache instance for testing. Defaults to a new RobotsCache(). */
+  robotsCache?: RobotsCache
 }
 
 // Shape returned from page.evaluate — must be JSON-serializable.
@@ -41,12 +44,14 @@ export class BlvdAdapter implements SourceAdapter {
   private readonly previousPage1Hash: string | null
   private readonly maxPages: number
   private readonly browserService: BrowserService | null
+  private readonly robotsCache: RobotsCache
 
   constructor(previousHash: string | null = null, config: BlvdConfig = {}) {
     this.previousHash = previousHash
     this.previousPage1Hash = config.previousPage1Hash ?? null
     this.maxPages = config.maxPages ?? Infinity
     this.browserService = config.browserService ?? null
+    this.robotsCache = config.robotsCache ?? new RobotsCache()
   }
 
   private async getBrowserService(): Promise<BrowserService> {
@@ -144,6 +149,7 @@ export class BlvdAdapter implements SourceAdapter {
     const service = await this.getBrowserService()
     const browser = await service.launch()
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
+    const robots = this.robotsCache
 
     try {
       const page = await browser.newPage()
@@ -155,6 +161,18 @@ export class BlvdAdapter implements SourceAdapter {
       })
 
       for (const listingPath of LISTING_PATHS) {
+        // Check robots.txt before scraping each path; skip and log when disallowed.
+        const pathUrl = `${BASE_URL}${listingPath}`
+        const allowed = await robots.isAllowed(pathUrl, 'WivWav/1.0')
+        if (!allowed) {
+          await report(context, `[blvd] robots.txt disallows ${pathUrl} — skipping path`, {
+            stage: 'scraping',
+            source: SOURCE_ID,
+            reason: 'robots_disallowed',
+          })
+          continue
+        }
+
         let pageNum = 1
 
         while (pageNum <= this.maxPages) {

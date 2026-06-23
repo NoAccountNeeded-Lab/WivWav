@@ -1,6 +1,8 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const RATINGS_BASE = 'https://api.nhtsa.gov/SafetyRatings'
 const RATE_LIMIT_MS = 300
@@ -34,24 +36,29 @@ function parseStar(val: string | null | undefined): number | null {
   return isNaN(n) ? null : n
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function fetchVariants(make: string, model: string, year: number): Promise<RatingsVariant[]> {
-  const res = await fetch(`${RATINGS_BASE}/modelyear/${year}/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-  if (!res.ok) return []
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${RATINGS_BASE}/modelyear/${year}/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return []
+  }
   const data: RatingsVariantsResponse = await res.json()
   return data.Results ?? []
 }
 
 async function fetchRatings(vehicleId: number): Promise<RatingsDetail | null> {
-  const res = await fetch(`${RATINGS_BASE}/VehicleId/${vehicleId}`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-  if (!res.ok) return null
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${RATINGS_BASE}/VehicleId/${vehicleId}`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return null
+  }
   const data: RatingsDetailResponse = await res.json()
   return data.Results?.[0] ?? null
 }
@@ -81,7 +88,7 @@ export async function runNhtsaSafetyRatingsJob(context?: JobContext, data?: Nhts
     const variants = await fetchVariants(vm.make, vm.model, vm.year)
 
     for (const variant of variants) {
-      await sleep(RATE_LIMIT_MS)
+      await jitteredSleep(RATE_LIMIT_MS)
       const detail = await fetchRatings(variant.VehicleId)
       if (!detail) continue
 
@@ -117,7 +124,7 @@ export async function runNhtsaSafetyRatingsJob(context?: JobContext, data?: Nhts
       { stage: 'fetching', current: i + 1, total: models.length },
     )
 
-    if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+    if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
   await report(context, `[nhtsa-safety-ratings] Done. ${upserted} rating(s) upserted across ${models.length} model(s).`, {

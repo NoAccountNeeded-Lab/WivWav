@@ -3,14 +3,12 @@ import type { JobContext, QueueAdapter } from '@wivwav/queue'
 import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from './job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
 
 const BATCH_SIZE = 50
 const RATE_LIMIT_MS = 2000
 const STALE_DETAIL_DAYS = 30
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
 
 export async function runDetailCrawlJob(
   sourceId: string,
@@ -126,7 +124,7 @@ export async function runDetailCrawlJob(
         total: listings.length,
       })
 
-      if (i < listings.length - 1) await sleep(RATE_LIMIT_MS)
+      if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
     }
   } finally {
     await browser.close()
