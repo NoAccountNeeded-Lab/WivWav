@@ -100,22 +100,26 @@
 .refreshButton {
   min-height: 2.75rem;
   padding: 0 1rem;
-  border: 1.5px solid var(--clr-primary);
+  border: 1px solid rgba(0, 212, 255, 0.4);
   border-radius: var(--radius);
-  background: var(--clr-primary);
-  color: #fff;
+  background: rgba(0, 212, 255, 0.08);
+  color: var(--clr-primary);
   font: inherit;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
 .refreshButton:hover:not(:disabled) {
-  background: var(--clr-primary-dark);
+  background: rgba(0, 212, 255, 0.15);
+  box-shadow: var(--glow-cyan);
 }
 
 .refreshButton:disabled {
   cursor: wait;
-  opacity: 0.75;
+  opacity: 0.45;
 }
 
 .statusList {
@@ -150,14 +154,18 @@
 
 .indicator[data-status="up"] {
   background: var(--clr-success);
+  box-shadow: 0 0 6px rgba(0, 232, 122, 0.6);
 }
 
 .indicator[data-status="degraded"] {
   background: var(--clr-warning);
+  box-shadow: 0 0 6px rgba(255, 184, 0, 0.6);
 }
 
 .indicator[data-status="down"] {
   background: var(--clr-danger);
+  box-shadow: 0 0 6px rgba(255, 59, 48, 0.6);
+  animation: pulse-critical 2s ease-in-out infinite;
 }
 
 .indicator[data-status="optional_offline"] {
