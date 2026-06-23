@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { resolveOllamaConfig } from '../../../../lib/resolve-ollama-config'
+import { resolveOllamaConfig } from '@/lib/resolve-ollama-config'
 
 // Planner role system prompt from packages/agents/src/roles.ts
 const SYSTEM_PROMPT = `You are a senior engineer planning a coding task for the WivWav monorepo.

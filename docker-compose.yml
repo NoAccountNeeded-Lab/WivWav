@@ -195,6 +195,36 @@ services:
         - action: rebuild
           path: ./apps/web/package.json
 
+  ops:
+    build:
+      context: .
+      dockerfile: docker/ops.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      API_INTERNAL_URL: http://api:3001
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      LOG_FORMAT: json
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:3002/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/ops/src
+          target: /app/apps/ops/src
+        - action: rebuild
+          path: ./apps/ops/package.json
+
   # ── Observability stack (--profile obs) ────────────────────────────────────
   # Start with: docker compose --profile obs up   (or: make up-obs)
   # Grafana UI: http://localhost:3003  (anonymous admin, no login required)

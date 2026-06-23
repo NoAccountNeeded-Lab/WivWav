@@ -44,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const apiBaseUrl = getPublicApiBaseUrl()
 
   // next-intl sets locale via middleware for locale-prefixed routes.
-  // Routes outside [locale] (e.g. /ops, /discover) have no intl context,
+  // Routes outside [locale] (e.g. /discover) have no intl context,
   // so fall back to 'en' and load English messages so hooks like useLocale()
   // and useTranslations() work in components like SiteHeader/LanguageSwitcher.
   const locale = await getLocale().catch(() => 'en')

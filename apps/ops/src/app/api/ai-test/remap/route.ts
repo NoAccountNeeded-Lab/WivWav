@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { resolveOllamaConfig } from '../../../../lib/resolve-ollama-config'
+import { resolveOllamaConfig } from '@/lib/resolve-ollama-config'
 
 // Exact system prompt used by apps/scraper/src/ai/structure-detector.ts
 const SYSTEM_PROMPT = `You are an expert at analyzing HTML structure and deriving CSS selectors for data extraction.

@@ -1,0 +1,95 @@
+/* ── Ops app global styles ─────────────────────────────────────────────────
+   Simple functional admin styles — no public WAV brand theme.
+   Uses system fonts, neutral palette, clean layout.
+──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Header */
+  --clr-header-bg: #1e293b;
+  --clr-header-text: #f1f5f9;
+  --clr-header-muted: #94a3b8;
+
+  /* Core palette */
+  --clr-bg: #f8fafc;
+  --clr-surface: #ffffff;
+  --clr-border: #e2e8f0;
+  --clr-border-strong: #cbd5e1;
+  --clr-text: #0f172a;
+  --clr-text-secondary: #334155;
+  --clr-text-muted: #64748b;
+
+  /* Brand accent (toned down for admin context) */
+  --clr-primary: #1d4ed8;
+  --clr-primary-dark: #1e40af;
+
+  /* Status colours */
+  --clr-success: #15803d;
+  --clr-success-text: #166534;
+  --clr-warning: #b45309;
+  --clr-warning-text: #92400e;
+  --clr-danger: #b42318;
+  --clr-danger-text: #991b1b;
+  --clr-neutral-muted: #64748b;
+  --clr-neutral-muted-text: #475569;
+
+  /* Layout */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* Font */
+  --font: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--clr-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* ── Accessibility ─────────────────────────────────────────────────────────── */
+
+/* WCAG 2.4.1 — skip navigation link, off-screen until focused */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  transform: translateY(-100%);
+  padding: 0.5rem 1rem;
+  background: var(--clr-primary);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 0 0 4px 4px;
+  z-index: 9999;
+  transition: transform 0.1s ease;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
