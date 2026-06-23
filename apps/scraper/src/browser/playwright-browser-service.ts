@@ -3,13 +3,25 @@
  * Playwright chromium. This is the only file in apps/scraper that imports
  * @playwright/test directly; all other code uses BrowserService/BrowserPage.
  *
+ * Stealth mode: playwright-extra wraps the launcher and loads the stealth
+ * plugin, which patches navigator.webdriver, plugin counts, and other
+ * well-known headless signals. The BrowserService interface is unchanged.
+ *
  * page.evaluate pitfall: tsx's esbuild wraps named arrow functions with
  * __name(), which is undefined in the Playwright browser sandbox where only
  * the function body is serialized. Always use `function` declarations instead
  * of `const fn = () => {}` inside page.evaluate() callbacks.
  */
-import { chromium } from '@playwright/test'
+import { chromium as baseChromium } from '@playwright/test'
+import { addExtra } from 'playwright-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from './types.js'
+
+// Wrap the base chromium launcher with stealth plugin support.
+// addExtra() returns a new PlaywrightExtra instance each call, so we create
+// the augmented launcher once at module scope to avoid redundant wrapping.
+const chromium = addExtra(baseChromium)
+chromium.use(StealthPlugin())
 
 export class PlaywrightBrowserService implements BrowserService {
   async launch(): Promise<BrowserSession> {

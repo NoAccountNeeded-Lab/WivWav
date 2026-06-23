@@ -5,6 +5,8 @@ import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { normalizeVehicleField, type VehicleModelMatchConfidence } from './normalize-vehicle-fields.js'
 import { acquireListingLock, releaseListingLock, unlockableWhere } from './listing-lock.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const VPIC_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevin'
 const RATE_LIMIT_MS = 200
@@ -27,10 +29,14 @@ function getValue(results: VpicResult[], variable: string): string | null {
 async function decodeVin(
   vin: string,
 ): Promise<{ make: string; model: string; year: number; trim: string | null; bodyType: string | null } | null> {
-  const res = await fetch(`${VPIC_URL}/${encodeURIComponent(vin)}?format=json`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-  if (!res.ok) return null
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${VPIC_URL}/${encodeURIComponent(vin)}?format=json`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return null
+  }
 
   const data: VpicResponse = await res.json()
   const make = getValue(data.Results, 'Make')
@@ -49,9 +55,6 @@ async function decodeVin(
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function findOrCreateVehicleModel(
   db: ReturnType<typeof getDb>,
@@ -121,7 +124,7 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
         `[vin-enrich] ${i + 1}/${listings.length} — ${vin}: locked by another job, skipping`,
         { stage: 'decoding', current: i + 1, total: listings.length },
       )
-      if (i < listings.length - 1) await sleep(RATE_LIMIT_MS)
+      if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
       continue
     }
 
@@ -162,7 +165,7 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
       await releaseListingLock(db, id)
     }
 
-    if (i < listings.length - 1) await sleep(RATE_LIMIT_MS)
+    if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
   await report(context, `[vin-enrich] Done. ${enriched} enriched, ${failed} failed, ${skipped} skipped (locked).`, {

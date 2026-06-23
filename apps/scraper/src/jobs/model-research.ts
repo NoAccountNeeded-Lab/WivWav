@@ -20,6 +20,8 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const RESEARCH_VERSION = 1
 const RATE_LIMIT_MS = 300
@@ -27,9 +29,6 @@ const RATE_LIMIT_MS = 300
 const EPA_SOURCE_NAME = 'EPA FuelEconomy.gov'
 const EPA_SOURCE_URL_BASE = 'https://www.fueleconomy.gov/feg/bymodel'
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 // ── EPA FuelEconomy.gov ───────────────────────────────────────────────────────
 
@@ -60,7 +59,7 @@ async function fetchEpaData(make: string, model: string, year: number): Promise<
   try {
     const params = new URLSearchParams({ make, model, year: String(year), format: 'json' })
     const url = `https://www.fueleconomy.gov/ws/rest/ympg/shared/vehicles?${params}`
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
       headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
       signal: AbortSignal.timeout(8000),
     })
@@ -209,7 +208,7 @@ export async function runModelResearchJob(context?: JobContext): Promise<void> {
         `[model-research] ${i + 1}/${models.length} — ${vm.year} ${vm.make} ${vm.model}: no EPA data found`,
         { stage: 'processing', current: i + 1, total: models.length },
       )
-      if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+      if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
       continue
     }
 
@@ -221,7 +220,7 @@ export async function runModelResearchJob(context?: JobContext): Promise<void> {
         `[model-research] ${i + 1}/${models.length} — ${vm.year} ${vm.make} ${vm.model}: EPA response had no recognizable fields`,
         { stage: 'processing', current: i + 1, total: models.length },
       )
-      if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+      if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
       continue
     }
 
@@ -253,7 +252,7 @@ export async function runModelResearchJob(context?: JobContext): Promise<void> {
     } catch (err: unknown) {
       if (err instanceof Error && 'code' in err && (err as { code: string }).code === 'P2002') {
         skipped++
-        if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+        if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
         continue
       }
       throw err
@@ -288,7 +287,7 @@ export async function runModelResearchJob(context?: JobContext): Promise<void> {
       { stage: 'processing', current: i + 1, total: models.length },
     )
 
-    if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+    if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
   await report(

@@ -1,3 +1,4 @@
+import { jitteredSleep } from '../util/jitter-sleep.js'
 const BLVD_BASE_URL = 'https://www.blvd.com'
 const BLVD_HOSTS = new Set(['blvd.com', 'www.blvd.com'])
 const LISTING_CATEGORIES = new Set(['wheelchair-vans', 'wheelchair-trucks'])
@@ -25,9 +26,6 @@ interface Anchor {
   text: string
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 function isHttpUrl(url: URL): boolean {
   return url.protocol === 'http:' || url.protocol === 'https:'
@@ -144,7 +142,7 @@ export function createRateLimitedFetcher(fetchPage: FetchPage, rateLimitMs = DEF
   return async (url: string): Promise<string> => {
     const elapsed = lastRequestAt === null ? rateLimitMs : Date.now() - lastRequestAt
     if (elapsed < rateLimitMs) {
-      await sleep(rateLimitMs - elapsed)
+      await jitteredSleep(rateLimitMs - elapsed)
     }
 
     lastRequestAt = Date.now()

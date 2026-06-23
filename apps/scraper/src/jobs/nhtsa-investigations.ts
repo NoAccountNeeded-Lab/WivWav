@@ -2,6 +2,8 @@ import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
 import { parseNhtsaYMD } from './nhtsa-date-utils.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const INVESTIGATIONS_URL = 'https://api.nhtsa.gov/investigations/investigationsByVehicle'
 const INVESTIGATIONS_SOURCE_BASE = 'https://www.nhtsa.gov/vehicle-safety/recalls-and-investigations#investigations'
@@ -20,14 +22,11 @@ interface InvestigationsResponse {
   results?: NhtsaInvestigation[]
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function fetchInvestigations(make: string, model: string, year: number): Promise<NhtsaInvestigation[]> {
   const params = new URLSearchParams({ make, model, modelYear: String(year) })
   try {
-    const res = await fetch(`${INVESTIGATIONS_URL}?${params}`, {
+    const res = await fetchWithRetry(`${INVESTIGATIONS_URL}?${params}`, {
       headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
       signal: AbortSignal.timeout(10_000),
     })
@@ -100,7 +99,7 @@ export async function runNhtsaInvestigationsJob(context?: JobContext, data?: Nht
       { stage: 'fetching', current: i + 1, total: models.length },
     )
 
-    if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+    if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
   await report(context, `[nhtsa-investigations] Done. ${upserted} investigation(s) upserted across ${models.length} model(s).`, {

@@ -1,6 +1,8 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
+import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const RECALLS_URL = 'https://api.nhtsa.gov/recalls/recallsByVehicle'
 const RATE_LIMIT_MS = 300
@@ -23,16 +25,17 @@ function parseMicrosoftDate(val: string | null | undefined): Date {
   return m && m[1] ? new Date(Number(m[1])) : new Date(0)
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function fetchRecalls(make: string, model: string, year: number): Promise<NhtsaRecall[]> {
   const params = new URLSearchParams({ make, model, modelYear: String(year) })
-  const res = await fetch(`${RECALLS_URL}?${params}`, {
-    headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
-  })
-  if (!res.ok) return []
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${RECALLS_URL}?${params}`, {
+      headers: { 'User-Agent': 'WivWav/1.0 (wivwav.com)' },
+    })
+  } catch {
+    return []
+  }
   const data: RecallsResponse = await res.json()
   return data.results ?? []
 }
@@ -95,7 +98,7 @@ export async function runNhtsaRecallsJob(context?: JobContext, data?: NhtsaRecal
       { stage: 'fetching', current: i + 1, total: models.length },
     )
 
-    if (i < models.length - 1) await sleep(RATE_LIMIT_MS)
+    if (i < models.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
   await report(context, `[nhtsa-recalls] Done. ${upserted} recall(s) upserted across ${models.length} model(s).`, {

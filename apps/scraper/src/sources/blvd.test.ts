@@ -11,6 +11,7 @@ import {
 } from './blvd.js'
 import type { RawCard } from './blvd.js'
 import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from '../browser/types.js'
+import type { RobotsCache } from '../util/robots-cache.js'
 
 // Minimal browser service factory for checkPage1 unit tests.
 // `gotoErrors` maps URL substrings to errors that goto() should throw.
@@ -269,5 +270,66 @@ describe('BlvdAdapter.checkPage1 timeout handling', () => {
     const adapter = new BlvdAdapter(null, { browserService: service })
 
     await expect(adapter.checkPage1()).rejects.toThrow('net::ERR_CONNECTION_REFUSED')
+  })
+})
+
+// ─── BlvdAdapter.scrape robots.txt skip ─────────────────────────────────────
+
+describe('BlvdAdapter.scrape robots.txt skip', () => {
+  it('skips a listing path when robots.txt disallows it and logs the skip', async () => {
+    const reportedMessages: string[] = []
+
+    // Minimal browser service that records navigation calls but never returns cards
+    function makeNoCardService(): BrowserService {
+      return {
+        async launch() {
+          return {
+            async newPage() {
+              return {
+                async goto(): Promise<{ status(): number }> { return { status: () => 200 } },
+                async setContent(): Promise<void> {},
+                async content(): Promise<string> { return '<html></html>' },
+                url(): string { return '' },
+                evaluate<T>(): Promise<T> { return Promise.resolve([] as unknown as T) },
+                async waitForSelector(): Promise<void> {},
+                async close(): Promise<void> {},
+              }
+            },
+            async close(): Promise<void> {},
+          }
+        },
+      }
+    }
+
+    // Stub that disallows /wheelchair-vans-for-sale but allows the FSBO path
+    // Only isAllowed() is called during scrape.
+    const robotsCache = {
+      async isAllowed(url: string): Promise<boolean> {
+        return !url.includes('/wheelchair-vans-for-sale')
+      },
+      clear(): void {},
+    } as unknown as RobotsCache
+
+    const adapter = new BlvdAdapter(null, {
+      browserService: makeNoCardService(),
+      robotsCache,
+    })
+
+    // Minimal job context — only log() is called by report()
+    const context = {
+      log: async (msg: string) => { reportedMessages.push(msg) },
+      updateProgress: async () => {},
+      logger: { info: () => {} },
+    } as unknown as Parameters<typeof adapter.scrape>[0]
+
+    // Should not throw — disallowed path is skipped, not aborted
+    const result = await adapter.scrape(context)
+
+    // The disallowed path should produce a skip log
+    const skipLog = reportedMessages.find(m => m.includes('robots.txt disallows') && m.includes('/wheelchair-vans-for-sale'))
+    expect(skipLog).toBeDefined()
+
+    // Listings come from the FSBO path only (which returns [] in mock) — result still resolves
+    expect(result.listings).toBeInstanceOf(Array)
   })
 })
