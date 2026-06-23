@@ -7,6 +7,7 @@ vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undef
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
+import { syncListings } from '@wivwav/search'
 import { runVinEnrichJob } from './vin-enrich.js'
 
 // ── normalizeVehicleField ────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ describe('runVinEnrichJob — case normalization', () => {
   let db: ReturnType<typeof makeDb>
 
   beforeEach(() => {
+    vi.clearAllMocks()
     db = makeDb()
     vi.mocked(getDb).mockReturnValue(db as never)
   })
@@ -153,6 +155,36 @@ describe('runVinEnrichJob — case normalization', () => {
     expect(db.vehicleModel.create).toHaveBeenCalledWith({
       data: { make: 'toyota', model: 'sienna', year: 2018, trim: null, bodyType: null },
     })
+  })
+
+  it('issues exactly one batched syncListings call after the loop, not one per listing', async () => {
+    db.listing.findMany.mockResolvedValue([
+      { id: 'b1', vin: 'VIN1' },
+      { id: 'b2', vin: 'VIN2' },
+    ])
+    mockFetch({ Make: 'Toyota', Model: 'Sienna', 'Model Year': '2020', Trim: 'LE', 'Body Class': 'Van' })
+    db.vehicleModel.create
+      .mockResolvedValueOnce({ id: 'vm1', bodyType: 'van' })
+      .mockResolvedValueOnce({ id: 'vm2', bodyType: 'van' })
+
+    await runVinEnrichJob()
+
+    expect(vi.mocked(syncListings)).toHaveBeenCalledTimes(1)
+    const [ids] = vi.mocked(syncListings).mock.calls[0]!
+    expect(ids).toEqual(['b1', 'b2'])
+  })
+
+  it('skips syncListings when no listings are enriched', async () => {
+    db.listing.findMany.mockResolvedValue([{ id: 'b3', vin: 'BADVN' }])
+    // Fetch returns an unparseable response (missing make/model/year) → decoded = null
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ Results: [] }),
+    })
+
+    await runVinEnrichJob()
+
+    expect(vi.mocked(syncListings)).not.toHaveBeenCalled()
   })
 
   it('skips a listing when acquireListingLock returns false (locked by another job)', async () => {
