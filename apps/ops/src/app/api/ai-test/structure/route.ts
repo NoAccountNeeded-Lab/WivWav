@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { resolveOllamaConfig } from '../../../../lib/resolve-ollama-config'
+import { resolveOllamaConfig } from '@/lib/resolve-ollama-config'
 
 const SYSTEM_PROMPT = `You analyze HTML from WAV (wheelchair accessible vehicle) dealer listing pages.
 

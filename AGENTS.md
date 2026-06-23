@@ -34,6 +34,7 @@ make dev       # apply pending migrations, then start api, web, scraper with hot
 | ----------- | --------------------- |
 | Web app     | http://localhost:3000 |
 | API         | http://localhost:3001 |
+| Ops app     | http://localhost:3002 |
 | Meilisearch | http://localhost:7700 |
 
 **Observability stack** (included in `make up`; or start alongside a running API with `docker compose --profile obs up`):
@@ -407,7 +408,7 @@ Most responses use `{ data: T }` for success and `{ error: { code, message } }` 
 
 ## Ops workflows
 
-Everything below is done through the web UI at **http://localhost:3000/ops** — never via CLI during normal operations. Direct the user to the relevant page; don't paste curl commands.
+Everything below is done through the ops UI at **http://localhost:3002/ops** — never via CLI during normal operations. Direct the user to the relevant page; don't paste curl commands.
 
 ### Get listings on the map
 

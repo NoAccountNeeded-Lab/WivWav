@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+FROM node:24-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+FROM base AS builder
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY apps/ops/package.json ./apps/ops/
+RUN pnpm install --frozen-lockfile
+
+COPY packages/config ./packages/config
+COPY packages/types ./packages/types
+COPY apps/ops ./apps/ops
+RUN pnpm --filter @wivwav/types build
+RUN pnpm --filter @wivwav/ops build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/apps/ops/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/ops/.next/static ./apps/ops/.next/static
+
+USER nextjs
+EXPOSE 3002
+ENV PORT=3002
+CMD ["node", "apps/ops/server.js"]
