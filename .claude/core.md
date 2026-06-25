@@ -37,10 +37,6 @@ Infrastructure: PostgreSQL 17 · Meilisearch v1.12 (faceted search) · Valkey 8 
 - Many existing tables use plural names (`sources`, `listings`, `scraper_runs`, `raw_pages`, etc.) — do not rename them
 - All new tables must follow the singular convention
 
-## WAV-specific listing fields
-
-`conversionType` · `rampType` · `hasLift` · `floorLoweringInches` · `handControls` · `transferSeat` · `wheelchairCapacity`
-
 ## Commit format
 
 ```
@@ -91,18 +87,8 @@ An issue has acceptance criteria if its body contains at least one of (case-inse
 Agent-Role: {role}
 Agent-Index: {index}
 Sprint-Run: {sprint-run-id}
-Co-Authored-By: {model name and version} <noreply@{provider}.com>
+Co-Authored-By: {Model Name} <noreply@{provider}.com>
 ```
-
-Use the Co-Authored-By value for your own AI model and provider:
-
-| Agent | Co-Authored-By |
-| ----- | -------------- |
-| Claude Sonnet 4.6 | `Claude Sonnet 4.6 <noreply@anthropic.com>` |
-| Claude Haiku 4.5 | `Claude Haiku 4.5 <noreply@anthropic.com>` |
-| Codex (GPT-4o) | `Codex GPT-4o <noreply@openai.com>` |
-| Gemini 2.0 Pro | `Gemini 2.0 Pro <noreply@google.com>` |
-| Ollama (local) | `Ollama {model-name} <noreply@ollama.ai>` |
 
 **Comment header** on every agent GitHub comment, PR body, or issue update:
 ```
@@ -111,11 +97,4 @@ Use the Co-Authored-By value for your own AI model and provider:
 
 Example: `🤖 **worker[1]** · \`run-sprint\` · 2026-06-03`
 
-## Role files
-
-Your role-specific instructions are in `.claude/roles/{your-role}.md`.
-Read it after this file. Do not read AGENTS.md unless your task requires it — it is the human-facing comprehensive reference and is longer than you need.
-
-## Full reference
-
-AGENTS.md — complete project documentation for humans and deep-reference tasks.
+Read your role file (`.claude/roles/{your-role}.md`) after this file. Do not read `AGENTS.md` unless your task requires it — it is the human-facing reference and longer than you need.
