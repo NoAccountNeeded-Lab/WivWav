@@ -96,7 +96,7 @@ function effortForIssue(issue: IssueData, requested: EffortLevel = 'auto'): Excl
 }
 
 function modelForIssue(requested: string | undefined): string {
-  return requested?.trim() !== undefined && requested.trim() !== '' ? requested.trim() : 'auto'
+  return requested?.trim() !== undefined && requested.trim() !== '' ? requested.trim() : 'sonnet'
 }
 
 function keywordCandidates(issue: IssueData): string[] {
