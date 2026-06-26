@@ -17,3 +17,5 @@ For implementation work, follow the issue workflow: mark the issue `status:in-pr
 When reading context, prefer targeted `rg` searches and narrow file ranges over broad exploratory reads. If a task touches `apps/web`, read `docs/BRAND.md` before UI edits.
 
 Skills live in `.claude/skills/` and run through their slash commands.
+
+When spawning subagents, use `model: "haiku"` for Explore (read-only search) and `model: "sonnet"` for sprint worker agents.
