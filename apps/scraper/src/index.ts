@@ -128,6 +128,44 @@ function shutdown(signal: NodeJS.Signals): Promise<void> {
 process.once('SIGTERM', () => void shutdown('SIGTERM'))
 process.once('SIGINT', () => void shutdown('SIGINT'))
 
+// --- Source registration ---
+// Adapters MUST be registered with the engine before the SOURCE_SCRAPE worker
+// is created below. createWorker starts consuming immediately, so any repeatable
+// source-scrape job that is already due (or stalled from a prior run) would call
+// engine.runSource() before registration and fail with "No adapter registered".
+
+const blvdSource = await db.source.upsert({
+  where: { name: 'BLVD.com' },
+  update: {},
+  create: {
+    name: 'BLVD.com',
+    baseUrl: 'https://www.blvd.com',
+    cronExpression: '0 */6 * * *',
+    timezone: 'America/New_York',
+  },
+})
+
+engine.register(
+  new BlvdAdapter(blvdSource.fingerprintHash, { previousPage1Hash: blvdSource.page1Hash, browserService }),
+  blvdSource.id,
+)
+
+const mwSource = await db.source.upsert({
+  where: { name: 'MobilityWorks' },
+  update: {},
+  create: {
+    name: 'MobilityWorks',
+    baseUrl: 'https://www.mobilityworks.com',
+    cronExpression: '0 */8 * * *',
+    timezone: 'America/New_York',
+  },
+})
+
+engine.register(
+  new MobilityWorksAdapter(mwSource.fingerprintHash, { previousPage1Hash: mwSource.page1Hash, browserService }),
+  mwSource.id,
+)
+
 // Workers — each processor is wrapped with withSentryCapture so that job
 // failures are reported to Sentry before BullMQ marks them as failed.
 // Explicit type parameters on withSentryCapture preserve the same type safety
@@ -285,40 +323,6 @@ const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
-
-// --- Source registration ---
-
-const blvdSource = await db.source.upsert({
-  where: { name: 'BLVD.com' },
-  update: {},
-  create: {
-    name: 'BLVD.com',
-    baseUrl: 'https://www.blvd.com',
-    cronExpression: '0 */6 * * *',
-    timezone: 'America/New_York',
-  },
-})
-
-engine.register(
-  new BlvdAdapter(blvdSource.fingerprintHash, { previousPage1Hash: blvdSource.page1Hash, browserService }),
-  blvdSource.id,
-)
-
-const mwSource = await db.source.upsert({
-  where: { name: 'MobilityWorks' },
-  update: {},
-  create: {
-    name: 'MobilityWorks',
-    baseUrl: 'https://www.mobilityworks.com',
-    cronExpression: '0 */8 * * *',
-    timezone: 'America/New_York',
-  },
-})
-
-engine.register(
-  new MobilityWorksAdapter(mwSource.fingerprintHash, { previousPage1Hash: mwSource.page1Hash, browserService }),
-  mwSource.id,
-)
 
 // --- Repeatable schedules ---
 // BullMQ/Valkey owns the schedule; no node-cron process needed.
