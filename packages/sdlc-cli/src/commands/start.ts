@@ -6,9 +6,12 @@
  *   2. Verify no acceptance-criteria gap
  *   3. Derive branch name from title (or accept --branch override)
  *   4. Validate branch naming convention
- *   5. Label status:in-progress, create branch, post check-in comment
+ *   5. Label status:in-progress, create branch, write context artifacts, post check-in comment
+ *
+ * Context artifact generation is delegated to lib/context.ts so that direct
+ * `start` and sprint-worker preparation produce the same artifact schema.
  */
-import { fetchIssue, editIssueLabels, postComment, CliError } from '../lib/github.js'
+import { fetchIssue, editIssueLabels, postComment, CliError, labelNames, extractAcceptanceCriteria } from '../lib/github.js'
 import { run, isDirty } from '../lib/git.js'
 import {
   validateIssueForStart,
@@ -16,12 +19,17 @@ import {
   mergeResults,
   formatResult,
 } from '../lib/validation.js'
+import { writeContextArtifacts } from '../lib/context.js'
 
 export interface StartOptions {
   branch?: string
   dryRun?: boolean
   agentRole?: string
   agentIndex?: number
+  /** Effort guidance passed into context artifacts (default: 'standard'). */
+  effort?: 'low' | 'standard' | 'high'
+  /** Model guidance passed into context artifacts (default: 'sonnet'). */
+  model?: string
 }
 
 /**
@@ -71,6 +79,15 @@ export function sanitizeBranchName(name: string): string {
   return name.replace(/[^a-zA-Z0-9/._-]/g, '')
 }
 
+/**
+ * Build a deterministic sprint ID for a direct `start` invocation.
+ * Uses a `start/` prefix to distinguish from `run-sprint/` IDs.
+ */
+function startSprintId(now = new Date()): string {
+  const isoMinute = now.toISOString().slice(0, 16)
+  return `start/${isoMinute}`
+}
+
 export async function startCommand(issueNumber: number, opts: StartOptions = {}): Promise<void> {
   console.log(`\nFetching issue #${issueNumber}...`)
   const issue = fetchIssue(issueNumber)
@@ -107,6 +124,7 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
       `  gh issue edit ${issueNumber} --add-label status:in-progress --remove-label status:ready`,
     )
     console.log(`  git fetch origin main && git checkout -b ${branchName} origin/main`)
+    console.log(`  write .agents/ context artifacts in current worktree`)
     console.log(`  gh issue comment ${issueNumber} --body "Starting work..."`)
     return
   }
@@ -128,6 +146,30 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
   editIssueLabels(issueNumber, {
     add: ['status:in-progress'],
     remove: ['status:ready'],
+  })
+
+  // Write context artifacts to the current working directory (the worktree root)
+  console.log('Writing .agents/ context artifacts...')
+  writeContextArtifacts({
+    issue: {
+      number: issue.number,
+      title: issue.title,
+      body: issue.body,
+      labels: labelNames(issue),
+    },
+    repo: { root: process.cwd() },
+    runtime: {
+      worktreePath: process.cwd(),
+      branch: branchName,
+      sprintId: startSprintId(),
+      effort: opts.effort ?? 'standard',
+      model: opts.model ?? 'sonnet',
+      agentIndex: opts.agentIndex ?? 1,
+    },
+    content: {
+      acceptanceCriteria: extractAcceptanceCriteria(issue.body),
+      likelyFiles: [],
+    },
   })
 
   // Post check-in comment
