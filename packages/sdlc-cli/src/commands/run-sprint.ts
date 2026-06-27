@@ -8,8 +8,8 @@
  *   4. Print worker instructions for the agent layer
  */
 import { mkdirSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { run } from '../lib/git.js'
+import { dirname, join, resolve } from 'node:path'
+import { run, tryRun } from '../lib/git.js'
 import {
   type IssueData,
   type IssueSummary,
@@ -170,6 +170,7 @@ function writeWorktreeFile(target: SprintTarget, relativePath: string, contents:
 }
 
 function issueContext(target: SprintTarget, sprintId: string): string {
+  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   return [
     `# Issue #${target.issue.number}: ${target.issue.title}`,
     '',
@@ -178,7 +179,7 @@ function issueContext(target: SprintTarget, sprintId: string): string {
     '## Metadata',
     '',
     `- Branch: ${target.branch}`,
-    `- Worktree: ${target.worktreePath}`,
+    `- Worktree: ${absoluteWorktreePath}`,
     `- Agent index: ${target.agentIndex}`,
     `- Sprint run: ${sprintId}`,
     `- Effort guidance: ${target.effort}`,
@@ -290,6 +291,7 @@ function finishContext(target: SprintTarget): string {
 }
 
 function usageReport(target: SprintTarget, sprintId: string): string {
+  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   return [
     `# Usage Report: Issue #${target.issue.number}`,
     '',
@@ -299,7 +301,7 @@ function usageReport(target: SprintTarget, sprintId: string): string {
     '',
     `- Sprint run: ${sprintId}`,
     `- Branch: ${target.branch}`,
-    `- Worktree: ${target.worktreePath}`,
+    `- Worktree: ${absoluteWorktreePath}`,
     `- Effort guidance: ${target.effort}`,
     `- Model guidance: ${target.model}`,
     `- Labels: ${labelNames(target.issue).join(', ') || 'none'}`,
@@ -331,6 +333,7 @@ function writeContextArtifacts(target: SprintTarget, sprintId: string, dryRun: b
 }
 
 function workerPrompt(target: SprintTarget, sprintId: string): string {
+  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   return [
     'Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.',
     'Then read `.agents/worker-context.md` and `.agents/issue-context.md`; only call `gh issue view` if you need live issue updates.',
@@ -341,7 +344,7 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
     'Before reading source files, use the local context artifacts to write a scoped plan that names the likely files and the evidence you need from each one.',
     'Track model and token usage in `.agents/usage-report.md` before finishing so sprint cost can be reviewed by issue area.',
     '',
-    `Worktree: ${target.worktreePath}`,
+    `Worktree: ${absoluteWorktreePath}`,
     `Branch: ${target.branch}`,
     'Agent-Role: worker',
     `Agent-Index: ${target.agentIndex}`,
@@ -353,10 +356,12 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
 
 function writeRecoveryState(target: SprintTarget, sprintId: string, dryRun: boolean): void {
   const statePath = `/tmp/wivwav-${target.issue.number}.md`
+  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   const state = [
     `Issue: #${target.issue.number}`,
     `Branch: ${target.branch}`,
-    `Worktree: ${target.worktreePath}`,
+    `Worktree: ${absoluteWorktreePath}`,
+    `Owner: CLI`,
     `Sprint-Run: ${sprintId}`,
     'Status: running',
     '',
@@ -412,6 +417,37 @@ function copyEnvFiles(worktreePath: string, dryRun: boolean): void {
   }
 }
 
+/**
+ * Verify that the worktree path and branch are not already in use.
+ * Throws a CliError with recovery guidance when a conflict is detected.
+ * The CLI is the single owner of branch and worktree creation — this guard
+ * ensures a second worktree or branch is never created for the same issue.
+ */
+function assertWorktreeFree(target: SprintTarget): void {
+  const absolutePath = resolve(process.cwd(), target.worktreePath)
+
+  // Check for a stale or pre-existing worktree at the target path.
+  if (existsSync(absolutePath)) {
+    throw new CliError(
+      `Worktree path already exists: ${absolutePath}\n` +
+      `This indicates a stale or interrupted sprint run for issue #${target.issue.number}.\n` +
+      `Recovery: remove the path with \`git worktree remove --force ${absolutePath} && git worktree prune\`, ` +
+      `then re-run \`pnpm wivwav run-sprint ${target.issue.number}\`.`,
+    )
+  }
+
+  // Check for a pre-existing local branch of the same name.
+  const branchExists = tryRun(`git rev-parse --verify refs/heads/${target.branch}`).ok
+  if (branchExists) {
+    throw new CliError(
+      `Branch already exists: ${target.branch}\n` +
+      `This indicates a previous sprint prepared issue #${target.issue.number}.\n` +
+      `Recovery: delete the branch with \`git branch -D ${target.branch}\`, ` +
+      `then re-run \`pnpm wivwav run-sprint ${target.issue.number}\`.`,
+    )
+  }
+}
+
 function createWorktree(target: SprintTarget, dryRun: boolean): void {
   if (dryRun) {
     console.log(`  [dry-run] git worktree add -b ${target.branch} ${target.worktreePath} origin/main`)
@@ -419,6 +455,7 @@ function createWorktree(target: SprintTarget, dryRun: boolean): void {
     return
   }
 
+  assertWorktreeFree(target)
   mkdirSync(dirname(target.worktreePath), { recursive: true })
   run(`git worktree add -b ${target.branch} ${target.worktreePath} origin/main`)
   copyEnvFiles(target.worktreePath, dryRun)
