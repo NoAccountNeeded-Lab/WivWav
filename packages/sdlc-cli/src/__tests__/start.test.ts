@@ -91,10 +91,20 @@ describe('sanitizeBranchName', () => {
 // ---------------------------------------------------------------------------
 // startCommand behavioural tests — external boundaries are mocked
 // ---------------------------------------------------------------------------
+
+vi.mock('node:fs', () => ({
+  mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  readFileSync: vi.fn(() => ''),
+  existsSync: vi.fn(() => false),
+}))
+
 vi.mock('../lib/github.js', () => ({
   fetchIssue: vi.fn(),
   editIssueLabels: vi.fn(),
   postComment: vi.fn(),
+  labelNames: vi.fn((issue: { labels: Array<{ name: string }> }) => issue.labels.map((l) => l.name)),
+  extractAcceptanceCriteria: vi.fn(() => ['- [ ] GET /listings returns results']),
   CliError: class CliError extends Error {
     constructor(msg: string) {
       super(msg)
@@ -123,6 +133,7 @@ import { startCommand } from '../commands/start.js'
 import * as githubMod from '../lib/github.js'
 import * as gitMod from '../lib/git.js'
 import * as validationMod from '../lib/validation.js'
+import * as fsMod from 'node:fs'
 
 const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
 const mockEditIssueLabels = githubMod.editIssueLabels as ReturnType<typeof vi.fn>
@@ -132,6 +143,7 @@ const mockIsDirty = gitMod.isDirty as ReturnType<typeof vi.fn>
 const mockValidateIssue = validationMod.validateIssueForStart as ReturnType<typeof vi.fn>
 const mockValidateBranch = validationMod.validateBranchName as ReturnType<typeof vi.fn>
 const mockMergeResults = validationMod.mergeResults as ReturnType<typeof vi.fn>
+const mockWriteFileSync = fsMod.writeFileSync as ReturnType<typeof vi.fn>
 
 function makeIssue(overrides = {}) {
   return {
@@ -205,6 +217,13 @@ describe('startCommand — dry-run', () => {
     const allOutput = log.mock.calls.map((c) => String(c[0])).join('\n')
     expect(allOutput).toContain('[dry-run]')
   })
+
+  it('mentions context artifact write in dry-run output', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42, { dryRun: true })
+    const allOutput = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(allOutput).toContain('.agents/')
+  })
 })
 
 describe('startCommand — happy path', () => {
@@ -219,6 +238,28 @@ describe('startCommand — happy path', () => {
       remove: ['status:ready'],
     })
     expect(mockPostComment).toHaveBeenCalledWith(42, expect.stringContaining('Starting work on issue #42'))
+  })
+
+  it('writes context artifacts to the current directory after branch creation', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42)
+
+    // Artifacts must be written; look for issue-context.md
+    expect(
+      mockWriteFileSync.mock.calls.some(([path]) =>
+        String(path).endsWith('.agents/issue-context.md'),
+      ),
+    ).toBe(true)
+  })
+
+  it('writes the same artifact schema version as run-sprint', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42)
+
+    const issueContextWrite = mockWriteFileSync.mock.calls.find(([path]) =>
+      String(path).endsWith('.agents/issue-context.md'),
+    )
+    expect(String(issueContextWrite?.[1])).toContain('<!-- schema-version:')
   })
 
   it('uses the provided --branch override instead of deriving one', async () => {
@@ -254,5 +295,19 @@ describe('startCommand — happy path', () => {
     await startCommand(42)
     expect(warn).toHaveBeenCalled()
     expect(mockEditIssueLabels).toHaveBeenCalled()
+  })
+
+  it('passes effort and model options through to the context artifacts', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42, { effort: 'high', model: 'claude-opus-4-5' })
+
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([path, contents]) =>
+          String(path).endsWith('.agents/worker-context.md') &&
+          String(contents).includes('- Effort: high') &&
+          String(contents).includes('- Model: claude-opus-4-5'),
+      ),
+    ).toBe(true)
   })
 })

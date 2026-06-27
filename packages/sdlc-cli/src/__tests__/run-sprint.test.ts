@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
+  readFileSync: vi.fn(() => ''),
   // Default: worktree path does not exist (free to create), env files do exist (to copy).
   // Override per-test when simulating stale/pre-existing paths.
   existsSync: vi.fn((p: string) => !String(p).includes('.claude/worktrees/')),
@@ -113,8 +114,18 @@ describe('runSprintCommand — issue selection', () => {
     })
     expect(mockPostComment).toHaveBeenCalledWith(42, expect.stringContaining('Sprint worker starting'))
     expect(mockMkdirSync).toHaveBeenCalled()
-    expect(mockWriteFileSync).toHaveBeenCalledWith('/tmp/wivwav-42.md', expect.stringContaining('Status: running'))
+    // Orchestrator recovery state goes to /tmp (outside the worktree) so it
+    // survives worktree teardown; the generator also writes an in-worktree
+    // .agents/recovery-state.md artifact.
     const writtenFiles = mockWriteFileSync.mock.calls.map((call) => String(call[0]))
+    expect(mockWriteFileSync).toHaveBeenCalledWith('/tmp/wivwav-42.md', expect.stringContaining('Status: running'))
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([path, contents]) =>
+          String(path).endsWith('.agents/recovery-state.md') &&
+          String(contents).includes('Status: running'),
+      ),
+    ).toBe(true)
     expect(writtenFiles).toContain(
       '/repo/.claude/worktrees/issue-42-featapi-add-listing-search/.agents/issue-context.md',
     )
@@ -215,6 +226,20 @@ describe('runSprintCommand — issue selection', () => {
     expect(mockListReadyIssues).toHaveBeenCalledWith(2)
     expect(output).toContain('Agent-Index: 1')
     expect(output).toContain('Agent-Index: 2')
+  })
+
+  it('writes schema-version header in context artifacts', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42 })
+
+    expect(
+      mockWriteFileSync.mock.calls.some(
+        ([path, contents]) =>
+          String(path).endsWith('.agents/issue-context.md') &&
+          String(contents).includes('<!-- schema-version:'),
+      ),
+    ).toBe(true)
   })
 })
 
