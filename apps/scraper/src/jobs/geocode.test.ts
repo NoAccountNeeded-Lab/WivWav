@@ -167,4 +167,30 @@ describe('runGeocodeJob', () => {
     await runGeocodeJob()
     expect(db.$disconnect).toHaveBeenCalledTimes(1)
   })
+
+  it('does not throw when the Meilisearch sync fails — coordinates stay committed', async () => {
+    db.listing.findMany.mockResolvedValue([{ id: 'l1', city: 'Tampa', state: 'FL' }])
+    mockFetchCoords('27.9506', '-82.4572')
+    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
+
+    // Job resolves rather than rejecting (which would mark the BullMQ job failed)
+    await expect(runGeocodeJob()).resolves.toBeUndefined()
+
+    // The coordinate write still happened before the sync attempt
+    expect(db.listing.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['l1'] } },
+      data: { lat: 27.9506, lng: -82.4572 },
+    })
+  })
+
+  it('enqueues a listing-sync job to reconcile when the inline Meilisearch sync fails', async () => {
+    db.listing.findMany.mockResolvedValue([{ id: 'l1', city: 'Tampa', state: 'FL' }])
+    mockFetchCoords('27.9506', '-82.4572')
+    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
+    const listingSyncQueue = { add: vi.fn().mockResolvedValue(undefined) }
+
+    await runGeocodeJob(undefined, listingSyncQueue as never)
+
+    expect(listingSyncQueue.add).toHaveBeenCalledTimes(1)
+  })
 })

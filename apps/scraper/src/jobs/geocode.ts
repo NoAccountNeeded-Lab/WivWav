@@ -1,5 +1,6 @@
 import { getDb } from '@wivwav/db'
-import type { JobContext } from '@wivwav/queue'
+import type { JobContext, QueueAdapter } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
 import { syncListings } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
@@ -39,7 +40,7 @@ async function geocode(city: string, state: string): Promise<{ lat: number; lng:
 }
 
 
-export async function runGeocodeJob(context?: JobContext): Promise<void> {
+export async function runGeocodeJob(context?: JobContext, listingSyncQueue?: QueueAdapter): Promise<void> {
   const db = getDb()
 
   // Exclude listings locked by another concurrent job (e.g. vin-enrich).
@@ -135,8 +136,33 @@ export async function runGeocodeJob(context?: JobContext): Promise<void> {
     }
   }
 
-  await syncListings(syncedIds, db, getMeiliClient())
-  await report(context, `[geocode] Done. ${successListings} geocoded, ${failedListings} failed, ${skippedListings} skipped (locked). ${syncedIds.length} listing(s) synced to Meilisearch.`, {
+  // The coordinates are already committed to Postgres above. The Meilisearch
+  // sync is a downstream reconciliation step — if it fails (Meili offline,
+  // missing auth, transient network), the geocoding work must NOT be lost and
+  // the job must NOT be marked failed (that fires a false "map pins may be
+  // incomplete" critical alert). Treat a sync failure as non-fatal and hand the
+  // reconciliation off to the dedicated listing-sync queue, which retries with
+  // backoff and runs nightly anyway.
+  let syncedToMeili = false
+  if (syncedIds.length > 0) {
+    try {
+      await syncListings(syncedIds, db, getMeiliClient())
+      syncedToMeili = true
+    } catch (syncErr) {
+      context?.logger?.error({ err: syncErr, count: syncedIds.length }, '[geocode] Meilisearch sync failed — coordinates saved, deferring to listing-sync queue')
+      await report(context, `[geocode] Meilisearch sync failed (${syncedIds.length} listing(s) saved but not yet indexed): ${syncErr}`)
+      if (listingSyncQueue !== undefined) {
+        try {
+          await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+        } catch (enqueueErr) {
+          context?.logger?.error({ err: enqueueErr }, '[geocode] Failed to enqueue listing-sync job')
+          await report(context, `[geocode] Failed to enqueue listing-sync job: ${enqueueErr}`)
+        }
+      }
+    }
+  }
+
+  await report(context, `[geocode] Done. ${successListings} geocoded, ${failedListings} failed, ${skippedListings} skipped (locked). ${syncedToMeili ? `${syncedIds.length} listing(s) synced to Meilisearch.` : `${syncedIds.length} listing(s) saved; Meilisearch sync deferred.`}`, {
     stage: 'complete',
     current: uniquePairs.length,
     total: uniquePairs.length,

@@ -1,5 +1,6 @@
 import { getDb } from '@wivwav/db'
-import type { JobContext } from '@wivwav/queue'
+import type { JobContext, QueueAdapter } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
 import { syncListings } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
@@ -88,7 +89,7 @@ async function findOrCreateVehicleModel(
   return { id: created.id, bodyType: created.bodyType, confidence: 'exact' }
 }
 
-export async function runVinEnrichJob(context?: JobContext): Promise<void> {
+export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: QueueAdapter): Promise<void> {
   const db = getDb()
 
   // Exclude listings locked by another concurrent job (e.g. geocode, deduplicate)
@@ -169,7 +170,25 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
     if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
-  if (enrichedIds.length > 0) await syncListings(enrichedIds, db, getMeiliClient())
+  // VIN enrichment is already committed to Postgres. Treat a Meilisearch sync
+  // failure as non-fatal so the enrichment work is not lost and the job is not
+  // marked failed; defer reconciliation to the dedicated listing-sync queue.
+  if (enrichedIds.length > 0) {
+    try {
+      await syncListings(enrichedIds, db, getMeiliClient())
+    } catch (syncErr) {
+      context?.logger?.error({ err: syncErr, count: enrichedIds.length }, '[vin-enrich] Meilisearch sync failed — enrichment saved, deferring to listing-sync queue')
+      await report(context, `[vin-enrich] Meilisearch sync failed (${enrichedIds.length} listing(s) saved but not yet indexed): ${syncErr}`)
+      if (listingSyncQueue !== undefined) {
+        try {
+          await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+        } catch (enqueueErr) {
+          context?.logger?.error({ err: enqueueErr }, '[vin-enrich] Failed to enqueue listing-sync job')
+          await report(context, `[vin-enrich] Failed to enqueue listing-sync job: ${enqueueErr}`)
+        }
+      }
+    }
+  }
 
   await report(context, `[vin-enrich] Done. ${enriched} enriched, ${failed} failed, ${skipped} skipped (locked).`, {
     stage: 'complete',
