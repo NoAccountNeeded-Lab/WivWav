@@ -127,7 +127,7 @@ The output is human-readable text. Copy it into the PR evidence section when rel
 4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
 5. **Update AGENTS.md** if you added, removed, or renamed API routes (keep the routes table current)
 6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
-7. Review the draft PR on GitHub (the sprint worker's inline Reviewer agent has already checked the implementation) and merge with **rebase** (`gh pr merge --auto --rebase --delete-branch`) — `main` is a merge-queue-protected branch, so `--auto` is required to enqueue rather than merge immediately; see [docs/design/merge-queue.md](docs/design/merge-queue.md). Claude Code: `/wivwav-merge-pr {N}`.
+7. Review the draft PR on GitHub (the sprint worker's inline Reviewer agent has already checked the implementation) and merge with `gh pr merge {N} --auto` — `main` is a merge-queue-protected branch, so `--auto` enqueues the PR; the queue then runs final checks, picks the merge strategy, and deletes the remote branch itself (do not pass `--rebase` or `--delete-branch`, which the queue rejects). See [docs/design/merge-queue.md](docs/design/merge-queue.md).
 
 Never work directly on `main`. Never commit on failing tests.
 Never leave an issue without a commit and draft PR — finish explicitly, not at session end.
@@ -313,7 +313,7 @@ EOF
 gh issue edit N --add-label status:needs-review --remove-label status:in-progress
 ```
 
-Tell the user: "Draft PR is open and the issue is labeled `status:needs-review`. Review the diff on GitHub and mark it ready when satisfied, then run `/wivwav-merge-pr {N}` to merge."
+Tell the user: "Draft PR is open and the issue is labeled `status:needs-review`. Review the diff on GitHub and mark it ready when satisfied, then merge with `gh pr merge {N} --auto`."
 
 ---
 
