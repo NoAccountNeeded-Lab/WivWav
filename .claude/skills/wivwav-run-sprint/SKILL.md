@@ -31,7 +31,7 @@ The CLI will:
 For each worker instruction block printed by the CLI:
 
 - Use the listed `Worktree`, `Branch`, `Agent-Index`, and `Sprint-Run`.
-- Spawn one worker agent with `isolation: "worktree"` and `model: "sonnet"`.
+- Spawn one worker agent with `model: "sonnet"`. Do not set `isolation: "worktree"` — the CLI already created a dedicated worktree for each issue; a second isolation setting would create a nested/duplicate worktree.
 - In sequential mode, run workers foreground/blocking one at a time.
 - In parallel mode, spawn all listed workers in one message with `run_in_background: true`.
 
