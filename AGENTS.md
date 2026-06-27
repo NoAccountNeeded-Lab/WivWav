@@ -41,16 +41,12 @@ make dev       # apply pending migrations, then start api, web, scraper with hot
 
 | Service       | URL                        | Notes                                           |
 | ------------- | -------------------------- | ----------------------------------------------- |
-| Grafana       | http://localhost:3003      | Anonymous admin — no login. Two dashboards:     |
-|               |                            |   • WivWav Logs (Loki) — structured log explorer |
-|               |                            |   • WivWav System (Prometheus) — HTTP traffic, queue depths, DB/cache/search health |
+| Grafana       | http://localhost:3003      | Anonymous admin — WivWav Logs (Loki) + WivWav System (Prometheus) dashboards |
 | Prometheus    | http://localhost:9090      | Scrapes `GET /metrics` every 15 s; 15-day retention |
 | Loki          | http://localhost:3100      | Log aggregation (internal; Alloy writes here)   |
 | API metrics   | http://localhost:3001/metrics | Prometheus text format — prom-client           |
 
-Metrics exposed at `/metrics`: Node.js process defaults (heap, GC, event loop lag), HTTP request counts/latency/error-rate by route and status class, BullMQ queue depths (waiting/active/completed/failed/delayed) per queue, DB size and listing count, Valkey and Meilisearch availability gauges, Loki availability gauge (`wivwav_loki_up`), last successful source scrape timestamp (`wivwav_scraper_last_successful_run_timestamp_seconds`), and NHTSA refresh recency by queue (`wivwav_nhtsa_queue_last_completed_timestamp_seconds`).
-
-**Known limitations:** The `/metrics` endpoint is unauthenticated and served on the same port as the public API (3001) — local development only. Only the API process is scraped; scraper and web services emit observability via logs/Loki instead. Queue depth is a point-in-time snapshot refreshed every 15 s by Prometheus. Job duration is not tracked.
+The exposed `/metrics` series, scrape scope, and known limitations are documented in [docs/design/observability-architecture.md](docs/design/observability-architecture.md).
 
 ```bash
 make down      # stop infra containers
@@ -73,7 +69,7 @@ pnpm test:affected
 
 All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run only the packages whose source files have changed relative to `origin/main`. Use these for iteration speed. Run the full suite (`pnpm typecheck && pnpm lint && pnpm build && pnpm test`) before opening or finishing a PR.
 
-Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the self-hosted sprint runner. When `TURBO_TOKEN` and `TURBO_TEAM` are set, repeated runs with unchanged inputs skip re-execution and restore artifacts from the cache. Cache keys are pure content hashes of source files — no secrets are ever included. See `docs/design/turbo-remote-cache.md` for setup instructions, cache key details, invalidation, and troubleshooting.
+Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the sprint runner: with `TURBO_TOKEN`/`TURBO_TEAM` set, unchanged inputs skip re-execution. See `docs/design/turbo-remote-cache.md` for setup, cache keys, invalidation, and troubleshooting.
 
 ```bash
 # SDLC delivery metrics report
@@ -98,24 +94,9 @@ The project tracks five leading indicators of delivery health. All are collected
 | **Re-review cycles** | Avg number of extra review-request events per merged PR | ≥ 2/PR | Tighten pre-review quality gates (linting, typecheck, code-review skill) |
 | **Time-to-merge** | Avg time from last approval to merge | ≥ 24 h | Reduce merge friction (squash-merge policy, required-check wait times) |
 
-### Interpreting the report
+**Interpreting:** healthy baseline is CI < 10 min, failure rate < 5%, lead time < 1 day, re-review cycles < 1, TTM < 2 h. A metric approaching threshold needs a weekly eye; at or above threshold, open an issue with `status:ready` and schedule it. Read the trend across periods, not a single week — a lead-time spike around a major refactor is expected.
 
-- **Healthy baseline**: CI < 10 min, failure rate < 5%, lead time < 1 day, re-review cycles < 1, TTM < 2 h.
-- **Watch range**: any metric approaching its threshold needs a weekly eye but not immediate action.
-- **Act immediately**: any metric at or above threshold — open an issue, set `status:ready`, and schedule it in the next sprint.
-- Context matters: a spike in lead time around a major refactor is expected. Look at the trend across multiple periods, not a single week.
-
-### Generating a baseline
-
-```bash
-# 30-day window (recommended starting point)
-make sdlc-report
-
-# 90-day window for a longer trend
-make sdlc-report LOOKBACK_DAYS=90
-```
-
-The output is human-readable text. Copy it into the PR evidence section when relevant.
+Run with `make sdlc-report` (`LOOKBACK_DAYS=90` for a longer window; see Quick start). Output is human-readable text — copy it into the PR evidence section when relevant.
 
 ---
 
@@ -125,7 +106,7 @@ The output is human-readable text. Copy it into the PR evidence section when rel
 2. Add `status:in-progress`, post a brief check-in comment
 3. Branch off main: `git fetch origin main && git checkout -b <prefix>/issue-{N}-{slug} origin/main`
 4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
-5. **Update AGENTS.md** if you added, removed, or renamed API routes (keep the routes table current)
+5. **Update [docs/api-routes.md](docs/api-routes.md)** if you added, removed, or renamed API routes (keep the routes table current)
 6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
 7. Review the draft PR on GitHub (the sprint worker's inline Reviewer agent has already checked the implementation) and merge with `gh pr merge {N} --auto` — `main` is a merge-queue-protected branch, so `--auto` enqueues the PR; the queue then runs final checks, picks the merge strategy, and deletes the remote branch itself (do not pass `--rebase` or `--delete-branch`, which the queue rejects). See [docs/design/merge-queue.md](docs/design/merge-queue.md).
 
@@ -352,57 +333,9 @@ See `.claude/core.md` for commit format, branch prefixes, and attribution traile
 
 ## API routes
 
-| Method | Path                           | Description                          |
-| ------ | ------------------------------ | ------------------------------------ |
-| GET    | /health                        | Health check                         |
-| GET    | /v1/listings                   | Search listings with filters         |
-| GET    | /v1/listings/facets            | Facet aggregations (cached 60s)      |
-| GET    | /v1/listings/:id               | Single listing detail                |
-| GET    | /v1/listings/:id/price-history | Listing price history                |
-| GET    | /v1/listings/:id/safety        | Safety summary (recalls with `status: open|remedied|unknown`, complaints, ratings, investigations, manufacturerCommunications, `safetyFreshnessDate`) for a listing |
-| POST   | /v1/listings/:id/refresh-safety | Trigger on-demand NHTSA refresh (recalls, complaints, ratings, investigations, manufacturer communications) for the vehicle model linked to this listing. Rate-limited to once per model per hour. Returns `{ enqueued: bool, reason?, retryAfter?, jobIds? }`. |
-| GET    | /v1/listings/:id/dealer        | Dealer profile + top 5 reviews for a listing. Returns `{ dealerProfile: null }` when no profile exists yet. |
-| GET    | /v1/vin/:vin/safety            | Decode a VIN and return NHTSA safety summary when data is available |
-| GET    | /v1/market/pricing                     | Price stats (percentiles, days listed, drop rate) for a make/model spec |
-| GET    | /v1/market/popular                     | Top 10 makes, models, and conversion brands by active listing count |
-| GET    | /v1/vehicles/:make/:model/stats            | Lifespan and reliability stats; returns `methodology` string and `sources: [{name, url}]` array (empty array when no source is recorded); optional `?year` falls back to aggregate row when no year-specific record exists |
-| GET    | /v1/vehicles/:make/:model/:year/recalls        | Open recalls for a vehicle           |
-| GET    | /v1/vehicles/:make/:model/:year/complaints     | Complaints for a vehicle             |
-| GET    | /v1/vehicles/:make/:model/:year/research       | Latest cited model facts (EPA fuel economy, engine, drivetrain) with source URLs |
-| GET    | /v1/vehicles/:make/:model/:year/investigations | NHTSA investigations for a vehicle model; each record has `sourceUrl` |
-| GET    | /v1/vehicles/:make/:model/:year/communications | NHTSA TSBs (manufacturer communications) for a vehicle model; each record has `sourceUrl` |
-| GET    | /v1/vehicles/:make/:model/:year/msrp           | Original MSRP from fueleconomy.gov; returns `originalMsrpCents`, `destinationFeeCents`, `currency`, and `source: {name, url, fetchedAt}` |
-| GET    | /v1/conversion-brands          | List conversion brands with product counts and NMEDA certification status |
-| GET    | /v1/conversion-brands/:slug    | Brand detail with full product catalog (conversionType, rampType, floorLoweringInches, msrpCents) |
-| GET    | /v1/sources                    | List configured scraper sources      |
-| GET    | /admin/queues                  | All queue names with stats           |
-| GET    | /admin/queues/:name            | Single queue stats + recent jobs     |
-| POST   | /admin/queues/:name/jobs       | Enqueue a job                        |
-| POST   | /admin/queues/:name/pause      | Pause a queue                        |
-| POST   | /admin/queues/:name/resume     | Resume a queue                       |
-| GET    | /admin/runs                    | Recent scraper runs (last 100) + sourceName |
-| GET    | /admin/sources                 | Sources with status and listing count|
-| POST   | /admin/sources/:id/run         | Enqueue an immediate source-scrape job |
-| POST   | /admin/sync                    | Re-index all listings into Meilisearch |
-| GET    | /admin/listing-refresh/status  | Aggregate source, queue, listing, and map-readiness state for the guided refresh workflow |
-| GET    | /admin/repeatables             | Canonical repeatable jobs merged with live BullMQ state |
-| DELETE | /admin/repeatables/:queue      | Disable a repeatable job (remove from BullMQ by key) |
-| POST   | /admin/repeatables/:queue      | Enable a repeatable job (add to BullMQ) |
-| PUT    | /admin/repeatables/:queue      | Update a repeatable job's pattern (remove old key, add with new pattern) |
-| GET    | /admin/ai/status               | Scraper AI provider health (Ollama by default) + installed models + sources needing remap |
-| GET    | /admin/config                  | List all current config values (latest row per key). Secrets return hint only. |
-| GET    | /admin/config/:key             | Get current value for one key (404 if tombstoned) |
-| PUT    | /admin/config/:key             | Insert a new config row (append-only). Secrets: encrypts + returns hint. |
-| GET    | /admin/config/:key/history     | All historical rows for a key (newest first) |
-| GET    | /admin/config/:key/decrypt     | Decrypted plaintext for a secret key (server-to-server only — requires `Authorization: Bearer {INTERNAL_API_SECRET}` in production) |
-| DELETE | /admin/config/:key             | Soft-delete: inserts a tombstone row (value: null) |
-| GET    | /admin/logs                    | Recent log entries from Loki (query params: `service`, `search`, `limit` [default 200, max 500], `start` [ISO or ns epoch, default: 1 hour ago], `end` [ISO or ns epoch, default: now]); response: `{ data: { entries: LogEntry[], services: string[] } }`. Requires `LOKI_URL` env var (default `http://localhost:3100`; Docker Compose sets `http://loki:3100`). |
-| GET    | /admin/logs/services           | Distinct service label values from Loki; response: `{ data: string[] }` |
-| POST   | /admin/client-events           | Ingest a browser error event (js-error, unhandled-rejection, fetch-error, react-error) and log it via pino with `service: "web-client"` so it appears in the Loki pipeline. Returns 204. Unauthenticated. |
-| GET    | /admin/board                   | Queue job inspector UI               |
-| GET    | /metrics                       | Prometheus text-format scrape endpoint (prom-client). Exposes Node.js process metrics, HTTP request counts/latency by route, BullMQ queue depths per queue and status, DB size/listing count, Valkey and Meilisearch up gauges, Loki up gauge, last successful source scrape timestamp, and NHTSA refresh recency by queue. Scraped by Prometheus every 15 s when the `obs` profile is active. |
+The full route table lives in [docs/api-routes.md](docs/api-routes.md). Keep it current when you add, remove, or rename a route.
 
-Most responses use `{ data: T }` for success and `{ error: { code, message } }` for errors. Exceptions: `GET /v1/listings` returns `{ data, facets, pagination }`; `GET /v1/sources` returns `{ sources: [] }`.
+Response envelope: most routes use `{ data: T }` for success and `{ error: { code, message } }` for errors. Exceptions: `GET /v1/listings` returns `{ data, facets, pagination }`; `GET /v1/sources` returns `{ sources: [] }`.
 
 ---
 
