@@ -3,12 +3,15 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
-  existsSync: vi.fn(() => true),
+  // Default: worktree path does not exist (free to create), env files do exist (to copy).
+  // Override per-test when simulating stale/pre-existing paths.
+  existsSync: vi.fn((p: string) => !String(p).includes('.claude/worktrees/')),
   copyFileSync: vi.fn(),
 }))
 
 vi.mock('../lib/git.js', () => ({
   run: vi.fn(),
+  tryRun: vi.fn(() => ({ stdout: '', ok: false })),
 }))
 
 vi.mock('../lib/github.js', () => ({
@@ -34,7 +37,9 @@ import * as githubMod from '../lib/github.js'
 
 const mockMkdirSync = fsMod.mkdirSync as ReturnType<typeof vi.fn>
 const mockWriteFileSync = fsMod.writeFileSync as ReturnType<typeof vi.fn>
+const mockExistsSync = fsMod.existsSync as ReturnType<typeof vi.fn>
 const mockRun = gitMod.run as ReturnType<typeof vi.fn>
+const mockTryRun = gitMod.tryRun as ReturnType<typeof vi.fn>
 const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
 const mockListReadyIssues = githubMod.listReadyIssues as ReturnType<typeof vi.fn>
 const mockHasAC = githubMod.hasAcceptanceCriteria as ReturnType<typeof vi.fn>
@@ -56,6 +61,10 @@ function makeIssue(overrides = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockRun.mockReturnValue('')
+  // By default: branch does not exist, so `git rev-parse --verify` fails (ok: false).
+  mockTryRun.mockReturnValue({ stdout: '', ok: false })
+  // By default: worktree path is free (does not exist), env source files do exist.
+  mockExistsSync.mockImplementation((p: string) => !String(p).includes('.claude/worktrees/'))
   mockListReadyIssues.mockReturnValue([{ number: 42, title: 'feat(api): add listing search' }])
   mockFetchIssue.mockReturnValue(makeIssue())
   mockHasAC.mockReturnValue(true)
@@ -226,5 +235,104 @@ describe('runSprintCommand — pre-flight', () => {
     await runSprintCommand({ issueNumber: 42, dryRun: true })
 
     expect(mockFetchIssue).toHaveBeenCalledWith(42)
+  })
+})
+
+describe('runSprintCommand — single owner enforcement', () => {
+  it('throws when the worktree path already exists (stale/interrupted preparation)', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    // Simulate a stale worktree: existsSync returns true for any path.
+    mockExistsSync.mockReturnValue(true)
+
+    await expect(runSprintCommand({ issueNumber: 42 })).rejects.toThrow(
+      'Worktree path already exists',
+    )
+    expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('git worktree add'))
+  })
+
+  it('throws when the branch already exists (pre-existing preparation)', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    // Worktree path is free; branch already exists.
+    mockExistsSync.mockImplementation((p: string) => !String(p).includes('.claude/worktrees/'))
+    mockTryRun.mockReturnValue({ stdout: 'abc1234', ok: true })
+
+    await expect(runSprintCommand({ issueNumber: 42 })).rejects.toThrow(
+      'Branch already exists',
+    )
+    expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('git worktree add'))
+  })
+
+  it('recovery state names CLI as owner with absolute worktree path', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42 })
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      '/tmp/wivwav-42.md',
+      expect.stringContaining('Owner: CLI'),
+    )
+    // Recovery state uses absolute path (contains the cwd prefix).
+    const recoveryCall = mockWriteFileSync.mock.calls.find(([p]) => p === '/tmp/wivwav-42.md')
+    expect(recoveryCall).toBeDefined()
+    const recoveryContent = String(recoveryCall?.[1] ?? '')
+    // Absolute path starts with '/' and contains the relative worktree slug.
+    expect(recoveryContent).toMatch(/Worktree: \/.*issue-42-/)
+  })
+
+  it('worker prompt contains absolute worktree path', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42 })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    // Worker prompt Worktree line must be absolute.
+    expect(output).toMatch(/Worktree: \/.*issue-42-/)
+  })
+
+  it('sequential preparation creates exactly one branch and one worktree per issue', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ limit: 2 })
+
+    const worktreeAddCalls = mockRun.mock.calls.filter(([cmd]) =>
+      String(cmd).includes('git worktree add'),
+    )
+    expect(worktreeAddCalls).toHaveLength(2)
+    // Each call uses a unique branch and path.
+    const branches = worktreeAddCalls.map(([cmd]) => {
+      const match = /-b (\S+)/.exec(String(cmd))
+      return match?.[1]
+    })
+    expect(new Set(branches).size).toBe(2)
+  })
+
+  it('parallel preparation creates exactly one branch and one worktree per issue', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 43, title: 'feat: alpha' },
+      { number: 44, title: 'feat: beta' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ parallel: 2 })
+
+    const worktreeAddCalls = mockRun.mock.calls.filter(([cmd]) =>
+      String(cmd).includes('git worktree add'),
+    )
+    expect(worktreeAddCalls).toHaveLength(2)
+    const branches = worktreeAddCalls.map(([cmd]) => {
+      const match = /-b (\S+)/.exec(String(cmd))
+      return match?.[1]
+    })
+    expect(new Set(branches).size).toBe(2)
   })
 })

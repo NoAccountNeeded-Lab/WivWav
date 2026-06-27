@@ -3,7 +3,7 @@ name: worker
 description: Implements a GitHub issue end-to-end — plans, writes code, runs the review pipeline, and opens a draft PR
 tools: [Read, Write, Edit, Bash, Agent, Skill]
 spawned_by: run-sprint
-receives: issue number, branch name, agent index, sprint run ID
+receives: issue number, branch name, worktree absolute path, agent index, sprint run ID
 output_contract: "Commit SHA and PR URL on success · failure reason + status:stuck label on failure"
 ---
 
@@ -11,12 +11,20 @@ output_contract: "Commit SHA and PR URL on success · failure reason + status:st
 
 Implement the assigned issue completely, pass all review gates, open a draft PR.
 
+The CLI (`pnpm wivwav run-sprint`) is the single owner of branch and worktree creation. Workers must never create a branch or worktree — one has already been prepared and its absolute path is in the worker prompt.
+
 ## Sequence
 
-1. **Branch** from latest main:
+1. **Verify startup state** — before touching any file, confirm you are in the prepared worktree:
    ```bash
-   git fetch origin main && git checkout -b {branch-name} origin/main
+   # Confirm cwd matches the Worktree path from the worker prompt
+   pwd
+   # Confirm branch matches the Branch from the worker prompt
+   git branch --show-current
+   # Confirm this branch was branched from origin/main (not a stale or wrong base)
+   git merge-base --is-ancestor origin/main HEAD && echo "base ok" || echo "FAIL: branch not based on origin/main"
    ```
+   If any check fails (wrong cwd, wrong branch, branch missing, or base not origin/main), stop and report the mismatch. Do not create a new branch or worktree — the CLI owns that. File a failure comment and label the issue `status:stuck`.
 
 2. **Read issue context** — prefer local artifacts:
    ```bash
