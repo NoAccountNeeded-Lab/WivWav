@@ -199,7 +199,7 @@ queueFactory.createWorker<{ sourceId: string }>(
 )
 queueFactory.createWorker(
   QUEUES.GEOCODE,
-  withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context)),
+  withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context, listingSyncQueue)),
   { lockDuration: 120_000, logger },
 )
 queueFactory.createWorker(
@@ -209,7 +209,7 @@ queueFactory.createWorker(
 )
 queueFactory.createWorker(
   QUEUES.VIN_ENRICH,
-  withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context)),
+  withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context, listingSyncQueue)),
   { lockDuration: 300_000, logger },
 )
 queueFactory.createWorker(
