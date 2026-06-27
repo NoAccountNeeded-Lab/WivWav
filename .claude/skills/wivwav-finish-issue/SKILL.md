@@ -50,5 +50,5 @@ Do not commit, push, or open a PR if validation fails.
 13. Report the commit SHA, PR URL, and validation commands that passed.
 14. Tell the user what to do next:
     - "The draft PR is open and the issue is labeled `status:needs-review`. Review the diff on GitHub and mark it ready when satisfied."
-    - "When the PR is approved, run `/wivwav-merge-pr {N}` to rebase-merge and clean up the branch."
+    - "When the PR is approved, merge it with `gh pr merge {N} --auto` — `main` is a merge-queue-protected branch, so the queue runs final checks, picks the merge strategy, and deletes the remote branch itself."
     - If there were accessibility or QA notes in the PR body, remind the user of any manual smoke checks that need human verification before merge.
