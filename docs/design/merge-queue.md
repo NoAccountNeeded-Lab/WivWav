@@ -54,18 +54,21 @@ normal PR — no merge-queue-specific job logic was needed.
 ## New merge path
 
 `gh pr merge --rebase` alone fails on a ruleset-protected branch: GitHub
-rejects the immediate merge and requires queue membership instead. The
-`/wivwav-merge-pr` skill (`.claude/skills/wivwav-merge-pr/SKILL.md`, Step 4)
-and the equivalent manual command both use `--auto`:
+rejects the immediate merge and requires queue membership instead. Merge with
+`--auto` only:
 
 ```bash
-gh pr merge {N} --auto --rebase --delete-branch
+gh pr merge {N} --auto
 ```
 
 `--auto` enqueues the PR into the merge queue once all required checks pass
 and any required reviews are satisfied, rather than attempting an immediate
-merge. The branch delete still happens automatically after the queued merge
-completes.
+merge. Do **not** pass `--rebase` or `--delete-branch`: the queue controls the
+merge strategy (so `--rebase` is rejected) and deletes the remote branch itself
+after the queued merge completes (so `--delete-branch` is rejected). After the
+merge, local-only cleanup if desired: `git checkout main && git pull`,
+`git remote prune origin` (clears the `gh-readonly-queue/...` ref), and
+`git branch -d <branch>`.
 
 ## Verification
 
