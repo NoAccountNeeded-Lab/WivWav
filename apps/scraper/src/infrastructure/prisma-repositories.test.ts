@@ -334,6 +334,44 @@ describe('PrismaListingRepository', () => {
     })
   })
 
+  describe('upsert P2028 transient retry', () => {
+    // These tests use real timers; withTransientRetry backs off 100ms then 200ms on retry.
+    // Total delay per test is at most 300ms — acceptable for a unit suite.
+
+    it('retries and succeeds when the first upsert attempt throws P2028', async () => {
+      const p2028 = Object.assign(new Error('Transaction API error: Transaction already closed'), { code: 'P2028' })
+      const db = makeDb(null)
+      // First call throws P2028, second call succeeds
+      db.listing.upsert
+        .mockRejectedValueOnce(p2028)
+        .mockResolvedValueOnce({})
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).resolves.toBeUndefined()
+      expect(db.listing.upsert).toHaveBeenCalledTimes(2)
+    }, 1000)
+
+    it('propagates P2028 after exhausting all retry attempts', async () => {
+      const p2028 = Object.assign(new Error('Transaction API error: Transaction already closed'), { code: 'P2028' })
+      const db = makeDb(null)
+      db.listing.upsert.mockRejectedValue(p2028)
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).rejects.toMatchObject({ code: 'P2028' })
+      expect(db.listing.upsert).toHaveBeenCalledTimes(3)
+    }, 1000)
+
+    it('does not retry on non-transient errors (e.g. P2002 unique constraint)', async () => {
+      const uniqueViolation = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
+      const db = makeDb(null)
+      db.listing.upsert.mockRejectedValue(uniqueViolation)
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).rejects.toMatchObject({ code: 'P2002' })
+      expect(db.listing.upsert).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('upsert detailScrapedAt reset', () => {
     it('resets detailScrapedAt when price changes', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 2500000, status: 'active' })
