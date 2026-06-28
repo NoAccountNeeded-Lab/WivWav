@@ -259,7 +259,7 @@ describe('ScraperEngine', () => {
 
   // ─── structure change: malformed remap (missing/undefined confidence) ───────
 
-  it('ends with source in error state carrying a clear message when remap result is missing confidence', async () => {
+  it('marks needs_remapping without rethrowing when AI remapFields throws', async () => {
     const engine = build()
     const context = makeContext()
     // Simulate a malformed AI response: remapFields throws because confidence is missing
@@ -274,13 +274,12 @@ describe('ScraperEngine', () => {
     const adapter = makeAdapter('src-1', { checkStructure: vi.fn().mockResolvedValue(changed) })
     engine.register(adapter, adapter.sourceId)
 
-    // Should not throw — the outer catch handles the error gracefully
-    await expect(engine.runSource('src-1', context, malformedDetector)).rejects.toThrow(
-      "AI remap response missing/invalid fields"
-    )
+    // Should NOT rethrow — AI errors are caught and degraded to needs_remapping to
+    // prevent BullMQ from retrying the job immediately and infinitely.
+    await expect(engine.runSource('src-1', context, malformedDetector)).resolves.toBeUndefined()
 
-    // Source is placed in error state with a clear message (not 'Cannot read properties of undefined')
-    expect(sources.markError).toHaveBeenCalledWith(
+    // Source is marked needs_remapping (not error) so BullMQ doesn't retry
+    expect(sources.markNeedsRemapping).toHaveBeenCalledWith(
       'src-1',
       expect.stringContaining("AI remap response missing/invalid fields")
     )
@@ -290,10 +289,6 @@ describe('ScraperEngine', () => {
     )
     // Scrape was never attempted
     expect(adapter.scrape).not.toHaveBeenCalled()
-    // The error message must NOT be a bare toFixed crash
-    const [, errorMsg] = (sources.markError as ReturnType<typeof vi.fn>).mock.calls[0] as [string, string]
-    expect(errorMsg).not.toContain('toFixed')
-    expect(errorMsg).not.toContain('Cannot read properties of undefined')
   })
 
   // ─── gone detection ─────────────────────────────────────────────────────────
