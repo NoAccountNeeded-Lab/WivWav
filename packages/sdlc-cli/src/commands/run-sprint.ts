@@ -9,7 +9,7 @@
  */
 import { mkdirSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { run, tryRun } from '../lib/git.js'
+import { repoRoot, run, tryRun } from '../lib/git.js'
 import {
   type IssueData,
   type IssueSummary,
@@ -55,7 +55,8 @@ function issueCommentDate(now = new Date()): string {
   return now.toISOString().slice(0, 10)
 }
 
-function worktreePathFor(issue: IssueData): string {
+/** Worktree location relative to the repo root. */
+function worktreeRelPath(issue: IssueData): string {
   return `.claude/worktrees/issue-${issue.number}-${slugify(issue.title)}`
 }
 
@@ -170,7 +171,6 @@ function writeWorktreeFile(target: SprintTarget, relativePath: string, contents:
 }
 
 function issueContext(target: SprintTarget, sprintId: string): string {
-  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   return [
     `# Issue #${target.issue.number}: ${target.issue.title}`,
     '',
@@ -179,7 +179,7 @@ function issueContext(target: SprintTarget, sprintId: string): string {
     '## Metadata',
     '',
     `- Branch: ${target.branch}`,
-    `- Worktree: ${absoluteWorktreePath}`,
+    `- Worktree: ${target.worktreePath}`,
     `- Agent index: ${target.agentIndex}`,
     `- Sprint run: ${sprintId}`,
     `- Effort guidance: ${target.effort}`,
@@ -291,7 +291,6 @@ function finishContext(target: SprintTarget): string {
 }
 
 function usageReport(target: SprintTarget, sprintId: string): string {
-  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   return [
     `# Usage Report: Issue #${target.issue.number}`,
     '',
@@ -301,7 +300,7 @@ function usageReport(target: SprintTarget, sprintId: string): string {
     '',
     `- Sprint run: ${sprintId}`,
     `- Branch: ${target.branch}`,
-    `- Worktree: ${absoluteWorktreePath}`,
+    `- Worktree: ${target.worktreePath}`,
     `- Effort guidance: ${target.effort}`,
     `- Model guidance: ${target.model}`,
     `- Labels: ${labelNames(target.issue).join(', ') || 'none'}`,
@@ -333,7 +332,6 @@ function writeContextArtifacts(target: SprintTarget, sprintId: string, dryRun: b
 }
 
 function workerPrompt(target: SprintTarget, sprintId: string): string {
-  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   return [
     'Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.',
     'Then read `.agents/worker-context.md` and `.agents/issue-context.md`; only call `gh issue view` if you need live issue updates.',
@@ -344,7 +342,7 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
     'Before reading source files, use the local context artifacts to write a scoped plan that names the likely files and the evidence you need from each one.',
     'Track model and token usage in `.agents/usage-report.md` before finishing so sprint cost can be reviewed by issue area.',
     '',
-    `Worktree: ${absoluteWorktreePath}`,
+    `Worktree: ${target.worktreePath}`,
     `Branch: ${target.branch}`,
     'Agent-Role: worker',
     `Agent-Index: ${target.agentIndex}`,
@@ -356,11 +354,10 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
 
 function writeRecoveryState(target: SprintTarget, sprintId: string, dryRun: boolean): void {
   const statePath = `/tmp/wivwav-${target.issue.number}.md`
-  const absoluteWorktreePath = resolve(process.cwd(), target.worktreePath)
   const state = [
     `Issue: #${target.issue.number}`,
     `Branch: ${target.branch}`,
-    `Worktree: ${absoluteWorktreePath}`,
+    `Worktree: ${target.worktreePath}`,
     `Owner: CLI`,
     `Sprint-Run: ${sprintId}`,
     'Status: running',
@@ -403,10 +400,10 @@ const ENV_FILES_TO_COPY = [
   'packages/db/.env',
 ]
 
-function copyEnvFiles(worktreePath: string, dryRun: boolean): void {
+function copyEnvFiles(root: string, worktreePath: string, dryRun: boolean): void {
   for (const rel of ENV_FILES_TO_COPY) {
-    const src = join(process.cwd(), rel)
-    const dest = join(process.cwd(), worktreePath, rel)
+    const src = join(root, rel)
+    const dest = join(worktreePath, rel)
     if (!existsSync(src)) continue
     if (dryRun) {
       console.log(`  [dry-run] cp ${rel} → ${worktreePath}/${rel}`)
@@ -424,7 +421,7 @@ function copyEnvFiles(worktreePath: string, dryRun: boolean): void {
  * ensures a second worktree or branch is never created for the same issue.
  */
 function assertWorktreeFree(target: SprintTarget): void {
-  const absolutePath = resolve(process.cwd(), target.worktreePath)
+  const absolutePath = target.worktreePath
 
   // Check for a stale or pre-existing worktree at the target path.
   if (existsSync(absolutePath)) {
@@ -448,17 +445,17 @@ function assertWorktreeFree(target: SprintTarget): void {
   }
 }
 
-function createWorktree(target: SprintTarget, dryRun: boolean): void {
+function createWorktree(target: SprintTarget, root: string, dryRun: boolean): void {
   if (dryRun) {
     console.log(`  [dry-run] git worktree add -b ${target.branch} ${target.worktreePath} origin/main`)
-    copyEnvFiles(target.worktreePath, dryRun)
+    copyEnvFiles(root, target.worktreePath, dryRun)
     return
   }
 
   assertWorktreeFree(target)
   mkdirSync(dirname(target.worktreePath), { recursive: true })
   run(`git worktree add -b ${target.branch} ${target.worktreePath} origin/main`)
-  copyEnvFiles(target.worktreePath, dryRun)
+  copyEnvFiles(root, target.worktreePath, dryRun)
 }
 
 function markMissingAcceptanceCriteria(issue: IssueData, today: string, dryRun: boolean): void {
@@ -487,6 +484,10 @@ export async function runSprintCommand(opts: RunSprintOptions = {}): Promise<voi
   const sprintId = sprintRunId()
   const today = issueCommentDate()
   const dryRun = opts.dryRun ?? false
+  // Anchor all worktree paths on the repo root, not process.cwd(): pnpm sets
+  // the cwd to packages/sdlc-cli, so the CLI is the single owner of one
+  // worktree per issue at <repoRoot>/.claude/worktrees/.
+  const root = repoRoot()
 
   console.log(`\nSprint mode: ${mode}`)
   console.log(`Sprint run: ${sprintId}`)
@@ -522,7 +523,7 @@ export async function runSprintCommand(opts: RunSprintOptions = {}): Promise<voi
     targets.push({
       issue,
       branch,
-      worktreePath: worktreePathFor(issue),
+      worktreePath: resolve(root, worktreeRelPath(issue)),
       agentIndex,
       acceptanceCriteria: extractAcceptanceCriteria(issue.body),
       effort,
@@ -542,7 +543,7 @@ export async function runSprintCommand(opts: RunSprintOptions = {}): Promise<voi
     console.log(`  Worktree: ${target.worktreePath}`)
     console.log(`  Effort: ${target.effort}`)
     console.log(`  Model: ${target.model}`)
-    createWorktree(target, dryRun)
+    createWorktree(target, root, dryRun)
     writeContextArtifacts(target, sprintId, dryRun)
     writeRecoveryState(target, sprintId, dryRun)
     claimIssue(target, sprintId, today, dryRun)
