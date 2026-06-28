@@ -4,8 +4,11 @@ import type { ConversionType, Listing, ListingCondition, RampType } from '@wivwa
 import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
+import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
 
 const SOURCE_ID = 'mobilityworks'
+const INITIAL_NAV_MAX_ATTEMPTS = 3
+const INITIAL_NAV_BACKOFF_MS = 1_000
 const BASE_URL = 'https://www.mobilityworks.com'
 const LISTINGS_PATH = '/wheelchair-vans-for-sale/'
 const PAGE1_SORT_URL = `${BASE_URL}${LISTINGS_PATH}?sortby=yearnew`
@@ -14,6 +17,8 @@ interface MobilityWorksConfig {
   maxPages?: number
   previousPage1Hash?: string | null
   browserService?: BrowserService
+  /** Override retry backoff for testing — defaults to INITIAL_NAV_BACKOFF_MS. */
+  navRetryBackoffMs?: number
 }
 
 // Shape returned from page.evaluate — must be JSON-serializable.
@@ -38,12 +43,14 @@ export class MobilityWorksAdapter implements SourceAdapter {
   private readonly previousPage1Hash: string | null
   private readonly maxPages: number
   private readonly browserService: BrowserService | null
+  private readonly navRetryBackoffMs: number
 
   constructor(previousHash: string | null = null, config: MobilityWorksConfig = {}) {
     this.previousHash = previousHash
     this.previousPage1Hash = config.previousPage1Hash ?? null
     this.maxPages = config.maxPages ?? Infinity
     this.browserService = config.browserService ?? null
+    this.navRetryBackoffMs = config.navRetryBackoffMs ?? INITIAL_NAV_BACKOFF_MS
   }
 
   private async getBrowserService(): Promise<BrowserService> {
@@ -57,7 +64,11 @@ export class MobilityWorksAdapter implements SourceAdapter {
     const browser = await service.launch()
     try {
       const page = await browser.newPage()
-      await page.goto(PAGE1_SORT_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await withNavigationRetry(
+        () => page.goto(PAGE1_SORT_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+        INITIAL_NAV_MAX_ATTEMPTS,
+        this.navRetryBackoffMs,
+      )
       await page.waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 }).catch(() => {})
 
       // Hash "vin:price" per listing so a price change triggers a full crawl even
@@ -112,7 +123,11 @@ export class MobilityWorksAdapter implements SourceAdapter {
     const browser = await service.launch()
     try {
       const page = await browser.newPage()
-      await page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await withNavigationRetry(
+        () => page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+        INITIAL_NAV_MAX_ATTEMPTS,
+        this.navRetryBackoffMs,
+      )
       await page.waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 }).catch(() => {})
 
       const signature = await page.evaluate(function (): string {
@@ -173,7 +188,14 @@ export class MobilityWorksAdapter implements SourceAdapter {
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
 
     try {
-      const page = await browser.newPage()
+      // Block image/media/font/stylesheet bytes: this single page is reused
+      // across every listing page, and loading those subresources accumulates
+      // in-flight requests until Chromium fails navigation with
+      // net::ERR_INSUFFICIENT_RESOURCES. Card image URLs are read from the
+      // img src attribute, so the bytes are never needed.
+      const page = await browser.newPage({
+        blockResourceTypes: ['image', 'media', 'font', 'stylesheet'],
+      })
       let pageNum = 1
       await report(context, '[mobilityworks] Starting listing pagination', {
         stage: 'scraping',
@@ -195,7 +217,29 @@ export class MobilityWorksAdapter implements SourceAdapter {
           listings: listings.length,
         })
 
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+        try {
+          if (pageNum === 1) {
+            await withNavigationRetry(
+              () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+              INITIAL_NAV_MAX_ATTEMPTS,
+              this.navRetryBackoffMs,
+            )
+          } else {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+          }
+        } catch (err) {
+          if (pageNum > 1 && isNavigationTimeout(err)) {
+            await report(context, `[mobilityworks] Stopping pagination after timeout loading page ${pageNum}: ${url}`, {
+              stage: 'scraping',
+              source: SOURCE_ID,
+              page: pageNum,
+              listings: listings.length,
+              reason: 'page_timeout',
+            })
+            break
+          }
+          throw err
+        }
         await page.waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 }).catch(() => {})
 
         const cards = await page.evaluate(

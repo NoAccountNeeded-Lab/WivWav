@@ -5,6 +5,7 @@ import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 import { RobotsCache } from '../util/robots-cache.js'
+import { isNavigationTimeout } from '../util/navigation-timeout.js'
 
 const SOURCE_ID = 'blvd'
 const BASE_URL = 'https://www.blvd.com'
@@ -347,9 +348,7 @@ export function hashPage1Entries(entries: string[]): string {
   return createHash('sha256').update(entries.sort().join(',') || 'empty').digest('hex')
 }
 
-export function isNavigationTimeout(err: unknown): boolean {
-  return err instanceof Error && /\bTimeout \d+ms exceeded\b/.test(err.message)
-}
+export { isNavigationTimeout } from '../util/navigation-timeout.js'
 
 export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> | null {
   // VIN is the last path segment — must be exactly 17 alphanumeric chars.
