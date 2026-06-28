@@ -2,10 +2,19 @@
  * wivwav run-sprint [issue-number] [--limit N] [--parallel N]
  *
  * Encodes the deterministic orchestration half of /wivwav-run-sprint:
- *   1. Select ready issues or a single explicit issue
- *   2. Verify issue readiness and acceptance criteria
- *   3. Claim issues, create isolated worktrees, write context artifacts
+ *   1. Select ready issues or a single explicit issue (read-only candidate validation)
+ *   2. Claim issues lazily — one at a time in sequential mode, up to the
+ *      configured concurrency window in parallel mode
+ *   3. Create isolated worktrees and write context artifacts only for claimed issues
  *   4. Print worker instructions for the agent layer
+ *
+ * Sequential mode claims and prepares exactly ONE issue per invocation. The
+ * next issue is claimed only after the prior worker reaches a durable terminal
+ * handoff. This ensures interruption leaves unclaimed candidates without
+ * worktrees or mutated labels.
+ *
+ * Parallel mode claims up to the configured active concurrency window. Slot
+ * replenishment happens lazily as workers complete, not up-front.
  *
  * Context artifact generation is delegated to lib/context.ts, which is also
  * used by `wivwav start` so both entry points produce the same artifact schema.
@@ -179,23 +188,44 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
   ].join('\n')
 }
 
-function claimIssue(target: SprintTarget, sprintId: string, today: string, dryRun: boolean): void {
+/**
+ * Attempt to atomically claim an issue by verifying its current state
+ * immediately before mutation. Returns true if successfully claimed, false if
+ * another runner won the race (issue is already in-progress or no longer ready).
+ * Throws on unexpected errors.
+ */
+function tryClaimIssue(
+  target: SprintTarget,
+  sprintId: string,
+  today: string,
+  dryRun: boolean,
+  explicit: boolean,
+): boolean {
+  if (dryRun) {
+    console.log(`  [dry-run] claim issue #${target.issue.number}`)
+    return true
+  }
+
+  // Re-fetch issue state at claim time to detect concurrent runners.
+  const fresh = fetchIssue(target.issue.number)
+  const freshProblem = validateSprintIssue(fresh, explicit)
+  if (freshProblem !== null) {
+    console.warn(`  Skipping issue #${fresh.number} at claim time: ${freshProblem} (another runner may have claimed it)`)
+    return false
+  }
+
   const comment = [
     `🤖 **orchestrator[0]** · \`run-sprint\` · ${today}`,
     '',
     `Sprint worker starting. Branch: ${target.branch} · Worktree: ${target.worktreePath} · Sprint: ${sprintId}`,
   ].join('\n')
 
-  if (dryRun) {
-    console.log(`  [dry-run] claim issue #${target.issue.number}`)
-    return
-  }
-
   editIssueLabels(target.issue.number, {
     add: ['status:in-progress'],
     remove: ['status:ready'],
   })
   postComment(target.issue.number, comment)
+  return true
 }
 
 /**
@@ -313,6 +343,94 @@ function markMissingAcceptanceCriteria(issue: IssueData, today: string, dryRun: 
   postComment(issue.number, comment)
 }
 
+/**
+ * Build a validated candidate from an issue summary. Returns the SprintTarget
+ * if the issue passes all read-only preflight checks, or null if it should be
+ * skipped (with side-effects already logged/applied for skips such as missing AC).
+ * Does NOT claim or mutate issue state beyond marking stuck for missing AC.
+ */
+function buildCandidate(
+  summary: IssueSummary,
+  explicit: boolean,
+  agentIndex: number,
+  opts: RunSprintOptions,
+  root: string,
+  today: string,
+): SprintTarget | null {
+  const issue = fetchIssue(summary.number)
+  const problem = validateSprintIssue(issue, explicit)
+  if (problem !== null) {
+    console.warn(`\nSkipping issue #${issue.number}: ${problem}`)
+    if (problem.includes('missing acceptance criteria')) {
+      markMissingAcceptanceCriteria(issue, today, opts.dryRun ?? false)
+    }
+    return null
+  }
+
+  const branch = buildBranchName(issue.number, issue.title)
+  const effort = effortForIssue(issue, opts.effort ?? 'auto')
+  return {
+    issue,
+    branch,
+    worktreePath: resolve(root, worktreeRelPath(issue)),
+    agentIndex,
+    acceptanceCriteria: extractAcceptanceCriteria(issue.body),
+    effort,
+    model: modelForIssue(opts.model),
+    likelyFiles: likelyFileHints(issue, opts.dryRun ?? false),
+  }
+}
+
+/**
+ * Claim, prepare, and hand off a single sprint target.
+ * Returns true if the target was successfully claimed and prepared, false if
+ * another runner claimed it first (race condition).
+ */
+function claimAndPrepare(
+  target: SprintTarget,
+  sprintId: string,
+  today: string,
+  dryRun: boolean,
+  explicit: boolean,
+  root: string,
+): boolean {
+  const claimed = tryClaimIssue(target, sprintId, today, dryRun, explicit)
+  if (!claimed) return false
+
+  console.log(`\n#${target.issue.number}: ${target.issue.title}`)
+  console.log(`  Branch: ${target.branch}`)
+  console.log(`  Worktree: ${target.worktreePath}`)
+  console.log(`  Effort: ${target.effort}`)
+  console.log(`  Model: ${target.model}`)
+  createWorktree(target, root, dryRun)
+  writeContextArtifacts(
+    {
+      issue: {
+        number: target.issue.number,
+        title: target.issue.title,
+        body: target.issue.body,
+        labels: labelNames(target.issue),
+      },
+      repo: { root },
+      runtime: {
+        worktreePath: target.worktreePath,
+        branch: target.branch,
+        sprintId,
+        effort: target.effort,
+        model: target.model,
+        agentIndex: target.agentIndex,
+      },
+      content: {
+        acceptanceCriteria: target.acceptanceCriteria,
+        likelyFiles: target.likelyFiles,
+      },
+    },
+    { dryRun },
+  )
+  writeRecoveryState(target, sprintId, dryRun)
+  return true
+}
+
 export async function runSprintCommand(opts: RunSprintOptions = {}): Promise<void> {
   const explicit = opts.issueNumber !== undefined
   const parallel = explicit ? 0 : opts.parallel ?? 0
@@ -341,78 +459,70 @@ export async function runSprintCommand(opts: RunSprintOptions = {}): Promise<voi
     return
   }
 
-  const targets: SprintTarget[] = []
+  // Phase 1: Validate candidates read-only. No mutations beyond marking stuck
+  // for missing AC. Collect all valid candidates before claiming any.
+  const candidates: SprintTarget[] = []
   for (const [index, summary] of summaries.entries()) {
-    const issue = fetchIssue(summary.number)
-    const problem = validateSprintIssue(issue, explicit)
-    if (problem !== null) {
-      console.warn(`\nSkipping issue #${issue.number}: ${problem}`)
-      if (problem.includes('missing acceptance criteria')) {
-        markMissingAcceptanceCriteria(issue, today, dryRun)
-      }
-      continue
-    }
-
-    const branch = buildBranchName(issue.number, issue.title)
     const agentIndex = mode === 'parallel' ? index + 1 : 1
-    const effort = effortForIssue(issue, opts.effort ?? 'auto')
-    targets.push({
-      issue,
-      branch,
-      worktreePath: resolve(root, worktreeRelPath(issue)),
-      agentIndex,
-      acceptanceCriteria: extractAcceptanceCriteria(issue.body),
-      effort,
-      model: modelForIssue(opts.model),
-      likelyFiles: likelyFileHints(issue, dryRun),
-    })
+    const candidate = buildCandidate(summary, explicit, agentIndex, opts, root, today)
+    if (candidate !== null) {
+      candidates.push(candidate)
+    }
   }
 
-  if (targets.length === 0) {
+  if (candidates.length === 0) {
     throw new CliError('No selected issues passed sprint pre-flight checks.')
   }
 
-  console.log(`\nPreparing ${targets.length} worker${targets.length === 1 ? '' : 's'}...`)
-  for (const target of targets) {
-    console.log(`\n#${target.issue.number}: ${target.issue.title}`)
-    console.log(`  Branch: ${target.branch}`)
-    console.log(`  Worktree: ${target.worktreePath}`)
-    console.log(`  Effort: ${target.effort}`)
-    console.log(`  Model: ${target.model}`)
-    createWorktree(target, root, dryRun)
-    writeContextArtifacts(
-      {
-        issue: {
-          number: target.issue.number,
-          title: target.issue.title,
-          body: target.issue.body,
-          labels: labelNames(target.issue),
-        },
-        repo: { root },
-        runtime: {
-          worktreePath: target.worktreePath,
-          branch: target.branch,
-          sprintId,
-          effort: target.effort,
-          model: target.model,
-          agentIndex: target.agentIndex,
-        },
-        content: {
-          acceptanceCriteria: target.acceptanceCriteria,
-          likelyFiles: target.likelyFiles,
-        },
-      },
-      { dryRun },
+  // Phase 2: Claim issues lazily.
+  //
+  // Sequential mode (including single): claim and prepare exactly ONE issue.
+  // The next issue is only claimed after the prior worker reaches a durable
+  // terminal handoff — by design, this CLI invocation handles only one issue
+  // so the next invocation naturally picks the next ready issue.
+  //
+  // Parallel mode: claim up to the configured concurrency window. Slot
+  // replenishment happens lazily as workers complete.
+  const claimCount = mode === 'parallel' ? parallel : 1
+  const toProcess = candidates.slice(0, claimCount)
+  const skipped = candidates.slice(claimCount)
+
+  const claimedTargets: SprintTarget[] = []
+
+  console.log(
+    `\nSelected: ${candidates.length} candidate${candidates.length === 1 ? '' : 's'}, ` +
+    `claiming: ${toProcess.length}` +
+    (skipped.length > 0 ? `, deferred: ${skipped.length}` : ''),
+  )
+
+  console.log(`\nClaiming ${toProcess.length} issue${toProcess.length === 1 ? '' : 's'}...`)
+  for (const target of toProcess) {
+    const claimed = claimAndPrepare(target, sprintId, today, dryRun, explicit, root)
+    if (claimed) {
+      claimedTargets.push(target)
+    }
+  }
+
+  if (claimedTargets.length === 0) {
+    throw new CliError(
+      mode === 'parallel'
+        ? 'No issues could be claimed — all candidates were taken by concurrent runners.'
+        : 'No issues could be claimed — the candidate for this run was already claimed by a concurrent runner. Re-run to try the next available issue.',
     )
-    writeRecoveryState(target, sprintId, dryRun)
-    claimIssue(target, sprintId, today, dryRun)
   }
 
   console.log('\nWorker instructions:')
-  for (const target of targets) {
+  for (const target of claimedTargets) {
     console.log('\n---')
     console.log(workerPrompt(target, sprintId))
   }
+
+  console.log(
+    `\nStarted: ${claimedTargets.length} worker${claimedTargets.length === 1 ? '' : 's'}` +
+    (skipped.length > 0
+      ? `. ${skipped.length} deferred candidate${skipped.length === 1 ? '' : 's'} left unclaimed — run again after the current worker completes to pick up the next issue.`
+      : '.'),
+  )
 
   console.log('\nNext step: run an agent in each listed worktree using the matching worker instructions.')
 }
