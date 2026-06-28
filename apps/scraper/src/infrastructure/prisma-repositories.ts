@@ -8,6 +8,47 @@ import type {
   ListingUpsertData,
 } from '../engine/repositories.js'
 
+const TRANSIENT_PRISMA_CODES = new Set(['P2028', 'P1001', 'P1002', 'P1008', 'P1017'])
+const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
+
+/**
+ * Returns true for Prisma errors that represent transient connection or transaction
+ * failures that are safe to retry: P2028 (transaction already closed), and connection
+ * errors P1001/P1002/P1008/P1017.
+ */
+function isTransientPrismaError(err: unknown): boolean {
+  if (err === null || typeof err !== 'object') return false
+  const code = (err as Record<string, unknown>)['code']
+  if (typeof code === 'string' && TRANSIENT_PRISMA_CODES.has(code)) return true
+  const message = (err as Record<string, unknown>)['message']
+  if (typeof message === 'string') {
+    const lower = message.toLowerCase()
+    return TRANSIENT_DB_MESSAGES.some((fragment) => lower.includes(fragment))
+  }
+  return false
+}
+
+/**
+ * Runs `fn` up to `maxAttempts` times, retrying only on transient Prisma errors.
+ * Uses exponential backoff starting at `baseDelayMs`.
+ */
+async function withTransientRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  baseDelayMs = 100,
+): Promise<T> {
+  let attempt = 0
+  for (;;) {
+    try {
+      return await fn()
+    } catch (err: unknown) {
+      attempt++
+      if (!isTransientPrismaError(err) || attempt >= maxAttempts) throw err
+      await new Promise<void>((resolve) => setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1)))
+    }
+  }
+}
+
 function sameStringSet(left: string[], right: string[]): boolean {
   if (left.length !== right.length) return false
 
@@ -146,7 +187,12 @@ export class PrismaListingRepository implements ListingRepository {
     // a previously-gone listing reappears, so we get fresh detail page data.
     const resetDetail = priceChanged || cameBack
 
-    await this.db.listing.upsert({
+    // Wrap the upsert (which uses nested writes = implicit Prisma interactive transaction)
+    // in a transient-error retry. Under concurrent worker load the pg.Pool can return a
+    // connection mid-transaction or the implicit transaction can close before Prisma commits,
+    // both surfacing as P2028 "Transaction already closed". Retrying up to 3 times with
+    // exponential backoff eliminates transient failures without masking real data errors.
+    await withTransientRetry(() => this.db.listing.upsert({
       where: {
         sourceId_sourceRecordKey: {
           sourceId: listing.sourceId,
@@ -216,7 +262,7 @@ export class PrismaListingRepository implements ListingRepository {
           },
         },
       },
-    })
+    }))
 
     if (priceChanged && listing.priceCents != null) {
       await this.db.listingPriceHistory.create({

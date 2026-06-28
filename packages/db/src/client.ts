@@ -6,7 +6,15 @@ let prisma: PrismaClient | undefined
 
 export function getDb(): PrismaClient {
   if (!prisma) {
-    const pool = new Pool({ connectionString: process.env['DATABASE_URL'] })
+    // DATABASE_POOL_SIZE should be set to at least the number of concurrent DB-writing
+    // workers in apps/scraper (currently 21 workers × default concurrency 1 = 21 jobs).
+    // Default 25 gives a small headroom above the scraper worker count.
+    // Without an explicit max the pg default of 10 starves the pool under concurrent writes
+    // and causes Prisma P2028 "Transaction already closed" errors.
+    const rawPoolSize = process.env['DATABASE_POOL_SIZE']
+    const parsedPoolSize = rawPoolSize !== undefined ? parseInt(rawPoolSize, 10) : NaN
+    const poolMax = !isNaN(parsedPoolSize) && parsedPoolSize > 0 ? parsedPoolSize : 25
+    const pool = new Pool({ connectionString: process.env['DATABASE_URL'], max: poolMax })
     const adapter = new PrismaPg(pool)
     prisma = new PrismaClient({
       adapter,
