@@ -18,13 +18,13 @@ pnpm wivwav run-sprint $ARGUMENTS
 If the command fails, stop and report the CLI error. Do not manually recreate its GitHub label, branch, or worktree logic.
 
 The CLI will:
-- select the explicit issue, or ready issues for sequential/parallel mode
-- verify issue state and acceptance criteria
-- move selected issues to `status:in-progress`
-- create one isolated worktree per selected issue
-- write `.agents/` context artifacts into each worktree
-- write `/tmp/wivwav-{N}.md` recovery state
-- print worker instructions for each selected issue
+- select the explicit issue, or validate ready issues as read-only candidates for sequential/parallel mode
+- verify issue state and acceptance criteria (read-only; no mutations until claim time)
+- claim lazily: in sequential mode, move exactly ONE issue to `status:in-progress` per invocation; in parallel mode, claim up to the configured concurrency window
+- create one isolated worktree per claimed issue (unclaimed candidates are left without worktrees)
+- write `.agents/` context artifacts into each claimed worktree
+- write `/tmp/wivwav-{N}.md` recovery state for each claimed issue
+- print worker instructions for each claimed issue
 
 ## 2. Spawn workers from CLI output
 
@@ -32,7 +32,7 @@ For each worker instruction block printed by the CLI:
 
 - Use the listed `Worktree`, `Branch`, `Agent-Index`, and `Sprint-Run`.
 - Spawn one worker agent with `model: "sonnet"`. Do not set `isolation: "worktree"` — the CLI already created a dedicated worktree for each issue; a second isolation setting would create a nested/duplicate worktree.
-- In sequential mode, run workers foreground/blocking one at a time.
+- In sequential mode, the CLI claims one issue per invocation. After the worker completes (success or failure), re-run the CLI to claim and prepare the next issue. Run each worker foreground/blocking.
 - In parallel mode, spawn all listed workers in one message with `run_in_background: true`.
 
 The worker prompt is the instruction block printed by the CLI. Do not add the full issue body to the spawn prompt; the worker reads `.agents/worker-context.md` and `.agents/issue-context.md` from the prepared worktree before fetching live issue details.

@@ -72,6 +72,8 @@ beforeEach(() => {
   // By default: worktree path is free (does not exist), env source files do exist.
   mockExistsSync.mockImplementation((p: string) => !String(p).includes('.claude/worktrees/'))
   mockListReadyIssues.mockReturnValue([{ number: 42, title: 'feat(api): add listing search' }])
+  // fetchIssue is called twice in non-dryRun mode: once for candidate validation,
+  // once at claim time. Both calls return the same ready issue by default.
   mockFetchIssue.mockReturnValue(makeIssue())
   mockHasAC.mockReturnValue(true)
   mockExtractAC.mockReturnValue(['- [ ] works'])
@@ -340,7 +342,7 @@ describe('runSprintCommand — single owner enforcement', () => {
     expect(output).toMatch(/Worktree: \/.*issue-42-/)
   })
 
-  it('sequential preparation creates exactly one branch and one worktree per issue', async () => {
+  it('sequential preparation claims exactly one issue even when limit allows more', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     mockListReadyIssues.mockReturnValue([
       { number: 41, title: 'feat: first' },
@@ -350,18 +352,16 @@ describe('runSprintCommand — single owner enforcement', () => {
       makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
     )
 
+    // limit: 2 selects 2 candidates for validation but sequential mode claims only 1.
     await runSprintCommand({ limit: 2 })
 
     const worktreeAddCalls = mockRun.mock.calls.filter(([cmd]) =>
       String(cmd).includes('git worktree add'),
     )
-    expect(worktreeAddCalls).toHaveLength(2)
-    // Each call uses a unique branch and path.
-    const branches = worktreeAddCalls.map(([cmd]) => {
-      const match = /-b (\S+)/.exec(String(cmd))
-      return match?.[1]
-    })
-    expect(new Set(branches).size).toBe(2)
+    expect(worktreeAddCalls).toHaveLength(1)
+    // The first candidate (issue 41) is claimed; the branch must be unique.
+    const branch = /-b (\S+)/.exec(String(worktreeAddCalls[0]?.[0]))?.[1]
+    expect(branch).toMatch(/issue-41-/)
   })
 
   it('parallel preparation creates exactly one branch and one worktree per issue', async () => {
@@ -385,5 +385,273 @@ describe('runSprintCommand — single owner enforcement', () => {
       return match?.[1]
     })
     expect(new Set(branches).size).toBe(2)
+  })
+})
+
+describe('runSprintCommand — lazy claiming (sequential mode)', () => {
+  it('claims exactly one issue in sequential mode even when multiple candidates are selected', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+      { number: 43, title: 'feat: third' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ limit: 3 })
+
+    // Only one worktree should be created.
+    const worktreeAddCalls = mockRun.mock.calls.filter(([cmd]) =>
+      String(cmd).includes('git worktree add'),
+    )
+    expect(worktreeAddCalls).toHaveLength(1)
+
+    // Only one issue should be claimed.
+    expect(mockEditIssueLabels).toHaveBeenCalledTimes(1)
+    expect(mockEditIssueLabels).toHaveBeenCalledWith(41, {
+      add: ['status:in-progress'],
+      remove: ['status:ready'],
+    })
+  })
+
+  it('uses default limit of 20 candidates but claims exactly one in sequential mode', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const summaries = Array.from({ length: 5 }, (_, i) => ({
+      number: 100 + i,
+      title: `feat: issue ${100 + i}`,
+    }))
+    mockListReadyIssues.mockReturnValue(summaries)
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    // No explicit limit — uses default of 20 candidates for selection,
+    // but still claims only ONE in sequential mode.
+    await runSprintCommand({})
+
+    expect(mockListReadyIssues).toHaveBeenCalledWith(20)
+    const worktreeAddCalls = mockRun.mock.calls.filter(([cmd]) =>
+      String(cmd).includes('git worktree add'),
+    )
+    expect(worktreeAddCalls).toHaveLength(1)
+    expect(mockEditIssueLabels).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs selected vs claimed vs started counts distinctly', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ limit: 2 })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    // Must log how many were selected (candidates found after validation)
+    expect(output).toMatch(/Selected:\s*2\s*candidate/)
+    // Must log how many are being claimed
+    expect(output).toMatch(/claiming:\s*1/)
+    // Must log how many were deferred (not claimed this run)
+    expect(output).toMatch(/deferred:\s*1/)
+    // Must log started count
+    expect(output).toMatch(/Started:\s*1\s*worker/)
+  })
+
+  it('deferred candidates have no worktrees and no label changes', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+      { number: 43, title: 'feat: third' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ limit: 3 })
+
+    // Only issue 41 (the first candidate) should be claimed.
+    const labelCalls = mockEditIssueLabels.mock.calls.filter(([, opts]) =>
+      opts.add?.includes('status:in-progress'),
+    )
+    expect(labelCalls).toHaveLength(1)
+    expect(labelCalls[0]?.[0]).toBe(41)
+
+    // Issues 42 and 43 must not have any worktrees or label mutations.
+    const worktreeAddCmds = mockRun.mock.calls
+      .map(([cmd]) => String(cmd))
+      .filter((cmd) => cmd.includes('git worktree add'))
+    expect(worktreeAddCmds.every((cmd) => !cmd.includes('issue-42-') && !cmd.includes('issue-43-'))).toBe(true)
+  })
+})
+
+describe('runSprintCommand — concurrent runners (race condition)', () => {
+  it('skips claiming when issue is already in-progress at claim time', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([{ number: 41, title: 'feat: first' }])
+
+    // First fetchIssue call (candidate validation): issue is ready.
+    // Second fetchIssue call (claim-time re-check): another runner claimed it.
+    mockFetchIssue
+      .mockReturnValueOnce(makeIssue({ number: 41, title: 'feat: first' }))
+      .mockReturnValueOnce(makeIssue({ number: 41, title: 'feat: first', labels: [{ name: 'status:in-progress' }] }))
+
+    await expect(runSprintCommand({})).rejects.toThrow('candidate for this run was already claimed by a concurrent runner')
+
+    // No worktree should be created for the race-lost issue.
+    expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('git worktree add'))
+    // No label mutation should occur — the other runner already claimed it.
+    expect(mockEditIssueLabels).not.toHaveBeenCalledWith(41, expect.objectContaining({ add: ['status:in-progress'] }))
+  })
+
+  it('fails with precise sequential-race message when single candidate is race-lost', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+    ])
+
+    // Validation pass: both issues are ready.
+    // Claim time: issue 41 is already taken.
+    // Sequential mode only processes 1 candidate (the first valid one) per run.
+    // No fallback to issue 42 — re-run CLI to try the next.
+    mockFetchIssue
+      .mockReturnValueOnce(makeIssue({ number: 41, title: 'feat: first' }))   // validation
+      .mockReturnValueOnce(makeIssue({ number: 42, title: 'feat: second' }))  // validation
+      .mockReturnValueOnce(makeIssue({ number: 41, title: 'feat: first', labels: [{ name: 'status:in-progress' }] })) // claim re-check for 41
+
+    await expect(runSprintCommand({ limit: 2 })).rejects.toThrow('candidate for this run was already claimed by a concurrent runner')
+  })
+})
+
+describe('runSprintCommand — parallel mode lazy replenishment', () => {
+  it('claims exactly the parallel concurrency window, not more', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+      { number: 43, title: 'feat: third' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ parallel: 2 })
+
+    // parallel: 2 → listReadyIssues fetches 2, not 3.
+    expect(mockListReadyIssues).toHaveBeenCalledWith(2)
+    const worktreeAddCalls = mockRun.mock.calls.filter(([cmd]) =>
+      String(cmd).includes('git worktree add'),
+    )
+    expect(worktreeAddCalls).toHaveLength(2)
+    expect(mockEditIssueLabels).toHaveBeenCalledTimes(2)
+  })
+
+  it('logs correct selected and claimed counts in parallel mode', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ parallel: 2 })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(output).toMatch(/Selected:\s*2\s*candidate/)
+    expect(output).toMatch(/claiming:\s*2/)
+    expect(output).toMatch(/Started:\s*2\s*worker/)
+  })
+})
+
+describe('runSprintCommand — interruption safety', () => {
+  it('does not create worktrees for issues beyond the first in sequential mode', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: alpha' },
+      { number: 42, title: 'feat: beta' },
+      { number: 43, title: 'feat: gamma' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({})
+
+    const writtenFiles = mockWriteFileSync.mock.calls.map(([p]) => String(p))
+    // Only one issue's worktree files should exist.
+    const worktreeFiles = writtenFiles.filter((f) => f.includes('.claude/worktrees/'))
+    const uniqueWorktrees = new Set(
+      worktreeFiles.map((f) => f.split('.claude/worktrees/')[1]?.split('/')[0] ?? ''),
+    )
+    expect(uniqueWorktrees.size).toBe(1)
+    // Issue 42 and 43 must have no worktree artifacts.
+    expect(worktreeFiles.some((f) => f.includes('issue-42-'))).toBe(false)
+    expect(worktreeFiles.some((f) => f.includes('issue-43-'))).toBe(false)
+  })
+
+  it('unstarted candidates remain untouched — no labels, no worktrees, no recovery state', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+    ])
+    mockFetchIssue.mockImplementation((issueNumber: number) =>
+      makeIssue({ number: issueNumber, title: `feat: issue ${issueNumber}` }),
+    )
+
+    await runSprintCommand({ limit: 2 })
+
+    // Issue 42 must not have a recovery state written.
+    const recoveryFiles = mockWriteFileSync.mock.calls.map(([p]) => String(p))
+    expect(recoveryFiles).not.toContain('/tmp/wivwav-42.md')
+
+    // Issue 42 must not have had its labels changed.
+    const labelCallsFor42 = mockEditIssueLabels.mock.calls.filter(([n]) => n === 42)
+    expect(labelCallsFor42).toHaveLength(0)
+  })
+})
+
+describe('runSprintCommand — partial sprint success', () => {
+  it('still logs worker instructions for successfully claimed issues even if some are skipped', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    mockListReadyIssues.mockReturnValue([
+      { number: 41, title: 'feat: first' },
+      { number: 42, title: 'feat: second' },
+    ])
+    // Issue 41 is invalid (missing AC), issue 42 is valid.
+    mockFetchIssue.mockImplementation((issueNumber: number) => {
+      if (issueNumber === 41) return makeIssue({ number: 41, title: 'feat: first', body: '' })
+      return makeIssue({ number: 42, title: 'feat: second' })
+    })
+    mockHasAC.mockImplementation((body: string) => body.includes('Acceptance Criteria'))
+
+    await runSprintCommand({})
+
+    // Issue 42 should be claimed and started.
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(output).toContain('Worker instructions')
+    expect(mockEditIssueLabels).toHaveBeenCalledWith(42, {
+      add: ['status:in-progress'],
+      remove: ['status:ready'],
+    })
+  })
+
+  it('throws when all candidates fail validation', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    mockHasAC.mockReturnValue(false)
+
+    await expect(runSprintCommand({ limit: 1 })).rejects.toThrow('No selected issues passed sprint pre-flight checks.')
   })
 })
