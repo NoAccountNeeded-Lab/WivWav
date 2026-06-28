@@ -12,6 +12,9 @@ vi.mock('node:fs', () => ({
 vi.mock('../lib/git.js', () => ({
   run: vi.fn(),
   tryRun: vi.fn(() => ({ stdout: '', ok: false })),
+  // Repo root is intentionally distinct from the test process cwd so assertions
+  // can prove worktree paths anchor on repoRoot(), not process.cwd().
+  repoRoot: vi.fn(() => '/repo'),
 }))
 
 vi.mock('../lib/github.js', () => ({
@@ -40,6 +43,7 @@ const mockWriteFileSync = fsMod.writeFileSync as ReturnType<typeof vi.fn>
 const mockExistsSync = fsMod.existsSync as ReturnType<typeof vi.fn>
 const mockRun = gitMod.run as ReturnType<typeof vi.fn>
 const mockTryRun = gitMod.tryRun as ReturnType<typeof vi.fn>
+const mockRepoRoot = gitMod.repoRoot as ReturnType<typeof vi.fn>
 const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
 const mockListReadyIssues = githubMod.listReadyIssues as ReturnType<typeof vi.fn>
 const mockHasAC = githubMod.hasAcceptanceCriteria as ReturnType<typeof vi.fn>
@@ -61,6 +65,7 @@ function makeIssue(overrides = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockRun.mockReturnValue('')
+  mockRepoRoot.mockReturnValue('/repo')
   // By default: branch does not exist, so `git rev-parse --verify` fails (ok: false).
   mockTryRun.mockReturnValue({ stdout: '', ok: false })
   // By default: worktree path is free (does not exist), env source files do exist.
@@ -111,10 +116,10 @@ describe('runSprintCommand — issue selection', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith('/tmp/wivwav-42.md', expect.stringContaining('Status: running'))
     const writtenFiles = mockWriteFileSync.mock.calls.map((call) => String(call[0]))
     expect(writtenFiles).toContain(
-      '.claude/worktrees/issue-42-featapi-add-listing-search/.agents/issue-context.md',
+      '/repo/.claude/worktrees/issue-42-featapi-add-listing-search/.agents/issue-context.md',
     )
     expect(writtenFiles).toContain(
-      '.claude/worktrees/issue-42-featapi-add-listing-search/.agents/usage-report.md',
+      '/repo/.claude/worktrees/issue-42-featapi-add-listing-search/.agents/usage-report.md',
     )
     expect(
       mockWriteFileSync.mock.calls.some(
@@ -277,6 +282,27 @@ describe('runSprintCommand — single owner enforcement', () => {
     const recoveryContent = String(recoveryCall?.[1] ?? '')
     // Absolute path starts with '/' and contains the relative worktree slug.
     expect(recoveryContent).toMatch(/Worktree: \/.*issue-42-/)
+  })
+
+  it('anchors the worktree on the repo root, not the process cwd', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42 })
+
+    // git worktree add targets the repo-root-anchored absolute path, never a
+    // path under the package dir that pnpm sets as the cwd.
+    const addCall = mockRun.mock.calls.find(([cmd]) => String(cmd).includes('git worktree add'))
+    expect(String(addCall?.[0])).toContain('/repo/.claude/worktrees/issue-42-')
+
+    // Context artifacts and recovery state use the same repo-root anchor.
+    const writtenFiles = mockWriteFileSync.mock.calls.map((c) => String(c[0]))
+    const worktreeFiles = writtenFiles.filter((f) => f.includes('.claude/worktrees/'))
+    expect(worktreeFiles.length).toBeGreaterThan(0)
+    expect(worktreeFiles.every((f) => f.startsWith('/repo/.claude/worktrees/'))).toBe(true)
+
+    // The printed worker instruction also points at the repo-root worktree.
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(output).toContain('Worktree: /repo/.claude/worktrees/issue-42-')
   })
 
   it('worker prompt contains absolute worktree path', async () => {

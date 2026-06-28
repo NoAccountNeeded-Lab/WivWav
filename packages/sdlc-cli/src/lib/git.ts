@@ -25,6 +25,19 @@ export function currentBranch(): string {
   return run('git rev-parse --abbrev-ref HEAD')
 }
 
+/**
+ * Return the absolute path of the working tree root.
+ *
+ * Sprint worktree paths must anchor here, not on `process.cwd()`: the CLI is
+ * launched via `pnpm --filter @wivwav/sdlc-cli`, which sets the cwd to the
+ * package directory. Resolving relative worktree paths against the cwd would
+ * create them under `packages/sdlc-cli/.claude/worktrees/` instead of the
+ * repo-root `.claude/worktrees/`.
+ */
+export function repoRoot(): string {
+  return run('git rev-parse --show-toplevel')
+}
+
 /** Return true when the working tree has uncommitted changes. */
 export function isDirty(): boolean {
   return run('git status --porcelain') !== ''
