@@ -152,7 +152,14 @@ export class BlvdAdapter implements SourceAdapter {
     const robots = this.robotsCache
 
     try {
-      const page = await browser.newPage()
+      // Block image/media/font/stylesheet bytes: this single page is reused
+      // across every listing page, and loading those subresources accumulates
+      // in-flight requests until Chromium fails navigation with
+      // net::ERR_INSUFFICIENT_RESOURCES (historically around page 8). Card image
+      // URLs are read from the img src attribute, so the bytes are never needed.
+      const page = await browser.newPage({
+        blockResourceTypes: ['image', 'media', 'font', 'stylesheet'],
+      })
       await report(context, '[blvd] Starting listing pagination', {
         stage: 'scraping',
         source: SOURCE_ID,
