@@ -257,6 +257,45 @@ describe('ScraperEngine', () => {
     }))
   })
 
+  // ─── structure change: malformed remap (missing/undefined confidence) ───────
+
+  it('ends with source in error state carrying a clear message when remap result is missing confidence', async () => {
+    const engine = build()
+    const context = makeContext()
+    // Simulate a malformed AI response: remapFields throws because confidence is missing
+    const malformedDetector = {
+      remapFields: vi.fn().mockRejectedValue(
+        new Error("AI remap response missing/invalid fields — expected numeric 'confidence', array 'mappings', and string 'notes'; got: {\"mappings\":[]}")
+      ),
+    } as unknown as StructureDetector
+    const changed: StructureCheckResult = {
+      changed: true, currentHash: 'new', previousHash: 'old', sampleHtml: '<html>updated</html>',
+    }
+    const adapter = makeAdapter('src-1', { checkStructure: vi.fn().mockResolvedValue(changed) })
+    engine.register(adapter, adapter.sourceId)
+
+    // Should not throw — the outer catch handles the error gracefully
+    await expect(engine.runSource('src-1', context, malformedDetector)).rejects.toThrow(
+      "AI remap response missing/invalid fields"
+    )
+
+    // Source is placed in error state with a clear message (not 'Cannot read properties of undefined')
+    expect(sources.markError).toHaveBeenCalledWith(
+      'src-1',
+      expect.stringContaining("AI remap response missing/invalid fields")
+    )
+    expect(runs.fail).toHaveBeenCalledWith(
+      'run-1',
+      expect.stringContaining("AI remap response missing/invalid fields")
+    )
+    // Scrape was never attempted
+    expect(adapter.scrape).not.toHaveBeenCalled()
+    // The error message must NOT be a bare toFixed crash
+    const [, errorMsg] = (sources.markError as ReturnType<typeof vi.fn>).mock.calls[0] as [string, string]
+    expect(errorMsg).not.toContain('toFixed')
+    expect(errorMsg).not.toContain('Cannot read properties of undefined')
+  })
+
   // ─── gone detection ─────────────────────────────────────────────────────────
 
   it('calls markGone with sourceRecordKeys after a successful run', async () => {
