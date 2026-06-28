@@ -15,7 +15,13 @@
 import { chromium as baseChromium } from '@playwright/test'
 import { addExtra } from 'playwright-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
-import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from './types.js'
+import type {
+  BrowserService,
+  BrowserSession,
+  BrowserPage,
+  BrowserResponse,
+  NewPageOptions,
+} from './types.js'
 
 // Wrap the base chromium launcher with stealth plugin support.
 // addExtra() returns a new PlaywrightExtra instance each call, so we create
@@ -28,11 +34,26 @@ export class PlaywrightBrowserService implements BrowserService {
     const browser = await chromium.launch()
 
     return {
-      newPage: async (): Promise<BrowserPage> => {
+      newPage: async (options?: NewPageOptions): Promise<BrowserPage> => {
         const page = await browser.newPage({
           userAgent:
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         })
+
+        // Abort byte-heavy subresources before they're requested. Scrapers read
+        // asset URLs from HTML attributes, never the bytes, so loading them only
+        // accumulates in-flight requests across navigations on this reused page
+        // and eventually trips net::ERR_INSUFFICIENT_RESOURCES.
+        const blocked = options?.blockResourceTypes
+        if (blocked && blocked.length > 0) {
+          const blockedSet = new Set<string>(blocked)
+          await page.route('**/*', route => {
+            if (blockedSet.has(route.request().resourceType())) {
+              return route.abort()
+            }
+            return route.continue()
+          })
+        }
 
         return {
           goto: async (url, options): Promise<BrowserResponse | null> => {
