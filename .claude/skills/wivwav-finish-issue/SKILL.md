@@ -24,8 +24,9 @@ Do not commit, push, or open a PR if validation fails.
 7. If validation fails, stop. Report the failure and do not commit.
 8. Stage only relevant files for this issue. Do not stage `.env` files, generated caches, unrelated work, or dirty files outside the issue scope.
 9. Commit using the required format:
-   - `type(scope): description (fixes #N)` for completed issue work so GitHub auto-closes on merge
+   - `type(scope): description (fixes #N)` for completed issue work
    - Use `refs #N` only for intentionally partial work that should leave the issue open
+   - Note: the commit-message keyword does **not** auto-close the issue — `main` uses a merge queue, which lands the squash commit via a temporary branch and bypasses GitHub's commit-keyword close scan. The actual close comes from the `Fixes #N` line in the PR body (step 11). Keep the keyword here anyway for human-readable history.
    - If Agent-Role, Agent-Index, and Sprint-Run are available in your context (you were spawned as a worker), add git trailers:
      ```bash
      git commit -m "type(scope): description (fixes #N)" \
@@ -37,7 +38,7 @@ Do not commit, push, or open a PR if validation fails.
      Use the Co-Authored-By value for your own AI model and provider — see `.claude/core.md` Attribution for the format and examples.
    - If running interactively (no agent context), use the standard commit without trailers.
 10. Push the branch.
-11. Open a draft PR linked to the issue. Fill the PR template with:
+11. Open a draft PR linked to the issue. The PR **body** must begin with a `Fixes #N` line (use `Refs #N` for intentionally partial work) — this is the only reliable way the merge queue closes the issue on merge; a closing keyword in the PR title or commit message alone will not close it. Then fill the PR template with:
    - summary
    - tests run
    - accessibility notes for user-facing changes
