@@ -81,3 +81,24 @@ curl -X POST http://localhost:3001/v1/listings/sync
 | ------------- | -------------------------------- |
 | BLVD.com      | `src/sources/blvd.ts`            |
 | MobilityWorks | `src/sources/mobilityworks.ts`   |
+
+---
+
+## Architecture
+
+Each source has a `SourceAdapter` in `apps/scraper/src/sources/` implementing:
+
+- `checkStructure()` — fetches a sample page, hashes the DOM, compares to stored hash
+- `scrape()` — runs the full Playwright scrape, returns normalized listings
+
+If `checkStructure()` detects a change, the engine marks the source `needs_remapping` and calls the configured AI provider to derive new CSS selectors (default: Ollama; set `ai.scraper.structure.provider` in the config DB to switch). Sources run on independent cron schedules.
+
+### Adding a new source
+
+1. Create `apps/scraper/src/sources/<name>.ts` implementing `SourceAdapter`
+2. Register it in `apps/scraper/src/index.ts`
+3. Add a seed row to the `sources` table or upsert it on startup
+
+### Pitfall inside `page.evaluate`
+
+tsx's esbuild wraps named arrow-function-to-const assignments with `__name()`, which is not defined in the Playwright browser sandbox. Use `function` declarations instead of `const fn = () => {}` inside `page.evaluate`.

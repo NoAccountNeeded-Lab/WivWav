@@ -12,7 +12,7 @@ Core rules:
 - Use strict TypeScript and ESM imports with `.js` extensions for local package imports.
 - Add focused tests for risky behavior.
 - Do not commit `.env` files, secrets, generated cache files, or unrelated formatting churn.
-- Keep context use deliberate: search with `rg`, read the smallest relevant file ranges, and open `AGENTS.md` only when detailed route, data model, scraper, ops, or SDLC reference is needed.
+- Keep context use deliberate: search with `rg`, read the smallest relevant file ranges, and open `AGENTS.md` for workflow/SDLC reference; consult `docs/ops/`, `docs/data/`, or `docs/design/` for domain-specific detail (ops, schema, observability, CI).
 - For user-facing web changes, read `docs/BRAND.md` before editing UI code.
 
 Review priorities:

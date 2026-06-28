@@ -2,7 +2,7 @@
 
 WivWav is a pnpm/Turborepo TypeScript monorepo for wheelchair accessible vehicle listings.
 
-Use `AGENTS.md` as the canonical project guide, but read it only when the task requires deep workflow, route, data model, scraper, or ops reference. For quick orientation, use these facts:
+Use `AGENTS.md` as the canonical project guide. For domain-specific reference beyond AGENTS.md, consult: `docs/ops/quick-start.md` (dev setup), `docs/ops/workflows.md` (ops procedures), `docs/data/schema-conventions.md` (schema/migrations), `docs/api-routes.md` (route table), and `docs/design/` for observability, merge queue, and caching design. For quick orientation:
 
 - Apps: `apps/api` Fastify REST API, `apps/web` Next.js App Router, `apps/scraper` Playwright scraper.
 - Packages: `packages/types`, `packages/db`, `packages/config`, `packages/queue`, `packages/agents`.

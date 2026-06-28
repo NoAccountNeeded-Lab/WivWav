@@ -10,93 +10,7 @@ WivWav is a wheelchair accessible vehicle (WAV) listing aggregator. It scrapes l
 
 See `.claude/core.md` for the monorepo structure, infrastructure overview, and key principles.
 
----
-
-## Quick start
-
-**Prerequisites:** Docker, Node 24, pnpm 11
-
-```bash
-# One-time setup
-pnpm install
-pnpm db:generate
-cp apps/api/.env.example apps/api/.env
-cp apps/scraper/.env.example apps/scraper/.env
-cp apps/web/.env.example apps/web/.env.local
-cp packages/db/.env.example packages/db/.env
-
-# Each session
-make up        # start full stack: Postgres, Valkey, Meilisearch, Ollama, and observability in Docker
-make dev       # apply pending migrations, then start api, web, scraper with hot reload
-```
-
-| Service     | URL                   |
-| ----------- | --------------------- |
-| Web app     | http://localhost:3000 |
-| API         | http://localhost:3001 |
-| Ops app     | http://localhost:3002 |
-| Meilisearch | http://localhost:7700 |
-
-**Observability stack** (included in `make up`; or start alongside a running API with `docker compose --profile obs up`):
-
-| Service       | URL                        | Notes                                           |
-| ------------- | -------------------------- | ----------------------------------------------- |
-| Grafana       | http://localhost:3003      | Anonymous admin — WivWav Logs (Loki) + WivWav System (Prometheus) dashboards |
-| Prometheus    | http://localhost:9090      | Scrapes `GET /metrics` every 15 s; 15-day retention |
-| Loki          | http://localhost:3100      | Log aggregation (internal; Alloy writes here)   |
-| API metrics   | http://localhost:3001/metrics | Prometheus text format — prom-client           |
-
-The exposed `/metrics` series, scrape scope, and known limitations are documented in [docs/design/observability-architecture.md](docs/design/observability-architecture.md).
-
-```bash
-make down      # stop infra containers
-make test      # run unit tests (all packages)
-make typecheck # type check all packages
-make lint      # lint all packages
-
-# Affected-only checks — fast iteration during development
-make check-affected     # typecheck + lint + test for changed packages only
-make typecheck-affected # typecheck changed packages only
-make lint-affected      # lint changed packages only
-make test-affected      # test changed packages only
-
-# pnpm equivalents
-pnpm check:affected
-pnpm typecheck:affected
-pnpm lint:affected
-pnpm test:affected
-```
-
-All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run only the packages whose source files have changed relative to `origin/main`. Use these for iteration speed. Run the full suite (`pnpm typecheck && pnpm lint && pnpm build && pnpm test`) before opening or finishing a PR.
-
-Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the sprint runner: with `TURBO_TOKEN`/`TURBO_TEAM` set, unchanged inputs skip re-execution. See `docs/design/turbo-remote-cache.md` for setup, cache keys, invalidation, and troubleshooting.
-
-```bash
-# SDLC delivery metrics report
-make sdlc-report                  # 30-day window (default)
-make sdlc-report LOOKBACK_DAYS=90 # 90-day window
-pnpm sdlc:report                  # pnpm equivalent
-```
-
-Requires `gh` CLI authenticated. Also available as a GitHub Actions workflow (`sdlc-metrics.yml`) triggered manually or every Monday at 08:00 UTC — results appear in the workflow run summary.
-
----
-
-## SDLC delivery metrics
-
-The project tracks five leading indicators of delivery health. All are collected from the GitHub API — no external tool required.
-
-| Metric | What it measures | Threshold | Action when exceeded |
-| --- | --- | --- | --- |
-| **CI duration** | Avg wall-clock time for a passing CI run on `main` | ≥ 20 min | Investigate build/test optimisation (caching, parallelism, dropped steps) |
-| **CI failure rate** | `failed / total` completed runs on `main` | ≥ 20% | Investigate flaky tests, environment issues, or missing pre-commit gates |
-| **PR lead time** | Avg time from PR opened to merged | ≥ 2 days | Identify review bottlenecks; consider async review SLAs |
-| **Re-review cycles** | Avg number of extra review-request events per merged PR | ≥ 2/PR | Tighten pre-review quality gates (linting, typecheck, code-review skill) |
-| **Time-to-merge** | Avg time from last approval to merge | ≥ 24 h | Reduce merge friction (squash-merge policy, required-check wait times) |
-
-**Interpreting:** healthy baseline is CI < 10 min, failure rate < 5%, lead time < 1 day, re-review cycles < 1, TTM < 2 h. A metric approaching threshold needs a weekly eye; at or above threshold, open an issue with `status:ready` and schedule it. Read the trend across periods, not a single week — a lead-time spike around a major refactor is expected.
-
-Run with `make sdlc-report` (`LOOKBACK_DAYS=90` for a longer window; see Quick start). Output is human-readable text — copy it into the PR evidence section when relevant.
+Dev environment setup and service URLs: [docs/ops/quick-start.md](docs/ops/quick-start.md).
 
 ---
 
@@ -106,12 +20,13 @@ Run with `make sdlc-report` (`LOOKBACK_DAYS=90` for a longer window; see Quick s
 2. Add `status:in-progress`, post a brief check-in comment
 3. Branch off main: `git fetch origin main && git checkout -b <prefix>/issue-{N}-{slug} origin/main`
 4. Do the work — commit small and often; use `pnpm check:affected` for fast iteration checks; run the full suite before finishing
-5. **Update [docs/api-routes.md](docs/api-routes.md)** if you added, removed, or renamed API routes (keep the routes table current)
-6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below for the shell steps. Claude Code: `/wivwav-finish-issue`.
-7. Review the draft PR on GitHub (the sprint worker's inline Reviewer agent has already checked the implementation) and merge with `gh pr merge {N} --auto` — `main` is a merge-queue-protected branch, so `--auto` enqueues the PR; the queue then runs final checks, picks the merge strategy, and deletes the remote branch itself (do not pass `--rebase` or `--delete-branch`, which the queue rejects). See [docs/design/merge-queue.md](docs/design/merge-queue.md).
+5. **Update [docs/api-routes.md](docs/api-routes.md)** if you added, removed, or renamed API routes
+6. Validate, commit, push, and open a draft PR — see **SDLC CLI** below. Claude Code: `/wivwav-finish-issue`.
+7. Review the draft PR and merge with `gh pr merge {N} --auto` — `main` is a merge-queue-protected branch; `--auto` enqueues the PR. See [docs/design/merge-queue.md](docs/design/merge-queue.md).
 
 Never work directly on `main`. Never commit on failing tests.
 Never leave an issue without a commit and draft PR — finish explicitly, not at session end.
+Never commit `.env` files, secrets, generated cache files, or unrelated formatting churn.
 
 ### Definition of Done
 
@@ -129,7 +44,7 @@ Keep evidence concise. Link to logs, screenshots, or issue comments when details
 
 Agents must guide the human at SDLC decision points. If work is complete, blocked, ambiguous, ready for validation, ready for review, or waiting on product/technical judgment, end with 2–4 concrete next-step options, with one marked **Recommended** when there is a clear safest next step.
 
-Keep the wording natural: state the current state, offer practical choices, recommend the safest next move, and name the command when one exists. Humans should not need to remember project slash commands or workflow order.
+Keep the wording natural: state the current state, offer practical choices, recommend the safest next move, and name the command when one exists.
 
 ### Session start course correction
 
@@ -143,21 +58,17 @@ If the PR touches `apps/web`, read `docs/BRAND.md` before writing any UI code.
 
 ### Agent token budget
 
-Keep always-loaded agent context short and stable. `AGENTS.md` is the canonical source of truth, but agents should not repeatedly read the whole file when `.claude/core.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, or a scoped rule already has the needed detail.
-
-Provider-specific guidance:
+Keep always-loaded agent context short and stable. Provider-specific guidance:
 
 - **Claude / Claude Code:** use `CLAUDE.md` and `.claude/core.md` for startup context; use role files, skills, and subagents for task-specific detail. Keep returned subagent summaries concise.
-- **Codex / OpenAI:** `AGENTS.md` is canonical. Use `pnpm wivwav start|review|finish|run-sprint` (see **SDLC CLI** below) for the issue workflow — these encode the deterministic gates and fail closed on missing auth or bad state. Preserve stable prompt prefixes and append per-issue context after reusable instructions so OpenAI prompt caching can hit.
+- **Codex / OpenAI:** `AGENTS.md` is canonical. Use `pnpm wivwav start|review|finish|run-sprint` for the issue workflow. Preserve stable prompt prefixes and append per-issue context after reusable instructions so OpenAI prompt caching can hit.
 - **Gemini:** use `GEMINI.md` for concise project context. Read `AGENTS.md` only when the task needs full workflow or architecture reference.
 - **GitHub Copilot / Cursor:** use their repo instruction/rule files for concise defaults; read domain docs only when the touched files require them.
 - **Ollama/local models:** optimize by reducing prompt size and using deterministic commands (`rg`, tests, typecheck, lint) instead of asking the model to rediscover repo state.
 
-For every implementation task, search first, plan the likely files, then read the smallest useful file ranges. Do not open generated output, build artifacts, or broad directory trees unless needed to diagnose the issue.
+For every implementation task, search first, plan the likely files, then read the smallest useful file ranges.
 
 The cross-agent optimization plan is tracked in `docs/design/agent-token-optimization.md`.
-
-The observability architecture (log pipeline, collector, Loki, Grafana, Sentry, correlation strategy) is documented in `docs/design/observability-architecture.md`. Read it before touching `packages/logger`, adding telemetry to app packages, or working on any of issues #255–#260, #263, #272, #273.
 
 ### Worker flow (sprint)
 
@@ -173,21 +84,19 @@ When a worker agent is spawned by `/wivwav-run-sprint`, it follows this sequence
 3. Plan  — before touching any file, write a brief plan:
         which files to create or modify, what types are needed, risks to watch for
 
-4. Implement  — write the code following AGENTS.md conventions
+4. Implement + tests  — write code and tests in a single pass
 
-5. Implement + tests  — write code and tests in a single pass
-
-6. Review  — one Reviewer agent (foreground, blocking) reads role files matched to
+5. Review  — one Reviewer agent (foreground, blocking) reads role files matched to
              the changed file types: always reviewer + qa; add accessibility if
              apps/web/ changed; performance if api/scraper/db/queue changed;
              docs-accuracy if routes or .md files changed
 
-7. Fix  — apply all findings (CRITICAL, WARNING, SUGGESTION)
+6. Fix  — apply all findings (CRITICAL, WARNING, SUGGESTION)
 
-8. /wivwav-finish-issue N  — fetch + rebase origin/main → typecheck + lint + build + test → commit → push → draft PR → status:needs-review
+7. /wivwav-finish-issue N  — fetch + rebase origin/main → typecheck + lint + build + test → commit → push → draft PR → status:needs-review
 ```
 
-Spawned workers should receive the issue number and execution metadata, not the full issue body. Fetching the issue body inside the worker keeps spawn prompts smaller across Claude, Codex, Gemini, Copilot/Cursor, and local-agent implementations.
+Spawned workers should receive the issue number and execution metadata, not the full issue body.
 
 The `/wivwav-finish-issue` skill is in `.claude/skills/`. Review role prompts live in `.claude/roles/`.
 
@@ -195,11 +104,10 @@ The `/wivwav-finish-issue` skill is in `.claude/skills/`. Review role prompts li
 
 ### SDLC CLI
 
-`packages/sdlc-cli` provides a first-class CLI that encodes the start/review/finish workflow and the deterministic setup phase of sprint orchestration. It is the canonical path for **all** agents — Claude Code uses the matching `/wivwav-*` skills; every other agent uses the CLI directly.
+`packages/sdlc-cli` provides a first-class CLI that encodes the start/review/finish workflow. It is the canonical path for **all** agents — Claude Code uses the matching `/wivwav-*` skills; every other agent uses the CLI directly.
 
 ```bash
-# Install dependencies once; the CLI runs through the root pnpm script.
-pnpm install
+pnpm install  # once
 
 # Start an issue — verifies state, AC, labels, branches, posts check-in comment
 pnpm wivwav start <issue-number>
@@ -211,17 +119,20 @@ pnpm wivwav review [issue-number]
 pnpm wivwav finish <issue-number>
 
 # Run sprint — select/claim issues, create worker worktrees, print worker prompts
-pnpm wivwav run-sprint [issue-number]
-pnpm wivwav run-sprint --parallel 3
+pnpm wivwav run-sprint [issue-number]   # single issue
+pnpm wivwav run-sprint --limit 2        # cap sequential run to 2 issues
+pnpm wivwav run-sprint --parallel 3     # 3 concurrent workers
 
 # All commands support --dry-run to preview actions without executing them
 pnpm wivwav start 304 --dry-run
 pnpm wivwav run-sprint --limit 2 --dry-run
 ```
 
-`run-sprint` prepares work for agents; it does not implement issues by itself. It selects issues, checks AC, labels them `status:in-progress`, creates isolated worktrees, writes `/tmp/wivwav-{N}.md` recovery state, and prints the worker instructions an agent should run in each worktree.
+`run-sprint` prepares work for agents; it does not implement issues by itself. It selects `status:ready` issues, verifies AC, labels them `status:in-progress`, creates isolated worktrees, and prints the worker prompt each agent should run in its worktree.
 
-#### Agent options for finish (pass attribution trailers)
+The CLI fails closed on: missing GitHub auth, issue not open or already in-progress, missing acceptance criteria, branch on `main`/`master`, rebase conflicts, validation failures, and unstaged files during finish.
+
+#### Agent options for finish (attribution trailers)
 
 ```bash
 pnpm wivwav finish 304 \
@@ -231,20 +142,9 @@ pnpm wivwav finish 304 \
   --co-author "Codex GPT-4o <noreply@openai.com>"
 ```
 
-The CLI fails closed on:
-- Missing GitHub auth (`gh auth status` fails)
-- Issue not open or already in-progress
-- Missing acceptance criteria
-- Branch on `main`/`master`
-- Rebase against `origin/main` fails (conflicts must be resolved before finish)
-- Validation suite failure (typecheck / lint / build / test)
-- Unstaged or untracked files during finish
-
 Set `WIVWAV_CO_AUTHOR` or pass `--co-author` to override the default `Co-Authored-By` trailer.
 
 #### Manual fallback (if CLI is unavailable)
-
-Agents that cannot run `pnpm wivwav` follow these direct shell equivalents:
 
 **Start:**
 ```bash
@@ -298,33 +198,6 @@ Tell the user: "Draft PR is open and the issue is labeled `status:needs-review`.
 
 ---
 
-### Worktree port isolation
-
-Unit tests use `app.inject()` and do not bind ports — concurrent workers running tests never conflict. The conflict is only if a worker starts a **dev server**.
-
-Ports are assigned by **agent index**: `base + (AGENT_INDEX * 10)`
-
-| Agent | Who          | API ports  | Web ports  |
-| ----- | ------------ | ---------- | ---------- |
-| 0     | Human/local  | 3000–3009  | 4000–4009  |
-| 1     | First worker | 3010–3019  | 4010–4019  |
-| 2     | Second       | 3020–3029  | 4020–4029  |
-| 3     | Third        | 3030–3039  | 4030–4039  |
-
-The existing default ports (API=3003, web=3000) fall naturally in the human range.
-
-```bash
-# Get the port for this agent's dev server
-bash scripts/worktree-port.sh api 1   # → 3010  (agent 1 API)
-bash scripts/worktree-port.sh web 2   # → 4020  (agent 2 web)
-bash scripts/worktree-port.sh api     # → 3000  (human, no index)
-```
-
-Workers receive their `AGENT_INDEX` from the orchestrator via the spawn prompt.
-If you need more than 10 ports per agent, change `STEP=10` to `STEP=100` in `scripts/worktree-port.sh` — ranges expand to 100-199, 200-299, etc.
-
----
-
 ## Commit format and branch naming
 
 See `.claude/core.md` for commit format, branch prefixes, and attribution trailers.
@@ -339,133 +212,21 @@ Response envelope: most routes use `{ data: T }` for success and `{ error: { cod
 
 ---
 
-## Ops workflows
+## Domain reference
 
-Everything below is done through the ops UI at **http://localhost:3002/ops** — never via CLI during normal operations. Direct the user to the relevant page; don't paste curl commands.
+| Area | Reference |
+| ---- | --------- |
+| Dev environment setup, make commands, service URLs | [docs/ops/quick-start.md](docs/ops/quick-start.md) |
+| Ops workflows (geocode, scrape, queue, schedules) | [docs/ops/workflows.md](docs/ops/workflows.md) |
+| Database schema conventions and migration procedure | [docs/data/schema-conventions.md](docs/data/schema-conventions.md) |
+| API route table | [docs/api-routes.md](docs/api-routes.md) |
+| Observability architecture (Loki, Grafana, Prometheus, Sentry) | [docs/design/observability-architecture.md](docs/design/observability-architecture.md) |
+| CI/CD and merge queue | [docs/design/merge-queue.md](docs/design/merge-queue.md) |
+| Remote cache (Turbo) | [docs/design/turbo-remote-cache.md](docs/design/turbo-remote-cache.md) |
+| Agent token optimization plan | [docs/design/agent-token-optimization.md](docs/design/agent-token-optimization.md) |
+| Scraper architecture and adding new sources | [apps/scraper/README.md](apps/scraper/README.md) |
+| Testing conventions | `.claude/roles/tester.md` |
 
-### Get listings on the map
+Read `docs/design/observability-architecture.md` before touching `packages/logger`, adding telemetry to app packages, or working on issues #255–#260, #263, #272, #273.
 
-Listings need GPS coordinates to appear as pins on the search map. New scraped listings arrive without coordinates. The pipeline is:
-
-1. **Scrape** — `/ops/sources` → "Run Now" on a source, or wait for its cron schedule.
-2. **Geocode** — `/ops/queues` → find the `geocode` row → click **Trigger**. This resolves city + state → lat/lng for every ungeocoded listing. Rate-limited to 1 req/sec (Nominatim policy), but it deduplicates by unique city/state, so 4 000 listings in 200 distinct cities only fires 200 requests (~3–4 min), not 4 000.
-3. **Sync Meilisearch** — same `/ops/queues` page → click **Sync Meilisearch** (top-right button). This re-indexes all listings from Postgres into Meilisearch so the new coordinates become searchable and visible on the map.
-
-Geocode runs nightly at 2 AM; sync does **not** run automatically — you must trigger it after geocode completes if you want map pins without waiting.
-
-### Scrape a source immediately
-
-`/ops/sources` → "Run Now" next to the source. Progress appears on `/ops/runs` and in the queue activity panel on `/ops/queues`.
-
-### Inspect a job or retry a failure
-
-`/ops/queues` → click a queue name to expand live job activity. For full payloads and stack traces, use the **Bull Board** link (top-right of the Queues page).
-
-### Trigger any background job immediately
-
-`/ops/queues` → find the queue → **Trigger** (where available). Queues that can be triggered: `geocode`, `detail-crawl`, `detail-extract`, `deduplicate`.
-
-### Enable, disable, or edit a schedule
-
-`/ops/schedules` — lists all repeatable jobs with their current cron pattern, next run time, and enable/disable status. Toggle or edit any schedule without restarting the scraper. Changes take effect immediately in BullMQ/Valkey.
-
-Schedules are stored in **Valkey** by BullMQ, not in node-cron or any config file. The scraper registers defaults on first boot only — subsequent restarts do not override user changes. Disabling a schedule removes it from BullMQ; it stays disabled across scraper restarts.
-
-### Background job schedule (defaults)
-
-| Queue                | Default schedule  | Notes |
-| -------------------- | ----------------- | ----- |
-| source-scrape        | Per-source (6–8h) | Configured on each Source row |
-| detail-crawl         | Hourly            | Playwright; rate-limited to 1 page/2 s |
-| detail-extract       | Every 5 min       | No network; reads stored HTML |
-| geocode              | Nightly 2 AM      | Deduplicated by city/state |
-| deduplicate          | Nightly 3 AM      | VIN-matched |
-| vin-enrich           | Hourly :30        | NHTSA VIN decode → upsert VehicleModel |
-| nhtsa-recalls        | Nightly 4 AM      | Recalls for all VehicleModels in inventory |
-| nhtsa-complaints     | Weekly Sun 5 AM   | Complaints for all VehicleModels |
-| nhtsa-safety-ratings | Weekly Sun 6 AM   | Safety ratings for all VehicleModels |
-| vehicle-stats-refresh | Weekly Sun 1 AM  | Re-seeds lifespan/reliability stats from static JSON |
-
----
-
-## Data model
-
-See `packages/types/src/listing.ts` for the complete `Listing` interface.
-
-The `GET /v1/listings/:id` response groups listing fields into three nested objects:
-- `wav` — `conversionType`, `conversionManufacturer`, `floorLoweringInches`, `rampType`, `hasLift`, `handControls`, `transferSeat`, `wheelchairCapacity`
-- `location` — `zip`, `city`, `state`, `lat`, `lng`
-- `dealer` — `name`, `phone`, `website`
-
-### Naming conventions
-
-- **Table names:** singular snake_case — `listing_price_history`, `vehicle_stats`
-- **Column names:** camelCase in Prisma model fields; column names in the DB match the field name exactly (camelCase) unless an explicit `@map` decorator is added
-- **Enums:** singular PascalCase — `SourceStatus`, `ConversionType`
-
-> Many existing tables use plural names (`sources`, `listings`, `scraper_runs`, `raw_pages`, `vehicle_models`, `recalls`, `complaints`, `safety_ratings`, `conversion_brands`, `conversion_products`, `nmea_dealers`). Do not rename them. All new tables must use singular names.
-
-### Schema changes
-
-**Never use `make db-push` for schema changes that will be deployed.** Instead:
-
-1. Edit `packages/db/prisma/schema.prisma`
-2. Run `make db-migrate-create` — Prisma generates a `.sql` file in `prisma/migrations/`
-3. Commit the migration file alongside the schema change
-4. CI will reject PRs where the schema and migrations are out of sync
-5. On deploy, the `migrate` Docker service applies pending migrations automatically before the API starts
-
----
-
-## Scraper architecture
-
-Each source has a `SourceAdapter` in `apps/scraper/src/sources/` implementing:
-
-- `checkStructure()` — fetches a sample page, hashes the DOM, compares to stored hash
-- `scrape()` — runs the full Playwright scrape, returns normalized listings
-
-If `checkStructure()` detects a change, the engine marks the source `needs_remapping` and calls the configured AI provider to derive new CSS selectors (default: Ollama; set `ai.scraper.structure.provider` in the config DB to switch). Sources run on independent cron schedules.
-
-**Pitfall inside `page.evaluate`:** tsx's esbuild wraps named arrow-function-to-const assignments with `__name()`, which is not defined in the Playwright browser sandbox. Use `function` declarations instead of `const fn = () => {}` inside `page.evaluate`.
-
-### Adding a new source
-
-1. Create `apps/scraper/src/sources/<name>.ts` implementing `SourceAdapter`
-2. Register it in `apps/scraper/src/index.ts`
-3. Add a seed row to the `sources` table or upsert it on startup
-
----
-
-## Testing
-
-- **Unit:** Vitest (`make test`) — no network, no DB. Fast.
-- **Integration:** Vitest (`make exec CMD="pnpm test:integration"`) — hits real services.
-
-Test files live next to source: `foo.ts` → `foo.test.ts`. Integration tests use `*.integration.test.ts`.
-
----
-
-## CI/CD
-
-- **All pushes/PRs:** `ci.yml` runs three parallel jobs — `Docker builds`, `Lint & Typecheck`, `Test`
-- **Main branch:** build + push Docker images to ghcr.io (`publish.yml`)
-- **Merge queue:** `main` requires all three `ci.yml` jobs to pass before merging, enforced via a repository ruleset (not classic branch protection) with `merge_group` support in `ci.yml`. See [docs/design/merge-queue.md](docs/design/merge-queue.md) for the full ruleset configuration, the `--auto` merge path, and verification evidence.
-
----
-
-## Environment variables
-
-See `.env.example` in each app directory. Never commit `.env` files.
-
-- CI: only `GITHUB_TOKEN` (auto-provided)
-
-AI API keys and provider selection are managed through the config DB, not env vars. Set them via `/ops/ai` or the `/admin/config` API:
-
-| Config key | Description |
-| --- | --- |
-| `secret.anthropic.default` | Anthropic API key (type: secret, encrypted at rest) |
-| `ai.<job>.provider` | `anthropic` or `ollama` — which provider a job uses |
-| `ai.<job>.model` | Model name for that provider |
-| `ai.<job>.apiKeyId` | Points to the secret config key holding the API key |
-
-Where `<job>` is one of: `intake`, `scraper.structure`, `scraper.remap`, `agents`.
+**Pitfall inside `page.evaluate` (scraper):** tsx's esbuild wraps named arrow-function-to-const assignments with `__name()`, which is not defined in the Playwright browser sandbox. Use `function` declarations instead of `const fn = () => {}` inside `page.evaluate`.
