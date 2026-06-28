@@ -166,7 +166,7 @@ export class MobilityWorksAdapter implements SourceAdapter {
           }
         }
 
-        return `count:${anchors.length}|${parts.join(',')}`
+        return parts.join(',')
       })
 
       const currentHash = createHash('sha256').update(signature).digest('hex')

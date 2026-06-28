@@ -82,34 +82,50 @@ export class ScraperEngine {
       if (structureCheck.changed) {
         const detector = perRunDetector ?? null
         if (structureCheck.sampleHtml && detector) {
-          const previousMappings = await this.sources.getMappings(sourceId)
-          const remap = await detector.remapFields({
-            sourceName: adapter.name,
-            previousMappings,
-            sampleHtml: structureCheck.sampleHtml,
-          })
-          await this.sources.setMappings(sourceId, remap.mappings)
+          try {
+            const previousMappings = await this.sources.getMappings(sourceId)
+            const remap = await detector.remapFields({
+              sourceName: adapter.name,
+              previousMappings,
+              sampleHtml: structureCheck.sampleHtml,
+            })
+            await this.sources.setMappings(sourceId, remap.mappings)
 
-          if (remap.confidence >= REMAP_CONFIDENCE_THRESHOLD) {
-            await report(context, `[source-scrape] Structure changed for ${adapter.name}; AI remapped with confidence ${formatConfidence(remap.confidence)}. Proceeding with scrape using updated mappings.`, {
-              stage: 'scraping',
-              current: 0,
-              total: 0,
-            })
-            // Fall through: attempt scrape with existing adapter now that mappings are updated.
-            // If the scrape produces low-quality data the quality gate below will abort the run.
-          } else {
-            // Low confidence: record failure with full AI context but do NOT mark needs_remapping.
-            // Leaving the source in error state means the next scheduled run will retry automatically.
-            const message = `Structure changed — low-confidence remap (confidence ${formatConfidence(remap.confidence)}): ${remap.notes}`
-            await report(context, `[source-scrape] ${message}. Source left in error state for automatic retry on next run.`, {
+            if (remap.confidence >= REMAP_CONFIDENCE_THRESHOLD) {
+              await report(context, `[source-scrape] Structure changed for ${adapter.name}; AI remapped with confidence ${formatConfidence(remap.confidence)}. Proceeding with scrape using updated mappings.`, {
+                stage: 'scraping',
+                current: 0,
+                total: 0,
+              })
+              // Fall through: attempt scrape with existing adapter now that mappings are updated.
+              // If the scrape produces low-quality data the quality gate below will abort the run.
+            } else {
+              // Low confidence: record failure with full AI context but do NOT mark needs_remapping.
+              // Leaving the source in error state means the next scheduled run will retry automatically.
+              const message = `Structure changed — low-confidence remap (confidence ${formatConfidence(remap.confidence)}): ${remap.notes}`
+              await report(context, `[source-scrape] ${message}. Source left in error state for automatic retry on next run.`, {
+                stage: 'blocked',
+                reason: 'structure_changed_low_confidence_remap',
+                current: 0,
+                total: 0,
+              })
+              await this.sources.markError(sourceId, message)
+              await this.runs.fail(run.id, message)
+              return
+            }
+          } catch (remapErr) {
+            // AI threw (bad JSON, timeout, etc.) — degrade to needs_remapping rather than
+            // rethrowing, which would cause BullMQ to retry the job immediately and infinitely.
+            const remapErrMsg = remapErr instanceof Error ? remapErr.message : String(remapErr)
+            const errorMessage = `Structure changed — AI remapping failed (${remapErrMsg}); operator intervention required`
+            await report(context, `[source-scrape] Structure changed for ${adapter.name}, but AI remapping threw an error. Marked source needs_remapping; scrape skipped.`, {
               stage: 'blocked',
-              reason: 'structure_changed_low_confidence_remap',
+              reason: 'structure_changed_ai_failed',
               current: 0,
               total: 0,
             })
-            await this.sources.markError(sourceId, message)
-            await this.runs.fail(run.id, message)
+            await this.sources.markNeedsRemapping(sourceId, errorMessage)
+            await this.runs.fail(run.id, errorMessage)
             return
           }
         } else {
