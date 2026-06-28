@@ -5,7 +5,7 @@ alwaysApply: true
 
 WivWav is a wheelchair accessible vehicle listing aggregator in a pnpm/Turborepo TypeScript monorepo.
 
-Follow `AGENTS.md` for canonical workflow, but avoid loading it unless the task needs detailed route, data model, scraper, ops, or SDLC reference. For most code tasks, start with a targeted `rg` search, inspect the smallest relevant file ranges, and keep edits scoped to the issue.
+Follow `AGENTS.md` for canonical workflow, SDLC commands, and cross-cutting invariants. For domain-specific detail, consult: `docs/ops/quick-start.md` (dev setup), `docs/ops/workflows.md` (ops procedures), `docs/data/schema-conventions.md` (schema/migrations), `docs/api-routes.md` (route table), and `docs/design/` for observability, merge queue, and caching design. For most code tasks, start with a targeted `rg` search, inspect the smallest relevant file ranges, and keep edits scoped to the issue.
 
 Core rules:
 
