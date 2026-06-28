@@ -8,6 +8,11 @@ import type { JobContext } from '@wivwav/queue'
 
 const REMAP_CONFIDENCE_THRESHOLD = 0.7
 
+/** Safely format a confidence value. Returns '?.??' when the value is not a finite number. */
+function formatConfidence(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '?.??'
+}
+
 interface EngineOptions {
   runs: ScraperRunRepository
   sources: SourceRepository
@@ -86,7 +91,7 @@ export class ScraperEngine {
           await this.sources.setMappings(sourceId, remap.mappings)
 
           if (remap.confidence >= REMAP_CONFIDENCE_THRESHOLD) {
-            await report(context, `[source-scrape] Structure changed for ${adapter.name}; AI remapped with confidence ${remap.confidence.toFixed(2)}. Proceeding with scrape using updated mappings.`, {
+            await report(context, `[source-scrape] Structure changed for ${adapter.name}; AI remapped with confidence ${formatConfidence(remap.confidence)}. Proceeding with scrape using updated mappings.`, {
               stage: 'scraping',
               current: 0,
               total: 0,
@@ -96,7 +101,7 @@ export class ScraperEngine {
           } else {
             // Low confidence: record failure with full AI context but do NOT mark needs_remapping.
             // Leaving the source in error state means the next scheduled run will retry automatically.
-            const message = `Structure changed — low-confidence remap (confidence ${remap.confidence.toFixed(2)}): ${remap.notes}`
+            const message = `Structure changed — low-confidence remap (confidence ${formatConfidence(remap.confidence)}): ${remap.notes}`
             await report(context, `[source-scrape] ${message}. Source left in error state for automatic retry on next run.`, {
               stage: 'blocked',
               reason: 'structure_changed_low_confidence_remap',

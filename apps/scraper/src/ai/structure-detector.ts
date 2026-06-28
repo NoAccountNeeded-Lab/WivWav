@@ -35,6 +35,20 @@ Return JSON: { "mappings": [{ "targetField": string, "selector": string, "attrib
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch?.[0]) throw new Error('AI provider did not return valid JSON')
 
-    return JSON.parse(jsonMatch[0]) as RemapResult
+    const parsed: unknown = JSON.parse(jsonMatch[0])
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      typeof (parsed as Record<string, unknown>).confidence !== 'number' ||
+      !Number.isFinite((parsed as Record<string, unknown>).confidence as number) ||
+      !Array.isArray((parsed as Record<string, unknown>).mappings) ||
+      typeof (parsed as Record<string, unknown>).notes !== 'string'
+    ) {
+      throw new Error(
+        `AI remap response missing/invalid fields — expected numeric 'confidence', array 'mappings', and string 'notes'; got: ${JSON.stringify(parsed)}`
+      )
+    }
+
+    return parsed as RemapResult
   }
 }
