@@ -5,7 +5,7 @@
  * inject it wherever a BrowserService is expected, and assert on the
  * recorded interactions without launching a real browser.
  */
-import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse, WaitUntilState } from './types.js'
+import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse, WaitUntilState, NewPageOptions } from './types.js'
 
 export interface MockPageRecord {
   url: string
@@ -91,7 +91,7 @@ export class MockBrowserSession implements BrowserSession {
     private readonly defaultHtml: string,
   ) {}
 
-  async newPage(): Promise<BrowserPage> {
+  async newPage(_options?: NewPageOptions): Promise<BrowserPage> {
     const page = new MockBrowserPage(this.pageMap, this.defaultHtml)
     this.pages.push(page)
     return page
