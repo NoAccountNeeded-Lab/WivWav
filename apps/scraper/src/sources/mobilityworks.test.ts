@@ -6,8 +6,59 @@ import {
   parseRampType,
   parseLocation,
   parseCard,
+  MobilityWorksAdapter,
 } from './mobilityworks.js'
 import type { RawCard } from './mobilityworks.js'
+import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from '../browser/types.js'
+
+// ─── Mock browser service helpers ────────────────────────────────────────────
+
+/**
+ * Build a minimal BrowserPage mock.
+ * - `gotoErrors`: map of URL substrings → error to throw on goto().
+ * - `evaluateResults`: queue of return values for successive evaluate() calls.
+ *   When the queue is empty, evaluate() returns [].
+ */
+function makePage(
+  gotoErrors: Record<string, Error> = {},
+  evaluateResults: unknown[] = [],
+): BrowserPage {
+  let evalIndex = 0
+  return {
+    async goto(url: string): Promise<BrowserResponse | null> {
+      for (const [fragment, err] of Object.entries(gotoErrors)) {
+        if (url.includes(fragment)) throw err
+      }
+      return { status: () => 200 }
+    },
+    async setContent(): Promise<void> {},
+    async content(): Promise<string> { return '' },
+    url(): string { return '' },
+    evaluate<T>(): Promise<T> {
+      const result = evalIndex < evaluateResults.length
+        ? evaluateResults[evalIndex++]
+        : []
+      return Promise.resolve(result as unknown as T)
+    },
+    async waitForSelector(): Promise<void> {},
+    async close(): Promise<void> {},
+  }
+}
+
+function makeService(
+  gotoErrors: Record<string, Error> = {},
+  evaluateResults: unknown[] = [],
+): BrowserService {
+  return {
+    async launch(): Promise<BrowserSession> {
+      const page = makePage(gotoErrors, evaluateResults)
+      return {
+        newPage: async () => page,
+        async close(): Promise<void> {},
+      }
+    },
+  }
+}
 
 // ─── parseMileage ────────────────────────────────────────────────────────────
 
@@ -247,5 +298,179 @@ describe('parseCard', () => {
   it('sets dealer name to MobilityWorks', () => {
     const result = parseCard(validCard)
     expect(result!.dealer.name).toBe('MobilityWorks')
+  })
+})
+
+// ─── MobilityWorksAdapter.checkPage1 retry behaviour ────────────────────────
+
+describe('MobilityWorksAdapter.checkPage1 timeout retry', () => {
+  it('succeeds and returns a hash when the first goto times out but the second succeeds', async () => {
+    let gotoAttempts = 0
+    // Build a service where the first goto throws a timeout, the second succeeds.
+    const service: BrowserService = {
+      async launch(): Promise<BrowserSession> {
+        return {
+          async newPage(): Promise<BrowserPage> {
+            return {
+              async goto(): Promise<BrowserResponse | null> {
+                gotoAttempts++
+                if (gotoAttempts === 1) {
+                  throw new Error('page.goto: Timeout 30000ms exceeded.')
+                }
+                return { status: () => 200 }
+              },
+              async setContent(): Promise<void> {},
+              async content(): Promise<string> { return '' },
+              url(): string { return '' },
+              evaluate<T>(): Promise<T> { return Promise.resolve([] as unknown as T) },
+              async waitForSelector(): Promise<void> {},
+              async close(): Promise<void> {},
+            }
+          },
+          async close(): Promise<void> {},
+        }
+      },
+    }
+
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    const result = await adapter.checkPage1()
+
+    expect(gotoAttempts).toBe(2)
+    expect(result).toMatchObject({
+      currentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      changed: expect.any(Boolean),
+    })
+  })
+
+  it('rethrows after exhausting all retry attempts', async () => {
+    const service = makeService({ 'mobilityworks.com': new Error('page.goto: Timeout 30000ms exceeded.') })
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    await expect(adapter.checkPage1()).rejects.toThrow('Timeout 30000ms exceeded')
+  })
+
+  it('re-throws non-timeout errors immediately without retrying', async () => {
+    const service = makeService({ 'mobilityworks.com': new Error('net::ERR_CONNECTION_REFUSED') })
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    await expect(adapter.checkPage1()).rejects.toThrow('net::ERR_CONNECTION_REFUSED')
+  })
+})
+
+// ─── MobilityWorksAdapter.checkStructure retry behaviour ─────────────────────
+
+describe('MobilityWorksAdapter.checkStructure timeout retry', () => {
+  it('succeeds and returns a hash when the first goto times out but the second succeeds', async () => {
+    let gotoAttempts = 0
+    const service: BrowserService = {
+      async launch(): Promise<BrowserSession> {
+        return {
+          async newPage(): Promise<BrowserPage> {
+            return {
+              async goto(): Promise<BrowserResponse | null> {
+                gotoAttempts++
+                if (gotoAttempts === 1) {
+                  throw new Error('page.goto: Timeout 30000ms exceeded.')
+                }
+                return { status: () => 200 }
+              },
+              async setContent(): Promise<void> {},
+              async content(): Promise<string> { return '' },
+              url(): string { return '' },
+              evaluate<T>(): Promise<T> { return Promise.resolve('no-listings' as unknown as T) },
+              async waitForSelector(): Promise<void> {},
+              async close(): Promise<void> {},
+            }
+          },
+          async close(): Promise<void> {},
+        }
+      },
+    }
+
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    const result = await adapter.checkStructure()
+
+    expect(gotoAttempts).toBe(2)
+    expect(result).toMatchObject({
+      currentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      changed: expect.any(Boolean),
+    })
+  })
+
+  it('rethrows after exhausting all retry attempts', async () => {
+    const service = makeService({ 'mobilityworks.com': new Error('page.goto: Timeout 30000ms exceeded.') })
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    await expect(adapter.checkStructure()).rejects.toThrow('Timeout 30000ms exceeded')
+  })
+})
+
+// ─── MobilityWorksAdapter.scrape pagination timeout behaviour ────────────────
+
+describe('MobilityWorksAdapter.scrape pagination timeout', () => {
+  it('stops pagination and returns gathered listings when page > 1 times out', async () => {
+    // A raw card that parseCard can successfully parse into a Listing
+    const card: RawCard = {
+      href: '/wheelchair-vans-for-sale/2024-toyota-sienna-driverge-5tdyrkec8rs205440/',
+      title: 'Used 2024 Toyota Sienna FWD XLE (New Conversion)',
+      price: '$71,991',
+      stock: 'RS205440',
+      mileage: '50094',
+      color: 'Grey',
+      convMake: 'Driverge',
+      conversion: 'Rear Entry Manual Fold Out',
+      location: 'North Las Vegas NV',
+      imageUrl: 'https://s3.amazonaws.com/vehicle-images/abc123.jpg',
+    }
+
+    let gotoCount = 0
+    // evaluate is called in order: (1) cards for page 1, (2) hasNext for page 1
+    const evaluateQueue: unknown[] = [
+      [card],  // page 1 cards
+      true,    // hasNext = page 2 exists
+    ]
+    let evalIndex = 0
+
+    const service: BrowserService = {
+      async launch(): Promise<BrowserSession> {
+        return {
+          async newPage(): Promise<BrowserPage> {
+            return {
+              async goto(url: string): Promise<BrowserResponse | null> {
+                gotoCount++
+                if (url.includes('/page/2/')) {
+                  throw new Error('page.goto: Timeout 30000ms exceeded.')
+                }
+                return { status: () => 200 }
+              },
+              async setContent(): Promise<void> {},
+              async content(): Promise<string> { return '' },
+              url(): string { return '' },
+              evaluate<T>(): Promise<T> {
+                const result = evalIndex < evaluateQueue.length
+                  ? evaluateQueue[evalIndex++]
+                  : []
+                return Promise.resolve(result as unknown as T)
+              },
+              async waitForSelector(): Promise<void> {},
+              async close(): Promise<void> {},
+            }
+          },
+          async close(): Promise<void> {},
+        }
+      },
+    }
+
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, maxPages: 5, navRetryBackoffMs: 0 })
+    const result = await adapter.scrape()
+
+    // Should not throw — pagination stopped gracefully on page 2 timeout
+    expect(result.listings).toHaveLength(1)
+    expect(result.listings[0]!.vin).toBe('5TDYRKEC8RS205440')
+    expect(gotoCount).toBe(2) // page 1 + page 2 (which timed out)
+  })
+
+  it('rethrows a timeout on page 1 (no partial listings to return)', async () => {
+    const service = makeService({ 'wheelchair-vans-for-sale/': new Error('page.goto: Timeout 30000ms exceeded.') })
+    // All 3 retry attempts exhaust before throwing
+    const adapter = new MobilityWorksAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    await expect(adapter.scrape()).rejects.toThrow('Timeout 30000ms exceeded')
   })
 })
