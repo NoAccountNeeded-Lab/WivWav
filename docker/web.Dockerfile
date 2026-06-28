@@ -49,4 +49,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
+# Bind to all interfaces. Next.js standalone server.js uses process.env.HOSTNAME
+# as its listen address; Docker sets HOSTNAME to the container id, which would
+# bind only to the container's eth0 IP and break the loopback healthcheck.
+ENV HOSTNAME="0.0.0.0"
 CMD ["node", "apps/web/server.js"]
