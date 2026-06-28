@@ -10,7 +10,7 @@ import {
   BlvdAdapter,
 } from './blvd.js'
 import type { RawCard } from './blvd.js'
-import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from '../browser/types.js'
+import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse, NewPageOptions } from '../browser/types.js'
 import type { RobotsCache } from '../util/robots-cache.js'
 
 // Minimal browser service factory for checkPage1 unit tests.
@@ -331,5 +331,56 @@ describe('BlvdAdapter.scrape robots.txt skip', () => {
 
     // Listings come from the FSBO path only (which returns [] in mock) — result still resolves
     expect(result.listings).toBeInstanceOf(Array)
+  })
+})
+
+// ─── BlvdAdapter.scrape resource blocking ───────────────────────────────────
+
+describe('BlvdAdapter.scrape resource blocking', () => {
+  it('opens its page with image/media/font/stylesheet blocking', async () => {
+    // Regression guard for #484: dropping blockResourceTypes here lets Chromium
+    // accumulate subresource requests across listing pages until navigation
+    // fails with net::ERR_INSUFFICIENT_RESOURCES.
+    const newPageOptions: Array<NewPageOptions | undefined> = []
+
+    function makeRecordingService(): BrowserService {
+      return {
+        async launch() {
+          return {
+            async newPage(options?: NewPageOptions) {
+              newPageOptions.push(options)
+              return {
+                async goto(): Promise<{ status(): number }> { return { status: () => 200 } },
+                async setContent(): Promise<void> {},
+                async content(): Promise<string> { return '<html></html>' },
+                url(): string { return '' },
+                // No cards → pagination stops after page 1 on each path.
+                evaluate<T>(): Promise<T> { return Promise.resolve([] as unknown as T) },
+                async waitForSelector(): Promise<void> {},
+                async close(): Promise<void> {},
+              }
+            },
+            async close(): Promise<void> {},
+          }
+        },
+      }
+    }
+
+    const robotsCache = {
+      async isAllowed(): Promise<boolean> { return true },
+      clear(): void {},
+    } as unknown as RobotsCache
+
+    const adapter = new BlvdAdapter(null, {
+      browserService: makeRecordingService(),
+      robotsCache,
+    })
+
+    await adapter.scrape()
+
+    expect(newPageOptions).toHaveLength(1)
+    expect(newPageOptions[0]?.blockResourceTypes).toEqual(
+      expect.arrayContaining(['image', 'media', 'font', 'stylesheet']),
+    )
   })
 })
