@@ -93,7 +93,9 @@ describe('resolveListingStatus', () => {
 describe('buildListingDetailUpdateData', () => {
   const detail = {
     color: 'Grey',
-    fuelType: '2.5L Hybrid I4',
+    // BLVD: fuelType is null; engine holds the raw engine description
+    fuelType: null,
+    engine: '2.5L Hybrid I4',
     transmission: 'automatic',
     rampType: 'fold_out' as const,
     wavFeatures: ['transfer_seat' as const],
@@ -148,5 +150,17 @@ describe('buildListingDetailUpdateData', () => {
   it('includes images key when detail.images has entries', () => {
     const result = buildListingDetailUpdateData(detail, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
     expect(result).toHaveProperty('images')
+  })
+
+  it('passes engine field through when non-null (refs #515)', () => {
+    const withEngine = { ...detail, engine: '3.5L V6 DOHC' }
+    const result = buildListingDetailUpdateData(withEngine, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).toHaveProperty('engine', '3.5L V6 DOHC')
+  })
+
+  it('omits engine key when engine is null (preserves previous DB value)', () => {
+    const noEngine = { ...detail, engine: null }
+    const result = buildListingDetailUpdateData(noEngine, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).not.toHaveProperty('engine')
   })
 })

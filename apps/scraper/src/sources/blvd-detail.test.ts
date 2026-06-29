@@ -113,11 +113,18 @@ const baseRaw: RawDetail = {
 }
 
 describe('parseBlvdDetail', () => {
-  it('extracts color, fuelType, and transmission from specs', () => {
+  it('extracts color and transmission from specs', () => {
     const result = parseBlvdDetail(baseRaw)
     expect(result.color).toBe('Grey')
-    expect(result.fuelType).toBe('2.5L Hybrid I4 245hp')
     expect(result.transmission).toBe('automatic')
+  })
+
+  it('stores Engine spec as engine field, never as fuelType (refs #515)', () => {
+    const result = parseBlvdDetail(baseRaw)
+    // BLVD "Engine" spec contains engine descriptions (e.g. "2.5L Hybrid I4 245hp"),
+    // not fuel type labels. These must be stored as engine, never as fuelType.
+    expect(result.engine).toBe('2.5L Hybrid I4 245hp')
+    expect(result.fuelType).toBeNull()
   })
 
   it('parses ramp type from description text', () => {
@@ -196,6 +203,7 @@ describe('parseBlvdDetail', () => {
     const result = parseBlvdDetail(sparse)
     expect(result.color).toBeNull()
     expect(result.fuelType).toBeNull()
+    expect(result.engine).toBeNull()
     expect(result.transmission).toBeNull()
     expect(result.zip).toBeNull()
     expect(result.dealerPhone).toBeNull()

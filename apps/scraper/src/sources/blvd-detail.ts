@@ -15,8 +15,24 @@ export interface RawDetail {
 }
 
 export interface BlvdDetailFields {
+  /**
+   * Raw color string from the "Color" spec (e.g. "Brilliant Silver Metallic").
+   * Stored as rawColor in the DB for provenance. The canonical color for facets
+   * is derived by canonicalize.ts in @wivwav/search.
+   */
   color: string | null
-  fuelType: string | null
+  /**
+   * fuelType is intentionally null for BLVD listings.
+   * BLVD exposes an "Engine" spec (e.g. "3.5L V6 DOHC") but no "Fuel Type" key.
+   * Engine descriptions are stored separately in the `engine` field.
+   */
+  fuelType: null
+  /**
+   * Raw engine description from the "Engine" spec (e.g. "3.5L V6 24V PDI DOHC").
+   * Stored as engine in the DB. Never exposed as fuelType; canonicalize.ts
+   * derives fuel type from this when possible.
+   */
+  engine: string | null
   transmission: string | null
   rampType: RampType
   wavFeatures: WavFeature[]
@@ -69,7 +85,11 @@ export function parseBlvdDetail(raw: RawDetail): BlvdDetailFields {
 
   return {
     color: spec('Color'),
-    fuelType: spec('Engine'),
+    // BLVD exposes an "Engine" spec, not a "Fuel Type" key.
+    // Engine descriptions (e.g. "3.5L V6 DOHC") must NOT be stored as fuelType.
+    // Store them in engine so canonicalize.ts can derive fuel type where possible.
+    fuelType: null,
+    engine: spec('Engine'),
     transmission: spec('Transmission'),
     rampType: parseRampType(desc),
     wavFeatures,

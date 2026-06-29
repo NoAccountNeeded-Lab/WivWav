@@ -58,7 +58,18 @@ export function resolveListingStatus(
 
 export type DetailResult = {
   color: string | null
+  /**
+   * Explicit fuel type from source (e.g. "Gasoline", "Hybrid").
+   * null for BLVD listings, which expose an engine description instead.
+   */
   fuelType: string | null
+  /**
+   * Raw engine description (e.g. "3.5L V6 DOHC"). Present for BLVD listings;
+   * null for sources that expose an explicit fuelType key instead.
+   * Never stored as fuelType — stored separately so canonicalize.ts can
+   * derive fuel type without exposing engine descriptions as fuel type.
+   */
+  engine: string | null
   transmission: string | null
   rampType: RampType
   wavFeatures: WavFeature[]
@@ -80,6 +91,9 @@ export function buildListingDetailUpdateData(
   return {
     color: detail.color,
     fuelType: detail.fuelType,
+    // Only write engine when the source actually provides one; null means "not observed"
+    // rather than "no engine" — don't overwrite a previously stored value with null.
+    ...(detail.engine !== null && { engine: detail.engine }),
     transmission: detail.transmission,
     rampType: detail.rampType,
     wavFeatures: detail.wavFeatures,
@@ -112,7 +126,9 @@ export function buildListingDetailUpdateData(
 async function extractDetail(page: BrowserPage, url: string): Promise<DetailResult> {
   if (url.includes('mobilityworks.com')) {
     const raw = await evaluateMwDetail(page)
-    return parseMwDetail(raw)
+    const mw = parseMwDetail(raw)
+    // MobilityWorks exposes an explicit "Fuel Type" spec key; no engine description field.
+    return { ...mw, engine: null }
   }
   const raw = await evaluateBlvdDetail(page)
   return parseBlvdDetail(raw)
