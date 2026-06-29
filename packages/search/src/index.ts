@@ -1,5 +1,15 @@
 import type { Meilisearch } from 'meilisearch'
 import type { Listing, PrismaClient } from '@wivwav/db'
+import {
+  canonicalColor,
+  canonicalFuelType,
+  canonicalMake,
+  canonicalModel,
+  canonicalConversionManufacturer,
+} from './canonicalize.js'
+
+export { canonicalColor, canonicalFuelType, canonicalMake, canonicalModel, canonicalConversionManufacturer } from './canonicalize.js'
+export type { CanonicalFuelType } from './canonicalize.js'
 
 export const INDEX_NAME = 'listings'
 
@@ -10,7 +20,15 @@ export interface ListingDocument {
   sourceId: string
   sourceUrl: string
   buyerUrl: string | null
+  /**
+   * Canonical make from VIN decode (preferred) or source, alias-normalized.
+   * Used for public facets and filtering. Raw source make is on the Listing row.
+   */
   make: string
+  /**
+   * Canonical model from VIN decode (preferred) or source, alias-normalized.
+   * Used for public facets and filtering.
+   */
   model: string
   year: number
   trim: string | null
@@ -21,10 +39,22 @@ export interface ListingDocument {
   priceBucket: string | null
   mileage: number | null
   mileageBucket: string | null
+  /**
+   * Canonical color for public facets — casing/suffix-collapsed, alias-normalized.
+   * Derived from rawColor (preferred) or color. Raw source color is on the Listing row.
+   */
   color: string | null
+  /**
+   * Canonical fuel type — null when only an engine description is available.
+   * Engine descriptions are stored in `engine` and never exposed as fuel type.
+   */
   fuelType: string | null
   transmission: string | null
   conversionType: string
+  /**
+   * Canonical conversion manufacturer — null when the source value is a year number,
+   * generic text ("Wheelchair", "Non"), missing-value token, or dealer/source name.
+   */
   conversionManufacturer: string | null
   conversionBrand: string | null
   floorLoweringInches: number | null
@@ -88,6 +118,18 @@ export function toDocument(row: Listing): ListingDocument {
   const dealerPhone = isPrivate ? null : row.dealerPhone
   const dealerName = isPrivate ? 'For Sale By Owner' : row.dealerName
 
+  // Canonical fields — derived from raw source values via pure canonicalization functions.
+  // Raw values remain on the DB row for provenance; search/facets use only canonical values.
+  const canonMake = canonicalMake(null, row.make) ?? row.make
+  const canonModel = canonicalModel(null, row.model) ?? row.model
+  // color stores the raw source color for provenance; canonicalColor derives the facet value
+  const canonColor = canonicalColor(row.color)
+  // engine is the raw engine description (new field); fuelType may be an engine description
+  // on legacy rows from BLVD before the engine/fuelType separation was introduced.
+  const engineSource = (row as Listing & { engine?: string | null }).engine
+  const canonFuelType = canonicalFuelType(row.fuelType, engineSource ?? null)
+  const canonConverter = canonicalConversionManufacturer(row.conversionManufacturer, null)
+
   return {
     id: row.id,
     vehicleId: row.vehicleId,
@@ -95,8 +137,8 @@ export function toDocument(row: Listing): ListingDocument {
     sourceId: row.sourceId,
     sourceUrl: row.sourceUrl,
     buyerUrl: row.buyerUrl,
-    make: row.make,
-    model: row.model,
+    make: canonMake,
+    model: canonModel,
     year: row.year,
     trim: row.trim,
     vin: row.vin,
@@ -106,12 +148,12 @@ export function toDocument(row: Listing): ListingDocument {
     priceBucket: priceBucket(row.priceCents),
     mileage: row.mileage,
     mileageBucket: mileageBucket(row.mileage),
-    color: row.color,
-    fuelType: row.fuelType,
+    color: canonColor,
+    fuelType: canonFuelType,
     transmission: row.transmission,
     conversionType: row.conversionType,
-    conversionManufacturer: row.conversionManufacturer,
-    conversionBrand: conversionBrandSlug(row.conversionManufacturer),
+    conversionManufacturer: canonConverter,
+    conversionBrand: conversionBrandSlug(canonConverter),
     floorLoweringInches: row.floorLoweringInches,
     rampType: row.rampType,
     wavFeatures: row.wavFeatures as string[],
