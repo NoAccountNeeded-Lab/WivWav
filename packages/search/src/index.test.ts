@@ -23,6 +23,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     mileage: 30000,
     color: null,
     fuelType: null,
+    engine: null,
     transmission: null,
     conversionType: 'rear_entry',
     conversionManufacturer: null,
@@ -217,16 +218,13 @@ describe('toDocument — canonical fuelType', () => {
     expect(doc.fuelType).toBe('gasoline')
   })
 
-  it('derives fuelType from engine field when fuelType is null', () => {
-    // The engine field is new in the DB schema (refs #515). toDocument reads it when present.
-    const rowWithEngine = { ...makeListing({ fuelType: null }), engine: 'Electric Motor 150kW' }
-    const doc = toDocument(rowWithEngine as never)
+  it('derives fuelType from engine field when fuelType is null (refs #515)', () => {
+    const doc = toDocument(makeListing({ fuelType: null, engine: 'Electric Motor 150kW' } as never))
     expect(doc.fuelType).toBe('electric')
   })
 
   it('returns null fuelType when neither fuelType nor engine provides a fuel type', () => {
-    const rowWithEngine = { ...makeListing({ fuelType: null }), engine: '3.5L V6 DOHC' }
-    const doc = toDocument(rowWithEngine as never)
+    const doc = toDocument(makeListing({ fuelType: null, engine: '3.5L V6 DOHC' } as never))
     expect(doc.fuelType).toBeNull()
   })
 })
