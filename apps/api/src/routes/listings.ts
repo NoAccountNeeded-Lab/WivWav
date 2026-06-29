@@ -37,6 +37,9 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
     buyerUrl,
     detailScrapedAt,
     vehicleModelMatchConfidence,
+    publicationStatus,
+    qualityIssueCodes,
+    qualityCheckedAt,
     dealerName, dealerPhone, dealerWebsite,
     lat, lng, zip, city, state,
     conversionType, conversionManufacturer, floorLoweringInches,
@@ -45,6 +48,9 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
     ...rest
   } = listing
   void sourceId
+  void publicationStatus
+  void qualityIssueCodes
+  void qualityCheckedAt
 
   const isPrivate = rest.sellerType === 'private'
   // Suppress personal phone numbers; normalize name to a generic label for private sellers.

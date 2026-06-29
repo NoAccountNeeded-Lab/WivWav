@@ -13,9 +13,11 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     findByIdForSafety: vi.fn(async () => null),
     findVehicleModelWithSafetyData: vi.fn(async () => null),
     findManyActive: vi.fn(async () => []),
+    countObservedActive: vi.fn(async () => 0),
     countActive: vi.fn(async () => 0),
     countActiveWithCoordinates: vi.fn(async () => 0),
     countActiveMissingCoordinates: vi.fn(async () => 0),
+    getPublicationCountsBySource: vi.fn(async () => []),
     findPriceHistory: vi.fn(async () => []),
     findPageForSync: vi.fn(async () => []),
     ...overrides,
@@ -342,12 +344,24 @@ describe('GET /sources', () => {
       { findAll: vi.fn(async () => [source]) },
       {},
       factory,
+      mockSearch,
+      {
+        getPublicationCountsBySource: vi.fn(async () => [{
+          sourceId: 'src-1',
+          observedActive: 5,
+          eligibleActive: 2,
+        }]),
+      },
     )
 
     const res = await app.inject({ method: 'GET', url: '/sources' })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toHaveLength(1)
     expect(res.json().data[0].name).toBe('test-source')
+    expect(res.json().data[0]).toMatchObject({
+      observedActiveCount: 5,
+      eligibleActiveCount: 2,
+    })
 
     await app.close()
   })
@@ -403,9 +417,15 @@ describe('GET /listing-refresh/status', () => {
       factory,
       mockSearch,
       {
-        countActive: vi.fn(async () => 10),
+        countObservedActive: vi.fn(async () => 10),
+        countActive: vi.fn(async () => 3),
         countActiveWithCoordinates: vi.fn(async () => 7),
         countActiveMissingCoordinates: vi.fn(async () => 3),
+        getPublicationCountsBySource: vi.fn(async () => [{
+          sourceId: 'src-1',
+          observedActive: 10,
+          eligibleActive: 3,
+        }]),
       },
     )
 
@@ -413,8 +433,22 @@ describe('GET /listing-refresh/status', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toMatchObject({
-      sources: { total: 1, active: 1, needsAttention: 0, totalListings: 12, lastScrapedAt: now.toISOString() },
-      listings: { active: 10, mapReady: 7, missingLocations: 3 },
+      sources: {
+        total: 1,
+        active: 1,
+        needsAttention: 0,
+        totalListings: 12,
+        observedActiveListings: 10,
+        eligibleListings: 3,
+        lastScrapedAt: now.toISOString(),
+      },
+      listings: {
+        active: 10,
+        observedActive: 10,
+        eligible: 3,
+        mapReady: 7,
+        missingLocations: 3,
+      },
       latestScrapeRun: { id: 'run-1', sourceName: 'BLVD.com', listingsNew: 3 },
       queues: expect.arrayContaining([
         expect.objectContaining({
@@ -485,6 +519,11 @@ describe('GET /repeatables', () => {
         lastStatus: null,
         recentFailureCount: 0,
         recentFailureReason: null,
+      }),
+      expect.objectContaining({
+        id: 'listing-sync',
+        queue: QUEUES.LISTING_SYNC,
+        defaultPattern: '30 1 * * *',
       }),
       expect.objectContaining({
         id: 'nhtsa-recalls',
