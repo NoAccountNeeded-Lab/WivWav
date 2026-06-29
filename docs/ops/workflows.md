@@ -2,15 +2,28 @@
 
 All operations below are done through the ops UI at **http://localhost:3002/ops** — never via CLI during normal operations. Direct the user to the relevant page; don't paste curl commands.
 
+## Publication gate
+
+An observed listing is not automatically public. Sources and Refresh Listings
+show both observed active rows and listings explicitly eligible to publish.
+Search, facets, detail routes, and market analytics use only eligible rows.
+
+During the 2026-06-29 data-quality containment, listing queues and schedules
+must remain paused and the search index must remain empty. Follow
+[Listing Publication Containment and Recovery](listing-publication-containment.md)
+before scraping, syncing, or resuming a listing pipeline.
+
 ## Get listings on the map
 
 Listings need GPS coordinates to appear as pins on the search map. New scraped listings arrive without coordinates. The pipeline is:
 
 1. **Scrape** — `/ops/sources` → "Run Now" on a source, or wait for its cron schedule.
 2. **Geocode** — `/ops/queues` → find the `geocode` row → click **Trigger**. This resolves city + state → lat/lng for every ungeocoded listing. Rate-limited to 1 req/sec (Nominatim policy), but it deduplicates by unique city/state, so 4 000 listings in 200 distinct cities only fires 200 requests (~3–4 min), not 4 000.
-3. **Sync Meilisearch** — same `/ops/queues` page → click **Sync Meilisearch** (top-right button). This re-indexes all listings from Postgres into Meilisearch so the new coordinates become searchable and visible on the map.
+3. **Sync Meilisearch** — same `/ops/queues` page → click **Sync Meilisearch** (top-right button). This clears the listing index and re-indexes only active, eligible listings from PostgreSQL so new coordinates become searchable and visible on the map.
 
-Geocode runs nightly at 2 AM; sync does **not** run automatically — you must trigger it after geocode completes if you want map pins without waiting.
+Geocode incrementally syncs changed listings and runs nightly at 2 AM. A clean
+full sync also runs nightly and is enqueued after source scrapes. Trigger a
+manual full sync only when the containment runbook allows publication.
 
 ## Scrape a source immediately
 
@@ -37,10 +50,11 @@ Schedules are stored in **Valkey** by BullMQ, not in node-cron or any config fil
 | source-scrape        | Per-source (6–8h) | Configured on each Source row |
 | detail-crawl         | Hourly            | Playwright; rate-limited to 1 page/2 s |
 | detail-extract       | Every 5 min       | No network; reads stored HTML |
+| listing-sync         | Nightly 1:30 AM   | Clears and rebuilds search with active, eligible rows |
 | geocode              | Nightly 2 AM      | Deduplicated by city/state |
 | deduplicate          | Nightly 3 AM      | VIN-matched |
-| vin-enrich           | Hourly :30        | NHTSA VIN decode → upsert VehicleModel |
-| nhtsa-recalls        | Nightly 4 AM      | Recalls for all VehicleModels in inventory |
+| vin-enrich           | Every 6h from 4 AM | NHTSA VIN decode → upsert VehicleModel |
+| nhtsa-recalls        | Nightly 4:30 AM   | Recalls for all VehicleModels in inventory |
 | nhtsa-complaints     | Weekly Sun 5 AM   | Complaints for all VehicleModels |
 | nhtsa-safety-ratings | Weekly Sun 6 AM   | Safety ratings for all VehicleModels |
 | vehicle-stats-refresh | Weekly Sun 1 AM  | Re-seeds lifespan/reliability stats from static JSON |
