@@ -208,6 +208,11 @@ export class PrismaListingRepository implements ListingRepository {
         scrapedAt: new Date(),
         status: 'active',
         goneAt: null,
+        // Any changed source observation invalidates the previous quality
+        // decision. A validator must explicitly promote the row again.
+        publicationStatus: 'pending',
+        qualityIssueCodes: [],
+        qualityCheckedAt: null,
         ...(resetDetail ? { detailScrapedAt: null } : {}),
         ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
         // description and images are managed by the detail scrape job — don't overwrite

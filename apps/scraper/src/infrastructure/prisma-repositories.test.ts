@@ -263,7 +263,13 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalled()
+      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({
+          publicationStatus: 'pending',
+          qualityIssueCodes: [],
+          qualityCheckedAt: null,
+        }),
+      }))
     })
 
     it('writes the DB when buyer URL metadata changed', async () => {

@@ -92,8 +92,8 @@ async function runSourceWithProvider(
   sourceId: string,
   provider: CompletionProvider | null,
   context?: JobContext,
-): Promise<void> {
-  await engine.runSource(sourceId, context, provider ? new StructureDetector(provider) : null)
+): Promise<boolean> {
+  return engine.runSource(sourceId, context, provider ? new StructureDetector(provider) : null)
 }
 
 // --- Queue setup ---
@@ -179,7 +179,13 @@ queueFactory.createWorker<{ sourceId: string }>(
       context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
       await context?.log('Ollama unavailable — running without AI-assisted remapping')
     }
-    await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
+    const listingsChanged = await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
+    // A changed source observation can move an eligible listing back to
+    // pending. Rebuild promptly so its stale document does not remain public
+    // until the nightly reconciliation.
+    if (listingsChanged) {
+      await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+    }
   }),
   { lockDuration: 300_000, logger },
 )

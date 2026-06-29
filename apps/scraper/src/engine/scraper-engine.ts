@@ -36,7 +36,7 @@ export class ScraperEngine {
     this.adapters.set(dbSourceId, adapter)
   }
 
-  async runSource(sourceId: string, context?: JobContext, perRunDetector?: StructureDetector | null): Promise<void> {
+  async runSource(sourceId: string, context?: JobContext, perRunDetector?: StructureDetector | null): Promise<boolean> {
     const adapter = this.adapters.get(sourceId)
     if (!adapter) throw new Error(`No adapter registered for source: ${sourceId}`)
 
@@ -62,7 +62,7 @@ export class ScraperEngine {
           })
           await this.runs.complete(run.id, 0)
           await this.sources.markChecked(sourceId)
-          return
+          return false
         }
         await report(context, `[source-scrape] Page 1 changed for ${adapter.name}; running full crawl`, {
           stage: 'checking-structure',
@@ -111,7 +111,7 @@ export class ScraperEngine {
               })
               await this.sources.markError(sourceId, message)
               await this.runs.fail(run.id, message)
-              return
+              return false
             }
           } catch (remapErr) {
             // AI threw (bad JSON, timeout, etc.) — degrade to needs_remapping rather than
@@ -126,7 +126,7 @@ export class ScraperEngine {
             })
             await this.sources.markNeedsRemapping(sourceId, errorMessage)
             await this.runs.fail(run.id, errorMessage)
-            return
+            return false
           }
         } else {
           // No sample HTML or AI unavailable: requires operator intervention, mark needs_remapping
@@ -143,7 +143,7 @@ export class ScraperEngine {
           })
           await this.sources.markNeedsRemapping(sourceId, errorMessage)
           await this.runs.fail(run.id, errorMessage)
-          return
+          return false
         }
       }
 
@@ -181,7 +181,7 @@ export class ScraperEngine {
           await report(context, `[source-scrape] ${failMsg}`, { stage: 'blocked', reason: 'quality_check_failed' })
           await this.runs.fail(run.id, failMsg)
           await this.sources.markError(sourceId, failMsg)
-          return
+          return false
         }
 
         await report(context, qualityMsg, { stage: 'upserting', quality })
@@ -218,6 +218,7 @@ export class ScraperEngine {
         const msg = err instanceof Error ? err.message : String(err)
         void context?.log(`[engine] Geocode job failed (non-fatal): ${msg}`)
       })
+      return result.listings.length > 0 || goneCount > 0
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await this.runs.fail(run.id, message)
