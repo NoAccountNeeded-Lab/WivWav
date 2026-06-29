@@ -6,7 +6,9 @@ import type {
   SourceRepository,
   ListingRepository,
   ListingUpsertData,
+  MarkGoneOptions,
 } from '../engine/repositories.js'
+import { GONE_AFTER_CONSECUTIVE_MISSING } from '../engine/repositories.js'
 
 const TRANSIENT_PRISMA_CODES = new Set(['P2028', 'P1001', 'P1002', 'P1008', 'P1017'])
 const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
@@ -89,14 +91,17 @@ export class PrismaSourceRepository implements SourceRepository {
     })
   }
 
-  async markActive(id: string, data: { listingCount: number; fingerprintHash: string; page1Hash?: string }): Promise<void> {
+  async markActive(id: string, data: { listingCount: number; fingerprintHash: string; page1Hash?: string; isCompleteCrawl: boolean }): Promise<void> {
+    const now = new Date()
     await this.db.source.update({
       where: { id },
       data: {
-        lastScrapedAt: new Date(),
+        lastScrapedAt: now,
+        lastObservedAt: now,
         listingCount: data.listingCount,
         fingerprintHash: data.fingerprintHash,
         ...(data.page1Hash !== undefined ? { page1Hash: data.page1Hash } : {}),
+        ...(data.isCompleteCrawl ? { lastFullCrawlAt: now } : {}),
         status: 'active',
         errorMessage: null,
       },
@@ -104,7 +109,8 @@ export class PrismaSourceRepository implements SourceRepository {
   }
 
   async markChecked(id: string): Promise<void> {
-    await this.db.source.update({ where: { id }, data: { lastCheckedAt: new Date() } })
+    const now = new Date()
+    await this.db.source.update({ where: { id }, data: { lastCheckedAt: now, lastObservedAt: now } })
     // Reset error status when a no-change check succeeds — the source is reachable
     await this.db.source.updateMany({ where: { id, status: 'error' }, data: { status: 'active', errorMessage: null } })
   }
@@ -125,6 +131,11 @@ export class PrismaSourceRepository implements SourceRepository {
     // Prisma's Json type needs the double cast via unknown
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await this.db.source.update({ where: { id }, data: { mappings: mappings as unknown as any } })
+  }
+
+  async getLastFullCrawlAt(id: string): Promise<Date | null> {
+    const source = await this.db.source.findUnique({ where: { id }, select: { lastFullCrawlAt: true } })
+    return source?.lastFullCrawlAt ?? null
   }
 }
 
@@ -293,21 +304,93 @@ export class PrismaListingRepository implements ListingRepository {
     }
   }
 
-  async markGone(sourceId: string, activeSourceRecordKeys: string[]): Promise<number> {
+  async markGone(sourceId: string, activeSourceRecordKeys: string[], options: MarkGoneOptions): Promise<number> {
     // Guard: if the scrape returned nothing, assume a scraper failure and leave status unchanged
     if (activeSourceRecordKeys.length === 0) return 0
 
-    // Soft-mark as possibly_gone rather than confirmed gone. The detail-crawl
-    // job will re-crawl the detail page (detailScrapedAt reset) to confirm.
-    const result = await this.db.listing.updateMany({
+    const { isCompleteCrawl } = options
+
+    if (!isCompleteCrawl) {
+      // Partial crawl (page-1 changed but we may have missed pages): soft-mark
+      // active listings as possibly_gone without counting it as evidence.
+      // missingFromCompleteCount is NOT incremented — only complete crawls provide
+      // conclusive index-absence evidence.
+      const result = await this.db.listing.updateMany({
+        where: {
+          sourceId,
+          status: 'active',
+          sourceRecordKey: { notIn: activeSourceRecordKeys },
+        },
+        data: { status: 'possibly_gone', detailScrapedAt: null },
+      })
+      return result.count
+    }
+
+    // Complete crawl path:
+    // 1. Seen listings: reset missingFromCompleteCount and record lastSeenInCompleteCrawlAt.
+    //    Also restore possibly_gone → active for listings that reappeared in the source index.
+    const now = new Date()
+    await this.db.listing.updateMany({
+      where: {
+        sourceId,
+        status: 'possibly_gone',
+        sourceRecordKey: { in: activeSourceRecordKeys },
+      },
+      data: {
+        missingFromCompleteCount: 0,
+        lastSeenInCompleteCrawlAt: now,
+        status: 'active',
+        goneAt: null,
+        detailScrapedAt: null,
+      },
+    })
+
+    // Update lastSeenInCompleteCrawlAt for all seen non-gone listings
+    await this.db.listing.updateMany({
+      where: {
+        sourceId,
+        status: { not: 'gone' },
+        sourceRecordKey: { in: activeSourceRecordKeys },
+      },
+      data: { lastSeenInCompleteCrawlAt: now, missingFromCompleteCount: 0 },
+    })
+
+    // 2. Absent active listings: transition to possibly_gone and start the count.
+    const newlyMissingResult = await this.db.listing.updateMany({
       where: {
         sourceId,
         status: 'active',
         sourceRecordKey: { notIn: activeSourceRecordKeys },
       },
-      data: { status: 'possibly_gone', detailScrapedAt: null },
+      data: {
+        status: 'possibly_gone',
+        detailScrapedAt: null,
+        missingFromCompleteCount: { increment: 1 },
+      },
     })
 
-    return result.count
+    // 3. Already-possibly_gone listings: increment their count.
+    await this.db.listing.updateMany({
+      where: {
+        sourceId,
+        status: 'possibly_gone',
+        sourceRecordKey: { notIn: activeSourceRecordKeys },
+        missingFromCompleteCount: { lt: GONE_AFTER_CONSECUTIVE_MISSING },
+      },
+      data: { missingFromCompleteCount: { increment: 1 } },
+    })
+
+    // 4. Promote to gone when the threshold is reached.
+    await this.db.listing.updateMany({
+      where: {
+        sourceId,
+        status: 'possibly_gone',
+        sourceRecordKey: { notIn: activeSourceRecordKeys },
+        missingFromCompleteCount: { gte: GONE_AFTER_CONSECUTIVE_MISSING },
+      },
+      data: { status: 'gone', goneAt: now },
+    })
+
+    return newlyMissingResult.count
   }
 }
