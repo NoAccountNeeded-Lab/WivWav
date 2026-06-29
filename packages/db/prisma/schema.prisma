@@ -118,6 +118,11 @@ model Source {
   page1Hash       String?
   lastScrapedAt   DateTime?
   lastCheckedAt   DateTime?
+  /// Timestamp of the most recent complete (all-pages) crawl. Used to enforce
+  /// the periodic full-crawl interval even when page-1 is unchanged.
+  lastFullCrawlAt DateTime?
+  /// Timestamp of the most recent observation of this source (complete or partial).
+  lastObservedAt  DateTime?
   listingCount    Int          @default(0)
   errorMessage    String?
   createdAt       DateTime     @default(now())
@@ -214,6 +219,13 @@ model Listing {
   qualityIssueCodes String[]                 @default([])
   qualityCheckedAt  DateTime?
 
+  /// Number of consecutive complete source crawls where this listing was absent.
+  /// Incremented each time a complete crawl finishes without finding this listing.
+  /// Reset to 0 when the listing reappears in any complete crawl.
+  missingFromCompleteCount   Int       @default(0)
+  /// Timestamp of the most recent complete crawl that included this listing.
+  lastSeenInCompleteCrawlAt  DateTime?
+
   listedAt           DateTime
   updatedAt          DateTime  @updatedAt
   scrapedAt          DateTime  @default(now())
@@ -246,6 +258,7 @@ model Listing {
   @@index([processingLockedAt])
   @@index([dealerProfileId])
   @@index([dealerName, zip])
+  @@index([sourceId, status, missingFromCompleteCount])
   @@map("listings")
 }
 
