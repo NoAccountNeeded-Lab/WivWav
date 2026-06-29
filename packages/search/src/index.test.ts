@@ -180,6 +180,107 @@ describe('toDocument — wavFeatures', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// toDocument — canonicalization (refs #515)
+// ---------------------------------------------------------------------------
+
+describe('toDocument — canonical color', () => {
+  it('collapses marketing suffix from color field', () => {
+    const doc = toDocument(makeListing({ color: 'Silver Metallic' }))
+    expect(doc.color).toBe('Silver')
+  })
+
+  it('applies color alias (Oxford White → White)', () => {
+    const doc = toDocument(makeListing({ color: 'Oxford White' }))
+    expect(doc.color).toBe('White')
+  })
+
+  it('returns null color for missing-value token in color', () => {
+    const doc = toDocument(makeListing({ color: 'unknown' }))
+    expect(doc.color).toBeNull()
+  })
+
+  it('passes through null color when no color is stored', () => {
+    const doc = toDocument(makeListing({ color: null }))
+    expect(doc.color).toBeNull()
+  })
+})
+
+describe('toDocument — canonical fuelType', () => {
+  it('returns null fuelType when fuelType is an engine description (refs #515)', () => {
+    const doc = toDocument(makeListing({ fuelType: '3.5L V6 DOHC' }))
+    expect(doc.fuelType).toBeNull()
+  })
+
+  it('returns canonical fuelType for an explicit fuel type label', () => {
+    const doc = toDocument(makeListing({ fuelType: 'Gasoline' }))
+    expect(doc.fuelType).toBe('gasoline')
+  })
+
+  it('derives fuelType from engine field when fuelType is null', () => {
+    // The engine field is new in the DB schema (refs #515). toDocument reads it when present.
+    const rowWithEngine = { ...makeListing({ fuelType: null }), engine: 'Electric Motor 150kW' }
+    const doc = toDocument(rowWithEngine as never)
+    expect(doc.fuelType).toBe('electric')
+  })
+
+  it('returns null fuelType when neither fuelType nor engine provides a fuel type', () => {
+    const rowWithEngine = { ...makeListing({ fuelType: null }), engine: '3.5L V6 DOHC' }
+    const doc = toDocument(rowWithEngine as never)
+    expect(doc.fuelType).toBeNull()
+  })
+})
+
+describe('toDocument — canonical conversion manufacturer', () => {
+  it('rejects year numbers in conversionManufacturer', () => {
+    const doc = toDocument(makeListing({ conversionManufacturer: '2026' }))
+    expect(doc.conversionManufacturer).toBeNull()
+    expect(doc.conversionBrand).toBeNull()
+  })
+
+  it('rejects generic WAV text in conversionManufacturer', () => {
+    const doc = toDocument(makeListing({ conversionManufacturer: 'Wheelchair' }))
+    expect(doc.conversionManufacturer).toBeNull()
+  })
+
+  it('rejects missing-value tokens in conversionManufacturer', () => {
+    const doc = toDocument(makeListing({ conversionManufacturer: 'undefined' }))
+    expect(doc.conversionManufacturer).toBeNull()
+  })
+
+  it('retains known converter names', () => {
+    const doc = toDocument(makeListing({ conversionManufacturer: 'BraunAbility' }))
+    expect(doc.conversionManufacturer).toBe('BraunAbility')
+  })
+})
+
+describe('toDocument — canonical make/model', () => {
+  it('normalizes make casing', () => {
+    const doc = toDocument(makeListing({ make: 'FORD' }))
+    expect(doc.make).toBe('Ford')
+  })
+
+  it('resolves Mercedes alias', () => {
+    const doc = toDocument(makeListing({ make: 'Mercedes' }))
+    expect(doc.make).toBe('Mercedes-Benz')
+  })
+
+  it('resolves Grand Caravan model alias', () => {
+    const doc = toDocument(makeListing({ model: 'GRAND CARAVAN' }))
+    expect(doc.model).toBe('Grand Caravan')
+  })
+
+  it('resolves T-350 model alias to Transit', () => {
+    const doc = toDocument(makeListing({ model: 'T-350' }))
+    expect(doc.model).toBe('Transit')
+  })
+
+  it('resolves Town and Country alias', () => {
+    const doc = toDocument(makeListing({ model: 'Town and Country' }))
+    expect(doc.model).toBe('Town & Country')
+  })
+})
+
 describe('syncListings — publication eligibility', () => {
   it('upserts only eligible active listings', async () => {
     const row = makeListing({ id: 'eligible-1', publicationStatus: 'eligible' })
