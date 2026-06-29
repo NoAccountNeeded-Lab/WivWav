@@ -40,6 +40,14 @@ export class MeilisearchService implements SearchService {
     if (ids.length === 0) return
     await this.client.index(indexName).deleteDocuments(ids)
   }
+
+  async clear(indexName: string): Promise<void> {
+    const task = await this.client.index(indexName).deleteAllDocuments()
+    const result = await this.client.tasks.waitForTask(task.taskUid, { timeout: 15_000 })
+    if (result.status !== 'succeeded') {
+      throw new Error(`Meilisearch clear failed: task ${result.uid} ended with status ${result.status}`)
+    }
+  }
 }
 
 /**

@@ -82,4 +82,9 @@ export interface SearchService {
    * Delete documents from the index by their ids.
    */
   delete(indexName: string, ids: string[]): Promise<void>
+
+  /**
+   * Delete every document from an index while preserving its settings.
+   */
+  clear(indexName: string): Promise<void>
 }

@@ -53,7 +53,7 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
       'conversionType', 'rampType', 'wavFeatures',
       'conversionBrand', 'color', 'state', 'city', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
-      'vehicleId', 'vehicleGroupKey',
+      'publicationStatus', 'vehicleId', 'vehicleGroupKey',
     ],
     sortableAttributes: ['priceCents', 'mileage', 'year', 'listedAt'],
     pagination: { maxTotalHits: 20000 },
@@ -81,7 +81,10 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   filters: SearchFilters
   rangeFilters: RangeFilter[]
 } {
-  const filters: SearchFilters = { status: 'active' }
+  const filters: SearchFilters = {
+    status: 'active',
+    publicationStatus: 'eligible',
+  }
   if (params.make?.length) filters['make'] = params.make
   if (params.model?.length) filters['model'] = params.model
   if (params.condition?.length) filters['condition'] = params.condition
@@ -141,6 +144,8 @@ export class ListingSearchService {
   }
 
   async syncAll(listings: ListingRepository): Promise<number> {
+    await this.searchService.clear(INDEX_NAME)
+
     let synced = 0
     let cursor: string | undefined
 

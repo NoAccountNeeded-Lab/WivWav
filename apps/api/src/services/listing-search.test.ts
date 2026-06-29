@@ -216,9 +216,10 @@ function makeService() {
     search: searchMock as SearchService['search'],
     upsert: vi.fn(async () => {}),
     delete: vi.fn(async () => {}),
+    clear: vi.fn(async () => {}),
   }
   const service = new ListingSearchService(mockSearchService)
-  return { service, searchMock }
+  return { service, searchMock, searchService: mockSearchService }
 }
 
 describe('ListingSearchService.search', () => {
@@ -227,6 +228,13 @@ describe('ListingSearchService.search', () => {
     await service.search({})
     const [, opts] = searchMock.mock.calls[0]!
     expect(opts.filters?.['status']).toBe('active')
+  })
+
+  it('always includes publicationStatus = "eligible" filter', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({})
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['publicationStatus']).toBe('eligible')
   })
 
   it('defaults to page 1 and perPage 20', async () => {
@@ -386,5 +394,33 @@ describe('ListingSearchService.search', () => {
     expect(opts.facets).toEqual(
       expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state']),
     )
+  })
+})
+
+describe('ListingSearchService.syncAll', () => {
+  it('clears stale documents before reading eligible pages', async () => {
+    const { service, searchService } = makeService()
+    const listings = { findPageForSync: vi.fn(async () => []) }
+
+    const synced = await service.syncAll(listings as never)
+
+    expect(searchService.clear).toHaveBeenCalledWith('listings')
+    expect(searchService.upsert).not.toHaveBeenCalled()
+    expect(synced).toBe(0)
+    expect(vi.mocked(searchService.clear).mock.invocationCallOrder[0]).toBeLessThan(
+      listings.findPageForSync.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('does not read or publish rows when clearing stale documents fails', async () => {
+    const { service, searchService } = makeService()
+    const listings = { findPageForSync: vi.fn(async () => []) }
+    vi.mocked(searchService.clear).mockRejectedValueOnce(new Error('clear failed'))
+
+    await expect(service.syncAll(listings as never)).rejects.toThrow('clear failed')
+
+    expect(searchService.clear).toHaveBeenCalledWith('listings')
+    expect(listings.findPageForSync).not.toHaveBeenCalled()
+    expect(searchService.upsert).not.toHaveBeenCalled()
   })
 })
