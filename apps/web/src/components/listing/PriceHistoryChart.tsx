@@ -113,15 +113,16 @@ export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHist
             dot={{ r: 3, fill: 'var(--color-primary-solid, #0d9488)', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             name="Asking price"
+            isAnimationActive={false}
           />
-          {msrpDollars !== null && (
+          {originalMsrpCents != null && (
             <ReferenceLine
-              y={originalMsrpCents!}
+              y={originalMsrpCents}
               stroke="var(--color-text-secondary, #64748b)"
               strokeDasharray="5 3"
               label={{
-                value: 'New MSRP (unconverted)',
-                position: 'insideTopRight',
+                value: 'Orig. MSRP',
+                position: 'insideBottomRight',
                 fontSize: 10,
                 fill: 'var(--color-text-secondary, #64748b)',
               }}
