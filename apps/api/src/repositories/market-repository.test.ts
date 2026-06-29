@@ -31,6 +31,8 @@ describe('PrismaMarketRepository.getPricingStats', () => {
     const dropSql = sqlFromCall(db.$queryRaw.mock.calls[1]!)
     expect(pricingSql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
     expect(dropSql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+    expect(pricingSql).toContain('"publicationStatus" = \'eligible\'')
+    expect(dropSql).toContain('"publicationStatus" = \'eligible\'')
     expect(pricingSql).not.toContain('"isDuplicate"')
     expect(dropSql).not.toContain('"isDuplicate"')
   })
@@ -56,6 +58,7 @@ describe('PrismaMarketRepository.getPopular', () => {
     for (const call of db.$queryRaw.mock.calls) {
       const sql = sqlFromCall(call)
       expect(sql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+      expect(sql).toContain('"publicationStatus" = \'eligible\'')
       expect(sql).not.toContain('"isDuplicate"')
     }
   })
