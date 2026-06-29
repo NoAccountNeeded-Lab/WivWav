@@ -66,6 +66,15 @@ enum ListingStatus {
   gone
 }
 
+/// Controls whether an observed listing may appear in public APIs and search.
+/// Source ingestion is default-deny: only a separate validation step may mark
+/// a listing eligible.
+enum ListingPublicationStatus {
+  pending
+  eligible
+  quarantined
+}
+
 enum SaleStatus {
   active
   pending
@@ -194,6 +203,12 @@ model Listing {
   goneAt     DateTime?
   soldAt     DateTime?
 
+  // Publication quality gate. Source/detail jobs retain observations but do
+  // not implicitly promote them into public APIs or search.
+  publicationStatus ListingPublicationStatus @default(pending)
+  qualityIssueCodes String[]                 @default([])
+  qualityCheckedAt  DateTime?
+
   listedAt           DateTime
   updatedAt          DateTime  @updatedAt
   scrapedAt          DateTime  @default(now())
@@ -219,6 +234,8 @@ model Listing {
   @@index([mileage])
   @@index([listedAt])
   @@index([status])
+  @@index([status, publicationStatus])
+  @@index([publicationStatus])
   @@index([saleStatus])
   @@index([vehicleModelId])
   @@index([processingLockedAt])
