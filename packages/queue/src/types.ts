@@ -66,6 +66,7 @@ export interface QueueAdapter {
     options?: JobOptions,
   ): Promise<void>
   removeRepeatableByKey(key: string): Promise<boolean>
+  cleanFailed(limit?: number): Promise<number>
   close(): Promise<void>
 }
 
