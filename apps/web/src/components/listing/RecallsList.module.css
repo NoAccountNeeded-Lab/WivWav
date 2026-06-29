@@ -26,6 +26,81 @@
   margin: 0;
 }
 
+.recallSummary {
+  margin-bottom: 0.5rem;
+}
+
+.recallSummaryCounts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.recallCountOpen {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8f4500;
+}
+
+.recallCountHistorical {
+  font-size: 0.75rem;
+  color: var(--clr-text-secondary);
+}
+
+.recallGroupLabel {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--clr-text-muted);
+  margin: 0.75rem 0 0.25rem;
+}
+.recallGroupLabel:first-of-type {
+  margin-top: 0;
+}
+
+.recallGroupNote {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.remedy {
+  font-size: 0.6875rem;
+  color: var(--clr-text-secondary);
+  margin-top: 0.1875rem;
+}
+
+.recallItemFooter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.sourceLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem; /* 44px WCAG 2.5.5 touch target */
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--clr-primary);
+  text-decoration: none;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  padding: 0 0.5rem;
+  white-space: nowrap;
+}
+.sourceLink:hover {
+  text-decoration: underline;
+}
+.sourceLink:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
 .noRecalls {
   font-size: 0.8125rem;
   color: var(--clr-text-secondary);
