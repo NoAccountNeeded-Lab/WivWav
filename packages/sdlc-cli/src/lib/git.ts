@@ -106,3 +106,10 @@ export function isBehindOriginMain(): boolean {
   if (!ok) return false
   return parseInt(stdout.trim(), 10) > 0
 }
+
+/** Return the number of commits on the current branch ahead of origin/main. */
+export function commitsAheadOfMain(): number {
+  const { stdout, ok } = tryRun('git rev-list --count origin/main..HEAD')
+  if (!ok) return 0
+  return parseInt(stdout.trim(), 10)
+}
