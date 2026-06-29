@@ -42,10 +42,14 @@ function makeStatus(overrides: Partial<ListingRefreshStatus> = {}): ListingRefre
       active: 2,
       needsAttention: 0,
       totalListings: 20,
+      observedActiveListings: 20,
+      eligibleListings: 5,
       lastScrapedAt: '2026-06-18T09:00:00.000Z',
     },
     listings: {
       active: 20,
+      observedActive: 20,
+      eligible: 5,
       mapReady: 18,
       missingLocations: 2,
     },
@@ -77,7 +81,15 @@ describe('buildListingRefreshSteps', () => {
 
   it('disables geocoding when all active listings already have coordinates', () => {
     const steps = buildListingRefreshSteps(
-      makeStatus({ listings: { active: 20, mapReady: 20, missingLocations: 0 } }),
+      makeStatus({
+        listings: {
+          active: 20,
+          observedActive: 20,
+          eligible: 5,
+          mapReady: 20,
+          missingLocations: 0,
+        },
+      }),
       makeHealth(),
     )
     const geocode = steps.find(step => step.id === 'geocode')
@@ -130,5 +142,24 @@ describe('buildListingRefreshSteps', () => {
 
     expect(sync?.status).toBe('warning')
     expect(sync?.actions[0]?.disabled).toBe(false)
+  })
+
+  it('blocks search sync while no listings are eligible', () => {
+    const status = makeStatus({
+      listings: {
+        active: 20,
+        observedActive: 20,
+        eligible: 0,
+        mapReady: 18,
+        missingLocations: 2,
+      },
+    })
+    const sync = buildListingRefreshSteps(status, makeHealth()).find(step => step.id === 'sync')
+
+    expect(sync?.status).toBe('blocked')
+    expect(sync?.actions[0]).toMatchObject({
+      disabled: true,
+      disabledReason: 'No listings are eligible for publication.',
+    })
   })
 })
