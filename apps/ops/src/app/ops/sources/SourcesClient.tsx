@@ -14,6 +14,8 @@ interface SourceRow {
   cronExpression: string
   lastScrapedAt: string | null
   listingCount: number
+  observedActiveCount: number
+  eligibleActiveCount: number
   errorMessage: string | null
 }
 
@@ -104,7 +106,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
         <div className={styles.pageHeader}>
           <div>
             <h1 className={styles.heading}>Source health</h1>
-            <p className={styles.pageIntro}>Review source status, listing counts, scrape timing, and source-specific errors.</p>
+            <p className={styles.pageIntro}>Review source status, observed inventory, publication eligibility, scrape timing, and source-specific errors.</p>
           </div>
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
@@ -152,7 +154,9 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                       aria-label="Cron expression explanation"
                     >?</span>
                   </th>
-                  <th className={styles.num}>Listings</th>
+                  <th className={styles.num}>Last scrape</th>
+                  <th className={styles.num}>Observed active</th>
+                  <th className={styles.num}>Eligible</th>
                   <th>Last Scraped</th>
                   <th>Error</th>
                   <th>Actions</th>
@@ -182,6 +186,8 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                         <code style={{ fontSize: '0.8125rem' }}>{s.cronExpression}</code>
                       </td>
                       <td className={styles.num}>{s.listingCount.toLocaleString()}</td>
+                      <td className={styles.num}>{s.observedActiveCount.toLocaleString()}</td>
+                      <td className={styles.num}>{s.eligibleActiveCount.toLocaleString()}</td>
                       <td className={styles.muted}>{fmtDate(s.lastScrapedAt)}</td>
                       <td>
                         {s.errorMessage

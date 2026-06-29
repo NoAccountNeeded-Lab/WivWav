@@ -27,10 +27,14 @@ export interface ListingRefreshStatus {
     active: number
     needsAttention: number
     totalListings: number
+    observedActiveListings: number
+    eligibleListings: number
     lastScrapedAt: string | null
   }
   listings: {
     active: number
+    observedActive: number
+    eligible: number
     mapReady: number
     missingLocations: number
   }
@@ -181,20 +185,20 @@ export function buildListingRefreshSteps(
       id: 'sync',
       title: 'Sync search index',
       status: firstStatus([
-        [searchDown || status.listings.active === 0, 'blocked'],
+        [searchDown || status.listings.eligible === 0, 'blocked'],
         [status.listings.missingLocations > 0, 'warning'],
       ]),
       lastRunAt: null,
-      countLabel: `${status.listings.active.toLocaleString()} active listings to index`,
+      countLabel: `${status.listings.eligible.toLocaleString()} eligible listings to index`,
       recommendation: syncRecommendation(status, searchDown),
       actions: [
         {
           id: 'sync-search',
           label: 'Sync search index',
-          disabled: searchDown || status.listings.active === 0,
+          disabled: searchDown || status.listings.eligible === 0,
           disabledReason: actionDisabledReason([
             [searchDown, 'Meilisearch is unavailable.'],
-            [status.listings.active === 0, 'No active listings are available to index.'],
+            [status.listings.eligible === 0, 'No listings are eligible for publication.'],
           ]),
         },
       ],
@@ -203,12 +207,12 @@ export function buildListingRefreshSteps(
       id: 'verify',
       title: 'Verify search and map readiness',
       status: firstStatus([
-        [searchDown || status.listings.active === 0, 'blocked'],
+        [searchDown || status.listings.eligible === 0, 'blocked'],
         [status.listings.missingLocations > 0 || status.listings.mapReady === 0, 'warning'],
         [true, 'complete'],
       ]),
       lastRunAt: null,
-      countLabel: `${status.listings.mapReady.toLocaleString()} of ${status.listings.active.toLocaleString()} active listings have coordinates`,
+      countLabel: `${status.listings.eligible.toLocaleString()} eligible of ${status.listings.observedActive.toLocaleString()} observed active listings`,
       recommendation: verifyRecommendation(status, searchDown),
       actions: [],
     },
@@ -314,14 +318,14 @@ function geocodeRecommendation(
 
 function syncRecommendation(status: ListingRefreshStatus, searchDown: boolean): string {
   if (searchDown) return 'Restore Meilisearch before syncing the index.'
-  if (status.listings.active === 0) return 'Scrape listings before syncing search.'
+  if (status.listings.eligible === 0) return 'Validate listings before syncing search; pending and quarantined rows stay unpublished.'
   if (status.listings.missingLocations > 0) return 'You can sync now, but map pins will be incomplete until geocoding finishes.'
   return 'Sync the search index so new listing and location data appear in search.'
 }
 
 function verifyRecommendation(status: ListingRefreshStatus, searchDown: boolean): string {
   if (searchDown) return 'Search is unavailable, so verification cannot pass yet.'
-  if (status.listings.active === 0) return 'No active listings are available to verify.'
+  if (status.listings.eligible === 0) return 'No listings are eligible for public verification.'
   if (status.listings.missingLocations > 0) return 'Run geocoding and sync again before considering the map ready.'
   if (status.listings.mapReady === 0) return 'Listings exist, but none have usable map coordinates.'
   return 'Search and map readiness look good. Spot-check the public listings page.'
