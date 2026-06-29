@@ -124,10 +124,9 @@ export function toDocument(row: Listing): ListingDocument {
   const canonModel = canonicalModel(null, row.model) ?? row.model
   // color stores the raw source color for provenance; canonicalColor derives the facet value
   const canonColor = canonicalColor(row.color)
-  // engine is the raw engine description (new field); fuelType may be an engine description
-  // on legacy rows from BLVD before the engine/fuelType separation was introduced.
-  const engineSource = (row as Listing & { engine?: string | null }).engine
-  const canonFuelType = canonicalFuelType(row.fuelType, engineSource ?? null)
+  // engine is the raw engine description; fuelType may be an engine description on legacy rows
+  // from BLVD before the engine/fuelType separation was introduced (pre-#515 backfill).
+  const canonFuelType = canonicalFuelType(row.fuelType, row.engine ?? null)
   const canonConverter = canonicalConversionManufacturer(row.conversionManufacturer, null)
 
   return {
