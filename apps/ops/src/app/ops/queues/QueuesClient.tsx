@@ -89,6 +89,56 @@ const QUEUE_META: Record<string, QueueMeta> = {
     detail: 'Runs weekly on Sunday at 6 AM. Use Activity to inspect rating lookup progress and failures.',
     canTrigger: true,
   },
+  'nhtsa-investigations': {
+    short: 'Refreshes NHTSA safety investigation records for vehicle models in inventory',
+    detail: 'Queries the NHTSA investigations API per vehicle model. Runs weekly on Sunday at 6:30 AM after safety ratings. Rate-limited to 300 ms between requests.',
+    canTrigger: true,
+  },
+  'nhtsa-manufacturer-communications': {
+    short: 'Refreshes NHTSA Technical Service Bulletins (TSBs) for vehicle models in inventory',
+    detail: 'Fetches TSBs from the NHTSA API per vehicle model. Runs weekly on Sunday at 7 AM. Use Activity to inspect per-model refresh progress and failures.',
+    canTrigger: true,
+  },
+  'dealer-enrich': {
+    short: 'Enriches dealer records with Google Places data (hours, reviews, photos)',
+    detail: 'Processes up to 50 dealers per run (2 API requests each) to stay within the 100 req/day free-tier budget. Re-enriches dealers older than 30 days. Runs nightly at 7 AM.',
+    canTrigger: true,
+  },
+  'vehicle-stats-refresh': {
+    short: 'Seeds vehicle reliability and lifespan statistics from a curated dataset',
+    detail: 'Loads vehicle stats (avg lifespan, reliability scores, J.D. Power data) from a bundled seed file into the database. Runs weekly on Sunday at 1 AM. Safe to re-trigger; upserts on make/model/year.',
+    canTrigger: true,
+  },
+  'model-research': {
+    short: 'Fetches EPA fuel economy specs (MPG, drivetrain, engine, transmission) for vehicle models',
+    detail: 'Calls the public EPA FuelEconomy.gov API — no key required. Stores claims with source URLs for display on listing detail pages. Runs weekly on Sunday at 5:30 AM.',
+    canTrigger: true,
+  },
+  'listing-sync': {
+    short: 'Syncs listing changes from Postgres into the Meilisearch search index',
+    detail: 'Read-only index rebuild — no writes to listing rows. Runs nightly at 1:30 AM. Also triggered by geocode and VIN enrichment jobs when coordinates or vehicle model links change. Use "Sync Meilisearch" above to trigger immediately.',
+    canTrigger: true,
+  },
+  'rawpage-cleanup': {
+    short: 'Deletes stale raw HTML pages from the raw_pages table',
+    detail: 'Removes processed pages older than 7 days and unprocessed pages older than 30 days. Runs nightly at midnight before other pipeline jobs. No listing writes.',
+    canTrigger: true,
+  },
+  'conversion-brands-seed': {
+    short: 'Seeds WAV conversion brand and product data from a curated JSON dataset',
+    detail: 'Loads conversion brands (e.g. BraunAbility, VMI) and their products into the database from a bundled seed file. Runs weekly on Sunday at 1:15 AM. Safe to re-trigger; upserts on name.',
+    canTrigger: true,
+  },
+  'nmeda-dealers-seed': {
+    short: 'Seeds NMEDA-certified dealer records from a curated JSON dataset',
+    detail: 'Loads NMEDA dealer contact and certification data from a bundled seed file into the database. Runs weekly on Sunday at 1:20 AM. Safe to re-trigger; upserts on name.',
+    canTrigger: true,
+  },
+  'fueleconomy-msrp': {
+    short: 'Fetches MSRP data from the U.S. DOE FuelEconomy.gov API for vehicle models',
+    detail: 'Stores base MSRP values with source attribution for display on listing pages. Rate-limited to 300 ms between requests to be polite to government infrastructure. Runs weekly on Sunday at 7:30 AM.',
+    canTrigger: true,
+  },
 }
 
 interface ActionState {

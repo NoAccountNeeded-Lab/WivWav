@@ -115,6 +115,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     return reply.send({ data: { paused: false } })
   })
 
+  // DELETE /admin/queues/:name/failed — clean all failed jobs from a queue
+  app.delete<{ Params: { name: string } }>('/queues/:name/failed', async (req, reply) => {
+    const q = queues.get(req.params.name)
+    if (!q) return reply.notFound(`Queue "${req.params.name}" not found`)
+    const removed = await q.cleanFailed()
+    return reply.send({ data: { removed } })
+  })
+
   // GET /admin/runs — last 100 scraper runs ordered by startedAt desc, with source name
   app.get('/runs', async (_req, reply) => {
     const runs = await scraperRuns.findRecent(100)
@@ -280,8 +288,11 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
     const data = defs.map((def) => {
       const live = liveByQueue.get(def.queue) ?? []
+      // BullMQ 5 stores repeatables in a Redis hash that omits `id`, so r.id is
+      // always null for new-format entries. Fall back to name+pattern matching.
       const match = def.jobId
-        ? live.find((r) => r.id === def.jobId)
+        ? (live.find((r) => r.id === def.jobId) ??
+           live.find((r) => r.name === def.name && r.pattern === def.defaultPattern))
         : live.find((r) => r.name === def.name)
       const jobs = (jobsByQueue.get(def.queue) ?? []).filter((job) => isMatchingJob(job, def))
       const latestJob = [...jobs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
