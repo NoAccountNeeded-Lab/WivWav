@@ -302,6 +302,7 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
           marketPricing={marketPricing}
           priceHistory={priceHistory}
           similar={similar}
+          modelMsrp={modelMsrp}
         />
       ),
     },
