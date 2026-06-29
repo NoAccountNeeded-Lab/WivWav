@@ -16,6 +16,11 @@ interface QueueJobBody {
   data?: Record<string, unknown>
 }
 
+const SOURCE_SCOPED_QUEUES = new Set<string>([
+  QUEUES.DETAIL_CRAWL,
+  QUEUES.DETAIL_EXTRACT,
+])
+
 const LISTING_REFRESH_QUEUES = [
   QUEUES.SOURCE_SCRAPE,
   QUEUES.DETAIL_CRAWL,
@@ -94,7 +99,19 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     async (req, reply) => {
       const q = queues.get(req.params.name)
       if (!q) return reply.notFound(`Queue "${req.params.name}" not found`)
-      const id = await q.add({ ...(req.body?.data ?? {}), traceId: req.id })
+      const data = req.body?.data ?? {}
+      if (
+        SOURCE_SCOPED_QUEUES.has(req.params.name)
+        && (typeof data['sourceId'] !== 'string' || data['sourceId'].trim().length === 0)
+      ) {
+        return reply.code(400).send({
+          error: {
+            code: 'BAD_REQUEST',
+            message: `Queue "${req.params.name}" requires a non-empty data.sourceId`,
+          },
+        })
+      }
+      const id = await q.add({ ...data, traceId: req.id })
       return reply.code(201).send({ data: { id } })
     },
   )

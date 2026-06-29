@@ -158,6 +158,58 @@ describe('POST /queues/:name/jobs', () => {
     await app.close()
   })
 
+  it.each([
+    [QUEUES.DETAIL_CRAWL, 'missing', {}],
+    [QUEUES.DETAIL_CRAWL, 'empty', { sourceId: '   ' }],
+    [QUEUES.DETAIL_EXTRACT, 'missing', {}],
+    [QUEUES.DETAIL_EXTRACT, 'empty', { sourceId: '   ' }],
+  ])(
+    'rejects %s jobs with a %s source id',
+    async (queueName, _case, data) => {
+      const factory = new MockQueueFactory()
+      const { app } = buildTestApp({}, {}, factory)
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/queues/${queueName}/jobs`,
+        payload: { data },
+      })
+
+      expect(res.statusCode).toBe(400)
+      expect(res.json()).toEqual({
+        error: {
+          code: 'BAD_REQUEST',
+          message: `Queue "${queueName}" requires a non-empty data.sourceId`,
+        },
+      })
+      expect(factory.getQueue(queueName)?.getEnqueued()).toHaveLength(0)
+
+      await app.close()
+    },
+  )
+
+  it.each([QUEUES.DETAIL_CRAWL, QUEUES.DETAIL_EXTRACT])(
+    'enqueues %s jobs with a source id',
+    async queueName => {
+      const factory = new MockQueueFactory()
+      const { app } = buildTestApp({}, {}, factory)
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/queues/${queueName}/jobs`,
+        payload: { data: { sourceId: 'src-1' } },
+      })
+
+      expect(res.statusCode).toBe(201)
+      expect(factory.getQueue(queueName)?.getEnqueued()[0]?.data).toMatchObject({
+        sourceId: 'src-1',
+        traceId: expect.any(String),
+      })
+
+      await app.close()
+    },
+  )
+
   it('rejects non-object job data', async () => {
     const factory = new MockQueueFactory()
     const { app } = buildTestApp({}, {}, factory)

@@ -111,6 +111,9 @@ export async function runDetailExtractJob(
   context?: JobContext,
   browserService?: BrowserService,
 ): Promise<void> {
+  if (typeof sourceId !== 'string' || sourceId.trim().length === 0) {
+    throw new Error('[detail-extract] sourceId must be a non-empty string')
+  }
   const db = getDb()
 
   const rawPages = await db.rawPage.findMany({
