@@ -8,6 +8,15 @@ import type { JobContext } from '@wivwav/queue'
 
 const REMAP_CONFIDENCE_THRESHOLD = 0.7
 
+/**
+ * Number of hours after which a periodic full crawl is forced even if page-1
+ * is unchanged. This prevents price and removal changes on later pages from
+ * remaining invisible indefinitely.
+ *
+ * Default: 24 hours. Override by passing `fullCrawlIntervalHours` in EngineOptions.
+ */
+const DEFAULT_FULL_CRAWL_INTERVAL_HOURS = 24
+
 /** Safely format a confidence value. Returns '?.??' when the value is not a finite number. */
 function formatConfidence(value: unknown): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '?.??'
@@ -17,6 +26,8 @@ interface EngineOptions {
   runs: ScraperRunRepository
   sources: SourceRepository
   listings: ListingRepository
+  /** Hours between forced full crawls when page-1 is unchanged. Default: 24. */
+  fullCrawlIntervalHours?: number
 }
 
 export class ScraperEngine {
@@ -24,11 +35,13 @@ export class ScraperEngine {
   private readonly runs: ScraperRunRepository
   private readonly sources: SourceRepository
   private readonly listings: ListingRepository
+  private readonly fullCrawlIntervalHours: number
 
   constructor(options: EngineOptions) {
     this.runs = options.runs
     this.sources = options.sources
     this.listings = options.listings
+    this.fullCrawlIntervalHours = options.fullCrawlIntervalHours ?? DEFAULT_FULL_CRAWL_INTERVAL_HOURS
   }
 
   // dbSourceId is the DB record's CUID — the key used by all repository methods.
@@ -49,26 +62,48 @@ export class ScraperEngine {
 
     try {
       // Page 1 gatekeeper: hash the listing IDs on page 1 sorted by newest.
-      // If unchanged, nothing new was listed — skip the full crawl entirely.
+      // When unchanged, skip the full crawl UNLESS a periodic full crawl is overdue.
+      // This ensures price/removal changes on later pages are eventually detected
+      // even when page 1 appears stable.
       let page1Hash: string | undefined
+      let forceFullCrawl = false
+
       if (adapter.checkPage1) {
         const page1Check = await adapter.checkPage1()
         page1Hash = page1Check.currentHash
+
         if (!page1Check.changed) {
-          await report(context, `[source-scrape] Page 1 unchanged for ${adapter.name}; skipping full crawl`, {
-            stage: 'no_changes',
+          // Check if a periodic full crawl is overdue
+          const lastFullCrawlAt = await this.sources.getLastFullCrawlAt(sourceId)
+          const fullCrawlIntervalMs = this.fullCrawlIntervalHours * 60 * 60 * 1000
+          const isOverdue =
+            lastFullCrawlAt === null ||
+            Date.now() - lastFullCrawlAt.getTime() > fullCrawlIntervalMs
+
+          if (!isOverdue) {
+            await report(context, `[source-scrape] Page 1 unchanged for ${adapter.name}; skipping full crawl (last full crawl within interval)`, {
+              stage: 'no_changes',
+              current: 0,
+              total: 0,
+            })
+            await this.runs.complete(run.id, 0)
+            await this.sources.markChecked(sourceId)
+            return false
+          }
+
+          forceFullCrawl = true
+          await report(context, `[source-scrape] Page 1 unchanged for ${adapter.name} but periodic full crawl is overdue — running full crawl`, {
+            stage: 'checking-structure',
             current: 0,
             total: 0,
           })
-          await this.runs.complete(run.id, 0)
-          await this.sources.markChecked(sourceId)
-          return false
+        } else {
+          await report(context, `[source-scrape] Page 1 changed for ${adapter.name}; running full crawl`, {
+            stage: 'checking-structure',
+            current: 0,
+            total: 0,
+          })
         }
-        await report(context, `[source-scrape] Page 1 changed for ${adapter.name}; running full crawl`, {
-          stage: 'checking-structure',
-          current: 0,
-          total: 0,
-        })
       }
 
       const structureCheck = await adapter.checkStructure()
@@ -199,19 +234,29 @@ export class ScraperEngine {
         }
       }
 
+      // All adapter scrapes are currently complete crawls (all pages).
+      // The page-1 gatekeeper is an optimization that skips this path entirely
+      // when unchanged and the periodic interval has not elapsed.
+      // Any run that reaches here traversed the full source index.
+      const isCompleteCrawl = true
+
       const activeSourceRecordKeys = result.listings.map(l => l.sourceRecordKey)
-      const goneCount = await this.listings.markGone(sourceId, activeSourceRecordKeys)
+      const goneCount = await this.listings.markGone(sourceId, activeSourceRecordKeys, { isCompleteCrawl })
 
       await this.runs.complete(run.id, result.listings.length)
       await this.sources.markActive(sourceId, {
         listingCount: result.listings.length,
         fingerprintHash: structureCheck.currentHash,
         ...(page1Hash !== undefined ? { page1Hash } : {}),
+        isCompleteCrawl,
       })
-      await report(context, `[source-scrape] Done. ${result.listings.length} listing(s), ${goneCount} marked gone.`, {
+
+      const crawlType = forceFullCrawl ? 'forced full crawl' : 'full crawl'
+      await report(context, `[source-scrape] Done (${crawlType}). ${result.listings.length} listing(s), ${goneCount} marked gone.`, {
         stage: 'complete',
         current: result.listings.length,
         total: result.listings.length,
+        isCompleteCrawl,
       })
 
       runGeocodeJob().catch((err: unknown) => {
