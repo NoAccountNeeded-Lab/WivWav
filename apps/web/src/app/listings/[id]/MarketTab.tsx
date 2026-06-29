@@ -1,6 +1,7 @@
 import { MarketComparison } from '@/components/listing/MarketComparison'
+import { PriceHistoryChart } from '@/components/listing/PriceHistoryChart'
 import { SimilarListings } from '@/components/listing/SimilarListings'
-import type { ListingDetail, MarketPricing, PricePoint, SimilarListing } from './types'
+import type { ListingDetail, MarketPricing, ModelMsrp, PricePoint, SimilarListing } from './types'
 import styles from './tabs.module.css'
 
 interface MarketTabProps {
@@ -8,13 +9,24 @@ interface MarketTabProps {
   marketPricing: MarketPricing | null
   priceHistory: PricePoint[]
   similar: SimilarListing[]
+  modelMsrp?: ModelMsrp | null
 }
 
-export function MarketTab({ listing, marketPricing, priceHistory, similar }: MarketTabProps) {
+export function MarketTab({ listing, marketPricing, priceHistory, similar, modelMsrp }: MarketTabProps) {
   const hasMarket = marketPricing && marketPricing.count >= 3 && marketPricing.priceCents
 
   return (
     <div className={styles.tabContent}>
+      {priceHistory.length >= 2 && (
+        <div className={styles.section}>
+          <div className={styles.sectionLabel}>Price history</div>
+          <PriceHistoryChart
+            priceHistory={priceHistory}
+            originalMsrpCents={modelMsrp?.originalMsrpCents}
+          />
+        </div>
+      )}
+
       {hasMarket ? (
         <div className={styles.section}>
           <div className={styles.sectionLabel}>Price vs. market</div>

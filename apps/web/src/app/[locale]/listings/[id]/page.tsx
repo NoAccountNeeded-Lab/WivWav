@@ -290,6 +290,7 @@ export default async function ListingDetailV2Page({
           marketPricing={marketPricing}
           priceHistory={priceHistory}
           similar={similar}
+          modelMsrp={modelMsrp}
         />
       ),
     },
