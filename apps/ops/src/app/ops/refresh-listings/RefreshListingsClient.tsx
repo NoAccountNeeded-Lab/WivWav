@@ -5,7 +5,9 @@ import Link from 'next/link'
 import styles from '../ops.module.css'
 import {
   buildListingRefreshSteps,
+  getActiveSourceIds,
   type ListingRefreshStatus,
+  type RefreshSource,
   type WorkflowActionId,
   type WorkflowHealth,
   type WorkflowStepStatus,
@@ -13,12 +15,6 @@ import {
 
 interface RefreshListingsClientProps {
   apiBaseUrl: string
-}
-
-interface SourceRow {
-  id: string
-  name: string
-  status: string
 }
 
 interface ActionState {
@@ -32,7 +28,7 @@ const REFRESH_MS = 15_000
 export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps) {
   const [status, setStatus] = useState<ListingRefreshStatus | null>(null)
   const [health, setHealth] = useState<WorkflowHealth | null>(null)
-  const [sources, setSources] = useState<SourceRow[]>([])
+  const [sources, setSources] = useState<RefreshSource[]>([])
   const [error, setError] = useState<string | null>(null)
   const [healthWarning, setHealthWarning] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
@@ -44,7 +40,7 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
     try {
       const [statusBody, sourcesBody, healthBody] = await Promise.all([
         fetchJson<{ data: ListingRefreshStatus }>(`${apiBaseUrl}/admin/listing-refresh/status`),
-        fetchJson<{ data: SourceRow[] }>(`${apiBaseUrl}/admin/sources`),
+        fetchJson<{ data: RefreshSource[] }>(`${apiBaseUrl}/admin/sources`),
         fetchJson<WorkflowHealth>(`${apiBaseUrl}/health`).catch(() => null),
       ])
       setStatus(statusBody.data)
@@ -76,16 +72,24 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
     setAction(actionId, { loading: true, feedback: null, isError: false })
     try {
       if (actionId === 'run-sources') {
-        const activeSources = sources.filter(source => source.status === 'active')
-        if (activeSources.length === 0) throw new Error('No active sources are available.')
-        await Promise.all(activeSources.map(source => postJson(`${apiBaseUrl}/admin/sources/${encodeURIComponent(source.id)}/run`)))
-        setAction(actionId, { loading: false, feedback: `Enqueued ${activeSources.length.toLocaleString()} source scrape jobs`, isError: false })
+        const activeSourceIds = getActiveSourceIds(sources)
+        if (activeSourceIds.length === 0) throw new Error('No active sources are available.')
+        await Promise.all(activeSourceIds.map(sourceId => postJson(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/run`)))
+        setAction(actionId, { loading: false, feedback: `Enqueued ${activeSourceIds.length.toLocaleString()} source scrape jobs`, isError: false })
       } else if (actionId === 'run-detail-crawl') {
-        const body = await postJson<{ data: { id: string } }>(`${apiBaseUrl}/admin/queues/detail-crawl/jobs`)
-        setAction(actionId, { loading: false, feedback: `Enqueued detail crawl job ${body.data.id}`, isError: false })
+        const activeSourceIds = getActiveSourceIds(sources)
+        if (activeSourceIds.length === 0) throw new Error('No active sources are available.')
+        await Promise.all(activeSourceIds.map(sourceId =>
+          postJson(`${apiBaseUrl}/admin/queues/detail-crawl/jobs`, { sourceId }),
+        ))
+        setAction(actionId, { loading: false, feedback: `Enqueued ${activeSourceIds.length.toLocaleString()} detail crawl jobs`, isError: false })
       } else if (actionId === 'run-detail-extract') {
-        const body = await postJson<{ data: { id: string } }>(`${apiBaseUrl}/admin/queues/detail-extract/jobs`)
-        setAction(actionId, { loading: false, feedback: `Enqueued detail extract job ${body.data.id}`, isError: false })
+        const activeSourceIds = getActiveSourceIds(sources)
+        if (activeSourceIds.length === 0) throw new Error('No active sources are available.')
+        await Promise.all(activeSourceIds.map(sourceId =>
+          postJson(`${apiBaseUrl}/admin/queues/detail-extract/jobs`, { sourceId }),
+        ))
+        setAction(actionId, { loading: false, feedback: `Enqueued ${activeSourceIds.length.toLocaleString()} detail extract jobs`, isError: false })
       } else if (actionId === 'run-geocode') {
         const body = await postJson<{ data: { id: string } }>(`${apiBaseUrl}/admin/queues/geocode/jobs`)
         setAction(actionId, { loading: false, feedback: `Enqueued geocode job ${body.data.id}`, isError: false })
@@ -225,11 +229,11 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
-async function postJson<T = unknown>(url: string): Promise<T> {
+async function postJson<T = unknown>(url: string, data?: Record<string, unknown>): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify(data === undefined ? {} : { data }),
   })
   if (!res.ok) throw new Error(`API returned ${res.status}`)
   return res.json() as Promise<T>

@@ -38,6 +38,13 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
     vi.clearAllMocks()
   })
 
+  it('rejects a missing source id before querying the database', async () => {
+    await expect(runDetailCrawlJob(undefined as never)).rejects.toThrow(
+      '[detail-crawl] sourceId must be a non-empty string',
+    )
+    expect(getDb).not.toHaveBeenCalled()
+  })
+
   it('passes CRITICAL_JOB_OPTIONS when enqueuing a listing-sync job after a 404', async () => {
     const db = makeDb({
       listing: {

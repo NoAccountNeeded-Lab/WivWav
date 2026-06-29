@@ -1,7 +1,25 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+
+vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
+
+import { getDb } from '@wivwav/db'
 import { buildListingDetailUpdateData, resolveListingStatus } from './detail-extract.js'
+import { runDetailExtractJob } from './detail-extract.js'
 
 const NOW = new Date('2026-06-02T00:00:00Z')
+
+describe('runDetailExtractJob', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rejects an empty source id before querying the database', async () => {
+    await expect(runDetailExtractJob('   ')).rejects.toThrow(
+      '[detail-extract] sourceId must be a non-empty string',
+    )
+    expect(getDb).not.toHaveBeenCalled()
+  })
+})
 
 describe('resolveListingStatus', () => {
   // ── possibly_gone listings ───────────────────────────────────────────────

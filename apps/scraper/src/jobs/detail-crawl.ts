@@ -16,6 +16,9 @@ export async function runDetailCrawlJob(
   listingSyncQueue?: QueueAdapter,
   browserService?: BrowserService,
 ): Promise<void> {
+  if (typeof sourceId !== 'string' || sourceId.trim().length === 0) {
+    throw new Error('[detail-crawl] sourceId must be a non-empty string')
+  }
   const db = getDb()
 
   const staleThreshold = new Date(Date.now() - STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000)

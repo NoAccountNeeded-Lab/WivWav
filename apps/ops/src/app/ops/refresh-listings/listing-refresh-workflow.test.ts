@@ -1,12 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildListingRefreshSteps,
+  getActiveSourceIds,
   type ListingRefreshStatus,
   type RefreshQueueState,
   type WorkflowHealth,
 } from './listing-refresh-workflow.js'
 
 const queueNames = ['source-scrape', 'detail-crawl', 'detail-extract', 'geocode'] as const
+
+describe('getActiveSourceIds', () => {
+  it('returns each non-empty active source id once', () => {
+    expect(getActiveSourceIds([
+      { id: 'src-1', name: 'One', status: 'active' },
+      { id: 'src-2', name: 'Two', status: 'paused' },
+      { id: 'src-1', name: 'Duplicate', status: 'active' },
+      { id: '  ', name: 'Invalid', status: 'active' },
+      { id: ' src-3 ', name: 'Three', status: 'active' },
+    ])).toEqual(['src-1', 'src-3'])
+  })
+})
 
 function makeQueue(overrides: Partial<RefreshQueueState> & Pick<RefreshQueueState, 'name'>): RefreshQueueState {
   return {

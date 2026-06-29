@@ -55,6 +55,12 @@ export interface WorkflowHealth {
   }
 }
 
+export interface RefreshSource {
+  id: string
+  name: string
+  status: string
+}
+
 export type WorkflowStepStatus = 'complete' | 'actionable' | 'running' | 'warning' | 'blocked'
 export type WorkflowActionId = 'run-sources' | 'run-detail-crawl' | 'run-detail-extract' | 'run-geocode' | 'sync-search'
 
@@ -73,6 +79,17 @@ export interface WorkflowStep {
   countLabel: string
   recommendation: string
   actions: WorkflowAction[]
+}
+
+export function getActiveSourceIds(sources: RefreshSource[]): string[] {
+  return [
+    ...new Set(
+      sources
+        .filter(source => source.status === 'active')
+        .map(source => source.id.trim())
+        .filter(sourceId => sourceId.length > 0),
+    ),
+  ]
 }
 
 export function buildListingRefreshSteps(
