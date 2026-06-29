@@ -115,6 +115,9 @@ describe('buildListingDetailUpdateData', () => {
       dealerWebsite: 'https://dealer.example.com',
       buyerUrl: 'https://dealer.example.com/inventory/5TDYRKEC8RS205440',
       detailScrapedAt: NOW,
+      publicationStatus: 'pending',
+      qualityIssueCodes: [],
+      qualityCheckedAt: null,
     })
   })
 

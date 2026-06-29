@@ -98,12 +98,13 @@ describe('ScraperEngine', () => {
     const adapter = makeAdapter('src-1')
     engine.register(adapter, adapter.sourceId)
 
-    await engine.runSource('src-1')
+    const listingsChanged = await engine.runSource('src-1')
 
     expect(runs.start).toHaveBeenCalledWith('src-1')
     expect(runs.complete).toHaveBeenCalledWith('run-1', 0)
     expect(sources.markActive).toHaveBeenCalledWith('src-1', { listingCount: 0, fingerprintHash: 'abc' })
     expect(listings.upsert).not.toHaveBeenCalled()
+    expect(listingsChanged).toBe(false)
   })
 
   // ─── page 1 gatekeeper ───────────────────────────────────────────────────────
@@ -114,10 +115,11 @@ describe('ScraperEngine', () => {
     const adapter = makeAdapterWithPage1('src-1', false)
     engine.register(adapter, adapter.sourceId)
 
-    await engine.runSource('src-1', context)
+    const listingsChanged = await engine.runSource('src-1', context)
 
     expect(adapter.checkPage1).toHaveBeenCalled()
     expect(adapter.checkStructure).not.toHaveBeenCalled()
+    expect(listingsChanged).toBe(false)
     expect(adapter.scrape).not.toHaveBeenCalled()
     expect(runs.complete).toHaveBeenCalledWith('run-1', 0)
     expect(sources.markChecked).toHaveBeenCalledWith('src-1')
@@ -276,7 +278,7 @@ describe('ScraperEngine', () => {
 
     // Should NOT rethrow — AI errors are caught and degraded to needs_remapping to
     // prevent BullMQ from retrying the job immediately and infinitely.
-    await expect(engine.runSource('src-1', context, malformedDetector)).resolves.toBeUndefined()
+    await expect(engine.runSource('src-1', context, malformedDetector)).resolves.toBe(false)
 
     // Source is marked needs_remapping (not error) so BullMQ doesn't retry
     expect(sources.markNeedsRemapping).toHaveBeenCalledWith(
@@ -332,9 +334,10 @@ describe('ScraperEngine', () => {
     })
     engine.register(adapter, 'db-source-id')
 
-    await engine.runSource('db-source-id')
+    const listingsChanged = await engine.runSource('db-source-id')
 
     expect(listings.upsert).toHaveBeenCalledWith(expect.objectContaining({ sourceId: 'db-source-id' }))
+    expect(listingsChanged).toBe(true)
   })
 
   it('passes the URL-based sourceRecordKey to markGone when externalId is null', async () => {
