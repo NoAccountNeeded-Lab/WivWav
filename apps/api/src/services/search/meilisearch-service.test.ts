@@ -91,13 +91,24 @@ function makeClient() {
   }))
   const addDocumentsMock = vi.fn(async (_docs: unknown, _opts: unknown) => ({}))
   const deleteDocumentsMock = vi.fn(async (_ids: unknown) => ({}))
+  const deleteAllDocumentsMock = vi.fn(async () => ({ taskUid: 9 }))
+  const waitForTaskMock = vi.fn(async () => ({ status: 'succeeded', uid: 9 }))
   const indexMock = vi.fn(() => ({
     search: searchMock,
     addDocuments: addDocumentsMock,
     deleteDocuments: deleteDocumentsMock,
+    deleteAllDocuments: deleteAllDocumentsMock,
   }))
-  const client = { index: indexMock }
-  return { client, searchMock, addDocumentsMock, deleteDocumentsMock, indexMock }
+  const client = { index: indexMock, tasks: { waitForTask: waitForTaskMock } }
+  return {
+    client,
+    searchMock,
+    addDocumentsMock,
+    deleteDocumentsMock,
+    deleteAllDocumentsMock,
+    waitForTaskMock,
+    indexMock,
+  }
 }
 
 describe('MeilisearchService.search', () => {
@@ -246,5 +257,27 @@ describe('MeilisearchService.delete', () => {
     const svc = new MeilisearchService(client as never)
     await svc.delete('listings', [])
     expect(deleteDocumentsMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('MeilisearchService.clear', () => {
+  it('waits for deleteAllDocuments to succeed', async () => {
+    const { client, deleteAllDocumentsMock, waitForTaskMock } = makeClient()
+    const svc = new MeilisearchService(client as never)
+
+    await svc.clear('listings')
+
+    expect(deleteAllDocumentsMock).toHaveBeenCalledOnce()
+    expect(waitForTaskMock).toHaveBeenCalledWith(9, { timeout: 15_000 })
+  })
+
+  it('throws when the clear task does not succeed', async () => {
+    const { client, waitForTaskMock } = makeClient()
+    waitForTaskMock.mockResolvedValueOnce({ status: 'failed', uid: 9 })
+    const svc = new MeilisearchService(client as never)
+
+    await expect(svc.clear('listings')).rejects.toThrow(
+      'Meilisearch clear failed: task 9 ended with status failed',
+    )
   })
 })

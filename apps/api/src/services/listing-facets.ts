@@ -22,6 +22,7 @@ export interface FacetsResult {
 }
 
 const CACHE_TTL_SECONDS = 60
+const CACHE_NAMESPACE = 'facets:eligible-v1'
 
 export class ListingFacetsService {
   constructor(
@@ -30,7 +31,9 @@ export class ListingFacetsService {
   ) {}
 
   async getFacets(params: FacetsParams): Promise<FacetsResult> {
-    const cacheKey = `facets:${stableKey(params)}`
+    // Namespace includes the publication policy so pre-gate cached facet
+    // counts cannot survive a deployment of the default-deny boundary.
+    const cacheKey = `${CACHE_NAMESPACE}:${stableKey(params)}`
 
     const cached = await this.cache.get(cacheKey).catch(() => null)
     if (cached) return JSON.parse(cached) as FacetsResult
