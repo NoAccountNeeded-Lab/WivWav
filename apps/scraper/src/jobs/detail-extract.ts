@@ -85,7 +85,14 @@ export function buildListingDetailUpdateData(
     wavFeatures: detail.wavFeatures,
     floorLoweringInches: detail.floorLoweringInches,
     wheelchairCapacity: detail.wheelchairCapacity,
-    description: detail.description,
+    // Only overwrite description when extraction succeeded. A null description
+    // from a failed selector (descriptionFound: false in MW detail) must not
+    // erase a previously stored valid description. Full field-ownership
+    // semantics are owned by #501; this guard ensures fail-closed behaviour.
+    ...(detail.description !== null && { description: detail.description }),
+    // Images: only overwrite when the gallery container was found and produced
+    // at least one URL; an empty array from a failed gallery extraction must
+    // not clear a previously stored image list.
     ...(detail.images.length > 0 && { images: detail.images }),
     ...(detail.zip && { zip: detail.zip }),
     ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
