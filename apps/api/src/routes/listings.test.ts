@@ -45,6 +45,9 @@ const defaultDbListing = {
   isDuplicate: false,
   canonicalId: null,
   status: 'active',
+  publicationStatus: 'eligible',
+  qualityIssueCodes: [],
+  qualityCheckedAt: new Date('2024-01-02'),
   saleStatus: 'active',
   goneAt: null,
   soldAt: null,
@@ -275,7 +278,7 @@ describe('GET /facets', () => {
 })
 
 describe('GET /:id — provenance', () => {
-  it('returns 404 when listing does not exist', async () => {
+  it('returns 404 when the repository hides a missing or non-eligible listing', async () => {
     const { app } = buildTestApp()
 
     const res = await app.inject({ method: 'GET', url: '/nonexistent-id' })
