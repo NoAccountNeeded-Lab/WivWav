@@ -30,16 +30,24 @@ export type StatusUpdate =
  * Rules:
  * - sold banner on any non-gone listing → gone (+ soldAt on first confirmation)
  * - gone/unavailable banner on any non-gone listing → gone without soldAt
- * - pending banner on possibly_gone → restore to active (listing still live, just under contract)
+ * - pending banner on possibly_gone that is NOT index-absent → restore to active
  * - pending banner on active → no status change (stays visible in search with saleStatus label)
- * - possibly_gone + no banner → restore to active (confirmed still live)
+ * - possibly_gone with NO index-absence evidence + no/pending banner → restore to active
+ * - possibly_gone with index-absence evidence (missingFromCompleteCount > 0) + no/pending banner
+ *   → no status change from detail page; only a new complete source crawl may restore it
  * - active + no banner (stale refresh) → no status change
+ *
+ * The `missingFromCompleteCount` parameter is the number of consecutive complete
+ * source crawls that did not include this listing. A value > 0 means the listing
+ * is absent from the source index; a detail-page 200 without a sold/gone banner
+ * is then a stale orphan page and must NOT restore the listing to active.
  */
 export function resolveListingStatus(
   currentStatus: ListingStatus,
   saleStatus: SaleStatus,
   existingSoldAt: Date | null,
   now: Date,
+  missingFromCompleteCount = 0,
 ): StatusUpdate {
   if ((saleStatus === 'sold' || saleStatus === 'gone') && currentStatus !== 'gone') {
     return {
@@ -49,8 +57,16 @@ export function resolveListingStatus(
     }
   }
   if (currentStatus === 'possibly_gone' && saleStatus !== 'sold') {
+    // When the listing is missing from the source index (has been absent from ≥1
+    // complete crawl), a 200 detail response without a sold/gone banner is not
+    // sufficient evidence to restore active status. The listing might be an orphan
+    // detail page that remains reachable after the dealer removes it from inventory.
+    // Only a new complete source crawl that includes the listing can restore it.
+    if (missingFromCompleteCount > 0) {
+      return {}
+    }
     // Pending banner means the listing is still live (just under contract); restore it.
-    // No banner also means it's still live.
+    // No banner also means it's still live when there is no index-absence evidence.
     return { status: 'active', goneAt: null }
   }
   return {}
@@ -170,7 +186,7 @@ export async function runDetailExtractJob(
 
         const listing = await db.listing.findFirst({
           where: { sourceUrl: rawPage.url },
-          select: { id: true, status: true, soldAt: true, vin: true },
+          select: { id: true, status: true, soldAt: true, vin: true, missingFromCompleteCount: true },
         })
 
         if (listing) {
@@ -180,6 +196,7 @@ export async function runDetailExtractJob(
             detail.saleStatus,
             listing.soldAt,
             now,
+            listing.missingFromCompleteCount,
           )
           const enrichment = await enrichBlvdDealerListing({
             sourceUrl: rawPage.url,
