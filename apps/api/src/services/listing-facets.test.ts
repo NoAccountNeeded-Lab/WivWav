@@ -74,6 +74,7 @@ describe('ListingFacetsService', () => {
 
     const result = await new ListingFacetsService(search, cache).getFacets({})
 
+    expect(cache.get).toHaveBeenCalledWith('facets:eligible-v1:{}')
     expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
       facets: expect.arrayContaining(['rampType', 'wavFeatures']),
       limit: 0,
