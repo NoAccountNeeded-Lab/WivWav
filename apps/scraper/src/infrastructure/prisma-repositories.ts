@@ -211,7 +211,7 @@ export class PrismaListingRepository implements ListingRepository {
         // Any changed source observation invalidates the previous quality
         // decision. A validator must explicitly promote the row again.
         publicationStatus: 'pending',
-        qualityIssueCodes: [],
+        qualityIssueCodes: listing.qualityIssueCodes ?? [],
         qualityCheckedAt: null,
         ...(resetDetail ? { detailScrapedAt: null } : {}),
         ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
@@ -253,6 +253,7 @@ export class PrismaListingRepository implements ListingRepository {
         dealerWebsite: listing.dealer.website,
         images: listing.images,
         description: listing.description,
+        qualityIssueCodes: listing.qualityIssueCodes ?? [],
         listedAt: listing.listedAt,
         ...(listing.priceCents != null
           ? { priceHistory: { create: { priceCents: listing.priceCents } } }

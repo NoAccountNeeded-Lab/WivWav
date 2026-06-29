@@ -1,4 +1,39 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// Mock @wivwav/db so unit tests run without a built dist or live database.
+// The VIN implementations here match packages/db/src/lib/vin.ts exactly.
+vi.mock('@wivwav/db', () => {
+  const TRANSLITERATION: Record<string, number> = {
+    '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+    A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8,
+    J: 1, K: 2, L: 3, M: 4, N: 5,         P: 7, R: 9,
+    S: 2, T: 3, U: 4, V: 5, W: 6, X: 7, Y: 8, Z: 9,
+  }
+  const WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2]
+
+  function normalizeVin(raw: string): string {
+    return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  }
+  function isValidVin(vin: string): boolean {
+    if (vin.length !== 17) return false
+    if (/[IOQ]/.test(vin)) return false
+    return true
+  }
+  function checkDigitValid(vin: string): boolean {
+    if (vin.length !== 17) return false
+    let sum = 0
+    for (let i = 0; i < 17; i++) {
+      const val = TRANSLITERATION[vin[i]!]
+      if (val === undefined) return false
+      sum += val * WEIGHTS[i]!
+    }
+    const remainder = sum % 11
+    const expected = remainder === 10 ? 'X' : String(remainder)
+    return vin[8] === expected
+  }
+  return { normalizeVin, isValidVin, checkDigitValid }
+})
+
 import {
   parseMileage,
   parsePrice,
@@ -169,9 +204,15 @@ describe('parseCard', () => {
     expect(result!.condition).toBe('new')
   })
 
-  it('returns null when VIN is not 17 characters', () => {
-    expect(parseCard({ ...validCard, href: '/wheelchair-vans/dealer/TOOSHORT' })).toBeNull()
-    expect(parseCard({ ...validCard, href: '/wheelchair-vans/dealer/' })).toBeNull()
+  it('stores a listing with vin: null and qualityIssueCodes when VIN segment is too short', () => {
+    const result = parseCard({ ...validCard, href: '/wheelchair-vans/dealer/TOOSHORT' })
+    expect(result).not.toBeNull()
+    expect(result!.vin).toBeNull()
+    expect(result!.qualityIssueCodes).toContain('unparseable_vin')
+  })
+
+  it('returns null when href is empty (no identity for the listing)', () => {
+    expect(parseCard({ ...validCard, href: '' })).toBeNull()
   })
 
   it('returns null when make or model cannot be parsed', () => {
@@ -216,6 +257,55 @@ describe('parseCard', () => {
     const result = parseCard({ ...validCard, dataId: '' })
     expect(result!.externalId).toBeNull()
     expect(result!.sourceRecordKey).toBe(result!.sourceUrl)
+  })
+
+  // ─── VIN normalization ───────────────────────────────────────────────────────
+
+  it('normalizes a mixed-case VIN to uppercase', () => {
+    const lowerCaseVin = validCard.href.toLowerCase()
+    const result = parseCard({ ...validCard, href: lowerCaseVin })
+    expect(result).not.toBeNull()
+    expect(result!.vin).toBe('5TDYRKEC8RS205440')
+    expect(result!.qualityIssueCodes).toBeUndefined()
+  })
+
+  it('stores a valid VIN without quality issue codes', () => {
+    const result = parseCard(validCard)
+    expect(result).not.toBeNull()
+    expect(result!.vin).toBe('5TDYRKEC8RS205440')
+    expect(result!.qualityIssueCodes).toBeUndefined()
+  })
+
+  it('stores null VIN and unparseable_vin code for a garbage string shorter than 17 chars', () => {
+    // Simulates a URL segment like "VotedLowestPrices" (the real audit finding)
+    const result = parseCard({ ...validCard, href: '/wheelchair-vans/dealer/VotedLowestPrices' })
+    expect(result).not.toBeNull()
+    expect(result!.vin).toBeNull()
+    expect(result!.qualityIssueCodes).toContain('unparseable_vin')
+  })
+
+  it('stores null VIN and unparseable_vin code when VIN contains forbidden characters (I/O/Q)', () => {
+    // 17 chars but contains forbidden character I → structurally invalid
+    const result = parseCard({ ...validCard, href: '/wheelchair-vans/dealer/5TDYIKEC8RS205440' })
+    expect(result).not.toBeNull()
+    expect(result!.vin).toBeNull()
+    expect(result!.qualityIssueCodes).toContain('unparseable_vin')
+  })
+
+  it('stores VIN and invalid_vin code when check-digit fails', () => {
+    // Valid structure but wrong check digit: swap last char to break the check
+    // 5TDYRKEC8RS205441 → check digit should be 8 not 1 → fails
+    const result = parseCard({ ...validCard, href: '/wheelchair-vans/dealer/5TDYRKEC8RS205441' })
+    expect(result).not.toBeNull()
+    expect(result!.vin).toBe('5TDYRKEC8RS205441')
+    expect(result!.qualityIssueCodes).toContain('invalid_vin')
+  })
+
+  // ─── Condition parser ────────────────────────────────────────────────────────
+
+  it('returns null when the condition selector is absent from the page (condition is empty string)', () => {
+    const result = parseCard({ ...validCard, condition: '' })
+    expect(result).toBeNull()
   })
 })
 
