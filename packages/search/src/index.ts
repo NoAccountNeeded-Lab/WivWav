@@ -41,6 +41,7 @@ export interface ListingDocument {
   images: string[]
   description: string | null
   status: string
+  publicationStatus: string
   saleStatus: string
   listedAt: string
 }
@@ -125,6 +126,7 @@ export function toDocument(row: Listing): ListingDocument {
     images: row.images,
     description: row.description,
     status: row.status,
+    publicationStatus: row.publicationStatus,
     saleStatus: row.saleStatus,
     listedAt: row.listedAt.toISOString(),
   }
@@ -136,6 +138,21 @@ export async function syncListings(
   client: Meilisearch,
 ): Promise<void> {
   if (listingIds.length === 0) return
-  const rows = await db.listing.findMany({ where: { id: { in: listingIds } } })
-  await client.index(INDEX_NAME).addDocuments(rows.map(toDocument), { primaryKey: 'id' })
+  const rows = await db.listing.findMany({
+    where: {
+      id: { in: listingIds },
+      status: 'active',
+      publicationStatus: 'eligible',
+    },
+  })
+  const eligibleIds = new Set(rows.map(row => row.id))
+  const idsToRemove = listingIds.filter(id => !eligibleIds.has(id))
+  const index = client.index(INDEX_NAME)
+
+  if (rows.length > 0) {
+    await index.addDocuments(rows.map(toDocument), { primaryKey: 'id' })
+  }
+  if (idsToRemove.length > 0) {
+    await index.deleteDocuments(idsToRemove)
+  }
 }
