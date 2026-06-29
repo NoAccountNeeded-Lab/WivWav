@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
-import styles from './tabs.module.css'
+import styles from './SafetyRefreshButton.module.css'
 
 interface RefreshResult {
   enqueued: boolean
