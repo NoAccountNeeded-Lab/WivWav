@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeVin, isValidVin } from './vin.js'
+import { normalizeVin, isValidVin, checkDigitValid } from './vin.js'
 
 describe('normalizeVin', () => {
   it('trims surrounding whitespace', () => {
@@ -12,6 +12,14 @@ describe('normalizeVin', () => {
 
   it('handles mixed case and whitespace together', () => {
     expect(normalizeVin(' 1fMJk1HT0mEa12345 ')).toBe('1FMJK1HT0MEA12345')
+  })
+
+  it('strips non-alphanumeric characters such as hyphens used for display', () => {
+    expect(normalizeVin('1FMJ-K1HT0-MEA12345')).toBe('1FMJK1HT0MEA12345')
+  })
+
+  it('strips special characters from garbage strings', () => {
+    expect(normalizeVin('Voted Lowest Prices!')).toBe('VOTEDLOWESTPRICES')
   })
 })
 
@@ -50,5 +58,25 @@ describe('isValidVin', () => {
 
   it('accepts VINs with digits in all 17 positions', () => {
     expect(isValidVin('11111111111111111')).toBe(true)
+  })
+})
+
+describe('checkDigitValid', () => {
+  // 5TDYRKEC8RS205440 — Toyota Sienna, check digit at position 8 is '8'
+  it('returns true for a VIN with a valid North American check digit', () => {
+    expect(checkDigitValid('5TDYRKEC8RS205440')).toBe(true)
+  })
+
+  it('returns false when the check digit is wrong', () => {
+    // Same VIN with last char changed to '1' — invalid check digit
+    expect(checkDigitValid('5TDYRKEC8RS205441')).toBe(false)
+  })
+
+  it('returns false for a VIN shorter than 17 characters', () => {
+    expect(checkDigitValid('5TDYRKEC8RS20544')).toBe(false)
+  })
+
+  it('returns false when a character has no transliteration value (e.g., forbidden I)', () => {
+    expect(checkDigitValid('5TDYIKEC8RS205440')).toBe(false)
   })
 })
