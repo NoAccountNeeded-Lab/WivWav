@@ -135,8 +135,12 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
           <>
             <section className={styles.workflowSummary} aria-label="Listing refresh summary">
               <div className={styles.metric}>
-                <span className={styles.metricLabel}>Active listings</span>
-                <strong>{status.listings.active.toLocaleString()}</strong>
+                <span className={styles.metricLabel}>Observed active</span>
+                <strong>{status.listings.observedActive.toLocaleString()}</strong>
+              </div>
+              <div className={styles.metric}>
+                <span className={styles.metricLabel}>Eligible to publish</span>
+                <strong>{status.listings.eligible.toLocaleString()}</strong>
               </div>
               <div className={styles.metric}>
                 <span className={styles.metricLabel}>Map-ready</span>
