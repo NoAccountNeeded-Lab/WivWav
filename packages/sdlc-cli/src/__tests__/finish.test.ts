@@ -59,6 +59,7 @@ vi.mock('../lib/git.js', () => ({
   currentBranch: vi.fn(() => 'feat/issue-304-add-sdlc-cli'),
   isProtectedBranch: vi.fn(() => false),
   isBehindOriginMain: vi.fn(() => false),
+  commitsAheadOfMain: vi.fn(() => 0),
   stagedFiles: vi.fn(() => []),
   dirtyFiles: vi.fn(() => []),
   changedFiles: vi.fn(() => ['packages/sdlc-cli/src/index.ts']),
@@ -72,6 +73,8 @@ vi.mock('../lib/github.js', () => ({
   hasAcceptanceCriteria: vi.fn(() => true),
   labelNames: vi.fn(() => ['status:in-progress']),
   createDraftPr: vi.fn(() => 'https://github.com/org/repo/pull/123'),
+  findExistingPr: vi.fn(() => null),
+  updatePrBody: vi.fn(),
   editIssueLabels: vi.fn(),
   CliError: class CliError extends Error {
     constructor(msg: string) {
@@ -88,6 +91,7 @@ import * as githubMod from '../lib/github.js'
 const mockCurrentBranch = gitMod.currentBranch as ReturnType<typeof vi.fn>
 const mockIsProtected = gitMod.isProtectedBranch as ReturnType<typeof vi.fn>
 const mockIsBehind = gitMod.isBehindOriginMain as ReturnType<typeof vi.fn>
+const mockCommitsAheadOfMain = gitMod.commitsAheadOfMain as ReturnType<typeof vi.fn>
 const mockStagedFiles = gitMod.stagedFiles as ReturnType<typeof vi.fn>
 const mockDirtyFiles = gitMod.dirtyFiles as ReturnType<typeof vi.fn>
 const mockChangedFiles = gitMod.changedFiles as ReturnType<typeof vi.fn>
@@ -116,6 +120,7 @@ beforeEach(() => {
   mockCurrentBranch.mockReturnValue('feat/issue-304-add-sdlc-cli')
   mockIsProtected.mockReturnValue(false)
   mockIsBehind.mockReturnValue(false)
+  mockCommitsAheadOfMain.mockReturnValue(0)
   mockStagedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
   mockDirtyFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
   mockChangedFiles.mockReturnValue(['packages/sdlc-cli/src/index.ts'])
@@ -219,9 +224,10 @@ describe('finishCommand — validation', () => {
 })
 
 describe('finishCommand — staging checks', () => {
-  it('throws when no files are staged', async () => {
+  it('throws when no files are staged and no commits ahead of main', async () => {
     mockStagedFiles.mockReturnValue([])
-    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('No files staged')
+    mockCommitsAheadOfMain.mockReturnValue(0)
+    await expect(finishCommand(304, { skipValidation: true })).rejects.toThrow('Nothing to finish')
   })
 
   it('throws when there are unstaged dirty files', async () => {
