@@ -116,6 +116,19 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
     }
   }
 
+  async function clearFailed(entry: ScheduleEntry) {
+    setAction(entry.id, { loading: true, feedback: null, isError: false })
+    try {
+      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(entry.queue)}/failed`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`Failed (${res.status})`)
+      const body = (await res.json()) as { data: { removed: number } }
+      setAction(entry.id, { loading: false, feedback: `Cleared ${body.data.removed} failed`, isError: false })
+      setTimeout(() => void refresh(), 500)
+    } catch (err) {
+      setAction(entry.id, { loading: false, feedback: err instanceof Error ? err.message : 'Error', isError: true })
+    }
+  }
+
   async function updatePattern(entry: ScheduleEntry, newPattern: string) {
     if (!entry.key) { await enable(entry, newPattern); return }
     setAction(entry.id, { loading: true, feedback: null, isError: false })
@@ -261,6 +274,15 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                             {entry.recentFailureReason && (
                               <span className={styles.queueDesc}>{entry.recentFailureReason}</span>
                             )}
+                            <button
+                              className={`${styles.btn} ${styles.btnGhost}`}
+                              style={{ padding: '0.125rem 0.5rem', fontSize: '0.75rem' }}
+                              type="button"
+                              disabled={act?.loading}
+                              onClick={() => void clearFailed(entry)}
+                            >
+                              Clear
+                            </button>
                           </div>
                         ) : (
                           <span className={styles.muted} style={{ fontSize: '0.8125rem' }}>0</span>

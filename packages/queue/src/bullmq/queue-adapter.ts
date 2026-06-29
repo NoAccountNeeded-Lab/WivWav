@@ -95,6 +95,11 @@ export class BullMQQueueAdapter implements QueueAdapter {
     return this.queue.removeRepeatableByKey(key)
   }
 
+  async cleanFailed(limit = 1000): Promise<number> {
+    const removed = await this.queue.clean(0, limit, 'failed')
+    return removed.length
+  }
+
   async close(): Promise<void> {
     await this.queue.close()
   }

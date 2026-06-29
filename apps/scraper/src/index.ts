@@ -464,8 +464,10 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
 
 for (const def of SCHEDULE_DEFS) {
   const existing = await def.queue.getRepeatableJobs()
+  // BullMQ 5 omits `id` from repeatable metadata, so also fall back to name+pattern.
   const alreadyScheduled = def.jobId
-    ? existing.some((r) => r.id === def.jobId)
+    ? (existing.some((r) => r.id === def.jobId) ||
+       existing.some((r) => r.name === def.name && r.pattern === def.pattern))
     : existing.some((r) => r.name === def.name)
 
   if (!alreadyScheduled) {
