@@ -78,6 +78,13 @@ export interface Listing {
   images: string[]
   description: string | null
 
+  /**
+   * Scrape-time quality issue codes populated by the source adapter.
+   * Examples: 'invalid_vin' (check-digit failure), 'unparseable_vin' (garbage string).
+   * The publication validator uses these to quarantine or flag rows.
+   */
+  qualityIssueCodes?: string[]
+
   saleStatus: SaleStatus
   soldAt: Date | null
 

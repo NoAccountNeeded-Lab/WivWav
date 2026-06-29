@@ -6,6 +6,7 @@ import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 import { RobotsCache } from '../util/robots-cache.js'
 import { isNavigationTimeout } from '../util/navigation-timeout.js'
+import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/db'
 
 const SOURCE_ID = 'blvd'
 const BASE_URL = 'https://www.blvd.com'
@@ -28,7 +29,7 @@ export interface RawCard {
   href: string
   fullTitle: string   // "2024 Toyota Sienna FWD XLE" from desktop h3
   conversion: string  // "Driverge Flex Maxx Wheelchair Van Conversion"
-  condition: string   // "Used" | "New" from Vehicle Condition indicator
+  condition: string   // "Used" | "New" from Vehicle Condition indicator, or "" when absent
   miles: string       // "50,094"
   price: string       // "$71,991" | "Call" | ""
   seller: string      // "MobilityWorks"
@@ -228,11 +229,13 @@ export class BlvdAdapter implements SourceAdapter {
 
                 const conversion = card.querySelector('h4.conversion')?.textContent?.trim() ?? ''
 
-                // Vehicle condition badge — first newusedicon with data-title="Vehicle Condition"
+                // Vehicle condition badge — first newusedicon with data-title="Vehicle Condition".
+                // Return '' when the element is absent so parseCard can skip ambiguous cards
+                // rather than fabricating a 'new' condition.
                 const condEl = card.querySelector(
                   '.newusedicon[data-title="Vehicle Condition"]',
                 ) as HTMLElement | null
-                const condition = condEl?.classList.contains('Used') ? 'Used' : 'New'
+                const condition = condEl === null ? '' : condEl.classList.contains('Used') ? 'Used' : 'New'
 
                 // vlistp label→value pairs (Miles / Price / Seller / Loc.)
                 const fields: Record<string, string> = {}
@@ -351,9 +354,9 @@ export function hashPage1Entries(entries: string[]): string {
 export { isNavigationTimeout } from '../util/navigation-timeout.js'
 
 export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> | null {
-  // VIN is the last path segment — must be exactly 17 alphanumeric chars.
-  const vin = raw.href.split('/').pop() ?? ''
-  if (!/^[A-Z0-9]{17}$/i.test(vin)) return null
+  // Condition must be determinable — skip cards where the selector was absent to
+  // avoid fabricating a 'new' value for vehicles that are actually used.
+  if (raw.condition === '') return null
 
   // "2024 Toyota Sienna FWD XLE" → year, make, model, trim
   const parts = raw.fullTitle.trim().split(/\s+/)
@@ -363,6 +366,31 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   const trim = parts.slice(3).join(' ') || null
 
   if (!make || !model || year < 1990 || year > new Date().getFullYear() + 2) return null
+
+  // Require a valid href — without it there is no source URL to use as a record key.
+  if (!raw.href) return null
+
+  // VIN: last path segment from the detail link.
+  // Normalize: uppercase + strip non-alphanumeric display characters (e.g. hyphens).
+  // Classify the result and record quality codes for downstream quarantine.
+  const rawVinSegment = raw.href.split('/').pop() ?? ''
+  const normalizedVin = normalizeVin(rawVinSegment)
+  const qualityIssueCodes: string[] = []
+
+  let vin: string | null
+  if (!isValidVin(normalizedVin)) {
+    // Wrong length or forbidden characters (I/O/Q) — not a plausible VIN.
+    // Store null rather than a garbage string; mark for quarantine review.
+    vin = null
+    qualityIssueCodes.push('unparseable_vin')
+  } else if (!checkDigitValid(normalizedVin)) {
+    // Structural check passed but North American check-digit fails.
+    // Retain the VIN (non-NA VINs may legitimately fail) but flag for review.
+    vin = normalizedVin
+    qualityIssueCodes.push('invalid_vin')
+  } else {
+    vin = normalizedVin
+  }
 
   const mileage = parseMileage(raw.miles)
   const priceCents = parsePrice(raw.price)
@@ -411,6 +439,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
     dealer: { name: raw.seller || null, phone: null, website: null },
     images: raw.imageUrl ? [raw.imageUrl] : [],
     description: null,
+    ...(qualityIssueCodes.length > 0 ? { qualityIssueCodes } : {}),
     saleStatus: 'active',
     soldAt: null,
     listedAt: new Date(),
