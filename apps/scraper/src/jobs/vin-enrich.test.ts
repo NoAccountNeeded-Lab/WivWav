@@ -85,7 +85,13 @@ describe('runVinEnrichJob — case normalization', () => {
     })
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'l1' },
-      data: { vehicleModelId: 'vm1', vehicleModelMatchConfidence: 'exact' },
+      data: {
+        vehicleModelId: 'vm1',
+        vehicleModelMatchConfidence: 'exact',
+        publicationStatus: 'pending',
+        qualityIssueCodes: [],
+        qualityCheckedAt: null,
+      },
     })
   })
 
@@ -99,7 +105,13 @@ describe('runVinEnrichJob — case normalization', () => {
     expect(db.vehicleModel.create).not.toHaveBeenCalled()
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'l2' },
-      data: { vehicleModelId: 'vm2', vehicleModelMatchConfidence: 'exact' },
+      data: {
+        vehicleModelId: 'vm2',
+        vehicleModelMatchConfidence: 'exact',
+        publicationStatus: 'pending',
+        qualityIssueCodes: [],
+        qualityCheckedAt: null,
+      },
     })
   })
 
@@ -121,7 +133,13 @@ describe('runVinEnrichJob — case normalization', () => {
     expect(db.vehicleModel.create).not.toHaveBeenCalled()
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'l3' },
-      data: { vehicleModelId: 'vm3', vehicleModelMatchConfidence: 'trim_fallback' },
+      data: {
+        vehicleModelId: 'vm3',
+        vehicleModelMatchConfidence: 'trim_fallback',
+        publicationStatus: 'pending',
+        qualityIssueCodes: [],
+        qualityCheckedAt: null,
+      },
     })
   })
 
@@ -138,7 +156,13 @@ describe('runVinEnrichJob — case normalization', () => {
     })
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'l4' },
-      data: { vehicleModelId: 'vm4', vehicleModelMatchConfidence: 'exact' },
+      data: {
+        vehicleModelId: 'vm4',
+        vehicleModelMatchConfidence: 'exact',
+        publicationStatus: 'pending',
+        qualityIssueCodes: [],
+        qualityCheckedAt: null,
+      },
     })
   })
 

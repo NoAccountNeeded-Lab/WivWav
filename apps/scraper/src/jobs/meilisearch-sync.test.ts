@@ -15,6 +15,8 @@ import { runMeilisearchSyncJob } from './meilisearch-sync.js'
 
 describe('runMeilisearchSyncJob', () => {
   let addDocuments: ReturnType<typeof vi.fn>
+  let deleteAllDocuments: ReturnType<typeof vi.fn>
+  let waitForTask: ReturnType<typeof vi.fn>
   let getStats: ReturnType<typeof vi.fn>
   let db: {
     $queryRaw: ReturnType<typeof vi.fn>
@@ -25,6 +27,8 @@ describe('runMeilisearchSyncJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     addDocuments = vi.fn(async () => ({}))
+    deleteAllDocuments = vi.fn(async () => ({ taskUid: 10 }))
+    waitForTask = vi.fn(async () => ({ status: 'succeeded', uid: 10 }))
     getStats = vi.fn(async () => ({ numberOfDocuments: 3 }))
     db = {
       $queryRaw: vi.fn(async () => [{ count: 2 }]),
@@ -38,7 +42,8 @@ describe('runMeilisearchSyncJob', () => {
 
     vi.mocked(getDb).mockReturnValue(db as never)
     vi.mocked(getMeiliClient).mockReturnValue({
-      index: vi.fn(() => ({ addDocuments, getStats })),
+      index: vi.fn(() => ({ addDocuments, deleteAllDocuments, getStats })),
+      tasks: { waitForTask },
     } as never)
   })
 
@@ -57,16 +62,36 @@ describe('runMeilisearchSyncJob', () => {
       total: 2,
     })
     expect(context.log).toHaveBeenCalledWith(
-      expect.stringContaining('2 active vehicle group(s) in DB'),
+      expect.stringContaining('2 eligible active vehicle group(s) in DB'),
     )
   })
 
-  it('still upserts every listing document during a full sync', async () => {
+  it('clears stale documents before upserting eligible listing documents', async () => {
     await runMeilisearchSyncJob()
 
+    expect(deleteAllDocuments).toHaveBeenCalledOnce()
+    expect(waitForTask).toHaveBeenCalledWith(10, { timeout: 15_000 })
     expect(addDocuments).toHaveBeenCalledWith(
       [{ id: 'listing-1' }, { id: 'listing-2' }, { id: 'listing-3' }],
       { primaryKey: 'id' },
     )
+    expect(deleteAllDocuments.mock.invocationCallOrder[0]).toBeLessThan(
+      addDocuments.mock.invocationCallOrder[0]!,
+    )
+    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
+    }))
+  })
+
+  it('fails closed when stale document deletion fails', async () => {
+    waitForTask.mockResolvedValueOnce({ status: 'failed', uid: 10 })
+
+    await expect(runMeilisearchSyncJob()).rejects.toThrow(
+      'Meilisearch clear failed: task 10 ended with status failed',
+    )
+    expect(addDocuments).not.toHaveBeenCalled()
   })
 })

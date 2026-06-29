@@ -94,6 +94,11 @@ export function buildListingDetailUpdateData(
     saleStatus: detail.saleStatus,
     ...statusUpdate,
     detailScrapedAt: now,
+    // Detail data is part of the publication decision. Invalidate any previous
+    // decision until the validator evaluates this new observation.
+    publicationStatus: 'pending' as const,
+    qualityIssueCodes: [],
+    qualityCheckedAt: null,
   }
 }
 

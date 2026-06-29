@@ -19,14 +19,23 @@ export async function runMeilisearchSyncJob(context?: JobContext): Promise<void>
     SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
     FROM listings
     WHERE status = 'active'
+      AND "publicationStatus" = 'eligible'
   `
   const activeCount = Number(activeCountRows[0]?.count ?? 0)
 
-  await report(context, `[meili-sync] Full re-index started — ${activeCount} active vehicle group(s) in DB`, {
+  await report(context, `[meili-sync] Full re-index started — ${activeCount} eligible active vehicle group(s) in DB`, {
     stage: 'syncing',
     current: 0,
     total: activeCount,
   })
+
+  const clearTask = await index.deleteAllDocuments()
+  const clearResult = await client.tasks.waitForTask(clearTask.taskUid, { timeout: 15_000 })
+  if (clearResult.status !== 'succeeded') {
+    throw new Error(
+      `Meilisearch clear failed: task ${clearResult.uid} ended with status ${clearResult.status}`,
+    )
+  }
 
   let synced = 0
   let cursor: string | undefined
@@ -35,6 +44,10 @@ export async function runMeilisearchSyncJob(context?: JobContext): Promise<void>
     const rows = await db.listing.findMany({
       take: BATCH_SIZE,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      where: {
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
       orderBy: { id: 'asc' },
     })
     if (rows.length === 0) break
@@ -59,11 +72,11 @@ export async function runMeilisearchSyncJob(context?: JobContext): Promise<void>
     const meiliCount = stats.numberOfDocuments
     await report(
       context,
-      `[meili-sync] Done. ${synced} doc(s) upserted. DB has ${activeCount} active vehicle group(s); Meilisearch index has ${meiliCount} total document(s).`,
+      `[meili-sync] Done. ${synced} eligible doc(s) upserted. DB has ${activeCount} eligible active vehicle group(s); Meilisearch index has ${meiliCount} total document(s).`,
       { stage: 'complete', current: activeCount, total: activeCount },
     )
   } catch {
-    await report(context, `[meili-sync] Done. ${synced} doc(s) upserted. (Stats check unavailable.)`, {
+    await report(context, `[meili-sync] Done. ${synced} eligible doc(s) upserted. (Stats check unavailable.)`, {
       stage: 'complete',
       current: synced,
       total: synced,

@@ -150,7 +150,15 @@ export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: Q
 
         await db.listing.update({
           where: { id },
-          data: { vehicleModelId, vehicleModelMatchConfidence: confidence },
+          data: {
+            vehicleModelId,
+            vehicleModelMatchConfidence: confidence,
+            // New authoritative vehicle identity evidence requires a fresh
+            // quality decision before the listing can be public again.
+            publicationStatus: 'pending',
+            qualityIssueCodes: [],
+            qualityCheckedAt: null,
+          },
         })
         enrichedIds.push(id)
         enriched++
