@@ -148,8 +148,13 @@ model Listing {
 
   priceCents Int?
   mileage    Int?
+  /// Raw color string from the source (e.g. "Brilliant Silver Metallic"). Retained for provenance.
+  /// The canonical color for search/facets is derived by canonicalize.ts in @wivwav/search.
   color      String?
   fuelType   String?
+  /// Raw engine description from source (e.g. "3.5L V6 24V PDI DOHC"). Stored separately from
+  /// fuelType so engine descriptions are never exposed as fuel type in public facets.
+  engine     String?
   transmission String?
 
   // WAV-specific
