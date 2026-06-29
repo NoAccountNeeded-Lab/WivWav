@@ -18,7 +18,7 @@ function makeRuns(): ScraperRunRepository {
   }
 }
 
-function makeSources(): SourceRepository {
+function makeSources(lastFullCrawlAt: Date | null = null): SourceRepository {
   return {
     markNeedsRemapping: vi.fn().mockResolvedValue(undefined),
     markActive: vi.fn().mockResolvedValue(undefined),
@@ -26,6 +26,7 @@ function makeSources(): SourceRepository {
     markError: vi.fn().mockResolvedValue(undefined),
     getMappings: vi.fn().mockResolvedValue([]),
     setMappings: vi.fn().mockResolvedValue(undefined),
+    getLastFullCrawlAt: vi.fn().mockResolvedValue(lastFullCrawlAt),
   }
 }
 
@@ -73,6 +74,17 @@ function makeAdapterWithPage1(sourceId: string, page1Changed: boolean, overrides
   })
 }
 
+const LISTING_FIXTURE = {
+  sourceId: 'src-1', sourceUrl: 'http://x.com/1', buyerUrl: 'http://x.com/1', externalId: 'ext-1', sourceRecordKey: 'ext-1',
+  make: 'Toyota', model: 'Sienna', year: 2022, trim: null, vin: null,
+  condition: 'used' as const, sellerType: 'dealer' as const,
+  priceCents: null, mileage: null, color: null, fuelType: null, transmission: null,
+  wav: { conversionType: 'unknown' as const, conversionManufacturer: null, floorLoweringInches: null, rampType: 'unknown' as const, conversionStatus: 'unknown' as const, wavFeatures: [], wheelchairCapacity: null },
+  location: { zip: null, city: null, state: null, lat: null, lng: null },
+  dealer: { name: null, phone: null, website: null },
+  images: [], description: null, listedAt: new Date(),
+}
+
 describe('ScraperEngine', () => {
   let runs: ScraperRunRepository
   let sources: SourceRepository
@@ -84,8 +96,8 @@ describe('ScraperEngine', () => {
     listings = makeListings()
   })
 
-  function build() {
-    return new ScraperEngine({ runs, sources, listings })
+  function build(opts?: { fullCrawlIntervalHours?: number }) {
+    return new ScraperEngine({ runs, sources, listings, ...opts })
   }
 
   it('throws when no adapter is registered for the source', async () => {
@@ -102,15 +114,17 @@ describe('ScraperEngine', () => {
 
     expect(runs.start).toHaveBeenCalledWith('src-1')
     expect(runs.complete).toHaveBeenCalledWith('run-1', 0)
-    expect(sources.markActive).toHaveBeenCalledWith('src-1', { listingCount: 0, fingerprintHash: 'abc' })
+    expect(sources.markActive).toHaveBeenCalledWith('src-1', { listingCount: 0, fingerprintHash: 'abc', isCompleteCrawl: true })
     expect(listings.upsert).not.toHaveBeenCalled()
     expect(listingsChanged).toBe(false)
   })
 
   // ─── page 1 gatekeeper ───────────────────────────────────────────────────────
 
-  it('skips full crawl, completes with 0, and calls markChecked when page 1 hash is unchanged', async () => {
-    const engine = build()
+  it('skips full crawl when page 1 is unchanged and periodic interval has not elapsed', async () => {
+    const recentFullCrawl = new Date(Date.now() - 1000) // 1 second ago
+    sources = makeSources(recentFullCrawl)
+    const engine = build({ fullCrawlIntervalHours: 24 })
     const context = makeContext()
     const adapter = makeAdapterWithPage1('src-1', false)
     engine.register(adapter, adapter.sourceId)
@@ -118,6 +132,7 @@ describe('ScraperEngine', () => {
     const listingsChanged = await engine.runSource('src-1', context)
 
     expect(adapter.checkPage1).toHaveBeenCalled()
+    expect(sources.getLastFullCrawlAt).toHaveBeenCalledWith('src-1')
     expect(adapter.checkStructure).not.toHaveBeenCalled()
     expect(listingsChanged).toBe(false)
     expect(adapter.scrape).not.toHaveBeenCalled()
@@ -126,6 +141,36 @@ describe('ScraperEngine', () => {
     expect(sources.markActive).not.toHaveBeenCalled()
     expect(context.log).toHaveBeenCalledWith(expect.stringContaining('Page 1 unchanged'))
     expect(context.updateProgress).toHaveBeenCalledWith(expect.objectContaining({ stage: 'no_changes' }))
+  })
+
+  it('forces a full crawl when page 1 is unchanged but periodic interval is overdue (no prior crawl)', async () => {
+    sources = makeSources(null) // never crawled completely
+    const engine = build({ fullCrawlIntervalHours: 24 })
+    const context = makeContext()
+    const adapter = makeAdapterWithPage1('src-1', false)
+    engine.register(adapter, adapter.sourceId)
+
+    await engine.runSource('src-1', context)
+
+    expect(sources.getLastFullCrawlAt).toHaveBeenCalledWith('src-1')
+    expect(adapter.checkStructure).toHaveBeenCalled()
+    expect(adapter.scrape).toHaveBeenCalled()
+    expect(context.log).toHaveBeenCalledWith(expect.stringContaining('periodic full crawl is overdue'))
+  })
+
+  it('forces a full crawl when periodic interval has elapsed', async () => {
+    const oldFullCrawl = new Date(Date.now() - 25 * 60 * 60 * 1000) // 25 hours ago
+    sources = makeSources(oldFullCrawl)
+    const engine = build({ fullCrawlIntervalHours: 24 })
+    const context = makeContext()
+    const adapter = makeAdapterWithPage1('src-1', false)
+    engine.register(adapter, adapter.sourceId)
+
+    await engine.runSource('src-1', context)
+
+    expect(adapter.checkStructure).toHaveBeenCalled()
+    expect(adapter.scrape).toHaveBeenCalled()
+    expect(context.log).toHaveBeenCalledWith(expect.stringContaining('periodic full crawl is overdue'))
   })
 
   it('proceeds with full crawl when page 1 hash changes', async () => {
@@ -138,7 +183,7 @@ describe('ScraperEngine', () => {
     expect(adapter.checkPage1).toHaveBeenCalled()
     expect(adapter.checkStructure).toHaveBeenCalled()
     expect(adapter.scrape).toHaveBeenCalled()
-    expect(sources.markActive).toHaveBeenCalledWith('src-1', expect.objectContaining({ page1Hash: 'page1-hash' }))
+    expect(sources.markActive).toHaveBeenCalledWith('src-1', expect.objectContaining({ page1Hash: 'page1-hash', isCompleteCrawl: true }))
   })
 
   it('proceeds with full crawl when adapter has no checkPage1 (backward compat)', async () => {
@@ -150,7 +195,31 @@ describe('ScraperEngine', () => {
 
     expect(adapter.checkStructure).toHaveBeenCalled()
     expect(adapter.scrape).toHaveBeenCalled()
-    expect(sources.markActive).toHaveBeenCalledWith('src-1', { listingCount: 0, fingerprintHash: 'abc' })
+    expect(sources.markActive).toHaveBeenCalledWith('src-1', { listingCount: 0, fingerprintHash: 'abc', isCompleteCrawl: true })
+  })
+
+  it('does not call getLastFullCrawlAt when adapter has no checkPage1', async () => {
+    const engine = build()
+    const adapter = makeAdapter('src-1')
+    engine.register(adapter, adapter.sourceId)
+
+    await engine.runSource('src-1')
+
+    expect(sources.getLastFullCrawlAt).not.toHaveBeenCalled()
+  })
+
+  // ─── markGone receives isCompleteCrawl ───────────────────────────────────────
+
+  it('passes isCompleteCrawl: true to markGone on a full scrape run', async () => {
+    const engine = build()
+    const adapter = makeAdapter('src-1', {
+      scrape: vi.fn().mockResolvedValue({ listings: [LISTING_FIXTURE], fingerprintHash: 'abc' }),
+    })
+    engine.register(adapter, adapter.sourceId)
+
+    await engine.runSource('src-1')
+
+    expect(listings.markGone).toHaveBeenCalledWith('src-1', ['ext-1'], { isCompleteCrawl: true })
   })
 
   // ─── structure change: no sampleHtml ────────────────────────────────────────
@@ -297,40 +366,20 @@ describe('ScraperEngine', () => {
 
   it('calls markGone with sourceRecordKeys after a successful run', async () => {
     const engine = build()
-    const listing = {
-      sourceId: 'src-1', sourceUrl: 'http://x.com/1', buyerUrl: 'http://x.com/1', externalId: 'ext-1', sourceRecordKey: 'ext-1',
-      make: 'Toyota', model: 'Sienna', year: 2022, trim: null, vin: null,
-      condition: 'used' as const, sellerType: 'dealer' as const,
-      priceCents: null, mileage: null, color: null, fuelType: null, transmission: null,
-      wav: { conversionType: 'unknown' as const, conversionManufacturer: null, floorLoweringInches: null, rampType: 'unknown' as const, conversionStatus: 'unknown' as const, wavFeatures: [], wheelchairCapacity: null },
-      location: { zip: null, city: null, state: null, lat: null, lng: null },
-      dealer: { name: null, phone: null, website: null },
-      images: [], description: null, listedAt: new Date(),
-    }
     const adapter = makeAdapter('src-1', {
-      scrape: vi.fn().mockResolvedValue({ listings: [listing], fingerprintHash: 'abc' }),
+      scrape: vi.fn().mockResolvedValue({ listings: [LISTING_FIXTURE], fingerprintHash: 'abc' }),
     })
     engine.register(adapter, adapter.sourceId)
 
     await engine.runSource('src-1')
 
-    expect(listings.markGone).toHaveBeenCalledWith('src-1', ['ext-1'])
+    expect(listings.markGone).toHaveBeenCalledWith('src-1', ['ext-1'], { isCompleteCrawl: true })
   })
 
   it('uses the registered DB source id when upserting adapter listings', async () => {
     const engine = build()
-    const listing = {
-      sourceId: 'adapter-source-key', sourceUrl: 'http://x.com/1', buyerUrl: 'http://x.com/1', externalId: 'ext-1', sourceRecordKey: 'ext-1',
-      make: 'Toyota', model: 'Sienna', year: 2022, trim: null, vin: null,
-      condition: 'used' as const, sellerType: 'dealer' as const,
-      priceCents: null, mileage: null, color: null, fuelType: null, transmission: null,
-      wav: { conversionType: 'unknown' as const, conversionManufacturer: null, floorLoweringInches: null, rampType: 'unknown' as const, conversionStatus: 'unknown' as const, wavFeatures: [], wheelchairCapacity: null },
-      location: { zip: null, city: null, state: null, lat: null, lng: null },
-      dealer: { name: null, phone: null, website: null },
-      images: [], description: null, listedAt: new Date(),
-    }
     const adapter = makeAdapter('adapter-source-key', {
-      scrape: vi.fn().mockResolvedValue({ listings: [listing], fingerprintHash: 'abc' }),
+      scrape: vi.fn().mockResolvedValue({ listings: [{ ...LISTING_FIXTURE, sourceId: 'adapter-source-key' }], fingerprintHash: 'abc' }),
     })
     engine.register(adapter, 'db-source-id')
 
@@ -342,16 +391,7 @@ describe('ScraperEngine', () => {
 
   it('passes the URL-based sourceRecordKey to markGone when externalId is null', async () => {
     const engine = build()
-    const listing = {
-      sourceId: 'src-1', sourceUrl: 'http://x.com/1', buyerUrl: 'http://x.com/1', externalId: null, sourceRecordKey: 'http://x.com/1',
-      make: 'Toyota', model: 'Sienna', year: 2022, trim: null, vin: null,
-      condition: 'used' as const, sellerType: 'dealer' as const,
-      priceCents: null, mileage: null, color: null, fuelType: null, transmission: null,
-      wav: { conversionType: 'unknown' as const, conversionManufacturer: null, floorLoweringInches: null, rampType: 'unknown' as const, conversionStatus: 'unknown' as const, wavFeatures: [], wheelchairCapacity: null },
-      location: { zip: null, city: null, state: null, lat: null, lng: null },
-      dealer: { name: null, phone: null, website: null },
-      images: [], description: null, listedAt: new Date(),
-    }
+    const listing = { ...LISTING_FIXTURE, externalId: null, sourceRecordKey: 'http://x.com/1' }
     const adapter = makeAdapter('src-1', {
       scrape: vi.fn().mockResolvedValue({ listings: [listing], fingerprintHash: 'abc' }),
     })
@@ -359,7 +399,7 @@ describe('ScraperEngine', () => {
 
     await engine.runSource('src-1')
 
-    expect(listings.markGone).toHaveBeenCalledWith('src-1', ['http://x.com/1'])
+    expect(listings.markGone).toHaveBeenCalledWith('src-1', ['http://x.com/1'], { isCompleteCrawl: true })
   })
 
   // ─── scrape error ────────────────────────────────────────────────────────────

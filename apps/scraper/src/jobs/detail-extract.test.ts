@@ -88,6 +88,48 @@ describe('resolveListingStatus', () => {
     expect(resolveListingStatus('gone', 'pending', null, NOW)).toEqual({})
     expect(resolveListingStatus('gone', 'active', null, NOW)).toEqual({})
   })
+
+  // ── index-absent possibly_gone listings (missingFromCompleteCount > 0) ───
+
+  it('does NOT restore to active when possibly_gone is index-absent (missingFromCompleteCount=1) with no banner', () => {
+    const result = resolveListingStatus('possibly_gone', 'active', null, NOW, 1)
+    expect(result).toEqual({})
+  })
+
+  it('does NOT restore to active when possibly_gone is index-absent with pending banner', () => {
+    const result = resolveListingStatus('possibly_gone', 'pending', null, NOW, 2)
+    expect(result).toEqual({})
+  })
+
+  it('still marks gone when index-absent possibly_gone listing has sold banner', () => {
+    const result = resolveListingStatus('possibly_gone', 'sold', null, NOW, 1)
+    expect(result).toEqual({ status: 'gone', goneAt: NOW, soldAt: NOW })
+  })
+
+  it('still marks gone when index-absent possibly_gone listing has unavailable banner', () => {
+    const result = resolveListingStatus('possibly_gone', 'gone', null, NOW, 3)
+    expect(result).toEqual({ status: 'gone', goneAt: NOW })
+  })
+
+  it('restores to active when possibly_gone has no index-absence evidence (count=0) with no banner', () => {
+    // Ensures backward compat: old possibly_gone rows without the count default to 0 and restore
+    const result = resolveListingStatus('possibly_gone', 'active', null, NOW, 0)
+    expect(result).toEqual({ status: 'active', goneAt: null })
+  })
+
+  it('restores to active when possibly_gone has no index-absence evidence (default) with pending banner', () => {
+    const result = resolveListingStatus('possibly_gone', 'pending', null, NOW)
+    expect(result).toEqual({ status: 'active', goneAt: null })
+  })
+
+  // ── orphan detail page (200 + no banner, absent from source index) ───────
+
+  it('does not restore a 200 orphan detail page listing when it is index-absent', () => {
+    // Simulates: listing removed from dealer inventory, detail URL returns 200,
+    // no sold/pending banner — the 200 must NOT restore active status
+    const result = resolveListingStatus('possibly_gone', 'active', null, NOW, 1)
+    expect(result).toEqual({})
+  })
 })
 
 describe('buildListingDetailUpdateData', () => {
