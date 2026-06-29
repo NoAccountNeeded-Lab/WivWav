@@ -15,6 +15,7 @@ import {
   currentBranch,
   isProtectedBranch,
   isBehindOriginMain,
+  commitsAheadOfMain,
   stagedFiles,
   changedFiles,
   dirtyFiles,
@@ -23,6 +24,8 @@ import {
 import {
   fetchIssue,
   createDraftPr,
+  findExistingPr,
+  updatePrBody,
   hasAcceptanceCriteria,
   labelNames,
   editIssueLabels,
@@ -164,27 +167,33 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     console.log('[OK] Full validation passed.')
   }
 
-  // 4. Verify staged files and check for unrelated dirty files
+  // 4. Check work exists: either staged files or commits already made during work
+  const ahead = commitsAheadOfMain()
   const staged = stagedFiles()
-  if (staged.length === 0) {
+  const hasWork = ahead > 0 || staged.length > 0
+
+  if (!hasWork) {
     throw new CliError(
-      'No files staged for commit. Stage the files for this issue with `git add <files>` then re-run finish.',
+      'Nothing to finish: no commits ahead of origin/main and no staged files. ' +
+      'Stage the files for this issue with `git add <files>` then re-run finish.',
     )
   }
 
-  const dirty = dirtyFiles()
-  const unstaged = dirty.filter((f) => !staged.includes(f))
-  if (unstaged.length > 0) {
-    console.error('\n[ERROR] Untracked or unstaged files detected:')
-    for (const f of unstaged) {
-      console.error(`  ${f}`)
+  if (staged.length > 0) {
+    const dirty = dirtyFiles()
+    const unstaged = dirty.filter((f) => !staged.includes(f))
+    if (unstaged.length > 0) {
+      console.error('\n[ERROR] Untracked or unstaged files detected:')
+      for (const f of unstaged) {
+        console.error(`  ${f}`)
+      }
+      throw new CliError(
+        'Cannot finish: stage only files relevant to this issue, or stash unrelated changes.',
+      )
     }
-    throw new CliError(
-      'Cannot finish: stage only files relevant to this issue, or stash unrelated changes.',
-    )
   }
 
-  // 5. Derive commit message components
+  // 5. Derive commit message components (used for commit and PR title)
   const commitType = opts.commitType ?? expectedPrefix(issue.title)
   const changed = changedFiles()
   const commitScope = opts.commitScope ?? deriveScope(changed)
@@ -210,19 +219,27 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
 
   if (opts.dryRun) {
     console.log('\n[dry-run] Would perform:')
-    console.log(`  git commit -m "${commitMsg}" \\`)
-    for (const t of trailers) {
-      console.log(`    --trailer "${t}" \\`)
+    if (staged.length > 0) {
+      console.log(`  git commit -m "${commitMsg}" \\`)
+      for (const t of trailers) {
+        console.log(`    --trailer "${t}" \\`)
+      }
+    } else {
+      console.log(`  (${ahead} commit(s) already made — skipping commit step)`)
     }
     console.log(`  git push -u origin ${branch}`)
-    console.log(`  gh pr create --draft --title "${commitMsg}" --body "..."`)
+    console.log(`  gh pr create --draft --title "..." --body "..." (or update existing PR body)`)
     return
   }
 
-  // 6. Commit
-  console.log(`\nCommitting: ${commitMsg}`)
-  const trailerArgs = trailers.map((t) => `--trailer ${JSON.stringify(t)}`).join(' ')
-  run(`git commit -m ${JSON.stringify(commitMsg)} ${trailerArgs}`)
+  // 6. Commit staged files if any; otherwise the worker already committed incrementally
+  if (staged.length > 0) {
+    console.log(`\nCommitting: ${commitMsg}`)
+    const trailerArgs = trailers.map((t) => `--trailer ${JSON.stringify(t)}`).join(' ')
+    run(`git commit -m ${JSON.stringify(commitMsg)} ${trailerArgs}`)
+  } else {
+    console.log(`\n${ahead} commit(s) already made — skipping commit step.`)
+  }
 
   // 7. Push
   console.log(`\nPushing branch ${branch}...`)
@@ -246,10 +263,20 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     '_What a human reviewer should manually verify before approving._',
   ].join('\n')
 
-  // 9. Open draft PR
-  console.log('\nOpening draft PR...')
+  // 9. Open draft PR if none exists, otherwise update the existing PR body
   const prTitle = `${commitType}(${commitScope}): ${description}`
-  const prUrl = createDraftPr({ title: prTitle, body: prBody })
+  const existingPrUrl = findExistingPr()
+  let prUrl: string
+
+  if (existingPrUrl !== null) {
+    console.log(`\nDraft PR already open: ${existingPrUrl} — updating body with acceptance evidence...`)
+    updatePrBody(prBody)
+    prUrl = existingPrUrl
+  } else {
+    console.log('\nOpening draft PR...')
+    prUrl = createDraftPr({ title: prTitle, body: prBody })
+  }
+
   editIssueLabels(issueNumber, {
     add: ['status:needs-review'],
     remove: ['status:in-progress'],

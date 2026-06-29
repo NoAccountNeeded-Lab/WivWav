@@ -55,6 +55,18 @@ export function createDraftPr(opts: { title: string; body: string }): string {
   return result.trim()
 }
 
+/** Return the URL of an open PR for the current branch, or null if none exists. */
+export function findExistingPr(): string | null {
+  const { stdout, ok } = tryRun('gh pr view --json url --jq .url')
+  if (!ok || stdout.trim() === '') return null
+  return stdout.trim()
+}
+
+/** Update the body of the open PR for the current branch. */
+export function updatePrBody(body: string): void {
+  run(`gh pr edit --body ${shellQuote(body)}`)
+}
+
 /** Return true when `gh auth status` exits 0. */
 export function isGhAuthenticated(): boolean {
   return tryRun('gh auth status').ok

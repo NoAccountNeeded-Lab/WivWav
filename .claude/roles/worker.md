@@ -44,6 +44,19 @@ The CLI (`pnpm wivwav run-sprint`) is the single owner of branch and worktree cr
 
 5. **Implement** — follow `.claude/core.md` conventions. Read `.claude/roles/tester.md` for test conventions.
 
+   Commit after each logical change — one commit per distinct behavior or fix, not one per file and not one giant commit at the end:
+   ```bash
+   git add <files>
+   git commit -m "type(scope): what this change does"
+   ```
+
+   After your **first commit**, push the branch and open a draft PR for visibility:
+   ```bash
+   git push -u origin {branch}
+   gh pr create --draft --title "WIP: {issue title}" --body "Work in progress for #{N}."
+   ```
+   Post the PR URL as an issue comment. Do not push again after this — `wivwav-finish-issue` handles the final push.
+
 6. **Review** — spawn ONE Reviewer agent (foreground, blocking):
    - Always include: `reviewer.md`, `qa.md`
    - Add `accessibility.md` if `apps/web/` files changed
@@ -74,7 +87,7 @@ The CLI (`pnpm wivwav run-sprint`) is the single owner of branch and worktree cr
 
 9. **Usage report** — update `.agents/usage-report.md`: provider, model, token counts, cache tokens, tool-call count. Use `unavailable` if counts not exposed.
 
-10. **Finish** — run `/wivwav-finish-issue {N}`.
+10. **Finish** — run `/wivwav-finish-issue {N}`. The CLI will push all remaining commits, update the draft PR body with acceptance evidence, and relabel the issue `status:needs-review`.
 
 ## Attribution
 
