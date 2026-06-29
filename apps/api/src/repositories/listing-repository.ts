@@ -131,8 +131,20 @@ export type ListingDealerResult = {
   dealerProfileId: string | null
 }
 
+export type ListingPublicationCountRow = {
+  sourceId: string
+  observedActive: number
+  eligibleActive: number
+}
+
 type CountRow = {
   count: number | bigint
+}
+
+type PublicationCountQueryRow = {
+  sourceId: string
+  observedActive: number | bigint
+  eligibleActive: number | bigint
 }
 
 // ── Interface ────────────────────────────────────────────────────────────────
@@ -146,9 +158,11 @@ export interface ListingRepository {
   findByVin(vin: string): Promise<ListingVinRow | null>
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null>
   findManyActive(skip: number, take: number): Promise<Listing[]>
+  countObservedActive(): Promise<number>
   countActive(): Promise<number>
   countActiveWithCoordinates(): Promise<number>
   countActiveMissingCoordinates(): Promise<number>
+  getPublicationCountsBySource(): Promise<ListingPublicationCountRow[]>
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]>
   /** Cursor-based page for bulk sync operations. Returns listings in id order. */
   findPageForSync(take: number, afterId?: string): Promise<Listing[]>
@@ -160,8 +174,12 @@ export class PrismaListingRepository implements ListingRepository {
   constructor(private readonly db: PrismaClient) {}
 
   findById(id: string): Promise<ListingWithSource | null> {
-    return this.db.listing.findUnique({
-      where: { id },
+    return this.db.listing.findFirst({
+      where: {
+        id,
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
       include: { source: { select: { name: true, baseUrl: true } } },
     })
   }
@@ -171,6 +189,7 @@ export class PrismaListingRepository implements ListingRepository {
       where: {
         vehicleId,
         status: 'active',
+        publicationStatus: 'eligible',
         id: { not: excludeListingId },
       },
       orderBy: [
@@ -194,15 +213,23 @@ export class PrismaListingRepository implements ListingRepository {
   }
 
   findByIdForSafety(id: string): Promise<ListingSafetyResult | null> {
-    return this.db.listing.findUnique({
-      where: { id },
+    return this.db.listing.findFirst({
+      where: {
+        id,
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
       select: { id: true, vehicleModelId: true },
     })
   }
 
   findByIdForDealer(id: string): Promise<ListingDealerResult | null> {
-    return this.db.listing.findUnique({
-      where: { id },
+    return this.db.listing.findFirst({
+      where: {
+        id,
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
       select: { id: true, dealerProfileId: true },
     })
   }
@@ -237,7 +264,11 @@ export class PrismaListingRepository implements ListingRepository {
 
   findByVin(vin: string): Promise<ListingVinRow | null> {
     return this.db.listing.findFirst({
-      where: { vin },
+      where: {
+        vin,
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
       select: { id: true, conversionManufacturer: true },
     })
   }
@@ -261,6 +292,7 @@ export class PrismaListingRepository implements ListingRepository {
         SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
         FROM listings
         WHERE status = 'active'
+          AND "publicationStatus" = 'eligible'
         ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
       )
       SELECT *
@@ -271,11 +303,16 @@ export class PrismaListingRepository implements ListingRepository {
     `
   }
 
+  countObservedActive(): Promise<number> {
+    return this.db.listing.count({ where: { status: 'active' } })
+  }
+
   async countActive(): Promise<number> {
     const rows = await this.db.$queryRaw<CountRow[]>`
       SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
       FROM listings
       WHERE status = 'active'
+        AND "publicationStatus" = 'eligible'
     `
     return Number(rows[0]?.count ?? 0)
   }
@@ -302,6 +339,23 @@ export class PrismaListingRepository implements ListingRepository {
     })
   }
 
+  async getPublicationCountsBySource(): Promise<ListingPublicationCountRow[]> {
+    const rows = await this.db.$queryRaw<PublicationCountQueryRow[]>`
+      SELECT
+        "sourceId",
+        COUNT(*)::int AS "observedActive",
+        COUNT(*) FILTER (WHERE "publicationStatus" = 'eligible')::int AS "eligibleActive"
+      FROM listings
+      WHERE status = 'active'
+      GROUP BY "sourceId"
+    `
+    return rows.map(row => ({
+      sourceId: row.sourceId,
+      observedActive: Number(row.observedActive),
+      eligibleActive: Number(row.eligibleActive),
+    }))
+  }
+
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]> {
     return this.db.listingPriceHistory.findMany({
       where: { listingId },
@@ -314,6 +368,10 @@ export class PrismaListingRepository implements ListingRepository {
     return this.db.listing.findMany({
       take,
       ...(afterId ? { skip: 1, cursor: { id: afterId } } : {}),
+      where: {
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
       orderBy: { id: 'asc' },
     })
   }
