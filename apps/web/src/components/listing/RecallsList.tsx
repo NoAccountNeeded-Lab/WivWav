@@ -9,8 +9,15 @@ interface RecallsListProps {
   safety: SafetyData | null
 }
 
+/** NHTSA recall detail URL for a given campaign ID. */
+function nhtsaRecallUrl(nhtsaCampaignId: string): string {
+  return `https://www.nhtsa.gov/vehicle/recalls#${nhtsaCampaignId}`
+}
+
 export function RecallsList({ vin, safety }: RecallsListProps) {
-  const openRecalls = (safety?.recalls ?? []).filter((r) => r.status === 'open')
+  const allRecalls = safety?.recalls ?? []
+  const openRecalls = allRecalls.filter((r) => r.status === 'open')
+  const historicalRecalls = allRecalls.filter((r) => r.status !== 'open')
 
   return (
     <div>
@@ -25,18 +32,66 @@ export function RecallsList({ vin, safety }: RecallsListProps) {
         <p className={styles.placeholder}>
           Safety data not yet available for this vehicle. Check back after the next NHTSA sync.
         </p>
-      ) : openRecalls.length === 0 ? (
-        <div className={styles.noRecalls}>
-          <Check size={14} aria-hidden />
-          No open recalls found for {safety.vehicleModel.year} {safety.vehicleModel.make}{' '}
-          {safety.vehicleModel.model}
-        </div>
       ) : (
-        <ul className={styles.list} aria-label="Recall campaigns">
-          {safety.recalls.map((recall) => (
-            <RecallItem key={recall.id} recall={recall} />
-          ))}
-        </ul>
+        <>
+          {/* Summary counts */}
+          <div className={styles.recallSummary}>
+            {openRecalls.length === 0 ? (
+              <div className={styles.noRecalls}>
+                <Check size={14} aria-hidden />
+                No open recalls found for {safety.vehicleModel.year} {safety.vehicleModel.make}{' '}
+                {safety.vehicleModel.model}
+              </div>
+            ) : (
+              <div className={styles.recallSummaryCounts}>
+                <span className={styles.recallCountOpen}>
+                  {openRecalls.length} open recall{openRecalls.length !== 1 ? 's' : ''}
+                </span>
+                {historicalRecalls.length > 0 && (
+                  <span className={styles.recallCountHistorical}>
+                    {historicalRecalls.length} historical
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Open recalls */}
+          {openRecalls.length > 0 && (
+            <>
+              <div className={styles.recallGroupLabel}>Open recalls</div>
+              <ul className={styles.list} aria-label="Open recall campaigns">
+                {openRecalls.map((recall) => (
+                  <RecallItem key={recall.id} recall={recall} />
+                ))}
+              </ul>
+            </>
+          )}
+
+          {/* Historical recalls */}
+          {historicalRecalls.length > 0 && (
+            <>
+              <div className={styles.recallGroupLabel}>
+                Historical recalls
+                {openRecalls.length === 0 && (
+                  <span className={styles.recallGroupNote}> — no open remedies</span>
+                )}
+              </div>
+              <ul className={styles.list} aria-label="Historical recall campaigns">
+                {historicalRecalls.map((recall) => (
+                  <RecallItem key={recall.id} recall={recall} />
+                ))}
+              </ul>
+            </>
+          )}
+
+          {/* Empty state when no recalls at all */}
+          {allRecalls.length === 0 && (
+            <p className={styles.placeholder}>
+              No recall records found for this vehicle model.
+            </p>
+          )}
+        </>
       )}
     </div>
   )
@@ -62,9 +117,23 @@ function RecallItem({ recall }: { recall: Recall }) {
         </div>
         <div className={styles.sub}>Issued {formatDate(recall.reportedAt)}</div>
         {recall.summary && <div className={styles.sub}>{recall.summary}</div>}
-        <span className={statusClass}>
-          {recallStatusLabel(status)}
-        </span>
+        {recall.remedy && (
+          <div className={styles.remedy}>Remedy: {recall.remedy}</div>
+        )}
+        <div className={styles.recallItemFooter}>
+          <span className={statusClass}>
+            {recallStatusLabel(status)}
+          </span>
+          <a
+            href={nhtsaRecallUrl(recall.nhtsaCampaignId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.sourceLink}
+          >
+            NHTSA source
+            <span className="sr-only"> (opens in new tab)</span>
+          </a>
+        </div>
       </div>
     </li>
   )

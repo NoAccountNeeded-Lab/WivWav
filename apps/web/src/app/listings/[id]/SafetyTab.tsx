@@ -23,6 +23,7 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
 
   const investigations = safety?.investigations ?? []
   const manufacturerCommunications = safety?.manufacturerCommunications ?? []
+  const complaints = safety?.complaints ?? []
 
   return (
     <div className={styles.tabContent}>
@@ -79,6 +80,41 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
         <p className={styles.placeholder}>
           No NHTSA safety ratings available for this vehicle yet.
         </p>
+      )}
+
+      {complaints.length > 0 && (
+        <div className={styles.section}>
+          <div className={styles.sectionLabel}>
+            NHTSA complaints
+            <span className={styles.sectionCount}>{complaints.length}</span>
+          </div>
+          <ul className={styles.safetyItemList} aria-label="NHTSA complaints">
+            {complaints.map((complaint) => (
+              <li key={complaint.id} className={styles.safetyItem}>
+                <div>
+                  <div className={styles.safetyItemTitle}>{complaint.component}</div>
+                  {complaint.mileage != null && (
+                    <div className={styles.safetyItemSub}>
+                      At {complaint.mileage.toLocaleString()} miles
+                    </div>
+                  )}
+                  {complaint.summary && (
+                    <div className={styles.safetyItemSub}>{complaint.summary}</div>
+                  )}
+                  <a
+                    href={`https://www.nhtsa.gov/vehicle/complaints#${complaint.nhtsaId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.safetyItemSource}
+                  >
+                    NHTSA complaint #{complaint.nhtsaId}
+                    <span className="sr-only"> (opens in new tab)</span>
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {investigations.length > 0 && (
