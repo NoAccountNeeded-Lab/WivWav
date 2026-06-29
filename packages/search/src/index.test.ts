@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { conversionBrandSlug, toDocument } from './index.js'
+import { describe, it, expect, vi } from 'vitest'
+import { conversionBrandSlug, syncListings, toDocument } from './index.js'
 import type { Listing } from '@wivwav/db'
 
 // Minimal Listing row that satisfies the Prisma-generated type for toDocument.
@@ -47,6 +47,9 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     isDuplicate: false,
     canonicalId: null,
     status: 'active',
+    publicationStatus: 'pending',
+    qualityIssueCodes: [],
+    qualityCheckedAt: null,
     saleStatus: 'active',
     goneAt: null,
     soldAt: null,
@@ -123,6 +126,11 @@ describe('toDocument — private-seller field normalization', () => {
     const doc = toDocument(makeListing({ id: 'listing-1', vehicleId: null }))
     expect(doc.vehicleGroupKey).toBe('listing-1')
   })
+
+  it('includes publication status for defense-in-depth search filtering', () => {
+    const doc = toDocument(makeListing({ publicationStatus: 'eligible' }))
+    expect(doc.publicationStatus).toBe('eligible')
+  })
 })
 
 describe('conversionBrandSlug', () => {
@@ -169,5 +177,54 @@ describe('toDocument — wavFeatures', () => {
     expect(doc).not.toHaveProperty('hasLift')
     expect(doc).not.toHaveProperty('handControls')
     expect(doc).not.toHaveProperty('transferSeat')
+  })
+})
+
+describe('syncListings — publication eligibility', () => {
+  it('upserts only eligible active listings', async () => {
+    const row = makeListing({ id: 'eligible-1', publicationStatus: 'eligible' })
+    const findMany = vi.fn(async () => [row])
+    const addDocuments = vi.fn(async () => ({}))
+    const deleteDocuments = vi.fn(async () => ({}))
+    const client = {
+      index: vi.fn(() => ({ addDocuments, deleteDocuments })),
+    }
+
+    await syncListings(
+      ['eligible-1'],
+      { listing: { findMany } } as never,
+      client as never,
+    )
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['eligible-1'] },
+        status: 'active',
+        publicationStatus: 'eligible',
+      },
+    })
+    expect(addDocuments).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: 'eligible-1', publicationStatus: 'eligible' })],
+      { primaryKey: 'id' },
+    )
+    expect(deleteDocuments).not.toHaveBeenCalled()
+  })
+
+  it('removes requested ids that are not eligible and active', async () => {
+    const findMany = vi.fn(async () => [])
+    const addDocuments = vi.fn(async () => ({}))
+    const deleteDocuments = vi.fn(async () => ({}))
+    const client = {
+      index: vi.fn(() => ({ addDocuments, deleteDocuments })),
+    }
+
+    await syncListings(
+      ['pending-1', 'gone-1'],
+      { listing: { findMany } } as never,
+      client as never,
+    )
+
+    expect(addDocuments).not.toHaveBeenCalled()
+    expect(deleteDocuments).toHaveBeenCalledWith(['pending-1', 'gone-1'])
   })
 })
