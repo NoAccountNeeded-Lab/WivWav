@@ -127,4 +127,26 @@ describe('buildListingDetailUpdateData', () => {
       directVehicleUrl: null,
     }, {}, NOW)).not.toHaveProperty('buyerUrl')
   })
+
+  it('includes description when detail.description is non-null', () => {
+    const result = buildListingDetailUpdateData(detail, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).toHaveProperty('description', 'Rear Entry wheelchair van.')
+  })
+
+  it('omits description key when detail.description is null (fail-closed: preserves previous DB value)', () => {
+    const noDesc = { ...detail, description: null }
+    const result = buildListingDetailUpdateData(noDesc, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).not.toHaveProperty('description')
+  })
+
+  it('omits images key when detail.images is empty (fail-closed: preserves previous DB value)', () => {
+    const noImages = { ...detail, images: [] }
+    const result = buildListingDetailUpdateData(noImages, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).not.toHaveProperty('images')
+  })
+
+  it('includes images key when detail.images has entries', () => {
+    const result = buildListingDetailUpdateData(detail, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).toHaveProperty('images')
+  })
 })
