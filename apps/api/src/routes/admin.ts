@@ -2,7 +2,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
-import type { ListingRepository, SourceRepository, ScraperRunRepository } from '../repositories/index.js'
+import type {
+  ListingPublicationCountRow,
+  ListingRepository,
+  ScraperRunRepository,
+  SourceRepository,
+  SourceRow,
+} from '../repositories/index.js'
 
 interface AdminPluginOptions {
   listings: ListingRepository
@@ -151,8 +157,11 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
   // GET /admin/sources — sources with status, lastScrapedAt, listingCount
   app.get('/sources', async (_req, reply) => {
-    const sourceList = await sources.findAll()
-    return reply.send({ data: sourceList })
+    const [sourceList, publicationCounts] = await Promise.all([
+      sources.findAll(),
+      listings.getPublicationCountsBySource(),
+    ])
+    return reply.send({ data: withPublicationCounts(sourceList, publicationCounts) })
   })
 
   // POST /admin/sources/:id/run — immediately enqueue a source-scrape job
@@ -178,16 +187,20 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       const [
         sourceList,
         recentRuns,
-        activeListings,
+        observedActiveListings,
+        eligibleListings,
         mapReadyListings,
         missingLocationListings,
+        publicationCounts,
         queueStates,
       ] = await Promise.all([
         sources.findAll(),
         scraperRuns.findRecent(20),
+        listings.countObservedActive(),
         listings.countActive(),
         listings.countActiveWithCoordinates(),
         listings.countActiveMissingCoordinates(),
+        listings.getPublicationCountsBySource(),
         Promise.all(
           LISTING_REFRESH_QUEUES.map(async (name): Promise<ListingRefreshQueueState> => {
             const q = getQueueOrThrow(queues, name)
@@ -216,6 +229,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       const sourceRows = await sources.findManyByIds(sourceIds)
       const nameById = new Map(sourceRows.map(source => [source.id, source.name]))
       const latestScrapeRun = recentRuns[0] ?? null
+      const countedSources = withPublicationCounts(sourceList, publicationCounts)
 
       return reply.send({
         data: {
@@ -225,10 +239,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
             active: sourceList.filter(source => source.status === 'active').length,
             needsAttention: sourceList.filter(source => source.status === 'error' || source.status === 'needs_remapping').length,
             totalListings: sourceList.reduce((sum, source) => sum + source.listingCount, 0),
+            observedActiveListings: countedSources.reduce((sum, source) => sum + source.observedActiveCount, 0),
+            eligibleListings: countedSources.reduce((sum, source) => sum + source.eligibleActiveCount, 0),
             lastScrapedAt: latestDate(sourceList.map(source => source.lastScrapedAt)),
           },
           listings: {
-            active: activeListings,
+            active: observedActiveListings,
+            observedActive: observedActiveListings,
+            eligible: eligibleListings,
             mapReady: mapReadyListings,
             missingLocations: missingLocationListings,
           },
@@ -281,6 +299,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       { id: 'deduplicate',     queue: 'deduplicate',     label: 'Deduplicate (VIN)',         name: 'deduplicate',     data: {},                          defaultPattern: '0 3 * * *',   tz },
       { id: 'rawpage-cleanup', queue: 'rawpage-cleanup', label: 'RawPage cleanup (TTL)',      name: 'rawpage-cleanup', data: {},                          defaultPattern: '0 1 * * *',   tz },
       { id: 'vin-enrich',      queue: QUEUES.VIN_ENRICH,           label: 'VIN enrichment (NHTSA vPIC)',     name: QUEUES.VIN_ENRICH,           data: {}, defaultPattern: '0 4/6 * * *', tz },
+      { id: 'listing-sync',    queue: QUEUES.LISTING_SYNC,         label: 'Listing search full sync',         name: QUEUES.LISTING_SYNC,         data: {}, defaultPattern: '30 1 * * *',  tz },
       { id: 'nhtsa-recalls',   queue: QUEUES.NHTSA_RECALLS,        label: 'NHTSA recalls refresh',           name: QUEUES.NHTSA_RECALLS,        data: {}, defaultPattern: '30 4 * * *',  tz },
       { id: 'nhtsa-complaints', queue: QUEUES.NHTSA_COMPLAINTS,    label: 'NHTSA complaints refresh',        name: QUEUES.NHTSA_COMPLAINTS,     data: {}, defaultPattern: '0 5 * * 0',   tz },
       { id: 'nhtsa-safety-ratings', queue: QUEUES.NHTSA_SAFETY_RATINGS, label: 'NHTSA safety ratings refresh', name: QUEUES.NHTSA_SAFETY_RATINGS, data: {}, defaultPattern: '0 6 * * 0',   tz },
@@ -374,6 +393,18 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     await q.addRepeatable(name, data, pattern, tz, jobId)
     return reply.send({ data: { updated: true } })
   })
+}
+
+function withPublicationCounts(
+  sources: SourceRow[],
+  counts: ListingPublicationCountRow[],
+): Array<SourceRow & { observedActiveCount: number; eligibleActiveCount: number }> {
+  const countBySource = new Map(counts.map(count => [count.sourceId, count]))
+  return sources.map(source => ({
+    ...source,
+    observedActiveCount: countBySource.get(source.id)?.observedActive ?? 0,
+    eligibleActiveCount: countBySource.get(source.id)?.eligibleActive ?? 0,
+  }))
 }
 
 function latestByCreatedAt(jobs: JobRecord[]): JobRecord | undefined {

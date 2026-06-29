@@ -95,6 +95,7 @@ function buildTestApp() {
           findMany: vi.fn(async () => []),
           count: vi.fn(async () => 0),
           findUnique: vi.fn(async () => null),
+          findFirst: vi.fn(async () => null),
         },
         listingPriceHistory: {
           findMany: vi.fn(async () => []),
