@@ -65,6 +65,7 @@ export class PrismaMarketRepository implements MarketRepository {
           SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
           FROM listings
           WHERE status = 'active'
+            AND "publicationStatus" = 'eligible'
             AND "priceCents" IS NOT NULL
             AND make = ${make}
             AND model = ${model}
@@ -88,6 +89,7 @@ export class PrismaMarketRepository implements MarketRepository {
           SELECT DISTINCT ON (COALESCE("vehicleId", id)) id, make, model, year, "conversionType"
           FROM listings
           WHERE status = 'active'
+            AND "publicationStatus" = 'eligible'
             AND make = ${make}
             AND model = ${model}
             AND (${year}::int IS NULL OR year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
@@ -135,6 +137,7 @@ export class PrismaMarketRepository implements MarketRepository {
           SELECT DISTINCT ON (COALESCE("vehicleId", id)) make
           FROM listings
           WHERE status = 'active'
+            AND "publicationStatus" = 'eligible'
           ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
         )
         SELECT make, COUNT(*)::int AS count
@@ -148,6 +151,7 @@ export class PrismaMarketRepository implements MarketRepository {
           SELECT DISTINCT ON (COALESCE("vehicleId", id)) make, model
           FROM listings
           WHERE status = 'active'
+            AND "publicationStatus" = 'eligible'
           ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
         )
         SELECT make, model, COUNT(*)::int AS count
@@ -161,6 +165,7 @@ export class PrismaMarketRepository implements MarketRepository {
           SELECT DISTINCT ON (COALESCE("vehicleId", id)) "conversionManufacturer"
           FROM listings
           WHERE status = 'active'
+            AND "publicationStatus" = 'eligible'
           ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
         )
         SELECT "conversionManufacturer", COUNT(*)::int AS count
