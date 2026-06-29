@@ -31,10 +31,10 @@ Canonical list of HTTP routes exposed by `apps/api`. **Keep this table current**
 | POST   | /admin/queues/:name/pause      | Pause a queue                        |
 | POST   | /admin/queues/:name/resume     | Resume a queue                       |
 | GET    | /admin/runs                    | Recent scraper runs (last 100) + sourceName |
-| GET    | /admin/sources                 | Sources with status and listing count|
+| GET    | /admin/sources                 | Sources with status plus observed-active and eligible-active listing counts |
 | POST   | /admin/sources/:id/run         | Enqueue an immediate source-scrape job |
 | POST   | /admin/sync                    | Re-index all listings into Meilisearch |
-| GET    | /admin/listing-refresh/status  | Aggregate source, queue, listing, and map-readiness state for the guided refresh workflow |
+| GET    | /admin/listing-refresh/status  | Aggregate source, queue, observed/eligible listing, and map-readiness state for the guided refresh workflow |
 | GET    | /admin/repeatables             | Canonical repeatable jobs merged with live BullMQ state |
 | DELETE | /admin/repeatables/:queue      | Disable a repeatable job (remove from BullMQ by key) |
 | POST   | /admin/repeatables/:queue      | Enable a repeatable job (add to BullMQ) |
