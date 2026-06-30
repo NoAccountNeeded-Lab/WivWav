@@ -12,9 +12,10 @@ verified public truth.
 | `sourceId`, `sourceRecordKey` | list/card scrape | Immutable source identity used by the unique key. A corrected identity creates a distinct source record; fuzzy merging is out of scope. |
 | `sourceUrl`, source fallback `buyerUrl`, `externalId`, `stockNumber` | list/card scrape | Replace when the card changes. A dealer-enriched direct `buyerUrl` is preserved when the card only repeats its source URL. |
 | `make`, `model`, `year`, `trim`, `vin`, `condition`, `sellerType` | list/card scrape, then resolution | Persist corrected card evidence and move publication to `pending`. VIN enrichment may link the resulting VIN to `vehicleId`, but does not rewrite the observed VIN. Resolution owns public conflict decisions (#499). |
-| `priceCents`, `mileage`, `listedAt` | list/card scrape | Replace on change. Non-null price/mileage transitions append their specialized history rows in the same serializable transaction. |
+| `priceCents`, `mileage` | list/card scrape | Replace on change. Non-null transitions append their specialized history rows in the same serializable transaction. |
 | `conversionType`, `conversionManufacturer`, `conversionStatus`, `rampType`, `wavFeatures`, `floorLoweringInches`, `wheelchairCapacity` | resolution | Card and detail stages persist their latest bounded observations and invalidate publication. The #499 resolver/validator owns verified public truth; neither scraper stage marks the row eligible. |
-| `color`, `fuelType`, `engine`, `transmission` | detail scrape | Replace only when the bounded specification extraction succeeded. Missing/failed extraction preserves the previous value. |
+| `color` | list/card scrape, then detail scrape | A corrected card color is persisted; bounded detail specifications may refine it. Missing detail evidence preserves the card value. |
+| `fuelType`, `engine`, `transmission` | detail scrape | Replace only when the bounded specification extraction succeeded. Missing/failed extraction preserves the previous value. |
 | `zip`, `city`, `state` | list/card scrape | Replace on change and clear `lat`/`lng`, forcing geocoding to recompute coordinates. Detail may supply a bounded ZIP observation. |
 | `lat`, `lng` | geocode | Never overwritten by a card unless source location changes, in which case both are cleared. |
 | `dealerName` | list/card scrape | Replace corrected source dealer identity. |
@@ -29,6 +30,7 @@ verified public truth.
 | `vehicleId`, `vehicleModelId`, `vehicleModelMatchConfidence` | VIN enrichment | Updated from normalized VIN/model evidence without rewriting source observations. |
 | `isDuplicate`, `canonicalId` | resolution | Owned by deduplication/canonical resolution. |
 | `detailScrapedAt` | detail scrape | Time the most recent raw page was successfully interpreted, even when its values were unchanged. |
+| `listedAt` | list/card scrape | Set on create. Current adapters only have the scrape clock, so repeat scrapes do not treat a new clock value as a source correction. |
 | `scrapedAt` | list/card scrape | Time the most recent **changed** card observation was committed. Unchanged cards do not churn rows; source-level `lastObservedAt` records successful no-change checks. |
 | `processingLockedAt` | resolution | Ephemeral job lock only. |
 | `updatedAt` | database | Prisma-managed write timestamp. |
