@@ -139,6 +139,42 @@ export type ListingPublicationCountRow = {
   possiblyGoneCount: number
 }
 
+/**
+ * Operator-facing quarantine row. Retains exactly the fields the AC requires
+ * for repair: source URL, source record key, observation time, extractor
+ * version (from the most recent listing_observation row), and rule IDs.
+ * Deliberately excludes free-text fields (description) that could carry
+ * unnecessary personal data for private-seller listings.
+ */
+export type QuarantinedListingRow = {
+  id: string
+  sourceId: string
+  sourceName: string
+  sourceUrl: string
+  sourceRecordKey: string
+  make: string
+  model: string
+  year: number
+  qualityIssueCodes: string[]
+  qualityCheckedAt: Date | null
+  scrapedAt: Date
+  updatedAt: Date
+}
+
+export type QuarantineFilter = {
+  sourceId?: string
+  /**
+   * Matches if ANY of the listing's qualityIssueCodes intersects this rule
+   * (or set of rules — passing an array lets callers filter by severity,
+   * which resolves to "any rule with that severity").
+   */
+  rule?: string | string[]
+  /** Only rows whose qualityCheckedAt (or scrapedAt if null) is at least this old. */
+  olderThanMs?: number
+  skip?: number
+  take?: number
+}
+
 type CountRow = {
   count: number | bigint
 }
@@ -169,6 +205,15 @@ export interface ListingRepository {
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]>
   /** Cursor-based page for bulk sync operations. Returns listings in id order. */
   findPageForSync(take: number, afterId?: string): Promise<Listing[]>
+  /** Lists quarantined listings, optionally filtered by source, rule, and age. */
+  findQuarantined(filter: QuarantineFilter): Promise<QuarantinedListingRow[]>
+  countQuarantined(filter: Omit<QuarantineFilter, 'skip' | 'take'>): Promise<number>
+  /**
+   * Resets a quarantined listing to 'pending' so the next validator pass
+   * re-evaluates it (e.g. after an operator corrects upstream data or a
+   * source fix ships). Returns false if the listing was not quarantined.
+   */
+  reprocessQuarantined(id: string): Promise<boolean>
 }
 
 // ── Prisma implementation ────────────────────────────────────────────────────
@@ -384,5 +429,80 @@ export class PrismaListingRepository implements ListingRepository {
       },
       orderBy: { id: 'asc' },
     })
+  }
+
+  private quarantineWhere(filter: Omit<QuarantineFilter, 'skip' | 'take'>): Prisma.ListingWhereInput {
+    const ruleCondition = filter.rule == null
+      ? {}
+      : Array.isArray(filter.rule)
+        ? { qualityIssueCodes: { hasSome: filter.rule } }
+        : { qualityIssueCodes: { has: filter.rule } }
+
+    return {
+      publicationStatus: 'quarantined',
+      ...(filter.sourceId ? { sourceId: filter.sourceId } : {}),
+      ...ruleCondition,
+      ...(filter.olderThanMs != null
+        ? {
+            OR: [
+              { qualityCheckedAt: { lte: new Date(Date.now() - filter.olderThanMs) } },
+              { AND: [{ qualityCheckedAt: null }, { scrapedAt: { lte: new Date(Date.now() - filter.olderThanMs) } }] },
+            ],
+          }
+        : {}),
+    }
+  }
+
+  async findQuarantined(filter: QuarantineFilter): Promise<QuarantinedListingRow[]> {
+    const rows = await this.db.listing.findMany({
+      where: this.quarantineWhere(filter),
+      orderBy: { qualityCheckedAt: 'desc' },
+      skip: filter.skip ?? 0,
+      take: filter.take ?? 50,
+      select: {
+        id: true,
+        sourceId: true,
+        sourceUrl: true,
+        sourceRecordKey: true,
+        make: true,
+        model: true,
+        year: true,
+        qualityIssueCodes: true,
+        qualityCheckedAt: true,
+        scrapedAt: true,
+        updatedAt: true,
+        source: { select: { name: true } },
+      },
+    })
+    return rows.map((row) => ({
+      id: row.id,
+      sourceId: row.sourceId,
+      sourceName: row.source.name,
+      sourceUrl: row.sourceUrl,
+      sourceRecordKey: row.sourceRecordKey,
+      make: row.make,
+      model: row.model,
+      year: row.year,
+      qualityIssueCodes: row.qualityIssueCodes,
+      qualityCheckedAt: row.qualityCheckedAt,
+      scrapedAt: row.scrapedAt,
+      updatedAt: row.updatedAt,
+    }))
+  }
+
+  countQuarantined(filter: Omit<QuarantineFilter, 'skip' | 'take'>): Promise<number> {
+    return this.db.listing.count({ where: this.quarantineWhere(filter) })
+  }
+
+  async reprocessQuarantined(id: string): Promise<boolean> {
+    const result = await this.db.listing.updateMany({
+      where: { id, publicationStatus: 'quarantined' },
+      data: {
+        publicationStatus: 'pending',
+        qualityIssueCodes: [],
+        qualityCheckedAt: null,
+      },
+    })
+    return result.count > 0
   }
 }
