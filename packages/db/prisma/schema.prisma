@@ -125,6 +125,16 @@ model Source {
   lastObservedAt  DateTime?
   listingCount    Int          @default(0)
   errorMessage    String?
+
+  /// Rolling (EWMA) baseline of the per-run error-severity issue rate (0-1),
+  /// updated after every source-scrape run regardless of outcome. Used to
+  /// detect abrupt drift in a source's data quality that the fixed systemic
+  /// threshold alone would miss (e.g. a source whose normal baseline is
+  /// already elevated, or one that degrades gradually below the fixed cutoff).
+  baselineErrorRate   Float?
+  /// Rolling (EWMA) baseline of the per-run missing/unknown field rate (0-1).
+  baselineMissingRate Float?
+
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
