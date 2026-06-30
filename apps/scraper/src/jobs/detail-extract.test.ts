@@ -3,7 +3,7 @@ import { beforeEach, describe, it, expect, vi } from 'vitest'
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { buildListingDetailUpdateData, resolveListingStatus } from './detail-extract.js'
+import { buildListingDetailUpdateData, changedDetailFields, resolveListingStatus } from './detail-extract.js'
 import { runDetailExtractJob } from './detail-extract.js'
 
 const NOW = new Date('2026-06-02T00:00:00Z')
@@ -148,6 +148,11 @@ describe('buildListingDetailUpdateData', () => {
     zip: '95815',
     dealerPhone: '(916) 555-0101',
     saleStatus: 'active' as const,
+    evidence: {
+      specs: 'value' as const,
+      description: 'value' as const,
+      images: 'value' as const,
+    },
   }
 
   it('includes dealer phone, dealer website, and direct buyer URL when enrichment succeeds', () => {
@@ -177,16 +182,46 @@ describe('buildListingDetailUpdateData', () => {
     expect(result).toHaveProperty('description', 'Rear Entry wheelchair van.')
   })
 
-  it('omits description key when detail.description is null (fail-closed: preserves previous DB value)', () => {
-    const noDesc = { ...detail, description: null }
+  it('omits description key when extraction has no description evidence', () => {
+    const noDesc = {
+      ...detail,
+      description: null,
+      evidence: { ...detail.evidence, description: 'missing' as const },
+    }
     const result = buildListingDetailUpdateData(noDesc, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
     expect(result).not.toHaveProperty('description')
   })
 
-  it('omits images key when detail.images is empty (fail-closed: preserves previous DB value)', () => {
-    const noImages = { ...detail, images: [] }
+  it('omits images key when gallery extraction has no evidence', () => {
+    const noImages = {
+      ...detail,
+      images: [],
+      evidence: { ...detail.evidence, images: 'missing' as const },
+    }
     const result = buildListingDetailUpdateData(noImages, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
     expect(result).not.toHaveProperty('images')
+  })
+
+  it('clears images when a verified gallery is authoritatively empty', () => {
+    const emptyGallery = {
+      ...detail,
+      images: [],
+      evidence: { ...detail.evidence, images: 'authoritative_empty' as const },
+    }
+    const result = buildListingDetailUpdateData(emptyGallery, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).toHaveProperty('images', [])
+  })
+
+  it('clears description and accessibility fields when the bounded section is authoritatively empty', () => {
+    const emptyDescription = {
+      ...detail,
+      description: null,
+      rampType: 'unknown' as const,
+      wavFeatures: [],
+      evidence: { ...detail.evidence, description: 'authoritative_empty' as const },
+    }
+    const result = buildListingDetailUpdateData(emptyDescription, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+    expect(result).toMatchObject({ description: null, rampType: 'unknown', wavFeatures: [] })
   })
 
   it('includes images key when detail.images has entries', () => {
@@ -204,5 +239,21 @@ describe('buildListingDetailUpdateData', () => {
     const noEngine = { ...detail, engine: null }
     const result = buildListingDetailUpdateData(noEngine, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
     expect(result).not.toHaveProperty('engine')
+  })
+})
+
+describe('changedDetailFields', () => {
+  it('does not treat scrape bookkeeping as a content change', () => {
+    expect(changedDetailFields(
+      { color: 'Grey', detailScrapedAt: new Date('2026-06-01') },
+      { color: 'Grey', detailScrapedAt: NOW, publicationStatus: 'pending' },
+    )).toEqual([])
+  })
+
+  it('detects changed galleries and authoritative field clearing', () => {
+    expect(changedDetailFields(
+      { images: ['stale.jpg'], description: 'stale' },
+      { images: [], description: null },
+    )).toEqual(['images', 'description'])
   })
 })
