@@ -1,11 +1,13 @@
 import { getDb, upsertVehicleIdentityDecision, VehicleIdentityDecisionState } from '@wivwav/db'
 import type { Listing, PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
+import { syncListings } from '@wivwav/search'
 import {
   matchListingPair,
   type MatchableListing,
   type VehicleIdentityMatchResult,
 } from '../engine/vehicle-identity-matcher.js'
+import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { acquireListingLock, releaseListingLocks } from './listing-lock.js'
 
@@ -100,12 +102,23 @@ export async function runMatchVehicleIdentityJob(context?: JobContext): Promise<
         try {
           const vehicleId = await resolveAutoLinkVehicleId(db, listingA, listingB, assignedVehicleId)
 
+          // Audit signal: a stable-identifier match disagreeing with a prior
+          // auto-link is rare (the gate is conservative) but should never be
+          // silent — record it on the decision for operator visibility even
+          // though the matcher itself proceeds with the resolved vehicleId.
+          const reassignedFrom = [listingA, listingB]
+            .filter((l) => l.vehicleId && l.vehicleId !== vehicleId)
+            .map((l) => `${l.id}:${l.vehicleId}`)
+
           await upsertVehicleIdentityDecision(db, {
             listingAId: listingA.id,
             listingBId: listingB.id,
             vehicleId,
             state: VehicleIdentityDecisionState.verified,
-            signals: signalsToJson(result),
+            signals: {
+              ...signalsToJson(result),
+              ...(reassignedFrom.length > 0 ? { reassignedFrom } : {}),
+            },
             ruleId: result.ruleId,
           })
 
@@ -130,9 +143,11 @@ export async function runMatchVehicleIdentityJob(context?: JobContext): Promise<
     })
   }
 
+  await syncListings(touchedIds, db, getMeiliClient())
+
   await report(
     context,
-    `[match-vehicle-identity] Done. ${autoLinked} pair(s) auto-linked, ${candidates} candidate(s) recorded, ${touchedIds.length} listing(s) updated.`,
+    `[match-vehicle-identity] Done. ${autoLinked} pair(s) auto-linked, ${candidates} candidate(s) recorded, ${touchedIds.length} listing(s) updated and synced to Meilisearch.`,
     { stage: 'complete', current: totalPairs, total: totalPairs },
   )
   await db.$disconnect()
