@@ -24,7 +24,6 @@ export const QUALITY_RULE_SEVERITY: Readonly<Record<string, QualityIssueSeverity
   new_with_high_mileage: 'warn',
   malformed_source_url: 'error',
   unparseable_vin: 'error',
-  invalid_vin: 'warn',
   invalid_check_digit: 'warn',
   missing_identity_field: 'error',
   missing_required_field: 'warn',
@@ -120,8 +119,10 @@ export interface Listing {
 
   /**
    * Scrape-time quality issue codes populated by the source adapter.
-   * Examples: 'invalid_vin' (check-digit failure), 'unparseable_vin' (garbage string).
-   * The publication validator uses these to quarantine or flag rows.
+   * Examples: 'invalid_check_digit' (structurally valid VIN, wrong check digit),
+   * 'unparseable_vin' (garbage string). Rule ids match QUALITY_RULE_SEVERITY
+   * above and apps/scraper's listing-validator.ts, which re-derives and
+   * overwrites these during publication — see decidePublication().
    */
   qualityIssueCodes?: string[]
 
