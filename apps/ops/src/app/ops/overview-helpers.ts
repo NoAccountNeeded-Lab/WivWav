@@ -19,8 +19,14 @@ export interface SourceRow {
   name: string
   status: string
   lastScrapedAt: string | null
+  /** Timestamp of the most recent complete (all-pages) crawl. */
+  lastFullCrawlAt: string | null
+  /** Timestamp of the most recent observation (complete or partial). */
+  lastObservedAt: string | null
   listingCount: number
   errorMessage: string | null
+  /** Number of possibly_gone listings — an elevated count relative to listingCount indicates index-absence discrepancy. */
+  possiblyGoneCount: number
 }
 
 export interface RunRow {
@@ -117,6 +123,7 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
     ...scheduleAttention(disabledSchedules, failedSchedules, scheduleError),
     ...freshnessAttention(lastSuccessfulRun, lastScrapeAgeMs, runError, input.now),
     ...geocodeAttention(geocodeQueue, queueError),
+    ...inventoryDiscrepancyAttention(input.sources, sourceError),
   ]
 
   const healthCards: OverviewCard[] = [
@@ -197,11 +204,11 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
     },
     {
       id: 'listing-freshness-window',
-      label: 'Per-listing freshness',
-      value: 'Unavailable',
-      detail: 'Recent scraper runs are available; per-listing stale counts are not exposed in admin data yet.',
-      severity: 'unknown',
-      href: '/ops/runs',
+      label: 'Possibly-gone listings',
+      value: sourceError ? 'Unavailable' : String(input.sources?.reduce((sum, s) => sum + s.possiblyGoneCount, 0) ?? 0),
+      detail: sourceError ?? 'Listings that were absent from the most recent source crawl. Consecutive absences promote to gone after 3 complete crawls.',
+      severity: sourceError ? 'unknown' : 'good',
+      href: '/ops/sources',
     },
   ]
 
@@ -386,6 +393,32 @@ function freshnessAttention(run: RunRow | null, ageMs: number | null, error: str
     href: '/ops/runs',
     severity: severity === 'critical' ? 'critical' : 'warning',
   }]
+}
+
+/**
+ * Raises a warning when a source's possibly_gone count is suspiciously large
+ * relative to its active listing count. This surface the MobilityWorks / BLVD
+ * discrepancy scenario described in issue #514 where source reports 59 active
+ * rows while Postgres has 63 active + 219 possibly_gone.
+ *
+ * Threshold: possibly_gone count exceeds 20% of active listings.
+ */
+function inventoryDiscrepancyAttention(sources: SourceRow[] | null, error: string | undefined): AttentionItem[] {
+  if (error || !sources) return []
+  const POSSIBLY_GONE_WARNING_RATIO = 0.2
+  return sources
+    .filter(source =>
+      source.possiblyGoneCount > 0 &&
+      source.listingCount > 0 &&
+      source.possiblyGoneCount / source.listingCount >= POSSIBLY_GONE_WARNING_RATIO,
+    )
+    .map(source => ({
+      id: `inventory-discrepancy-${source.id}`,
+      title: `${source.name} has a high possibly-gone count`,
+      detail: `${source.possiblyGoneCount} possibly-gone listing(s) vs ${source.listingCount} active. This may indicate listings removed from the source index but not yet confirmed gone. Run a full crawl to reconcile.`,
+      href: '/ops/sources',
+      severity: 'warning' as const,
+    }))
 }
 
 function geocodeAttention(queue: QueueRow | null, error: string | undefined): AttentionItem[] {

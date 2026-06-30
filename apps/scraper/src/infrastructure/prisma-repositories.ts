@@ -355,29 +355,37 @@ export class PrismaListingRepository implements ListingRepository {
       data: { lastSeenInCompleteCrawlAt: now, missingFromCompleteCount: 0 },
     })
 
-    // 2. Absent active listings: transition to possibly_gone and start the count.
-    const newlyMissingResult = await this.db.listing.updateMany({
+    // 2. Count how many active listings are newly absent (before updating status).
+    //    This is the "newly missing" count returned to the caller for logging.
+    //    We count before the update so we have the pre-transition number.
+    const newlyMissingCount = await this.db.listing.count({
       where: {
         sourceId,
         status: 'active',
         sourceRecordKey: { notIn: activeSourceRecordKeys },
+      },
+    })
+
+    // 3. Increment missingFromCompleteCount for ALL absent non-gone listings
+    //    (both active and already-possibly_gone) in a single UPDATE, below the
+    //    threshold cap. Active listings also transition to possibly_gone here.
+    //
+    //    This single query prevents a double-increment that would occur if two
+    //    separate UPDATEs ran: step A writing active→possibly_gone with count=1,
+    //    then step B matching the now-possibly_gone rows and incrementing again
+    //    to count=2 in the same run.
+    await this.db.listing.updateMany({
+      where: {
+        sourceId,
+        status: { in: ['active', 'possibly_gone'] },
+        sourceRecordKey: { notIn: activeSourceRecordKeys },
+        missingFromCompleteCount: { lt: GONE_AFTER_CONSECUTIVE_MISSING },
       },
       data: {
         status: 'possibly_gone',
         detailScrapedAt: null,
         missingFromCompleteCount: { increment: 1 },
       },
-    })
-
-    // 3. Already-possibly_gone listings: increment their count.
-    await this.db.listing.updateMany({
-      where: {
-        sourceId,
-        status: 'possibly_gone',
-        sourceRecordKey: { notIn: activeSourceRecordKeys },
-        missingFromCompleteCount: { lt: GONE_AFTER_CONSECUTIVE_MISSING },
-      },
-      data: { missingFromCompleteCount: { increment: 1 } },
     })
 
     // 4. Promote to gone when the threshold is reached.
@@ -391,6 +399,6 @@ export class PrismaListingRepository implements ListingRepository {
       data: { status: 'gone', goneAt: now },
     })
 
-    return newlyMissingResult.count
+    return newlyMissingCount
   }
 }

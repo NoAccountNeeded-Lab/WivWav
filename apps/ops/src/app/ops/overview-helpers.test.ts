@@ -28,8 +28,8 @@ function baseInput(overrides: Partial<OverviewInput> = {}): OverviewInput {
       { name: 'geocode', paused: false, stats: { waiting: 0, active: 0, completed: 5, failed: 0, delayed: 0 } },
     ],
     sources: [
-      { id: 'src-1', name: 'BLVD.com', status: 'active', lastScrapedAt: '2026-06-18T17:00:00.000Z', listingCount: 12, errorMessage: null },
-      { id: 'src-2', name: 'MobilityWorks', status: 'active', lastScrapedAt: '2026-06-18T16:30:00.000Z', listingCount: 8, errorMessage: null },
+      { id: 'src-1', name: 'BLVD.com', status: 'active', lastScrapedAt: '2026-06-18T17:00:00.000Z', listingCount: 12, errorMessage: null, lastFullCrawlAt: null, lastObservedAt: null, possiblyGoneCount: 0 },
+      { id: 'src-2', name: 'MobilityWorks', status: 'active', lastScrapedAt: '2026-06-18T16:30:00.000Z', listingCount: 8, errorMessage: null, lastFullCrawlAt: null, lastObservedAt: null, possiblyGoneCount: 0 },
     ],
     runs: [
       { id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD.com', startedAt: '2026-06-18T16:55:00.000Z', finishedAt: '2026-06-18T17:00:00.000Z', success: true, listingsFound: 12, listingsNew: 1, listingsUpdated: 2, errorMessage: null },
@@ -67,7 +67,7 @@ describe('buildOpsOverview', () => {
         { name: 'geocode', paused: false, stats: { waiting: 0, active: 0, completed: 5, failed: 1, delayed: 0 } },
       ],
       sources: [
-        { id: 'src-1', name: 'BLVD.com', status: 'needs_remapping', lastScrapedAt: null, listingCount: 0, errorMessage: 'Selector confidence too low' },
+        { id: 'src-1', name: 'BLVD.com', status: 'needs_remapping', lastScrapedAt: null, listingCount: 0, errorMessage: 'Selector confidence too low', lastFullCrawlAt: null, lastObservedAt: null, possiblyGoneCount: 0 },
       ],
       schedules: [
         { id: 'geocode', queue: 'geocode', label: 'Geocode', enabled: false, lastRunAt: null, lastStatus: null, recentFailureCount: 1, recentFailureReason: 'timeout' },
