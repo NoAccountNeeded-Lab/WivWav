@@ -1,4 +1,5 @@
 import type { Listing, FieldMapping } from '@wivwav/types'
+import type { SourceDriftBaseline } from './listing-validator.js'
 
 export interface ScraperRunRecord {
   id: string
@@ -28,13 +29,29 @@ export interface SourceRepository {
   ): Promise<void>
   markChecked(id: string): Promise<void>
   markError(id: string, errorMessage: string): Promise<void>
+  /** Pauses a source with an operator-facing reason (e.g. abrupt quality drift). */
+  markPaused(id: string, reason: string): Promise<void>
   getMappings(id: string): Promise<FieldMapping[]>
   setMappings(id: string, mappings: FieldMapping[]): Promise<void>
   /** Returns the timestamp of the most recent complete crawl, or null if none. */
   getLastFullCrawlAt(id: string): Promise<Date | null>
+  /** Returns the source's rolling drift baseline, or zeros if none recorded yet. */
+  getDriftBaseline(id: string): Promise<SourceDriftBaseline>
+  /** Persists the updated rolling drift baseline after a run. */
+  setDriftBaseline(id: string, baseline: SourceDriftBaseline): Promise<void>
 }
 
-export type ListingUpsertData = Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>
+/**
+ * publicationStatus/qualityCheckedAt are DB-internal publication-gate fields,
+ * not part of the public Listing shape — they are added here rather than in
+ * @wivwav/types because only the ingestion pipeline (this repository) needs
+ * to set them. Optional: callers that do not validate before upsert (tests,
+ * older adapters) fall back to the repository's default of 'pending'.
+ */
+export type ListingUpsertData = Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> & {
+  publicationStatus?: 'pending' | 'eligible' | 'quarantined'
+  qualityCheckedAt?: Date | null
+}
 
 export type ListingUpsertResult = {
   listingId: string
