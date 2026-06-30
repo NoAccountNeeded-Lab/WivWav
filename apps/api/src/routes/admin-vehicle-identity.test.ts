@@ -2,7 +2,7 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { describe, expect, it, vi } from 'vitest'
 import { adminVehicleIdentityRoutes } from './admin-vehicle-identity.js'
-import { NotFoundError } from '../repositories/vehicle-identity-decision-repository.js'
+import { NotFoundError, InvalidStateError } from '../repositories/vehicle-identity-decision-repository.js'
 import type { VehicleIdentityDecisionRepository } from '../repositories/vehicle-identity-decision-repository.js'
 import { VehicleIdentityDecisionState } from '../repositories/vehicle-identity-decision-repository.js'
 
@@ -233,6 +233,32 @@ describe('POST /candidates/:id/split', () => {
     expect(res2.statusCode).toBe(200)
     expect(res1.json().data.state).toBe(res2.json().data.state)
     expect(splitFn).toHaveBeenCalledTimes(2)
+    await app.close()
+  })
+
+  it('should return 422 when splitting a non-verified decision (candidate state)', async () => {
+    const repo = buildDefaultRepo({
+      split: vi.fn(async () => {
+        throw new InvalidStateError('Decision must be in verified state to split (current state: candidate)')
+      }),
+    })
+    const app = buildTestApp(repo)
+    const res = await app.inject({ method: 'POST', url: '/candidates/decision-1/split' })
+    expect(res.statusCode).toBe(422)
+    expect(res.json()).toEqual({ error: { code: 'INVALID_STATE', message: expect.stringContaining('verified') } })
+    await app.close()
+  })
+
+  it('should return 422 when splitting a rejected decision', async () => {
+    const repo = buildDefaultRepo({
+      split: vi.fn(async () => {
+        throw new InvalidStateError('Decision must be in verified state to split (current state: rejected)')
+      }),
+    })
+    const app = buildTestApp(repo)
+    const res = await app.inject({ method: 'POST', url: '/candidates/decision-1/split' })
+    expect(res.statusCode).toBe(422)
+    expect(res.json()).toEqual({ error: { code: 'INVALID_STATE', message: expect.stringContaining('rejected') } })
     await app.close()
   })
 })

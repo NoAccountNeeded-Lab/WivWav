@@ -121,57 +121,86 @@ export class PrismaVehicleIdentityDecisionRepository
   }
 
   async approve(id: string): Promise<VehicleIdentityDecision> {
-    const decision = await this.db.vehicleIdentityDecision.findUnique({
-      where: { id },
-      include: {
-        listingA: { select: { id: true, make: true, model: true, year: true, trim: true, vehicleId: true } },
-        listingB: { select: { id: true, make: true, model: true, year: true, trim: true, vehicleId: true } },
-      },
-    })
-    if (!decision) throw new NotFoundError(`Vehicle identity decision "${id}" not found`)
+    // Pre-flight: load the decision outside the transaction to detect NOT_FOUND
+    // early (transactions are expensive; avoid one for a trivial miss).
+    const precheck = await this.db.vehicleIdentityDecision.findUnique({ where: { id } })
+    if (!precheck) throw new NotFoundError(`Vehicle identity decision "${id}" not found`)
 
-    // Idempotent: if already verified, return as-is (vehicleId already set)
-    if (decision.state === VehicleIdentityDecisionState.verified && decision.vehicleId) {
-      return decision
-    }
+    // Idempotent: if already verified, return as-is. Widen to cover the
+    // crash-recovery edge case where state is verified but vehicleId is still
+    // null on the decision row (listings already linked, just decision not yet
+    // updated).
+    if (precheck.state === VehicleIdentityDecisionState.verified) return precheck
 
-    // Reuse existing vehicleId from either listing, or create a new one
-    const listingA = decision.listingA as { id: string; make: string; model: string; year: number; trim: string | null; vehicleId: string | null }
-    const listingB = decision.listingB as { id: string; make: string; model: string; year: number; trim: string | null; vehicleId: string | null }
-    const existingVehicleId = decision.vehicleId ?? listingA.vehicleId ?? listingB.vehicleId
-
-    let vehicleId: string
-    if (existingVehicleId) {
-      vehicleId = existingVehicleId
-    } else {
-      // Create a new non-VIN vehicle anchored to listing A's attributes.
-      // Non-VIN vehicles have no unique constraint beyond their generated id,
-      // so a plain create is safe here (no vin = no duplicate-vin race).
-      const vehicle = await this.db.vehicle.create({
-        data: {
-          make: listingA.make,
-          model: listingA.model,
-          year: listingA.year,
-          trim: listingA.trim,
+    return this.db.$transaction(async (tx) => {
+      // Re-read inside the transaction to get a consistent snapshot of
+      // both listings' current vehicleId alongside the decision.
+      const decision = await tx.vehicleIdentityDecision.findUnique({
+        where: { id },
+        include: {
+          listingA: { select: { id: true, make: true, model: true, year: true, trim: true, vehicleId: true } },
+          listingB: { select: { id: true, make: true, model: true, year: true, trim: true, vehicleId: true } },
         },
       })
-      vehicleId = vehicle.id
-    }
+      if (!decision) throw new NotFoundError(`Vehicle identity decision "${id}" not found`)
 
-    // Link both listings to the vehicle
-    await Promise.all([
-      this.db.listing.update({ where: { id: listingA.id }, data: { vehicleId } }),
-      this.db.listing.update({ where: { id: listingB.id }, data: { vehicleId } }),
-    ])
+      // Idempotent inside the transaction too (concurrent callers may have
+      // both passed the pre-flight guard).
+      if (decision.state === VehicleIdentityDecisionState.verified) return decision
 
-    return upsertVehicleIdentityDecision(this.db, {
-      listingAId: decision.listingAId,
-      listingBId: decision.listingBId,
-      vehicleId,
-      state: VehicleIdentityDecisionState.verified,
-      signals: toInputJson(decision.signals),
-      ruleId: decision.ruleId,
-      decidedAt: new Date(),
+      const listingA = decision.listingA as { id: string; make: string; model: string; year: number; trim: string | null; vehicleId: string | null }
+      const listingB = decision.listingB as { id: string; make: string; model: string; year: number; trim: string | null; vehicleId: string | null }
+
+      // Reuse an existing vehicleId already set on the decision or either listing,
+      // so two concurrent approve calls always converge on the same vehicle.
+      const existingVehicleId = decision.vehicleId ?? listingA.vehicleId ?? listingB.vehicleId
+
+      let vehicleId: string
+      if (existingVehicleId) {
+        vehicleId = existingVehicleId
+      } else {
+        // Create a new non-VIN vehicle anchored to listing A's attributes.
+        // Non-VIN vehicles have no unique constraint beyond their generated id,
+        // so a plain create is safe inside this transaction.
+        const vehicle = await tx.vehicle.create({
+          data: {
+            make: listingA.make,
+            model: listingA.model,
+            year: listingA.year,
+            trim: listingA.trim,
+          },
+        })
+        vehicleId = vehicle.id
+      }
+
+      // Link both listings to the shared vehicle.
+      await Promise.all([
+        tx.listing.update({ where: { id: listingA.id }, data: { vehicleId } }),
+        tx.listing.update({ where: { id: listingB.id }, data: { vehicleId } }),
+      ])
+
+      // Write the verified decision. upsertVehicleIdentityDecision uses its
+      // own PrismaClient; pass the transaction client directly so all writes
+      // are atomic.
+      return tx.vehicleIdentityDecision.upsert({
+        where: { listingAId_listingBId: { listingAId: decision.listingAId, listingBId: decision.listingBId } },
+        create: {
+          listingAId: decision.listingAId,
+          listingBId: decision.listingBId,
+          vehicleId,
+          state: VehicleIdentityDecisionState.verified,
+          signals: toInputJson(decision.signals),
+          ruleId: decision.ruleId,
+          decidedAt: new Date(),
+        },
+        update: {
+          vehicleId,
+          state: VehicleIdentityDecisionState.verified,
+          signals: toInputJson(decision.signals),
+          ruleId: decision.ruleId,
+          decidedAt: new Date(),
+        },
+      })
     })
   }
 
@@ -200,14 +229,20 @@ export class PrismaVehicleIdentityDecisionRepository
     // Idempotent: already split
     if (decision.state === VehicleIdentityDecisionState.split) return decision
 
+    // Only verified decisions can be split — the AC says "split a previously
+    // verified group". Reject any other state with a clear error.
+    if (decision.state !== VehicleIdentityDecisionState.verified) {
+      throw new InvalidStateError(
+        `Decision must be in verified state to split (current state: ${decision.state})`,
+      )
+    }
+
     // Unlink both listings from the shared vehicle
     if (decision.vehicleId) {
-      await Promise.all([
-        this.db.listing.updateMany({
-          where: { vehicleId: decision.vehicleId, id: { in: [decision.listingAId, decision.listingBId] } },
-          data: { vehicleId: null },
-        }),
-      ])
+      await this.db.listing.updateMany({
+        where: { vehicleId: decision.vehicleId, id: { in: [decision.listingAId, decision.listingBId] } },
+        data: { vehicleId: null },
+      })
     }
 
     return upsertVehicleIdentityDecision(this.db, {
@@ -255,5 +290,13 @@ export class NotFoundError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'NotFoundError'
+  }
+}
+
+export class InvalidStateError extends Error {
+  readonly code = 'INVALID_STATE'
+  constructor(message: string) {
+    super(message)
+    this.name = 'InvalidStateError'
   }
 }

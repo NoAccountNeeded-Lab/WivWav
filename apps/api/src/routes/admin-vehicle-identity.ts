@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import type {
   VehicleIdentityDecisionRepository,
 } from '../repositories/vehicle-identity-decision-repository.js'
-import { NotFoundError } from '../repositories/vehicle-identity-decision-repository.js'
+import { NotFoundError, InvalidStateError } from '../repositories/vehicle-identity-decision-repository.js'
 
 const DEFAULT_PAGE_SIZE = 50
 const MAX_PAGE_SIZE = 200
@@ -76,6 +76,7 @@ export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentity
 
     // ── POST /admin/vehicle-identity/candidates/:id/split ────────────────────
     // Split a verified group: transition to `split` and unlink listings.
+    // Only decisions in `verified` state can be split (422 otherwise).
     app.post<{ Params: { id: string } }>(
       '/candidates/:id/split',
       async (req, reply) => {
@@ -84,6 +85,9 @@ export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentity
           return reply.send({ data: decision })
         } catch (err) {
           if (err instanceof NotFoundError) return reply.notFound(err.message)
+          if (err instanceof InvalidStateError) {
+            return reply.code(422).send({ error: { code: 'INVALID_STATE', message: err.message } })
+          }
           throw err
         }
       },
