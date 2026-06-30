@@ -1,5 +1,5 @@
 import { getDb, type Prisma } from '@wivwav/db'
-import type { JobContext } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
 import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { syncListings } from '@wivwav/search'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
@@ -21,6 +21,15 @@ const DETAIL_METADATA_FIELDS = new Set([
   'publicationStatus',
   'qualityIssueCodes',
   'qualityCheckedAt',
+])
+const ACCESSIBILITY_FIELDS = new Set([
+  'conversionType',
+  'conversionManufacturer',
+  'conversionStatus',
+  'rampType',
+  'wavFeatures',
+  'floorLoweringInches',
+  'wheelchairCapacity',
 ])
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
@@ -104,13 +113,24 @@ export type DetailResult = {
   dealerPhone: string | null
   saleStatus: SaleStatus
   evidence: {
-    specs: DetailEvidence
+    color: DetailEvidence
+    fuelType: DetailEvidence
+    engine: DetailEvidence
+    transmission: DetailEvidence
     description: DetailEvidence
     images: DetailEvidence
   }
 }
 
 export type DetailEvidence = 'value' | 'authoritative_empty' | 'missing'
+
+export function detailObservationReference(rawPage: { id: string; scrapedAt: Date }): string {
+  return `${rawPage.id}:${rawPage.scrapedAt.toISOString()}`
+}
+
+export function requiresListingResolution(changedFields: string[]): boolean {
+  return changedFields.some((field) => ACCESSIBILITY_FIELDS.has(field))
+}
 
 function sameDetailValue(left: unknown, right: unknown): boolean {
   if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime()
@@ -140,16 +160,13 @@ export function buildListingDetailUpdateData(
   statusUpdate: StatusUpdate,
   now: Date,
 ) {
-  const specsObserved = detail.evidence.specs !== 'missing'
   const descriptionObserved = detail.evidence.description !== 'missing'
   const imagesObserved = detail.evidence.images !== 'missing'
   return {
-    ...(specsObserved ? {
-      color: detail.color,
-      fuelType: detail.fuelType,
-      transmission: detail.transmission,
-    } : {}),
-    ...(specsObserved && detail.engine !== null ? { engine: detail.engine } : {}),
+    ...(detail.evidence.color !== 'missing' ? { color: detail.color } : {}),
+    ...(detail.evidence.fuelType !== 'missing' ? { fuelType: detail.fuelType } : {}),
+    ...(detail.evidence.engine !== 'missing' ? { engine: detail.engine } : {}),
+    ...(detail.evidence.transmission !== 'missing' ? { transmission: detail.transmission } : {}),
     ...(descriptionObserved ? {
       rampType: detail.rampType,
       wavFeatures: detail.wavFeatures,
@@ -182,7 +199,10 @@ async function extractDetail(page: BrowserPage, url: string): Promise<DetailResu
       ...mw,
       engine: null,
       evidence: {
-        specs: Object.keys(raw.specs).length > 0 ? 'value' : 'missing',
+        color: Object.hasOwn(raw.specs, 'Exterior Color') || Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
+        fuelType: Object.hasOwn(raw.specs, 'Fuel Type') ? 'value' : 'missing',
+        engine: 'missing',
+        transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
         description: raw.descriptionFound
           ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
           : 'missing',
@@ -196,13 +216,12 @@ async function extractDetail(page: BrowserPage, url: string): Promise<DetailResu
   return {
     ...parseBlvdDetail(raw),
     evidence: {
-      specs: Object.keys(raw.specs).length > 0 ? 'value' : 'missing',
-      description: raw.descriptionFound === true
-        ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
-        : raw.descriptionText.trim().length > 0 ? 'value' : 'missing',
-      images: raw.galleryFound === true
-        ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
-        : raw.imageUrls.length > 0 ? 'value' : 'missing',
+      color: Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
+      fuelType: 'missing',
+      engine: Object.hasOwn(raw.specs, 'Engine') ? 'value' : 'missing',
+      transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
+      description: raw.descriptionText.trim().length > 0 ? 'value' : 'missing',
+      images: raw.imageUrls.length > 0 ? 'value' : 'missing',
     },
   }
 }
@@ -211,6 +230,7 @@ export async function runDetailExtractJob(
   sourceId: string,
   context?: JobContext,
   browserService?: BrowserService,
+  resolutionQueue?: QueueAdapter,
 ): Promise<void> {
   if (typeof sourceId !== 'string' || sourceId.trim().length === 0) {
     throw new Error('[detail-extract] sourceId must be a non-empty string')
@@ -219,7 +239,7 @@ export async function runDetailExtractJob(
 
   const rawPages = await db.rawPage.findMany({
     where: { sourceId, processedAt: null },
-    select: { id: true, url: true, html: true },
+    select: { id: true, url: true, html: true, scrapedAt: true },
     take: BATCH_SIZE,
   })
 
@@ -251,6 +271,7 @@ export async function runDetailExtractJob(
   try {
     for (let i = 0; i < rawPages.length; i++) {
       const rawPage = rawPages[i]!
+      const observationReference = detailObservationReference(rawPage)
       const page = await browser.newPage()
 
       try {
@@ -294,7 +315,7 @@ export async function runDetailExtractJob(
             where: {
               stage_reference: {
                 stage: 'detail',
-                reference: rawPage.id,
+                reference: observationReference,
               },
             },
             select: { id: true, changedFields: true, searchSyncedAt: true, listingId: true },
@@ -351,7 +372,7 @@ export async function runDetailExtractJob(
               data: {
                 listingId: listing.id,
                 stage: 'detail',
-                reference: rawPage.id,
+                reference: observationReference,
                 extractionVersion: DETAIL_EXTRACTION_VERSION,
                 changedFields,
                 before: before as Prisma.InputJsonObject,
@@ -367,11 +388,17 @@ export async function runDetailExtractJob(
               where: {
                 stage_reference: {
                   stage: 'detail',
-                  reference: rawPage.id,
+                  reference: observationReference,
                 },
               },
               data: { searchSyncedAt: new Date() },
             })
+          }
+          if (requiresListingResolution(changedFields)) {
+            await resolutionQueue?.add(
+              { listingId: listing.id, observationReference },
+              CRITICAL_JOB_OPTIONS,
+            )
           }
         } else {
           await report(context, `[detail-extract] No listing found for URL: ${rawPage.url}`)

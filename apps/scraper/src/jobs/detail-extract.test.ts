@@ -3,7 +3,13 @@ import { beforeEach, describe, it, expect, vi } from 'vitest'
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { buildListingDetailUpdateData, changedDetailFields, resolveListingStatus } from './detail-extract.js'
+import {
+  buildListingDetailUpdateData,
+  changedDetailFields,
+  detailObservationReference,
+  requiresListingResolution,
+  resolveListingStatus,
+} from './detail-extract.js'
 import { runDetailExtractJob } from './detail-extract.js'
 
 const NOW = new Date('2026-06-02T00:00:00Z')
@@ -149,7 +155,10 @@ describe('buildListingDetailUpdateData', () => {
     dealerPhone: '(916) 555-0101',
     saleStatus: 'active' as const,
     evidence: {
-      specs: 'value' as const,
+      color: 'value' as const,
+      fuelType: 'value' as const,
+      engine: 'value' as const,
+      transmission: 'value' as const,
       description: 'value' as const,
       images: 'value' as const,
     },
@@ -236,9 +245,28 @@ describe('buildListingDetailUpdateData', () => {
   })
 
   it('omits engine key when engine is null (preserves previous DB value)', () => {
-    const noEngine = { ...detail, engine: null }
+    const noEngine = {
+      ...detail,
+      engine: null,
+      evidence: { ...detail.evidence, engine: 'missing' as const },
+    }
     const result = buildListingDetailUpdateData(noEngine, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
     expect(result).not.toHaveProperty('engine')
+  })
+
+  it('preserves an unobserved spec field when another spec succeeded', () => {
+    const partialSpecs = {
+      ...detail,
+      color: null,
+      evidence: { ...detail.evidence, color: 'missing' as const },
+    }
+
+    expect(buildListingDetailUpdateData(
+      partialSpecs,
+      { dealerWebsite: null, directVehicleUrl: null },
+      {},
+      NOW,
+    )).not.toHaveProperty('color')
   })
 })
 
@@ -256,4 +284,19 @@ describe('changedDetailFields', () => {
       { images: [], description: null },
     )).toEqual(['images', 'description'])
   })
+})
+
+describe('detail observation retry keys and resolution handoff', () => {
+  it('uses the raw-page observation time so a later recrawl is processed', () => {
+    const first = detailObservationReference({ id: 'raw-1', scrapedAt: new Date('2026-06-01') })
+    const second = detailObservationReference({ id: 'raw-1', scrapedAt: new Date('2026-06-02') })
+
+    expect(first).not.toBe(second)
+  })
+
+  it('enqueues resolution only for accessibility-critical changes', () => {
+    expect(requiresListingResolution(['priceCents', 'wavFeatures'])).toBe(true)
+    expect(requiresListingResolution(['priceCents', 'images'])).toBe(false)
+  })
+
 })

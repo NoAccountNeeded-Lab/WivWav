@@ -26,7 +26,7 @@ verified public truth.
 | `description` | detail scrape | A value replaces it, a verified empty bounded section clears it, and missing/failed extraction preserves it. |
 | `saleStatus`, `soldAt` | detail scrape / resolution | Bounded sale banners update status. First sold confirmation sets `soldAt`; retries do not rewrite it. |
 | `status`, `goneAt`, `missingFromCompleteCount`, `lastSeenInCompleteCrawlAt` | resolution | Source-index absence and bounded detail status evidence use the documented gone-state resolver. |
-| `publicationStatus`, `qualityIssueCodes`, `qualityCheckedAt` | resolution | Any changed source/detail/accessibility observation sets `pending`; only the validator/resolver may set `eligible`. This is the #499 handoff. |
+| `publicationStatus`, `qualityIssueCodes`, `qualityCheckedAt` | resolution | Any changed source/detail/accessibility observation sets `pending`; only the validator/resolver may set `eligible`. Accessibility changes also enqueue `listing-resolve`, the #499 handoff. |
 | `vehicleId`, `vehicleModelId`, `vehicleModelMatchConfidence` | VIN enrichment | Updated from normalized VIN/model evidence without rewriting source observations. |
 | `isDuplicate`, `canonicalId` | resolution | Owned by deduplication/canonical resolution. |
 | `detailScrapedAt` | detail scrape | Time the most recent raw page was successfully interpreted, even when its values were unchanged. |
@@ -47,10 +47,10 @@ before/after values. Detail evidence has three states:
 - `missing`: the container/evidence was absent or extraction failed, so the
   existing value must be preserved.
 
-Each detail raw page has a unique `(stage, reference)` observation. A job retry
+Each detail raw-page version has a unique `(stage, rawPageId:scrapedAt)` observation. A job retry
 therefore does not apply it twice. `searchSyncedAt` records the completed index
-handoff; a retry only repeats search sync when the committed observation has not
-yet reached Meilisearch.
+task submission; a retry only repeats search sync when the committed observation
+has not yet submitted its Meilisearch update.
 Card writes run in a serializable transaction; transaction conflicts and
 concurrent creates are retried, then re-read, so the losing worker observes the
 committed value as unchanged. History and audit rows commit with the listing.
