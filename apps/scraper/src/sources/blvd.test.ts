@@ -292,13 +292,14 @@ describe('parseCard', () => {
     expect(result!.qualityIssueCodes).toContain('unparseable_vin')
   })
 
-  it('stores VIN and invalid_vin code when check-digit fails', () => {
+  it('stores VIN and invalid_check_digit code when check-digit fails', () => {
     // Valid structure but wrong check digit: swap last char to break the check
     // 5TDYRKEC8RS205441 → check digit should be 8 not 1 → fails
+    // Rule id matches listing-validator.ts's invalid_check_digit rule for the same condition.
     const result = parseCard({ ...validCard, href: '/wheelchair-vans/dealer/5TDYRKEC8RS205441' })
     expect(result).not.toBeNull()
     expect(result!.vin).toBe('5TDYRKEC8RS205441')
-    expect(result!.qualityIssueCodes).toContain('invalid_vin')
+    expect(result!.qualityIssueCodes).toContain('invalid_check_digit')
   })
 
   // ─── Condition parser ────────────────────────────────────────────────────────
