@@ -222,9 +222,13 @@ export class ScraperEngine {
         await report(context, qualityMsg, { stage: 'upserting', quality })
       }
 
+      let listingsNew = 0
+      let listingsUpdated = 0
       for (let i = 0; i < result.listings.length; i++) {
         const listing = result.listings[i]!
-        await this.listings.upsert({ ...listing, sourceId })
+        const upsert = await this.listings.upsert({ ...listing, sourceId })
+        if (upsert.outcome === 'created') listingsNew++
+        if (upsert.outcome === 'updated') listingsUpdated++
         if ((i + 1) % 25 === 0 || i === result.listings.length - 1) {
           await report(context, `[source-scrape] Upserted ${i + 1}/${result.listings.length} listing(s)`, {
             stage: 'upserting',
@@ -243,7 +247,7 @@ export class ScraperEngine {
       const activeSourceRecordKeys = result.listings.map(l => l.sourceRecordKey)
       const goneCount = await this.listings.markGone(sourceId, activeSourceRecordKeys, { isCompleteCrawl })
 
-      await this.runs.complete(run.id, result.listings.length)
+      await this.runs.complete(run.id, result.listings.length, { listingsNew, listingsUpdated })
       await this.sources.markActive(sourceId, {
         listingCount: result.listings.length,
         fingerprintHash: structureCheck.currentHash,
@@ -263,7 +267,7 @@ export class ScraperEngine {
         const msg = err instanceof Error ? err.message : String(err)
         void context?.log(`[engine] Geocode job failed (non-fatal): ${msg}`)
       })
-      return result.listings.length > 0 || goneCount > 0
+      return listingsNew > 0 || listingsUpdated > 0 || goneCount > 0
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await this.runs.fail(run.id, message)

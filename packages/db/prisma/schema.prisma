@@ -195,6 +195,8 @@ model Listing {
   dealerProfile   DealerProfile? @relation(fields: [dealerProfileId], references: [id])
 
 
+  /// Image URLs observed on the list/card page. Detail extraction owns `images`.
+  cardImages  String[] @default([])
   images      String[]
   // Raw third-party seller copy. Retained in full for WAV-feature extraction
   // by scraper agents. The public API truncates this to a short snippet
@@ -235,6 +237,7 @@ model Listing {
   priceHistory      ListingPriceHistory[]
   mileageHistory    ListingMileageHistory[]
   conversionHistory ListingConversionHistory[]
+  observations      ListingObservation[]
 
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
@@ -260,6 +263,26 @@ model Listing {
   @@index([dealerName, zip])
   @@index([sourceId, status, missingFromCompleteCount], map: "listings_possibly_gone_missing_count_idx")
   @@map("listings")
+}
+
+/// Versioned audit record for a source-card or detail-page observation.
+/// `reference` is populated for retryable raw-page work so one input is applied once.
+model ListingObservation {
+  id                String   @id @default(cuid())
+  listingId         String
+  listing           Listing  @relation(fields: [listingId], references: [id])
+  stage             String
+  reference         String?
+  extractionVersion String
+  changedFields     String[]
+  before            Json
+  after             Json
+  observedAt        DateTime @default(now())
+  searchSyncedAt    DateTime?
+
+  @@unique([stage, reference])
+  @@index([listingId, observedAt])
+  @@map("listing_observation")
 }
 
 model ListingPriceHistory {
