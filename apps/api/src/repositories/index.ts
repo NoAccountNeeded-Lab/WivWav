@@ -15,3 +15,6 @@ export { PrismaScraperRunRepository } from './scraper-run-repository.js'
 
 export type { ConversionBrandRepository, ConversionBrandSummary, ConversionBrandDetail, ConversionProductRow } from './conversion-brand-repository.js'
 export { PrismaConversionBrandRepository } from './conversion-brand-repository.js'
+
+export type { VehicleIdentityDecisionRepository, CandidateRow, CandidateListingSnapshot } from './vehicle-identity-decision-repository.js'
+export { PrismaVehicleIdentityDecisionRepository, VehicleIdentityDecisionState, NotFoundError } from './vehicle-identity-decision-repository.js'
