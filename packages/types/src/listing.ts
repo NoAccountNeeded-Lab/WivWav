@@ -1,3 +1,43 @@
+export type QualityIssueSeverity = 'error' | 'warn'
+
+/**
+ * Static rule-id → severity map for every qualityIssueCodes entry the
+ * publication validator (apps/scraper/src/engine/listing-validator.ts) can
+ * emit. Lives here, rather than in the scraper app, so apps/api's operator
+ * quarantine endpoints can filter/display by severity without an app-to-app
+ * dependency — apps may only depend on packages in this monorepo.
+ *
+ * The scraper validator is the single source of truth for rule IDs; this map
+ * must be kept in sync with every push()/issue call site there. Each rule id
+ * has exactly one severity — ambiguous cases (e.g. "missing required field"
+ * that is sometimes an error and sometimes a warning) are split into
+ * distinct rule ids so this map stays a simple, reliable lookup.
+ */
+export const QUALITY_RULE_SEVERITY: Readonly<Record<string, QualityIssueSeverity>> = {
+  contains_space: 'error',
+  field_label_bleed: 'warn',
+  contains_digits: 'warn',
+  invalid_format: 'warn',
+  implausible_year: 'error',
+  implausible_value: 'warn',
+  negative_value: 'error',
+  new_with_high_mileage: 'warn',
+  malformed_source_url: 'error',
+  unparseable_vin: 'error',
+  invalid_vin: 'warn',
+  invalid_check_digit: 'warn',
+  missing_identity_field: 'error',
+  missing_required_field: 'warn',
+  missing_conditional_field: 'warn',
+  sold_without_sold_at: 'warn',
+  active_with_sold_at: 'error',
+  gone_with_full_detail: 'warn',
+  unsupported_accessibility_claim: 'warn',
+  nhtsa_make_mismatch: 'error',
+  nhtsa_model_mismatch: 'error',
+  nhtsa_year_mismatch: 'error',
+} as const
+
 export type ConversionType = 'rear_entry' | 'side_entry' | 'unknown'
 export type RampType = 'in_floor' | 'fold_out' | 'fold_in' | 'none' | 'unknown'
 export type ConversionStatus = 'proposed' | 'complete' | 'unknown'
