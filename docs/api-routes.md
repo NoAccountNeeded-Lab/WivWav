@@ -34,6 +34,8 @@ Canonical list of HTTP routes exposed by `apps/api`. **Keep this table current**
 | GET    | /admin/sources                 | Sources with status plus observed-active and eligible-active listing counts |
 | POST   | /admin/sources/:id/run         | Enqueue an immediate source-scrape job |
 | POST   | /admin/sync                    | Re-index all listings into Meilisearch |
+| GET    | /admin/quarantine              | List quarantined listings, filterable by `sourceId`, `rule`, `severity` (`error`\|`warn`), `olderThanDays`; paginated via `skip`/`take` (max 200). Each row includes `rules: [{code, severity}]` and `extractionVersion` (latest `ListingObservation`, or `null`). Response: `{ data: [...], meta: { total, skip, take } }`. |
+| POST   | /admin/quarantine/:id/reprocess | Reset a quarantined listing to `publicationStatus: 'pending'` so the next validator pass re-evaluates it (e.g. after an operator corrects upstream data). 404 if the listing is not currently quarantined. |
 | GET    | /admin/listing-refresh/status  | Aggregate source, queue, observed/eligible listing, and map-readiness state for the guided refresh workflow |
 | GET    | /admin/repeatables             | Canonical repeatable jobs merged with live BullMQ state |
 | DELETE | /admin/repeatables/:queue      | Disable a repeatable job (remove from BullMQ by key) |
