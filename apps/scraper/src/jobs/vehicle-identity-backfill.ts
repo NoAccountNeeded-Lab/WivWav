@@ -40,17 +40,24 @@
  *   vehicleIdentityDecision.state to 'rejected' (does not destroy listing
  *   source data) and clear vehicleId on the affected listings:
  *
+ *   -- Step 1: mark verified decisions from the run window as rejected.
+ *   -- Column names are camelCase (Prisma default — note the quotes).
  *   UPDATE vehicle_identity_decision
  *     SET state = 'rejected'
- *   WHERE decided_at >= '<run-start>' AND decided_at < '<run-end>'
+ *   WHERE "decidedAt" >= '<run-start>' AND "decidedAt" < '<run-end>'
  *     AND state = 'verified';
  *
+ *   -- Step 2: clear vehicleId on affected listings.
+ *   -- This backfill never sets Listing.vehicleId directly, so this step is
+ *   -- only needed if the live match-vehicle-identity job also ran and used the
+ *   -- now-rejected decision rows to assign vehicleIds.
  *   UPDATE listings
- *     SET vehicle_id = NULL
- *   WHERE vehicle_id IN (
- *     SELECT vehicle_id FROM vehicle_identity_decision
- *     WHERE decided_at >= '<run-start>' AND decided_at < '<run-end>'
+ *     SET "vehicleId" = NULL
+ *   WHERE "vehicleId" IN (
+ *     SELECT "vehicleId" FROM vehicle_identity_decision
+ *     WHERE "decidedAt" >= '<run-start>' AND "decidedAt" < '<run-end>'
  *       AND state = 'rejected'
+ *       AND "vehicleId" IS NOT NULL
  *   );
  *
  *   Then re-sync affected listings (meilisearch-sync or syncListings call).
@@ -82,7 +89,7 @@ export interface VehicleIdentityBackfillReport {
   /** When sourceId was given, the source it was scoped to. */
   scopedToSourceId?: string
   /** A sample of borderline candidate pairs for manual false-positive review. */
-  falsePosistiveSample: FalsePositiveSample[]
+  falsePositiveSample: FalsePositiveSample[]
 }
 
 export interface FalsePositiveSample {
@@ -107,7 +114,7 @@ async function runVehicleIdentityBackfill(opts: {
     byRule: {},
     byBucket: {},
     ...(opts.sourceId !== undefined ? { scopedToSourceId: opts.sourceId } : {}),
-    falsePosistiveSample: [],
+    falsePositiveSample: [],
   }
 
   // Load all active, unmatched listings (no vehicleId) optionally scoped to a source.
@@ -143,9 +150,10 @@ async function runVehicleIdentityBackfill(opts: {
     else buckets.set(key, [listing])
   }
 
-  // Borderline candidate scores for false-positive sampling (score between
-  // CANDIDATE_THRESHOLD and CANDIDATE_THRESHOLD + 30 are "borderline").
-  const borderlineCandidates: FalsePositiveSample[] = []
+  // All candidate pairs, sorted by ascending score after collection so the
+  // lowest-scoring (most borderline, highest false-positive risk) appear first
+  // in the sample.
+  const allCandidateSamples: FalsePositiveSample[] = []
 
   const decidedAt = new Date()
 
@@ -204,8 +212,8 @@ async function runVehicleIdentityBackfill(opts: {
               decidedAt,
             })
           }
-          // Track borderline candidates for false-positive sampling.
-          borderlineCandidates.push({
+          // Collect all candidates; lowest-scoring ones are sampled at the end.
+          allCandidateSamples.push({
             listingAId: listingA.id,
             listingBId: listingB.id,
             score: result.score,
@@ -222,9 +230,8 @@ async function runVehicleIdentityBackfill(opts: {
     }
   }
 
-  // Sample the borderline candidates by score (lowest scores = most borderline =
-  // highest false-positive risk).
-  report.falsePosistiveSample = borderlineCandidates
+  // Sample by ascending score: lowest-scoring candidates = highest false-positive risk.
+  report.falsePositiveSample = allCandidateSamples
     .sort((a, b) => a.score - b.score)
     .slice(0, FALSE_POSITIVE_SAMPLE_SIZE)
 
@@ -299,9 +306,9 @@ function printReport(report: VehicleIdentityBackfillReport, applied: boolean): v
     }
   }
 
-  if (report.falsePosistiveSample.length > 0) {
+  if (report.falsePositiveSample.length > 0) {
     console.log('\n── False-positive risk sample (lowest-scoring candidates — review before applying) ──')
-    for (const item of report.falsePosistiveSample) {
+    for (const item of report.falsePositiveSample) {
       console.log(`  [score ${item.score}] ${item.listingAId} vs ${item.listingBId}`)
       console.log(`    signals: ${item.topSignals.join(', ')}`)
     }
