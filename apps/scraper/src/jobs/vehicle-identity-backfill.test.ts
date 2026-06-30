@@ -159,6 +159,11 @@ describe('runVehicleIdentityBackfill', () => {
     expect(secondReport.byRule).toEqual(firstReport.byRule)
     // Both runs call upsert — idempotent because upsertVehicleIdentityDecision uses ON CONFLICT DO UPDATE.
     expect(upsertVehicleIdentityDecision).toHaveBeenCalledTimes(2)
+    // The persisted state must be identical between runs (same pair, same state).
+    const calls = vi.mocked(upsertVehicleIdentityDecision).mock.calls
+    expect(calls[0]![1].listingAId).toBe(calls[1]![1].listingAId)
+    expect(calls[0]![1].listingBId).toBe(calls[1]![1].listingBId)
+    expect(calls[0]![1].state).toBe(calls[1]![1].state)
   })
 
   it('scopes the listing query to a given source when --source is provided', async () => {
@@ -220,8 +225,8 @@ describe('runVehicleIdentityBackfill', () => {
 
     // If a candidate pair was found, verify the sample is populated.
     if (report.candidates > 0) {
-      expect(report.falsePosistiveSample.length).toBeGreaterThan(0)
-      expect(report.falsePosistiveSample[0]).toMatchObject({
+      expect(report.falsePositiveSample.length).toBeGreaterThan(0)
+      expect(report.falsePositiveSample[0]).toMatchObject({
         listingAId: expect.any(String),
         listingBId: expect.any(String),
         score: expect.any(Number),
