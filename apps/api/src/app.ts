@@ -22,6 +22,7 @@ import {
   PrismaScraperRunRepository,
   PrismaMarketRepository,
   PrismaConversionBrandRepository,
+  PrismaVehicleIdentityDecisionRepository,
 } from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
@@ -30,6 +31,7 @@ import { vinRoutes } from './routes/vin.js'
 import { marketRoutes } from './routes/market.js'
 import { sourceRoutes } from './routes/sources.js'
 import { adminRoutes } from './routes/admin.js'
+import { adminVehicleIdentityRoutes } from './routes/admin-vehicle-identity.js'
 import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
@@ -132,6 +134,7 @@ export async function buildApp(
   const scraperRunRepo = new PrismaScraperRunRepository(db)
   const marketRepo = new PrismaMarketRepository(db)
   const conversionBrandRepo = new PrismaConversionBrandRepository(db)
+  const vehicleIdentityDecisionRepo = new PrismaVehicleIdentityDecisionRepository(db)
 
   await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
   await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets, queueFactory })
@@ -141,6 +144,7 @@ export async function buildApp(
   await app.register(conversionBrandRoutes, { prefix: '/v1/conversion-brands', conversionBrands: conversionBrandRepo })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
   await app.register(adminRoutes, { prefix: '/admin', listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
+  await app.register(adminVehicleIdentityRoutes, { prefix: '/admin/vehicle-identity', vehicleIdentityDecisions: vehicleIdentityDecisionRepo })
   await app.register(adminAiRoutes, {
     prefix: '/admin/ai',
     sources: sourceRepo,
