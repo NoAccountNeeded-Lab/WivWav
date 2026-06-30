@@ -36,8 +36,11 @@ export function orderListingPair(listingId1: string, listingId2: string): [strin
  *   so the unique constraint on (listingAId, listingBId) is always hit on retry.
  * - Rerunning the same decision (e.g. a retried job) upserts in place rather than
  *   creating a duplicate row.
- * - Tolerates concurrent inserts: on unique-constraint violation (P2002), retries
- *   as an update against the now-existing row.
+ * - Prisma's `upsert` is already atomic at the DB level (ON CONFLICT DO UPDATE),
+ *   so a P2002 unique-constraint error should not normally occur here. The retry
+ *   below is a defensive fallback, not a fix for a real read-then-write race
+ *   (contrast with vehicle-upsert.ts, which does a manual findUnique-then-create
+ *   and therefore does have a genuine race to retry around).
  */
 export async function upsertVehicleIdentityDecision(
   db: PrismaClient,
