@@ -386,8 +386,12 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   } else if (!checkDigitValid(normalizedVin)) {
     // Structural check passed but North American check-digit fails.
     // Retain the VIN (non-NA VINs may legitimately fail) but flag for review.
+    // Rule id matches listing-validator.ts's invalid_check_digit rule, which
+    // re-checks the same condition during publication — keeping the id in sync
+    // means a source-level pre-check and the canonical validator never disagree
+    // on what to call the same failure.
     vin = normalizedVin
-    qualityIssueCodes.push('invalid_vin')
+    qualityIssueCodes.push('invalid_check_digit')
   } else {
     vin = normalizedVin
   }
