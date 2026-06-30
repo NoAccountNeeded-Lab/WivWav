@@ -143,7 +143,7 @@ describe('PrismaListingRepository public eligibility', () => {
 // ── Quarantine ──────────────────────────────────────────────────────────────
 
 describe('PrismaListingRepository.findQuarantined', () => {
-  it('filters by publicationStatus quarantined and maps the source name onto the row', async () => {
+  it('filters by publicationStatus quarantined and maps the source name + latest extractionVersion onto the row', async () => {
     const row = {
       id: 'l-1',
       sourceId: 'src-1',
@@ -157,6 +157,7 @@ describe('PrismaListingRepository.findQuarantined', () => {
       scrapedAt: new Date('2026-06-01'),
       updatedAt: new Date('2026-06-01'),
       source: { name: 'BLVD.com' },
+      observations: [{ extractionVersion: 'detail-v2-evidence' }],
     }
     const db = buildDb({ findMany: vi.fn(async () => [row]) })
     const repo = new PrismaListingRepository(db as never)
@@ -167,6 +168,9 @@ describe('PrismaListingRepository.findQuarantined', () => {
       where: { publicationStatus: 'quarantined' },
       skip: 0,
       take: 50,
+      select: expect.objectContaining({
+        observations: { orderBy: { observedAt: 'desc' }, take: 1, select: { extractionVersion: true } },
+      }),
     }))
     expect(result).toEqual([{
       id: 'l-1',
@@ -181,7 +185,32 @@ describe('PrismaListingRepository.findQuarantined', () => {
       qualityCheckedAt: row.qualityCheckedAt,
       scrapedAt: row.scrapedAt,
       updatedAt: row.updatedAt,
+      extractionVersion: 'detail-v2-evidence',
     }])
+  })
+
+  it('returns extractionVersion null when the listing has no observation history yet', async () => {
+    const row = {
+      id: 'l-2',
+      sourceId: 'src-1',
+      sourceUrl: 'https://example.com/l-2',
+      sourceRecordKey: 'rec-2',
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2022,
+      qualityIssueCodes: ['contains_space'],
+      qualityCheckedAt: new Date('2026-06-01'),
+      scrapedAt: new Date('2026-06-01'),
+      updatedAt: new Date('2026-06-01'),
+      source: { name: 'BLVD.com' },
+      observations: [],
+    }
+    const db = buildDb({ findMany: vi.fn(async () => [row]) })
+    const repo = new PrismaListingRepository(db as never)
+
+    const result = await repo.findQuarantined({})
+
+    expect(result[0]!.extractionVersion).toBeNull()
   })
 
   it('filters by sourceId and a single rule', async () => {
