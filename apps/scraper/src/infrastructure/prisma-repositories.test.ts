@@ -58,6 +58,7 @@ function makeDb(
     sellerType?: 'dealer' | 'private'
     priceCents: number | null
     mileage: number | null
+    color: string | null
     conversionType: 'rear_entry' | 'side_entry' | 'unknown'
     conversionManufacturer: string | null
     floorLoweringInches: number | null
@@ -70,7 +71,6 @@ function makeDb(
     state: string | null
     dealerName: string | null
     cardImages: string[]
-    listedAt: Date
     qualityIssueCodes: string[]
     status: string
   }> & { id: string; priceCents: number | null } | null = null,
@@ -91,6 +91,7 @@ function makeDb(
         sellerType: fixture.sellerType,
         status: 'active',
         mileage: fixture.mileage,
+        color: fixture.color,
         conversionType: fixture.wav.conversionType,
         conversionManufacturer: fixture.wav.conversionManufacturer,
         floorLoweringInches: fixture.wav.floorLoweringInches,
@@ -103,7 +104,6 @@ function makeDb(
         state: fixture.location.state,
         dealerName: fixture.dealer.name,
         cardImages: fixture.images,
-        listedAt: fixture.listedAt,
         qualityIssueCodes: [],
         ...existingListing,
       }
@@ -393,6 +393,7 @@ describe('PrismaListingRepository', () => {
       ['source location', { location: { zip: '80202', city: 'Denver', state: 'CO', lat: 39.7, lng: -104.9 } }],
       ['source dealer', { dealer: { name: 'Corrected Mobility', phone: null, website: null } }],
       ['card image input', { images: ['https://example.com/corrected-card.jpg'] }],
+      ['card color', { color: 'Midnight Blue' }],
     ])('persists corrected %s fields and records an audit observation', async (_group, overrides) => {
       const db = makeDb({ id: 'list-1', priceCents: 3000000 })
       const repo = new PrismaListingRepository(db as never)
