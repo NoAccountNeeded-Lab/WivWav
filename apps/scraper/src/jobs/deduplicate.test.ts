@@ -5,12 +5,13 @@ vi.mock('@wivwav/db', () => ({
   getDb: vi.fn(),
   findOrCreateVehicle: vi.fn(async () => ({ id: 'vehicle-1' })),
   isValidVin: vi.fn((vin: string) => vin.length === 17),
+  checkDigitValid: vi.fn(() => true),
   normalizeVin: vi.fn((vin: string) => vin.trim().toUpperCase()),
 }))
 vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
-import { findOrCreateVehicle, getDb } from '@wivwav/db'
+import { checkDigitValid, findOrCreateVehicle, getDb, isValidVin } from '@wivwav/db'
 import { runDeduplicateJob } from './deduplicate.js'
 
 function makeListing(overrides: Record<string, unknown> = {}) {
@@ -99,7 +100,7 @@ describe('runDeduplicateJob', () => {
     expect(db.$disconnect).toHaveBeenCalled()
   })
 
-  it('assigns the same vehicleId to every listing in a VIN group', async () => {
+  it('assigns the same vehicleId to every listing in a cross-source VIN group', async () => {
     const vin = '1FMJK1HT0MEA12345'
     db.$queryRaw.mockResolvedValue([{ vin }])
 
@@ -132,6 +133,71 @@ describe('runDeduplicateJob', () => {
       where: { id: 'list-sparse' },
       data: { vehicleId: 'vehicle-1' },
     })
+  })
+
+  it('assigns the same vehicleId to every listing in a same-source VIN group', async () => {
+    const vin = '1FMJK1HT0MEA12345'
+    db.$queryRaw.mockResolvedValue([{ vin }])
+
+    const first = makeListing({
+      id: 'list-first',
+      sourceId: 'src-1',
+      vin,
+      priceCents: 4500000,
+      mileage: 32000,
+      city: 'Austin',
+      state: 'TX',
+      description: 'Great WAV',
+    })
+    const second = makeListing({
+      id: 'list-second',
+      sourceId: 'src-1',
+      vin,
+      scrapedAt: new Date('2026-01-01'),
+    })
+
+    db.listing.findMany.mockResolvedValue([second, first])
+
+    await runDeduplicateJob()
+
+    expect(db.listing.update).toHaveBeenCalledWith({
+      where: { id: 'list-first' },
+      data: { vehicleId: 'vehicle-1' },
+    })
+    expect(db.listing.update).toHaveBeenCalledWith({
+      where: { id: 'list-second' },
+      data: { vehicleId: 'vehicle-1' },
+    })
+  })
+
+  it('does not group listings sharing a structurally invalid VIN', async () => {
+    const vin = 'BADVIN'
+    db.$queryRaw.mockResolvedValue([{ vin }])
+    vi.mocked(isValidVin).mockReturnValueOnce(false)
+
+    const a = makeListing({ id: 'list-a', sourceId: 'src-1', vin })
+    const b = makeListing({ id: 'list-b', sourceId: 'src-1', vin })
+    db.listing.findMany.mockResolvedValue([a, b])
+
+    await runDeduplicateJob()
+
+    expect(db.listing.findMany).not.toHaveBeenCalled()
+    expect(db.listing.update).not.toHaveBeenCalled()
+  })
+
+  it('does not group listings sharing a VIN that fails the check-digit algorithm', async () => {
+    const vin = '1FMJK1HT0MEA12345'
+    db.$queryRaw.mockResolvedValue([{ vin }])
+    vi.mocked(checkDigitValid).mockReturnValueOnce(false)
+
+    const a = makeListing({ id: 'list-a', sourceId: 'src-1', vin })
+    const b = makeListing({ id: 'list-b', sourceId: 'src-2', vin })
+    db.listing.findMany.mockResolvedValue([a, b])
+
+    await runDeduplicateJob()
+
+    expect(db.listing.findMany).not.toHaveBeenCalled()
+    expect(db.listing.update).not.toHaveBeenCalled()
   })
 
   it('uses the most complete listing as the vehicle identity seed', async () => {

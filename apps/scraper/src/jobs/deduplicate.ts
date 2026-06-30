@@ -1,4 +1,4 @@
-import { findOrCreateVehicle, getDb, isValidVin, normalizeVin } from '@wivwav/db'
+import { checkDigitValid, findOrCreateVehicle, getDb, isValidVin, normalizeVin } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { syncListings } from '@wivwav/search'
@@ -36,16 +36,17 @@ function completenessScore(listing: Listing): number {
 export async function runDeduplicateJob(context?: JobContext): Promise<void> {
   const db = getDb()
 
-  // Find all VINs present in more than one distinct source
+  // Find all VINs shared by two or more listings, regardless of source —
+  // same-source re-scrapes/re-posts are grouped the same as cross-source matches.
   const rows = await db.$queryRaw<{ vin: string }[]>`
     SELECT vin
     FROM listings
     WHERE vin IS NOT NULL AND vin <> ''
     GROUP BY vin
-    HAVING COUNT(DISTINCT "sourceId") > 1
+    HAVING COUNT(*) > 1
   `
 
-  await report(context, `[deduplicate] ${rows.length} VIN(s) have cross-source duplicates`, {
+  await report(context, `[deduplicate] ${rows.length} VIN(s) have duplicate listings`, {
     stage: 'deduplicating',
     current: 0,
     total: rows.length,
@@ -59,7 +60,7 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
   for (let i = 0; i < rows.length; i++) {
     const rawVin = rows[i]!.vin
     const vin = normalizeVin(rawVin)
-    if (!isValidVin(vin)) {
+    if (!isValidVin(vin) || !checkDigitValid(vin)) {
       skippedGroups++
       await report(context, `[deduplicate] ${i + 1}/${rows.length} VIN group(s) — VIN ${rawVin}: invalid VIN, skipping group`, {
         stage: 'deduplicating',
