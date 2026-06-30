@@ -159,6 +159,13 @@ export type QuarantinedListingRow = {
   qualityCheckedAt: Date | null
   scrapedAt: Date
   updatedAt: Date
+  /**
+   * extractionVersion of the listing's most recent ListingObservation row, or
+   * null if the listing has no observation history yet. Needed for repair:
+   * an operator fixing a quarantined row needs to know which extractor logic
+   * produced the bad data.
+   */
+  extractionVersion: string | null
 }
 
 export type QuarantineFilter = {
@@ -472,6 +479,13 @@ export class PrismaListingRepository implements ListingRepository {
         scrapedAt: true,
         updatedAt: true,
         source: { select: { name: true } },
+        // Latest observation only — gives the extractor version that produced
+        // the current (quarantined) field values, needed for repair.
+        observations: {
+          orderBy: { observedAt: 'desc' },
+          take: 1,
+          select: { extractionVersion: true },
+        },
       },
     })
     return rows.map((row) => ({
@@ -487,6 +501,7 @@ export class PrismaListingRepository implements ListingRepository {
       qualityCheckedAt: row.qualityCheckedAt,
       scrapedAt: row.scrapedAt,
       updatedAt: row.updatedAt,
+      extractionVersion: row.observations[0]?.extractionVersion ?? null,
     }))
   }
 
