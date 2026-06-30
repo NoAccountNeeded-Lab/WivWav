@@ -384,6 +384,25 @@ describe('decidePublication', () => {
     ])
     expect(result.qualityIssueCodes).toEqual(['invalid_format'])
   })
+
+  it('quarantines an unsupported accessibility claim despite being warn-severity', () => {
+    // unsupported_accessibility_claim is a documented field-specific blocking warning:
+    // an accessibility badge with zero corroborating evidence would materially
+    // mislead a wheelchair user, so it blocks publication even though the rule
+    // itself is severity 'warn' (not 'error').
+    const result = decidePublication([
+      { field: 'wavFeatures', value: 'has_lift', rule: 'unsupported_accessibility_claim', family: 'cross_field', severity: 'warn' },
+    ])
+    expect(result.publicationStatus).toBe('quarantined')
+    expect(result.qualityIssueCodes).toEqual(['unsupported_accessibility_claim'])
+  })
+
+  it('still publishes other warn-severity issues that are not in the blocking set', () => {
+    const result = decidePublication([
+      { field: 'state', value: 'New Hampshire', rule: 'invalid_format', family: 'format', severity: 'warn' },
+    ])
+    expect(result.publicationStatus).toBe('eligible')
+  })
 })
 
 // ─── summarizeQuality ─────────────────────────────────────────────────────────
