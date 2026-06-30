@@ -20,22 +20,29 @@
  *
  * Always run --report first to review the scope of changes before --apply.
  *
- * Deployment and rollback:
+ * Deployment procedure:
+ * 1. Deploy the schema migration (adds engine column).
+ * 2. Run: pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts --report
+ *    Review output — confirm affected counts and sample values look correct.
+ * 3. Run: pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts --apply
+ *    This sets publicationStatus = 'pending' on all corrected rows.
+ * 4. Run the publication validator to re-evaluate pending rows (pending → eligible).
+ *    Until this step completes, corrected rows are not publicly visible.
+ * 5. Trigger a full Meilisearch re-index (meilisearch-sync job) so canonical values
+ *    are reflected in search documents.
+ * 6. Post-release smoke check: query the Meilisearch facets API on 'fuelType' and
+ *    verify no engine descriptions (e.g. "3.5L V6") appear in results.
+ *
+ * Rollback:
  * - This job is idempotent; running --apply multiple times is safe.
- * - Rollback: re-scraping BLVD detail pages restores the engine field from
- *   source. fuelType will remain null (correct) for BLVD listings going forward.
- * - Post-release smoke check: after --apply, run a Meilisearch facets query on
- *   'fuelType' and verify no engine descriptions (e.g. "3.5L V6") appear in results.
+ * - Re-scraping BLVD detail pages restores the engine field from source.
+ *   fuelType remains null (correct) for BLVD listings going forward.
  *
  * @module
  */
 
 import { getDb } from '@wivwav/db'
-import { canonicalConversionManufacturer } from '@wivwav/search'
-
-/** Patterns that identify engine descriptions rather than fuel type labels. */
-const ENGINE_DESCRIPTION_PATTERN =
-  /\b(?:\d+\.\d+\s*[Ll]|v[468]|[46]-?cyl(?:inder)?|dohc|sohc|ohv|ohc|hemi|ecoboost|vtec|vvt|i[346]|inline[346]|diesel\s+engine|turbocharged|supercharged)\b/i
+import { canonicalConversionManufacturer, ENGINE_DESCRIPTION_PATTERN } from '@wivwav/search'
 
 interface BackfillReport {
   engineFuelTypeFixes: {
