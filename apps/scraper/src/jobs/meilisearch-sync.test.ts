@@ -6,10 +6,12 @@ vi.mock('@wivwav/db', () => ({
 vi.mock('@wivwav/search', () => ({
   INDEX_NAME: 'listings',
   toDocument: vi.fn((row: { id: string }) => ({ id: row.id })),
+  selectRepresentative: vi.fn((listings: { id: string }[]) => listings[0]!),
 }))
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
+import { selectRepresentative } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { runMeilisearchSyncJob } from './meilisearch-sync.js'
 
@@ -34,7 +36,11 @@ describe('runMeilisearchSyncJob', () => {
       $queryRaw: vi.fn(async () => [{ count: 2 }]),
       listing: {
         findMany: vi.fn()
-          .mockResolvedValueOnce([{ id: 'listing-1' }, { id: 'listing-2' }, { id: 'listing-3' }])
+          .mockResolvedValueOnce([
+            { id: 'listing-1', vehicleId: null },
+            { id: 'listing-2', vehicleId: null },
+            { id: 'listing-3', vehicleId: null },
+          ])
           .mockResolvedValueOnce([]),
       },
       $disconnect: vi.fn(async () => undefined),
@@ -93,5 +99,33 @@ describe('runMeilisearchSyncJob', () => {
       'Meilisearch clear failed: task 10 ended with status failed',
     )
     expect(addDocuments).not.toHaveBeenCalled()
+  })
+
+  it('uploads only one representative per verified vehicle group', async () => {
+    const vehicleId = 'vehicle-1'
+    db.listing.findMany = vi.fn()
+      .mockResolvedValueOnce([
+        { id: 'listing-a', vehicleId },
+        { id: 'listing-b', vehicleId },
+      ])
+      .mockResolvedValueOnce([])
+
+    // Mock selectRepresentative to return listing-a as the winner.
+    vi.mocked(selectRepresentative).mockReturnValue({ id: 'listing-a', vehicleId } as never)
+
+    await runMeilisearchSyncJob()
+
+    // selectRepresentative must have been called with the group.
+    expect(selectRepresentative).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'listing-a' }),
+        expect.objectContaining({ id: 'listing-b' }),
+      ]),
+    )
+    // Only the representative document should be upserted.
+    expect(addDocuments).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: 'listing-a' })],
+      { primaryKey: 'id' },
+    )
   })
 })
