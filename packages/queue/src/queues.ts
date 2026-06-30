@@ -19,6 +19,7 @@ export const QUEUES = {
   VEHICLE_STATS_REFRESH:                'vehicle-stats-refresh',
   MODEL_RESEARCH:                       'model-research',
   LISTING_SYNC:                         'listing-sync',
+  LISTING_RESOLVE:                      'listing-resolve',
   RAWPAGE_CLEANUP:                      'rawpage-cleanup',
   CONVERSION_BRANDS_SEED:               'conversion-brands-seed',
   NMEDA_DEALERS_SEED:                   'nmeda-dealers-seed',
