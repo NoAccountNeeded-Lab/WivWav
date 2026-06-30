@@ -6,11 +6,12 @@ import type {
   SourceRepository,
   ListingRepository,
   ListingUpsertData,
+  ListingUpsertResult,
   MarkGoneOptions,
 } from '../engine/repositories.js'
 import { GONE_AFTER_CONSECUTIVE_MISSING } from '../engine/repositories.js'
 
-const TRANSIENT_PRISMA_CODES = new Set(['P2028', 'P1001', 'P1002', 'P1008', 'P1017'])
+const TRANSIENT_PRISMA_CODES = new Set(['P2002', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017'])
 const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
 
 /**
@@ -59,6 +60,38 @@ function sameStringSet(left: string[], right: string[]): boolean {
   return normalizedLeft.every((value, index) => value === normalizedRight[index])
 }
 
+function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) {
+  return {
+    sourceUrl: listing.sourceUrl,
+    buyerUrl,
+    externalId: listing.externalId,
+    stockNumber: listing.stockNumber,
+    make: listing.make,
+    model: listing.model,
+    year: listing.year,
+    trim: listing.trim,
+    vin: listing.vin,
+    condition: listing.condition,
+    sellerType: listing.sellerType,
+    priceCents: listing.priceCents,
+    mileage: listing.mileage,
+    conversionType: listing.wav.conversionType,
+    conversionManufacturer: listing.wav.conversionManufacturer,
+    floorLoweringInches: listing.wav.floorLoweringInches,
+    rampType: listing.wav.rampType,
+    conversionStatus: listing.wav.conversionStatus,
+    wavFeatures: listing.wav.wavFeatures,
+    wheelchairCapacity: listing.wav.wheelchairCapacity,
+    zip: listing.location.zip,
+    city: listing.location.city,
+    state: listing.location.state,
+    dealerName: listing.dealer.name,
+    cardImages: listing.images,
+    listedAt: listing.listedAt.toISOString(),
+    qualityIssueCodes: listing.qualityIssueCodes ?? [],
+  }
+}
+
 export class PrismaScraperRunRepository implements ScraperRunRepository {
   constructor(private readonly db: PrismaClient) {}
 
@@ -66,10 +99,14 @@ export class PrismaScraperRunRepository implements ScraperRunRepository {
     return this.db.scraperRun.create({ data: { sourceId, startedAt: new Date() } })
   }
 
-  async complete(id: string, listingsFound: number): Promise<void> {
+  async complete(
+    id: string,
+    listingsFound: number,
+    changes: { listingsNew: number; listingsUpdated: number } = { listingsNew: 0, listingsUpdated: 0 },
+  ): Promise<void> {
     await this.db.scraperRun.update({
       where: { id },
-      data: { finishedAt: new Date(), success: true, listingsFound },
+      data: { finishedAt: new Date(), success: true, listingsFound, ...changes },
     })
   }
 
@@ -142,93 +179,56 @@ export class PrismaSourceRepository implements SourceRepository {
 export class PrismaListingRepository implements ListingRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async upsert(listing: ListingUpsertData): Promise<void> {
-    const existing = await this.db.listing.findUnique({
-      where: {
-        sourceId_sourceRecordKey: {
-          sourceId: listing.sourceId,
-          sourceRecordKey: listing.sourceRecordKey,
+  async upsert(listing: ListingUpsertData): Promise<ListingUpsertResult> {
+    return withTransientRetry(() => this.db.$transaction(async (tx) => {
+      const existing = await tx.listing.findUnique({
+        where: {
+          sourceId_sourceRecordKey: {
+            sourceId: listing.sourceId,
+            sourceRecordKey: listing.sourceRecordKey,
+          },
         },
-      },
-      select: {
-        id: true,
-        sourceUrl: true,
-        buyerUrl: true,
-        sellerType: true,
-        priceCents: true,
-        mileage: true,
-        conversionStatus: true,
-        wavFeatures: true,
-        status: true,
-      },
-    })
-
-    const priceChanged =
-      existing !== null &&
-      listing.priceCents !== undefined &&
-      listing.priceCents !== existing.priceCents
-
-    const mileageChanged =
-      existing !== null &&
-      listing.mileage !== existing.mileage
-
-    const conversionChanged =
-      existing !== null &&
-      (listing.wav.conversionStatus !== existing.conversionStatus ||
-        !sameStringSet(listing.wav.wavFeatures, existing.wavFeatures))
-
-    const cameBack =
-      existing !== null &&
-      (existing.status === 'gone' || existing.status === 'possibly_gone')
-
-    const buyerUrl =
-      existing?.buyerUrl && existing.buyerUrl !== existing.sourceUrl && listing.buyerUrl === listing.sourceUrl
-        ? existing.buyerUrl
-        : listing.buyerUrl
-
-    const metadataChanged =
-      existing !== null &&
-      (existing.buyerUrl !== buyerUrl || existing.sellerType !== listing.sellerType || existing.sourceUrl !== listing.sourceUrl)
-
-    if (existing !== null && !priceChanged && !mileageChanged && !conversionChanged && !cameBack && !metadataChanged) {
-      return
-    }
-
-    // Reset detailScrapedAt to re-queue the detail crawl when price changes or
-    // a previously-gone listing reappears, so we get fresh detail page data.
-    const resetDetail = priceChanged || cameBack
-
-    // Wrap the upsert (which uses nested writes = implicit Prisma interactive transaction)
-    // in a transient-error retry. Under concurrent worker load the pg.Pool can return a
-    // connection mid-transaction or the implicit transaction can close before Prisma commits,
-    // both surfacing as P2028 "Transaction already closed". Retrying up to 3 times with
-    // exponential backoff eliminates transient failures without masking real data errors.
-    await withTransientRetry(() => this.db.listing.upsert({
-      where: {
-        sourceId_sourceRecordKey: {
-          sourceId: listing.sourceId,
-          sourceRecordKey: listing.sourceRecordKey,
+        select: {
+          id: true,
+          sourceUrl: true,
+          buyerUrl: true,
+          externalId: true,
+          stockNumber: true,
+          make: true,
+          model: true,
+          year: true,
+          trim: true,
+          vin: true,
+          condition: true,
+          sellerType: true,
+          priceCents: true,
+          mileage: true,
+          conversionType: true,
+          conversionManufacturer: true,
+          floorLoweringInches: true,
+          rampType: true,
+          conversionStatus: true,
+          wavFeatures: true,
+          wheelchairCapacity: true,
+          zip: true,
+          city: true,
+          state: true,
+          dealerName: true,
+          cardImages: true,
+          listedAt: true,
+          qualityIssueCodes: true,
+          status: true,
         },
-      },
-      update: {
-        priceCents: listing.priceCents,
-        mileage: listing.mileage,
-        sourceUrl: listing.sourceUrl,
-        buyerUrl,
-        sellerType: listing.sellerType,
-        scrapedAt: new Date(),
-        status: 'active',
-        goneAt: null,
-        // Any changed source observation invalidates the previous quality
-        // decision. A validator must explicitly promote the row again.
-        publicationStatus: 'pending',
-        qualityIssueCodes: listing.qualityIssueCodes ?? [],
-        qualityCheckedAt: null,
-        ...(resetDetail ? { detailScrapedAt: null } : {}),
-        ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
-        // description and images are managed by the detail scrape job — don't overwrite
-      },
-      create: {
+      })
+
+      const buyerUrl =
+        existing?.buyerUrl && existing.buyerUrl !== existing.sourceUrl && listing.buyerUrl === listing.sourceUrl
+          ? existing.buyerUrl
+          : listing.buyerUrl
+      const after = sourceObservation(listing, buyerUrl)
+
+      if (existing === null) {
+        const created = await tx.listing.create({ data: {
         sourceId: listing.sourceId,
         sourceUrl: listing.sourceUrl,
         buyerUrl: listing.buyerUrl,
@@ -262,6 +262,7 @@ export class PrismaListingRepository implements ListingRepository {
         dealerName: listing.dealer.name,
         dealerPhone: listing.dealer.phone,
         dealerWebsite: listing.dealer.website,
+        cardImages: listing.images,
         images: listing.images,
         description: listing.description,
         qualityIssueCodes: listing.qualityIssueCodes ?? [],
@@ -278,30 +279,153 @@ export class PrismaListingRepository implements ListingRepository {
             wavFeatures: listing.wav.wavFeatures,
           },
         },
-      },
-    }))
+        } })
+        await tx.listingObservation.create({
+          data: {
+            listingId: created.id,
+            stage: 'list_card',
+            extractionVersion: 'source-card-v1',
+            changedFields: Object.keys(after),
+            before: {},
+            after,
+          },
+        })
+        return { listingId: created.id, outcome: 'created', changedFields: Object.keys(after) }
+      }
 
-    if (priceChanged && listing.priceCents != null) {
-      await this.db.listingPriceHistory.create({
-        data: { listingId: existing!.id, priceCents: listing.priceCents },
+      const before = {
+        sourceUrl: existing.sourceUrl,
+        buyerUrl: existing.buyerUrl,
+        externalId: existing.externalId,
+        stockNumber: existing.stockNumber,
+        make: existing.make,
+        model: existing.model,
+        year: existing.year,
+        trim: existing.trim,
+        vin: existing.vin,
+        condition: existing.condition,
+        sellerType: existing.sellerType,
+        priceCents: existing.priceCents,
+        mileage: existing.mileage,
+        conversionType: existing.conversionType,
+        conversionManufacturer: existing.conversionManufacturer,
+        floorLoweringInches: existing.floorLoweringInches,
+        rampType: existing.rampType,
+        conversionStatus: existing.conversionStatus,
+        wavFeatures: existing.wavFeatures,
+        wheelchairCapacity: existing.wheelchairCapacity,
+        zip: existing.zip,
+        city: existing.city,
+        state: existing.state,
+        dealerName: existing.dealerName,
+        cardImages: existing.cardImages,
+        listedAt: existing.listedAt.toISOString(),
+        qualityIssueCodes: existing.qualityIssueCodes,
+      }
+      const changedFields = Object.keys(after).filter((field) => {
+        const previous = before[field as keyof typeof before]
+        const next = after[field as keyof typeof after]
+        if (Array.isArray(previous) && Array.isArray(next)) return !sameStringSet(previous, next)
+        return previous !== next
       })
-    }
+      const cameBack = existing.status === 'gone' || existing.status === 'possibly_gone'
+      if (cameBack) changedFields.push('status')
 
-    if (mileageChanged && listing.mileage != null) {
-      await this.db.listingMileageHistory.create({
-        data: { listingId: existing!.id, mileage: listing.mileage },
-      })
-    }
+      if (changedFields.length === 0) {
+        return { listingId: existing.id, outcome: 'unchanged', changedFields: [] }
+      }
 
-    if (conversionChanged) {
-      await this.db.listingConversionHistory.create({
+      const priceChanged = changedFields.includes('priceCents')
+      const mileageChanged = changedFields.includes('mileage')
+      const conversionChanged = changedFields.some((field) => [
+        'conversionType',
+        'conversionManufacturer',
+        'floorLoweringInches',
+        'rampType',
+        'conversionStatus',
+        'wavFeatures',
+        'wheelchairCapacity',
+      ].includes(field))
+      const locationChanged = changedFields.some((field) => ['zip', 'city', 'state'].includes(field))
+      const resetDetail = changedFields.some(
+        (field) => !['buyerUrl', 'sellerType', 'qualityIssueCodes'].includes(field),
+      )
+
+      await tx.listing.update({
+        where: { id: existing.id },
         data: {
-          listingId: existing!.id,
+          sourceUrl: listing.sourceUrl,
+          buyerUrl,
+          externalId: listing.externalId,
+          stockNumber: listing.stockNumber,
+          make: listing.make,
+          model: listing.model,
+          year: listing.year,
+          trim: listing.trim,
+          vin: listing.vin,
+          condition: listing.condition,
+          sellerType: listing.sellerType,
+          priceCents: listing.priceCents,
+          mileage: listing.mileage,
+          conversionType: listing.wav.conversionType,
+          conversionManufacturer: listing.wav.conversionManufacturer,
+          floorLoweringInches: listing.wav.floorLoweringInches,
+          rampType: listing.wav.rampType,
+          conversionStatus: listing.wav.conversionStatus,
+          wavFeatures: listing.wav.wavFeatures,
+          wheelchairCapacity: listing.wav.wheelchairCapacity,
+          zip: listing.location.zip,
+          city: listing.location.city,
+          state: listing.location.state,
+          ...(locationChanged ? { lat: null, lng: null } : {}),
+          dealerName: listing.dealer.name,
+          cardImages: listing.images,
+          listedAt: listing.listedAt,
+          scrapedAt: new Date(),
+          status: 'active',
+          goneAt: null,
+          publicationStatus: 'pending',
+          qualityIssueCodes: listing.qualityIssueCodes ?? [],
+          qualityCheckedAt: null,
+          ...(resetDetail ? { detailScrapedAt: null } : {}),
+          ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
+        },
+      })
+
+      if (priceChanged && listing.priceCents != null) {
+        await tx.listingPriceHistory.create({
+        data: { listingId: existing.id, priceCents: listing.priceCents },
+      })
+      }
+
+      if (mileageChanged && listing.mileage != null) {
+        await tx.listingMileageHistory.create({
+        data: { listingId: existing.id, mileage: listing.mileage },
+      })
+      }
+
+      if (conversionChanged) {
+        await tx.listingConversionHistory.create({
+        data: {
+          listingId: existing.id,
           conversionStatus: listing.wav.conversionStatus,
           wavFeatures: listing.wav.wavFeatures,
         },
       })
-    }
+      }
+
+      await tx.listingObservation.create({
+        data: {
+          listingId: existing.id,
+          stage: 'list_card',
+          extractionVersion: 'source-card-v1',
+          changedFields,
+          before,
+          after,
+        },
+      })
+      return { listingId: existing.id, outcome: 'updated', changedFields }
+    }, { isolationLevel: 'Serializable' }))
   }
 
   async markGone(sourceId: string, activeSourceRecordKeys: string[], options: MarkGoneOptions): Promise<number> {

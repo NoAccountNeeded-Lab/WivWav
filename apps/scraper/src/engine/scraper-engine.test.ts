@@ -32,7 +32,11 @@ function makeSources(lastFullCrawlAt: Date | null = null): SourceRepository {
 
 function makeListings(): ListingRepository {
   return {
-    upsert: vi.fn().mockResolvedValue(undefined),
+    upsert: vi.fn().mockResolvedValue({
+      listingId: 'list-1',
+      outcome: 'created',
+      changedFields: ['make'],
+    }),
     markGone: vi.fn().mockResolvedValue(0),
   }
 }
@@ -113,7 +117,7 @@ describe('ScraperEngine', () => {
     const listingsChanged = await engine.runSource('src-1')
 
     expect(runs.start).toHaveBeenCalledWith('src-1')
-    expect(runs.complete).toHaveBeenCalledWith('run-1', 0)
+    expect(runs.complete).toHaveBeenCalledWith('run-1', 0, { listingsNew: 0, listingsUpdated: 0 })
     expect(sources.markActive).toHaveBeenCalledWith('src-1', { listingCount: 0, fingerprintHash: 'abc', isCompleteCrawl: true })
     expect(listings.upsert).not.toHaveBeenCalled()
     expect(listingsChanged).toBe(false)
@@ -389,6 +393,24 @@ describe('ScraperEngine', () => {
     expect(listingsChanged).toBe(true)
   })
 
+  it('reports no changed listings when every source observation is unchanged', async () => {
+    vi.mocked(listings.upsert).mockResolvedValue({
+      listingId: 'list-1',
+      outcome: 'unchanged',
+      changedFields: [],
+    })
+    const engine = build()
+    const adapter = makeAdapter('src-1', {
+      scrape: vi.fn().mockResolvedValue({ listings: [LISTING_FIXTURE], fingerprintHash: 'abc' }),
+    })
+    engine.register(adapter, adapter.sourceId)
+
+    const listingsChanged = await engine.runSource('src-1')
+
+    expect(listingsChanged).toBe(false)
+    expect(runs.complete).toHaveBeenCalledWith('run-1', 1, { listingsNew: 0, listingsUpdated: 0 })
+  })
+
   it('passes the URL-based sourceRecordKey to markGone when externalId is null', async () => {
     const engine = build()
     const listing = { ...LISTING_FIXTURE, externalId: null, sourceRecordKey: 'http://x.com/1' }
@@ -429,7 +451,7 @@ describe('ScraperEngine', () => {
     await engine.runSource('src-1', context)
 
     // Run is still completed — geocode failure is non-fatal
-    expect(runs.complete).toHaveBeenCalledWith('run-1', 0)
+    expect(runs.complete).toHaveBeenCalledWith('run-1', 0, { listingsNew: 0, listingsUpdated: 0 })
     // The error message is forwarded to the job context log
     await vi.waitFor(() => {
       expect(context.log).toHaveBeenCalledWith(
@@ -448,7 +470,7 @@ describe('ScraperEngine', () => {
 
     await engine.runSource('src-1', context)
 
-    expect(runs.complete).toHaveBeenCalledWith('run-1', 0)
+    expect(runs.complete).toHaveBeenCalledWith('run-1', 0, { listingsNew: 0, listingsUpdated: 0 })
     await vi.waitFor(() => {
       expect(context.log).toHaveBeenCalledWith(
         expect.stringContaining('plain string error'),

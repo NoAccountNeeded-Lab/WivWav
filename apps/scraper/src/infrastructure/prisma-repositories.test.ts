@@ -43,35 +43,77 @@ function makeListing(overrides: Partial<ListingUpsertData> = {}): ListingUpsertD
 }
 
 function makeDb(
-  existingListing: {
+  existingListing: Partial<{
     id: string
-    sourceUrl?: string | null
-    buyerUrl?: string | null
+    sourceUrl: string
+    buyerUrl: string | null
+    externalId: string | null
+    stockNumber: string | null
+    make: string
+    model: string
+    year: number
+    trim: string | null
+    vin: string | null
+    condition: 'new' | 'used' | 'certified_pre_owned'
     sellerType?: 'dealer' | 'private'
     priceCents: number | null
-    mileage?: number | null
-    conversionStatus?: 'proposed' | 'complete' | 'unknown'
-    wavFeatures?: string[]
-    status?: string
-  } | null = null,
+    mileage: number | null
+    conversionType: 'rear_entry' | 'side_entry' | 'unknown'
+    conversionManufacturer: string | null
+    floorLoweringInches: number | null
+    rampType: 'in_floor' | 'fold_out' | 'fold_in' | 'none' | 'unknown'
+    conversionStatus: 'proposed' | 'complete' | 'unknown'
+    wavFeatures: string[]
+    wheelchairCapacity: number | null
+    zip: string | null
+    city: string | null
+    state: string | null
+    dealerName: string | null
+    cardImages: string[]
+    listedAt: Date
+    qualityIssueCodes: string[]
+    status: string
+  }> & { id: string; priceCents: number | null } | null = null,
 ) {
+  const fixture = makeListing()
   const existing = existingListing
     ? {
-        sourceUrl: 'http://example.com/1',
-        buyerUrl: 'http://example.com/1',
-        sellerType: 'dealer' as const,
+        sourceUrl: fixture.sourceUrl,
+        buyerUrl: fixture.buyerUrl,
+        externalId: fixture.externalId,
+        stockNumber: fixture.stockNumber,
+        make: fixture.make,
+        model: fixture.model,
+        year: fixture.year,
+        trim: fixture.trim,
+        vin: fixture.vin,
+        condition: fixture.condition,
+        sellerType: fixture.sellerType,
         status: 'active',
-        mileage: null,
-        conversionStatus: 'unknown' as const,
+        mileage: fixture.mileage,
+        conversionType: fixture.wav.conversionType,
+        conversionManufacturer: fixture.wav.conversionManufacturer,
+        floorLoweringInches: fixture.wav.floorLoweringInches,
+        rampType: fixture.wav.rampType,
+        conversionStatus: fixture.wav.conversionStatus,
         wavFeatures: [],
+        wheelchairCapacity: fixture.wav.wheelchairCapacity,
+        zip: fixture.location.zip,
+        city: fixture.location.city,
+        state: fixture.location.state,
+        dealerName: fixture.dealer.name,
+        cardImages: fixture.images,
+        listedAt: fixture.listedAt,
+        qualityIssueCodes: [],
         ...existingListing,
       }
     : null
 
-  return {
+  const db = {
     listing: {
       findUnique: vi.fn().mockResolvedValue(existing),
-      upsert: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue({ id: 'list-created' }),
+      update: vi.fn().mockResolvedValue({}),
     },
     listingPriceHistory: {
       create: vi.fn().mockResolvedValue({}),
@@ -82,7 +124,13 @@ function makeDb(
     listingConversionHistory: {
       create: vi.fn().mockResolvedValue({}),
     },
+    listingObservation: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    $transaction: vi.fn(),
   }
+  db.$transaction.mockImplementation(async (callback: (tx: typeof db) => Promise<unknown>) => callback(db))
+  return db
 }
 
 describe('PrismaListingRepository', () => {
@@ -147,7 +195,7 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000, mileage: 30000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalled()
+      expect(db.listing.update).toHaveBeenCalled()
     })
 
     it('does not write a history row when changed mileage is null', async () => {
@@ -247,7 +295,7 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).not.toHaveBeenCalled()
+      expect(db.listing.update).not.toHaveBeenCalled()
     })
 
     it('skips the DB write when listing exists with null price and scraped price is also null', async () => {
@@ -255,7 +303,7 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: null }))
 
-      expect(db.listing.upsert).not.toHaveBeenCalled()
+      expect(db.listing.update).not.toHaveBeenCalled()
     })
 
     it('writes the DB when listing exists and price changed', async () => {
@@ -263,8 +311,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.objectContaining({
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
           publicationStatus: 'pending',
           qualityIssueCodes: [],
           qualityCheckedAt: null,
@@ -277,8 +325,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.not.objectContaining({ detailScrapedAt: null }),
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.not.objectContaining({ detailScrapedAt: null }),
       }))
     })
 
@@ -291,7 +339,7 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).not.toHaveBeenCalled()
+      expect(db.listing.update).not.toHaveBeenCalled()
     })
 
     it('writes the DB and updates sourceUrl when the listing slug changes on re-scrape', async () => {
@@ -299,8 +347,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000, sourceUrl: 'http://example.com/new-slug' }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.objectContaining({ sourceUrl: 'http://example.com/new-slug' }),
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ sourceUrl: 'http://example.com/new-slug' }),
       }))
     })
 
@@ -310,8 +358,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.objectContaining({ buyerUrl: enrichedUrl }),
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ buyerUrl: enrichedUrl }),
       }))
     })
 
@@ -320,7 +368,7 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalled()
+      expect(db.listing.create).toHaveBeenCalled()
     })
 
     it('writes the DB when listing was possibly_gone and reappears (same price)', async () => {
@@ -328,7 +376,7 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalled()
+      expect(db.listing.update).toHaveBeenCalled()
     })
 
     it('writes the DB when listing was gone and reappears (same price)', async () => {
@@ -336,7 +384,59 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalled()
+      expect(db.listing.update).toHaveBeenCalled()
+    })
+
+    it.each([
+      ['identity', { make: 'Honda', model: 'Odyssey', year: 2023, trim: 'EX-L', vin: '5FNRL6H70NB000001', condition: 'certified_pre_owned' as const }],
+      ['accessibility classification', { wav: { ...makeListing().wav, conversionType: 'side_entry' as const, conversionManufacturer: 'VMI', conversionStatus: 'complete' as const } }],
+      ['source location', { location: { zip: '80202', city: 'Denver', state: 'CO', lat: 39.7, lng: -104.9 } }],
+      ['source dealer', { dealer: { name: 'Corrected Mobility', phone: null, website: null } }],
+      ['card image input', { images: ['https://example.com/corrected-card.jpg'] }],
+    ])('persists corrected %s fields and records an audit observation', async (_group, overrides) => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000 })
+      const repo = new PrismaListingRepository(db as never)
+
+      const result = await repo.upsert(makeListing(overrides))
+
+      expect(result.outcome).toBe('updated')
+      expect(db.listing.update).toHaveBeenCalled()
+      expect(db.listingObservation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          listingId: 'list-1',
+          stage: 'list_card',
+          extractionVersion: 'source-card-v1',
+          changedFields: expect.any(Array),
+          before: expect.any(Object),
+          after: expect.any(Object),
+        }),
+      })
+    })
+
+    it('clears stale geocoding when a source-owned location changes', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, city: 'Old City' })
+      const repo = new PrismaListingRepository(db as never)
+
+      await repo.upsert(makeListing({ location: { zip: '80202', city: 'Denver', state: 'CO', lat: null, lng: null } }))
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ lat: null, lng: null }),
+      }))
+    })
+
+    it('returns unchanged without duplicate history or observation rows', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000 })
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing())).resolves.toEqual({
+        listingId: 'list-1',
+        outcome: 'unchanged',
+        changedFields: [],
+      })
+      expect(db.listingObservation.create).not.toHaveBeenCalled()
+      expect(db.listingPriceHistory.create).not.toHaveBeenCalled()
+      expect(db.listingMileageHistory.create).not.toHaveBeenCalled()
+      expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
     })
   })
 
@@ -348,33 +448,43 @@ describe('PrismaListingRepository', () => {
       const p2028 = Object.assign(new Error('Transaction API error: Transaction already closed'), { code: 'P2028' })
       const db = makeDb(null)
       // First call throws P2028, second call succeeds
-      db.listing.upsert
+      db.listing.create
         .mockRejectedValueOnce(p2028)
         .mockResolvedValueOnce({})
       const repo = new PrismaListingRepository(db as never)
 
-      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).resolves.toBeUndefined()
-      expect(db.listing.upsert).toHaveBeenCalledTimes(2)
+      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).resolves.toMatchObject({ outcome: 'created' })
+      expect(db.listing.create).toHaveBeenCalledTimes(2)
     }, 1000)
 
     it('propagates P2028 after exhausting all retry attempts', async () => {
       const p2028 = Object.assign(new Error('Transaction API error: Transaction already closed'), { code: 'P2028' })
       const db = makeDb(null)
-      db.listing.upsert.mockRejectedValue(p2028)
+      db.listing.create.mockRejectedValue(p2028)
       const repo = new PrismaListingRepository(db as never)
 
       await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).rejects.toMatchObject({ code: 'P2028' })
-      expect(db.listing.upsert).toHaveBeenCalledTimes(3)
+      expect(db.listing.create).toHaveBeenCalledTimes(3)
     }, 1000)
 
-    it('does not retry on non-transient errors (e.g. P2002 unique constraint)', async () => {
-      const uniqueViolation = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
+    it('does not retry on non-transient errors', async () => {
+      const uniqueViolation = Object.assign(new Error('Invalid query'), { code: 'P2010' })
       const db = makeDb(null)
-      db.listing.upsert.mockRejectedValue(uniqueViolation)
+      db.listing.create.mockRejectedValue(uniqueViolation)
       const repo = new PrismaListingRepository(db as never)
 
-      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).rejects.toMatchObject({ code: 'P2002' })
-      expect(db.listing.upsert).toHaveBeenCalledTimes(1)
+      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).rejects.toMatchObject({ code: 'P2010' })
+      expect(db.listing.create).toHaveBeenCalledTimes(1)
+    })
+
+    it('retries a serializable transaction conflict without duplicating the committed observation', async () => {
+      const conflict = Object.assign(new Error('write conflict'), { code: 'P2034' })
+      const db = makeDb(null)
+      db.$transaction.mockRejectedValueOnce(conflict)
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing())).resolves.toMatchObject({ outcome: 'created' })
+      expect(db.listingObservation.create).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -384,8 +494,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.objectContaining({ detailScrapedAt: null }),
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ detailScrapedAt: null }),
       }))
     })
 
@@ -394,8 +504,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.objectContaining({ detailScrapedAt: null }),
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ detailScrapedAt: null }),
       }))
     })
 
@@ -404,8 +514,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
       await repo.upsert(makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        update: expect.objectContaining({ detailScrapedAt: null }),
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ detailScrapedAt: null }),
       }))
     })
 
@@ -415,7 +525,7 @@ describe('PrismaListingRepository', () => {
       // same price → early return, no upsert at all
       await repo.upsert(makeListing({ priceCents: 2500000 }))
 
-      expect(db.listing.upsert).not.toHaveBeenCalled()
+      expect(db.listing.update).not.toHaveBeenCalled()
     })
   })
 })

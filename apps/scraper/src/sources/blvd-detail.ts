@@ -8,7 +8,9 @@ const BASE_URL = 'https://www.blvd.com'
 export interface RawDetail {
   specs: Record<string, string>
   descriptionText: string
+  descriptionFound?: boolean
   imageUrls: string[]
+  galleryFound?: boolean
   dealerPhone: string
   dealerAddressText: string
   statusBannerText: string
@@ -137,6 +139,7 @@ export async function evaluateBlvdDetail(page: BrowserPage): Promise<RawDetail> 
     // The _large.jpg pattern is vehicle-gallery-specific; the path filter guards edge cases.
     const NON_VEHICLE_PATH =
       /\/(?:icon|logo|badge|banner|avatar|staff|team|person|social|sprite|header|footer|favicon|placeholder|tracking|pixel|spacer|arrow|bullet|star|rating|map|pin|marker)\b/i
+    const galleryFound = document.querySelector('[class*="gallery"], [class*="carousel"], [id*="gallery"]') !== null
     const seen = new Set<string>()
     const imageUrls: string[] = []
     document.querySelectorAll<HTMLAnchorElement>('a[href*="_large.jpg"]').forEach(function (a) {
@@ -166,6 +169,15 @@ export async function evaluateBlvdDetail(page: BrowserPage): Promise<RawDetail> 
     const statusBannerEl = bannerCandidates.find(function (el) { return el !== null }) ?? null
     const statusBannerText = statusBannerEl?.textContent?.trim() ?? ''
 
-    return { specs, descriptionText, imageUrls, dealerPhone, dealerAddressText, statusBannerText }
+    return {
+      specs,
+      descriptionText,
+      descriptionFound: descH2 !== undefined,
+      imageUrls,
+      galleryFound,
+      dealerPhone,
+      dealerAddressText,
+      statusBannerText,
+    }
   }, BASE_URL)
 }

@@ -6,7 +6,11 @@ export interface ScraperRunRecord {
 
 export interface ScraperRunRepository {
   start(sourceId: string): Promise<ScraperRunRecord>
-  complete(id: string, listingsFound: number): Promise<void>
+  complete(
+    id: string,
+    listingsFound: number,
+    changes?: { listingsNew: number; listingsUpdated: number },
+  ): Promise<void>
   fail(id: string, errorMessage: string): Promise<void>
 }
 
@@ -32,6 +36,12 @@ export interface SourceRepository {
 
 export type ListingUpsertData = Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>
 
+export type ListingUpsertResult = {
+  listingId: string
+  outcome: 'created' | 'updated' | 'unchanged'
+  changedFields: string[]
+}
+
 export interface PriceHistoryRow {
   id: string
   listingId: string
@@ -55,7 +65,7 @@ export interface MarkGoneOptions {
 }
 
 export interface ListingRepository {
-  upsert(listing: ListingUpsertData): Promise<void>
+  upsert(listing: ListingUpsertData): Promise<ListingUpsertResult>
   /**
    * Soft-marks active listings absent from the crawled set.
    *

@@ -1,4 +1,4 @@
-import { getDb } from '@wivwav/db'
+import { getDb, type Prisma } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { syncListings } from '@wivwav/search'
@@ -15,6 +15,13 @@ import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 100
+const DETAIL_EXTRACTION_VERSION = 'detail-v2-evidence'
+const DETAIL_METADATA_FIELDS = new Set([
+  'detailScrapedAt',
+  'publicationStatus',
+  'qualityIssueCodes',
+  'qualityCheckedAt',
+])
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
 
@@ -96,6 +103,35 @@ export type DetailResult = {
   zip: string | null
   dealerPhone: string | null
   saleStatus: SaleStatus
+  evidence: {
+    specs: DetailEvidence
+    description: DetailEvidence
+    images: DetailEvidence
+  }
+}
+
+export type DetailEvidence = 'value' | 'authoritative_empty' | 'missing'
+
+function sameDetailValue(left: unknown, right: unknown): boolean {
+  if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime()
+  if (Array.isArray(left) && Array.isArray(right)) {
+    if (left.length !== right.length) return false
+    return left.every((value, index) => value === right[index])
+  }
+  return left === right
+}
+
+export function changedDetailFields(
+  existing: Record<string, unknown>,
+  update: Record<string, unknown>,
+): string[] {
+  return Object.keys(update).filter(
+    (field) => !DETAIL_METADATA_FIELDS.has(field) && !sameDetailValue(existing[field], update[field]),
+  )
+}
+
+function auditValue(value: unknown): unknown {
+  return value instanceof Date ? value.toISOString() : value
 }
 
 export function buildListingDetailUpdateData(
@@ -104,26 +140,24 @@ export function buildListingDetailUpdateData(
   statusUpdate: StatusUpdate,
   now: Date,
 ) {
+  const specsObserved = detail.evidence.specs !== 'missing'
+  const descriptionObserved = detail.evidence.description !== 'missing'
+  const imagesObserved = detail.evidence.images !== 'missing'
   return {
-    color: detail.color,
-    fuelType: detail.fuelType,
-    // Only write engine when the source actually provides one; null means "not observed"
-    // rather than "no engine" — don't overwrite a previously stored value with null.
-    ...(detail.engine !== null && { engine: detail.engine }),
-    transmission: detail.transmission,
-    rampType: detail.rampType,
-    wavFeatures: detail.wavFeatures,
-    floorLoweringInches: detail.floorLoweringInches,
-    wheelchairCapacity: detail.wheelchairCapacity,
-    // Only overwrite description when extraction succeeded. A null description
-    // from a failed selector (descriptionFound: false in MW detail) must not
-    // erase a previously stored valid description. Full field-ownership
-    // semantics are owned by #501; this guard ensures fail-closed behaviour.
-    ...(detail.description !== null && { description: detail.description }),
-    // Images: only overwrite when the gallery container was found and produced
-    // at least one URL; an empty array from a failed gallery extraction must
-    // not clear a previously stored image list.
-    ...(detail.images.length > 0 && { images: detail.images }),
+    ...(specsObserved ? {
+      color: detail.color,
+      fuelType: detail.fuelType,
+      transmission: detail.transmission,
+    } : {}),
+    ...(specsObserved && detail.engine !== null ? { engine: detail.engine } : {}),
+    ...(descriptionObserved ? {
+      rampType: detail.rampType,
+      wavFeatures: detail.wavFeatures,
+      floorLoweringInches: detail.floorLoweringInches,
+      wheelchairCapacity: detail.wheelchairCapacity,
+      description: detail.evidence.description === 'authoritative_empty' ? null : detail.description,
+    } : {}),
+    ...(imagesObserved ? { images: detail.images } : {}),
     ...(detail.zip && { zip: detail.zip }),
     ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
     ...(enrichment.dealerWebsite && { dealerWebsite: enrichment.dealerWebsite }),
@@ -144,10 +178,33 @@ async function extractDetail(page: BrowserPage, url: string): Promise<DetailResu
     const raw = await evaluateMwDetail(page)
     const mw = parseMwDetail(raw)
     // MobilityWorks exposes an explicit "Fuel Type" spec key; no engine description field.
-    return { ...mw, engine: null }
+    return {
+      ...mw,
+      engine: null,
+      evidence: {
+        specs: Object.keys(raw.specs).length > 0 ? 'value' : 'missing',
+        description: raw.descriptionFound
+          ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
+          : 'missing',
+        images: raw.galleryFound
+          ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
+          : 'missing',
+      },
+    }
   }
   const raw = await evaluateBlvdDetail(page)
-  return parseBlvdDetail(raw)
+  return {
+    ...parseBlvdDetail(raw),
+    evidence: {
+      specs: Object.keys(raw.specs).length > 0 ? 'value' : 'missing',
+      description: raw.descriptionFound === true
+        ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
+        : raw.descriptionText.trim().length > 0 ? 'value' : 'missing',
+      images: raw.galleryFound === true
+        ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
+        : raw.imageUrls.length > 0 ? 'value' : 'missing',
+    },
+  }
 }
 
 export async function runDetailExtractJob(
@@ -202,10 +259,62 @@ export async function runDetailExtractJob(
 
         const listing = await db.listing.findFirst({
           where: { sourceUrl: rawPage.url },
-          select: { id: true, status: true, soldAt: true, vin: true, missingFromCompleteCount: true },
+          select: {
+            id: true,
+            status: true,
+            soldAt: true,
+            vin: true,
+            missingFromCompleteCount: true,
+            color: true,
+            fuelType: true,
+            engine: true,
+            transmission: true,
+            rampType: true,
+            wavFeatures: true,
+            floorLoweringInches: true,
+            wheelchairCapacity: true,
+            description: true,
+            images: true,
+            zip: true,
+            dealerPhone: true,
+            dealerWebsite: true,
+            buyerUrl: true,
+            saleStatus: true,
+            goneAt: true,
+            publicationStatus: true,
+            qualityIssueCodes: true,
+            qualityCheckedAt: true,
+            detailScrapedAt: true,
+            updatedAt: true,
+          },
         })
 
         if (listing) {
+          const alreadyApplied = await db.listingObservation.findUnique({
+            where: {
+              stage_reference: {
+                stage: 'detail',
+                reference: rawPage.id,
+              },
+            },
+            select: { id: true, changedFields: true, searchSyncedAt: true, listingId: true },
+          })
+          if (alreadyApplied) {
+            if (alreadyApplied.changedFields.length > 0 && alreadyApplied.searchSyncedAt === null) {
+              await syncListings([alreadyApplied.listingId], db, getMeiliClient())
+              await db.listingObservation.update({
+                where: { id: alreadyApplied.id },
+                data: { searchSyncedAt: new Date() },
+              })
+            }
+            await db.rawPage.update({
+              where: { id: rawPage.id },
+              data: { processedAt: new Date() },
+            })
+            success++
+            continue
+          }
+
           const now = new Date()
           const statusUpdate = resolveListingStatus(
             listing.status as ListingStatus,
@@ -221,11 +330,49 @@ export async function runDetailExtractJob(
             log: (message) => report(context, message),
           })
 
-          await db.listing.update({
-            where: { id: listing.id },
-            data: buildListingDetailUpdateData(detail, enrichment, statusUpdate, now),
-          })
-          await syncListings([listing.id], db, getMeiliClient())
+          const update = buildListingDetailUpdateData(detail, enrichment, statusUpdate, now)
+          const changedFields = changedDetailFields(
+            listing as unknown as Record<string, unknown>,
+            update as Record<string, unknown>,
+          )
+          const before = Object.fromEntries(
+            changedFields.map((field) => [field, auditValue((listing as unknown as Record<string, unknown>)[field])]),
+          )
+          const after = Object.fromEntries(
+            changedFields.map((field) => [field, auditValue((update as Record<string, unknown>)[field])]),
+          )
+
+          await db.$transaction(async (tx) => {
+            await tx.listing.update({
+              where: { id: listing.id, updatedAt: listing.updatedAt },
+              data: changedFields.length > 0 ? update : { detailScrapedAt: now },
+            })
+            await tx.listingObservation.create({
+              data: {
+                listingId: listing.id,
+                stage: 'detail',
+                reference: rawPage.id,
+                extractionVersion: DETAIL_EXTRACTION_VERSION,
+                changedFields,
+                before: before as Prisma.InputJsonObject,
+                after: after as Prisma.InputJsonObject,
+                observedAt: now,
+                ...(changedFields.length === 0 ? { searchSyncedAt: now } : {}),
+              },
+            })
+          }, { isolationLevel: 'Serializable' })
+          if (changedFields.length > 0) {
+            await syncListings([listing.id], db, getMeiliClient())
+            await db.listingObservation.update({
+              where: {
+                stage_reference: {
+                  stage: 'detail',
+                  reference: rawPage.id,
+                },
+              },
+              data: { searchSyncedAt: new Date() },
+            })
+          }
         } else {
           await report(context, `[detail-extract] No listing found for URL: ${rawPage.url}`)
         }
