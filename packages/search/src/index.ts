@@ -329,7 +329,8 @@ export async function syncListings(
   // 5. Build the set of IDs to delete:
   //    a) Touched IDs that are not eligible (ineligible or gone).
   const eligibleUpsertedIds = new Set(docsToUpsert.map((r) => r.id))
-  const ineligibleTouchedIds = listingIds.filter((id) => !eligibleUpsertedIds.has(id))
+  // Includes ineligible listings AND eligible non-representative group members.
+  const touchedIdsNotUpserted = listingIds.filter((id) => !eligibleUpsertedIds.has(id))
 
   //    b) Non-representative members of touched vehicle groups — they may have
   //       been uploaded in a prior sync before group membership was established.
@@ -337,7 +338,7 @@ export async function syncListings(
     .filter((r) => !representativeIds.has(r.id))
     .map((r) => r.id)
 
-  const idsToDelete = [...new Set([...ineligibleTouchedIds, ...nonRepGroupIds])]
+  const idsToDelete = [...new Set([...touchedIdsNotUpserted, ...nonRepGroupIds])]
 
   if (idsToDelete.length > 0) {
     await index.deleteDocuments(idsToDelete)

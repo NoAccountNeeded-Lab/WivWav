@@ -520,6 +520,36 @@ describe('syncListings — verified vehicle group representative selection', () 
     expect(deleteDocuments).toHaveBeenCalledWith(expect.arrayContaining(['listing-a']))
   })
 
+  it('deletes all group members when every member becomes ineligible simultaneously', async () => {
+    const vehicleId = 'vehicle-1'
+
+    const findMany = vi.fn()
+      // Call 1: discover vehicleIds — both listings touched
+      .mockResolvedValueOnce([
+        { id: 'listing-a', vehicleId },
+        { id: 'listing-b', vehicleId },
+      ])
+      // Call 2: eligible group fetch — empty, both are now ineligible
+      .mockResolvedValueOnce([])
+
+    const addDocuments = vi.fn(async () => ({}))
+    const deleteDocuments = vi.fn(async () => ({}))
+    const client = { index: vi.fn(() => ({ addDocuments, deleteDocuments })) }
+
+    await syncListings(
+      ['listing-a', 'listing-b'],
+      { listing: { findMany } } as never,
+      client as never,
+    )
+
+    // Nothing to upsert.
+    expect(addDocuments).not.toHaveBeenCalled()
+    // Both touched IDs must be deleted.
+    expect(deleteDocuments).toHaveBeenCalledWith(
+      expect.arrayContaining(['listing-a', 'listing-b']),
+    )
+  })
+
   it('keeps candidate listings separately visible in search', async () => {
     // Two listings with no vehicleId (candidate decision exists but vehicleId not assigned)
     const candidateA = makeListing({ id: 'cand-a', vehicleId: null, publicationStatus: 'eligible' })

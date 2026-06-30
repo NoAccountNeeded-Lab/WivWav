@@ -101,6 +101,41 @@ describe('runMeilisearchSyncJob', () => {
     expect(addDocuments).not.toHaveBeenCalled()
   })
 
+  it('buffers a vehicle group that straddles two pages', async () => {
+    const vehicleId = 'vehicle-x'
+    // First page is exactly BATCH_SIZE (1000) rows so the sync treats it as non-final.
+    // The last listing on the page belongs to vehicle-x; the buffering logic must hold it
+    // back and merge it with listing-x2 which arrives on the second page.
+    const firstPage = [
+      ...Array.from({ length: 999 }, (_, i) => ({ id: `listing-solo-${i}`, vehicleId: null })),
+      { id: 'listing-x1', vehicleId },
+    ]
+    const secondPage = [{ id: 'listing-x2', vehicleId }]
+
+    db.listing.findMany = vi.fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage)
+
+    vi.mocked(selectRepresentative).mockReturnValue({ id: 'listing-x1', vehicleId } as never)
+
+    await runMeilisearchSyncJob()
+
+    // Both group members must have been passed to selectRepresentative together.
+    expect(selectRepresentative).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'listing-x1' }),
+        expect.objectContaining({ id: 'listing-x2' }),
+      ]),
+    )
+
+    // Exactly one document for the group should appear across all addDocuments calls.
+    const allUpsertedIds = addDocuments.mock.calls.flatMap(([docs]: [{ id: string }[]]) =>
+      docs.map((d) => d.id),
+    )
+    const groupUpserts = allUpsertedIds.filter((id: string) => id === 'listing-x1' || id === 'listing-x2')
+    expect(groupUpserts).toHaveLength(1)
+  })
+
   it('uploads only one representative per verified vehicle group', async () => {
     const vehicleId = 'vehicle-1'
     db.listing.findMany = vi.fn()
