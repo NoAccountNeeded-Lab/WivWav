@@ -9,6 +9,10 @@ export type SourceRow = {
   status: string
   cronExpression: string
   lastScrapedAt: Date | null
+  /** Timestamp of the most recent complete (all-pages) crawl. */
+  lastFullCrawlAt: Date | null
+  /** Timestamp of the most recent observation (complete or partial). */
+  lastObservedAt: Date | null
   listingCount: number
   errorMessage: string | null
 }
@@ -66,6 +70,8 @@ export class PrismaSourceRepository implements SourceRepository {
         status: true,
         cronExpression: true,
         lastScrapedAt: true,
+        lastFullCrawlAt: true,
+        lastObservedAt: true,
         listingCount: true,
         errorMessage: true,
       },

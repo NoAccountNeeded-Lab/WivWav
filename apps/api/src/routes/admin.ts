@@ -398,12 +398,13 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 function withPublicationCounts(
   sources: SourceRow[],
   counts: ListingPublicationCountRow[],
-): Array<SourceRow & { observedActiveCount: number; eligibleActiveCount: number }> {
+): Array<SourceRow & { observedActiveCount: number; eligibleActiveCount: number; possiblyGoneCount: number }> {
   const countBySource = new Map(counts.map(count => [count.sourceId, count]))
   return sources.map(source => ({
     ...source,
     observedActiveCount: countBySource.get(source.id)?.observedActive ?? 0,
     eligibleActiveCount: countBySource.get(source.id)?.eligibleActive ?? 0,
+    possiblyGoneCount: countBySource.get(source.id)?.possiblyGoneCount ?? 0,
   }))
 }
 
