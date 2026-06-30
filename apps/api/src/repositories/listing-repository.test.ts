@@ -139,3 +139,133 @@ describe('PrismaListingRepository public eligibility', () => {
     ])
   })
 })
+
+// ── Quarantine ──────────────────────────────────────────────────────────────
+
+describe('PrismaListingRepository.findQuarantined', () => {
+  it('filters by publicationStatus quarantined and maps the source name onto the row', async () => {
+    const row = {
+      id: 'l-1',
+      sourceId: 'src-1',
+      sourceUrl: 'https://example.com/l-1',
+      sourceRecordKey: 'rec-1',
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2022,
+      qualityIssueCodes: ['contains_space'],
+      qualityCheckedAt: new Date('2026-06-01'),
+      scrapedAt: new Date('2026-06-01'),
+      updatedAt: new Date('2026-06-01'),
+      source: { name: 'BLVD.com' },
+    }
+    const db = buildDb({ findMany: vi.fn(async () => [row]) })
+    const repo = new PrismaListingRepository(db as never)
+
+    const result = await repo.findQuarantined({})
+
+    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { publicationStatus: 'quarantined' },
+      skip: 0,
+      take: 50,
+    }))
+    expect(result).toEqual([{
+      id: 'l-1',
+      sourceId: 'src-1',
+      sourceName: 'BLVD.com',
+      sourceUrl: 'https://example.com/l-1',
+      sourceRecordKey: 'rec-1',
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2022,
+      qualityIssueCodes: ['contains_space'],
+      qualityCheckedAt: row.qualityCheckedAt,
+      scrapedAt: row.scrapedAt,
+      updatedAt: row.updatedAt,
+    }])
+  })
+
+  it('filters by sourceId and a single rule', async () => {
+    const db = buildDb()
+    const repo = new PrismaListingRepository(db as never)
+
+    await repo.findQuarantined({ sourceId: 'src-1', rule: 'contains_space' })
+
+    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        publicationStatus: 'quarantined',
+        sourceId: 'src-1',
+        qualityIssueCodes: { has: 'contains_space' },
+      },
+    }))
+  })
+
+  it('filters by an array of rules using hasSome (severity resolution)', async () => {
+    const db = buildDb()
+    const repo = new PrismaListingRepository(db as never)
+
+    await repo.findQuarantined({ rule: ['contains_space', 'active_with_sold_at'] })
+
+    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        publicationStatus: 'quarantined',
+        qualityIssueCodes: { hasSome: ['contains_space', 'active_with_sold_at'] },
+      },
+    }))
+  })
+
+  it('filters by age via olderThanMs', async () => {
+    const db = buildDb()
+    const repo = new PrismaListingRepository(db as never)
+
+    await repo.findQuarantined({ olderThanMs: 1000 })
+
+    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        publicationStatus: 'quarantined',
+        OR: expect.any(Array),
+      }),
+    }))
+  })
+
+  it('respects skip and take', async () => {
+    const db = buildDb()
+    const repo = new PrismaListingRepository(db as never)
+
+    await repo.findQuarantined({ skip: 20, take: 10 })
+
+    expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20, take: 10 }))
+  })
+})
+
+describe('PrismaListingRepository.countQuarantined', () => {
+  it('applies the same where clause as findQuarantined', async () => {
+    const db = buildDb({ count: vi.fn(async () => 3) })
+    const repo = new PrismaListingRepository(db as never)
+
+    await expect(repo.countQuarantined({ sourceId: 'src-1' })).resolves.toBe(3)
+    expect(db.listing.count).toHaveBeenCalledWith({
+      where: { publicationStatus: 'quarantined', sourceId: 'src-1' },
+    })
+  })
+})
+
+describe('PrismaListingRepository.reprocessQuarantined', () => {
+  it('resets a quarantined listing to pending and returns true', async () => {
+    const updateMany = vi.fn(async () => ({ count: 1 }))
+    const db = buildDb({ updateMany })
+    const repo = new PrismaListingRepository(db as never)
+
+    await expect(repo.reprocessQuarantined('l-1')).resolves.toBe(true)
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'l-1', publicationStatus: 'quarantined' },
+      data: { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
+    })
+  })
+
+  it('returns false when the listing was not quarantined', async () => {
+    const db = buildDb({ updateMany: vi.fn(async () => ({ count: 0 })) })
+    const repo = new PrismaListingRepository(db as never)
+
+    await expect(repo.reprocessQuarantined('l-2')).resolves.toBe(false)
+  })
+})
