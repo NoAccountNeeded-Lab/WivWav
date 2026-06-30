@@ -185,6 +185,7 @@ queueFactory.createWorker<{ sourceId: string }>(
     // until the nightly reconciliation.
     if (listingsChanged) {
       await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+      await listingResolveQueue.add({ sourceId }, CRITICAL_JOB_OPTIONS)
     }
   }),
   { lockDuration: 300_000, logger },
@@ -199,7 +200,7 @@ queueFactory.createWorker<{ sourceId: string }>(
 queueFactory.createWorker<{ sourceId: string }>(
   QUEUES.DETAIL_EXTRACT,
   withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, ({ sourceId }, context) =>
-    runDetailExtractJob(sourceId, context, browserService),
+    runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
   ),
   { lockDuration: 60_000, logger },
 )
@@ -326,6 +327,7 @@ const conversionBrandsSeedQueue = queueFactory.createQueue(QUEUES.CONVERSION_BRA
 const nmedaDealersSeedQueue = queueFactory.createQueue(QUEUES.NMEDA_DEALERS_SEED)
 const modelResearchQueue = queueFactory.createQueue(QUEUES.MODEL_RESEARCH)
 const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
+const listingResolveQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
