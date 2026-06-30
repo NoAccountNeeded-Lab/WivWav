@@ -8,7 +8,14 @@ import {
   canonicalConversionManufacturer,
 } from './canonicalize.js'
 
-export { canonicalColor, canonicalFuelType, canonicalMake, canonicalModel, canonicalConversionManufacturer } from './canonicalize.js'
+export {
+  canonicalColor,
+  canonicalFuelType,
+  canonicalMake,
+  canonicalModel,
+  canonicalConversionManufacturer,
+  ENGINE_DESCRIPTION_PATTERN,
+} from './canonicalize.js'
 export type { CanonicalFuelType } from './canonicalize.js'
 
 export const INDEX_NAME = 'listings'
