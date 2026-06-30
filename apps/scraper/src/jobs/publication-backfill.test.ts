@@ -174,4 +174,28 @@ describe('runBackfill', () => {
     await runBackfill({ apply: false })
     expect(db.$disconnect).toHaveBeenCalledTimes(1)
   })
+
+  it('produces the same decision on a re-run with unchanged data (idempotent)', async () => {
+    const dirtyRow = makeListingRow({ id: 'l-1', sourceRecordKey: 'bad key' })
+    // Each runBackfill call issues exactly one findMany (the single-row batch is
+    // shorter than BATCH_SIZE, so the pagination loop stops after the first page).
+    db.listing.findMany
+      .mockResolvedValueOnce([dirtyRow])
+      .mockResolvedValueOnce([dirtyRow])
+
+    const firstReport = await runBackfill({ apply: true })
+    const secondReport = await runBackfill({ apply: true })
+
+    expect(firstReport.quarantined).toBe(1)
+    expect(secondReport.quarantined).toBe(1)
+    expect(secondReport.issuesByRule).toEqual(firstReport.issuesByRule)
+
+    expect(db.listing.update).toHaveBeenCalledTimes(2)
+    const updateCalls = db.listing.update.mock.calls as unknown as Array<[{ data: Record<string, unknown> }]>
+    const [firstUpdate, secondUpdate] = updateCalls.map(([arg]) => arg.data)
+    expect(secondUpdate).toMatchObject({
+      publicationStatus: firstUpdate!.publicationStatus,
+      qualityIssueCodes: firstUpdate!.qualityIssueCodes,
+    })
+  })
 })
