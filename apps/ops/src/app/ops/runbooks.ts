@@ -7,7 +7,12 @@ export const OPS_RUNBOOK_IDS = [
   'ai-remapping-unavailable',
 ] as const
 
+export const DEPLOYMENT_RUNBOOK_IDS = [
+  'crawl-freshness-deployment',
+] as const
+
 export type OpsRunbookId = (typeof OPS_RUNBOOK_IDS)[number]
+export type DeploymentRunbookId = (typeof DEPLOYMENT_RUNBOOK_IDS)[number]
 
 export interface OpsRunbookStep {
   text: string
@@ -16,7 +21,7 @@ export interface OpsRunbookStep {
 }
 
 export interface OpsRunbook {
-  id: OpsRunbookId
+  id: OpsRunbookId | DeploymentRunbookId
   title: string
   symptom: string
   steps: OpsRunbookStep[]
@@ -161,6 +166,42 @@ export const OPS_RUNBOOKS: Record<OpsRunbookId, OpsRunbook> = {
       },
     ],
     escalation: 'If AI remains unavailable, avoid repeated remap attempts and leave the source visible as needs_remapping.',
+  },
+}
+
+export const DEPLOYMENT_RUNBOOKS: Record<DeploymentRunbookId, OpsRunbook> = {
+  'crawl-freshness-deployment': {
+    id: 'crawl-freshness-deployment',
+    title: 'Crawl freshness deployment (issue #514)',
+    symptom: 'Deploying the crawl-freshness migration (#514) or rolling it back. Also covers post-release smoke checks when possibly_gone counts seem wrong.',
+    steps: [
+      {
+        text: 'DEPLOY: Run the Prisma migration (20260629120000_add_crawl_freshness_tracking) on the target database before starting the new scraper. The migration is additive — existing rows are unaffected until the backfill runs.',
+        href: '/ops/runs',
+        actionLabel: 'Review scraper runs',
+      },
+      {
+        text: 'BACKFILL: After deployment, run the backfill-missing-count job once to set missingFromCompleteCount=1 for all pre-existing possibly_gone rows. This prevents the detail-extract job from falsely restoring them to active. The job reports candidate counts per source before writing.',
+        href: '/ops/queues',
+        actionLabel: 'Trigger backfill-missing-count',
+      },
+      {
+        text: 'SMOKE CHECK: Open Sources and verify that lastFullCrawlAt is populated after the next scheduled scrape runs. The possiblyGoneCount column should trend downward as complete crawls confirm gone status.',
+        href: '/ops/sources',
+        actionLabel: 'Open sources',
+      },
+      {
+        text: 'SMOKE CHECK: Confirm no mass false-gone transition occurred: check that the gone count for BLVD and MobilityWorks did not spike by more than ~10% in a single run. If it did, pause the source-scrape schedule and investigate.',
+        href: '/ops/runs',
+        actionLabel: 'Review scraper runs',
+      },
+      {
+        text: 'ROLLBACK: If a rollback is needed, redeploy the previous scraper image. The new columns (lastFullCrawlAt, lastObservedAt, missingFromCompleteCount, lastSeenInCompleteCrawlAt) are nullable/defaulted and can be left in place — they will simply be ignored by the old code.',
+        href: '/ops/runs',
+        actionLabel: 'Review scraper runs',
+      },
+    ],
+    escalation: 'If possibly_gone rows are not resolving after 3 scheduled full crawls, check that lastFullCrawlAt is being updated and that the full-crawl interval (default 24h) has elapsed.',
   },
 }
 

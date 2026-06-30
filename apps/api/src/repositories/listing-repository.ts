@@ -135,6 +135,8 @@ export type ListingPublicationCountRow = {
   sourceId: string
   observedActive: number
   eligibleActive: number
+  /** Listings currently in possibly_gone state — an elevated count indicates index-absence. */
+  possiblyGoneCount: number
 }
 
 type CountRow = {
@@ -145,6 +147,7 @@ type PublicationCountQueryRow = {
   sourceId: string
   observedActive: number | bigint
   eligibleActive: number | bigint
+  possiblyGoneCount: number | bigint
 }
 
 // ── Interface ────────────────────────────────────────────────────────────────
@@ -344,7 +347,13 @@ export class PrismaListingRepository implements ListingRepository {
       SELECT
         "sourceId",
         COUNT(*)::int AS "observedActive",
-        COUNT(*) FILTER (WHERE "publicationStatus" = 'eligible')::int AS "eligibleActive"
+        COUNT(*) FILTER (WHERE "publicationStatus" = 'eligible')::int AS "eligibleActive",
+        (
+          SELECT COUNT(*)::int
+          FROM listings l2
+          WHERE l2."sourceId" = listings."sourceId"
+            AND l2.status = 'possibly_gone'
+        ) AS "possiblyGoneCount"
       FROM listings
       WHERE status = 'active'
       GROUP BY "sourceId"
@@ -353,6 +362,7 @@ export class PrismaListingRepository implements ListingRepository {
       sourceId: row.sourceId,
       observedActive: Number(row.observedActive),
       eligibleActive: Number(row.eligibleActive),
+      possiblyGoneCount: Number(row.possiblyGoneCount),
     }))
   }
 

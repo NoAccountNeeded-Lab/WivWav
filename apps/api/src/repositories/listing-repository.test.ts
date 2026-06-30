@@ -130,12 +130,12 @@ describe('PrismaListingRepository public eligibility', () => {
   it('returns observed and eligible active counts by source', async () => {
     const db = buildDb()
     db.$queryRaw.mockResolvedValueOnce([
-      { sourceId: 'source-1', observedActive: 10, eligibleActive: 3 },
+      { sourceId: 'source-1', observedActive: 10, eligibleActive: 3, possiblyGoneCount: 2 },
     ])
     const repo = new PrismaListingRepository(db as never)
 
     await expect(repo.getPublicationCountsBySource()).resolves.toEqual([
-      { sourceId: 'source-1', observedActive: 10, eligibleActive: 3 },
+      { sourceId: 'source-1', observedActive: 10, eligibleActive: 3, possiblyGoneCount: 2 },
     ])
   })
 })
