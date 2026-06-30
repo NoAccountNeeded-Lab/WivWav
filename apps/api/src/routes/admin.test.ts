@@ -20,6 +20,9 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     getPublicationCountsBySource: vi.fn(async () => []),
     findPriceHistory: vi.fn(async () => []),
     findPageForSync: vi.fn(async () => []),
+    findQuarantined: vi.fn(async () => []),
+    countQuarantined: vi.fn(async () => 0),
+    reprocessQuarantined: vi.fn(async () => true),
     ...overrides,
   }
 }
@@ -541,6 +544,143 @@ describe('GET /repeatables', () => {
         defaultPattern: '0 6 * * 0',
       }),
     ]))
+
+    await app.close()
+  })
+})
+
+// ── Quarantine ──────────────────────────────────────────────────────────────
+
+function makeQuarantinedRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'listing-1',
+    sourceId: 'src-1',
+    sourceName: 'BLVD.com',
+    sourceUrl: 'https://example.com/listing-1',
+    sourceRecordKey: 'rec-1',
+    make: 'Toyota',
+    model: 'Sienna',
+    year: 2022,
+    qualityIssueCodes: ['contains_space'],
+    qualityCheckedAt: new Date('2026-06-01T00:00:00Z'),
+    scrapedAt: new Date('2026-06-01T00:00:00Z'),
+    updatedAt: new Date('2026-06-01T00:00:00Z'),
+    ...overrides,
+  }
+}
+
+describe('GET /quarantine', () => {
+  it('returns quarantined listings with rule severity attached', async () => {
+    const factory = new MockQueueFactory()
+    const row = makeQuarantinedRow()
+    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+      findQuarantined: vi.fn(async () => [row]),
+      countQuarantined: vi.fn(async () => 1),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/quarantine' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0]).toMatchObject({
+      id: 'listing-1',
+      rules: [{ code: 'contains_space', severity: 'error' }],
+    })
+    expect(body.meta).toMatchObject({ total: 1 })
+    expect(listings.findQuarantined).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 50 }))
+
+    await app.close()
+  })
+
+  it('passes sourceId and rule filters through to the repository', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+      findQuarantined: vi.fn(async () => []),
+      countQuarantined: vi.fn(async () => 0),
+    })
+
+    await app.inject({ method: 'GET', url: '/quarantine?sourceId=src-1&rule=contains_space&olderThanDays=7' })
+
+    expect(listings.findQuarantined).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'src-1', rule: 'contains_space', olderThanMs: 7 * 24 * 60 * 60 * 1000 }),
+    )
+
+    await app.close()
+  })
+
+  it('resolves a severity filter to its set of rule codes', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+      findQuarantined: vi.fn(async () => []),
+      countQuarantined: vi.fn(async () => 0),
+    })
+
+    await app.inject({ method: 'GET', url: '/quarantine?severity=error' })
+
+    expect(listings.findQuarantined).toHaveBeenCalledWith(
+      expect.objectContaining({ rule: expect.arrayContaining(['contains_space', 'active_with_sold_at']) }),
+    )
+
+    await app.close()
+  })
+
+  it('short-circuits when rule and severity filters contradict each other', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+      findQuarantined: vi.fn(async () => []),
+      countQuarantined: vi.fn(async () => 0),
+    })
+
+    // contains_space is severity 'error'; asking for severity=warn with that rule cannot match.
+    const res = await app.inject({ method: 'GET', url: '/quarantine?rule=contains_space&severity=warn' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ data: [], meta: { total: 0, skip: 0, take: 0 } })
+    expect(listings.findQuarantined).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('caps take at the maximum page size', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+      findQuarantined: vi.fn(async () => []),
+      countQuarantined: vi.fn(async () => 0),
+    })
+
+    await app.inject({ method: 'GET', url: '/quarantine?take=10000' })
+
+    expect(listings.findQuarantined).toHaveBeenCalledWith(expect.objectContaining({ take: 200 }))
+
+    await app.close()
+  })
+})
+
+describe('POST /quarantine/:id/reprocess', () => {
+  it('reprocesses a quarantined listing', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+      reprocessQuarantined: vi.fn(async () => true),
+    })
+
+    const res = await app.inject({ method: 'POST', url: '/quarantine/listing-1/reprocess' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ data: { reprocessed: true } })
+    expect(listings.reprocessQuarantined).toHaveBeenCalledWith('listing-1')
+
+    await app.close()
+  })
+
+  it('returns 404 when the listing is not quarantined', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp({}, {}, factory, mockSearch, {
+      reprocessQuarantined: vi.fn(async () => false),
+    })
+
+    const res = await app.inject({ method: 'POST', url: '/quarantine/missing/reprocess' })
+
+    expect(res.statusCode).toBe(404)
 
     await app.close()
   })

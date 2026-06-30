@@ -1,14 +1,38 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
+import { QUALITY_RULE_SEVERITY } from '@wivwav/types'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type {
   ListingPublicationCountRow,
   ListingRepository,
+  QuarantinedListingRow,
   ScraperRunRepository,
   SourceRepository,
   SourceRow,
 } from '../repositories/index.js'
+
+const MAX_QUARANTINE_PAGE_SIZE = 200
+const DEFAULT_QUARANTINE_PAGE_SIZE = 50
+
+interface QuarantineListQuery {
+  sourceId?: string
+  rule?: string
+  severity?: 'error' | 'warn'
+  olderThanDays?: string
+  skip?: string
+  take?: string
+}
+
+function quarantineRowToResponse(row: QuarantinedListingRow) {
+  return {
+    ...row,
+    rules: row.qualityIssueCodes.map((code) => ({
+      code,
+      severity: QUALITY_RULE_SEVERITY[code] ?? 'warn',
+    })),
+  }
+}
 
 interface AdminPluginOptions {
   listings: ListingRepository
@@ -179,6 +203,68 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   }, async (_req, reply) => {
     const count = await search.syncAll(listings)
     return reply.send({ data: { synced: count } })
+  })
+
+  // ── Quarantine ──────────────────────────────────────────────────────────────
+  // Operator-facing list/filter/reprocess surface for listings the publication
+  // validator quarantined (see apps/scraper/src/engine/listing-validator.ts).
+
+  // GET /admin/quarantine — list quarantined listings, filterable by source,
+  // rule, severity, and age (olderThanDays).
+  app.get<{ Querystring: QuarantineListQuery }>('/quarantine', async (req, reply) => {
+    const { sourceId, rule, severity, olderThanDays, skip, take } = req.query
+
+    if (severity && rule && (QUALITY_RULE_SEVERITY[rule] ?? 'warn') !== severity) {
+      // Contradictory filter combination — no row can satisfy both, so short-circuit
+      // rather than running a query that always returns empty with a misleading 200.
+      return reply.send({ data: [], meta: { total: 0, skip: 0, take: 0 } })
+    }
+
+    const parsedTake = Math.min(
+      take ? Number.parseInt(take, 10) || DEFAULT_QUARANTINE_PAGE_SIZE : DEFAULT_QUARANTINE_PAGE_SIZE,
+      MAX_QUARANTINE_PAGE_SIZE,
+    )
+    const parsedSkip = skip ? Math.max(Number.parseInt(skip, 10) || 0, 0) : 0
+    const olderThanMs = olderThanDays
+      ? Number.parseInt(olderThanDays, 10) * 24 * 60 * 60 * 1000
+      : undefined
+
+    // A specific rule already pins severity (validated above); otherwise resolve
+    // the severity filter to its set of rule codes so pagination/total stay
+    // accurate at the DB layer instead of being approximated after the fact.
+    const ruleFilter = rule
+      ?? (severity
+        ? Object.entries(QUALITY_RULE_SEVERITY)
+            .filter(([, s]) => s === severity)
+            .map(([code]) => code)
+        : undefined)
+
+    const filter = {
+      ...(sourceId ? { sourceId } : {}),
+      ...(ruleFilter ? { rule: ruleFilter } : {}),
+      ...(olderThanMs != null && !Number.isNaN(olderThanMs) ? { olderThanMs } : {}),
+    }
+
+    const [rows, total] = await Promise.all([
+      listings.findQuarantined({ ...filter, skip: parsedSkip, take: parsedTake }),
+      listings.countQuarantined(filter),
+    ])
+
+    return reply.send({
+      data: rows.map(quarantineRowToResponse),
+      meta: { total, skip: parsedSkip, take: parsedTake },
+    })
+  })
+
+  // POST /admin/quarantine/:id/reprocess — reset a quarantined listing to
+  // 'pending' so the next validator pass re-evaluates it (e.g. after an
+  // operator corrects upstream data or a source fix ships).
+  app.post<{ Params: { id: string } }>('/quarantine/:id/reprocess', async (req, reply) => {
+    const reprocessed = await listings.reprocessQuarantined(req.params.id)
+    if (!reprocessed) {
+      return reply.notFound(`Quarantined listing "${req.params.id}" not found`)
+    }
+    return reply.send({ data: { reprocessed: true } })
   })
 
   // GET /admin/listing-refresh/status — aggregate status for the guided refresh workflow
