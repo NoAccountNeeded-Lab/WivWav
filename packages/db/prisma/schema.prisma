@@ -82,6 +82,18 @@ enum SaleStatus {
   gone
 }
 
+/// Outcome of a vehicle-identity matching decision between two listings.
+/// `candidate` — signals suggest a possible match but confidence is too low to act on.
+/// `verified` — listings confirmed to represent the same physical vehicle.
+/// `rejected` — listings confirmed to NOT represent the same physical vehicle.
+/// `split` — a previously linked pair was found to be incorrect and has been undone.
+enum VehicleIdentityDecisionState {
+  candidate
+  verified
+  rejected
+  split
+}
+
 // ── Vehicle identity ───────────────────────────────────────────────────────
 
 /// A specific physical vehicle, anchored by VIN when available.
@@ -100,10 +112,55 @@ model Vehicle {
   lastSeenAt     DateTime      @default(now())
   createdAt      DateTime      @default(now())
 
-  listings Listing[]
+  listings          Listing[]
+  identityDecisions VehicleIdentityDecision[]
 
   @@index([make, model, year])
   @@map("vehicle")
+}
+
+/// Auditable record of a vehicle-identity matching decision between two listings.
+/// Persists the outcome (candidate/verified/rejected/split) and the signals that
+/// produced it so non-VIN matching, operator review, and backfill reporting can
+/// rely on a durable trail instead of recomputing or destructively merging rows.
+/// Listing rows are never merged — a `verified` decision only links both listings
+/// to the same `Vehicle` via `Listing.vehicleId`; each listing remains independently
+/// queryable by source (mirrors the existing `Listing.canonicalId`/`isDuplicate` pattern).
+model VehicleIdentityDecision {
+  id String @id @default(cuid())
+
+  /// The two listings under comparison. Always stored with listingAId < listingBId
+  /// (string comparison) so a pair has exactly one row regardless of comparison order.
+  listingAId String
+  listingA   Listing @relation("VehicleIdentityDecisionListingA", fields: [listingAId], references: [id])
+  listingBId String
+  listingB   Listing @relation("VehicleIdentityDecisionListingB", fields: [listingBId], references: [id])
+
+  /// The vehicle the pair was linked to, if the decision resulted in a link
+  /// (typically set for `verified`, null for `candidate`/`rejected`/`split`).
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  state VehicleIdentityDecisionState
+
+  /// Structured record of the contributing and conflicting signals that produced
+  /// this state (e.g. matched fields, confidence scores, rule ids). Retained in
+  /// full for audit even after the decision is superseded.
+  signals Json
+
+  /// The rule or matcher version that produced this decision.
+  ruleId String?
+
+  decidedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listingAId, listingBId])
+  @@index([listingAId])
+  @@index([listingBId])
+  @@index([vehicleId])
+  @@index([state])
+  @@map("vehicle_identity_decision")
 }
 
 model Source {
@@ -248,6 +305,8 @@ model Listing {
   mileageHistory    ListingMileageHistory[]
   conversionHistory ListingConversionHistory[]
   observations      ListingObservation[]
+  identityDecisionsAsA VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingA")
+  identityDecisionsAsB VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingB")
 
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
