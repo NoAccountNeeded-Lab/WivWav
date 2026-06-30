@@ -111,8 +111,12 @@ export function canonicalColor(raw: string | null | undefined): string | null {
 /**
  * Patterns that identify engine descriptions rather than fuel type labels.
  * Examples: "3.5L V6 DOHC", "2.5L 4-Cyl", "EcoBoost", "5.7L HEMI"
+ *
+ * Exported so the canonicalize-backfill script can use the same definition
+ * rather than duplicating it. Divergence between the backfill detection and
+ * the live canonicalization path would cause silent inconsistencies.
  */
-const ENGINE_DESCRIPTION_PATTERN =
+export const ENGINE_DESCRIPTION_PATTERN =
   /\b(?:\d+\.\d+\s*[Ll]|v[468]|[46]-?cyl(?:inder)?|dohc|sohc|ohv|ohc|hemi|ecoboost|vtec|vvt|i[346]|inline[346]|diesel\s+engine|turbocharged|supercharged)\b/i
 
 /**
@@ -347,6 +351,9 @@ export function canonicalConversionManufacturer(
   // This check runs before the known-converter bypass so that a source named after
   // a known converter (e.g. MobilityWorks) doesn't accidentally accept its own name
   // as a conversion manufacturer on all its listings.
+  // NOTE: If a future source is named after a real converter, this rejection will
+  // produce false negatives for that source. The assumption is that sources and
+  // converters are disjoint; if that changes, revisit this ordering.
   if (
     sourceName &&
     lower === sourceName.trim().toLowerCase()
