@@ -3,6 +3,8 @@
 ## Data model
 
 See `packages/types/src/listing.ts` for the complete `Listing` interface.
+Mutable-field ownership and refresh semantics are defined in
+[`listing-field-ownership.md`](listing-field-ownership.md).
 
 The `GET /v1/listings/:id` response groups listing fields into three nested objects:
 - `wav` — `conversionType`, `conversionManufacturer`, `floorLoweringInches`, `rampType`, `hasLift`, `handControls`, `transferSeat`, `wheelchairCapacity`
