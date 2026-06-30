@@ -573,4 +573,38 @@ describe('ScraperEngine', () => {
     expect(sources.markError).toHaveBeenCalledWith('src-1', expect.stringContaining('Data quality check failed'))
     expect(listings.upsert).not.toHaveBeenCalled()
   })
+
+  it('produces the same publication decision on a retried run with unchanged data (idempotent)', async () => {
+    const engine = build()
+    const dirtyListing = {
+      ...CLEAN_FIXTURE,
+      sourceRecordKey: 'bad key with space',
+      externalId: 'bad-1',
+    }
+    const adapter = makeAdapter('src-1', {
+      scrape: vi.fn().mockResolvedValue({ listings: [dirtyListing], fingerprintHash: 'abc' }),
+    })
+    engine.register(adapter, adapter.sourceId)
+
+    // Simulate a retry: same source, same scrape result, run twice (e.g. a job
+    // retry after a transient failure, or a routine re-scrape with no source changes).
+    await engine.runSource('src-1')
+    await engine.runSource('src-1')
+
+    expect(listings.upsert).toHaveBeenCalledTimes(2)
+    const [firstCall, secondCall] = vi.mocked(listings.upsert).mock.calls.map(([arg]) => arg)
+    expect(firstCall).toMatchObject({
+      publicationStatus: 'quarantined',
+      qualityIssueCodes: ['contains_space'],
+    })
+    expect(secondCall).toMatchObject({
+      publicationStatus: 'quarantined',
+      qualityIssueCodes: ['contains_space'],
+    })
+    // The decision is recomputed deterministically from the same input on each run —
+    // no flapping, and no dependence on prior run state. qualityCheckedAt is excluded
+    // since it is a fresh timestamp on every run by design.
+    expect(secondCall?.publicationStatus).toBe(firstCall?.publicationStatus)
+    expect(secondCall?.qualityIssueCodes).toEqual(firstCall?.qualityIssueCodes)
+  })
 })
