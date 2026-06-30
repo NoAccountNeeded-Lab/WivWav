@@ -1,3 +1,5 @@
+import { normalizeVin } from '@wivwav/db'
+
 const VPIC_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevin'
 
 interface VpicResult {
@@ -21,10 +23,6 @@ function getValue(results: VpicResult[], variable: string): string | null {
   const result = results.find((r) => r.Variable === variable)
   const value = result?.Value?.trim()
   return value && value !== 'Not Applicable' ? value : null
-}
-
-export function normalizeVin(vin: string): string {
-  return vin.trim().toUpperCase()
 }
 
 export function isValidVin(vin: string): boolean {

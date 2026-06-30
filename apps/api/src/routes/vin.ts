@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { normalizeVin } from '@wivwav/db'
 import type { VehicleRepository, ListingRepository } from '../repositories/index.js'
-import { decodeVin, isValidVin, normalizeVin } from '../services/vin-decoder.js'
+import { decodeVin, isValidVin } from '../services/vin-decoder.js'
 
 interface VinPluginOptions {
   vehicles: VehicleRepository
