@@ -482,4 +482,95 @@ describe('ScraperEngine', () => {
       )
     })
   })
+
+  // ─── per-listing publication decision (issue #502) ────────────────────────────
+  // Confirms the core AC end-to-end: an isolated bad listing quarantines
+  // individually even when the source's overall error rate stays below the
+  // fixed 20% systemic threshold — the per-listing gate is not gated by the
+  // aggregate check.
+
+  // LISTING_FIXTURE has priceCents:null + sellerType:dealer and dealer.name:null, which trip
+  // the warn-severity missing_conditional_field / missing_required_field completeness rules.
+  // Those are legitimate warnings (e.g. "price on request") but make the fixture unsuitable
+  // as a genuinely clean baseline for asserting qualityIssueCodes is empty, so this block uses
+  // its own fully-clean fixture.
+  const CLEAN_FIXTURE = {
+    ...LISTING_FIXTURE,
+    priceCents: 4_500_000,
+    dealer: { name: 'MobilityWorks', phone: null, website: 'https://www.mobilityworks.com' },
+  }
+
+  it('quarantines an isolated bad listing while publishing clean listings, even when the error rate stays below the systemic threshold', async () => {
+    const engine = build()
+    const dirtyListing = {
+      ...CLEAN_FIXTURE,
+      sourceRecordKey: 'bad key with space', // triggers the error-severity contains_space rule
+      externalId: 'bad-1',
+    }
+    // 9 clean listings + 1 dirty listing = 10% error rate, well under SYSTEMIC_ERROR_THRESHOLD (20%)
+    // and >= 5 total listings, so the systemic-threshold check is actually exercised (not skipped
+    // for being too small a sample).
+    const cleanListings = Array.from({ length: 9 }, (_, i) => ({
+      ...CLEAN_FIXTURE,
+      sourceRecordKey: `clean-${i}`,
+      externalId: `clean-${i}`,
+    }))
+    const adapter = makeAdapter('src-1', {
+      scrape: vi.fn().mockResolvedValue({
+        listings: [dirtyListing, ...cleanListings],
+        fingerprintHash: 'abc',
+      }),
+    })
+    engine.register(adapter, adapter.sourceId)
+
+    const result = await engine.runSource('src-1')
+
+    // The run completes successfully — an isolated error-severity listing does not
+    // abort the whole run the way a systemic (>=20%) error rate would.
+    expect(result).toBe(true)
+    expect(runs.fail).not.toHaveBeenCalled()
+    expect(sources.markError).not.toHaveBeenCalled()
+
+    const upsertCalls = vi.mocked(listings.upsert).mock.calls.map(([arg]) => arg)
+    const dirtyCall = upsertCalls.find((call) => call.sourceRecordKey === 'bad key with space')
+    const cleanCalls = upsertCalls.filter((call) => call.sourceRecordKey?.startsWith('clean-'))
+
+    expect(dirtyCall).toMatchObject({
+      publicationStatus: 'quarantined',
+      qualityIssueCodes: expect.arrayContaining(['contains_space']),
+    })
+    expect(cleanCalls).toHaveLength(9)
+    for (const call of cleanCalls) {
+      expect(call).toMatchObject({ publicationStatus: 'eligible', qualityIssueCodes: [] })
+    }
+  })
+
+  it('aborts the run and does not upsert when the error rate reaches the systemic threshold', async () => {
+    const engine = build()
+    // 2 of 5 listings (40%) carry the error-severity contains_space issue — over threshold.
+    const dirtyListings = Array.from({ length: 2 }, (_, i) => ({
+      ...LISTING_FIXTURE,
+      sourceRecordKey: `bad key ${i}`,
+      externalId: `bad-${i}`,
+    }))
+    const cleanListings = Array.from({ length: 3 }, (_, i) => ({
+      ...LISTING_FIXTURE,
+      sourceRecordKey: `clean-${i}`,
+      externalId: `clean-${i}`,
+    }))
+    const adapter = makeAdapter('src-1', {
+      scrape: vi.fn().mockResolvedValue({
+        listings: [...dirtyListings, ...cleanListings],
+        fingerprintHash: 'abc',
+      }),
+    })
+    engine.register(adapter, adapter.sourceId)
+
+    const result = await engine.runSource('src-1')
+
+    expect(result).toBe(false)
+    expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('Data quality check failed'))
+    expect(sources.markError).toHaveBeenCalledWith('src-1', expect.stringContaining('Data quality check failed'))
+    expect(listings.upsert).not.toHaveBeenCalled()
+  })
 })
