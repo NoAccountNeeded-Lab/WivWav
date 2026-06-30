@@ -17,4 +17,4 @@ export type { ConversionBrandRepository, ConversionBrandSummary, ConversionBrand
 export { PrismaConversionBrandRepository } from './conversion-brand-repository.js'
 
 export type { VehicleIdentityDecisionRepository, CandidateRow, CandidateListingSnapshot } from './vehicle-identity-decision-repository.js'
-export { PrismaVehicleIdentityDecisionRepository, VehicleIdentityDecisionState, NotFoundError } from './vehicle-identity-decision-repository.js'
+export { PrismaVehicleIdentityDecisionRepository, VehicleIdentityDecisionState, NotFoundError, InvalidStateError } from './vehicle-identity-decision-repository.js'
