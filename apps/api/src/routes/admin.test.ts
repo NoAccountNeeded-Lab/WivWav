@@ -565,6 +565,7 @@ function makeQuarantinedRow(overrides: Record<string, unknown> = {}) {
     qualityCheckedAt: new Date('2026-06-01T00:00:00Z'),
     scrapedAt: new Date('2026-06-01T00:00:00Z'),
     updatedAt: new Date('2026-06-01T00:00:00Z'),
+    extractionVersion: 'source-card-v1',
     ...overrides,
   }
 }
@@ -585,6 +586,7 @@ describe('GET /quarantine', () => {
     expect(body.data[0]).toMatchObject({
       id: 'listing-1',
       rules: [{ code: 'contains_space', severity: 'error' }],
+      extractionVersion: 'source-card-v1',
     })
     expect(body.meta).toMatchObject({ total: 1 })
     expect(listings.findQuarantined).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 50 }))
