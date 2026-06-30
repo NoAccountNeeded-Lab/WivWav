@@ -73,10 +73,12 @@ After each `--apply` run, check the following:
    pnpm tsx apps/scraper/src/jobs/vehicle-identity-backfill.ts --apply
    ```
 
-4. **Re-run `--report` after `--apply` to confirm residual counts.**
-   The report re-runs the matcher on all still-unmatched listings (those with
-   no `vehicleId`). After a clean apply, the auto-link count should be near zero
-   (only pairs the prior run missed due to locking or new listings).
+4. **Re-run `--report` after the live `match-vehicle-identity` job has run.**
+   This backfill only records `VehicleIdentityDecision` rows — it never sets
+   `Listing.vehicleId`. The `--report` scope filter (`vehicleId = null`) therefore
+   will not shrink until after the live job runs and assigns vehicleIds. Once the
+   live job has processed the decisions, re-running `--report` should show a
+   near-zero auto-link count (only new or previously-locked pairs remaining).
 
 ## Post-release smoke checks
 
@@ -109,24 +111,26 @@ listing source data:
 
 ```sql
 -- Step 1: Mark verified decisions from the run window as rejected.
+-- Column names are camelCase — quotes are required.
 UPDATE vehicle_identity_decision
   SET state = 'rejected'
-WHERE decided_at >= '<run-start>'
-  AND decided_at < '<run-end>'
+WHERE "decidedAt" >= '<run-start>'
+  AND "decidedAt" < '<run-end>'
   AND state = 'verified';
 
--- Step 2: Clear vehicleId on listings whose vehicle was assigned only by
--- these now-rejected decisions. (Only needed if the live match-vehicle-identity
--- job also ran and assigned vehicleIds via the decision rows.)
+-- Step 2: Clear vehicleId on listings whose vehicleId was assigned by
+-- these now-rejected decisions. This backfill never sets Listing.vehicleId
+-- directly, so Step 2 is only needed if the live match-vehicle-identity job
+-- also ran and used the decision rows to assign vehicleIds.
 UPDATE listings
-  SET vehicle_id = NULL
-WHERE vehicle_id IN (
-  SELECT DISTINCT vehicle_id
+  SET "vehicleId" = NULL
+WHERE "vehicleId" IN (
+  SELECT DISTINCT "vehicleId"
   FROM vehicle_identity_decision
-  WHERE decided_at >= '<run-start>'
-    AND decided_at < '<run-end>'
+  WHERE "decidedAt" >= '<run-start>'
+    AND "decidedAt" < '<run-end>'
     AND state = 'rejected'
-    AND vehicle_id IS NOT NULL
+    AND "vehicleId" IS NOT NULL
 );
 ```
 
