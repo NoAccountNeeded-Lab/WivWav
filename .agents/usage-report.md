@@ -18,3 +18,23 @@
 | finish | worker/1 | Anthropic | Claude Sonnet 4.6 | unavailable | unavailable | unavailable | unavailable | unavailable | Applied review fix, re-ran full scraper test suite (539/539 passing) and repo-wide typecheck, posted verdict comment, ran wivwav-finish-issue. |
 
 Token and cache counters are not fully exposed by this runtime; subagent totals are reported where available via task-notification usage metadata.
+
+---
+
+# Usage Report: Issue #531
+
+## Metadata
+
+- Sprint run: run-sprint/2026-06-30T20:45
+- Branch: feat/issue-531-operator-review-workflow-for-ambiguous-vehicle-ide
+- Effort guidance: standard
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts. |
+| implementation | worker/1 | Anthropic | Claude Sonnet 4.6 | unavailable | unavailable | unavailable | unavailable | unavailable | Added `PrismaVehicleIdentityDecisionRepository` with `listCandidates`, `approve`, `reject`, `split`, `undoSplit` methods; `adminVehicleIdentityRoutes` with 5 endpoints under `/admin/vehicle-identity/`; 16 route tests; wired into `app.ts` and `repositories/index.ts`. |
+| review | reviewer/1 | Anthropic | Claude Sonnet 4.6 | unavailable | unavailable | unavailable | unavailable | unavailable | Roles: reviewer.md, qa.md, performance.md. Verdict REVISION_NEEDED: yes; 3 findings: (1) approve not transactional allowing concurrent duplicate Vehicle creation; (2) split accepting non-verified decisions; (3) missing test for split on non-verified state. |
+| fix | worker/1 | Anthropic | Claude Sonnet 4.6 | unavailable | unavailable | unavailable | unavailable | unavailable | Wrapped approve() in db.$transaction(); widened idempotency guard; added InvalidStateError + 422 guard in split(); added 2 new tests. All 449 API tests passing. |
