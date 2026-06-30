@@ -24,9 +24,14 @@ function makeSources(lastFullCrawlAt: Date | null = null): SourceRepository {
     markActive: vi.fn().mockResolvedValue(undefined),
     markChecked: vi.fn().mockResolvedValue(undefined),
     markError: vi.fn().mockResolvedValue(undefined),
+    markPaused: vi.fn().mockResolvedValue(undefined),
     getMappings: vi.fn().mockResolvedValue([]),
     setMappings: vi.fn().mockResolvedValue(undefined),
     getLastFullCrawlAt: vi.fn().mockResolvedValue(lastFullCrawlAt),
+    // Baseline starts at the fixture's own observed rate so existing tests (which were
+    // written before source-drift detection existed) do not trip the drift gate.
+    getDriftBaseline: vi.fn().mockResolvedValue({ baselineErrorRate: 1, baselineMissingRate: 1 }),
+    setDriftBaseline: vi.fn().mockResolvedValue(undefined),
   }
 }
 

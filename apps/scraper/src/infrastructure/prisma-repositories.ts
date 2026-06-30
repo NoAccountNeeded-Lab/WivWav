@@ -10,6 +10,7 @@ import type {
   MarkGoneOptions,
 } from '../engine/repositories.js'
 import { GONE_AFTER_CONSECUTIVE_MISSING } from '../engine/repositories.js'
+import type { SourceDriftBaseline } from '../engine/listing-validator.js'
 
 const TRANSIENT_PRISMA_CODES = new Set(['P2002', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017'])
 const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
@@ -160,6 +161,34 @@ export class PrismaSourceRepository implements SourceRepository {
     })
   }
 
+  async markPaused(id: string, reason: string): Promise<void> {
+    await this.db.source.update({
+      where: { id },
+      data: { status: 'paused', errorMessage: reason },
+    })
+  }
+
+  async getDriftBaseline(id: string): Promise<SourceDriftBaseline> {
+    const source = await this.db.source.findUnique({
+      where: { id },
+      select: { baselineErrorRate: true, baselineMissingRate: true },
+    })
+    return {
+      baselineErrorRate: source?.baselineErrorRate ?? 0,
+      baselineMissingRate: source?.baselineMissingRate ?? 0,
+    }
+  }
+
+  async setDriftBaseline(id: string, baseline: SourceDriftBaseline): Promise<void> {
+    await this.db.source.update({
+      where: { id },
+      data: {
+        baselineErrorRate: baseline.baselineErrorRate,
+        baselineMissingRate: baseline.baselineMissingRate,
+      },
+    })
+  }
+
   async getMappings(id: string): Promise<FieldMapping[]> {
     const source = await this.db.source.findUnique({ where: { id }, select: { mappings: true } })
     return (source?.mappings ?? []) as unknown as FieldMapping[]
@@ -267,6 +296,8 @@ export class PrismaListingRepository implements ListingRepository {
         images: listing.images,
         description: listing.description,
         qualityIssueCodes: listing.qualityIssueCodes ?? [],
+        publicationStatus: listing.publicationStatus ?? 'pending',
+        qualityCheckedAt: listing.qualityCheckedAt ?? null,
         listedAt: listing.listedAt,
         ...(listing.priceCents != null
           ? { priceHistory: { create: { priceCents: listing.priceCents } } }
@@ -385,9 +416,9 @@ export class PrismaListingRepository implements ListingRepository {
           scrapedAt: new Date(),
           status: 'active',
           goneAt: null,
-          publicationStatus: 'pending',
+          publicationStatus: listing.publicationStatus ?? 'pending',
           qualityIssueCodes: listing.qualityIssueCodes ?? [],
-          qualityCheckedAt: null,
+          qualityCheckedAt: listing.qualityCheckedAt ?? null,
           ...(resetDetail ? { detailScrapedAt: null } : {}),
           ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
         },
