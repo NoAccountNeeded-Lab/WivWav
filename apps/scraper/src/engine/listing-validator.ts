@@ -396,13 +396,23 @@ export const RULE_SEVERITY: Readonly<Record<string, ValidationSeverity>> = QUALI
 // ─── Publication decision ──────────────────────────────────────────────────
 
 /**
- * Warning-severity rules that are explicitly allowed to publish despite the
- * warning (documented field-specific exception). Every other warning still
- * publishes by default — warnings are operator-visible signals, not gates —
- * but this set exists so a future rule can be deliberately blocking without
- * being an "error". Currently empty: no warning rule blocks publication.
+ * Warning-severity rules that block publication despite being "warn" severity
+ * (a documented field-specific exception to the default "warnings publish"
+ * behavior). Every other warning still publishes by default — warnings are
+ * operator-visible signals, not gates.
+ *
+ * unsupported_accessibility_claim is the one rule listed here: WivWav's
+ * entire value proposition is accessible-vehicle search, so an accessibility
+ * badge (e.g. "Wheelchair Lift") with zero corroborating evidence (no
+ * conversion type, ramp type, floor lowering, or wheelchair capacity signal)
+ * is not a cosmetic data-quality nit — publishing it would materially
+ * mislead a wheelchair user evaluating the vehicle. Every other warning rule
+ * (formatting nits, plausibility edge cases, missing optional fields) is
+ * judged safe to publish-with-a-flag.
  */
-const WARN_RULES_THAT_BLOCK_PUBLICATION: ReadonlySet<string> = new Set([])
+const WARN_RULES_THAT_BLOCK_PUBLICATION: ReadonlySet<string> = new Set([
+  'unsupported_accessibility_claim',
+])
 
 /**
  * Decides whether a listing may be published given its validation issues.
