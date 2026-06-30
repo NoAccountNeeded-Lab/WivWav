@@ -1,7 +1,13 @@
 import type { SourceAdapter } from './source-adapter.js'
 import type { StructureDetector } from '../ai/structure-detector.js'
 import type { ScraperRunRepository, SourceRepository, ListingRepository } from './repositories.js'
-import { validateListing, summarizeQuality, SYSTEMIC_ERROR_THRESHOLD } from './listing-validator.js'
+import {
+  validateListing,
+  summarizeQuality,
+  decidePublication,
+  detectSourceDrift,
+  SYSTEMIC_ERROR_THRESHOLD,
+} from './listing-validator.js'
 import { runGeocodeJob } from '../jobs/geocode.js'
 import { report } from '../jobs/job-progress.js'
 import type { JobContext } from '@wivwav/queue'
@@ -194,6 +200,9 @@ export class ScraperEngine {
         sourceRecordKey: l.sourceRecordKey,
         issues: validateListing({ ...l, sourceId }),
       }))
+      const decisionByKey = new Map(
+        validationResults.map(vr => [vr.sourceRecordKey, decidePublication(vr.issues)]),
+      )
       const quality = summarizeQuality(validationResults)
 
       if (quality.listingsWithIssues > 0) {
@@ -222,11 +231,41 @@ export class ScraperEngine {
         await report(context, qualityMsg, { stage: 'upserting', quality })
       }
 
+      // Source-level drift: compare this run's error/missing rate against the source's
+      // rolling baseline. This is a separate, complementary signal to the fixed systemic
+      // threshold above — it catches sources whose baseline is already elevated (so the
+      // fixed 20% cutoff never trips) or that degrade gradually run-over-run.
+      if (quality.totalListings > 0) {
+        const missingCount = result.listings.filter(
+          l => l.make == null || l.model == null || l.priceCents == null,
+        ).length
+        const baseline = await this.sources.getDriftBaseline(sourceId)
+        const drift = detectSourceDrift(baseline, {
+          errorRate: quality.errorListings / quality.totalListings,
+          missingRate: missingCount / quality.totalListings,
+        })
+        await this.sources.setDriftBaseline(sourceId, drift.nextBaseline)
+
+        if (drift.drifted) {
+          await report(context, `[source-scrape] ${drift.reason}`, { stage: 'blocked', reason: 'source_drift' })
+          await this.runs.fail(run.id, drift.reason ?? 'Source quality drifted abruptly')
+          await this.sources.markPaused(sourceId, drift.reason ?? 'Source quality drifted abruptly')
+          return false
+        }
+      }
+
       let listingsNew = 0
       let listingsUpdated = 0
       for (let i = 0; i < result.listings.length; i++) {
         const listing = result.listings[i]!
-        const upsert = await this.listings.upsert({ ...listing, sourceId })
+        const decision = decisionByKey.get(listing.sourceRecordKey)
+        const upsert = await this.listings.upsert({
+          ...listing,
+          sourceId,
+          publicationStatus: decision?.publicationStatus ?? 'pending',
+          qualityIssueCodes: decision?.qualityIssueCodes ?? listing.qualityIssueCodes ?? [],
+          qualityCheckedAt: new Date(),
+        })
         if (upsert.outcome === 'created') listingsNew++
         if (upsert.outcome === 'updated') listingsUpdated++
         if ((i + 1) % 25 === 0 || i === result.listings.length - 1) {
