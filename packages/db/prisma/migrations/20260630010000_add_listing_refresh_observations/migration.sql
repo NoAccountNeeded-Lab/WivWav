@@ -7,7 +7,7 @@ CREATE TABLE "listing_observation" (
     "stage" TEXT NOT NULL,
     "reference" TEXT,
     "extractionVersion" TEXT NOT NULL,
-    "changedFields" TEXT[],
+    "changedFields" TEXT[] NOT NULL,
     "before" JSONB NOT NULL,
     "after" JSONB NOT NULL,
     "observedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

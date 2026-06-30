@@ -16,8 +16,8 @@ const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transac
 
 /**
  * Returns true for Prisma errors that represent transient connection or transaction
- * failures that are safe to retry: P2028 (transaction already closed), and connection
- * errors P1001/P1002/P1008/P1017.
+ * failures that are safe to retry: concurrent create/write conflicts P2002/P2034,
+ * P2028 (transaction already closed), and connection errors P1001/P1002/P1008/P1017.
  */
 function isTransientPrismaError(err: unknown): boolean {
   if (err === null || typeof err !== 'object') return false
@@ -75,6 +75,7 @@ function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) 
     sellerType: listing.sellerType,
     priceCents: listing.priceCents,
     mileage: listing.mileage,
+    color: listing.color,
     conversionType: listing.wav.conversionType,
     conversionManufacturer: listing.wav.conversionManufacturer,
     floorLoweringInches: listing.wav.floorLoweringInches,
@@ -87,8 +88,8 @@ function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) 
     state: listing.location.state,
     dealerName: listing.dealer.name,
     cardImages: listing.images,
-    listedAt: listing.listedAt.toISOString(),
     qualityIssueCodes: listing.qualityIssueCodes ?? [],
+    status: 'active',
   }
 }
 
@@ -203,6 +204,7 @@ export class PrismaListingRepository implements ListingRepository {
           sellerType: true,
           priceCents: true,
           mileage: true,
+          color: true,
           conversionType: true,
           conversionManufacturer: true,
           floorLoweringInches: true,
@@ -215,7 +217,6 @@ export class PrismaListingRepository implements ListingRepository {
           state: true,
           dealerName: true,
           cardImages: true,
-          listedAt: true,
           qualityIssueCodes: true,
           status: true,
         },
@@ -307,6 +308,7 @@ export class PrismaListingRepository implements ListingRepository {
         sellerType: existing.sellerType,
         priceCents: existing.priceCents,
         mileage: existing.mileage,
+        color: existing.color,
         conversionType: existing.conversionType,
         conversionManufacturer: existing.conversionManufacturer,
         floorLoweringInches: existing.floorLoweringInches,
@@ -319,8 +321,8 @@ export class PrismaListingRepository implements ListingRepository {
         state: existing.state,
         dealerName: existing.dealerName,
         cardImages: existing.cardImages,
-        listedAt: existing.listedAt.toISOString(),
         qualityIssueCodes: existing.qualityIssueCodes,
+        status: existing.status,
       }
       const changedFields = Object.keys(after).filter((field) => {
         const previous = before[field as keyof typeof before]
@@ -329,7 +331,6 @@ export class PrismaListingRepository implements ListingRepository {
         return previous !== next
       })
       const cameBack = existing.status === 'gone' || existing.status === 'possibly_gone'
-      if (cameBack) changedFields.push('status')
 
       if (changedFields.length === 0) {
         return { listingId: existing.id, outcome: 'unchanged', changedFields: [] }
@@ -367,6 +368,7 @@ export class PrismaListingRepository implements ListingRepository {
           sellerType: listing.sellerType,
           priceCents: listing.priceCents,
           mileage: listing.mileage,
+          color: listing.color,
           conversionType: listing.wav.conversionType,
           conversionManufacturer: listing.wav.conversionManufacturer,
           floorLoweringInches: listing.wav.floorLoweringInches,
@@ -380,7 +382,6 @@ export class PrismaListingRepository implements ListingRepository {
           ...(locationChanged ? { lat: null, lng: null } : {}),
           dealerName: listing.dealer.name,
           cardImages: listing.images,
-          listedAt: listing.listedAt,
           scrapedAt: new Date(),
           status: 'active',
           goneAt: null,
