@@ -253,7 +253,7 @@ model Listing {
   @@index([processingLockedAt])
   @@index([dealerProfileId])
   @@index([dealerName, zip])
-  @@index([sourceId, status, missingFromCompleteCount])
+  @@index([sourceId, status, missingFromCompleteCount], map: "listings_possibly_gone_missing_count_idx")
   @@map("listings")
 }
 
