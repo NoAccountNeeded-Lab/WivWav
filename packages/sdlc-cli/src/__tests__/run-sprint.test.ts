@@ -691,9 +691,7 @@ describe('CLI dispatch — run-sprint extra positional args guard', () => {
 
   it('does not fire the extra-args guard for a single positional issue number', { timeout: 15_000 }, () => {
     // A single explicit issue number is valid at the dispatch level.
-    // --dry-run skips the `git fetch origin main` network call; gh is stripped
-    // from PATH so the first external lookup fails instantly without reaching
-    // GitHub or mutating issue state.
+    // Avoid network and mutation; fail at the first gh lookup.
     const result = spawnSync(
       process.execPath,
       ['--import', 'tsx/esm', cliPath, 'run-sprint', '527', '--dry-run'],
@@ -708,25 +706,7 @@ describe('CLI dispatch — run-sprint extra positional args guard', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Provider-neutral guidance boundary — adapter contract tests
-//
-// These tests verify that the worker prompt emits model and effort guidance in
-// a stable, parseable format that the sprint adapter (wivwav-run-sprint/SKILL.md)
-// can consume without guesswork.  The adapter reads `Model: <hint>` from the
-// printed worker instruction block and passes it as the `model` parameter when
-// spawning worker agents.
-//
-// Rationale: when CLI output format and adapter parsing logic live in separate
-// files, a format change in one can silently break the other.  These tests pin
-// the contract so any divergence surfaces immediately as a test failure.
-//
-// Provider/subscription routing belongs to #465.  This test suite must not add
-// provider names, subscription logic, or dispatch assertions.
-// ---------------------------------------------------------------------------
-
 describe('runSprintCommand — provider-neutral guidance contract', () => {
-  /** Parse the `Key: value` fields emitted in the worker instruction block. */
   function parseWorkerPromptFields(output: string): Record<string, string> {
     const fields: Record<string, string> = {}
     for (const line of output.split('\n')) {
@@ -746,7 +726,6 @@ describe('runSprintCommand — provider-neutral guidance contract', () => {
     const output = log.mock.calls.map((c) => String(c[0])).join('\n')
     const fields = parseWorkerPromptFields(output)
 
-    // The adapter reads these fields — both must be present and parseable.
     expect(fields['Model']).toBe('haiku')
     expect(fields['Effort']).toBe('high')
   })
@@ -759,8 +738,6 @@ describe('runSprintCommand — provider-neutral guidance contract', () => {
     const output = log.mock.calls.map((c) => String(c[0])).join('\n')
     const fields = parseWorkerPromptFields(output)
 
-    // The hint must be passed through verbatim — the adapter owns mapping to
-    // provider-specific IDs (#465). The CLI must not transform or override it.
     expect(fields['Model']).toBe('provider/model-v1')
   })
 
@@ -783,11 +760,9 @@ describe('runSprintCommand — provider-neutral guidance contract', () => {
     const output = log.mock.calls.map((c) => String(c[0])).join('\n')
     const fields = parseWorkerPromptFields(output)
 
-    // Worker prompt values
     const promptModel = fields['Model']
     const promptEffort = fields['Effort']
 
-    // Context artifact values (written to issue-context.md and worker-context.md)
     const issueContextWrite = mockWriteFileSync.mock.calls.find(
       ([path]) => String(path).endsWith('.agents/issue-context.md'),
     )
@@ -798,8 +773,6 @@ describe('runSprintCommand — provider-neutral guidance contract', () => {
     const issueContent = String(issueContextWrite?.[1] ?? '')
     const workerContent = String(workerContextWrite?.[1] ?? '')
 
-    // All three representations must carry the same model and effort values.
-    // A mismatch here means the adapter and CLI can silently disagree.
     expect(issueContent).toContain(`- Model guidance: ${promptModel}`)
     expect(issueContent).toContain(`- Effort guidance: ${promptEffort}`)
     expect(workerContent).toContain(`- Model: ${promptModel}`)

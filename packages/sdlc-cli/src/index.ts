@@ -16,6 +16,7 @@ import { reviewCommand, type ReviewOptions } from './commands/review.js'
 import { finishCommand, type FinishOptions } from './commands/finish.js'
 import { runSprintCommand, type RunSprintOptions } from './commands/run-sprint.js'
 import { CliError } from './lib/github.js'
+import { repoRoot } from './lib/git.js'
 
 function usage(): void {
   console.log(`
@@ -128,6 +129,10 @@ async function main(): Promise<void> {
   }
 
   try {
+    // pnpm --filter changes cwd to packages/sdlc-cli; every command operates
+    // against the enclosing Git checkout or worktree.
+    process.chdir(repoRoot())
+
     switch (command) {
       case 'start': {
         const issueNumber = parseInt(args[0] ?? '', 10)

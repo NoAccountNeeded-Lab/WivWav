@@ -1,100 +1,42 @@
-# Claude Code Instructions for WivWav
+# Claude app rules
 
-**Start here:** Read `.claude/core.md`, then your role file in `.claude/roles/`. Read `AGENTS.md` only when you need deep reference (data model, API routes, ops, scraper architecture).
+Read `.claude/core.md` and the active role first.
 
----
+## Web
 
-## Choose Your Path
+Before `apps/web` UI edits, read `docs/BRAND.md`.
+Use Server Components by default; add `'use client'` only at interactivity boundaries.
+Use URL search parameters and React hooks for state; no Redux or Zustand.
+Use CSS Modules and semantic color tokens; no Tailwind.
+Meet WCAG 2.1 AA: keyboard, screen reader, visible focus, mobile touch targets, and non-color status.
+Web: `http://localhost:3000`.
 
-### Web Frontend (`apps/web`)
+## API
 
-Before any UI code: read `docs/BRAND.md` for product principles and color system.
+Use Fastify Route → Service → Repository.
+Web clients call the API; never read the database directly.
+API: `http://localhost:3001`; Swagger: `http://localhost:3001/documentation`.
+For route additions, removals, or renames, update `docs/api-routes.md`.
 
-```bash
-make dev
-open http://localhost:3000
-```
+## Scraper
 
-Key patterns:
-- Server components by default; `'use client'` at the interactivity boundary
-- State via URL search params + React hooks (no Redux/Zustand)
-- CSS Modules + semantic color tokens (no Tailwind)
-- WCAG 2.1 AA mandatory — keyboard, screen reader, visible focus, no color-only indicators
+Use Playwright and the current Ollama provider.
+`SourceAdapter` requires `checkStructure()` and `scrape()`.
+Apply AI remaps only at confidence `>= 0.7`.
+Inside `page.evaluate`, use `function` declarations; do not use named arrow-function-to-const assignments.
+For structure failures, inspect changed source HTML and current Ollama configuration.
 
-### API (`apps/api`)
+## Commands
 
-```bash
-make dev
-# API: http://localhost:3003   Swagger: http://localhost:3003/documentation
-```
+Start development: `make dev`.
+Unit tests: `make test`.
+Integration tests: `make test-integration`.
+Types: `make typecheck`.
+Schema synchronization: `pnpm db:push`; follow `docs/data/schema-conventions.md`.
+No supported `pnpm db:reset` command exists.
 
-Key patterns:
-- Fastify + Route → Service → Repository
-- Strict TypeScript, `.js` extensions on local imports
-- Meilisearch for search · Valkey for cache · PostgreSQL via Prisma
-- **If you add/remove/rename a route:** update the routes table in `AGENTS.md` before committing — a PreToolUse hook enforces this
+Before finish: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`.
+Never commit failing relevant checks.
+Use `/wivwav-finish-issue`; do not rely on session end.
 
-### Scraper (`apps/scraper`)
-
-```bash
-make dev
-# Integration test: pnpm exec tsx apps/scraper/src/sources/blvd.integration.test.ts
-```
-
-Key patterns:
-- Playwright + Claude AI for self-healing selectors (confidence ≥ 0.7 required)
-- `SourceAdapter` interface: `checkStructure()` + `scrape()`
-- **Pitfall:** Inside `page.evaluate()`, use `function` declarations, not arrow functions
-
----
-
-## Before Committing
-
-Hard rule: never commit if `pnpm test`, `pnpm typecheck`, or `pnpm lint` fails.
-
-Use `/wivwav-finish-issue` to validate, commit, push, and open a draft PR. Never rely on session end.
-
-A `PreToolUse` hook runs `scripts/check-docs.sh` before every `git commit`. It blocks commits that touch `apps/api/src/routes/` without also staging `AGENTS.md`.
-
----
-
-## Review Priorities
-
-1. Correctness bugs and regressions
-2. Security and data exposure
-3. Accessibility failures (web changes must be WCAG 2.1 AA)
-4. API/data contract drift
-5. Missing tests for changed behavior
-
----
-
-## Type System & Imports
-
-- `strict: true`, `exactOptionalPropertyTypes: true`, `noUncheckedIndexedAccess: true`
-- ESM local imports use `.js` extensions: `import { foo } from './foo.js'`
-- Explicitly mark `import type { Foo } from '...'`
-- No `any` — use discriminated unions for error handling
-
----
-
-## Troubleshooting
-
-**Hot reload not working?** Ensure `make dev` is running all services. Check port conflicts.
-
-**Database schema out of sync?** Run `pnpm db:push`. Destructive changes: `pnpm db:reset` (dev only).
-
-**Scraper structure detection failing?** Check if site HTML changed. Verify the AI provider is configured via `/ops/ai` (Ollama for local, Anthropic with an API key stored in the config DB for production).
-
-**Tests failing?**
-- Unit: `make test` (fast, no network)
-- Integration: `pnpm exec tsx apps/scraper/src/sources/blvd.integration.test.ts`
-- Types: `make typecheck`
-
----
-
-## Resources
-
-- Core agent context: `.claude/core.md`
-- Role files: `.claude/roles/`
-- Full project reference: `AGENTS.md`
-- UI standards: `docs/BRAND.md`
+Review priority: correctness; security/data exposure; accessibility; API/data contract drift; missing tests.

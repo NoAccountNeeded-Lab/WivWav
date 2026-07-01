@@ -1,100 +1,84 @@
-# WivWav — Agent Core Context
+# WivWav core
 
-WivWav aggregates wheelchair-accessible vehicle (WAV) listings from multiple dealer sources into a single searchable index for buyers and caregivers.
+## Structure
 
-## Monorepo structure
-
-```
-apps/api       Fastify REST API, Node 24
-apps/web       Next.js 15 App Router
-apps/scraper   Playwright + AI scrape engine
-
-packages/types    Shared TypeScript interfaces
-packages/db       Prisma client, PostgreSQL 17
-packages/config   Shared tsconfig/ESLint
-packages/queue    BullMQ job queue
-packages/agents   Multi-agent text pipeline (Ollama and Anthropic providers; CompletionProvider interface is AI-agnostic)
-```
-
-Infrastructure: PostgreSQL 17 · Meilisearch v1.12 (faceted search) · Valkey 8 (Redis-compatible cache)
-
-## Principles
-
-- Single responsibility — small files, one purpose
-- Swappable dependencies behind interfaces — callers never import concrete implementations
-- API-first, mobile-first
-- WCAG 2.1 AA accessibility on all user-facing output
-- MIT / Apache / BSD licenses only — check before adding dependencies
-- API responses: `{ data: T }` for success · `{ error: { code, message } }` for errors
-- ESM import extensions differ by package — get this wrong and Next.js builds fail:
-  - `apps/api`, `apps/scraper`, `packages/*` use `moduleResolution: NodeNext` — **require** `.js` extensions: `import { foo } from './foo.js'`
-  - `apps/web` uses `moduleResolution: Bundler` (Next.js webpack) — **extensionless only** in source files: `import { foo } from './foo'`. Test files (`*.test.ts`) work with either since vitest resolves both.
-- Strict TypeScript — no `any`, no unjustified non-null assertions
-
-## Database naming
-
-- Table names: **singular** snake_case — `listing_price_history`, not `listing_price_histories`
-- Many existing tables use plural names (`sources`, `listings`, `scraper_runs`, `raw_pages`, etc.) — do not rename them
-- All new tables must follow the singular convention
-
-## Commit format
-
-```
-type(scope): description (fixes #N)
+```text
+apps/api               Fastify REST API; Node 24
+apps/web               Next.js 16 App Router
+apps/ops               Next.js 16 operations UI
+apps/scraper           Playwright scraper and Ollama remapping
+packages/types         Shared TypeScript interfaces
+packages/db            Prisma; PostgreSQL 17
+packages/config        Shared TypeScript and ESLint configuration
+packages/queue         BullMQ
+packages/agents        Ollama and Anthropic completion pipeline
+packages/charts        Shared chart components
+packages/search        Meilisearch integration
+packages/logger        Logging
+packages/observability Telemetry
+packages/sdlc-cli      Issue workflow CLI
 ```
 
-Use `fixes #N` for completed issue work so GitHub auto-closes on merge. Use `refs #N` only for intentionally partial work that should leave the issue open.
-Types: `feat` `fix` `chore` `docs` `refactor` `test`
+Infrastructure: PostgreSQL 17; Meilisearch 1.45; Valkey 8.
 
-Agent commits add trailers — see Attribution below.
+## Rules
 
-## Branch naming
+Small files; one responsibility.
+Keep swappable dependencies behind interfaces; callers must not import concrete implementations.
+Preserve API-first boundaries; web clients call APIs, not the database.
+Use mobile-first UI; all user-facing output must meet WCAG 2.1 AA.
+Runtime dependency licenses: MIT, Apache-2.0, BSD, or PostgreSQL License only; never GPL or AGPL.
+TypeScript: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`; no `any`; no unjustified non-null assertions; use `import type` for type-only imports.
+NodeNext local imports require `.js` in `apps/api`, `apps/scraper`, and all NodeNext packages.
+Bundler source imports are extensionless in `apps/web`, `apps/ops`, and `packages/charts`; follow local test patterns.
+API defaults: `{ data: T }` success; `{ error: { code, message } }` error; preserve documented route exceptions.
 
-| Issue type   | Branch prefix              |
-| ------------ | -------------------------- |
-| Feature      | `feat/issue-N-slug`        |
-| Bug fix      | `fix/issue-N-slug`         |
-| Docs/process | `docs/issue-N-slug`        |
-| Maintenance  | `chore/issue-N-slug`       |
+## Database
 
-Always branch from latest `main`. Never work directly on `main`.
+New table names: singular `snake_case`.
+Do not rename existing plural tables.
+For schema or migration changes, follow `docs/data/schema-conventions.md`.
 
-## Key commands
+## Git
 
-```bash
-pnpm typecheck        # TypeScript check all packages
-pnpm lint             # ESLint all packages
-pnpm test             # Unit tests (excludes *.integration.test.ts)
-make typecheck        # Same via Makefile
-make lint
-make test
-```
+Branch from latest `origin/main`; never work directly on `main`.
+Branches: `feat/issue-N-slug`, `fix/issue-N-slug`, `docs/issue-N-slug`, or `chore/issue-N-slug`.
+Commits: `type(scope): description (fixes #N)`.
+Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
+Use `refs #N` only for intentionally partial work.
+PR body must contain `Fixes #N` or `Refs #N`; the commit keyword alone does not reliably close through the merge queue.
 
-## Issue label states
+Issue states: `status:ready` → `status:in-progress` → `status:needs-review` → merged.
+Failure: `status:in-progress` → `status:stuck`.
+Acceptance criteria markers: `acceptance criteria`, `done when`, `## ac`, or a non-empty `- [ ]` checklist; matching is case-insensitive.
 
-`status:ready` → `status:in-progress` → draft PR opened → merged
-Failure path: `status:in-progress` → `status:stuck`
+Every agent commit requires:
 
-## Acceptance criteria markers
-
-An issue has acceptance criteria if its body contains at least one of (case-insensitive):
-`acceptance criteria` · `done when` · `## ac` · a non-empty checklist (`- [ ]`)
-
-## Attribution — all agent output
-
-**Git trailers** on every agent commit:
-```
-Agent-Role: {role}
-Agent-Index: {index}
-Sprint-Run: {sprint-run-id}
+```text
 Co-Authored-By: {Model Name} <noreply@{provider}.com>
 ```
 
-**Comment header** on every agent GitHub comment, PR body, or issue update:
+Add when available:
+
+```text
+Agent-Role: {role}
+Agent-Index: {index}
+Sprint-Run: {sprint-run-id}
 ```
+
+Agent comments and issue updates start with:
+
+```text
 🤖 **{role}[{index}]** · `{skill}` · {YYYY-MM-DD}
 ```
 
-Example: `🤖 **worker[1]** · \`run-sprint\` · 2026-06-03`
+PR bodies start with `Fixes #N` or `Refs #N`; place the attribution header immediately after.
 
-Read your role file (`.claude/roles/{your-role}.md`) after this file. Do not read `AGENTS.md` unless your task requires it — it is the human-facing reference and longer than you need.
+## Validation
+
+Iteration: `pnpm check:affected`.
+Finish: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`.
+Never commit failing relevant checks.
+
+Read `.claude/roles/{your-role}.md` after this file.
+Read `AGENTS.md` only for workflow or domain detail not present here.

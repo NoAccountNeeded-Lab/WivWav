@@ -1,24 +1,18 @@
-# Repository Instructions
+# Repository instructions
 
-WAV Search is a TypeScript monorepo for wheelchair accessible vehicle search.
+WivWav is a TypeScript monorepo for wheelchair-accessible vehicle search.
+Follow `AGENTS.md` for workflow; use `.claude/core.md` for architecture and conventions.
 
-Core rules:
+Keep implementation issue-driven; link each PR to its issue.
+Preserve API-first boundaries; web calls APIs and never reads the database directly.
+Keep swappable dependencies behind interfaces.
+Use mobile-first UI and WCAG 2.1 AA.
+Runtime dependency licenses: MIT, Apache-2.0, BSD, or PostgreSQL License only; never GPL or AGPL.
+Use strict TypeScript; no `any`.
+NodeNext local imports use `.js`; Bundler source imports in `apps/web`, `apps/ops`, and `packages/charts` are extensionless.
+Add focused tests for changed and risky behavior.
+Never commit `.env` files, secrets, generated caches, or unrelated formatting.
+Search with `rg`; read narrow ranges; consult relevant `docs/ops/`, `docs/data/`, or `docs/design/` files.
+For `apps/web` UI changes, read `docs/BRAND.md`.
 
-- Keep work issue-driven. PRs must link an issue.
-- Preserve API-first boundaries. The web app calls the API; it does not read the DB directly.
-- Keep dependencies swappable behind interfaces.
-- Use mobile-first UI and WCAG 2.1 AA accessibility.
-- Runtime dependencies must use permissive licenses: MIT, Apache 2.0, BSD, or PostgreSQL License. Do not add GPL or AGPL runtime dependencies.
-- Use strict TypeScript and ESM imports with `.js` extensions for local package imports.
-- Add focused tests for risky behavior.
-- Do not commit `.env` files, secrets, generated cache files, or unrelated formatting churn.
-- Keep context use deliberate: search with `rg`, read the smallest relevant file ranges, and open `AGENTS.md` for workflow/SDLC reference; consult `docs/ops/`, `docs/data/`, or `docs/design/` for domain-specific detail (ops, schema, observability, CI).
-- For user-facing web changes, read `docs/BRAND.md` before editing UI code.
-
-Review priorities:
-
-1. Correctness bugs and regressions.
-2. Security and data exposure.
-3. Accessibility failures.
-4. API/data contract drift.
-5. Missing tests for changed behavior.
+Review order: correctness/regressions; security/data exposure; accessibility; API/data contract drift; missing tests.

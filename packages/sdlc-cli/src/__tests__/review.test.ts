@@ -130,12 +130,12 @@ describe('reviewCommand — domain notes', () => {
     log.mockRestore()
   })
 
-  it('emits AGENTS.md route-table note for apps/api/src/routes changes', async () => {
+  it('emits docs/api-routes.md note for apps/api/src/routes changes', async () => {
     mockChangedFiles.mockReturnValue(['apps/api/src/routes/listings.ts'])
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     await reviewCommand()
     const allOutput = log.mock.calls.map((c) => String(c[0])).join('\n')
-    expect(allOutput).toMatch(/AGENTS\.md/)
+    expect(allOutput).toMatch(/docs\/api-routes\.md/)
     log.mockRestore()
   })
 

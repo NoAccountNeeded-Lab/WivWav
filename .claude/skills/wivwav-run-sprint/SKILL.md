@@ -1,64 +1,33 @@
 ---
-description: Run a development sprint by preparing ready issues with the SDLC CLI, then spawning Claude worker agents in the prepared worktrees. Supports single-issue, sequential, and parallel modes. Pass one optional issue number to target a specific issue; --limit N to cap sequential runs; --parallel N (or -p N) to run N issues concurrently. Only one explicit issue number is supported per invocation — the CLI errors on multiple positional issue args.
+description: Prepare and run single, sequential, or parallel WivWav worker sprints
 argument-hint: "[issue-number] [--limit N] [--parallel N]"
 ---
 
-# Run Sprint
+# Run sprint
 
-Use this skill for sprint orchestration. The SDLC CLI is the source of truth for issue selection, readiness checks, labels, branch names, worktree setup, and recovery state.
+The SDLC CLI owns issue selection, readiness, labels, branches, worktrees, context, and recovery state.
 
-## 1. Prepare sprint work
-
-Run the CLI from the repository root, passing `$ARGUMENTS` through exactly:
+Run from repository root:
 
 ```bash
 pnpm wivwav run-sprint $ARGUMENTS
 ```
 
-If the command fails, stop and report the CLI error. Do not manually recreate its GitHub label, branch, or worktree logic.
+On CLI failure: stop; report; do not recreate state manually.
+Accept at most one explicit issue number.
+For multiple ready issues, use `--parallel N`; for sequential candidates, use `--limit N`.
+The CLI validates candidates before mutation; sequential mode claims one issue per invocation; parallel mode claims up to its concurrency.
+Only claimed issues receive a worktree, `.agents/` context, `/tmp/wivwav-{N}.md` recovery state, and worker instructions.
 
-**One issue per invocation.** `run-sprint` accepts at most one explicit issue number. Passing multiple positional issue numbers (e.g. `run-sprint 527 528`) is an error — the CLI will reject it with a clear message naming the extra argument. To process multiple issues, use `--parallel N` (which auto-selects ready issues) or run the CLI once per issue.
+For each printed block: use its `Worktree`, `Branch`, `Agent-Index`, and `Sprint-Run`; pass its provider-neutral `Model` value as the worker model; do not request additional worktree isolation.
+Provider and subscription routing belongs to #465; do not add credentials or dispatch logic.
+Sequential workers run foreground/blocking; after completion, rerun the CLI for the next issue.
+Parallel workers start together with `run_in_background: true`.
+Use the printed worker prompt; do not append the full issue body.
 
-Valid invocations:
-- `pnpm wivwav run-sprint 304` — target one explicit issue
-- `pnpm wivwav run-sprint --parallel 2` — claim 2 ready issues in parallel (auto-selected)
-- `pnpm wivwav run-sprint --limit 5` — sequential mode, up to 5 candidates (claims 1 this run)
+On success: comment draft PR URL, commit SHA, and sprint ID; set recovery state to `Status: success`; record PR URL.
+On failure: set `status:stuck`; comment the reason; set recovery state to `Status: stuck`.
+After each completion: preserve `.agents/usage-report.md` evidence; run `git worktree remove --force {worktree}` then `git worktree prune`.
+Do not cancel other workers because one fails.
 
-The CLI will:
-- select the explicit issue, or validate ready issues as read-only candidates for sequential/parallel mode
-- verify issue state and acceptance criteria (read-only; no mutations until claim time)
-- claim lazily: in sequential mode, move exactly ONE issue to `status:in-progress` per invocation; in parallel mode, claim up to the configured concurrency window
-- create one isolated worktree per claimed issue (unclaimed candidates are left without worktrees)
-- write `.agents/` context artifacts into each claimed worktree
-- write `/tmp/wivwav-{N}.md` recovery state for each claimed issue
-- print worker instructions for each claimed issue
-
-## 2. Spawn workers from CLI output
-
-For each worker instruction block printed by the CLI:
-
-- Use the listed `Worktree`, `Branch`, `Agent-Index`, and `Sprint-Run`.
-- Read the `Model:` line from the instruction block and pass it as `model` when spawning the worker agent. The CLI emits a provider-neutral model hint (e.g. `sonnet`, `haiku`); the Agent tool maps these to provider-specific model IDs. Provider/subscription routing belongs to #465 — do not add credential or dispatch logic here.
-- Do not set `isolation: "worktree"` — the CLI already created a dedicated worktree for each issue; a second isolation setting would create a nested/duplicate worktree.
-- In sequential mode, the CLI claims one issue per invocation. After the worker completes (success or failure), re-run the CLI to claim and prepare the next issue. Run each worker foreground/blocking.
-- In parallel mode, spawn all listed workers in one message with `run_in_background: true`.
-
-The worker prompt is the instruction block printed by the CLI. Do not add the full issue body to the spawn prompt; the worker reads `.agents/worker-context.md` and `.agents/issue-context.md` from the prepared worktree before fetching live issue details.
-
-## 3. Handle completions
-
-As workers complete:
-
-- Success: post an issue comment with draft PR URL, commit SHA, and sprint ID; update `/tmp/wivwav-{N}.md` to `Status: success` and add the PR URL.
-- Failure: label the issue `status:stuck`, post a failure comment, and update `/tmp/wivwav-{N}.md` to `Status: stuck`.
-- Clean up each completed worktree with `git worktree remove --force {worktree}` followed by `git worktree prune`.
-- Preserve the worker's `.agents/usage-report.md` contents in the PR or issue evidence when reviewing sprint cost.
-
-Never cancel other running workers because one failed. A partial success is still a valid sprint run.
-
-## 4. Final summary
-
-Report:
-- mode used: single, sequential, or parallel
-- per-issue outcome: draft PR URL or stuck reason
-- count of issues still labeled `status:ready`
+Final report: mode; outcome per issue; remaining `status:ready` count.

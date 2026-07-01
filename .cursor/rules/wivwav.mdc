@@ -1,17 +1,17 @@
 ---
-description: WivWav workflow and context budget
+description: WivWav workflow and context rules
 alwaysApply: true
 ---
 
-WivWav is a wheelchair accessible vehicle listing aggregator in a pnpm/Turborepo TypeScript monorepo.
+WivWav is a pnpm/Turborepo TypeScript monorepo for wheelchair-accessible vehicle listings.
+Follow `AGENTS.md`; use `.claude/core.md` for architecture and conventions.
+Search with `rg`; read narrow ranges; keep edits issue-scoped.
 
-Follow `AGENTS.md` for canonical workflow, SDLC commands, and cross-cutting invariants. For domain-specific detail, consult: `docs/ops/quick-start.md` (dev setup), `docs/ops/workflows.md` (ops procedures), `docs/data/schema-conventions.md` (schema/migrations), `docs/api-routes.md` (route table), and `docs/design/` for observability, merge queue, and caching design. For most code tasks, start with a targeted `rg` search, inspect the smallest relevant file ranges, and keep edits scoped to the issue.
-
-Core rules:
-
-- Never work directly on `main`.
-- Use strict TypeScript and local ESM imports with `.js` extensions.
-- Preserve API-first boundaries: web calls API; it does not read the DB directly.
-- Keep dependencies swappable behind interfaces.
-- User-facing web changes must follow `docs/BRAND.md` and WCAG 2.1 AA.
-- Run `pnpm typecheck`, `pnpm lint`, and `pnpm test` before committing.
+Never work directly on `main`.
+Use strict TypeScript; no `any`.
+NodeNext local imports use `.js`; Bundler source imports in `apps/web`, `apps/ops`, and `packages/charts` are extensionless.
+Web calls APIs; web never reads the database directly.
+Keep swappable dependencies behind interfaces.
+For user-facing web changes, read `docs/BRAND.md`; meet WCAG 2.1 AA.
+Iteration: `pnpm check:affected`.
+Before finish: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`.
