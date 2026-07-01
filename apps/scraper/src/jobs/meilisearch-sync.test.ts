@@ -129,8 +129,8 @@ describe('runMeilisearchSyncJob', () => {
     )
 
     // Exactly one document for the group should appear across all addDocuments calls.
-    const allUpsertedIds = addDocuments.mock.calls.flatMap(([docs]: [{ id: string }[]]) =>
-      docs.map((d) => d.id),
+    const allUpsertedIds = addDocuments.mock.calls.flatMap((call) =>
+      (call[0] as { id: string }[]).map((d) => d.id),
     )
     const groupUpserts = allUpsertedIds.filter((id: string) => id === 'listing-x1' || id === 'listing-x2')
     expect(groupUpserts).toHaveLength(1)
