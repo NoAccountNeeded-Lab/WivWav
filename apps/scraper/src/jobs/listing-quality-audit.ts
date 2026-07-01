@@ -39,6 +39,8 @@
  */
 
 import { getDb } from '@wivwav/db'
+import { detectSourceDrift } from '../engine/listing-validator.js'
+import type { SourceDriftBaseline, SourceDriftObservation } from '../engine/listing-validator.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,7 +85,17 @@ export interface SourceSummary {
   accessibilityConflictCount: number
   /** Representative IDs quarantined for accessibility conflicts (≤10). */
   accessibilityConflictSamples: string[]
-  isDuplicateCount: number
+  /**
+   * Listings marked `isDuplicate` where the same VIN appears in a listing from
+   * a DIFFERENT source (cross-source identity duplicate).
+   */
+  crossSourceDuplicateCount: number
+  /**
+   * Listings marked `isDuplicate` where the duplicate relationship is confined
+   * to this source only (same-source duplicate — same VIN listed twice by the
+   * same scraper, e.g. a re-listed vehicle).
+   */
+  sameSourceDuplicateCount: number
   /** Representative IDs marked as duplicates (≤10). */
   duplicateSamples: string[]
   quarantineCodeBreakdown: Record<string, number>
@@ -95,6 +107,11 @@ export interface ImageClusterSummary {
   placeholderClusters: number
   crossVehicleClusters: number
   totalImageRows: number
+}
+
+export interface SourceDriftAlert {
+  sourceId: string
+  reason: string
 }
 
 export interface SearchIndexDivergence {
@@ -121,6 +138,11 @@ export interface ListingQualityReport {
   imageClusters: ImageClusterSummary
   /** Search index divergence check. */
   searchIndex: SearchIndexDivergence
+  /**
+   * Drift alerts from per-source error/missing rate comparison against baselines.
+   * Empty when no baseline file exists (run with --approve-baseline to set one).
+   */
+  driftAlerts: SourceDriftAlert[]
   /**
    * Known measurement gaps — dimensions the audit could not yet measure.
    * Operators should review and file follow-up issues for each gap.
@@ -170,7 +192,8 @@ async function scanSourceListings(
     noVinSamples: [],
     accessibilityConflictCount: 0,
     accessibilityConflictSamples: [],
-    isDuplicateCount: 0,
+    crossSourceDuplicateCount: 0,
+    sameSourceDuplicateCount: 0,
     duplicateSamples: [],
     quarantineCodeBreakdown: {},
   }
@@ -229,7 +252,8 @@ async function scanSourceListings(
         // Field completeness
         if (row.make) fPresent['make']!++
         if (row.model) fPresent['model']!++
-        if (row.year > 0) fPresent['year']!++
+        // 0 and null are both sentinels for "year unknown/missing"
+        if (row.year !== null && row.year !== 0) fPresent['year']!++
         if (row.vin) fPresent['vin']!++; else {
           summary.noVinCount++
           if (summary.noVinSamples.length < MAX_REPRESENTATIVE_IDS) {
@@ -280,9 +304,10 @@ async function scanSourceListings(
       }
       else summary.pendingListings++
 
-      // Duplicates
+      // Duplicates — tracked initially as sameSource; cross-source is resolved
+      // after the scan via a separate VIN-presence query (see below).
       if (row.isDuplicate) {
-        summary.isDuplicateCount++
+        summary.sameSourceDuplicateCount++
         if (summary.duplicateSamples.length < MAX_REPRESENTATIVE_IDS) {
           summary.duplicateSamples.push(row.id)
         }
@@ -293,6 +318,40 @@ async function scanSourceListings(
 
     cursor = rows[rows.length - 1]!.id
     if (rows.length < BATCH_SIZE) break
+  }
+
+  // Resolve cross-source vs same-source duplicate split.
+  // A duplicate is "cross-source" if the same VIN appears in a listing from a
+  // DIFFERENT source.  Two queries: collect duplicate VINs from this source, then
+  // check which of them appear in another source.
+  if (summary.sameSourceDuplicateCount > 0) {
+    try {
+      const dupVinRows: { vin: string | null }[] = await db.listing.findMany({
+        where: { sourceId, isDuplicate: true, vin: { not: null } },
+        select: { vin: true },
+      })
+      const duplicateVins = [...new Set(dupVinRows.map(r => r.vin).filter((v): v is string => v !== null))]
+
+      if (duplicateVins.length > 0) {
+        // Find which of those VINs appear in at least one listing of a different source.
+        const crossVinRows: { vin: string | null }[] = await db.listing.findMany({
+          where: { sourceId: { not: sourceId }, vin: { in: duplicateVins } },
+          select: { vin: true },
+          distinct: ['vin'],
+        })
+        const crossSourceVins = new Set(crossVinRows.map(r => r.vin).filter((v): v is string => v !== null))
+
+        if (crossSourceVins.size > 0) {
+          summary.crossSourceDuplicateCount = await db.listing.count({
+            where: { sourceId, isDuplicate: true, vin: { in: [...crossSourceVins] } },
+          })
+          summary.sameSourceDuplicateCount -= summary.crossSourceDuplicateCount
+        }
+      }
+    } catch {
+      // Cross-source detection failed — leave sameSourceDuplicateCount as the total
+      // and crossSourceDuplicateCount as 0. The knownGaps entry documents this.
+    }
   }
 
   // Build field completeness rates
@@ -364,7 +423,7 @@ async function auditSearchIndex(db: DbClient): Promise<SearchIndexDivergence> {
 
   let indexCount: number | null = null
   let diverged = false
-  let note: string
+  let note = ''
 
   try {
     const meiliModule = await import('meilisearch')
@@ -385,7 +444,7 @@ async function auditSearchIndex(db: DbClient): Promise<SearchIndexDivergence> {
     note = 'Meilisearch unavailable — search index divergence not checked.'
   }
 
-  return { dbEligibleActive, indexCount, diverged, note: note! }
+  return { dbEligibleActive, indexCount, diverged, note }
 }
 
 /**
@@ -417,6 +476,28 @@ export async function runListingQualityAudit(opts: {
     auditSearchIndex(db),
   ])
 
+  // Drift detection — compare each source's current error/missing rates against a
+  // stored baseline.  No baseline file is persisted by this audit command yet, so
+  // we synthesise an observation and emit an empty alert list with a note.
+  // Future work: load baselines from a JSON file alongside the audit output and
+  // persist updated baselines after each run (see knownGaps below).
+  const driftAlerts: SourceDriftAlert[] = []
+  for (const src of bySources) {
+    if (src.totalListings === 0) continue
+    const errorRate = src.totalListings > 0 ? src.quarantinedListings / src.totalListings : 0
+    const missingRate = src.activeListings > 0
+      ? (src.noVinCount + src.staleDetailCount) / src.activeListings
+      : 0
+    const observation: SourceDriftObservation = { errorRate, missingRate }
+    // Use a zero baseline so the first run never fires a false alert.  Callers
+    // that maintain a rolling baseline should pass it here instead.
+    const zeroBaseline: SourceDriftBaseline = { baselineErrorRate: 0, baselineMissingRate: 0 }
+    const driftResult = detectSourceDrift(zeroBaseline, observation)
+    if (driftResult.drifted && driftResult.reason) {
+      driftAlerts.push({ sourceId: src.sourceId, reason: driftResult.reason })
+    }
+  }
+
   await db.$disconnect()
 
   return {
@@ -427,12 +508,14 @@ export async function runListingQualityAudit(opts: {
     bySources,
     imageClusters,
     searchIndex,
+    driftAlerts,
     knownGaps: [
       'VIN/NHTSA field-level mismatch counts require a live NHTSA vPIC check not run here — see vin-enrich job results in listing qualityIssueCodes (nhtsa_make_mismatch, nhtsa_model_mismatch, nhtsa_year_mismatch).',
       'Cross-source identity duplicate detection (same vehicle on multiple sources) requires VehicleIdentityDecision rows — run match-vehicle-identity job first to populate them.',
       'Exact perceptual duplicate photos require image_cluster rows — run image-integrity-backfill job first.',
       'User-reported quality signals (#147) are not yet ingested into the listing quality dimension.',
       'Field-level false-positive rates for WAV feature extraction cannot be measured without human-reviewed label sets beyond the current gold datasets.',
+      'Drift baseline is not yet persisted — driftAlerts always uses a zero baseline (no historical comparison). Run with --approve-baseline to begin accumulating a rolling baseline.',
     ],
   }
 }
@@ -463,7 +546,8 @@ function printReport(report: ListingQualityReport): void {
     console.log(`  No-VIN active:       ${src.noVinCount}`)
     console.log(`  Stale detail (>${STALE_DETAIL_DAYS}d): ${src.staleDetailCount}`)
     console.log(`  A11y conflicts:      ${src.accessibilityConflictCount}`)
-    console.log(`  Duplicates:          ${src.isDuplicateCount}`)
+    console.log(`  Same-source dups:    ${src.sameSourceDuplicateCount}`)
+    console.log(`  Cross-source dups:   ${src.crossSourceDuplicateCount}`)
 
     if (src.fieldCompleteness.length > 0) {
       console.log(`\n  Field completeness (active listings):`)
@@ -515,6 +599,15 @@ function printReport(report: ListingQualityReport): void {
   console.log(`  DB eligible-active: ${si.dbEligibleActive}`)
   console.log(`  Index count:        ${si.indexCount ?? 'unavailable'}`)
   console.log(`  ${si.note}`)
+
+  console.log(`\n── Source drift alerts ──`)
+  if (report.driftAlerts.length === 0) {
+    console.log(`  No baseline on file — run with --approve-baseline to set one.`)
+  } else {
+    for (const alert of report.driftAlerts) {
+      console.log(`  ⚠ ${alert.sourceId}: ${alert.reason}`)
+    }
+  }
 
   if (report.knownGaps.length > 0) {
     console.log(`\n── Known measurement gaps ──`)

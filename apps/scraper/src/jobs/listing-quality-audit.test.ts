@@ -398,7 +398,9 @@ describe('runListingQualityAudit', () => {
 
     const report = await runListingQualityAudit({})
     const src = report.bySources[0]!
-    expect(src.isDuplicateCount).toBe(2)
+    // sameSourceDuplicateCount starts as the full isDuplicate count;
+    // crossSourceDuplicateCount is 0 when the mock DB returns no cross-source VINs.
+    expect(src.sameSourceDuplicateCount + src.crossSourceDuplicateCount).toBe(2)
     expect(src.duplicateSamples).toContain('dup')
     expect(src.duplicateSamples).toContain('dup2')
   })
