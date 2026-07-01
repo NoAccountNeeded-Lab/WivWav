@@ -443,6 +443,61 @@ a.metricCard:focus-visible {
   min-width: 0;
 }
 
+/* ── Queue breakdown ───────────────────────────────────────────────────────── */
+
+.queueBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.queueBreakdownRow {
+  display: grid;
+  grid-template-columns: 1fr repeat(4, minmax(3.5rem, auto));
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 0.75rem;
+}
+
+.queueBreakdownRow:nth-child(odd) {
+  background: var(--clr-surface-alt, color-mix(in srgb, var(--clr-surface) 60%, transparent));
+}
+
+.queueBreakdownName {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--clr-text);
+  font-weight: 600;
+  font-family: var(--font-ui);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queueBreakdownStat {
+  color: var(--clr-text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.queueBreakdownStat[data-alert="true"] {
+  color: var(--clr-danger-text);
+  font-weight: 700;
+}
+
+.queueBreakdownPaused {
+  color: var(--clr-warning-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* ── Severity icon colours ─────────────────────────────────────────────────── */
 
 .iconGood     { color: var(--clr-success);   flex-shrink: 0; }
