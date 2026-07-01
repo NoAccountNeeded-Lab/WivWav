@@ -1,5 +1,5 @@
 ---
-description: Run a development sprint by preparing ready issues with the SDLC CLI, then spawning Claude worker agents in the prepared worktrees. Supports single-issue, sequential, and parallel modes. Pass an issue number to target one issue; --limit N to cap sequential runs; --parallel N (or -p N) to run N issues concurrently.
+description: Run a development sprint by preparing ready issues with the SDLC CLI, then spawning Claude worker agents in the prepared worktrees. Supports single-issue, sequential, and parallel modes. Pass one optional issue number to target a specific issue; --limit N to cap sequential runs; --parallel N (or -p N) to run N issues concurrently. Only one explicit issue number is supported per invocation — the CLI errors on multiple positional issue args.
 argument-hint: "[issue-number] [--limit N] [--parallel N]"
 ---
 
@@ -16,6 +16,13 @@ pnpm wivwav run-sprint $ARGUMENTS
 ```
 
 If the command fails, stop and report the CLI error. Do not manually recreate its GitHub label, branch, or worktree logic.
+
+**One issue per invocation.** `run-sprint` accepts at most one explicit issue number. Passing multiple positional issue numbers (e.g. `run-sprint 527 528`) is an error — the CLI will reject it with a clear message naming the extra argument. To process multiple issues, use `--parallel N` (which auto-selects ready issues) or run the CLI once per issue.
+
+Valid invocations:
+- `pnpm wivwav run-sprint 304` — target one explicit issue
+- `pnpm wivwav run-sprint --parallel 2` — claim 2 ready issues in parallel (auto-selected)
+- `pnpm wivwav run-sprint --limit 5` — sequential mode, up to 5 candidates (claims 1 this run)
 
 The CLI will:
 - select the explicit issue, or validate ready issues as read-only candidates for sequential/parallel mode
