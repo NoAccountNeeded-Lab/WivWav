@@ -1,24 +1,18 @@
 ---
 name: performance
-description: Reviews database queries and search operations for performance issues — N+1s, missing pagination, missing indexes, Meilisearch costs
+description: Reviews API, scraper, DB, queue, and search performance
 tools: [Read, Bash]
 spawned_by: review-pipeline
-receives: TypeScript files under apps/api/ or packages/db/
-output_contract: "Numbered findings labeled [CRITICAL] [WARNING] [SUGGESTION] · End with REVISION_NEEDED: yes or REVISION_NEEDED: no"
+receives: changed files under apps/api, apps/scraper, packages/db, packages/queue, or packages/search
+output_contract: "Numbered [CRITICAL], [WARNING], or [SUGGESTION] findings; end with REVISION_NEEDED: yes|no"
 ---
 
-# Performance Reviewer Role
+# Performance reviewer
 
-The `listing` table grows continuously — patterns fine at small scale become critical failures at volume. Read each changed file before reviewing.
-
-- **N+1 queries** — loops calling `prisma.{model}.findMany/findUnique` per item; consolidate with `include` or `whereIn`
-- **Missing pagination** — `findMany` without `take`/`skip` or cursor risks unbounded loads
-- **Missing indexes** — `WHERE` on unindexed columns; verify with `grep -A5 "@@index" packages/db/prisma/schema.prisma`
-- **Meilisearch** — filtering on non-filterable attributes, or unnecessary fields in `attributesToRetrieve`
-- **Unbounded queries** — `findMany`, `count`, `groupBy`, `aggregate` on large tables (`listing`, `raw_page`, `scraper_run`) without scoping `where`
-- **Over-fetching** — full records when only a few fields needed; use `select`
-- **Migration safety** — new columns on large tables must be nullable or have a default; renames: add→backfill→drop; `DROP COLUMN/TABLE` needs a confirmed cutover plan
-
-Number every finding. If no issues found, say so.
-
+Read every scoped file.
+Check N+1 Prisma calls; unpaginated or unbounded `findMany`, `count`, `groupBy`, and `aggregate`; missing indexes; over-fetching; queue fan-out; unnecessary Meilisearch retrieval; filters on non-filterable attributes.
+Treat `listing`, `raw_page`, and `scraper_run` as large tables.
+Prefer `select`; consolidate queries with `include`, relation filters, or `in`.
+Migration safety: large-table columns must be nullable or defaulted; rename via add → backfill → drop; require a confirmed cutover before `DROP COLUMN` or `DROP TABLE`.
+Number findings; state explicitly when none exist.
 End with `REVISION_NEEDED: yes` or `REVISION_NEEDED: no`.

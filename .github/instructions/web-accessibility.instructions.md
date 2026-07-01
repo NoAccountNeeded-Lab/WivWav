@@ -2,20 +2,13 @@
 applyTo: 'apps/web/**'
 ---
 
-# Web Accessibility Instructions
+# Accessibility
 
-All user-facing web changes must target WCAG 2.1 AA.
-
-Check for:
-
-- Semantic headings, landmarks, buttons, links, lists, and form fields.
-- Programmatic labels for every input, select, checkbox, slider, and search field.
-- Keyboard access for all controls, including filters, map/list toggles, dialogs, and carousels.
-- Visible focus states.
-- Screen reader text for loading, empty, error, and no-results states.
-- Sufficient color contrast.
-- Touch targets that work on mobile.
-- No information communicated by color alone.
-- Reduced-motion friendliness when adding animation.
-
-Maps and visualizations must have non-map alternatives. A listing's location must remain available in text.
+Target WCAG 2.1 AA.
+Use semantic headings, landmarks, buttons, links, lists, and fields.
+Programmatically label every input, select, checkbox, slider, and search field.
+Provide keyboard access and visible focus for all controls, filters, map/list toggles, dialogs, and carousels.
+Announce loading, empty, error, and no-result states to screen readers.
+Meet contrast requirements; use mobile-capable touch targets; never communicate information by color alone.
+Respect reduced motion.
+Maps and visualizations require non-visual alternatives; listing locations must remain available as text.

@@ -62,7 +62,7 @@ function buildDomainNotes(files: string[]): string[] {
     )
   }
   if (files.some((f) => f.startsWith('apps/api/src/routes/'))) {
-    notes.push('[api] Verify the API routes table in AGENTS.md is current after route changes.')
+    notes.push('[api] Verify docs/api-routes.md is current after route changes.')
   }
   if (files.some((f) => f.startsWith('apps/scraper/'))) {
     notes.push(

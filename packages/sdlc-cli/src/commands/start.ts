@@ -12,7 +12,7 @@
  * `start` and sprint-worker preparation produce the same artifact schema.
  */
 import { fetchIssue, editIssueLabels, postComment, CliError, labelNames, extractAcceptanceCriteria } from '../lib/github.js'
-import { run, isDirty } from '../lib/git.js'
+import { run, isDirty, repoRoot } from '../lib/git.js'
 import {
   validateIssueForStart,
   validateBranchName,
@@ -148,7 +148,10 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
     remove: ['status:ready'],
   })
 
-  // Write context artifacts to the current working directory (the worktree root)
+  // pnpm --filter changes process.cwd(); anchor artifacts on the Git worktree root.
+  const root = repoRoot()
+
+  // Write context artifacts to the current worktree root.
   console.log('Writing .agents/ context artifacts...')
   writeContextArtifacts({
     issue: {
@@ -157,9 +160,9 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
       body: issue.body,
       labels: labelNames(issue),
     },
-    repo: { root: process.cwd() },
+    repo: { root },
     runtime: {
-      worktreePath: process.cwd(),
+      worktreePath: root,
       branch: branchName,
       sprintId: startSprintId(),
       effort: opts.effort ?? 'standard',
