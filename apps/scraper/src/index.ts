@@ -21,6 +21,7 @@ import { BlvdAdapter } from './sources/blvd.js'
 import { MobilityWorksAdapter } from './sources/mobilityworks.js'
 import { OllamaProvider } from './ai/ollama-provider.js'
 import { StructureDetector } from './ai/structure-detector.js'
+import { resolveOllamaModel } from './ai/ollama-config.js'
 import type { CompletionProvider } from './ai/completion-provider.js'
 import {
   PrismaScraperRunRepository,
@@ -81,7 +82,7 @@ async function readConfigValue(key: string): Promise<string | null> {
 }
 
 async function buildOllamaProvider(): Promise<OllamaProvider> {
-  const model = await readConfigValue('ai.scraper.structure.model')
+  const model = await resolveOllamaModel(db)
   return new OllamaProvider({
     baseUrl: process.env['OLLAMA_BASE_URL'] ?? 'http://localhost:11434',
     model: model ?? process.env['OLLAMA_MODEL'] ?? 'llama3.2:3b',
