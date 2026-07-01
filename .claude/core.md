@@ -39,46 +39,5 @@ New table names: singular `snake_case`.
 Do not rename existing plural tables.
 For schema or migration changes, follow `docs/data/schema-conventions.md`.
 
-## Git
-
-Branch from latest `origin/main`; never work directly on `main`.
-Branches: `feat/issue-N-slug`, `fix/issue-N-slug`, `docs/issue-N-slug`, or `chore/issue-N-slug`.
-Commits: `type(scope): description (fixes #N)`.
-Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
-Use `refs #N` only for intentionally partial work.
-PR body must contain `Fixes #N` or `Refs #N`; the commit keyword alone does not reliably close through the merge queue.
-
-Issue states: `status:ready` → `status:in-progress` → `status:needs-review` → merged.
-Failure: `status:in-progress` → `status:stuck`.
-Acceptance criteria markers: `acceptance criteria`, `done when`, `## ac`, or a non-empty `- [ ]` checklist; matching is case-insensitive.
-
-Every agent commit requires:
-
-```text
-Co-Authored-By: {Model Name} <noreply@{provider}.com>
-```
-
-Add when available:
-
-```text
-Agent-Role: {role}
-Agent-Index: {index}
-Sprint-Run: {sprint-run-id}
-```
-
-Agent comments and issue updates start with:
-
-```text
-🤖 **{role}[{index}]** · `{skill}` · {YYYY-MM-DD}
-```
-
-PR bodies start with `Fixes #N` or `Refs #N`; place the attribution header immediately after.
-
-## Validation
-
-Iteration: `pnpm check:affected`.
-Finish: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`.
-Never commit failing relevant checks.
-
-Read `.claude/roles/{your-role}.md` after this file.
-Read `AGENTS.md` only for workflow or domain detail not present here.
+Read `AGENTS.md` for canonical workflow.
+Read `.claude/roles/{your-role}.md` for role-specific execution.
