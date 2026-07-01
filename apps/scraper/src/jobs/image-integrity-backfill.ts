@@ -75,7 +75,8 @@
 
 import { getDb, upsertListingImage, upsertImageCluster } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
-import { hashImage, ImageHasherOptions } from '../images/image-hasher.js'
+import { hashImage } from '../images/image-hasher.js'
+import type { ImageHasherOptions } from '../images/image-hasher.js'
 import { normalizeImageUrl, isSiteChromeUrl } from '../images/image-normalizer.js'
 import {
   analyzeImages,
