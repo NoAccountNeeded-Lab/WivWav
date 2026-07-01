@@ -122,7 +122,7 @@ function effortForIssue(issue: IssueData, requested: EffortLevel = 'auto'): Excl
  * implementation: it only normalises a caller-supplied hint or supplies a default.
  */
 function modelForIssue(requested: string | undefined): string {
-  return requested?.trim() !== undefined && requested.trim() !== '' ? requested.trim() : 'sonnet'
+  return requested !== undefined && requested.trim() !== '' ? requested.trim() : 'sonnet'
 }
 
 function keywordCandidates(issue: IssueData): string[] {
