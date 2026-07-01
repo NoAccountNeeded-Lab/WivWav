@@ -423,7 +423,7 @@ async function auditSearchIndex(db: DbClient): Promise<SearchIndexDivergence> {
 
   let indexCount: number | null = null
   let diverged = false
-  let note = ''
+  let note: string
 
   try {
     const meiliModule = await import('meilisearch')
