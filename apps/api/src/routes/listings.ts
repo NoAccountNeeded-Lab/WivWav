@@ -50,7 +50,6 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
   void sourceId
   void publicationStatus
   void qualityIssueCodes
-  void qualityCheckedAt
 
   const isPrivate = rest.sellerType === 'private'
   // Suppress personal phone numbers; normalize name to a generic label for private sellers.
@@ -75,6 +74,7 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
       scrapedAt,
       detailScrapedAt,
       vehicleModelMatchConfidence,
+      qualityCheckedAt,
     },
   }
 }
