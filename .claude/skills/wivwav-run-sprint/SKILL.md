@@ -38,7 +38,8 @@ The CLI will:
 For each worker instruction block printed by the CLI:
 
 - Use the listed `Worktree`, `Branch`, `Agent-Index`, and `Sprint-Run`.
-- Spawn one worker agent with `model: "sonnet"`. Do not set `isolation: "worktree"` — the CLI already created a dedicated worktree for each issue; a second isolation setting would create a nested/duplicate worktree.
+- Read the `Model:` line from the instruction block and pass it as `model` when spawning the worker agent. The CLI emits a provider-neutral model hint (e.g. `sonnet`, `haiku`); the Agent tool maps these to provider-specific model IDs. Provider/subscription routing belongs to #465 — do not add credential or dispatch logic here.
+- Do not set `isolation: "worktree"` — the CLI already created a dedicated worktree for each issue; a second isolation setting would create a nested/duplicate worktree.
 - In sequential mode, the CLI claims one issue per invocation. After the worker completes (success or failure), re-run the CLI to claim and prepare the next issue. Run each worker foreground/blocking.
 - In parallel mode, spawn all listed workers in one message with `run_in_background: true`.
 

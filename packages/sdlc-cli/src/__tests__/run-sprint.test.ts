@@ -702,3 +702,102 @@ describe('CLI dispatch — run-sprint extra positional args guard', () => {
     expect(result.stderr).not.toContain('run-sprint accepts at most one explicit issue number')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Provider-neutral guidance boundary — adapter contract tests
+//
+// These tests verify that the worker prompt emits model and effort guidance in
+// a stable, parseable format that the sprint adapter (wivwav-run-sprint/SKILL.md)
+// can consume without guesswork.  The adapter reads `Model: <hint>` from the
+// printed worker instruction block and passes it as the `model` parameter when
+// spawning worker agents.
+//
+// Rationale: when CLI output format and adapter parsing logic live in separate
+// files, a format change in one can silently break the other.  These tests pin
+// the contract so any divergence surfaces immediately as a test failure.
+//
+// Provider/subscription routing belongs to #465.  This test suite must not add
+// provider names, subscription logic, or dispatch assertions.
+// ---------------------------------------------------------------------------
+
+describe('runSprintCommand — provider-neutral guidance contract', () => {
+  /** Parse the `Key: value` fields emitted in the worker instruction block. */
+  function parseWorkerPromptFields(output: string): Record<string, string> {
+    const fields: Record<string, string> = {}
+    for (const line of output.split('\n')) {
+      const m = /^([A-Z][A-Za-z-]+): (.+)$/.exec(line.trim())
+      if (m?.[1] !== undefined && m[2] !== undefined) {
+        fields[m[1]] = m[2].trim()
+      }
+    }
+    return fields
+  }
+
+  it('worker prompt emits Model and Effort as parseable key-value lines', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42, effort: 'high', model: 'haiku' })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    const fields = parseWorkerPromptFields(output)
+
+    // The adapter reads these fields — both must be present and parseable.
+    expect(fields['Model']).toBe('haiku')
+    expect(fields['Effort']).toBe('high')
+  })
+
+  it('worker prompt model hint is the exact string passed by the caller, not a hard-coded provider value', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42, model: 'provider/model-v1' })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    const fields = parseWorkerPromptFields(output)
+
+    // The hint must be passed through verbatim — the adapter owns mapping to
+    // provider-specific IDs (#465). The CLI must not transform or override it.
+    expect(fields['Model']).toBe('provider/model-v1')
+  })
+
+  it('worker prompt defaults to sonnet model hint when no model is specified', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42 })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    const fields = parseWorkerPromptFields(output)
+
+    expect(fields['Model']).toBe('sonnet')
+  })
+
+  it('context artifacts and worker prompt agree on model hint — no silent divergence', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await runSprintCommand({ issueNumber: 42, model: 'haiku', effort: 'low' })
+
+    const output = log.mock.calls.map((c) => String(c[0])).join('\n')
+    const fields = parseWorkerPromptFields(output)
+
+    // Worker prompt values
+    const promptModel = fields['Model']
+    const promptEffort = fields['Effort']
+
+    // Context artifact values (written to issue-context.md and worker-context.md)
+    const issueContextWrite = mockWriteFileSync.mock.calls.find(
+      ([path]) => String(path).endsWith('.agents/issue-context.md'),
+    )
+    const workerContextWrite = mockWriteFileSync.mock.calls.find(
+      ([path]) => String(path).endsWith('.agents/worker-context.md'),
+    )
+
+    const issueContent = String(issueContextWrite?.[1] ?? '')
+    const workerContent = String(workerContextWrite?.[1] ?? '')
+
+    // All three representations must carry the same model and effort values.
+    // A mismatch here means the adapter and CLI can silently disagree.
+    expect(issueContent).toContain(`- Model guidance: ${promptModel}`)
+    expect(issueContent).toContain(`- Effort guidance: ${promptEffort}`)
+    expect(workerContent).toContain(`- Model: ${promptModel}`)
+    expect(workerContent).toContain(`- Effort: ${promptEffort}`)
+  })
+})
