@@ -40,6 +40,7 @@ dev:
 	@[ -f packages/db/.env ] || cp packages/db/.env.example packages/db/.env
 	@[ -f apps/scraper/.env ] || cp apps/scraper/.env.example apps/scraper/.env
 	pnpm db:migrate
+	pnpm --filter "./packages/*" build
 	pnpm dev
 
 # ── Quality checks ────────────────────────────────────────────────────────────
