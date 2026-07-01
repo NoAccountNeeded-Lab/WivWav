@@ -26,6 +26,10 @@ import * as path from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 // Mock @wivwav/db so tests run without a built dist or live database.
+// blvd.ts imports { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/db'
+// (all three are exported from packages/db/src/lib/vin.ts and re-exported from
+// packages/db/src/index.ts).  We re-implement them here with the same logic so
+// parseCard can be exercised without requiring the compiled @wivwav/db dist.
 import { vi } from 'vitest'
 vi.mock('@wivwav/db', () => {
   const TRANSLITERATION: Record<string, number> = {
