@@ -689,17 +689,16 @@ describe('CLI dispatch — run-sprint extra positional args guard', () => {
     expect(result.stderr).toContain('3')
   })
 
-  it('accepts a single issue number without error at the dispatch layer', () => {
-    // A single explicit issue is valid at the dispatch level; the command will
-    // fail for other reasons (no git repo, no GitHub auth) but must not error
-    // on the extra-args guard.
+  it('does not fire the extra-args guard for a single positional issue number', () => {
+    // A single explicit issue number is valid at the dispatch level.
+    // The command will fail later (no git repo / no GitHub auth), but the
+    // extra-args guard must NOT fire for a single positional arg.
     const result = spawnSync(
       'node',
-      ['--import', 'tsx/esm', cliPath, 'run-sprint', '--dry-run', '--help'],
+      ['--import', 'tsx/esm', cliPath, 'run-sprint', '527'],
       { encoding: 'utf8', timeout: 10_000 },
     )
-    // --help exits 0 and prints usage; the key check is that the extra-args
-    // guard did not fire for a single-issue or flag-only invocation.
+    // The extra-args guard fires only on >1 positional args; one arg is valid.
     expect(result.stderr).not.toContain('run-sprint accepts at most one explicit issue number')
   })
 })
