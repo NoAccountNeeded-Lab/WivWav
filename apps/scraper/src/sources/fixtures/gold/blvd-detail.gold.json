@@ -1,0 +1,141 @@
+{
+  "$schema": "https://wivwav.internal/schemas/gold-dataset/v1",
+  "sourceId": "blvd",
+  "parserVersion": 1,
+  "description": "Gold dataset for blvd detail parser (parseBlvdDetail). Cases cover normal detail pages, accessibility feature extraction, and edge cases. Engine specs are NOT mapped to fuelType.",
+  "evidenceRef": "https://www.blvd.com/wheelchair-vans-for-sale — verified 2026-06-30 against live detail page structure",
+  "cases": [
+    {
+      "id": "blvd-detail-001",
+      "description": "Normal detail page with fold-out ramp and full specs",
+      "tags": ["normal", "fold_out", "complete_specs"],
+      "input": {
+        "specs": {
+          "Color": "Brilliant Silver Metallic",
+          "Engine": "3.5L V6 24V PDI DOHC",
+          "Transmission": "8-Speed Automatic"
+        },
+        "descriptionText": "Rear Entry, Manual, Fold Out ramp or lift is fully operational. 14 inch floor lowering. This is a beautiful van with hand controls installed.",
+        "descriptionFound": true,
+        "imageUrls": [
+          "https://cdn.blvd.com/vehicles/2024-sienna-001.jpg",
+          "https://cdn.blvd.com/vehicles/2024-sienna-002.jpg"
+        ],
+        "galleryFound": true,
+        "dealerPhone": "(702) 555-1234",
+        "dealerAddressText": "3575 W Cheyenne Ave\nNorth Las Vegas, NV 89032",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "color": "Brilliant Silver Metallic",
+        "fuelType": null,
+        "engine": "3.5L V6 24V PDI DOHC",
+        "transmission": "8-Speed Automatic",
+        "rampType": "fold_out",
+        "wavFeatures": ["hand_controls", "has_lift", "lowered_floor"],
+        "floorLoweringInches": 14,
+        "zip": "89032",
+        "dealerPhone": "(702) 555-1234",
+        "saleStatus": "active",
+        "images": [
+          "https://cdn.blvd.com/vehicles/2024-sienna-001.jpg",
+          "https://cdn.blvd.com/vehicles/2024-sienna-002.jpg"
+        ]
+      },
+      "notes": "Engine spec must NOT be mapped to fuelType (blvd-specific rule). floor lowering detected in description text. has_lift is included because 'lift' appears in 'ramp or lift is' — the parser matches \\blift\\b in description text unconditionally. This is a known false-positive pattern; a future refinement could exclude this phrasing."
+    },
+    {
+      "id": "blvd-detail-002",
+      "description": "In-floor ramp with power ramp feature",
+      "tags": ["normal", "in_floor"],
+      "input": {
+        "specs": {
+          "Color": "Midnight Black",
+          "Transmission": "CVT"
+        },
+        "descriptionText": "In-Floor Ramp is fully operational. Power ramp system included. Lowered floor.",
+        "descriptionFound": true,
+        "imageUrls": ["https://cdn.blvd.com/vehicles/2022-odyssey-001.jpg"],
+        "galleryFound": true,
+        "dealerPhone": "(512) 555-9876",
+        "dealerAddressText": "100 Main St Austin TX 78701",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "rampType": "in_floor",
+        "wavFeatures": ["lowered_floor", "power_ramp"],
+        "floorLoweringInches": null,
+        "zip": "78701",
+        "saleStatus": "active"
+      },
+      "notes": "in_floor ramp detected. power_ramp and lowered_floor in wavFeatures. No floor lowering inches (text says 'lowered floor' without a number)."
+    },
+    {
+      "id": "blvd-detail-003",
+      "description": "Sold vehicle sets saleStatus to sold",
+      "tags": ["edge_case", "sold"],
+      "input": {
+        "specs": {
+          "Color": "White"
+        },
+        "descriptionText": "Rear Entry Fold Out ramp. Great van.",
+        "descriptionFound": true,
+        "imageUrls": [],
+        "galleryFound": false,
+        "dealerPhone": "",
+        "dealerAddressText": "5000 Broadway New York NY 10001",
+        "statusBannerText": "Sold"
+      },
+      "expected": {
+        "saleStatus": "sold",
+        "images": [],
+        "dealerPhone": null
+      },
+      "notes": "Status banner 'Sold' must map to saleStatus 'sold'. Empty gallery returns empty images array. No phone returns null."
+    },
+    {
+      "id": "blvd-detail-004",
+      "description": "Description not found (descriptionFound: false) yields null description",
+      "tags": ["edge_case", "missing_description"],
+      "input": {
+        "specs": {
+          "Color": "Red"
+        },
+        "descriptionText": "",
+        "descriptionFound": false,
+        "imageUrls": ["https://cdn.blvd.com/vehicles/2021-odyssey-001.jpg"],
+        "galleryFound": true,
+        "dealerPhone": "(404) 555-0000",
+        "dealerAddressText": "200 Peachtree St Atlanta GA 30303",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "description": null,
+        "rampType": "unknown",
+        "wavFeatures": []
+      },
+      "notes": "When descriptionFound is false the description field and all description-derived fields (rampType, wavFeatures, floorLoweringInches) must not be populated from the empty text. rampType defaults to 'unknown', wavFeatures to []."
+    },
+    {
+      "id": "blvd-detail-005",
+      "description": "Transfer seat and automatic door in description",
+      "tags": ["normal", "multiple_wav_features"],
+      "input": {
+        "specs": {},
+        "descriptionText": "Side entry conversion with transfer seat system. Automatic door installed. Fold-in ramp.",
+        "descriptionFound": true,
+        "imageUrls": ["https://cdn.blvd.com/vehicles/2023-odyssey-001.jpg"],
+        "galleryFound": true,
+        "dealerPhone": "(602) 555-2222",
+        "dealerAddressText": "1 Desert Way Phoenix AZ 85001",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "rampType": "fold_in",
+        "wavFeatures": ["transfer_seat", "automatic_door"],
+        "floorLoweringInches": null
+      },
+      "notes": "Multiple WAV features extracted from description. fold_in ramp detected."
+    }
+  ]
+}

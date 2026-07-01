@@ -1,0 +1,143 @@
+{
+  "$schema": "https://wivwav.internal/schemas/gold-dataset/v1",
+  "sourceId": "mobilityworks",
+  "parserVersion": 1,
+  "description": "Gold dataset for MobilityWorks detail parser (parseMwDetail). Cases cover normal detail pages, WAV feature extraction from description, and edge cases. Fuel Type comes from explicit spec key only.",
+  "evidenceRef": "https://www.mobilityworks.com/wheelchair-vans-for-sale — verified 2026-06-30 against live detail page structure",
+  "cases": [
+    {
+      "id": "mw-detail-001",
+      "description": "Normal detail page with full specs and WAV features",
+      "tags": ["normal", "complete_specs"],
+      "input": {
+        "specs": {
+          "Exterior Color": "Grey",
+          "Engine": "3.5L V6",
+          "Fuel Type": "Gasoline",
+          "Transmission": "Automatic"
+        },
+        "descriptionText": "Rear Entry Manual Fold Out ramp. 14 inch floor lowering. Hand controls installed.",
+        "descriptionFound": true,
+        "imageUrls": [
+          "https://www.mobilityworks.com/images/van1.jpg",
+          "https://www.mobilityworks.com/images/van2.jpg"
+        ],
+        "galleryFound": true,
+        "dealerPhone": "(404) 555-1234",
+        "dealerAddressText": "1234 Main St Atlanta GA 30301",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "color": "Grey",
+        "fuelType": "Gasoline",
+        "transmission": "Automatic",
+        "rampType": "fold_out",
+        "wavFeatures": ["hand_controls", "lowered_floor"],
+        "floorLoweringInches": 14,
+        "zip": "30301",
+        "dealerPhone": "(404) 555-1234",
+        "saleStatus": "active",
+        "images": [
+          "https://www.mobilityworks.com/images/van1.jpg",
+          "https://www.mobilityworks.com/images/van2.jpg"
+        ]
+      },
+      "notes": "Fuel Type comes from explicit 'Fuel Type' spec key. Engine displacement is not written to fuelType. hand_controls and lowered_floor detected from description."
+    },
+    {
+      "id": "mw-detail-002",
+      "description": "Description missing (descriptionFound: false) yields null description and no derived WAV features",
+      "tags": ["edge_case", "missing_description"],
+      "input": {
+        "specs": {
+          "Exterior Color": "White",
+          "Fuel Type": "Hybrid"
+        },
+        "descriptionText": "",
+        "descriptionFound": false,
+        "imageUrls": ["https://www.mobilityworks.com/images/van3.jpg"],
+        "galleryFound": true,
+        "dealerPhone": "(213) 555-0000",
+        "dealerAddressText": "500 Sunset Blvd Los Angeles CA 90028",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "description": null,
+        "rampType": "unknown",
+        "wavFeatures": [],
+        "floorLoweringInches": null,
+        "fuelType": "Hybrid",
+        "zip": "90028"
+      },
+      "notes": "descriptionFound: false prevents description and derived fields from being populated. fuelType still comes from explicit spec."
+    },
+    {
+      "id": "mw-detail-003",
+      "description": "In-floor ramp with multiple WAV features",
+      "tags": ["normal", "in_floor", "multiple_features"],
+      "input": {
+        "specs": {
+          "Exterior Color": "Red",
+          "Fuel Type": "Gasoline"
+        },
+        "descriptionText": "In-Floor ramp fully operational. Power ramp with lowered floor. Transfer seat included. Tie-down system installed.",
+        "descriptionFound": true,
+        "imageUrls": ["https://www.mobilityworks.com/images/van4.jpg"],
+        "galleryFound": true,
+        "dealerPhone": "(602) 555-3333",
+        "dealerAddressText": "1 Desert Rd Phoenix AZ 85003",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "rampType": "in_floor",
+        "wavFeatures": ["transfer_seat", "lowered_floor", "power_ramp", "tie_down_system"]
+      },
+      "notes": "Four WAV features extracted from description. Order may vary — test should check set equality not order."
+    },
+    {
+      "id": "mw-detail-004",
+      "description": "Sold vehicle sets saleStatus to sold",
+      "tags": ["edge_case", "sold"],
+      "input": {
+        "specs": {
+          "Exterior Color": "Blue"
+        },
+        "descriptionText": "Rear Entry fold out ramp.",
+        "descriptionFound": true,
+        "imageUrls": [],
+        "galleryFound": false,
+        "dealerPhone": "",
+        "dealerAddressText": "10 Broadway New York NY 10001",
+        "statusBannerText": "Sold"
+      },
+      "expected": {
+        "saleStatus": "sold",
+        "images": [],
+        "dealerPhone": null
+      },
+      "notes": "Sold banner detected via parseSaleStatus. Empty gallery produces empty images array."
+    },
+    {
+      "id": "mw-detail-005",
+      "description": "Engine spec is NOT mapped to fuelType",
+      "tags": ["edge_case", "fuel_type_separation"],
+      "input": {
+        "specs": {
+          "Exterior Color": "Black",
+          "Engine": "3.5L V6 DOHC"
+        },
+        "descriptionText": "In-floor ramp system.",
+        "descriptionFound": true,
+        "imageUrls": ["https://www.mobilityworks.com/images/van5.jpg"],
+        "galleryFound": true,
+        "dealerPhone": "(312) 555-4444",
+        "dealerAddressText": "200 Lake Shore Dr Chicago IL 60601",
+        "statusBannerText": ""
+      },
+      "expected": {
+        "fuelType": null
+      },
+      "notes": "Engine spec exists but Fuel Type spec does not. fuelType must be null — engine displacement must NOT be incorrectly mapped to fuelType."
+    }
+  ]
+}

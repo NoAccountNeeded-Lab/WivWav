@@ -1,0 +1,171 @@
+{
+  "$schema": "https://wivwav.internal/schemas/gold-dataset/v1",
+  "sourceId": "mobilityworks",
+  "parserVersion": 1,
+  "description": "Gold dataset for MobilityWorks card parser (parseCard). Cases cover normal listings, condition variants, title formats, conversion types, and edge cases.",
+  "evidenceRef": "https://www.mobilityworks.com/wheelchair-vans-for-sale/ — verified 2026-06-30 against live listing card structure",
+  "cases": [
+    {
+      "id": "mw-card-001",
+      "description": "Normal used rear-entry van — stock number is externalId and sourceRecordKey",
+      "tags": ["normal", "used", "rear_entry"],
+      "input": {
+        "href": "/wheelchair-vans-for-sale/2024-toyota-sienna-driverge-5TDYRKEC8RS205440/",
+        "title": "Used 2024 Toyota Sienna FWD XLE (New Conversion)",
+        "price": "$71,991",
+        "stock": "RS205440",
+        "mileage": "50094",
+        "color": "Grey",
+        "convMake": "Driverge",
+        "conversion": "Rear Entry Manual Fold Out",
+        "location": "North Las Vegas NV",
+        "imageUrl": "https://cdn.mobilityworks.com/vehicles/sienna-001.jpg"
+      },
+      "expected": {
+        "sourceId": "mobilityworks",
+        "make": "Toyota",
+        "model": "Sienna",
+        "year": 2024,
+        "trim": "FWD XLE",
+        "vin": "5TDYRKEC8RS205440",
+        "condition": "used",
+        "sellerType": "dealer",
+        "priceCents": 7199100,
+        "mileage": 50094,
+        "color": "Grey",
+        "wav": {
+          "conversionType": "rear_entry",
+          "conversionManufacturer": "Driverge",
+          "rampType": "fold_out"
+        },
+        "location": {
+          "city": "North Las Vegas",
+          "state": "NV"
+        },
+        "dealer": {
+          "name": "MobilityWorks"
+        }
+      },
+      "notes": "Parenthetical suffix '(New Conversion)' must be stripped from title before parsing year/make/model. Condition prefix 'Used' stripped before field extraction."
+    },
+    {
+      "id": "mw-card-002",
+      "description": "New vehicle sets condition to 'new'",
+      "tags": ["normal", "new"],
+      "input": {
+        "href": "/wheelchair-vans-for-sale/2025-chrysler-pacifica-vmi-2C4RDGBG0PR500000/",
+        "title": "New 2025 Chrysler Pacifica Touring-L",
+        "price": "$89,990",
+        "stock": "PR500000",
+        "mileage": "0",
+        "color": "Bright White",
+        "convMake": "VMI",
+        "conversion": "Side Entry In-Floor",
+        "location": "Columbus OH",
+        "imageUrl": "https://cdn.mobilityworks.com/vehicles/pacifica-001.jpg"
+      },
+      "expected": {
+        "make": "Chrysler",
+        "model": "Pacifica",
+        "year": 2025,
+        "condition": "new",
+        "wav": {
+          "conversionType": "side_entry",
+          "conversionManufacturer": "VMI"
+        }
+      },
+      "notes": "Condition prefix 'New' maps to 'new'. Side entry detected from conversion field."
+    },
+    {
+      "id": "mw-card-003",
+      "description": "URL slug without valid 17-char VIN returns null",
+      "tags": ["edge_case", "invalid_vin_slug"],
+      "input": {
+        "href": "/wheelchair-vans-for-sale/2022-honda-odyssey-braunability/",
+        "title": "Used 2022 Honda Odyssey EX-L",
+        "price": "$55,000",
+        "stock": "",
+        "mileage": "24000",
+        "color": "White",
+        "convMake": "BraunAbility",
+        "conversion": "Side Entry Fold Out",
+        "location": "Atlanta GA",
+        "imageUrl": "https://cdn.mobilityworks.com/vehicles/odyssey-001.jpg"
+      },
+      "expected": null,
+      "notes": "Last slug segment 'braunability' is not a 17-char alphanum string. parseCard must return null — no stable VIN identity available."
+    },
+    {
+      "id": "mw-card-004",
+      "description": "Call for Price returns null priceCents",
+      "tags": ["edge_case", "call_price"],
+      "input": {
+        "href": "/wheelchair-vans-for-sale/2023-chrysler-pacifica-eldorado-3C6LRVBG4PE522001/",
+        "title": "Used 2023 Chrysler Pacifica Limited",
+        "price": "Call for Price",
+        "stock": "PE522001",
+        "mileage": "11500",
+        "color": "Blue",
+        "convMake": "Eldorado",
+        "conversion": "Rear Entry In-Floor",
+        "location": "Dallas TX",
+        "imageUrl": "https://cdn.mobilityworks.com/vehicles/pacifica-002.jpg"
+      },
+      "expected": {
+        "priceCents": null,
+        "wav": {
+          "rampType": "in_floor"
+        }
+      },
+      "notes": "Call for Price must yield null priceCents. in_floor ramp detected."
+    },
+    {
+      "id": "mw-card-005",
+      "description": "Location without comma still parses city and state",
+      "tags": ["normal", "location_parsing"],
+      "input": {
+        "href": "/wheelchair-vans-for-sale/2022-dodge-grand-caravan-vmi-2C4RDGBG4NR504000/",
+        "title": "Used 2022 Dodge Grand Caravan SE",
+        "price": "$39,995",
+        "stock": "NR504000",
+        "mileage": "36000",
+        "color": "Black",
+        "convMake": "VMI",
+        "conversion": "Side Entry Fold In",
+        "location": "Seattle WA",
+        "imageUrl": "https://cdn.mobilityworks.com/vehicles/caravan-001.jpg"
+      },
+      "expected": {
+        "location": {
+          "city": "Seattle",
+          "state": "WA"
+        },
+        "wav": {
+          "rampType": "fold_in"
+        }
+      },
+      "notes": "Location format 'City ST' (no comma) is MobilityWorks standard. Parser must handle it. fold_in ramp detected."
+    },
+    {
+      "id": "mw-card-006",
+      "description": "Certified Pre-Owned sets condition to 'used' (CPO maps to used)",
+      "tags": ["edge_case", "cpo"],
+      "input": {
+        "href": "/wheelchair-vans-for-sale/2021-toyota-sienna-eldorado-5TDYZ3DC4MS044000/",
+        "title": "Certified Pre-Owned 2021 Toyota Sienna XSE Premium",
+        "price": "$62,500",
+        "stock": "MS044000",
+        "mileage": "28000",
+        "color": "Silver",
+        "convMake": "Eldorado",
+        "conversion": "Side Entry Manual Fold Out",
+        "location": "Minneapolis MN",
+        "imageUrl": "https://cdn.mobilityworks.com/vehicles/sienna-002.jpg"
+      },
+      "expected": {
+        "condition": "used"
+      },
+      "notes": "CPO prefix maps to 'used' — there is no certified_pre_owned condition emitted by the MobilityWorks card parser (that enum value is available but not used here)."
+    }
+  ]
+}
