@@ -22,7 +22,7 @@ describe('loadConfig', () => {
     expect(config.MEILISEARCH_API_KEY).toBe(REQUIRED_ENV.MEILISEARCH_API_KEY)
     // NODE_ENV defaults to 'development' but the test runner sets it to 'test'
     expect(['development', 'test']).toContain(config.NODE_ENV)
-    expect(config.PORT).toBe(3003)
+    expect(config.PORT).toBe(3001)
   })
 
   it('throws when DATABASE_URL is missing', () => {
