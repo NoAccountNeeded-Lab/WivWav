@@ -5,6 +5,7 @@ import {
   classifyReuseContext,
   PLACEHOLDER_LISTING_THRESHOLD,
   type AnalyzerImage,
+  type ClusterRecord,
 } from './image-integrity-analyzer.js'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -234,7 +235,7 @@ describe('heroEligibleImages', () => {
       { id: 'a', kind: 'vehicle_photo' as const, clusterId: null },
       { id: 'b', kind: 'vehicle_photo' as const, clusterId: 'cluster-safe' },
     ]
-    const clusters = [
+    const clusters: ClusterRecord[] = [
       { id: 'cluster-safe', clusterType: 'exact', representativeHash: 'h', listingCount: 2,
         sourceCount: 1, vehicleCount: 1, crossVehicle: false, isPlaceholder: false,
         reasonCode: null, memberIds: ['b'] },
@@ -248,7 +249,7 @@ describe('heroEligibleImages', () => {
       { id: 'good', kind: 'vehicle_photo' as const, clusterId: null },
       { id: 'bad', kind: 'vehicle_photo' as const, clusterId: 'cross-cluster' },
     ]
-    const clusters = [
+    const clusters: ClusterRecord[] = [
       { id: 'cross-cluster', clusterType: 'exact', representativeHash: 'h', listingCount: 3,
         sourceCount: 2, vehicleCount: 2, crossVehicle: true, isPlaceholder: false,
         reasonCode: 'cross vehicle', memberIds: ['bad'] },
