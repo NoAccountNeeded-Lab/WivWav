@@ -63,6 +63,13 @@ The CLI (`pnpm wivwav run-sprint`) is the single owner of branch and worktree cr
    - Add `performance.md` if `apps/api/`, `apps/scraper/`, `packages/db/`, or `packages/queue/` changed
    - Add `docs-accuracy.md` if `apps/api/src/routes/` or `.md` files changed
 
+   **CRITICAL — the reviewer call MUST be foreground/blocking. Do NOT use `run_in_background: true`.**
+   A backgrounded reviewer's completion notification surfaces to whichever session is actively
+   listening — not back to the worker once the worker's own turn has ended. This causes the worker
+   to stall waiting for a result that will never arrive in its session, requiring orchestrator
+   intervention to relay the verdict.
+   Anti-pattern to avoid: `Agent({ ..., run_in_background: true })` — this will deadlock the review step.
+
    Prompt template:
    ```
    Read role files: [list]
