@@ -36,10 +36,11 @@ vi.mock('sharp', () => {
     greyscale: vi.fn().mockReturnThis(),
     raw: vi.fn().mockReturnThis(),
     toBuffer: vi.fn().mockResolvedValue(
-      // 9x8 = 72 bytes. Alternating 200/100 so every left > right in a row.
-      // Each row: 200,100,200,100,200,100,200,100,200  → all 8 bits = 1.
+      // 9x8 = 72 bytes. Each row is strictly decreasing (200,199,...,192) so
+      // every adjacent pair has left > right → all 64 comparison bits = 1.
+      // Pattern resets per row using (i % 9): 200 - (i % 9).
       // 8 rows of all-1s → pHash = 0xffffffffffffffff.
-      Buffer.from(Array.from({ length: 72 }, (_, i) => (i % 2 === 0 ? 200 : 100))),
+      Buffer.from(Array.from({ length: 72 }, (_, i) => 200 - (i % 9))),
     ),
   }))
   return { default: mockSharp }
