@@ -308,6 +308,7 @@ describe('GET /:id — provenance', () => {
       buyerUrl: 'https://dealer.example.com/buy/1',
       detailScrapedAt: '2024-01-03T00:00:00.000Z',
       vehicleModelMatchConfidence: 'high',
+      qualityCheckedAt: '2024-01-02T00:00:00.000Z',
     })
 
     await app.close()
@@ -372,7 +373,8 @@ describe('GET /:id — provenance', () => {
   })
 
   it('returns null for optional provenance fields when absent', async () => {
-    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => defaultDbListing) })
+    const listing = { ...defaultDbListing, qualityCheckedAt: null }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
 
     const res = await app.inject({ method: 'GET', url: '/listing-1' })
 
@@ -385,6 +387,7 @@ describe('GET /:id — provenance', () => {
       buyerUrl: null,
       detailScrapedAt: null,
       vehicleModelMatchConfidence: null,
+      qualityCheckedAt: null,
     })
 
     await app.close()
