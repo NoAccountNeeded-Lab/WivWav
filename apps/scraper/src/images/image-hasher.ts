@@ -212,8 +212,8 @@ export function hammingDistance(hashA: string, hashB: string): number {
   if (hashA.length !== 16 || hashB.length !== 16) {
     throw new Error(`dHash values must be 16-char hex strings; got ${hashA.length} and ${hashB.length}`)
   }
-  let a = BigInt('0x' + hashA)
-  let b = BigInt('0x' + hashB)
+  const a = BigInt('0x' + hashA)
+  const b = BigInt('0x' + hashB)
   let xor = a ^ b
   let dist = 0
   while (xor > BigInt(0)) {
