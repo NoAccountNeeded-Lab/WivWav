@@ -11,7 +11,7 @@ describe('fetchWithTimeout', () => {
 
   it('forwards request options and returns the response', async () => {
     const fakeResponse = new Response(JSON.stringify({ ok: true }), { status: 200 })
-    globalThis.fetch = vi.fn(async (_url, init) => fakeResponse) as typeof globalThis.fetch
+    globalThis.fetch = vi.fn(async (_url, _init) => fakeResponse) as typeof globalThis.fetch
 
     const res = await fetchWithTimeout('http://example.com/test', { method: 'POST' }, 1000)
 
