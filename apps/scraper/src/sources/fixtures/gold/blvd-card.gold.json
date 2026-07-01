@@ -1,0 +1,230 @@
+{
+  "$schema": "https://wivwav.internal/schemas/gold-dataset/v1",
+  "sourceId": "blvd",
+  "parserVersion": 1,
+  "description": "Gold dataset for blvd card parser (parseCard). Each case pairs raw card HTML fields with expected parsed output. Cases cover normal listings, edge cases, and known problem patterns. VINs are 17-char, contain no I/O/Q. hrefs use /wheelchair-vans/<slug>/<VIN> format (no trailing slash) — the VIN is the last path segment.",
+  "evidenceRef": "https://www.blvd.com/wheelchair-vans-for-sale — verified 2026-06-30 against live listing structure and blvd.test.ts validCard patterns",
+  "cases": [
+    {
+      "id": "blvd-card-001",
+      "description": "Normal rear-entry used van with valid VIN and dealer seller",
+      "tags": ["normal", "used", "rear_entry", "valid_vin"],
+      "input": {
+        "href": "/wheelchair-vans/mobilityworks-north-las-vegas-nv/5TDYRKEC8RS205440",
+        "fullTitle": "2024 Toyota Sienna XLE",
+        "conversion": "Driverge Flex Maxx Rear Entry Wheelchair Van Conversion",
+        "condition": "Used",
+        "miles": "12,500",
+        "price": "$71,991",
+        "seller": "MobilityWorks",
+        "location": "North Las Vegas, NV",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2024-sienna-001.jpg",
+        "dataId": "159531"
+      },
+      "expected": {
+        "sourceId": "blvd",
+        "make": "Toyota",
+        "model": "Sienna",
+        "year": 2024,
+        "trim": "XLE",
+        "vin": "5TDYRKEC8RS205440",
+        "condition": "used",
+        "sellerType": "dealer",
+        "priceCents": 7199100,
+        "mileage": 12500,
+        "wav": {
+          "conversionType": "rear_entry",
+          "conversionManufacturer": "Driverge"
+        },
+        "location": {
+          "city": "North Las Vegas",
+          "state": "NV"
+        }
+      },
+      "notes": "VIN 5TDYRKEC8RS205440 has valid check digit. externalId from dataId attribute. conversionManufacturer extracted as first word after stripping WAV suffix. qualityIssueCodes is absent (not an empty array) when there are no issues."
+    },
+    {
+      "id": "blvd-card-002",
+      "description": "Private seller (FSBO) listing marked as private",
+      "tags": ["normal", "private_seller", "fsbo"],
+      "input": {
+        "href": "/wheelchair-vans/private-seller-austin-tx/5TDYRKEC8RS205440",
+        "fullTitle": "2020 Honda Odyssey EX-L",
+        "conversion": "BraunAbility Entervan Side Entry Conversion",
+        "condition": "Used",
+        "miles": "45,000",
+        "price": "$38,500",
+        "seller": "For Sale By Owner",
+        "location": "Austin, TX",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2020-odyssey-001.jpg",
+        "dataId": ""
+      },
+      "expected": {
+        "sellerType": "private",
+        "wav": {
+          "conversionType": "side_entry",
+          "conversionManufacturer": "BraunAbility"
+        },
+        "location": {
+          "city": "Austin",
+          "state": "TX"
+        }
+      },
+      "notes": "FSBO seller string must be matched case-insensitively. sellerType must be 'private'."
+    },
+    {
+      "id": "blvd-card-003",
+      "description": "New vehicle listing sets condition to 'new'",
+      "tags": ["normal", "new"],
+      "input": {
+        "href": "/wheelchair-vans/midwest-mobility-chicago-il/5TDYRKEC8RS205440",
+        "fullTitle": "2025 Chrysler Pacifica Touring",
+        "conversion": "VMI Northstar In-Floor Ramp Conversion",
+        "condition": "New",
+        "miles": "",
+        "price": "$84,995",
+        "seller": "Midwest Mobility",
+        "location": "Chicago, IL",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2025-pacifica-001.jpg",
+        "dataId": ""
+      },
+      "expected": {
+        "make": "Chrysler",
+        "model": "Pacifica",
+        "year": 2025,
+        "condition": "new",
+        "mileage": null,
+        "wav": {
+          "conversionManufacturer": "VMI"
+        }
+      },
+      "notes": "Condition 'New' must map to listing condition 'new'. Missing mileage must be null not 0."
+    },
+    {
+      "id": "blvd-card-004",
+      "description": "VIN with bad check digit gets invalid_check_digit quality code but VIN is retained",
+      "tags": ["edge_case", "invalid_check_digit"],
+      "input": {
+        "href": "/wheelchair-vans/dealer-denver-co/5TDYRKEC1RS205440",
+        "fullTitle": "2022 Toyota Sienna LE",
+        "conversion": "Rear Entry Wheelchair Van Conversion",
+        "condition": "Used",
+        "miles": "30,000",
+        "price": "$65,000",
+        "seller": "Dealer XYZ",
+        "location": "Denver, CO",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2022-sienna-001.jpg",
+        "dataId": ""
+      },
+      "expected": {
+        "vin": "5TDYRKEC1RS205440",
+        "qualityIssueCodes": ["invalid_check_digit"]
+      },
+      "notes": "VIN 5TDYRKEC1RS205440 has 17 chars and no I/O/Q but check digit '1' is wrong (correct would be '8'). Retain VIN value, add quality code."
+    },
+    {
+      "id": "blvd-card-005",
+      "description": "Short VIN segment (not 17 chars) produces null vin with unparseable_vin code",
+      "tags": ["edge_case", "unparseable_vin"],
+      "input": {
+        "href": "/wheelchair-vans/mobility-depot-seattle-wa/abc123",
+        "fullTitle": "2021 Ford Transit Connect",
+        "conversion": "Rear Entry Conversion",
+        "condition": "Used",
+        "miles": "22,000",
+        "price": "$42,000",
+        "seller": "Mobility Depot",
+        "location": "Seattle, WA",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2021-transit-001.jpg",
+        "dataId": ""
+      },
+      "expected": {
+        "vin": null,
+        "qualityIssueCodes": ["unparseable_vin"]
+      },
+      "notes": "Segment 'abc123' is only 6 chars. vin must be null. unparseable_vin quality code added."
+    },
+    {
+      "id": "blvd-card-006",
+      "description": "Call price returns null priceCents",
+      "tags": ["edge_case", "call_price"],
+      "input": {
+        "href": "/wheelchair-vans/premium-mobility-phoenix-az/5TDYRKEC8RS205440",
+        "fullTitle": "2023 Toyota Sienna SE",
+        "conversion": "BraunAbility Rear Entry Conversion",
+        "condition": "Used",
+        "miles": "5,000",
+        "price": "Call",
+        "seller": "Premium Mobility",
+        "location": "Phoenix, AZ",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2023-sienna-001.jpg",
+        "dataId": ""
+      },
+      "expected": {
+        "priceCents": null
+      },
+      "notes": "Call price must not be converted to 0. null is the correct representation of unknown price."
+    },
+    {
+      "id": "blvd-card-007",
+      "description": "Empty href returns null (no identity for the listing)",
+      "tags": ["edge_case", "missing_href"],
+      "input": {
+        "href": "",
+        "fullTitle": "2022 Toyota Sienna LE",
+        "conversion": "Rear Entry Conversion",
+        "condition": "Used",
+        "miles": "10,000",
+        "price": "$55,000",
+        "seller": "Dealer",
+        "location": "Atlanta, GA",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2022-sienna-001.jpg",
+        "dataId": ""
+      },
+      "expected": null,
+      "notes": "Missing href means no source URL can be derived. parseCard must return null."
+    },
+    {
+      "id": "blvd-card-008",
+      "description": "Missing condition selector returns null (cannot fabricate condition)",
+      "tags": ["edge_case", "missing_condition"],
+      "input": {
+        "href": "/wheelchair-vans/dealer-atlanta-ga/5TDYRKEC8RS205440",
+        "fullTitle": "2022 Toyota Sienna LE",
+        "conversion": "Rear Entry Conversion",
+        "condition": "",
+        "miles": "10,000",
+        "price": "$55,000",
+        "seller": "Dealer",
+        "location": "Atlanta, GA",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2022-sienna-001.jpg",
+        "dataId": ""
+      },
+      "expected": null,
+      "notes": "Empty condition means the DOM element was absent. Fabricating 'used' would be wrong. parseCard must return null."
+    },
+    {
+      "id": "blvd-card-009",
+      "description": "Unknown conversion type sets conversionType to unknown",
+      "tags": ["normal", "unknown_conversion"],
+      "input": {
+        "href": "/wheelchair-vans/local-mobility-tampa-fl/5TDYRKEC8RS205440",
+        "fullTitle": "2021 Dodge Grand Caravan SE",
+        "conversion": "Wheelchair Accessible Van",
+        "condition": "Used",
+        "miles": "38,000",
+        "price": "$35,000",
+        "seller": "Local Mobility",
+        "location": "Tampa, FL",
+        "imageUrl": "https://cdn.blvd.com/vehicles/2021-caravan-001.jpg",
+        "dataId": ""
+      },
+      "expected": {
+        "wav": {
+          "conversionType": "unknown"
+        }
+      },
+      "notes": "Conversion text 'Wheelchair Accessible Van' does not indicate rear or side entry. conversionType must be 'unknown' not null."
+    }
+  ]
+}
