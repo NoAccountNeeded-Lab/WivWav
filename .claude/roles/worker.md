@@ -20,7 +20,7 @@ output_contract: "Success: commit SHA and PR URL; failure: reason and status:stu
 7. Implement per `.claude/core.md`; read `.claude/roles/tester.md`; add tests with each behavior.
 8. Commit each logical behavior; relevant checks must pass; include required attribution trailers.
 9. After the first commit: push; open a draft PR; comment its URL; do not push again before finish.
-10. Run one foreground/blocking reviewer; never use `run_in_background: true`.
+10. Run one foreground/blocking reviewer; never use `run_in_background: true` (the worker exits before the reviewer finishes, leaving findings unread and unresolved).
 11. Always include `reviewer.md` and `qa.md`; add `accessibility.md` for `apps/web`; add `performance.md` for API, scraper, DB, queue, or search; add `docs-accuracy.md` for routes or Markdown.
 12. Supply issue acceptance criteria, worktree root, and `git diff origin/main`; require `REVISION_NEEDED: yes|no`.
 13. Apply all findings. If the reviewer fails to return, record the failure and use the test suite as fallback.
