@@ -248,11 +248,16 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
   // 8. Build PR body
   const acceptanceEvidence = buildAcceptanceEvidence(issue.body)
   const today = new Date().toISOString().slice(0, 10)
-  const role = opts.agentRole ?? 'worker'
-  const index = opts.agentIndex ?? 1
+  const attributionHeader =
+    opts.agentRole !== undefined
+      ? `🤖 **${opts.agentRole}[${opts.agentIndex ?? 1}]** · \`wivwav-finish\` · ${today}`
+      : null
+  const testsLine = opts.skipValidation
+    ? '_Validation skipped (`--skip-validation`)._'
+    : 'pnpm typecheck && pnpm lint && pnpm build && pnpm test'
   const prBody = [
     closesIssue ? `Fixes #${issueNumber}` : `Refs #${issueNumber}`,
-    `🤖 **${role}[${index}]** · \`wivwav-finish\` · ${today}`,
+    ...(attributionHeader !== null ? [attributionHeader] : []),
     '',
     '## Summary',
     description,
@@ -261,7 +266,7 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
     acceptanceEvidence,
     '',
     '## Tests',
-    'pnpm typecheck && pnpm lint && pnpm build && pnpm test',
+    testsLine,
     '',
     '## Risk level',
     '- [x] Low / [ ] Medium / [ ] High',
