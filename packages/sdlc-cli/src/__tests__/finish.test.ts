@@ -321,8 +321,36 @@ describe('finishCommand — happy path', () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     await finishCommand(304, { skipValidation: true })
 
-    const body = String(mockCreateDraftPr.mock.calls[0]?.[0]?.body)
-    expect(body).toMatch(/^Fixes #304\n🤖 \*\*worker\[1\]\*\* · `wivwav-finish` · \d{4}-\d{2}-\d{2}/)
+    // No agentRole provided — no attribution header; Fixes #N must still be first line.
+    expect(mockCreateDraftPr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringMatching(/^Fixes #304\n\n## Summary/),
+      }),
+    )
+  })
+
+  it('includes attribution header when agentRole is provided', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true, agentRole: 'worker', agentIndex: 1 })
+
+    expect(mockCreateDraftPr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringMatching(
+          /^Fixes #304\n🤖 \*\*worker\[1\]\*\* · `wivwav-finish` · \d{4}-\d{2}-\d{2}/,
+        ),
+      }),
+    )
+  })
+
+  it('notes skipped validation in the Tests section', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await finishCommand(304, { skipValidation: true })
+
+    expect(mockCreateDraftPr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Validation skipped'),
+      }),
+    )
   })
 
   it('uses non-closing references only when refs mode is requested', async () => {
