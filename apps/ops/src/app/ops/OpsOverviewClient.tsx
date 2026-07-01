@@ -42,7 +42,7 @@ import {
 import { CopyButton } from '@/components/CopyButton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
-import { ScrapeRunChart, QueueDepthChart, type ScrapeRunPoint, type QueueDepthPoint } from '@/components/SparklineChart'
+import { ScrapeRunChart, type ScrapeRunPoint } from '@/components/SparklineChart'
 
 interface OpsOverviewClientProps {
   apiBaseUrl: string
@@ -113,8 +113,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Ring buffers — accumulate samples across 30-second polling cycles
-  const [queueDepthSeries, setQueueDepthSeries] = useState<Record<string, QueueDepthPoint[]>>({})
+  // Ring buffer — accumulate samples across 30-second polling cycles
   // We track the run IDs we've already added to the scrape run chart to avoid duplicates
   const seenRunIdsRef = useRef<Set<string>>(new Set())
   const [scrapeRunPoints, setScrapeRunPoints] = useState<ScrapeRunPoint[]>([])
@@ -129,25 +128,6 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       fetchData<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`),
     ])
     const now = new Date()
-
-    // Update queue depth ring buffer — one sample per queue per poll
-    if (queues.data) {
-      const ts = now.getTime()
-      setQueueDepthSeries(prev => {
-        const next: Record<string, QueueDepthPoint[]> = {}
-        for (const q of queues.data!) {
-          const existing = prev[q.name] ?? []
-          const point: QueueDepthPoint = {
-            timestamp: ts,
-            depth: q.stats.waiting + q.stats.active + q.stats.delayed,
-            failed: q.stats.failed,
-          }
-          const updated = [...existing, point]
-          next[q.name] = updated.length > RING_BUFFER_SIZE ? updated.slice(-RING_BUFFER_SIZE) : updated
-        }
-        return next
-      })
-    }
 
     // Update scrape run list — add only runs not yet seen, preserving order
     if (runs.data) {
@@ -267,24 +247,6 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           </div>
           {overview.healthCards.map(card => (
             <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
-          ))}
-
-          {/* ── Queue depth charts ──────────────────────────────────── */}
-          {Object.entries(queueDepthSeries).map(([queueName, series]) => (
-            <div key={queueName} className={`${styles.bentoCard} ${styles.chartCard} ${styles.span2}`}>
-              <div className={styles.chartCardHeader}>
-                <Layers size={12} />
-                <span>{queueName}</span>
-                <span className={styles.chartHint}>depth over time · — pending · ╌ failed</span>
-              </div>
-              <div className={styles.chartCardBody}>
-                <QueueDepthChart
-                  series={series}
-                  queueName={queueName}
-                  ariaLabel={`Line chart of ${queueName} queue depth over recent polling cycles; solid line is pending jobs, dashed line is failed jobs`}
-                />
-              </div>
-            </div>
           ))}
 
           {/* ── Section: Listing Freshness ────────────────────────────── */}

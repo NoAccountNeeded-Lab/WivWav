@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { SCHEDULE_RUNBOOK_IDS } from '../runbooks'
+import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
 
 interface ScheduleEntry {
   id: string
@@ -53,14 +54,18 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/repeatables`, { cache: 'no-store' })
+      const res = await fetchWithTimeout(`${apiBaseUrl}/admin/repeatables`, { cache: 'no-store' }, 10_000)
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: ScheduleEntry[] }
       setSchedules(body.data)
       setError(null)
       setUpdatedAt(new Date())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load schedules')
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out while loading schedules')
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load schedules')
+      }
     } finally {
       setIsRefreshing(false)
     }
