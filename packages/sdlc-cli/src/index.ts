@@ -25,7 +25,7 @@ Commands:
   start <issue>     Start an issue: verify, label, branch, post check-in comment
   review [issue]    Review changed files: run checks, produce checklist review packet
   finish <issue>    Finish an issue: validate, commit, push, open draft PR
-  run-sprint [issue] Prepare sprint worker worktrees for ready issues
+  run-sprint [issue] Prepare one sprint worker worktree (one issue per invocation)
 
 Options (all commands):
   --dry-run         Print actions without executing them
@@ -182,6 +182,19 @@ async function main(): Promise<void> {
       }
 
       case 'run-sprint': {
+        // Guard against extra positional args that would be silently dropped.
+        // `run-sprint` accepts at most one explicit issue number. If the caller
+        // passes multiple (e.g. `run-sprint --parallel 2 527 528`), fail fast
+        // rather than silently discarding the extras.
+        if (args.length > 1) {
+          throw new CliError(
+            `run-sprint accepts at most one explicit issue number, but got: ${args.join(', ')}.\n` +
+            `To run multiple issues in parallel, use --parallel <n> without listing issue numbers:\n` +
+            `  pnpm wivwav run-sprint --parallel ${args.length}\n` +
+            `Or run each issue separately:\n` +
+            args.map((n) => `  pnpm wivwav run-sprint ${n}`).join('\n'),
+          )
+        }
         const issueRaw = args[0] !== undefined ? parseInt(args[0], 10) : undefined
         const opts: RunSprintOptions = { dryRun: boolFlag(flags, 'dry-run') }
         if (issueRaw !== undefined && !isNaN(issueRaw)) opts.issueNumber = issueRaw

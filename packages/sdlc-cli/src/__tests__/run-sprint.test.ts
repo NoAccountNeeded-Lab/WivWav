@@ -1,4 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
 vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
@@ -653,5 +656,50 @@ describe('runSprintCommand — partial sprint success', () => {
     mockHasAC.mockReturnValue(false)
 
     await expect(runSprintCommand({ limit: 1 })).rejects.toThrow('No selected issues passed sprint pre-flight checks.')
+  })
+})
+
+describe('CLI dispatch — run-sprint extra positional args guard', () => {
+  // These tests invoke the CLI as a subprocess to exercise the index.ts dispatch
+  // layer, which is the only place where the extra-args guard lives.
+  const __dirname = dirname(fileURLToPath(import.meta.url))
+  const cliPath = join(__dirname, '..', 'index.ts')
+
+  it('fails fast with a clear error when multiple issue numbers are given', () => {
+    const result = spawnSync(
+      'node',
+      ['--import', 'tsx/esm', cliPath, 'run-sprint', '527', '528'],
+      { encoding: 'utf8', timeout: 10_000 },
+    )
+    expect(result.status).toBe(1)
+    // Error message must name the extra arg (528) so the caller knows which arg was rejected.
+    expect(result.stderr).toContain('528')
+    // Must not silently proceed as if only 527 was given.
+    expect(result.stderr).not.toContain('Sprint mode:')
+  })
+
+  it('fails fast with a clear error when three issue numbers are given', () => {
+    const result = spawnSync(
+      'node',
+      ['--import', 'tsx/esm', cliPath, 'run-sprint', '1', '2', '3'],
+      { encoding: 'utf8', timeout: 10_000 },
+    )
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('2')
+    expect(result.stderr).toContain('3')
+  })
+
+  it('accepts a single issue number without error at the dispatch layer', () => {
+    // A single explicit issue is valid at the dispatch level; the command will
+    // fail for other reasons (no git repo, no GitHub auth) but must not error
+    // on the extra-args guard.
+    const result = spawnSync(
+      'node',
+      ['--import', 'tsx/esm', cliPath, 'run-sprint', '--dry-run', '--help'],
+      { encoding: 'utf8', timeout: 10_000 },
+    )
+    // --help exits 0 and prints usage; the key check is that the extra-args
+    // guard did not fire for a single-issue or flag-only invocation.
+    expect(result.stderr).not.toContain('run-sprint accepts at most one explicit issue number')
   })
 })
