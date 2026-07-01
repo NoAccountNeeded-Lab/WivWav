@@ -247,20 +247,30 @@ export async function finishCommand(issueNumber: number, opts: FinishOptions = {
 
   // 8. Build PR body
   const acceptanceEvidence = buildAcceptanceEvidence(issue.body)
+  const today = new Date().toISOString().slice(0, 10)
+  const role = opts.agentRole ?? 'worker'
+  const index = opts.agentIndex ?? 1
   const prBody = [
+    closesIssue ? `Fixes #${issueNumber}` : `Refs #${issueNumber}`,
+    `🤖 **${role}[${index}]** · \`wivwav-finish\` · ${today}`,
+    '',
     '## Summary',
     description,
     '',
-    closesIssue ? `Closes #${issueNumber}` : `Refs #${issueNumber}`,
-    '',
     '## Acceptance Evidence',
     acceptanceEvidence,
+    '',
+    '## Tests',
+    'pnpm typecheck && pnpm lint && pnpm build && pnpm test',
     '',
     '## Risk level',
     '- [x] Low / [ ] Medium / [ ] High',
     '',
     '## QA Notes',
     '_What a human reviewer should manually verify before approving._',
+    '',
+    '## Deployment',
+    '_Release notes, rollback, and smoke checks; or not applicable._',
   ].join('\n')
 
   // 9. Open draft PR if none exists, otherwise update the existing PR body

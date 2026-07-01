@@ -116,6 +116,7 @@ vi.mock('../lib/github.js', () => ({
 vi.mock('../lib/git.js', () => ({
   run: vi.fn(),
   isDirty: vi.fn(() => false),
+  repoRoot: vi.fn(() => '/repo'),
 }))
 
 vi.mock('../lib/validation.js', () => ({
@@ -140,6 +141,7 @@ const mockEditIssueLabels = githubMod.editIssueLabels as ReturnType<typeof vi.fn
 const mockPostComment = githubMod.postComment as ReturnType<typeof vi.fn>
 const mockRun = gitMod.run as ReturnType<typeof vi.fn>
 const mockIsDirty = gitMod.isDirty as ReturnType<typeof vi.fn>
+const mockRepoRoot = gitMod.repoRoot as ReturnType<typeof vi.fn>
 const mockValidateIssue = validationMod.validateIssueForStart as ReturnType<typeof vi.fn>
 const mockValidateBranch = validationMod.validateBranchName as ReturnType<typeof vi.fn>
 const mockMergeResults = validationMod.mergeResults as ReturnType<typeof vi.fn>
@@ -160,6 +162,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockFetchIssue.mockReturnValue(makeIssue())
   mockIsDirty.mockReturnValue(false)
+  mockRepoRoot.mockReturnValue('/repo')
   mockRun.mockReturnValue('')
   mockValidateIssue.mockReturnValue({ ok: true, errors: [], warnings: [] })
   mockValidateBranch.mockReturnValue({ ok: true, errors: [], warnings: [] })
@@ -240,14 +243,14 @@ describe('startCommand — happy path', () => {
     expect(mockPostComment).toHaveBeenCalledWith(42, expect.stringContaining('Starting work on issue #42'))
   })
 
-  it('writes context artifacts to the current directory after branch creation', async () => {
+  it('writes context artifacts to the repository root after branch creation', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     await startCommand(42)
 
     // Artifacts must be written; look for issue-context.md
     expect(
       mockWriteFileSync.mock.calls.some(([path]) =>
-        String(path).endsWith('.agents/issue-context.md'),
+        String(path) === '/repo/.agents/issue-context.md',
       ),
     ).toBe(true)
   })

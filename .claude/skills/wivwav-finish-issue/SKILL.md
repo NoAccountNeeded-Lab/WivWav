@@ -1,55 +1,37 @@
 ---
-description: Finish a WivWav issue by validating changes, committing with the project format, pushing the branch, and opening a draft PR. Use when implementation work is complete and the user asks to finish, wrap up, ship, commit, push, or open a PR.
+description: Validate, commit, push, and open or update a draft PR for a completed issue
 argument-hint: "[issue-number]"
 ---
 
-# Finish Issue
+# Finish issue
 
-Use this skill only when the user explicitly asks to finish the current issue or invokes `/wivwav-finish-issue`.
+Use only when explicitly asked to finish, ship, commit, push, open a PR, or invoke `/wivwav-finish-issue`.
+Never commit, push, or open a PR after failed validation.
 
-Do not commit, push, or open a PR if validation fails.
+1. Reject `main`, `master`, or detached `HEAD`.
+2. Resolve issue number from `$ARGUMENTS`, branch, or request.
+3. Inspect `git status --short` and `git diff --stat`.
+4. For `apps/web`, read `docs/BRAND.md`; add accessibility QA evidence.
+5. For `apps/api/src/routes`, verify and stage `docs/api-routes.md` when routes changed.
+6. Run from repository root:
 
-1. Confirm the current branch is not `main`, `master`, or detached `HEAD`.
-2. Identify the issue number from `$ARGUMENTS`, the branch name, or the user's request.
-3. Inspect `git status --short` and `git diff --stat` to understand the pending changes.
-4. If files under `apps/web` changed, read `docs/BRAND.md` now (if not already read this session) and include accessibility QA notes in the PR body.
-5. If files under `apps/api/src/routes/` changed, verify the API routes table in `AGENTS.md` is current and stage it if it changed.
-6. Run final validation from the repository root:
-   ```bash
-   pnpm typecheck && pnpm lint && pnpm build
-   lockf -k /tmp/wivwav-test.lock pnpm test   # macOS
-   flock /tmp/wivwav-test.lock pnpm test       # Linux
-   ```
-   `typecheck`, `lint`, and `build` run unwrapped. The test lockfile serializes runs across worktrees to prevent conflicts on shared infrastructure (PostgreSQL, Meilisearch, Valkey).
-7. If validation fails, stop. Report the failure and do not commit.
-8. Stage only relevant files for this issue. Do not stage `.env` files, generated caches, unrelated work, or dirty files outside the issue scope.
-9. Commit using the required format:
-   - `type(scope): description (fixes #N)` for completed issue work
-   - Use `refs #N` only for intentionally partial work that should leave the issue open
-   - Note: the commit-message keyword does **not** auto-close the issue — `main` uses a merge queue, which lands the squash commit via a temporary branch and bypasses GitHub's commit-keyword close scan. The actual close comes from the `Fixes #N` line in the PR body (step 11). Keep the keyword here anyway for human-readable history.
-   - If Agent-Role, Agent-Index, and Sprint-Run are available in your context (you were spawned as a worker), add git trailers:
-     ```bash
-     git commit -m "type(scope): description (fixes #N)" \
-       --trailer "Agent-Role: {role}" \
-       --trailer "Agent-Index: {index}" \
-       --trailer "Sprint-Run: {sprint-run-id}" \
-       --trailer "Co-Authored-By: {AI model name and version} <noreply@{provider}.com>"
-     ```
-     Use the Co-Authored-By value for your own AI model and provider — see `.claude/core.md` Attribution for the format and examples.
-   - If running interactively (no agent context), use the standard commit without trailers.
-10. Push the branch.
-11. Open a draft PR linked to the issue. The PR **body** must begin with a `Fixes #N` line (use `Refs #N` for intentionally partial work) — this is the only reliable way the merge queue closes the issue on merge; a closing keyword in the PR title or commit message alone will not close it. Then fill the PR template with:
-   - summary
-   - tests run
-   - accessibility notes for user-facing changes
-   - QA notes
-   - deployment impact, rollback plan, and smoke checks when relevant
-12. Transition the issue label:
-   ```bash
-   gh issue edit {N} --add-label status:needs-review --remove-label status:in-progress
-   ```
-13. Report the commit SHA, PR URL, and validation commands that passed.
-14. Tell the user what to do next:
-    - "The draft PR is open and the issue is labeled `status:needs-review`. Review the diff on GitHub and mark it ready when satisfied."
-    - "When the PR is approved, merge it with `gh pr merge {N} --auto` — `main` is a merge-queue-protected branch, so the queue runs final checks, picks the merge strategy, and deletes the remote branch itself."
-    - If there were accessibility or QA notes in the PR body, remind the user of any manual smoke checks that need human verification before merge.
+```bash
+pnpm typecheck && pnpm lint && pnpm build
+lockf -k /tmp/wivwav-test.lock pnpm test
+```
+
+On Linux, replace the test command with:
+
+```bash
+flock /tmp/wivwav-test.lock pnpm test
+```
+
+7. On failure: stop; report; do not commit.
+8. Stage only issue files; exclude `.env`, caches, unrelated work, and unrelated dirty files.
+9. Commit completed work as `type(scope): description (fixes #N)`; use `refs #N` only for intentionally partial work.
+10. Every agent commit requires `Co-Authored-By`; add `Agent-Role`, `Agent-Index`, and `Sprint-Run` when available.
+11. Push the branch.
+12. Open or update a draft PR. First line: `Fixes #N`, or `Refs #N` for partial work. Then include attribution, summary, acceptance evidence, tests, accessibility evidence, QA, risk, gaps, deployment impact, rollback, and smoke checks.
+13. Set `status:needs-review` and remove `status:in-progress`.
+14. Report commit SHA, PR URL, and passed validation.
+15. Tell the user to review and mark the PR ready; after approval use `gh pr merge {N} --auto`; include remaining manual QA checks.

@@ -12,13 +12,13 @@ fi
 
 STAGED=$(git diff --cached --name-only 2>/dev/null) || exit 0
 
-# Require AGENTS.md when route files are staged
+# Require the canonical route table when route files are staged
 if echo "$STAGED" | grep -qE '^apps/api/src/routes/'; then
-  if ! echo "$STAGED" | grep -q '^AGENTS\.md$'; then
-    echo "Documentation check failed: apps/api/src/routes/ changed but AGENTS.md is not staged."
+  if ! echo "$STAGED" | grep -q '^docs/api-routes\.md$'; then
+    echo "Documentation check failed: apps/api/src/routes/ changed but docs/api-routes.md is not staged."
     echo ""
-    echo "Review the API routes table in AGENTS.md and update it if you added, removed, or renamed routes."
-    echo "Then: git add AGENTS.md && retry the commit."
+    echo "Review docs/api-routes.md and update it if you added, removed, or renamed routes."
+    echo "Then: git add docs/api-routes.md && retry the commit."
     exit 2
   fi
 fi

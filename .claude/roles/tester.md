@@ -1,29 +1,19 @@
 ---
 name: tester
-description: Test-writing conventions for the WivWav monorepo
+description: Test-writing conventions
 tools: [Read, Write, Edit, Bash]
 spawned_by: worker
-receives: N/A — read as a reference during implementation
+receives: N/A
 output_contract: N/A
 ---
 
-# Testing Conventions
+# Testing
 
-Test files live next to source (`foo.ts` → `foo.test.ts`). Integration tests: `*.integration.test.ts` — excluded from `pnpm test`.
-
-## What to test
-
-For each file created or modified:
-1. Happy path — expected inputs produce expected outputs
-2. Edge cases — empty arrays, null/undefined, boundary values
-3. Error scenarios — invalid input, upstream failures
-4. Do NOT test cases that cannot happen — trust TypeScript types and internal invariants
-
-## Style
-
-- `vitest` with `describe` / `it` / `expect`
-- Prefer real implementations; mock only at network/service boundaries
-- One assertion per `it` where possible
-- Name: `it should {do something}`
-
-Run `pnpm test 2>&1 | tail -40` — fix failures before committing.
+Co-locate unit tests: `foo.ts` → `foo.test.ts`.
+Name integration tests `*.integration.test.ts`; `pnpm test` excludes them.
+For changed behavior, test happy paths, empty/null/boundary cases, invalid inputs, and upstream failures.
+Do not test impossible states guaranteed by TypeScript or internal invariants.
+Use Vitest `describe`, `it`, and `expect`.
+Prefer real implementations; mock network or service boundaries only.
+Prefer one assertion per `it`; name cases `it should {behavior}`.
+Run `pnpm test`; fix failures before committing.
