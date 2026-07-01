@@ -43,6 +43,7 @@ import { CopyButton } from '@/components/CopyButton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
 import { ScrapeRunChart, type ScrapeRunPoint } from '@/components/SparklineChart'
+import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
 
 interface OpsOverviewClientProps {
   apiBaseUrl: string
@@ -249,6 +250,39 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
             <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
           ))}
 
+          {/* ── Per-queue breakdown ─────────────────────────────────── */}
+          {data?.queues && data.queues.length > 0 && (
+            <div className={`${styles.bentoCard} ${styles.chartCard} ${styles.span4}`}>
+              <div className={styles.chartCardHeader}>
+                <Layers size={12} />
+                <span>Queues</span>
+                <span className={styles.chartHint}>waiting · active · delayed · failed</span>
+              </div>
+              <div className={styles.chartCardBody}>
+                <div className={styles.queueBreakdown} role="table" aria-label="Per-queue job counts">
+                  {data.queues.map(queue => (
+                    <div key={queue.name} className={styles.queueBreakdownRow} role="row">
+                      <span className={styles.queueBreakdownName} role="cell">
+                        <Link href="/ops/queues">{queue.name}</Link>
+                        {queue.paused && <span className={styles.queueBreakdownPaused}>Paused</span>}
+                      </span>
+                      <span className={styles.queueBreakdownStat} role="cell">{queue.stats.waiting}w</span>
+                      <span className={styles.queueBreakdownStat} role="cell">{queue.stats.active}a</span>
+                      <span className={styles.queueBreakdownStat} role="cell">{queue.stats.delayed}d</span>
+                      <span
+                        className={styles.queueBreakdownStat}
+                        data-alert={queue.stats.failed > 0}
+                        role="cell"
+                      >
+                        {queue.stats.failed}f
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Section: Listing Freshness ────────────────────────────── */}
           <div className={`${styles.bentoLabel} ${styles.span4}`}>
             <Activity size={13} />
@@ -379,12 +413,15 @@ function severityLabel(severity: OverviewSeverity): string {
 
 async function fetchData<T>(url: string): Promise<{ data: T | null; error?: string }> {
   try {
-    const res = await fetch(url, { cache: 'no-store' })
+    const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10_000)
     if (!res.ok) return { data: null, error: `API returned ${res.status}` }
     const body = (await res.json()) as T | { data: T }
     if (isDataEnvelope<T>(body)) return { data: body.data }
     return { data: body }
   } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { data: null, error: 'Request timed out' }
+    }
     return { data: null, error: err instanceof Error ? err.message : 'Request failed' }
   }
 }
