@@ -8,8 +8,10 @@ export type {
   ConfigEntryType,
   Vehicle,
   VehicleIdentityDecision,
+  ListingImage,
+  ImageCluster,
 } from './generated/prisma/index.js'
-export { WavFeature, ConversionStatus, ListingPublicationStatus } from './generated/prisma/index.js'
+export { WavFeature, ConversionStatus, ListingPublicationStatus, ImageKind } from './generated/prisma/index.js'
 export { normalizeVin, isValidVin, checkDigitValid } from './lib/vin.js'
 export { findOrCreateVehicle } from './lib/vehicle-upsert.js'
 export {
@@ -20,3 +22,12 @@ export {
   VehicleIdentityDecisionState,
 } from './lib/vehicle-identity-decision.js'
 export type { VehicleIdentityDecisionInput } from './lib/vehicle-identity-decision.js'
+export {
+  upsertListingImage,
+  upsertImageCluster,
+  findListingImages,
+  findImagesByExactHash,
+  findPlaceholderClusters,
+  findCrossVehicleClusters,
+} from './lib/listing-image.js'
+export type { ListingImageInput, ImageClusterInput } from './lib/listing-image.js'
