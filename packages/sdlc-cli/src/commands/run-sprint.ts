@@ -109,6 +109,18 @@ function effortForIssue(issue: IssueData, requested: EffortLevel = 'auto'): Excl
   return 'standard'
 }
 
+/**
+ * Resolve a provider-neutral model hint for the worker.
+ *
+ * The returned string is emitted verbatim into the worker prompt (`Model: <hint>`)
+ * and into context artifacts. The sprint adapter (wivwav-run-sprint/SKILL.md)
+ * reads this hint and passes it to the Agent tool's `model` parameter.
+ *
+ * Provider/subscription routing — mapping hints to provider-specific model IDs,
+ * selecting tiers, and handling credentials — belongs exclusively to #465.
+ * This function must never add provider names, subscription logic, or dispatch
+ * implementation: it only normalises a caller-supplied hint or supplies a default.
+ */
 function modelForIssue(requested: string | undefined): string {
   return requested?.trim() !== undefined && requested.trim() !== '' ? requested.trim() : 'sonnet'
 }
@@ -167,6 +179,16 @@ function likelyFileHints(issue: IssueData, dryRun: boolean): string[] {
   return scored.map((candidate) => candidate.file)
 }
 
+/**
+ * Build the worker instruction block printed to stdout by `run-sprint`.
+ *
+ * The `Model:` line is a provider-neutral hint consumed by the sprint adapter
+ * (wivwav-run-sprint/SKILL.md). The adapter reads this line and passes it as
+ * the `model` parameter when spawning the worker agent. Provider/subscription
+ * routing lives in #465 — the adapter maps the hint to a provider-specific ID.
+ *
+ * Do not add provider names, credentials, or dispatch logic to this function.
+ */
 function workerPrompt(target: SprintTarget, sprintId: string): string {
   return [
     'Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.',
