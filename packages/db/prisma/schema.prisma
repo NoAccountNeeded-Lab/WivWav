@@ -307,6 +307,7 @@ model Listing {
   observations      ListingObservation[]
   identityDecisionsAsA VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingA")
   identityDecisionsAsB VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingB")
+  listingImages     ListingImage[]
 
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
@@ -679,6 +680,118 @@ model DealerReview {
   @@unique([dealerId, source, publishedAt, authorName])
   @@index([dealerId])
   @@map("dealer_reviews")
+}
+
+// ── Image integrity ────────────────────────────────────────────────────────
+
+/// Stability classifications for a single image observed on a listing.
+/// - `vehicle_photo`: passes size/content-type checks and is not classified as chrome/placeholder.
+/// - `placeholder`: reused above the cross-vehicle threshold — likely stock/dealer imagery.
+/// - `site_chrome`: logo, banner, icon, staff/team photo, tracking pixel, etc.
+/// - `excluded`: failed download (timeout, bad content-type, oversized, 4xx/5xx).
+enum ImageKind {
+  vehicle_photo
+  placeholder
+  site_chrome
+  excluded
+}
+
+/// Per-image metadata record. One row per (listingId, originalUrl) pair.
+/// Raw image bytes are never persisted — only hashes derived from a bounded download.
+/// `exactHash`  = hex SHA-256 of the response body (identical bytes).
+/// `pHash`      = 64-bit difference-hash as a hex string (perceptual similarity).
+/// Both fields are null until the image has been successfully downloaded and analysed.
+model ListingImage {
+  id             String    @id @default(cuid())
+  listingId      String
+  listing        Listing   @relation(fields: [listingId], references: [id])
+
+  /// URL exactly as observed in the page source.
+  originalUrl    String
+  /// URL after stripping tracking parameters and normalising CDN variants.
+  normalizedUrl  String
+
+  /// 0-based position in the gallery (card or detail page order).
+  position       Int
+  /// When this image was first recorded for this listing.
+  observedAt     DateTime  @default(now())
+
+  kind           ImageKind @default(vehicle_photo)
+
+  /// Width in pixels, when reported by the source or detectable from metadata.
+  widthPx        Int?
+  /// Height in pixels, when reported by the source or detectable from metadata.
+  heightPx       Int?
+
+  /// Hex SHA-256 of the response body. Null if download failed or was skipped.
+  exactHash      String?
+  /// 64-bit difference-hash as a 16-char hex string. Null if download failed/skipped.
+  pHash          String?
+
+  /// Monotonically-increasing version so re-analysis can detect stale rows.
+  analysisVersion Int       @default(1)
+
+  /// Cluster this image belongs to (set after clustering analysis).
+  clusterId      String?
+  cluster        ImageCluster? @relation(fields: [clusterId], references: [id])
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([listingId, originalUrl])
+  @@index([listingId])
+  @@index([exactHash])
+  @@index([pHash])
+  @@index([clusterId])
+  @@index([normalizedUrl])
+  @@map("listing_image")
+}
+
+/// A group of images that share the same exact hash (byte-identical) or whose
+/// pHash values fall within the near-duplicate Hamming distance threshold.
+/// Clusters are created/updated by the image-integrity-analyzer job.
+model ImageCluster {
+  id              String   @id @default(cuid())
+
+  /// `exact`  — all members share the same SHA-256 hash.
+  /// `near`   — members share pHash within the configured Hamming distance.
+  clusterType     String
+
+  /// Representative hash for the cluster (exact: the SHA-256; near: the pHash centroid / first member).
+  representativeHash String
+
+  /// Number of distinct listings this cluster appears on.
+  listingCount    Int      @default(0)
+  /// Number of distinct sources this cluster appears across.
+  sourceCount     Int      @default(0)
+  /// Number of distinct Vehicle ids (non-null vehicleId) this cluster spans.
+  vehicleCount    Int      @default(0)
+
+  /// True when the cluster spans more than one distinct VIN/vehicle group,
+  /// making it ineligible as verification evidence for any single vehicle.
+  crossVehicle    Boolean  @default(false)
+
+  /// True when reuse exceeds the configured placeholder threshold and this
+  /// cluster is classified as probable stock/dealer/placeholder imagery.
+  isPlaceholder   Boolean  @default(false)
+
+  /// Human-readable description of why this cluster was flagged (e.g.
+  /// "reused across 12 vehicles from 3 sources" or "matches known site-chrome hash").
+  reasonCode      String?
+
+  /// Monotonically-increasing analysis version so stale cluster rows can be detected.
+  analysisVersion Int      @default(1)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  images          ListingImage[]
+
+  @@unique([clusterType, representativeHash])
+  @@index([clusterType])
+  @@index([isPlaceholder])
+  @@index([crossVehicle])
+  @@map("image_cluster")
 }
 
 // ── Remote config (append-only) ────────────────────────────────────────────
