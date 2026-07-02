@@ -9,6 +9,28 @@
   padding: 0 1rem;
 }
 
+/* ── Personalized results introduction ────────────── */
+.personalizedHeader {
+  padding: 1.75rem 0 0.25rem;
+}
+
+.personalizedHeading {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--clr-text);
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.personalizedSummary {
+  max-width: 42rem;
+  margin: 0.75rem 0 0;
+  color: var(--clr-text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
 /* ── Search section ───────────────────────────────── */
 .searchSection {
   padding: 1.5rem 0 1.25rem;
@@ -42,6 +64,13 @@
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--clr-text-secondary);
+}
+
+@media (max-width: 520px) {
+  .resultsHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 
@@ -292,4 +321,20 @@
 .badgeGreen {
   background: var(--clr-feature-bg);
   color: var(--clr-feature);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .cardImage,
+  .paginationBtn {
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .card:hover .cardImage {
+    transform: none;
+  }
 }

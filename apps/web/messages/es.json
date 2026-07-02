@@ -18,6 +18,9 @@
     "formAriaLabel": "Describa las necesidades de su vehículo"
   },
   "FiltersPage": {
+    "personalizedHeading": "Sus vehículos personalizados",
+    "personalizedSummary": "{count, plural, =1 {# filtro define} other {# filtros definen}} estos resultados. Guarde esta página en sus favoritos para volver a la misma búsqueda.",
+    "browseAllSummary": "Explore todos los vehículos disponibles o agregue filtros a continuación para personalizar estos resultados.",
     "searchResultsLabel": "Resultados de búsqueda",
     "vehiclesFound": "{count, plural, =1 {# vehículo encontrado} other {# vehículos encontrados}}",
     "noVehicles": "Ningún vehículo coincide con sus filtros actuales.",

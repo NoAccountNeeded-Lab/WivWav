@@ -18,6 +18,9 @@
     "formAriaLabel": "Describe your vehicle needs"
   },
   "FiltersPage": {
+    "personalizedHeading": "Your personalized vehicle matches",
+    "personalizedSummary": "{count, plural, =1 {# filter is} other {# filters are}} shaping these results. Bookmark this page to return to the same search.",
+    "browseAllSummary": "Browse all available vehicles, or add filters below to personalize these results.",
     "searchResultsLabel": "Search results",
     "vehiclesFound": "{count, plural, =1 {# vehicle found} other {# vehicles found}}",
     "noVehicles": "No vehicles match your current filters.",
