@@ -7,6 +7,12 @@ import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { LOG_RUNBOOK_IDS } from '../runbooks'
 import logsStyles from './logs.module.css'
+import {
+  ansiToPlainText,
+  parseAnsi,
+  type AnsiNamedColor,
+  type AnsiSegment,
+} from './ansi'
 
 interface LogEntry {
   ts: string
@@ -67,18 +73,101 @@ function hasDetails(entry: LogEntry): boolean {
   return entry.stack !== null || Object.keys(entry.extra).length > 0
 }
 
+function requiredClass(value: string | undefined): string {
+  return value ?? ''
+}
+
+const ANSI_FOREGROUND_CLASSES: Record<AnsiNamedColor, string> = {
+  black: requiredClass(logsStyles.ansiBlack),
+  red: requiredClass(logsStyles.ansiRed),
+  green: requiredClass(logsStyles.ansiGreen),
+  yellow: requiredClass(logsStyles.ansiYellow),
+  blue: requiredClass(logsStyles.ansiBlue),
+  magenta: requiredClass(logsStyles.ansiMagenta),
+  cyan: requiredClass(logsStyles.ansiCyan),
+  white: requiredClass(logsStyles.ansiWhite),
+  'bright-black': requiredClass(logsStyles.ansiBlack),
+  'bright-red': requiredClass(logsStyles.ansiRed),
+  'bright-green': requiredClass(logsStyles.ansiGreen),
+  'bright-yellow': requiredClass(logsStyles.ansiYellow),
+  'bright-blue': requiredClass(logsStyles.ansiBlue),
+  'bright-magenta': requiredClass(logsStyles.ansiMagenta),
+  'bright-cyan': requiredClass(logsStyles.ansiCyan),
+  'bright-white': requiredClass(logsStyles.ansiWhite),
+}
+
+const ANSI_BACKGROUND_CLASSES: Record<AnsiNamedColor, string> = {
+  black: requiredClass(logsStyles.ansiBgBlack),
+  red: requiredClass(logsStyles.ansiBgRed),
+  green: requiredClass(logsStyles.ansiBgGreen),
+  yellow: requiredClass(logsStyles.ansiBgYellow),
+  blue: requiredClass(logsStyles.ansiBgBlue),
+  magenta: requiredClass(logsStyles.ansiBgMagenta),
+  cyan: requiredClass(logsStyles.ansiBgCyan),
+  white: requiredClass(logsStyles.ansiBgWhite),
+  'bright-black': requiredClass(logsStyles.ansiBgBlack),
+  'bright-red': requiredClass(logsStyles.ansiBgRed),
+  'bright-green': requiredClass(logsStyles.ansiBgGreen),
+  'bright-yellow': requiredClass(logsStyles.ansiBgYellow),
+  'bright-blue': requiredClass(logsStyles.ansiBgBlue),
+  'bright-magenta': requiredClass(logsStyles.ansiBgMagenta),
+  'bright-cyan': requiredClass(logsStyles.ansiBgCyan),
+  'bright-white': requiredClass(logsStyles.ansiBgWhite),
+}
+
+function namedAnsiColor(color: string | null): color is AnsiNamedColor {
+  return color !== null && color in ANSI_FOREGROUND_CLASSES
+}
+
+function AnsiText({ segments }: { segments: AnsiSegment[] }) {
+  return segments.map((segment, index) => {
+    const classes = [logsStyles.ansiSegment]
+    if (segment.style.bold) classes.push(logsStyles.ansiBold)
+    if (segment.style.dim) classes.push(logsStyles.ansiDim)
+    if (segment.style.italic) classes.push(logsStyles.ansiItalic)
+    if (segment.style.underline) classes.push(logsStyles.ansiUnderline)
+    if (segment.style.inverse) classes.push(logsStyles.ansiInverse)
+    if (segment.style.strikethrough) classes.push(logsStyles.ansiStrikethrough)
+
+    const foreground = segment.style.inverse
+      ? segment.style.background
+      : segment.style.foreground
+    const background = segment.style.inverse
+      ? segment.style.foreground
+      : segment.style.background
+    const inlineStyle: { color?: string; backgroundColor?: string } = {}
+    if (namedAnsiColor(foreground)) {
+      classes.push(ANSI_FOREGROUND_CLASSES[foreground])
+    } else if (foreground) {
+      inlineStyle.color = foreground
+    }
+    if (namedAnsiColor(background)) {
+      classes.push(ANSI_BACKGROUND_CLASSES[background])
+    } else if (background) {
+      inlineStyle.backgroundColor = background
+    }
+
+    return (
+      <span key={index} className={classes.join(' ')} style={inlineStyle}>
+        {segment.text}
+      </span>
+    )
+  })
+}
+
 function EntryDetails({ entry }: { entry: LogEntry }) {
   const extraKeys = Object.keys(entry.extra)
   const contextJson = extraKeys.length > 0 ? JSON.stringify(entry.extra, null, 2) : null
+  const stackSegments = entry.stack ? parseAnsi(entry.stack) : null
   return (
     <div className={logsStyles.entryDetails}>
-      {entry.stack ? (
+      {stackSegments ? (
         <div className={logsStyles.detailSection}>
           <div className={logsStyles.detailSectionHead}>
             <p className={logsStyles.detailLabel}>Stack trace</p>
-            <CopyButton text={entry.stack} label="Copy stack trace" />
+            <CopyButton text={ansiToPlainText(entry.stack ?? '')} label="Copy stack trace" />
           </div>
-          <pre className={styles.miniCode}>{entry.stack}</pre>
+          <pre className={styles.miniCode}><AnsiText segments={stackSegments} /></pre>
         </div>
       ) : null}
       {contextJson ? (
@@ -102,6 +191,8 @@ interface EntryRowProps {
 function EntryRow({ entry, rowId }: EntryRowProps) {
   const [expanded, setExpanded] = useState(false)
   const expandable = hasDetails(entry)
+  const messageSegments = entry.message ? parseAnsi(entry.message) : null
+  const plainMessage = entry.message ? ansiToPlainText(entry.message) : null
 
   return (
     <>
@@ -126,9 +217,11 @@ function EntryRow({ entry, rowId }: EntryRowProps) {
         </td>
         <td className={logsStyles.msgCell}>
           <div className={logsStyles.msgRow}>
-            <span className={logsStyles.msgText}>{entry.message ?? '—'}</span>
-            {entry.message ? (
-              <CopyButton text={entry.message} label="Copy message" className={logsStyles.msgCopyBtn} />
+            <span className={logsStyles.msgText}>
+              {messageSegments ? <AnsiText segments={messageSegments} /> : '—'}
+            </span>
+            {plainMessage ? (
+              <CopyButton text={plainMessage} label="Copy message" className={logsStyles.msgCopyBtn} />
             ) : null}
           </div>
           {entry.requestId ? (
