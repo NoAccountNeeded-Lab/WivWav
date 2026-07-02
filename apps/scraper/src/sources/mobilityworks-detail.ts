@@ -232,31 +232,56 @@ export async function evaluateMwDetail(page: BrowserPage): Promise<RawMwDetail> 
     const MIN_W = 200
     const MIN_H = 150
 
-    const galleryRoot = document.querySelector<HTMLElement>(
-      '[class*="vehicle-gallery"], [class*="vehicle_gallery"], [class*="mw-gallery"], [class*="photo-gallery"], [id*="vehicle-gallery"], [id*="vehicleGallery"], [class*="image-slider"], [class*="imageSlider"], [class*="photo-slider"]',
-    )
-
     const seen = new Set<string>()
     const imageUrls: string[] = []
-    const galleryFound = galleryRoot !== null
 
-    if (galleryRoot) {
-      galleryRoot.querySelectorAll<HTMLImageElement>('img[data-src], img[src]').forEach(function (img) {
-        const src = img.getAttribute('data-src') ?? img.getAttribute('src') ?? ''
-        if (!src || src.startsWith('data:') || src.length < 10) return
-        if (NON_VEHICLE_PATH.test(src)) return
-        const attrW = parseInt(img.getAttribute('width') ?? '0', 10)
-        const attrH = parseInt(img.getAttribute('height') ?? '0', 10)
-        if (attrW > 0 && attrW < MIN_W) return
-        if (attrH > 0 && attrH < MIN_H) return
-        if (img.naturalWidth > 0 && img.naturalWidth < MIN_W) return
-        if (img.naturalHeight > 0 && img.naturalHeight < MIN_H) return
-        const abs = src.startsWith('http') ? src : `${baseUrl}${src}`
-        if (!seen.has(abs) && /\.(jpg|jpeg|webp|png)/i.test(abs)) {
-          seen.add(abs)
-          imageUrls.push(abs)
-        }
-      })
+    function collectImage(img: HTMLImageElement): void {
+      // MobilityWorks serves lazy-loaded images through its Nitro caching
+      // plugin, which stores the real URL in `nitro-lazy-src` and leaves
+      // `src` as a base64 placeholder SVG until the element scrolls into
+      // view. Check the lazy-load attributes before falling back to `src`.
+      const src =
+        img.getAttribute('data-src') ??
+        img.getAttribute('nitro-lazy-src') ??
+        img.getAttribute('data-lazy-src') ??
+        img.getAttribute('data-original') ??
+        img.getAttribute('src') ??
+        ''
+      if (!src || src.startsWith('data:') || src.length < 10) return
+      if (NON_VEHICLE_PATH.test(src)) return
+      const attrW = parseInt(img.getAttribute('width') ?? '0', 10)
+      const attrH = parseInt(img.getAttribute('height') ?? '0', 10)
+      if (attrW > 0 && attrW < MIN_W) return
+      if (attrH > 0 && attrH < MIN_H) return
+      if (img.naturalWidth > 0 && img.naturalWidth < MIN_W) return
+      if (img.naturalHeight > 0 && img.naturalHeight < MIN_H) return
+      const abs = src.startsWith('http') ? src : `${baseUrl}${src}`
+      if (!seen.has(abs) && /\.(jpg|jpeg|webp|png)/i.test(abs)) {
+        seen.add(abs)
+        imageUrls.push(abs)
+      }
+    }
+
+    // Strategy 1: MobilityWorks' own vehicle-detail slider — a main image
+    // (#mainimagetarget) plus a thumbnail strip (#vehimage-0, #vehimage-1, …).
+    // These ids are specific to vehicle photos, so no container-class match
+    // is needed to avoid picking up promo banners elsewhere on the page.
+    const mwSlideImages = document.querySelectorAll<HTMLImageElement>(
+      '#mainimagetarget, [id^="vehimage-"]',
+    )
+    let galleryFound = mwSlideImages.length > 0
+    mwSlideImages.forEach(collectImage)
+
+    // Strategy 2: generic vehicle gallery container, for other MobilityWorks
+    // page templates/redesigns that don't use the vehimage id convention.
+    if (!galleryFound) {
+      const galleryRoot = document.querySelector<HTMLElement>(
+        '[class*="vehicle-gallery"], [class*="vehicle_gallery"], [class*="mw-gallery"], [class*="photo-gallery"], [id*="vehicle-gallery"], [id*="vehicleGallery"], [class*="image-slider"], [class*="imageSlider"], [class*="photo-slider"], [class*="vehimageshold"], [class*="vehthumb"], [id*="thumbholder"]',
+      )
+      galleryFound = galleryRoot !== null
+      if (galleryRoot) {
+        galleryRoot.querySelectorAll<HTMLImageElement>('img').forEach(collectImage)
+      }
     }
 
     // ── Dealer contact ───────────────────────────────────────────────────────
