@@ -25,6 +25,99 @@
 .msgText {
   display: block;
   line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+/* ANSI terminal styles are mapped onto the active Ops theme for readable web output. */
+.ansiSegment {
+  border-radius: 2px;
+}
+
+.ansiBold {
+  font-weight: 700;
+}
+
+.ansiDim {
+  color: var(--clr-text-secondary);
+}
+
+.ansiItalic {
+  font-style: italic;
+}
+
+.ansiUnderline {
+  text-decoration-line: underline;
+}
+
+.ansiStrikethrough {
+  text-decoration-line: line-through;
+}
+
+.ansiUnderline.ansiStrikethrough {
+  text-decoration-line: underline line-through;
+}
+
+.ansiInverse {
+  color: var(--clr-surface);
+  background-color: var(--clr-text);
+}
+
+.ansiBlack {
+  color: var(--clr-text-muted);
+}
+
+.ansiRed {
+  color: var(--clr-danger-text);
+}
+
+.ansiGreen {
+  color: var(--clr-success-text);
+}
+
+.ansiYellow {
+  color: var(--clr-warning-text);
+}
+
+.ansiBlue,
+.ansiCyan {
+  color: var(--clr-primary);
+}
+
+.ansiMagenta {
+  color: var(--clr-primary-dark);
+}
+
+.ansiWhite {
+  color: var(--clr-text);
+}
+
+.ansiBgBlack {
+  background-color: color-mix(in srgb, var(--clr-text-muted) 24%, transparent);
+}
+
+.ansiBgRed {
+  background-color: color-mix(in srgb, var(--clr-danger) 24%, transparent);
+}
+
+.ansiBgGreen {
+  background-color: color-mix(in srgb, var(--clr-success) 24%, transparent);
+}
+
+.ansiBgYellow {
+  background-color: color-mix(in srgb, var(--clr-warning) 24%, transparent);
+}
+
+.ansiBgBlue,
+.ansiBgCyan {
+  background-color: color-mix(in srgb, var(--clr-primary) 24%, transparent);
+}
+
+.ansiBgMagenta {
+  background-color: color-mix(in srgb, var(--clr-primary-dark) 24%, transparent);
+}
+
+.ansiBgWhite {
+  background-color: color-mix(in srgb, var(--clr-text) 24%, transparent);
 }
 
 /* Inline metadata chips (requestId, queue, jobId, sourceId) */
