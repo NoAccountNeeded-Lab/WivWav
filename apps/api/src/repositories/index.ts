@@ -1,4 +1,4 @@
-export type { ListingRepository, ListingWithSource, CrossListingRow, ListingSafetyResult, ListingVinRow, ListingPublicationCountRow, VehicleModelWithSafetyData, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow, InvestigationRow, ManufacturerCommunicationRow, PriceHistoryRow, QuarantinedListingRow, QuarantineFilter } from './listing-repository.js'
+export type { ListingRepository, ListingWithSource, CrossListingRow, ListingSafetyResult, ListingVinRow, ListingPublicationCountRow, VehicleModelWithSafetyData, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow, InvestigationRow, ManufacturerCommunicationRow, PriceHistoryRow, QuarantinedListingRow, QuarantineFilter, SourcePipelineStageRow } from './listing-repository.js'
 export { PrismaListingRepository } from './listing-repository.js'
 
 export type { MarketRepository, PricingStats, PopularStats } from './market-repository.js'

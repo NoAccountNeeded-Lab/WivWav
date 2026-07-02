@@ -168,14 +168,23 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                   return (
                     <tr key={s.id}>
                       <td>
-                        <a
-                          href={s.baseUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: 'var(--clr-primary)', textDecoration: 'none', fontWeight: 600 }}
-                        >
-                          {s.name} ↗
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <Link
+                            href={`/ops/sources/${encodeURIComponent(s.id)}`}
+                            style={{ color: 'var(--clr-primary)', textDecoration: 'none', fontWeight: 600 }}
+                          >
+                            {s.name}
+                          </Link>
+                          <a
+                            href={s.baseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Open ${s.name} website`}
+                            style={{ color: 'var(--clr-text-muted)', textDecoration: 'none' }}
+                          >
+                            ↗
+                          </a>
+                        </div>
                       </td>
                       <td>
                         <span className={styles.badge} data-variant={statusVariant(s.status)}>
