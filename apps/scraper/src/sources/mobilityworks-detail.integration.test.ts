@@ -153,6 +153,35 @@ describe('evaluateMwDetail — fixture-driven (mw-v2: description missing)', () 
   }, 30_000)
 })
 
+describe('evaluateMwDetail — fixture-driven (mw-v4: Nitro lazy-load slider)', () => {
+  it('finds all vehicle images from the real mainimagetarget/vehimage-N slider markup, not just one', async () => {
+    const service = new PlaywrightBrowserService()
+    const session = await service.launch()
+    try {
+      const page = await session.newPage()
+      await page.setContent(loadFixture('mw-v4-nitro-lazy-slider.html'), { waitUntil: 'domcontentloaded' })
+      const raw = await evaluateMwDetail(page)
+      await page.close()
+
+      expect(raw.galleryFound).toBe(true)
+      // mainimagetarget duplicates vehimage-0's URL, so 4 <img> elements yield 3 unique URLs.
+      expect(raw.imageUrls).toEqual([
+        'https://s3.amazonaws.com/vehicle-images/e2e84737-77e9-42d8-ab0e-f3b0dc09e347.jpg',
+        'https://s3.amazonaws.com/vehicle-images/421d0668-faf9-4791-b48a-7cd4fed18b63.jpg',
+        'https://s3.amazonaws.com/vehicle-images/00aa8dfb-23a6-4e01-a7c4-9109b2ecd069.jpg',
+      ])
+      // The promo banner sits inside the same slider container but is not a
+      // vehimage-N/mainimagetarget element, so it must not be collected.
+      expect(raw.imageUrls.every((u) => !u.includes('inventory-image-banner-blank'))).toBe(true)
+
+      const detail = parseMwDetail(raw)
+      expect(detail.images).toHaveLength(3)
+    } finally {
+      await session.close()
+    }
+  }, 30_000)
+})
+
 describe('evaluateMwDetail — fixture-driven (mw-v3: gallery pollution)', () => {
   it('returns galleryFound: false when no vehicle gallery container is present', async () => {
     const service = new PlaywrightBrowserService()
