@@ -11,6 +11,7 @@ import { SiteHeader } from '@/components/SiteHeader'
 import { NewBadge } from '@/components/NewBadge'
 import { ListingsVisitSession } from '@/components/ListingsVisitSession'
 import { buildSearchHref, countActiveResultFilters } from '@/lib/results-url'
+import { vehicleDetailPath } from '@/lib/vehicle-url'
 import styles from './page.module.css'
 
 // ── Types ────────────────────────────────────────────────
@@ -165,7 +166,7 @@ function ListingCard({
 
   return (
     <article className={styles.card}>
-      <Link href={`${listingPathPrefix}/listings/${l.id}`} className={styles.cardLink}>
+      <Link href={vehicleDetailPath(l.id, listingPathPrefix)} className={styles.cardLink}>
         <div className={styles.cardImageWrap}>
           {heroImage ? (
             <img
@@ -350,6 +351,7 @@ export async function ListingsResults({
     l.lat != null && l.lng != null
       ? [{
           id: l.id,
+          detailHref: vehicleDetailPath(l.id, listingPathPrefix),
           lat: l.lat,
           lng: l.lng,
           year: l.year,

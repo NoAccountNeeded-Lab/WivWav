@@ -64,13 +64,13 @@ describe('onRequestError()', () => {
 
     const error = new Error('render failed')
     const request = {
-      path: '/listings/abc',
+      path: '/vehicle/abc',
       method: 'GET',
       headers: { 'x-request-id': 'req-123' },
     }
     const context = {
       routerKind: 'App Router',
-      routePath: '/listings/[id]',
+      routePath: '/vehicle/[id]',
       routeType: 'render',
     }
 

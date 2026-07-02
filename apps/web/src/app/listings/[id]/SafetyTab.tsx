@@ -98,6 +98,18 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
                       At {complaint.mileage.toLocaleString()} miles
                     </div>
                   )}
+                  <div className={styles.safetyItemSub}>
+                    <span>Reported {formatDate(complaint.reportedAt)}</span>
+                    <span
+                      className={
+                        complaint.crashInvolved
+                          ? styles.safetyItemBadgeCrash
+                          : styles.safetyItemBadgeClosed
+                      }
+                    >
+                      {complaint.crashInvolved ? 'Crash involved' : 'No crash reported'}
+                    </span>
+                  </div>
                   {complaint.summary && (
                     <div className={styles.safetyItemSub}>{complaint.summary}</div>
                   )}

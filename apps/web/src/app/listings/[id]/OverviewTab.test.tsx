@@ -29,7 +29,9 @@ function makeListing(overrides: Partial<ListingDetail> = {}): ListingDetail {
     mileage: 20000,
     color: null,
     fuelType: null,
+    engine: null,
     transmission: null,
+    stockNumber: null,
     wav: {
       conversionType: 'rear_entry',
       conversionManufacturer: null,

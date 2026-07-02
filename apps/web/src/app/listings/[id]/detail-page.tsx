@@ -222,7 +222,7 @@ export async function generateMetadata({
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
-export default async function ListingDetailV2Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const listing = await getListing(id)
   if (!listing) notFound()
@@ -283,7 +283,13 @@ export default async function ListingDetailV2Page({ params }: { params: Promise<
       label: 'Vehicle',
       icon: <Gauge size={14} aria-hidden />,
       content: (
-        <VehicleTab listing={listing} modelResearch={modelResearch} vehicleStats={vehicleStats} modelMsrp={modelMsrp} />
+        <VehicleTab
+          listing={listing}
+          modelResearch={modelResearch}
+          vehicleStats={vehicleStats}
+          modelMsrp={modelMsrp}
+          bodyType={safety?.vehicleModel?.bodyType ?? null}
+        />
       ),
     },
     {

@@ -3,10 +3,10 @@
 import { usePathname } from 'next/navigation'
 import { Footer } from './Footer'
 
-const NO_FOOTER_PREFIXES = ['/listings/']
+const VEHICLE_DETAIL_PATH = /^(?:\/[a-z]{2})?\/vehicle\//
 
 export function ConditionalFooter() {
   const pathname = usePathname()
-  if (NO_FOOTER_PREFIXES.some((p) => pathname.startsWith(p))) return null
+  if (VEHICLE_DETAIL_PATH.test(pathname)) return null
   return <Footer />
 }
