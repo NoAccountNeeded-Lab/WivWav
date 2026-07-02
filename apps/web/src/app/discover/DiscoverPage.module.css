@@ -344,6 +344,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spinner { display: none; }
+
+  .ctaBtn {
+    transition: none;
+  }
+
+  .ctaBtn:hover {
+    transform: none;
+  }
 }
 
 /* ── Input error ──────────────────────────────────────────────────────────── */
@@ -366,6 +374,7 @@
 
 .ctaBtn {
   flex: 1;
+  min-height: 2.75rem;
   padding: 0.625rem 1.25rem;
   font-family: var(--font);
   font-size: 0.9375rem;

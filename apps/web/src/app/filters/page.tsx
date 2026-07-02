@@ -10,6 +10,7 @@ import { apiFetch } from '@/lib/api-fetch'
 import { SiteHeader } from '@/components/SiteHeader'
 import { NewBadge } from '@/components/NewBadge'
 import { ListingsVisitSession } from '@/components/ListingsVisitSession'
+import { buildSearchHref, countActiveResultFilters } from '@/lib/results-url'
 import styles from './page.module.css'
 
 // ── Types ────────────────────────────────────────────────
@@ -78,8 +79,8 @@ async function fetchListings(
 
 // ── Helpers ──────────────────────────────────────────────
 
-function formatPrice(cents: number | null, locale = 'en-US'): string {
-  if (cents === null) return 'Call for price'
+function formatPrice(cents: number | null, locale: string, callForPrice: string): string {
+  if (cents === null) return callForPrice
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
@@ -87,27 +88,14 @@ function formatPrice(cents: number | null, locale = 'en-US'): string {
   }).format(cents / 100)
 }
 
-function formatMileage(miles: number | null, locale = 'en-US'): string | null {
+function formatMileage(miles: number | null, locale: string): string | null {
   if (miles === null) return null
   return `${new Intl.NumberFormat(locale).format(miles)} mi`
 }
 
-function formatCondition(cond: string): string {
-  if (cond === 'certified_pre_owned') return 'CPO'
+function formatCondition(cond: string, cpo: string): string {
+  if (cond === 'certified_pre_owned') return cpo
   return cond.charAt(0).toUpperCase() + cond.slice(1)
-}
-
-function formatConversionType(type: string): string | null {
-  if (type === 'rear_entry') return 'Rear entry'
-  if (type === 'side_entry') return 'Side entry'
-  return null
-}
-
-function formatRampType(type: string): string | null {
-  if (type === 'in_floor') return 'In-floor ramp'
-  if (type === 'fold_out') return 'Fold-out ramp'
-  if (type === 'fold_in') return 'Fold-in ramp'
-  return null
 }
 
 // ── Listing card ─────────────────────────────────────────
@@ -124,10 +112,44 @@ const WAV_FEATURE_LABELS: Record<string, string> = {
   motorized_running_board: 'Motorized Running Board',
 }
 
-function ListingCard({ listing: l }: { listing: ListingDoc }) {
+interface ListingLabels {
+  callForPrice: string
+  cpo: string
+  rearEntry: string
+  sideEntry: string
+  inFloorRamp: string
+  foldOutRamp: string
+  foldInRamp: string
+  privateSeller: string
+  wavFeaturesLabel: string
+}
+
+function ListingCard({
+  listing: l,
+  locale,
+  labels,
+  listingPathPrefix,
+}: {
+  listing: ListingDoc
+  locale: string
+  labels: ListingLabels
+  listingPathPrefix: string
+}) {
   const badges: string[] = []
-  const conversionLabel = formatConversionType(l.conversionType)
-  const rampLabel = formatRampType(l.rampType)
+  const conversionLabel =
+    l.conversionType === 'rear_entry'
+      ? labels.rearEntry
+      : l.conversionType === 'side_entry'
+        ? labels.sideEntry
+        : null
+  const rampLabel =
+    l.rampType === 'in_floor'
+      ? labels.inFloorRamp
+      : l.rampType === 'fold_out'
+        ? labels.foldOutRamp
+        : l.rampType === 'fold_in'
+          ? labels.foldInRamp
+          : null
   if (conversionLabel) badges.push(conversionLabel)
   if (rampLabel) badges.push(rampLabel)
   for (const f of l.wavFeatures) {
@@ -138,12 +160,12 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
 
   const title = [l.year, l.make, l.model, l.trim].filter(Boolean).join(' ')
   const location = [l.city, l.state].filter(Boolean).join(', ')
-  const mileage = formatMileage(l.mileage)
+  const mileage = formatMileage(l.mileage, locale)
   const heroImage = l.images?.[0] ?? null
 
   return (
     <article className={styles.card}>
-      <Link href={`/listings/${l.id}`} className={styles.cardLink}>
+      <Link href={`${listingPathPrefix}/listings/${l.id}`} className={styles.cardLink}>
         <div className={styles.cardImageWrap}>
           {heroImage ? (
             <img
@@ -159,7 +181,9 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
             </div>
           )}
           <div className={styles.cardImageGradient} aria-hidden />
-          <span className={styles.cardImagePrice}>{formatPrice(l.priceCents)}</span>
+          <span className={styles.cardImagePrice}>
+            {formatPrice(l.priceCents, locale, labels.callForPrice)}
+          </span>
           {/* NewBadge renders only on the client after reading localStorage */}
           <NewBadge listedAt={l.listedAt} />
         </div>
@@ -170,14 +194,14 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
           <p className={styles.cardMeta}>
             {mileage && <span className={styles.metaItem}>{mileage}</span>}
             {location && <span className={styles.metaItem}>{location}</span>}
-            <span className={styles.metaItem}>{formatCondition(l.condition)}</span>
+            <span className={styles.metaItem}>{formatCondition(l.condition, labels.cpo)}</span>
             {l.sellerType === 'private' && (
-              <span className={styles.metaItem}>Private seller</span>
+              <span className={styles.metaItem}>{labels.privateSeller}</span>
             )}
           </p>
 
           {wavFeatures.length > 0 && (
-            <ul className={styles.wavBadges} aria-label="WAV features">
+            <ul className={styles.wavBadges} aria-label={labels.wavFeaturesLabel}>
               {wavFeatures.map((f) => (
                 <li key={f} className={`${styles.badge} ${styles.badgeGreen}`}>
                   {f}
@@ -196,47 +220,53 @@ function ListingCard({ listing: l }: { listing: ListingDoc }) {
 function PaginationNav({
   pagination,
   currentParams,
+  resultsPath,
+  labels,
 }: {
   pagination: Pagination
   currentParams: Record<string, string>
+  resultsPath: string
+  labels: Pick<ResultsPageLabels, 'paginationAriaLabel' | 'previous' | 'next' | 'pageOf'>
 }) {
   const { page, totalPages } = pagination
 
   const buildHref = (p: number) => {
-    const params = new URLSearchParams(currentParams)
-    params.set('page', String(p))
-    return `/filters?${params.toString()}`
+    return buildSearchHref(
+      resultsPath,
+      new URLSearchParams(currentParams),
+      { page: String(p) },
+    )
   }
 
   return (
-    <nav aria-label="Pagination" className={styles.pagination}>
+    <nav aria-label={labels.paginationAriaLabel} className={styles.pagination}>
       {page > 1 ? (
         <Link href={buildHref(page - 1)} className={styles.paginationBtn}>
-          Previous
+          {labels.previous}
         </Link>
       ) : (
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
         >
-          Previous
+          {labels.previous}
         </span>
       )}
 
       <span className={styles.paginationInfo} aria-current="page">
-        Page {page} of {totalPages}
+        {labels.pageOf(page, totalPages)}
       </span>
 
       {page < totalPages ? (
         <Link href={buildHref(page + 1)} className={styles.paginationBtn}>
-          Next
+          {labels.next}
         </Link>
       ) : (
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
         >
-          Next
+          {labels.next}
         </span>
       )}
     </nav>
@@ -249,10 +279,72 @@ interface ListingsPageProps {
   searchParams: Promise<Record<string, string>>
 }
 
-export default async function ListingsPage({ searchParams }: ListingsPageProps) {
+export interface ResultsPageLabels {
+  personalizedHeading: string
+  personalizedSummary: (count: number) => string
+  browseAllSummary: string
+  searchResultsLabel: string
+  vehiclesFound: (count: number) => string
+  noVehicles: string
+  noVehiclesForBrand: string
+  clearAllFilters: string
+  paginationAriaLabel: string
+  previous: string
+  next: string
+  pageOf: (page: number, totalPages: number) => string
+  listing: ListingLabels
+}
+
+const DEFAULT_LABELS: ResultsPageLabels = {
+  personalizedHeading: 'Your personalized vehicle matches',
+  personalizedSummary: (count) =>
+    `${count} ${count === 1 ? 'filter is' : 'filters are'} shaping these results. Bookmark this page to return to the same search.`,
+  browseAllSummary:
+    'Browse all available vehicles, or add filters below to personalize these results.',
+  searchResultsLabel: 'Search results',
+  vehiclesFound: (count) => `${count.toLocaleString()} ${count === 1 ? 'vehicle' : 'vehicles'} found`,
+  noVehicles: 'No vehicles match your current filters.',
+  noVehiclesForBrand:
+    'No vehicles match the selected conversion brand. Try another brand or clear the brand filter.',
+  clearAllFilters: 'Clear all filters',
+  paginationAriaLabel: 'Pagination',
+  previous: 'Previous',
+  next: 'Next',
+  pageOf: (page, totalPages) => `Page ${page} of ${totalPages}`,
+  listing: {
+    callForPrice: 'Call for price',
+    cpo: 'CPO',
+    rearEntry: 'Rear entry',
+    sideEntry: 'Side entry',
+    inFloorRamp: 'In-floor ramp',
+    foldOutRamp: 'Fold-out ramp',
+    foldInRamp: 'Fold-in ramp',
+    privateSeller: 'Private seller',
+    wavFeaturesLabel: 'WAV features',
+  },
+}
+
+interface ListingsResultsProps extends ListingsPageProps {
+  resultsPath?: string
+  locale?: string
+  labels?: ResultsPageLabels
+  personalized?: boolean
+}
+
+export async function ListingsResults({
+  searchParams,
+  resultsPath = '/filters',
+  locale = 'en-US',
+  labels = DEFAULT_LABELS,
+  personalized = false,
+}: ListingsResultsProps) {
   const params = await searchParams
   const { data: listings, pagination } = await fetchListings(params)
   const hasConversionBrandFilter = Boolean(params.conversionBrand)
+  const activeFilterCount = countActiveResultFilters(new URLSearchParams(params))
+  const listingPathPrefix = resultsPath.endsWith('/results')
+    ? resultsPath.slice(0, -'/results'.length)
+    : ''
 
   const mappableListings: MapListing[] = listings.flatMap((l) =>
     l.lat != null && l.lng != null
@@ -278,6 +370,17 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>
 
+          {personalized && (
+            <header className={styles.personalizedHeader}>
+              <h1 className={styles.personalizedHeading}>{labels.personalizedHeading}</h1>
+              <p className={styles.personalizedSummary}>
+                {activeFilterCount > 0
+                  ? labels.personalizedSummary(activeFilterCount)
+                  : labels.browseAllSummary}
+              </p>
+            </header>
+          )}
+
           <section className={styles.searchSection}>
             {/* Client components use useSearchParams — must be in Suspense */}
             <Suspense>
@@ -285,15 +388,14 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
             </Suspense>
           </section>
 
-          <section aria-label="Search results" className={styles.resultsSection}>
+          <section aria-label={labels.searchResultsLabel} className={styles.resultsSection}>
             <div className={styles.resultsHeader}>
               <p
                 className={styles.resultsCount}
                 aria-live="polite"
                 aria-atomic="true"
               >
-                {pagination.total.toLocaleString()}{' '}
-                {pagination.total === 1 ? 'vehicle' : 'vehicles'} found
+                {labels.vehiclesFound(pagination.total)}
               </p>
               <Suspense>
                 <SortSelect />
@@ -308,23 +410,31 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                 <ul className={styles.listingsGrid} role="list">
                   {listings.map((listing) => (
                     <li key={listing.id}>
-                      <ListingCard listing={listing} />
+                      <ListingCard
+                        listing={listing}
+                        locale={locale}
+                        labels={labels.listing}
+                        listingPathPrefix={listingPathPrefix}
+                      />
                     </li>
                   ))}
                 </ul>
 
                 {pagination.totalPages > 1 && (
-                  <PaginationNav pagination={pagination} currentParams={params} />
+                  <PaginationNav
+                    pagination={pagination}
+                    currentParams={params}
+                    resultsPath={resultsPath}
+                    labels={labels}
+                  />
                 )}
               </ListingsVisitSession>
             ) : (
               <div className={styles.emptyState} role="status">
                 <p>
-                  {hasConversionBrandFilter
-                    ? 'No vehicles match the selected conversion brand. Try another brand or clear the brand filter.'
-                    : 'No vehicles match your current filters.'}
+                  {hasConversionBrandFilter ? labels.noVehiclesForBrand : labels.noVehicles}
                 </p>
-                <a href="/filters">Clear all filters</a>
+                <a href={resultsPath}>{labels.clearAllFilters}</a>
               </div>
             )}
           </section>
@@ -333,4 +443,8 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       </main>
     </>
   )
+}
+
+export default function ListingsPage(props: ListingsPageProps) {
+  return <ListingsResults {...props} />
 }

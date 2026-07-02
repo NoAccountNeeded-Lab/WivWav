@@ -8,6 +8,7 @@ import { PriceHistogram } from '@/components/PriceHistogram'
 import { YearHistogram } from '@/components/YearHistogram'
 import { MileageHistogram } from '@/components/MileageHistogram'
 import { ActiveFilters } from '@/components/ActiveFilters'
+import { buildSearchHref } from '@/lib/results-url'
 import styles from './DiscoverPage.module.css'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ function useTypewriter(text: string, delay = 500, speed = 22) {
 
 // ── Chat panel ────────────────────────────────────────────────────────────────
 
-function DiscoverChat() {
+function DiscoverChat({ resultsPath }: { resultsPath: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -120,7 +121,10 @@ function DiscoverChat() {
   }, [openingDone])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 'auto'
+      : 'smooth'
+    messagesEndRef.current?.scrollIntoView({ behavior })
   }, [messages, isThinking])
 
   function handleTextareaInput() {
@@ -203,8 +207,7 @@ function DiscoverChat() {
   }
 
   function handleSeeMatches() {
-    const qs = searchParams.toString()
-    router.push(qs ? `/filters?${qs}` : '/filters')
+    router.push(buildSearchHref(resultsPath, searchParams))
   }
 
   return (
@@ -330,7 +333,7 @@ function DiscoverChat() {
         >
           See Matches →
         </button>
-        <a href="/filters" className={styles.skipLink}>Browse on my own</a>
+        <a href={resultsPath} className={styles.skipLink}>Browse on my own</a>
       </div>
 
       {/* SR live region */}
@@ -346,14 +349,14 @@ function DiscoverChat() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export function DiscoverPage() {
+export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: string }) {
   return (
     <div className={styles.page}>
 
       {/* Chat — full width, centered */}
       <div className={styles.chatRow}>
         <Suspense>
-          <DiscoverChat />
+          <DiscoverChat resultsPath={resultsPath} />
         </Suspense>
       </div>
 

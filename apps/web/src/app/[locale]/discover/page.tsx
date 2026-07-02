@@ -8,13 +8,19 @@ export const metadata = {
     "Tell us what you need in plain language and we'll find the right wheelchair accessible vehicle for you.",
 }
 
-export default function DiscoverRoute() {
+interface DiscoverRouteProps {
+  params: Promise<{ locale: string }>
+}
+
+export default async function DiscoverRoute({ params }: DiscoverRouteProps) {
+  const { locale } = await params
+
   return (
     <>
       <SiteHeader section="Discover" />
       <main id="main-content" tabIndex={-1}>
         <Suspense>
-          <DiscoverPage />
+          <DiscoverPage resultsPath={`/${locale}/results`} />
         </Suspense>
       </main>
     </>

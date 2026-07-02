@@ -13,7 +13,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
   background: var(--clr-surface);
   border: 1.5px solid var(--clr-border-strong);
   border-radius: 999px;
@@ -31,8 +32,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   background: none;
   border: none;
@@ -57,7 +58,8 @@
 
 /* "Clear all" is a standalone button styled as a pill */
 .clearAll {
-  padding: 0.25rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.875rem;
   background: none;
   border: 1.5px solid var(--clr-border);
   border-radius: 999px;
@@ -79,4 +81,11 @@
 .clearAll:focus-visible {
   outline: 2px solid var(--clr-focus);
   outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pillRemove,
+  .clearAll {
+    transition: none;
+  }
 }
