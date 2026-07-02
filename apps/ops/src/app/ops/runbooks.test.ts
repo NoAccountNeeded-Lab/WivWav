@@ -17,6 +17,7 @@ const REQUIRED_TITLES = [
   'Listings missing from map',
   'Search results look stale',
   'A source stopped working',
+  'Source paused for quality drift',
   'Jobs are failing',
   'Schedules are disabled',
   'AI remapping is unavailable',
