@@ -9,12 +9,11 @@ import { MileageHistogram } from './MileageHistogram'
 import { FilterGroup } from './filters/FilterGroup'
 import type { FilterItem, CategoricalRendererType } from './filters/types'
 import { formatFilterLabel } from './filters/types'
-import type { MapListing } from './ListingsMap'
 import { normalizeFacetsData } from './category-facets'
 import type { BarDatum, FacetsData } from './category-facets'
 import styles from './CategoryBarChart.module.css'
 
-const ListingsMap = dynamic(() => import('./ListingsMap'), { ssr: false })
+const StateHeatMap = dynamic(() => import('./StateHeatMap'), { ssr: false })
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -107,14 +106,12 @@ function toFilterItems(bars: BarDatum[], activeValues: string[]): FilterItem[] {
 export type RendererMap = Partial<Record<string, CategoricalRendererType>>
 
 export function CategoryBarChart({
-  mapListings = [],
   showMap = true,
   showHistograms = true,
   limitGroups,
   singleColumn = false,
   renderers = {},
 }: {
-  mapListings?: MapListing[]
   showMap?: boolean
   showHistograms?: boolean
   /** When provided, only these group ids (and 'features') are rendered. */
@@ -308,9 +305,13 @@ export function CategoryBarChart({
     <div className={`${styles.root}${singleColumn ? ` ${styles.singleColumn}` : ''}`}>
       {showMap && (
         <div className={`${styles.mapGroup}`}>
-          <span className={styles.mapTitle}>Location</span>
+          <span className={styles.mapTitle}>Listings by state</span>
           <div className={styles.mapContainer}>
-            <ListingsMap listings={mapListings} />
+            <StateHeatMap
+              data={data?.stateBreakdown ?? []}
+              activeStates={parseCommaSep(searchParams.get('state'))}
+              onToggle={(value) => toggleArray('state', value)}
+            />
           </div>
         </div>
       )}

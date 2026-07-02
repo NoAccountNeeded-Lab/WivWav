@@ -54,5 +54,12 @@ export interface ListingAggregations {
   conditionCounts: FacetCount[]
   sellerTypeCounts: FacetCount[]
   conversionTypeCounts: FacetCount[]
+  /**
+   * State abbreviation + listing count, e.g. `{ value: 'CA', count: 42 }`.
+   * The live implementation of this shape is `FacetsResult.stateBreakdown`
+   * in `apps/api/src/services/listing-facets.ts`, served from `GET
+   * /v1/listings/facets` and rendered by
+   * `apps/web/src/components/StateHeatMap.tsx`.
+   */
   stateCounts: FacetCount[]
 }
