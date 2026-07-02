@@ -375,7 +375,7 @@ describe('MobilityWorksAdapter.checkStructure timeout retry', () => {
               async setContent(): Promise<void> {},
               async content(): Promise<string> { return '' },
               url(): string { return '' },
-              evaluate<T>(): Promise<T> { return Promise.resolve('no-listings' as unknown as T) },
+              evaluate<T>(): Promise<T> { return Promise.resolve({ signature: 'no-listings', cardHtml: '' } as unknown as T) },
               async waitForSelector(): Promise<void> {},
               async close(): Promise<void> {},
             }

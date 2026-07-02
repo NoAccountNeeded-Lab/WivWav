@@ -130,13 +130,13 @@ export class MobilityWorksAdapter implements SourceAdapter {
       )
       await page.waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 }).catch(() => {})
 
-      const signature = await page.evaluate(function (): string {
+      const { signature, cardHtml } = await page.evaluate(function (): { signature: string; cardHtml: string } {
         const anchors = Array.from(
           document.querySelectorAll<HTMLAnchorElement>('a[href*="/wheelchair-vans-for-sale/"]'),
         ).filter(function (a) { return /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? '') })
 
         const first = anchors[0]
-        if (!first) return 'no-listings'
+        if (!first) return { signature: 'no-listings', cardHtml: '' }
 
         // Walk up to find card container that contains structured listing data
         let container: Element = first
@@ -166,7 +166,7 @@ export class MobilityWorksAdapter implements SourceAdapter {
           }
         }
 
-        return parts.join(',')
+        return { signature: parts.join(','), cardHtml: container.outerHTML }
       })
 
       const currentHash = createHash('sha256').update(signature).digest('hex')
@@ -175,7 +175,10 @@ export class MobilityWorksAdapter implements SourceAdapter {
         changed,
         currentHash,
         previousHash: this.previousHash,
-        ...(changed ? { sampleHtml: await page.content() } : {}),
+        // Scoped to the listing card itself (not page.content()) so unrelated page-wide
+        // markup — e.g. the Osano cookie-consent widget — doesn't crowd out the actual
+        // listing structure when the AI remap prompt truncates the sample.
+        ...(changed ? { sampleHtml: cardHtml } : {}),
       }
     } finally {
       await browser.close()
