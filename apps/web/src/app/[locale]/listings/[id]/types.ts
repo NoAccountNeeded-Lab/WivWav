@@ -28,7 +28,9 @@ export interface ListingDetail {
   mileage: number | null
   color: string | null
   fuelType: string | null
+  engine: string | null
   transmission: string | null
+  stockNumber: string | null
   wav: WavFeatures
   location: ListingLocation
   dealer: ListingDealer
@@ -105,7 +107,14 @@ export interface ManufacturerCommunication {
 }
 
 export interface SafetyData {
-  vehicleModel: { id: string; make: string; model: string; year: number } | null
+  vehicleModel: {
+    id: string
+    make: string
+    model: string
+    year: number
+    trim: string | null
+    bodyType: string | null
+  } | null
   recalls: Recall[]
   complaints: {
     id: string
@@ -113,6 +122,8 @@ export interface SafetyData {
     component: string
     summary: string
     mileage: number | null
+    crashInvolved: boolean
+    reportedAt: string
   }[]
   safetyRatings: SafetyRating[]
   /** ISO-8601 date from the most recent NHTSA safety rating refresh, or null when unavailable. */

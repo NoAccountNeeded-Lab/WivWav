@@ -1,15 +1,17 @@
 import Link from 'next/link'
 import { formatPrice, rampLabel, daysListed } from '@/app/listings/[id]/utils'
 import type { SimilarListing } from '@/app/listings/[id]/types'
+import { vehicleDetailPath } from '@/lib/vehicle-url'
 import styles from './SimilarListings.module.css'
 
 interface SimilarListingsProps {
   listings: SimilarListing[]
   make: string
   model: string
+  pathPrefix?: string
 }
 
-export function SimilarListings({ listings, make, model }: SimilarListingsProps) {
+export function SimilarListings({ listings, make, model, pathPrefix = '' }: SimilarListingsProps) {
   if (listings.length === 0) return null
 
   return (
@@ -26,7 +28,7 @@ export function SimilarListings({ listings, make, model }: SimilarListingsProps)
 
           return (
             <li key={s.id}>
-              <Link href={`/listings/${s.id}`} className={styles.item}>
+              <Link href={vehicleDetailPath(s.id, pathPrefix)} className={styles.item}>
                 <div>
                   <div className={styles.name}>
                     {s.year} {s.make} {s.model}

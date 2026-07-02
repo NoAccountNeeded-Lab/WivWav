@@ -6,6 +6,7 @@ import { SortSelect } from '@/components/SearchFilters'
 import { CategoryBarChart } from '@/components/CategoryBarChart'
 import { ActiveFilters } from '@/components/ActiveFilters'
 import type { MapListing } from '@/components/ListingsMap'
+import { vehicleDetailPath } from '@/lib/vehicle-url'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { SiteHeader } from '@/components/SiteHeader'
@@ -152,7 +153,7 @@ function ListingCard({ listing: l, locale, t }: ListingCardProps) {
 
   return (
     <article className={styles.card}>
-      <Link href={`/listings/${l.id}`} className={styles.cardLink}>
+      <Link href={vehicleDetailPath(l.id)} className={styles.cardLink}>
         <div className={styles.cardImageWrap}>
           {heroImage ? (
             <img
@@ -292,6 +293,7 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
     l.lat != null && l.lng != null
       ? [{
           id: l.id,
+          detailHref: vehicleDetailPath(l.id, `/${locale}`),
           lat: l.lat,
           lng: l.lng,
           year: l.year,
