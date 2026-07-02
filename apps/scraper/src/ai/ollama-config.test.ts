@@ -16,7 +16,7 @@ describe('resolveOllamaModel', () => {
     vi.mocked(mockDb.configEntry.findFirst)
       .mockResolvedValueOnce({ key: 'ai.scraper.remap.model', value: 'qwen2.5-coder:7b' })
 
-    const model = await resolveOllamaModel(mockDb as any)
+    const model = await resolveOllamaModel(mockDb as never)
     expect(model).toBe('qwen2.5-coder:7b')
     expect(mockDb.configEntry.findFirst).toHaveBeenCalledWith({ where: { key: 'ai.scraper.remap.model' }, orderBy: { createdAt: 'desc' } })
   })
@@ -26,7 +26,7 @@ describe('resolveOllamaModel', () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ key: 'ai.scraper.structure.model', value: 'llama3.2:3b' })
 
-    const model = await resolveOllamaModel(mockDb as any)
+    const model = await resolveOllamaModel(mockDb as never)
     expect(model).toBe('llama3.2:3b')
     expect(mockDb.configEntry.findFirst).toHaveBeenNthCalledWith(1, { where: { key: 'ai.scraper.remap.model' }, orderBy: { createdAt: 'desc' } })
     expect(mockDb.configEntry.findFirst).toHaveBeenNthCalledWith(2, { where: { key: 'ai.scraper.structure.model' }, orderBy: { createdAt: 'desc' } })
@@ -35,7 +35,7 @@ describe('resolveOllamaModel', () => {
   it('returns null when no scraper model config is available', async () => {
     vi.mocked(mockDb.configEntry.findFirst).mockResolvedValue(null)
 
-    const model = await resolveOllamaModel(mockDb as any)
+    const model = await resolveOllamaModel(mockDb as never)
     expect(model).toBeNull()
   })
 })
