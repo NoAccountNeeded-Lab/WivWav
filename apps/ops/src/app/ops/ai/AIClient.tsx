@@ -37,6 +37,7 @@ interface AiStatus {
 interface RunState {
   loading: boolean
   feedback: string | null
+  queueJobId: string | null
   isError: boolean
 }
 
@@ -341,19 +342,19 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
   }, [refresh, refreshConfig])
 
   async function remapNow(sourceId: string) {
-    setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, isError: false } }))
+    setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, queueJobId: null, isError: false } }))
     try {
       const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/run`, { method: 'POST' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       const body = (await res.json()) as { data: { id: string } }
       setRunStates(prev => ({
         ...prev,
-        [sourceId]: { loading: false, feedback: `Job enqueued (${body.data.id})`, isError: false },
+        [sourceId]: { loading: false, feedback: 'Job enqueued', queueJobId: body.data.id, isError: false },
       }))
     } catch (err) {
       setRunStates(prev => ({
         ...prev,
-        [sourceId]: { loading: false, feedback: err instanceof Error ? err.message : 'Error', isError: true },
+        [sourceId]: { loading: false, feedback: err instanceof Error ? err.message : 'Error', queueJobId: null, isError: true },
       }))
     }
   }
@@ -524,7 +525,9 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                                 </button>
                                 {rs?.feedback && (
                                   <span className={rs.isError ? styles.errorMsg : styles.muted} style={{ fontSize: '0.75rem' }}>
-                                    {rs.feedback}
+                                    {rs.queueJobId
+                                      ? <>{rs.feedback} — Job ID: <Link href={`/ops/logs?search=${encodeURIComponent(rs.queueJobId)}`}>{rs.queueJobId}</Link></>
+                                      : rs.feedback}
                                   </span>
                                 )}
                               </div>

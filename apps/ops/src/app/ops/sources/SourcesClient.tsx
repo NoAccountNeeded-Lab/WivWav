@@ -22,6 +22,7 @@ interface SourceRow {
 interface RunState {
   loading: boolean
   feedback: string | null
+  jobId: string | null
   isError: boolean
 }
 
@@ -87,16 +88,16 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
   }, [refresh])
 
   async function runNow(sourceId: string) {
-    setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, isError: false } }))
+    setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, jobId: null, isError: false } }))
     try {
       const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/run`, {
         method: 'POST',
       })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       const body = (await res.json()) as { data: { id: string } }
-      setRunStates(prev => ({ ...prev, [sourceId]: { loading: false, feedback: `Job enqueued (${body.data.id})`, isError: false } }))
+      setRunStates(prev => ({ ...prev, [sourceId]: { loading: false, feedback: 'Job enqueued', jobId: body.data.id, isError: false } }))
     } catch (err) {
-      setRunStates(prev => ({ ...prev, [sourceId]: { loading: false, feedback: err instanceof Error ? err.message : 'Error', isError: true } }))
+      setRunStates(prev => ({ ...prev, [sourceId]: { loading: false, feedback: err instanceof Error ? err.message : 'Error', jobId: null, isError: true } }))
     }
   }
 
@@ -219,7 +220,9 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                               className={rs.isError ? styles.errorMsg : styles.muted}
                               style={{ fontSize: '0.75rem' }}
                             >
-                              {rs.feedback}
+                              {rs.jobId
+                                ? <>{rs.feedback} — Job ID: <Link href={`/ops/logs?search=${encodeURIComponent(rs.jobId)}`}>{rs.jobId}</Link></>
+                                : rs.feedback}
                             </span>
                           )}
                         </div>

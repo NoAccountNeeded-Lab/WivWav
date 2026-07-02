@@ -29,6 +29,7 @@ interface LogEntry {
 
 interface LogsClientProps {
   apiBaseUrl: string
+  initialSearch?: string
 }
 
 type LevelFilter = 'all' | 'error' | 'warn' | 'info' | 'debug'
@@ -263,7 +264,7 @@ function EntryRow({ entry, rowId }: EntryRowProps) {
   )
 }
 
-export function LogsClient({ apiBaseUrl }: LogsClientProps) {
+export function LogsClient({ apiBaseUrl, initialSearch = '' }: LogsClientProps) {
   const [entries, setEntries] = useState<LogEntry[] | null>(null)
   const [services, setServices] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -273,8 +274,8 @@ export function LogsClient({ apiBaseUrl }: LogsClientProps) {
 
   const [serviceFilter, setServiceFilter] = useState<string>('all')
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasLoadedOnce = useRef(false)
