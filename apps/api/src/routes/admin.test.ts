@@ -23,6 +23,7 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     findQuarantined: vi.fn(async () => []),
     countQuarantined: vi.fn(async () => 0),
     reprocessQuarantined: vi.fn(async () => true),
+    getSourcePipelineStages: vi.fn(async () => []),
     ...overrides,
   }
 }
@@ -334,6 +335,58 @@ describe('POST /sources/:id/run', () => {
     const factory = new MockQueueFactory()
     const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'POST', url: '/sources/nonexistent/run' })
+    expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+})
+
+describe('GET /sources/:id/pipeline', () => {
+  it('returns source-scrape plus DB-derived stages with pending/failed/stall state', async () => {
+    const now = new Date('2026-06-18T10:00:00Z')
+    const staleCompletion = new Date('2026-06-17T00:00:00Z') // > 6h stall threshold before `now`
+    const factory = new MockQueueFactory()
+    await factory.createQueue(QUEUES.DETAIL_CRAWL).add({ sourceId: 'src-1' })
+    const { app } = buildTestApp(
+      {
+        findById: vi.fn(async () => ({ id: 'src-1', name: 'BLVD.com', status: 'active', lastScrapedAt: now })),
+      },
+      {},
+      factory,
+      mockSearch,
+      {
+        getSourcePipelineStages: vi.fn(async () => [
+          { stage: 'detail-crawl', pendingCount: 5, lastCompletedAt: staleCompletion },
+          { stage: 'detail-extract', pendingCount: 0, lastCompletedAt: now },
+          { stage: 'geocode', pendingCount: 2, lastCompletedAt: null },
+          { stage: 'vin-enrich', pendingCount: 0, lastCompletedAt: now },
+        ]),
+      },
+    )
+
+    const res = await app.inject({ method: 'GET', url: '/sources/src-1/pipeline' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.source).toEqual({ id: 'src-1', name: 'BLVD.com' })
+
+    const byStage = Object.fromEntries(
+      (body.data.stages as Array<{ stage: string }>).map((s) => [s.stage, s]),
+    )
+    expect(Object.keys(byStage)).toEqual(['source-scrape', 'detail-crawl', 'detail-extract', 'geocode', 'vin-enrich'])
+
+    // detail-crawl: pending work, last completion older than the stall threshold → stalled
+    expect(byStage['detail-crawl']).toMatchObject({ pendingCount: 5, stalled: true })
+    // detail-extract: no pending work → never stalled regardless of last completion
+    expect(byStage['detail-extract']).toMatchObject({ pendingCount: 0, stalled: false })
+    // geocode: pending work, never completed → stalled
+    expect(byStage['geocode']).toMatchObject({ pendingCount: 2, lastCompletedAt: null, stalled: true })
+
+    await app.close()
+  })
+
+  it('returns 404 when source does not exist', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp({}, {}, factory)
+    const res = await app.inject({ method: 'GET', url: '/sources/nonexistent/pipeline' })
     expect(res.statusCode).toBe(404)
     await app.close()
   })

@@ -298,3 +298,67 @@ describe('PrismaListingRepository.reprocessQuarantined', () => {
     await expect(repo.reprocessQuarantined('l-2')).resolves.toBe(false)
   })
 })
+
+describe('PrismaListingRepository.getSourcePipelineStages', () => {
+  function buildPipelineDb() {
+    return {
+      listing: {
+        count: vi.fn(async () => 0),
+        aggregate: vi.fn(async () => ({ _max: { detailScrapedAt: null, updatedAt: null } })),
+      },
+      rawPage: {
+        count: vi.fn(async () => 0),
+        aggregate: vi.fn(async () => ({ _max: { processedAt: null } })),
+      },
+    }
+  }
+
+  it('returns pending counts and last-completed timestamps for each DB-derivable stage', async () => {
+    const detailCrawledAt = new Date('2026-06-17T00:00:00Z')
+    const extractedAt = new Date('2026-06-18T00:00:00Z')
+    const geocodedAt = new Date('2026-06-18T05:00:00Z')
+    const vinEnrichedAt = new Date('2026-06-18T06:00:00Z')
+
+    const db = buildPipelineDb()
+    db.listing.count
+      .mockResolvedValueOnce(5) // pendingDetailCrawl
+      .mockResolvedValueOnce(2) // pendingGeocode
+      .mockResolvedValueOnce(1) // pendingVinEnrich
+    db.listing.aggregate
+      .mockResolvedValueOnce({ _max: { detailScrapedAt: detailCrawledAt, updatedAt: null } })
+      .mockResolvedValueOnce({ _max: { detailScrapedAt: null, updatedAt: geocodedAt } })
+      .mockResolvedValueOnce({ _max: { detailScrapedAt: null, updatedAt: vinEnrichedAt } })
+    db.rawPage.count.mockResolvedValueOnce(3) // pendingDetailExtract
+    db.rawPage.aggregate.mockResolvedValueOnce({ _max: { processedAt: extractedAt } })
+
+    const repo = new PrismaListingRepository(db as never)
+    const stages = await repo.getSourcePipelineStages('src-1')
+
+    expect(stages).toEqual([
+      { stage: 'detail-crawl', pendingCount: 5, lastCompletedAt: detailCrawledAt },
+      { stage: 'detail-extract', pendingCount: 3, lastCompletedAt: extractedAt },
+      { stage: 'geocode', pendingCount: 2, lastCompletedAt: geocodedAt },
+      { stage: 'vin-enrich', pendingCount: 1, lastCompletedAt: vinEnrichedAt },
+    ])
+
+    expect(db.listing.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        sourceId: 'src-1',
+        status: { not: 'gone' },
+        OR: [{ detailScrapedAt: null }, { detailScrapedAt: { lt: expect.any(Date) } }],
+      },
+    })
+    expect(db.rawPage.count).toHaveBeenCalledWith({ where: { sourceId: 'src-1', processedAt: null } })
+  })
+
+  it('returns null lastCompletedAt for a stage that has never completed', async () => {
+    const db = buildPipelineDb()
+    const repo = new PrismaListingRepository(db as never)
+    const stages = await repo.getSourcePipelineStages('src-empty')
+
+    for (const stage of stages) {
+      expect(stage.pendingCount).toBe(0)
+      expect(stage.lastCompletedAt).toBeNull()
+    }
+  })
+})
