@@ -45,12 +45,11 @@ function needsBorder(value: string): boolean {
 
 export function SwatchesRenderer({ items, onToggle }: CategoricalRendererProps) {
   return (
-    <div className={styles.grid} role="list">
+    <div className={styles.grid}>
       {items.map((item) => (
         <button
           key={item.value}
           type="button"
-          role="listitem"
           className={`${styles.swatch} ${item.active ? styles.active : ''}`}
           disabled={item.disabled}
           aria-pressed={item.active}
