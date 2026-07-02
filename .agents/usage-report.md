@@ -57,3 +57,23 @@ Token and cache counters are not fully exposed by this runtime; subagent totals 
 | run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts. |
 | implementation | worker/1 | Anthropic | Claude Sonnet 4.6 | unavailable | unavailable | unavailable | unavailable | unavailable | Added extra-args guard in index.ts `run-sprint` case (CliError when args.length > 1); updated usage string and SKILL.md docs; added CRITICAL anti-pattern warning to worker.md step 6; added subprocess tests to run-sprint.test.ts covering dispatch layer. 3 commits, 199 tests passing. |
 | review | reviewer/1 | Anthropic | Claude Sonnet 4.6 | unavailable | unavailable | unavailable | unavailable | unavailable | Reviewer backgrounded (ironic given the fix subject) — test suite used as fallback gate. Verdict: REVISION_NEEDED: no. |
+
+---
+
+# Usage Report: Issue #555
+
+## Metadata
+
+- Sprint run: run-sprint/2026-07-02T00:11
+- Branch: feat/issue-555-ollama-powered-explain-error-button-on-failed-pipe
+- Effort guidance: standard
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts; #554 branch was pre-merged (fast-forward) into this worktree's branch. |
+| implementation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Added `POST /admin/ai/explain-error` in `apps/api/src/routes/admin-ai.ts` (prompt scoped to explanation/triage, forbids code-fix suggestions, 30s server-side Ollama timeout, queue-name allowlist validation); extended `GET /admin/sources/:id/pipeline` in `admin.ts` with `latestFailedJobId` per stage (source-scoped only); added "Explain this error" button + AI-labeled explanation panel to `SourcePipelineClient.tsx` with a 35s client-side `AbortSignal.timeout`; added `MockQueueAdapter.markFailed` test helper in `packages/queue`; updated `docs/api-routes.md`. Cherry-picked pre-existing `4b61cc1` (unrelated tsc fix on the #554 branch not carried over by the fast-forward merge) to keep typecheck green. |
+| review | reviewer/1 | Anthropic | Claude Sonnet 4.6 (subagent) | 49612 (subagent total) | unavailable | unavailable | unavailable | 13 | Reviewer + QA combined role. Verdict REVISION_NEEDED: yes; 1 CRITICAL (explain-error accepted an unvalidated queue name, allowing arbitrary BullMQ queue instantiation via `queueFactory.createQueue` — fixed with a `KNOWN_QUEUE_NAMES` allowlist check returning 404, plus a regression test asserting `createQueue` is never called for an unknown queue), 2 WARNINGs (linear failed-job scan instead of direct `getJob` — accepted, matches existing `admin.ts` pattern at current scale; missing ownership re-check — mitigated by the new allowlist), 2 SUGGESTIONs (client/server timeout duplication vs. the new `#552` `fetch-with-timeout.ts` helper — left as-is since only the API is in scope for #555; untested 502 Ollama-error branch — fixed by adding that test). All AC verified end-to-end by the reviewer. |
+| fix | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Applied the CRITICAL fix (queue allowlist) plus added 404-unknown-queue and 502-Ollama-error tests (918 API tests passing, up from 914); updated `docs/api-routes.md` to document the 404 case; re-ran full repo-wide typecheck/lint/build/test — all green. |

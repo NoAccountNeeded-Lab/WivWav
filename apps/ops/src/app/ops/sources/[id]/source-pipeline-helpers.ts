@@ -6,6 +6,8 @@ export interface PipelineStage {
   failedCount: number
   failedScopedToSource: boolean
   stalled: boolean
+  /** Id of the most recently failed job for this stage, if known — powers the "Explain this error" action. */
+  latestFailedJobId: string | null
 }
 
 export type StageStatus = 'ok' | 'failed' | 'stalled'
