@@ -112,10 +112,10 @@ export class BlvdAdapter implements SourceAdapter {
       const page = await browser.newPage()
       await page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
 
-      const signature = await page.evaluate(function (sel: string): string {
+      const { signature, cardHtml } = await page.evaluate(function (sel: string): { signature: string; cardHtml: string } {
         const cards = document.querySelectorAll(sel)
         const first = cards[0]
-        if (!first) return 'no-cards'
+        if (!first) return { signature: 'no-cards', cardHtml: '' }
         // Iterative DFS — tsx's esbuild injects __name() for named function declarations,
         // which is undefined in the Playwright browser sandbox where only the function body
         // is serialized, not the module-level helper.
@@ -131,7 +131,7 @@ export class BlvdAdapter implements SourceAdapter {
             stack.push([el.children[i]!, depth + 1])
           }
         }
-        return `count:${cards.length}|${parts.join(',')}`
+        return { signature: `count:${cards.length}|${parts.join(',')}`, cardHtml: first.outerHTML }
       }, CARD_SEL)
 
       const currentHash = createHash('sha256').update(signature).digest('hex')
@@ -140,7 +140,10 @@ export class BlvdAdapter implements SourceAdapter {
         changed,
         currentHash,
         previousHash: this.previousHash,
-        ...(changed ? { sampleHtml: await page.content() } : {}),
+        // Scoped to the listing card itself (not page.content()) so unrelated page-wide
+        // markup — e.g. cookie-consent widgets — doesn't crowd out the actual listing
+        // structure when the AI remap prompt truncates the sample.
+        ...(changed ? { sampleHtml: cardHtml } : {}),
       }
     } finally {
       await browser.close()
