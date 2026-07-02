@@ -22,7 +22,17 @@ interface RetryState {
   isError: boolean
 }
 
+interface ExplainState {
+  loading: boolean
+  explanation: string | null
+  error: string | null
+}
+
 const REFRESH_MS = 15_000
+// Ollama completions can be slow on CPU-only hosts; bounded so the panel
+// shows a clear error state instead of hanging indefinitely if the daemon
+// is unreachable or stalls (see #552 fetchWithTimeout pattern).
+const EXPLAIN_TIMEOUT_MS = 35_000
 
 const STAGE_META: Record<string, { label: string; description: string }> = {
   'source-scrape': {
@@ -72,6 +82,7 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [retryStates, setRetryStates] = useState<Record<string, RetryState>>({})
+  const [explainStates, setExplainStates] = useState<Record<string, ExplainState>>({})
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
@@ -122,6 +133,33 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
         ...prev,
         [stage.stage]: { loading: false, feedback: err instanceof Error ? err.message : 'Error', isError: true },
       }))
+    }
+  }
+
+  async function explainError(stage: PipelineStage) {
+    if (!stage.latestFailedJobId) return
+    setExplainStates(prev => ({ ...prev, [stage.stage]: { loading: true, explanation: null, error: null } }))
+    try {
+      const res = await fetch(`${apiBaseUrl}/admin/ai/explain-error`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal: AbortSignal.timeout(EXPLAIN_TIMEOUT_MS),
+        body: JSON.stringify({ data: { queue: stage.queue, jobId: stage.latestFailedJobId } }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+        throw new Error(body?.error?.message ?? `Explain request failed (${res.status})`)
+      }
+      const body = (await res.json()) as { data: { explanation: string } }
+      setExplainStates(prev => ({
+        ...prev,
+        [stage.stage]: { loading: false, explanation: body.data.explanation, error: null },
+      }))
+    } catch (err) {
+      const message = err instanceof Error && err.name === 'TimeoutError'
+        ? 'Ollama did not respond in time. Confirm it is running and try again.'
+        : err instanceof Error ? err.message : 'Failed to get an explanation'
+      setExplainStates(prev => ({ ...prev, [stage.stage]: { loading: false, explanation: null, error: message } }))
     }
   }
 
@@ -200,11 +238,33 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
                       >
                         {rs?.loading ? 'Retrying…' : 'Retry failed jobs'}
                       </button>
+                      {stage.latestFailedJobId && (
+                        <button
+                          className={`${styles.btn} ${styles.btnGhost}`}
+                          type="button"
+                          disabled={explainStates[stage.stage]?.loading}
+                          onClick={() => void explainError(stage)}
+                          aria-label={`Explain this error for ${meta?.label ?? stage.stage}`}
+                        >
+                          {explainStates[stage.stage]?.loading ? 'Asking Ollama…' : 'Explain this error'}
+                        </button>
+                      )}
                       {rs?.feedback && (
                         <span className={rs.isError ? styles.errorMsg : styles.muted} style={{ fontSize: '0.75rem' }}>
                           {rs.feedback}
                         </span>
                       )}
+                    </div>
+                  )}
+                  {explainStates[stage.stage]?.error && (
+                    <p className={styles.errorMsg} role="alert">
+                      {explainStates[stage.stage]?.error}
+                    </p>
+                  )}
+                  {explainStates[stage.stage]?.explanation && (
+                    <div className={styles.aiExplainPanel} role="status">
+                      <p className={styles.aiExplainLabel}>AI-generated explanation (Ollama) — not a verified fix</p>
+                      <p className={styles.aiExplainText}>{explainStates[stage.stage]?.explanation}</p>
                     </div>
                   )}
                 </article>

@@ -78,6 +78,8 @@ interface SourcePipelineStage {
   /** Whether the failed-job count above is scoped to this source (true) or reflects the whole queue (false, for stages whose job payload has no sourceId). */
   failedScopedToSource: boolean
   stalled: boolean
+  /** Id of the most recently failed job for this stage's queue, if any — used by the "Explain this error" action (#555). Only set when failedScopedToSource is true, since an unscoped job may belong to a different source. */
+  latestFailedJobId: string | null
 }
 
 const LISTING_REFRESH_QUEUES = [
@@ -255,6 +257,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
               queueName,
               failedCount: scopedFailures.length,
               failedScopedToSource: sourceScoped,
+              // Only surface a job id to explain when the failure is known to
+              // belong to this source — an unscoped queue's latest failure
+              // may be for a different source entirely.
+              latestFailedJobId: sourceScoped ? (latestByCreatedAt(scopedFailures)?.id ?? null) : null,
             }
           },
         ),
@@ -273,6 +279,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
           failedCount: sourceScrapeFailedJobs.length,
           failedScopedToSource: true,
           stalled: source.status === 'needs_remapping' || source.status === 'error',
+          latestFailedJobId: latestByCreatedAt(sourceScrapeFailedJobs)?.id ?? null,
         },
         ...dbStages.map((dbStage) => {
           const failures = failuresByStage.get(dbStage.stage)
@@ -286,6 +293,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
             failedCount: failures?.failedCount ?? 0,
             failedScopedToSource: failures?.failedScopedToSource ?? false,
             stalled,
+            latestFailedJobId: failures?.latestFailedJobId ?? null,
           }
         }),
       ]

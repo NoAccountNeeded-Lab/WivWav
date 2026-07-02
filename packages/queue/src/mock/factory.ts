@@ -100,6 +100,15 @@ export class MockQueueAdapter implements QueueAdapter {
     return [...this.jobs]
   }
 
+  /** Test helper: mark the most recently added job as failed with a reason, for exercising failed-job read paths (e.g. explain-error). */
+  markFailed(failedReason: string, attemptsMade = 1): void {
+    const job = this.jobs.at(-1)
+    if (!job) throw new Error('markFailed: no jobs have been added yet')
+    job.status = 'failed'
+    job.failedReason = failedReason
+    job.attemptsMade = attemptsMade
+  }
+
   /** Test helper: reset state between tests. */
   clear(): void {
     this.jobs = []

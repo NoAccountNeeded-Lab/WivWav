@@ -149,6 +149,7 @@ export async function buildApp(
     prefix: '/admin/ai',
     sources: sourceRepo,
     ollamaBaseUrl: config.OLLAMA_BASE_URL,
+    queueFactory,
   })
   await app.register(adminConfigRoutes, {
     prefix: '/admin/config',

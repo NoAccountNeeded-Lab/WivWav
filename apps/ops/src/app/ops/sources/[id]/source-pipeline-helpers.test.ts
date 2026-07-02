@@ -10,6 +10,7 @@ function buildStage(overrides: Partial<PipelineStage> = {}): PipelineStage {
     failedCount: 0,
     failedScopedToSource: true,
     stalled: false,
+    latestFailedJobId: null,
     ...overrides,
   }
 }
