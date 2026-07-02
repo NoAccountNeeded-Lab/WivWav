@@ -1,0 +1,73 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map {
+  width: 100%;
+  height: auto;
+}
+
+.state {
+  cursor: pointer;
+  stroke: var(--clr-surface);
+  stroke-width: 0.75;
+  outline: none;
+  transition: stroke-width 0.15s ease, filter 0.15s ease;
+}
+
+.state:hover {
+  stroke: var(--clr-primary);
+  stroke-width: 1.25;
+  filter: brightness(0.96);
+}
+
+.state:focus-visible {
+  stroke: var(--clr-focus);
+  stroke-width: 2.5;
+}
+
+.state[data-active='true'] {
+  stroke: var(--clr-primary-dark);
+  stroke-width: 2;
+  stroke-dasharray: 2 1;
+}
+
+.territory {
+  fill: var(--clr-surface);
+  stroke: var(--clr-border);
+  stroke-width: 0.5;
+  pointer-events: none;
+}
+
+.status {
+  min-height: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--clr-text-muted);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legendLabel {
+  font-size: 0.75rem;
+  color: var(--clr-text-muted);
+  white-space: nowrap;
+}
+
+.legendBar {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--clr-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state {
+    transition: none;
+  }
+}
