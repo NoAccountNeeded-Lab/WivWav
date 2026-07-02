@@ -346,6 +346,7 @@ describe('GET /sources/:id/pipeline', () => {
     const staleCompletion = new Date('2026-06-17T00:00:00Z') // > 6h stall threshold before `now`
     const factory = new MockQueueFactory()
     await factory.createQueue(QUEUES.DETAIL_CRAWL).add({ sourceId: 'src-1' })
+    ;(factory.getQueue(QUEUES.DETAIL_CRAWL) as MockQueueAdapter).markFailed('TimeoutError: navigation timed out')
     const { app } = buildTestApp(
       {
         findById: vi.fn(async () => ({ id: 'src-1', name: 'BLVD.com', status: 'active', lastScrapedAt: now })),
@@ -374,7 +375,7 @@ describe('GET /sources/:id/pipeline', () => {
     expect(Object.keys(byStage)).toEqual(['source-scrape', 'detail-crawl', 'detail-extract', 'geocode', 'vin-enrich'])
 
     // detail-crawl: pending work, last completion older than the stall threshold → stalled
-    expect(byStage['detail-crawl']).toMatchObject({ pendingCount: 5, stalled: true })
+    expect(byStage['detail-crawl']).toMatchObject({ pendingCount: 5, stalled: true, failedCount: 1, latestFailedJobId: '1' })
     // detail-extract: no pending work → never stalled regardless of last completion
     expect(byStage['detail-extract']).toMatchObject({ pendingCount: 0, stalled: false })
     // geocode: pending work, never completed → stalled
