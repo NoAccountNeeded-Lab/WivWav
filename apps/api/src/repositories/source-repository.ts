@@ -19,7 +19,7 @@ export type SourceRow = {
 
 export type SourceNameRow = { id: string; name: string }
 
-export type SourceIdRow = { id: string; name: string }
+export type SourceIdRow = { id: string; name: string; status: string; lastScrapedAt: Date | null }
 
 export type SourceScheduleRow = {
   id: string
@@ -79,7 +79,10 @@ export class PrismaSourceRepository implements SourceRepository {
   }
 
   findById(id: string): Promise<SourceIdRow | null> {
-    return this.db.source.findUnique({ where: { id }, select: { id: true, name: true } })
+    return this.db.source.findUnique({
+      where: { id },
+      select: { id: true, name: true, status: true, lastScrapedAt: true },
+    })
   }
 
   findManyByIds(ids: string[]): Promise<SourceNameRow[]> {

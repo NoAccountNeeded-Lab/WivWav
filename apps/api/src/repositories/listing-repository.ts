@@ -1,5 +1,10 @@
 import type { PrismaClient, Listing, Prisma } from '@wivwav/db'
 
+// Mirrors STALE_DETAIL_DAYS in apps/scraper/src/jobs/detail-crawl.ts — a
+// listing whose detail page was last crawled longer ago than this is treated
+// as pending re-crawl, same as the job itself would pick it up again.
+const STALE_DETAIL_CRAWL_DAYS = 30
+
 // ── Shape types ──────────────────────────────────────────────────────────────
 
 export type ListingWithSource = Listing & {
@@ -186,6 +191,18 @@ type CountRow = {
   count: number | bigint
 }
 
+/**
+ * Per-stage pending/last-completed state for one pipeline stage, scoped to a
+ * single source. `pendingCount` is the number of rows that still need this
+ * stage's work; `lastCompletedAt` is the most recent time this stage
+ * finished work for the source (null if it has never completed any).
+ */
+export type SourcePipelineStageRow = {
+  stage: 'detail-crawl' | 'detail-extract' | 'geocode' | 'vin-enrich'
+  pendingCount: number
+  lastCompletedAt: Date | null
+}
+
 type PublicationCountQueryRow = {
   sourceId: string
   observedActive: number | bigint
@@ -221,6 +238,14 @@ export interface ListingRepository {
    * source fix ships). Returns false if the listing was not quarantined.
    */
   reprocessQuarantined(id: string): Promise<boolean>
+  /**
+   * Per-stage pending/last-completed state for a single source, covering the
+   * DB-derivable pipeline stages (detail-crawl, detail-extract, geocode,
+   * vin-enrich). Stage pending conditions mirror the job queries in
+   * apps/scraper/src/jobs/*.ts so the counts stay consistent with what a job
+   * run would actually pick up.
+   */
+  getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]>
 }
 
 // ── Prisma implementation ────────────────────────────────────────────────────
@@ -519,5 +544,70 @@ export class PrismaListingRepository implements ListingRepository {
       },
     })
     return result.count > 0
+  }
+
+  async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {
+    const staleThreshold = new Date(Date.now() - STALE_DETAIL_CRAWL_DAYS * 24 * 60 * 60 * 1000)
+
+    const [
+      pendingDetailCrawl,
+      lastDetailCrawlAt,
+      pendingDetailExtract,
+      lastDetailExtractAt,
+      pendingGeocode,
+      lastGeocodeAt,
+      pendingVinEnrich,
+      lastVinEnrichAt,
+    ] = await Promise.all([
+      this.db.listing.count({
+        where: {
+          sourceId,
+          status: { not: 'gone' },
+          OR: [
+            { detailScrapedAt: null },
+            { detailScrapedAt: { lt: staleThreshold } },
+          ],
+        },
+      }),
+      this.db.listing.aggregate({
+        where: { sourceId, detailScrapedAt: { not: null } },
+        _max: { detailScrapedAt: true },
+      }),
+      this.db.rawPage.count({ where: { sourceId, processedAt: null } }),
+      this.db.rawPage.aggregate({
+        where: { sourceId, processedAt: { not: null } },
+        _max: { processedAt: true },
+      }),
+      this.db.listing.count({
+        where: {
+          sourceId,
+          lat: null,
+          city: { not: null },
+          state: { not: null },
+        },
+      }),
+      this.db.listing.aggregate({
+        where: { sourceId, lat: { not: null } },
+        _max: { updatedAt: true },
+      }),
+      this.db.listing.count({
+        where: {
+          sourceId,
+          vin: { not: null },
+          vehicleModelId: null,
+        },
+      }),
+      this.db.listing.aggregate({
+        where: { sourceId, vin: { not: null }, vehicleModelId: { not: null } },
+        _max: { updatedAt: true },
+      }),
+    ])
+
+    return [
+      { stage: 'detail-crawl', pendingCount: pendingDetailCrawl, lastCompletedAt: lastDetailCrawlAt._max.detailScrapedAt },
+      { stage: 'detail-extract', pendingCount: pendingDetailExtract, lastCompletedAt: lastDetailExtractAt._max.processedAt },
+      { stage: 'geocode', pendingCount: pendingGeocode, lastCompletedAt: lastGeocodeAt._max.updatedAt },
+      { stage: 'vin-enrich', pendingCount: pendingVinEnrich, lastCompletedAt: lastVinEnrichAt._max.updatedAt },
+    ]
   }
 }
