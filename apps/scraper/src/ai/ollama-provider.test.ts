@@ -33,6 +33,7 @@ describe('OllamaProvider', () => {
     expect(body['system']).toBe('system prompt')
     expect(body['prompt']).toBe('user prompt')
     expect(body['stream']).toBe(false)
+    expect(body['format']).toBe('json')
   })
 
   it('throws when Ollama returns a non-OK status', async () => {
