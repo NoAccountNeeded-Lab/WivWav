@@ -209,7 +209,7 @@ export async function generateMetadata({
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
-export default async function ListingDetailV2Page({
+export default async function VehicleDetailPage({
   params,
 }: {
   params: Promise<{ locale: string; id: string }>
@@ -271,7 +271,13 @@ export default async function ListingDetailV2Page({
       label: 'Vehicle',
       icon: <Gauge size={14} aria-hidden />,
       content: (
-        <VehicleTab listing={listing} modelResearch={modelResearch} vehicleStats={vehicleStats} modelMsrp={modelMsrp} />
+        <VehicleTab
+          listing={listing}
+          modelResearch={modelResearch}
+          vehicleStats={vehicleStats}
+          modelMsrp={modelMsrp}
+          bodyType={safety?.vehicleModel?.bodyType ?? null}
+        />
       ),
     },
     {
@@ -291,6 +297,7 @@ export default async function ListingDetailV2Page({
           priceHistory={priceHistory}
           similar={similar}
           modelMsrp={modelMsrp}
+          vehiclePathPrefix={`/${locale}`}
         />
       ),
     },

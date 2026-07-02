@@ -10,9 +10,17 @@ interface MarketTabProps {
   priceHistory: PricePoint[]
   similar: SimilarListing[]
   modelMsrp?: ModelMsrp | null
+  vehiclePathPrefix?: string
 }
 
-export function MarketTab({ listing, marketPricing, priceHistory, similar, modelMsrp }: MarketTabProps) {
+export function MarketTab({
+  listing,
+  marketPricing,
+  priceHistory,
+  similar,
+  modelMsrp,
+  vehiclePathPrefix,
+}: MarketTabProps) {
   const hasMarket = marketPricing && marketPricing.count >= 3 && marketPricing.priceCents
 
   return (
@@ -53,7 +61,12 @@ export function MarketTab({ listing, marketPricing, priceHistory, similar, model
       {similar.length > 0 && (
         <div className={styles.section}>
           <div className={styles.sectionLabel}>Similar WAVs</div>
-          <SimilarListings listings={similar} make={listing.make} model={listing.model} />
+          <SimilarListings
+            listings={similar}
+            make={listing.make}
+            model={listing.model}
+            pathPrefix={vehiclePathPrefix ?? ''}
+          />
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { MileageGauge } from '@/components/listing/MileageGauge'
+import { deriveListingSpecs } from '@/components/listing/vehicleSpecs'
 import type { ListingDetail, ModelMsrp, ModelResearch, ModelResearchSource, VehicleStats } from './types'
 import { deriveShowVehicleStats, deriveVisibleVehicleStats } from './vehicleTabUtils'
 import styles from './tabs.module.css'
@@ -8,6 +9,7 @@ interface VehicleTabProps {
   modelResearch: ModelResearch | null
   vehicleStats: VehicleStats | null
   modelMsrp: ModelMsrp | null
+  bodyType: string | null
 }
 
 /** Format cents as a currency string for MSRP display. */
@@ -42,7 +44,13 @@ const RESEARCH_FIELD_ORDER = [
   'transmission',
 ]
 
-export function VehicleTab({ listing, modelResearch, vehicleStats, modelMsrp }: VehicleTabProps) {
+export function VehicleTab({
+  listing,
+  modelResearch,
+  vehicleStats,
+  modelMsrp,
+  bodyType,
+}: VehicleTabProps) {
   // Build a map from sourceId → source for inline citation links
   const sourceMap = new Map<string, ModelResearchSource>(
     (modelResearch?.sources ?? []).map((s) => [s.id, s]),
@@ -54,12 +62,8 @@ export function VehicleTab({ listing, modelResearch, vehicleStats, modelMsrp }: 
     return claim ? [claim] : []
   })
 
-  // Listing-level specs that fill gaps not covered by research claims
-  // Avoid showing duplicate info if research already covers it
   const researchedFields = new Set(researchClaims.map((c) => c.field))
-  const showListingFuelType = !researchedFields.has('fuelType') && Boolean(listing.fuelType)
-  const showListingTransmission =
-    !researchedFields.has('transmission') && Boolean(listing.transmission)
+  const listingSpecs = deriveListingSpecs(listing, bodyType, researchedFields)
   const visibleStats = deriveVisibleVehicleStats(vehicleStats)
   const showVehicleStats = deriveShowVehicleStats(vehicleStats)
 
@@ -172,17 +176,9 @@ export function VehicleTab({ listing, modelResearch, vehicleStats, modelMsrp }: 
       <div className={styles.section}>
         <h3 className={styles.sectionLabel}>Listing specifications</h3>
         <dl className={styles.specList}>
-          {showListingTransmission && listing.transmission && (
-            <SpecRow label="Transmission" value={listing.transmission} />
-          )}
-          {showListingFuelType && listing.fuelType && (
-            <SpecRow label="Fuel type" value={listing.fuelType} />
-          )}
-          {listing.color && <SpecRow label="Exterior color" value={listing.color} />}
-          {listing.condition && (
-            <SpecRow label="Condition" value={listing.condition.replace(/_/g, ' ')} />
-          )}
-          {listing.vin && <SpecRow label="VIN" value={listing.vin} mono />}
+          {listingSpecs.map((spec) => (
+            <SpecRow key={spec.label} label={spec.label} value={spec.value} mono={spec.mono === true} />
+          ))}
         </dl>
       </div>
     </div>
