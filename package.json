@@ -24,10 +24,7 @@
     "db:push": "pnpm --filter @wivwav/db db:push",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore",
     "wivwav": "pnpm --filter @wivwav/sdlc-cli run cli --",
-    "agents": "pnpm --filter @wivwav/agents run cli --",
-    "job:detail-crawl": "pnpm --filter @wivwav/scraper job:detail-crawl",
-    "job:detail-extract": "pnpm --filter @wivwav/scraper job:detail-extract",
-    "job:geocode": "pnpm --filter @wivwav/scraper job:geocode"
+    "agents": "pnpm --filter @wivwav/agents run cli --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
