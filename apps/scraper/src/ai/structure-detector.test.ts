@@ -106,11 +106,28 @@ describe('StructureDetector.remapFields', () => {
     ).rejects.toThrow("AI remap response missing/invalid fields — expected numeric 'confidence'")
   })
 
-  it('throws when AI returns no JSON at all', async () => {
+  it('throws when AI returns no JSON at all, including the raw response text', async () => {
     const detector = new StructureDetector(makeProvider('Sorry, I cannot help with that.'))
 
     await expect(
       detector.remapFields({ sourceName: 'TestSource', previousMappings: [], sampleHtml: '<html>' })
-    ).rejects.toThrow('AI provider did not return valid JSON')
+    ).rejects.toThrow('AI provider did not return valid JSON. Raw response: Sorry, I cannot help with that.')
+  })
+
+  it('throws when AI returns malformed JSON, including the parse error and raw response text', async () => {
+    const detector = new StructureDetector(makeProvider('```json\n{ "mappings": [}\n```'))
+
+    await expect(
+      detector.remapFields({ sourceName: 'TestSource', previousMappings: [], sampleHtml: '<html>' })
+    ).rejects.toThrow(/AI remap response was not valid JSON \(.*\)\. Raw response: ```json \{ "mappings": \[\} ```/)
+  })
+
+  it('truncates a long raw response in the error message', async () => {
+    const longGarbage = `not json at all ${'x'.repeat(1000)}`
+    const detector = new StructureDetector(makeProvider(longGarbage))
+
+    await expect(
+      detector.remapFields({ sourceName: 'TestSource', previousMappings: [], sampleHtml: '<html>' })
+    ).rejects.toThrow(/…$/)
   })
 })
