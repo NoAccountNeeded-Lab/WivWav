@@ -5,6 +5,12 @@
   gap: 0.5rem;
 }
 
+@media (max-width: 520px) {
+  .sortGroup {
+    justify-content: space-between;
+  }
+}
+
 .sortLabel {
   font-size: 0.9375rem;
   color: var(--clr-text-secondary);
@@ -13,7 +19,7 @@
 }
 
 .sortSelect {
-  height: 2.375rem;
+  min-height: 2.75rem;
   padding: 0 2rem 0 0.75rem;
   font-family: var(--font);
   font-size: 0.9375rem;
@@ -27,6 +33,12 @@
   background-position: right 0.625rem center;
   cursor: pointer;
   transition: border-color 0.15s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sortSelect {
+    transition: none;
+  }
 }
 
 .sortSelect:hover {

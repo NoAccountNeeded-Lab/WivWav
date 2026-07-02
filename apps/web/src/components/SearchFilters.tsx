@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useCallback, useTransition } from 'react'
+import { buildSearchHref } from '@/lib/results-url'
 import styles from './SearchFilters.module.css'
 
 export function SortSelect() {
@@ -14,17 +15,10 @@ export function SortSelect() {
 
   const push = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString())
-      for (const [key, value] of Object.entries(updates)) {
-        if (value === null) {
-          params.delete(key)
-        } else {
-          params.set(key, value)
-        }
-      }
-      params.delete('page')
       startTransition(() => {
-        router.push(`${pathname}?${params.toString()}`, { scroll: false })
+        router.push(buildSearchHref(pathname, searchParams, updates, true), {
+          scroll: false,
+        })
       })
     },
     [router, pathname, searchParams],
