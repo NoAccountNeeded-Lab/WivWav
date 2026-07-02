@@ -5,7 +5,6 @@ import { Link } from '@/navigation'
 import { SortSelect } from '@/components/SearchFilters'
 import { CategoryBarChart } from '@/components/CategoryBarChart'
 import { ActiveFilters } from '@/components/ActiveFilters'
-import type { MapListing } from '@/components/ListingsMap'
 import { vehicleDetailPath } from '@/lib/vehicle-url'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
@@ -289,24 +288,6 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
   const { data: listings, pagination } = await fetchListings(resolvedSearchParams)
   const hasConversionBrandFilter = Boolean(resolvedSearchParams.conversionBrand)
 
-  const mappableListings: MapListing[] = listings.flatMap((l) =>
-    l.lat != null && l.lng != null
-      ? [{
-          id: l.id,
-          detailHref: vehicleDetailPath(l.id, `/${locale}`),
-          lat: l.lat,
-          lng: l.lng,
-          year: l.year,
-          make: l.make,
-          model: l.model,
-          trim: l.trim,
-          priceCents: l.priceCents,
-          city: l.city,
-          state: l.state,
-        }]
-      : [],
-  )
-
   return (
     <>
       <SiteHeader />
@@ -317,7 +298,7 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
           <section className={styles.searchSection}>
             {/* Client components use useSearchParams — must be in Suspense */}
             <Suspense>
-              <CategoryBarChart mapListings={mappableListings} />
+              <CategoryBarChart />
             </Suspense>
           </section>
 

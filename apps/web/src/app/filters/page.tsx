@@ -4,7 +4,6 @@ import { Car } from 'lucide-react'
 import { SortSelect } from '../../components/SearchFilters'
 import { CategoryBarChart } from '../../components/CategoryBarChart'
 import { ActiveFilters } from '../../components/ActiveFilters'
-import type { MapListing } from '../../components/ListingsMap'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { SiteHeader } from '@/components/SiteHeader'
@@ -347,24 +346,6 @@ export async function ListingsResults({
     ? resultsPath.slice(0, -'/results'.length)
     : ''
 
-  const mappableListings: MapListing[] = listings.flatMap((l) =>
-    l.lat != null && l.lng != null
-      ? [{
-          id: l.id,
-          detailHref: vehicleDetailPath(l.id, listingPathPrefix),
-          lat: l.lat,
-          lng: l.lng,
-          year: l.year,
-          make: l.make,
-          model: l.model,
-          trim: l.trim,
-          priceCents: l.priceCents,
-          city: l.city,
-          state: l.state,
-        }]
-      : [],
-  )
-
   return (
     <>
       <SiteHeader />
@@ -386,7 +367,7 @@ export async function ListingsResults({
           <section className={styles.searchSection}>
             {/* Client components use useSearchParams — must be in Suspense */}
             <Suspense>
-              <CategoryBarChart mapListings={mappableListings} />
+              <CategoryBarChart />
             </Suspense>
           </section>
 
