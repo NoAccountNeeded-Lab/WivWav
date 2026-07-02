@@ -4,6 +4,12 @@ export interface JobOptions {
   delay?: number
   attempts?: number
   backoff?: { type: 'exponential' | 'fixed'; delay: number }
+  /**
+   * Fixed job id. Adding a job with an id that already has a waiting, active,
+   * or delayed job collapses into that existing job instead of creating a
+   * duplicate — use this to coalesce bursts of redundant enqueues.
+   */
+  jobId?: string
 }
 
 export interface JobStats {
