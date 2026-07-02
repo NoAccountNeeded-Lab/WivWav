@@ -102,9 +102,19 @@
 }
 
 .emptyState a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
   color: var(--clr-primary);
   font-weight: 500;
   text-underline-offset: 2px;
+}
+
+.emptyState a:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* ── Pagination ───────────────────────────────────── */

@@ -5,12 +5,11 @@ import styles from './ChipsRenderer.module.css'
 
 export function ChipsRenderer({ items, onToggle }: CategoricalRendererProps) {
   return (
-    <div className={styles.chips} role="list">
+    <div className={styles.chips}>
       {items.map((item) => (
         <button
           key={item.value}
           type="button"
-          role="listitem"
           className={`${styles.chip} ${item.active ? styles.active : ''}`}
           disabled={item.disabled}
           aria-pressed={item.active}
