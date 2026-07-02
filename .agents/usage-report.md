@@ -99,3 +99,25 @@ Token and cache counters are not fully exposed by this runtime; subagent totals 
 | validation | worker/1 | Anthropic | Claude Sonnet | unavailable | unavailable | unavailable | unavailable | unavailable | Full web suite: 461/461 tests; web TypeScript and scoped ESLint passed; webpack production build compiled, typechecked, generated 11/11 pages, and emitted both results routes. Affected Turbo orchestration was interrupted after isolated-worktree pnpm tasks stalled; equivalent direct checks passed. |
 
 Token, cache, and tool-call counters are unavailable in this runtime.
+
+---
+
+# Usage Report: Issue #578
+
+## Metadata
+
+- Sprint run: run-sprint/2026-07-02T09:01
+- Branch: feat/issue-578-replace-filtersdiscover-pin-map-with-a-state-heat
+- Effort guidance: standard
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts. |
+| implementation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Discovered that per-state, filter-scoped listing counts already existed via `GET /v1/listings/facets` (`stateBreakdown`, same disjunctive-facet mechanism used by the existing "State" bars filter group) — so no `apps/api` work was needed for AC #1/#2. Added `apps/web/src/components/StateHeatMap.tsx` (react-simple-maps choropleth, keyboard-accessible, `color-mix()`-based sequential scale on `var(--clr-primary)`, live-region + native `<title>` tooltip, dashed-stroke active-state indicator so selection isn't color-only) and `apps/web/src/lib/us-states.ts` (name↔USPS-abbreviation table). Vendored `us-atlas` states-10m topojson (public-domain US Census data) locally at `apps/web/public/data/us-states-10m.json` rather than depending on the `us-atlas` npm package (ISC) or a remote CDN fetch. Wired `StateHeatMap` into `CategoryBarChart.tsx` in place of `ListingsMap`, reusing the existing `toggleArray('state', value)` handler for click-to-filter. Removed `ListingsMap.tsx`, `leaflet`/`react-leaflet`/`react-leaflet-cluster`/`@types/leaflet`, and the now-dead per-listing lat/lng `mappableListings`/`MapListing` plumbing in both `apps/web/src/app/filters/page.tsx` and `apps/web/src/app/[locale]/filters/page.tsx`. Documented (but did not functionally touch) the pre-existing unused `stateCounts` field on `ListingAggregations` in `packages/types/src/filter.ts`. Added `StateHeatMap.test.tsx` and `us-states.test.ts` (10 new tests, no jest-dom matchers since none are configured in this repo). |
+| review | reviewer/1 (subagent) | Anthropic | Claude Sonnet 5 (subagent) | unavailable | unavailable | unavailable | unavailable | ~49 | Combined reviewer + qa + accessibility roles, foreground/blocking. Independently re-ran `vitest run` (471/471), `tsc --noEmit`, `eslint src` (0 errors), confirmed no remaining leaflet/ListingsMap/MapListing references, and verified `stateBreakdown` is genuinely filter-scoped. Verdict REVISION_NEEDED: no; 0 CRITICAL/WARNING requiring code changes, 4 informational findings posted as a PR comment for follow-up consideration (duplicate state-filter UI between the new map and the pre-existing bars group; small-state touch targets; pre-existing unvalidated scraper `state` values; ISC-licensed transitive deps of `react-simple-maps`, consistent with existing unenforced precedent in the repo's dependency tree). |
+| finish | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Committed, pushed, opened draft PR #581, posted review verdict comment. Manual browser QA (heat map rendering, tooltip, click-to-filter, light/dark mode) explicitly flagged in the PR body as not performable from this environment. |
+
+Token and cache counters are not exposed by this runtime.
