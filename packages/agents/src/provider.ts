@@ -43,6 +43,7 @@ export class OllamaProvider implements CompletionProvider {
         system: systemPrompt,
         prompt: userPrompt,
         stream: false,
+        format: 'json',
         options: {
           num_predict: options.maxTokens ?? 4096,
           temperature: options.temperature ?? 0.2,
