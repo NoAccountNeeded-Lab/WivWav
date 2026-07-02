@@ -4,7 +4,6 @@ COMPOSE = docker compose
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report \
         db-push db-generate db-migrate db-seed db-studio \
-        job-detail-crawl job-detail-extract job-geocode \
         agents
 
 # ── Docker stack ──────────────────────────────────────────────────────────────
@@ -128,23 +127,6 @@ db-seed:
 ##                     the local database. Requires 'make dev' first.
 db-studio:
 	pnpm --filter @wivwav/db db:studio
-
-# ── Scraper jobs ──────────────────────────────────────────────────────────────
-
-## job-detail-crawl    Crawl individual listing detail pages for sources that
-##                     require a second pass (e.g. to capture VIN or full specs).
-job-detail-crawl:
-	pnpm job:detail-crawl
-
-## job-detail-extract  Run the AI extraction pass over previously crawled detail
-##                     pages to pull structured data into the database.
-job-detail-extract:
-	pnpm job:detail-extract
-
-## job-geocode         Geocode listings that have a city/state but no lat/lng,
-##                     writing coordinates back to the database for map display.
-job-geocode:
-	pnpm job:geocode
 
 # ── SDLC metrics ─────────────────────────────────────────────────────────────
 
