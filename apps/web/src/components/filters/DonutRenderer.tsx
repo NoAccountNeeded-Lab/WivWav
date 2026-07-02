@@ -88,12 +88,6 @@ export function DonutRenderer({ items, onToggle }: CategoricalRendererProps) {
             fill={item.active ? color : item.disabled ? 'var(--clr-border)' : color}
             opacity={item.active ? 1 : item.disabled ? 0.4 : 0.35}
             className={styles.segment}
-            onClick={() => !item.disabled && onToggle(item.value)}
-            role="button"
-            aria-pressed={item.active}
-            aria-label={`${item.label}: ${item.count.toLocaleString()}`}
-            tabIndex={item.disabled ? -1 : 0}
-            onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? onToggle(item.value) : undefined}
           />
         ))}
         <text x={CX} y={CY} className={styles.centerText} textAnchor="middle" dominantBaseline="middle">

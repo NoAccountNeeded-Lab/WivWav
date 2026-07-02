@@ -135,7 +135,7 @@
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--clr-primary);
-  white-space: nowrap;
+  white-space: normal;
 }
 
 /* ── Messages ────────────────────────────────────────────────────────────── */
@@ -301,8 +301,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   background: var(--clr-primary);
   color: #fff;
   border: none;
@@ -345,12 +345,24 @@
 @media (prefers-reduced-motion: reduce) {
   .spinner { display: none; }
 
-  .ctaBtn {
+  .chatWindow,
+  .composerTextarea,
+  .sendBtn,
+  .skipLink {
     transition: none;
   }
 
-  .ctaBtn:hover {
+  .messages {
+    scroll-behavior: auto;
+  }
+
+  .sendBtn:hover:not(:disabled),
+  .ctaBtn {
     transform: none;
+  }
+
+  .ctaBtn {
+    transition: none;
   }
 }
 
@@ -399,6 +411,9 @@
 }
 
 .skipLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   font-family: var(--font);
   font-size: 0.875rem;
   font-weight: 500;
@@ -416,4 +431,15 @@
   outline: 3px solid var(--clr-focus);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctaBtn,
+  .skipLink {
+    transition: none;
+  }
+
+  .ctaBtn:hover {
+    transform: none;
+  }
 }
