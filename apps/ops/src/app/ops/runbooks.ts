@@ -2,6 +2,7 @@ export const OPS_RUNBOOK_IDS = [
   'listings-missing-from-map',
   'search-results-look-stale',
   'source-stopped-working',
+  'source-quality-drift',
   'jobs-are-failing',
   'schedules-are-disabled',
   'ai-remapping-unavailable',
@@ -97,6 +98,29 @@ export const OPS_RUNBOOKS: Record<OpsRunbookId, OpsRunbook> = {
       },
     ],
     escalation: 'If Run Now keeps failing, filter Logs by scraper and search for the source name before changing selectors.',
+  },
+  'source-quality-drift': {
+    id: 'source-quality-drift',
+    title: 'Source paused for quality drift',
+    symptom: 'A run failed with "Source quality drifted abruptly" and the source shows status paused. This is a safety brake, not necessarily a broken scraper: it fires when a run\'s error or missing-field rate jumps more than 15 points above that source\'s rolling baseline.',
+    steps: [
+      {
+        text: 'Read the failure reason on the run for the exact rate comparison (e.g. missing rate 40% vs baseline 24%), then spot-check a few of that source\'s live listing pages to see whether the site actually changed (new price-hiding pattern, layout change) or the scraper selectors broke.',
+        href: '/ops/runs',
+        actionLabel: 'Review scraper runs',
+      },
+      {
+        text: 'If the site genuinely changed and the scraper is extracting correctly (e.g. more listings now legitimately have no price), no code fix is needed — use Run Now a few times to let the rolling baseline catch up, or edit the source to accept the new baseline immediately.',
+        href: '/ops/sources',
+        actionLabel: 'Open sources',
+      },
+      {
+        text: 'If selectors broke instead, treat it like the source-stopped-working runbook: fix extraction, then Run Now to confirm the rate returns to baseline before leaving it unattended.',
+        href: '/ops/sources',
+        actionLabel: 'Open sources',
+      },
+    ],
+    escalation: 'If the rate keeps drifting run over run with no clear site change, check Logs for the source for other quality issues before assuming it is safe to let the baseline re-adapt.',
   },
   'jobs-are-failing': {
     id: 'jobs-are-failing',
@@ -216,6 +240,7 @@ export const QUEUE_RUNBOOK_IDS: OpsRunbookId[] = [
 
 export const SOURCE_RUNBOOK_IDS: OpsRunbookId[] = [
   'source-stopped-working',
+  'source-quality-drift',
   'listings-missing-from-map',
   'search-results-look-stale',
   'ai-remapping-unavailable',
@@ -229,6 +254,7 @@ export const SCHEDULE_RUNBOOK_IDS: OpsRunbookId[] = [
 export const LOG_RUNBOOK_IDS: OpsRunbookId[] = [
   'jobs-are-failing',
   'source-stopped-working',
+  'source-quality-drift',
   'ai-remapping-unavailable',
 ]
 
