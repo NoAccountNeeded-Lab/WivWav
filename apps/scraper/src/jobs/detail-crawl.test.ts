@@ -6,9 +6,12 @@ import type { MockPageRecord } from '../browser/index.js'
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
+vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { MockQueueAdapter, CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
+import { MockQueueAdapter, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from '@wivwav/queue'
+import { syncListings } from '@wivwav/search'
 import { runDetailCrawlJob } from './detail-crawl.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -45,11 +48,36 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
     expect(getDb).not.toHaveBeenCalled()
   })
 
-  it('passes CRITICAL_JOB_OPTIONS when enqueuing a listing-sync job after a 404', async () => {
+  it('syncs the gone listing to Meilisearch directly after a 404, without enqueuing a rebuild', async () => {
     const db = makeDb({
       listing: {
         findMany: vi.fn().mockResolvedValue([
-          { sourceUrl: 'https://example.com/listing/1', status: 'active' },
+          { id: 'listing-1', sourceUrl: 'https://example.com/listing/1', status: 'active' },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    const pages = new Map<string, MockPageRecord>([
+      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
+    ])
+    const browser = makeBrowserService(pages)
+    const listingSyncQueue = new MockQueueAdapter('listing-sync')
+
+    await runDetailCrawlJob('src-1', undefined, listingSyncQueue, browser)
+
+    expect(vi.mocked(syncListings)).toHaveBeenCalledWith(['listing-1'], db, undefined)
+    expect(listingSyncQueue.getEnqueued()).toHaveLength(0)
+  })
+
+  it('falls back to a deduped listing-sync rebuild job when the direct sync fails', async () => {
+    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
+
+    const db = makeDb({
+      listing: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'listing-1', sourceUrl: 'https://example.com/listing/1', status: 'active' },
         ]),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
@@ -66,14 +94,16 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
 
     const enqueued = listingSyncQueue.getEnqueued()
     expect(enqueued).toHaveLength(1)
-    expect(enqueued[0]?.options).toEqual(CRITICAL_JOB_OPTIONS)
+    expect(enqueued[0]?.options).toEqual({ ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
   })
 
-  it('does not throw when listing-sync queue.add() rejects — logs the error instead', async () => {
+  it('does not throw when both the direct sync and the fallback queue.add() reject', async () => {
+    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
+
     const db = makeDb({
       listing: {
         findMany: vi.fn().mockResolvedValue([
-          { sourceUrl: 'https://example.com/listing/1', status: 'active' },
+          { id: 'listing-1', sourceUrl: 'https://example.com/listing/1', status: 'active' },
         ]),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },

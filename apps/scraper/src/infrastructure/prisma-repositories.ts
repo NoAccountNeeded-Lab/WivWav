@@ -464,7 +464,7 @@ export class PrismaListingRepository implements ListingRepository {
     // Guard: if the scrape returned nothing, assume a scraper failure and leave status unchanged
     if (activeSourceRecordKeys.length === 0) return 0
 
-    const { isCompleteCrawl } = options
+    const { isCompleteCrawl, onGone } = options
 
     if (!isCompleteCrawl) {
       // Partial crawl (page-1 changed but we may have missed pages): soft-mark
@@ -545,15 +545,27 @@ export class PrismaListingRepository implements ListingRepository {
     })
 
     // 4. Promote to gone when the threshold is reached.
+    const promoteWhere = {
+      sourceId,
+      status: 'possibly_gone' as const,
+      sourceRecordKey: { notIn: activeSourceRecordKeys },
+      missingFromCompleteCount: { gte: GONE_AFTER_CONSECUTIVE_MISSING },
+    }
+
+    // Only look up the ids when a caller wants them — this query is otherwise
+    // redundant work on every complete crawl.
+    const newlyGone = onGone
+      ? await this.db.listing.findMany({ where: promoteWhere, select: { id: true } })
+      : []
+
     await this.db.listing.updateMany({
-      where: {
-        sourceId,
-        status: 'possibly_gone',
-        sourceRecordKey: { notIn: activeSourceRecordKeys },
-        missingFromCompleteCount: { gte: GONE_AFTER_CONSECUTIVE_MISSING },
-      },
+      where: promoteWhere,
       data: { status: 'gone', goneAt: now },
     })
+
+    if (onGone && newlyGone.length > 0) {
+      await onGone(newlyGone.map((l) => l.id))
+    }
 
     return newlyMissingCount
   }

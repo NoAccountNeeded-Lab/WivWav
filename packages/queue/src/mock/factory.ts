@@ -34,6 +34,13 @@ export class MockQueueAdapter implements QueueAdapter {
   }
 
   async add(data: unknown, options?: JobOptions): Promise<string> {
+    if (options?.jobId !== undefined) {
+      const existing = this.jobs.find(
+        (j) => j.options?.jobId === options.jobId && (j.status === 'waiting' || j.status === 'active' || j.status === 'delayed'),
+      )
+      if (existing) return existing.id
+    }
+
     const id = String(++this.counter)
     this.jobs.push({
       id,

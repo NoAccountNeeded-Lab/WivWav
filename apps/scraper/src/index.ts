@@ -14,7 +14,7 @@ process.on('uncaughtException', (err) => {
 
 import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
-import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, QUEUES } from '@wivwav/queue'
+import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
 import type { JobOptions, QueueAdapter } from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
 import { BlvdAdapter } from './sources/blvd.js'
@@ -52,6 +52,8 @@ import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fuele
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
+import { syncListings } from '@wivwav/search'
+import { getMeiliClient } from './lib/meili.js'
 
 const db = getDb()
 const logger = createLogger({
@@ -59,10 +61,26 @@ const logger = createLogger({
   env: process.env['NODE_ENV'] ?? 'development',
 })
 
+// Referenced by onListingsGone below via closure; listingSyncQueue is
+// initialized further down in "Queue setup", before any job runs.
+async function syncGoneListings(ids: string[]): Promise<void> {
+  try {
+    await syncListings(ids, db, getMeiliClient())
+  } catch (syncErr) {
+    logger.error({ err: syncErr, count: ids.length }, '[engine] Meilisearch sync failed for newly-gone listings — deferring to listing-sync queue')
+    try {
+      await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
+    } catch (enqueueErr) {
+      logger.error({ err: enqueueErr }, '[engine] Failed to enqueue listing-sync job')
+    }
+  }
+}
+
 const engine = new ScraperEngine({
   runs: new PrismaScraperRunRepository(db),
   sources: new PrismaSourceRepository(db),
   listings: new PrismaListingRepository(db),
+  onListingsGone: syncGoneListings,
 })
 
 const browserService = new PlaywrightBrowserService()
@@ -185,7 +203,7 @@ queueFactory.createWorker<{ sourceId: string }>(
     // pending. Rebuild promptly so its stale document does not remain public
     // until the nightly reconciliation.
     if (listingsChanged) {
-      await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+      await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
       await listingResolveQueue.add({ sourceId }, CRITICAL_JOB_OPTIONS)
     }
   }),
