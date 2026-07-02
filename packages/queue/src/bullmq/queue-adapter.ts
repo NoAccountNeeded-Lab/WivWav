@@ -13,6 +13,7 @@ export class BullMQQueueAdapter implements QueueAdapter {
     if (options?.delay !== undefined) opts.delay = options.delay
     if (options?.attempts !== undefined) opts.attempts = options.attempts
     if (options?.backoff !== undefined) opts.backoff = options.backoff
+    if (options?.jobId !== undefined) opts.jobId = options.jobId
 
     const job = await this.queue.add(this.name, data as object, opts)
     return job.id ?? ''

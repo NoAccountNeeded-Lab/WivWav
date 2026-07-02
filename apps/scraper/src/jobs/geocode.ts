@@ -1,6 +1,6 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext, QueueAdapter } from '@wivwav/queue'
-import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from '@wivwav/queue'
 import { syncListings } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
@@ -153,7 +153,7 @@ export async function runGeocodeJob(context?: JobContext, listingSyncQueue?: Que
       await report(context, `[geocode] Meilisearch sync failed (${syncedIds.length} listing(s) saved but not yet indexed): ${syncErr}`)
       if (listingSyncQueue !== undefined) {
         try {
-          await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+          await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
         } catch (enqueueErr) {
           context?.logger?.error({ err: enqueueErr }, '[geocode] Failed to enqueue listing-sync job')
           await report(context, `[geocode] Failed to enqueue listing-sync job: ${enqueueErr}`)

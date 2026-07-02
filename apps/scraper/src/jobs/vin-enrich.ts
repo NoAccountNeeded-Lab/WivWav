@@ -1,6 +1,6 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext, QueueAdapter } from '@wivwav/queue'
-import { CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from '@wivwav/queue'
 import { syncListings } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
@@ -225,7 +225,7 @@ export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: Q
       await report(context, `[vin-enrich] Meilisearch sync failed (${enrichedIds.length} listing(s) saved but not yet indexed): ${syncErr}`)
       if (listingSyncQueue !== undefined) {
         try {
-          await listingSyncQueue.add({}, CRITICAL_JOB_OPTIONS)
+          await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
         } catch (enqueueErr) {
           context?.logger?.error({ err: enqueueErr }, '[vin-enrich] Failed to enqueue listing-sync job')
           await report(context, `[vin-enrich] Failed to enqueue listing-sync job: ${enqueueErr}`)

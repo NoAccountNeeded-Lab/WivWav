@@ -14,3 +14,11 @@ export const CRITICAL_JOB_OPTIONS: JobOptions = {
   attempts: 3,
   backoff: { type: 'exponential', delay: 2000 },
 }
+
+/**
+ * Fixed jobId for the Meilisearch full-catalog rebuild job. A burst of gone/
+ * stale detections in a single run can each request a rebuild; using a fixed
+ * id collapses them into a single pending job instead of queuing N serial
+ * full rebuilds (each of which clears and re-adds the entire index).
+ */
+export const LISTING_SYNC_REBUILD_JOB_ID = 'listing-sync-rebuild'

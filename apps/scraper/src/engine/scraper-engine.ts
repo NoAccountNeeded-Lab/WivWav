@@ -34,6 +34,13 @@ interface EngineOptions {
   listings: ListingRepository
   /** Hours between forced full crawls when page-1 is unchanged. Default: 24. */
   fullCrawlIntervalHours?: number
+  /**
+   * Called with the ids of listings newly marked `gone` by markGone during a
+   * complete crawl, so the caller can remove them from the search index
+   * immediately rather than waiting for the next full-catalog rebuild. Must
+   * not throw — see MarkGoneOptions.onGone.
+   */
+  onListingsGone?: (ids: string[]) => Promise<void>
 }
 
 export class ScraperEngine {
@@ -42,12 +49,14 @@ export class ScraperEngine {
   private readonly sources: SourceRepository
   private readonly listings: ListingRepository
   private readonly fullCrawlIntervalHours: number
+  private readonly onListingsGone: ((ids: string[]) => Promise<void>) | undefined
 
   constructor(options: EngineOptions) {
     this.runs = options.runs
     this.sources = options.sources
     this.listings = options.listings
     this.fullCrawlIntervalHours = options.fullCrawlIntervalHours ?? DEFAULT_FULL_CRAWL_INTERVAL_HOURS
+    this.onListingsGone = options.onListingsGone
   }
 
   // dbSourceId is the DB record's CUID — the key used by all repository methods.
@@ -284,7 +293,10 @@ export class ScraperEngine {
       const isCompleteCrawl = true
 
       const activeSourceRecordKeys = result.listings.map(l => l.sourceRecordKey)
-      const goneCount = await this.listings.markGone(sourceId, activeSourceRecordKeys, { isCompleteCrawl })
+      const goneCount = await this.listings.markGone(sourceId, activeSourceRecordKeys, {
+        isCompleteCrawl,
+        ...(this.onListingsGone ? { onGone: this.onListingsGone } : {}),
+      })
 
       await this.runs.complete(run.id, result.listings.length, { listingsNew, listingsUpdated })
       await this.sources.markActive(sourceId, {

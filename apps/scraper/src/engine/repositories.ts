@@ -79,6 +79,14 @@ export const GONE_AFTER_CONSECUTIVE_MISSING = 3
 export interface MarkGoneOptions {
   /** When true the crawl visited every page; missing listings count as evidence of removal. */
   isCompleteCrawl: boolean
+  /**
+   * Called with the ids of listings newly promoted to `gone` in this run, so
+   * the caller can remove them from the search index immediately instead of
+   * waiting on the next full-catalog rebuild. Must not throw — implementations
+   * should catch and log/defer internally; markGone does not retry or swallow
+   * a rejection from this callback.
+   */
+  onGone?: (ids: string[]) => Promise<void>
 }
 
 export interface ListingRepository {
