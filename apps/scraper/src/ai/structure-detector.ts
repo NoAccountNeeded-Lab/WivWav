@@ -12,6 +12,14 @@ interface RemapResult {
   notes: string
 }
 
+const RAW_RESPONSE_SNIPPET_LENGTH = 500
+
+function snippet(text: string): string {
+  const collapsed = text.replace(/\s+/g, ' ').trim()
+  const truncated = collapsed.length > RAW_RESPONSE_SNIPPET_LENGTH
+  return `${collapsed.slice(0, RAW_RESPONSE_SNIPPET_LENGTH)}${truncated ? '…' : ''}`
+}
+
 export class StructureDetector {
   constructor(private readonly provider: CompletionProvider) {}
 
@@ -33,9 +41,17 @@ Return JSON: { "mappings": [{ "targetField": string, "selector": string, "attrib
     const text = await this.provider.complete(SYSTEM_PROMPT, userPrompt)
 
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch?.[0]) throw new Error('AI provider did not return valid JSON')
+    if (!jsonMatch?.[0]) {
+      throw new Error(`AI provider did not return valid JSON. Raw response: ${snippet(text)}`)
+    }
 
-    const parsed: unknown = JSON.parse(jsonMatch[0])
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(jsonMatch[0])
+    } catch (err) {
+      const parseErrMsg = err instanceof Error ? err.message : String(err)
+      throw new Error(`AI remap response was not valid JSON (${parseErrMsg}). Raw response: ${snippet(text)}`, { cause: err })
+    }
     if (
       typeof parsed !== 'object' ||
       parsed === null ||
