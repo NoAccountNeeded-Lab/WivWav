@@ -304,11 +304,15 @@ describe('PrismaListingRepository.getSourcePipelineStages', () => {
     return {
       listing: {
         count: vi.fn(async () => 0),
-        aggregate: vi.fn(async () => ({ _max: { detailScrapedAt: null, updatedAt: null } })),
+        aggregate: vi.fn(async (): Promise<{ _max: { detailScrapedAt: Date | null; updatedAt: Date | null } }> => (
+          { _max: { detailScrapedAt: null, updatedAt: null } }
+        )),
       },
       rawPage: {
         count: vi.fn(async () => 0),
-        aggregate: vi.fn(async () => ({ _max: { processedAt: null } })),
+        aggregate: vi.fn(async (): Promise<{ _max: { processedAt: Date | null } }> => (
+          { _max: { processedAt: null } }
+        )),
       },
     }
   }
