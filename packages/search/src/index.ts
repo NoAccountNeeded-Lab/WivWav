@@ -6,6 +6,7 @@ import {
   canonicalMake,
   canonicalModel,
   canonicalConversionManufacturer,
+  conversionBrandSlug,
 } from './canonicalize.js'
 
 /**
@@ -68,6 +69,7 @@ export {
   canonicalMake,
   canonicalModel,
   canonicalConversionManufacturer,
+  conversionBrandSlug,
   ENGINE_DESCRIPTION_PATTERN,
 } from './canonicalize.js'
 export type { CanonicalFuelType } from './canonicalize.js'
@@ -135,28 +137,6 @@ export interface ListingDocument {
   publicationStatus: string
   saleStatus: string
   listedAt: string
-}
-
-const BRAND_SLUG_ALIASES: Record<string, string> = {
-  ams: 'ams-vans',
-  'ams-and-vans': 'ams-vans',
-  freedom: 'freedom-motors',
-  rollx: 'rollx-vans',
-  vantage: 'vantage-mobility',
-  'vantage-mobility-international': 'vantage-mobility',
-}
-
-export function conversionBrandSlug(value: string | null | undefined): string | null {
-  const slug = value
-    ?.trim()
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  if (!slug) return null
-
-  return BRAND_SLUG_ALIASES[slug] ?? slug
 }
 
 export function priceBucket(priceCents: number | null, bucketSizeDollars = 5000): string | null {

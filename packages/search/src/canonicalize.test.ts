@@ -13,6 +13,7 @@ import {
   canonicalMake,
   canonicalModel,
   canonicalConversionManufacturer,
+  conversionBrandSlug,
 } from './canonicalize.js'
 
 // ---------------------------------------------------------------------------
@@ -286,12 +287,6 @@ describe('canonicalConversionManufacturer', () => {
     expect(canonicalConversionManufacturer('rollx', null)).toBe('rollx')
   })
 
-  it('accepts unknown values that look like real company names', () => {
-    // Not in the known list, not rejected by patterns → accept
-    expect(canonicalConversionManufacturer('Apex Mobility', null)).toBe('Apex Mobility')
-    expect(canonicalConversionManufacturer('Northstar Conversions', null)).toBe('Northstar Conversions')
-  })
-
   it('rejects dealer/source names that are not known converters', () => {
     // If the converter value exactly matches the source name, reject it
     expect(canonicalConversionManufacturer('Some Dealer Name', 'Some Dealer Name')).toBeNull()
@@ -299,5 +294,96 @@ describe('canonicalConversionManufacturer', () => {
 
   it('is case-insensitive for source name rejection', () => {
     expect(canonicalConversionManufacturer('mobilityworks', 'MobilityWorks')).toBeNull()
+  })
+
+  // refs #603 — tightened from an earlier "reject known-bad patterns, accept
+  // everything else" design (see git history) to a true allowlist. The old
+  // fallback accepted any leftover string verbatim, including unrelated
+  // company names *and* scraper extraction noise ("Yes", "FR", "Side", …)
+  // that isn't a company name at all — there's no pattern that reliably
+  // distinguishes the two, so unrecognized values must now produce null.
+  it('rejects values not found in KNOWN_CONVERTERS, even plausible-looking company names', () => {
+    expect(canonicalConversionManufacturer('Apex Mobility', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Northstar Conversions', null)).toBeNull()
+  })
+
+  it('rejects scraper extraction noise observed in the live conversionBrand facet (refs #603)', () => {
+    expect(canonicalConversionManufacturer('Yes', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Commercial', null)).toBeNull()
+    expect(canonicalConversionManufacturer('FR', null)).toBeNull()
+    expect(canonicalConversionManufacturer('AT', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Side', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Passenger', null)).toBeNull()
+    expect(canonicalConversionManufacturer('See', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Rear', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Regular', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Triple', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Adaptive', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Other', null)).toBeNull()
+    // Low-confidence tail values with no verifiable brand evidence — nulled
+    // rather than guessed at; candidates for a follow-up research pass.
+    expect(canonicalConversionManufacturer('Americas', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Vanability', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Promaster', null)).toBeNull()
+  })
+
+  it('accepts newly curated converters (refs #603)', () => {
+    expect(canonicalConversionManufacturer('Driverge', null)).toBe('Driverge')
+    expect(canonicalConversionManufacturer('ATC', null)).toBe('ATC')
+    expect(canonicalConversionManufacturer('ATS', null)).toBe('ATS')
+    expect(canonicalConversionManufacturer('Tempest', null)).toBe('Tempest')
+    expect(canonicalConversionManufacturer('Ryno', null)).toBe('Ryno')
+    expect(canonicalConversionManufacturer('MV-1', null)).toBe('MV-1')
+  })
+
+  it('accepts variant spellings, typos, and product-line names pending slug aliasing (refs #603)', () => {
+    expect(canonicalConversionManufacturer('Braun', null)).toBe('Braun')
+    expect(canonicalConversionManufacturer('braun', null)).toBe('braun')
+    expect(canonicalConversionManufacturer('MV1', null)).toBe('MV1')
+    expect(canonicalConversionManufacturer('Revabilty', null)).toBe('Revabilty')
+    expect(canonicalConversionManufacturer('Northstar', null)).toBe('Northstar')
+    expect(canonicalConversionManufacturer('Entervan', null)).toBe('Entervan')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// conversionBrandSlug
+// ---------------------------------------------------------------------------
+
+describe('conversionBrandSlug', () => {
+  it('normalizes a conversion manufacturer string to the API slug format', () => {
+    expect(conversionBrandSlug(' BraunAbility ')).toBe('braunability')
+    expect(conversionBrandSlug('Freedom Motors')).toBe('freedom-motors')
+    expect(conversionBrandSlug('AMS Vans')).toBe('ams-vans')
+  })
+
+  it('returns null for empty or missing values', () => {
+    expect(conversionBrandSlug(null)).toBeNull()
+    expect(conversionBrandSlug(undefined)).toBeNull()
+    expect(conversionBrandSlug('   ')).toBeNull()
+  })
+
+  // refs #603 — newly mapped variants, abbreviations, typos, and product-line
+  // names, folded onto the canonical curated-brand slug.
+  it('folds newly mapped variants onto their canonical curated-brand slug', () => {
+    expect(conversionBrandSlug('Braun')).toBe('braunability')
+    expect(conversionBrandSlug('braun')).toBe('braunability')
+    expect(conversionBrandSlug('MV1')).toBe('mv-1')
+    expect(conversionBrandSlug('Revabilty')).toBe('revability')
+    expect(conversionBrandSlug('Northstar')).toBe('vmi')
+    expect(conversionBrandSlug('Entervan')).toBe('braunability')
+    expect(conversionBrandSlug('ATS')).toBe('atc')
+    expect(conversionBrandSlug('All Terrain Conversions')).toBe('atc')
+  })
+
+  it('leaves newly curated brand names as their own slug', () => {
+    expect(conversionBrandSlug('Driverge')).toBe('driverge')
+    expect(conversionBrandSlug('ATC')).toBe('atc')
+    expect(conversionBrandSlug('Tempest')).toBe('tempest')
+    expect(conversionBrandSlug('Ryno')).toBe('ryno')
+    expect(conversionBrandSlug('MV-1')).toBe('mv-1')
+    expect(conversionBrandSlug('MobilityWorks')).toBe('mobilityworks')
+    expect(conversionBrandSlug('Eldorado')).toBe('eldorado')
+    expect(conversionBrandSlug('Revability')).toBe('revability')
   })
 })

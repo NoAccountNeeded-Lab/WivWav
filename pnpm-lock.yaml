@@ -233,6 +233,9 @@ importers:
       '@wivwav/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@wivwav/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@wivwav/types':
         specifier: workspace:*
         version: link:../../packages/types
