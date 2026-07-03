@@ -17,6 +17,7 @@ interface YearDatum {
 const FORWARD_PARAMS = [
   'q', 'make', 'model', 'priceMin', 'priceMax', 'mileageMax',
   'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
+  'conversionBrand',
 ]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────
