@@ -14,7 +14,7 @@ export interface CategoricalRendererProps {
   maxCount: number
 }
 
-export type CategoricalRendererType = 'bars' | 'barsCountLeft' | 'chips' | 'donut' | 'swatches'
+export type CategoricalRendererType = 'bars' | 'chips' | 'donut' | 'swatches'
 
 // ── Range filter types ────────────────────────────────────────────────────────
 

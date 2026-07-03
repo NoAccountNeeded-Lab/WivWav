@@ -83,13 +83,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Leading-count variant: fixed-width right-aligned column so digits line up
-   and label starts don't shift between rows. */
-.countLeft {
-  min-width: 3.25rem;
-  text-align: right;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .fill {
     transition: none;
