@@ -480,8 +480,59 @@ export function parseConversionType(text: string): ConversionType {
   return 'unknown'
 }
 
+// BLVD's `conversion` card field mixes two unrelated kinds of text: entry-style
+// descriptions ("Side Entry", "Rear Entry Manual Fold Out") and, on some cards,
+// a manufacturer-led product name ("Driverge Flex Maxx Wheelchair Van
+// Conversion"). Blindly returning the first word conflated the two and leaked
+// facet/filter noise ("Yes", "FR", "AT", "Side", "Commercial", "Triple",
+// "Adaptive", "Other", "Passenger", "Rear", "Regular", "See", …) into the
+// public conversionBrand facet (refs #603).
+//
+// Sorted longest-first so a full name (e.g. "All Terrain Conversions") wins
+// over a shorter one that happens to be a prefix of it.
+const KNOWN_CONVERTER_PREFIXES = [
+  'BraunAbility', 'Braun',
+  'Vantage Mobility International', 'Vantage Mobility', 'Vantage',
+  'Freedom Motors',
+  'Rollx Vans', 'Rollx',
+  'AMS Vans',
+  'VMI',
+  'MobilityWorks', 'Mobility Works',
+  'Driverge',
+  'All Terrain Conversions', 'ATC', 'ATS',
+  'Tempest',
+  'Ryno',
+  'Eldorado',
+  'Revability', 'Revabilty',
+  'MV-1', 'MV1',
+  'Northstar',
+  'Entervan',
+].sort((a, b) => b.length - a.length)
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Recognizes a known conversion-manufacturer name at the start of the
+ * `conversion` card field. Returns null when no known name is recognized —
+ * callers must not fall back to guessing from the first word, since this
+ * field frequently describes entry style or uses a single generic word
+ * rather than naming a manufacturer. New real converters observed in this
+ * field should be added to KNOWN_CONVERTER_PREFIXES (and the matching
+ * @wivwav/search KNOWN_CONVERTERS / curated conversion_brands seed entry)
+ * once verified, rather than reintroducing a first-word guess.
+ */
 export function parseConversionManufacturer(text: string): string | null {
-  // "Driverge Driverge Flex Maxx Wheelchair Van Conversion" → "Driverge"
+  // "Driverge Driverge Flex Maxx Wheelchair Van Conversion" → "Driverge Driverge Flex Maxx"
   const cleaned = text.replace(/wheelchair van conversion/i, '').trim()
-  return cleaned.split(/\s+/)[0] || null
+  if (!cleaned) return null
+
+  for (const name of KNOWN_CONVERTER_PREFIXES) {
+    if (new RegExp(`^${escapeRegExp(name)}(?:\\b|$)`, 'i').test(cleaned)) {
+      return name
+    }
+  }
+
+  return null
 }
