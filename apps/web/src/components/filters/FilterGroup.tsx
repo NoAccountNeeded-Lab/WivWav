@@ -52,20 +52,25 @@ export function FilterGroup({
 
   return (
     <div className={styles.group} role="group" aria-labelledby={labelId}>
-      <span id={labelId} className={styles.title}>{title}</span>
-      <Suspense fallback={null}>
-        <Renderer items={visible} onToggle={onToggle} maxCount={maxCount} />
-      </Suspense>
-      {hasMore && (
-        <button
-          type="button"
-          className={styles.showMore}
-          onClick={() => setShowAll(true)}
-          aria-haspopup="dialog"
-        >
-          {`Show ${sorted.length - maxVisible} more`}
-        </button>
-      )}
+      {/* `inert` while the modal is open keeps these controls out of both the
+          tab order and the accessibility tree, so screen readers can't reach
+          this facet's own buttons "behind" the dialog. */}
+      <div className={styles.content} inert={showAll}>
+        <span id={labelId} className={styles.title}>{title}</span>
+        <Suspense fallback={null}>
+          <Renderer items={visible} onToggle={onToggle} maxCount={maxCount} />
+        </Suspense>
+        {hasMore && (
+          <button
+            type="button"
+            className={styles.showMore}
+            onClick={() => setShowAll(true)}
+            aria-haspopup="dialog"
+          >
+            {`Show ${sorted.length - maxVisible} more`}
+          </button>
+        )}
+      </div>
       {showAll && (
         <FacetModal title={title} onClose={() => setShowAll(false)}>
           <Suspense fallback={null}>
