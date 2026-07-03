@@ -139,7 +139,7 @@ describe('parseConversionType', () => {
 // ─── parseConversionManufacturer ─────────────────────────────────────────────
 
 describe('parseConversionManufacturer', () => {
-  it('extracts the first word as the manufacturer', () => {
+  it('recognizes a known manufacturer name at the start of the field', () => {
     expect(parseConversionManufacturer('Driverge Driverge Flex Maxx Wheelchair Van Conversion')).toBe('Driverge')
     expect(parseConversionManufacturer('BraunAbility Side Entry')).toBe('BraunAbility')
     expect(parseConversionManufacturer('VMI Northstar')).toBe('VMI')
@@ -151,6 +151,36 @@ describe('parseConversionManufacturer', () => {
 
   it('returns null for empty input', () => {
     expect(parseConversionManufacturer('')).toBeNull()
+  })
+
+  // refs #603 — this field mixes entry-style descriptions and single generic
+  // words with manufacturer-led product names. Blindly taking the first word
+  // used to turn these into facet/filter noise ("yes", "fr", "at", "side", …).
+  it('returns null for entry-style descriptions with no recognized manufacturer', () => {
+    expect(parseConversionManufacturer('Side Entry')).toBeNull()
+    expect(parseConversionManufacturer('Rear Entry Manual Fold Out')).toBeNull()
+    expect(parseConversionManufacturer('Passenger Side Entry')).toBeNull()
+  })
+
+  it('returns null for single generic words observed in production noise', () => {
+    expect(parseConversionManufacturer('Yes')).toBeNull()
+    expect(parseConversionManufacturer('Commercial')).toBeNull()
+    expect(parseConversionManufacturer('FR')).toBeNull()
+    expect(parseConversionManufacturer('AT')).toBeNull()
+    expect(parseConversionManufacturer('Triple')).toBeNull()
+    expect(parseConversionManufacturer('Adaptive')).toBeNull()
+    expect(parseConversionManufacturer('Other')).toBeNull()
+    expect(parseConversionManufacturer('Rear')).toBeNull()
+    expect(parseConversionManufacturer('Regular')).toBeNull()
+    expect(parseConversionManufacturer('See Description')).toBeNull()
+  })
+
+  it('recognizes newly curated converters (refs #603)', () => {
+    expect(parseConversionManufacturer('All Terrain Conversions Wheelchair Van Conversion')).toBe('All Terrain Conversions')
+    expect(parseConversionManufacturer('ATC Rear Entry')).toBe('ATC')
+    expect(parseConversionManufacturer('Tempest Side Entry')).toBe('Tempest')
+    expect(parseConversionManufacturer('Ryno Wheelchair Van Conversion')).toBe('Ryno')
+    expect(parseConversionManufacturer('MV-1 Rear Entry')).toBe('MV-1')
   })
 })
 
