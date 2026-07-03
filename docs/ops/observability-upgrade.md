@@ -17,7 +17,10 @@ The stopped Compose containers are retained so `--volumes-from` selects the
 correct project-scoped volumes even when `COMPOSE_PROJECT_NAME` is customized.
 
 ```bash
-backup_dir="$PWD/.backups/observability-$(date -u +%Y%m%dT%H%M%SZ)"
+set -euo pipefail
+umask 077
+backup_root="${WIVWAV_BACKUP_DIR:-$HOME/.wivwav/backups}"
+backup_dir="$backup_root/observability-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$backup_dir"
 docker compose --profile obs stop alloy grafana prometheus loki
 
@@ -34,11 +37,17 @@ docker run --rm --volumes-from "$(docker compose ps -aq prometheus)" \
   -v "$backup_dir:/backup" busybox:1.37.0 \
   tar -czf /backup/prometheus_data.tgz -C /prometheus .
 
-for archive in "$backup_dir"/*.tgz; do tar -tzf "$archive" >/dev/null; done
+for volume in grafana_data loki_data alloy_data prometheus_data; do
+  archive="$backup_dir/$volume.tgz"
+  test -s "$archive"
+  tar -tzf "$archive" >/dev/null
+done
 ```
 
 Record `backup_dir` in the upgrade notes. Do not continue if any archive is
-missing, empty, or fails the final archive check.
+missing, empty, or fails the final archive check. The default backup root is
+outside the repository and owner-only; set `WIVWAV_BACKUP_DIR` to another
+secure external path when longer retention is required.
 
 Validate the existing configuration with the exact target images before
 allowing them to open persisted data:
@@ -140,25 +149,45 @@ for dashboard in wivwav-logs wivwav-system; do
     jq -e '.dashboard.uid == "'"$dashboard"'"'
 done
 curl --fail --silent http://localhost:3003/api/v1/provisioning/alert-rules |
-  jq -e 'length > 0'
+  jq -e 'map(.uid) | sort == ([
+    "wivwav-api-5xx-rate",
+    "wivwav-api-down",
+    "wivwav-db-down",
+    "wivwav-loki-down",
+    "wivwav-meili-down",
+    "wivwav-nhtsa-recalls-stale",
+    "wivwav-nhtsa-weekly-stale",
+    "wivwav-queue-depth",
+    "wivwav-queue-failed",
+    "wivwav-scrape-stale",
+    "wivwav-valkey-down"
+  ] | sort)'
 
 docker compose --profile obs ps
 ```
 
 Do not accept the upgrade if a datasource is not `OK`, either dashboard is
-missing, no alert rules are returned, either persistence query is empty, or any
-observability service is not healthy.
+missing, the expected 11-rule inventory differs, either persistence query is
+empty, or any observability service is not healthy.
 
 ## Rollback
 
 Stop the profile before rollback. Grafana 13 and Prometheus 3 perform persisted
 data migrations, so changing image tags alone is not a safe rollback. Restore
-all four archives as one consistent snapshot, then restore the previous Compose
-file and recreate the profile.
+all four archives as one consistent snapshot, override only the image tags, and
+recreate the profile. Keep the corrected health checks from the current Compose
+file; the old Alloy `wget` check is known to be broken.
 
 ```bash
-docker compose --profile obs stop alloy grafana prometheus loki
+set -euo pipefail
+test -n "${backup_dir:-}"
+for volume in grafana_data loki_data alloy_data prometheus_data; do
+  archive="$backup_dir/$volume.tgz"
+  test -s "$archive"
+  tar -tzf "$archive" >/dev/null
+done
 
+docker compose --profile obs stop alloy grafana prometheus loki
 docker run --rm --volumes-from "$(docker compose ps -aq grafana)" \
   -v "$backup_dir:/backup:ro" busybox:1.37.0 sh -c \
   'find /var/lib/grafana -mindepth 1 -delete && tar -xzf /backup/grafana_data.tgz -C /var/lib/grafana'
@@ -172,8 +201,20 @@ docker run --rm --volumes-from "$(docker compose ps -aq prometheus)" \
   -v "$backup_dir:/backup:ro" busybox:1.37.0 sh -c \
   'find /prometheus -mindepth 1 -delete && tar -xzf /backup/prometheus_data.tgz -C /prometheus'
 
-git checkout <pre-upgrade-revision> -- docker-compose.yml
-docker compose --profile obs up -d --force-recreate
+cat >"$backup_dir/rollback-images.yml" <<'YAML'
+services:
+  loki:
+    image: grafana/loki:3.3.2
+  alloy:
+    image: grafana/alloy:v1.4.3
+  prometheus:
+    image: prom/prometheus:v2.54.1
+  grafana:
+    image: grafana/grafana:11.3.0
+YAML
+
+docker compose -f docker-compose.yml -f "$backup_dir/rollback-images.yml" \
+  --profile obs up -d --force-recreate
 ```
 
 Repeat all smoke checks against the restored versions. Keep the backup until
