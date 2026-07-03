@@ -13,6 +13,11 @@ interface FacetModalProps {
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
 
+// Tracks how many FacetModal instances are currently open so nested/adjacent
+// modals don't clobber each other's body scroll lock: only the modal that
+// transitions the count to zero re-enables scrolling.
+let openModalCount = 0
+
 /**
  * Centered dialog overlay for showing a facet's full option list without
  * shifting the underlying page layout. Closes on Escape, backdrop click, or
@@ -27,7 +32,7 @@ export function FacetModal({ title, onClose, children }: FacetModalProps) {
     const previouslyFocused = document.activeElement as HTMLElement | null
     closeButtonRef.current?.focus()
 
-    const previousOverflow = document.body.style.overflow
+    openModalCount += 1
     document.body.style.overflow = 'hidden'
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -57,7 +62,8 @@ export function FacetModal({ title, onClose, children }: FacetModalProps) {
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
+      openModalCount = Math.max(0, openModalCount - 1)
+      if (openModalCount === 0) document.body.style.overflow = ''
       previouslyFocused?.focus()
     }
   }, [onClose])

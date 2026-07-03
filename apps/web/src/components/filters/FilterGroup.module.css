@@ -12,6 +12,16 @@
   border-radius: 12px;
 }
 
+/* ── Collapsed content ───────────────────────────────────────────────────────── */
+/* Wraps the title/renderer/show-more button so they can be made `inert`
+   together while the modal is open, without disturbing .group's own layout. */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
 /* ── Title ───────────────────────────────────────────────────────────────────── */
 
 .title {
