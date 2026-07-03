@@ -21,6 +21,26 @@ Token and cache counters are not fully exposed by this runtime; subagent totals 
 
 ---
 
+# Usage Report: Issue #613
+
+## Metadata
+
+- Sprint run: run-sprint/2026-07-03T11:17
+- Branch: chore/issue-613-upgrade-grafana-loki-alloy-and-prometheus
+- Effort guidance: standard
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| implementation | worker/1 | OpenAI | GPT-5 Codex | unavailable | unavailable | unavailable | unavailable | unavailable | Upgraded Grafana 11.3.0→13.1.0, Loki 3.3.2→3.7.3, Alloy 1.4.3→1.17.1, and Prometheus 2.54.1→3.13.0. Replaced Alloy's unavailable `wget` probe with a bundled Bash `/dev/tcp` readiness check, added Grafana health, adapted Loki's health check for its distroless target image, and added the migration/backup/rollback/smoke-test runbook. |
+| validation | worker/1 | OpenAI | GPT-5 Codex | unavailable | unavailable | unavailable | unavailable | unavailable | Backed up and archive-verified all four old volumes before upgrade. Target-image Loki/Alloy/Prometheus config validation passed. Live migration retained Grafana dashboards and 11 provisioned alerts; both datasources returned `OK`; Alloy readiness passed positive and negative probes; Loki retained an Alloy-shipped marker after restart; Prometheus retained 41 pre-restart samples and reported the API target up; all four services reported healthy. `pnpm check:affected`, typecheck, lint, build, and tests passed. |
+
+Token, cache, and tool-call counters are not exposed by this runtime.
+
+---
+
 # Usage Report: Issue #531
 
 ## Metadata

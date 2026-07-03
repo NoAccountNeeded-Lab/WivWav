@@ -37,6 +37,9 @@ Included in `make up`; or start alongside a running API with `docker compose --p
 | API metrics   | http://localhost:3001/metrics | Prometheus text format — prom-client           |
 
 The exposed `/metrics` series, scrape scope, and known limitations are documented in [docs/design/observability-architecture.md](../design/observability-architecture.md).
+Before changing Grafana, Loki, Alloy, or Prometheus versions, follow the
+[observability upgrade runbook](observability-upgrade.md) for configuration
+validation, volume backups, migration smoke checks, and rollback.
 
 ## Common commands
 
