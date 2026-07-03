@@ -298,7 +298,7 @@ export default async function ListingsPage({ params: _params, searchParams }: Li
           <section className={styles.searchSection}>
             {/* Client components use useSearchParams — must be in Suspense */}
             <Suspense>
-              <CategoryBarChart />
+              <CategoryBarChart renderers={{ color: 'swatches', seller: 'donut', condition: 'donut' }} />
             </Suspense>
           </section>
 
