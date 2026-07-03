@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useState } from 'react'
 import type { CategoricalRendererProps, CategoricalRendererType, FilterItem } from './types'
+import { FacetModal } from './FacetModal'
 import styles from './FilterGroup.module.css'
 
 // ── Renderer registry ─────────────────────────────────────────────────────────
@@ -44,7 +45,9 @@ export function FilterGroup({
   })
 
   const hasMore = sorted.length > maxVisible
-  const visible = hasMore && !showAll ? sorted.slice(0, maxVisible) : sorted
+  // Collapsed view always shows the first `maxVisible` items so the base
+  // page layout never shifts; the full list only appears in the modal.
+  const visible = hasMore ? sorted.slice(0, maxVisible) : sorted
   const maxCount = sorted.find((i) => !i.disabled)?.count ?? 1
 
   return (
@@ -57,11 +60,18 @@ export function FilterGroup({
         <button
           type="button"
           className={styles.showMore}
-          onClick={() => setShowAll((v) => !v)}
-          aria-expanded={showAll}
+          onClick={() => setShowAll(true)}
+          aria-haspopup="dialog"
         >
-          {showAll ? 'Show fewer' : `Show ${sorted.length - maxVisible} more`}
+          {`Show ${sorted.length - maxVisible} more`}
         </button>
+      )}
+      {showAll && (
+        <FacetModal title={title} onClose={() => setShowAll(false)}>
+          <Suspense fallback={null}>
+            <Renderer items={sorted} onToggle={onToggle} maxCount={maxCount} />
+          </Suspense>
+        </FacetModal>
       )}
     </div>
   )
