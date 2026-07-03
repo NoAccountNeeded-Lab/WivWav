@@ -14,6 +14,16 @@
  *    - In report mode: emits rejected values and their counts by source
  *    - In apply mode: sets conversionManufacturer = null for rejected rows
  *
+ * 3. Colors corrupted by MobilityWorks card field-label bleed (refs #608)
+ *    - Listings with no real color value had the *next* field's label and
+ *      value ("Conv MakeEldorado") captured into color instead, because the
+ *      old field-boundary regex only truncated bleed when a space preceded
+ *      the next label — it never matched at position 0. Fixed going forward
+ *      in mobilityworks.ts; this repairs rows scraped before the fix.
+ *    - Detects by checking if color starts with a known field-label token
+ *    - In report mode: emits affected rows and sample values by source
+ *    - In apply mode: sets color = null for affected rows
+ *
  * Usage:
  *   pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts --report
  *   pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts --apply
@@ -31,18 +41,33 @@
  * 5. Trigger a full Meilisearch re-index (meilisearch-sync job) so canonical values
  *    are reflected in search documents.
  * 6. Post-release smoke check: query the Meilisearch facets API on 'fuelType' and
- *    verify no engine descriptions (e.g. "3.5L V6") appear in results.
+ *    'color' and verify no engine descriptions (e.g. "3.5L V6") or leaked field
+ *    labels (e.g. "Conv MakeEldorado") appear in results.
  *
  * Rollback:
  * - This job is idempotent; running --apply multiple times is safe.
  * - Re-scraping BLVD detail pages restores the engine field from source.
  *   fuelType remains null (correct) for BLVD listings going forward.
+ * - Re-scraping MobilityWorks restores color from source going forward (the
+ *   listing card extraction no longer bleeds the next field's label into it).
  *
  * @module
  */
 
 import { getDb } from '@wivwav/db'
 import { canonicalConversionManufacturer, ENGINE_DESCRIPTION_PATTERN } from '@wivwav/search'
+
+/**
+ * Matches a color value that starts with a leaked MobilityWorks card field
+ * label rather than an actual color name (refs #608). A legitimate color
+ * never begins with one of these tokens.
+ *
+ * No trailing `\b`: the leaked label sits directly against the next label's
+ * value with no separating whitespace (e.g. "Conv MakeEldorado"), so a word
+ * boundary would never match right after "Make".
+ */
+export const COLOR_FIELD_BLEED_PATTERN =
+  /^(?:Mileage|Color|Conv\s*Make|Conversion|Location|Stock|Request|Schedule)/i
 
 interface BackfillReport {
   engineFuelTypeFixes: {
@@ -55,13 +80,19 @@ interface BackfillReport {
     bySource: Record<string, number>
     rejectedValues: Record<string, number>
   }
+  colorFieldBleedFixes: {
+    total: number
+    bySource: Record<string, number>
+    sampleValues: Record<string, number>
+  }
 }
 
-async function runBackfill(opts: { apply: boolean }): Promise<BackfillReport> {
+export async function runBackfill(opts: { apply: boolean }): Promise<BackfillReport> {
   const db = getDb()
   const report: BackfillReport = {
     engineFuelTypeFixes: { total: 0, bySource: {}, samples: [] },
     converterFixes: { total: 0, bySource: {}, rejectedValues: {} },
+    colorFieldBleedFixes: { total: 0, bySource: {}, sampleValues: {} },
   }
 
   // ── 1. Engine descriptions stored as fuelType ──────────────────────────────
@@ -155,6 +186,45 @@ async function runBackfill(opts: { apply: boolean }): Promise<BackfillReport> {
     }
   }
 
+  // ── 3. Colors corrupted by MobilityWorks field-label bleed ─────────────────
+
+  const colorRows = await db.listing.findMany({
+    where: { color: { not: null } },
+    select: { id: true, sourceId: true, color: true, source: { select: { name: true } } },
+  })
+
+  const colorAffected = colorRows.filter(
+    (row) => row.color && COLOR_FIELD_BLEED_PATTERN.test(row.color),
+  )
+
+  report.colorFieldBleedFixes.total = colorAffected.length
+  for (const row of colorAffected) {
+    const sourceName = row.source.name
+    const val = row.color!
+    report.colorFieldBleedFixes.bySource[sourceName] =
+      (report.colorFieldBleedFixes.bySource[sourceName] ?? 0) + 1
+    report.colorFieldBleedFixes.sampleValues[val] =
+      (report.colorFieldBleedFixes.sampleValues[val] ?? 0) + 1
+  }
+
+  if (opts.apply && colorAffected.length > 0) {
+    const BATCH = 200
+    for (let i = 0; i < colorAffected.length; i += BATCH) {
+      const batch = colorAffected.slice(i, i + BATCH)
+      await db.$transaction(
+        batch.map((row) =>
+          db.listing.update({
+            where: { id: row.id },
+            data: {
+              color: null,
+              publicationStatus: 'pending',
+            },
+          }),
+        ),
+      )
+    }
+  }
+
   await db.$disconnect()
   return report
 }
@@ -192,28 +262,42 @@ function printReport(report: BackfillReport, applied: boolean): void {
     console.log(`    "${val}" × ${count}`)
   }
 
+  console.log('\n── Colors corrupted by field-label bleed ──')
+  console.log(`  Total affected: ${report.colorFieldBleedFixes.total}`)
+  console.log('  By source:')
+  for (const [source, count] of Object.entries(report.colorFieldBleedFixes.bySource)) {
+    console.log(`    ${source}: ${count}`)
+  }
+  console.log('  Sample values (with counts):')
+  const sortedColors = Object.entries(report.colorFieldBleedFixes.sampleValues).sort((a, b) => b[1] - a[1])
+  for (const [val, count] of sortedColors.slice(0, 30)) {
+    console.log(`    "${val}" × ${count}`)
+  }
+
   console.log('\n=== Done ===\n')
 }
 
 // ── CLI entry point ─────────────────────────────────────────────────────────
 
-const args = process.argv.slice(2)
-const applyMode = args.includes('--apply')
-const reportMode = args.includes('--report') || !applyMode
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const args = process.argv.slice(2)
+  const applyMode = args.includes('--apply')
+  const reportMode = args.includes('--report') || !applyMode
 
-if (!applyMode && !reportMode) {
-  console.error('Usage: canonicalize-backfill.ts --report | --apply')
-  process.exit(1)
-}
-
-runBackfill({ apply: applyMode })
-  .then((report) => {
-    printReport(report, applyMode)
-    if (!applyMode) {
-      console.log('Run with --apply to commit these changes to the database.')
-    }
-  })
-  .catch((err: unknown) => {
-    console.error('Backfill failed:', err)
+  if (!applyMode && !reportMode) {
+    console.error('Usage: canonicalize-backfill.ts --report | --apply')
     process.exit(1)
-  })
+  }
+
+  runBackfill({ apply: applyMode })
+    .then((report) => {
+      printReport(report, applyMode)
+      if (!applyMode) {
+        console.log('Run with --apply to commit these changes to the database.')
+      }
+    })
+    .catch((err: unknown) => {
+      console.error('Backfill failed:', err)
+      process.exit(1)
+    })
+}
