@@ -367,7 +367,7 @@ export async function ListingsResults({
           <section className={styles.searchSection}>
             {/* Client components use useSearchParams — must be in Suspense */}
             <Suspense>
-              <CategoryBarChart renderers={{ color: 'swatches', seller: 'donut', condition: 'donut', conversionBrand: 'barsCountLeft' }} />
+              <CategoryBarChart renderers={{ color: 'swatches', seller: 'donut', condition: 'donut' }} />
             </Suspense>
           </section>
 
