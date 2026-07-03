@@ -12,6 +12,7 @@ export interface FacetsResult {
   mileageDistribution: Array<{ bucket: string; count: number }>
   makeBreakdown: Array<{ value: string; count: number }>
   modelBreakdown: Array<{ value: string; count: number }>
+  trimBreakdown: Array<{ value: string; count: number }>
   stateBreakdown: Array<{ value: string; count: number }>
   conditionBreakdown: Array<{ value: string; count: number }>
   conversionBreakdown: Array<{ value: string; count: number }>
@@ -48,7 +49,7 @@ export class ListingFacetsService {
       filters,
       ...(rangeFilters.length ? { rangeFilters } : {}),
       facets: [
-        'make', 'model', 'year', 'condition', 'conversionType',
+        'make', 'model', 'trim', 'year', 'condition', 'conversionType',
         'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
         'conversionBrand', 'priceBucket', 'mileageBucket',
       ],
@@ -64,6 +65,7 @@ export class ListingFacetsService {
       mileageDistribution: toSortedBuckets(dist['mileageBucket'] ?? {}),
       makeBreakdown: toValueCount(dist['make'] ?? {}),
       modelBreakdown: toValueCount(dist['model'] ?? {}),
+      trimBreakdown: toValueCount(dist['trim'] ?? {}),
       stateBreakdown: toValueCount(dist['state'] ?? {}),
       conditionBreakdown: toValueCount(dist['condition'] ?? {}),
       conversionBreakdown: toValueCount(dist['conversionType'] ?? {}),

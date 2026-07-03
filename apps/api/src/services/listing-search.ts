@@ -16,6 +16,7 @@ export interface SearchParams {
   perPage?: number | undefined
   make?: string[] | undefined
   model?: string[] | undefined
+  trim?: string[] | undefined
   yearMin?: number | undefined
   yearMax?: number | undefined
   priceMin?: number | undefined
@@ -50,7 +51,7 @@ export async function configureListingsIndex(client: Meilisearch): Promise<void>
   const index = client.index(INDEX_NAME)
   const task = await index.updateSettings({
     filterableAttributes: [
-      'make', 'model', 'year', 'condition', 'sellerType',
+      'make', 'model', 'year', 'trim', 'condition', 'sellerType',
       'conversionType', 'rampType', 'wavFeatures',
       'conversionBrand', 'color', 'state', 'city', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
@@ -88,6 +89,7 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   }
   if (params.make?.length) filters['make'] = params.make
   if (params.model?.length) filters['model'] = params.model
+  if (params.trim?.length) filters['trim'] = params.trim
   if (params.condition?.length) filters['condition'] = params.condition
   if (params.conversionBrand?.length) filters['conversionBrand'] = params.conversionBrand
   if (params.conversionType?.length) filters['conversionType'] = params.conversionType
@@ -132,7 +134,7 @@ export class ListingSearchService {
       ...(params.q != null ? { query: params.q } : {}),
       filters,
       ...(rangeFilters.length ? { rangeFilters } : {}),
-      facets: ['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType'],
+      facets: ['make', 'model', 'year', 'trim', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType'],
       ...(params.sort ? { sort: [params.sort] } : {}),
       limit: perPage,
       offset: (page - 1) * perPage,

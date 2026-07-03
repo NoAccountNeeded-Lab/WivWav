@@ -150,6 +150,16 @@ describe('configureListingsIndex', () => {
     }))
   })
 
+  it('includes trim in filterableAttributes', async () => {
+    const { client, updateSettings } = makeClient()
+
+    await configureListingsIndex(client as never)
+
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      filterableAttributes: expect.arrayContaining(['trim']),
+    }))
+  })
+
   it('propagates errors thrown by updateSettings', async () => {
     const err = new Error('Meilisearch unreachable')
     const client = {
@@ -258,6 +268,13 @@ describe('ListingSearchService.search', () => {
     await service.search({ make: ['Toyota', 'Ford'] })
     const [, opts] = searchMock.mock.calls[0]!
     expect(opts.filters?.['make']).toEqual(['Toyota', 'Ford'])
+  })
+
+  it('adds trim filter when trim is provided', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({ trim: ['LX', 'EX'] })
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['trim']).toEqual(['LX', 'EX'])
   })
 
   it('adds yearMin and yearMax as range filters', async () => {
