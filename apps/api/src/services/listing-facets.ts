@@ -17,6 +17,7 @@ export interface FacetsResult {
   conversionBreakdown: Array<{ value: string; count: number }>
   colorBreakdown: Array<{ value: string; count: number }>
   rampTypeBreakdown: Array<{ value: string; count: number }>
+  sellerTypeBreakdown: Array<{ value: string; count: number }>
   /** Counts per WavFeature key. Keyed by WavFeature enum value. */
   wavFeatureCounts: Record<string, number>
 }
@@ -46,7 +47,7 @@ export class ListingFacetsService {
       ...(rangeFilters.length ? { rangeFilters } : {}),
       facets: [
         'make', 'model', 'year', 'condition', 'conversionType',
-        'rampType', 'wavFeatures', 'color', 'state',
+        'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
         'priceBucket', 'mileageBucket',
       ],
       limit: 0,
@@ -66,6 +67,7 @@ export class ListingFacetsService {
       conversionBreakdown: toValueCount(dist['conversionType'] ?? {}),
       colorBreakdown: toValueCount(dist['color'] ?? {}),
       rampTypeBreakdown: toValueCount(dist['rampType'] ?? {}),
+      sellerTypeBreakdown: toValueCount(dist['sellerType'] ?? {}),
       wavFeatureCounts: dist['wavFeatures'] ?? {},
     }
 

@@ -14,6 +14,7 @@ const RESULT_FILTER_KEYS = [
   'wavFeatures',
   'color',
   'state',
+  'sellerType',
 ] as const
 
 type SearchParamsInput = { toString(): string }

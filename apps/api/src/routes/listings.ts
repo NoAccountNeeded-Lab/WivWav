@@ -124,6 +124,7 @@ interface FilterQuery {
   wavFeatures?: string
   color?: string
   state?: string
+  sellerType?: string
   sort?: string
   page?: number
   perPage?: number
@@ -148,6 +149,7 @@ const filterQuerySchema = {
     wavFeatures: { type: 'string' },
     color: { type: 'string' },
     state: { type: 'string' },
+    sellerType: { type: 'string' },
     sort: { type: 'string' },
     page: { type: 'integer', minimum: 1, default: 1 },
     perPage: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
@@ -181,6 +183,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         wavFeatures: parseArr(q.wavFeatures),
         color: parseArr(q.color),
         state: parseArr(q.state),
+        sellerType: parseArr(q.sellerType),
       })
       return reply.send({ data: result })
     } catch (err) {
@@ -198,6 +201,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
           conversionBreakdown: [],
           colorBreakdown: [],
           rampTypeBreakdown: [],
+          sellerTypeBreakdown: [],
           wavFeatureCounts: {},
         },
       })
@@ -228,6 +232,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         wavFeatures: parseArr(q.wavFeatures),
         color: parseArr(q.color),
         state: parseArr(q.state),
+        sellerType: parseArr(q.sellerType),
         sort: q.sort,
       })
 

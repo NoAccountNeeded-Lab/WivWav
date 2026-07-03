@@ -95,6 +95,7 @@ function buildTestApp(
       conversionBreakdown: [],
       colorBreakdown: [],
       rampTypeBreakdown: [],
+      sellerTypeBreakdown: [],
       wavFeatureCounts: {},
     })),
     ...facetsOverrides,
@@ -136,6 +137,22 @@ describe('GET /', () => {
     expect(res.statusCode).toBe(200)
     expect(search.search).toHaveBeenCalledWith(expect.objectContaining({
       conversionBrand: ['braunability', 'vmi'],
+    }))
+
+    await app.close()
+  })
+
+  it('passes sellerType as a multi-value search filter', async () => {
+    const { app, search } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/?sellerType=dealer',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(search.search).toHaveBeenCalledWith(expect.objectContaining({
+      sellerType: ['dealer'],
     }))
 
     await app.close()
@@ -238,6 +255,22 @@ describe('GET /facets', () => {
     await app.close()
   })
 
+  it('passes sellerType to facet filtering', async () => {
+    const { app, facets } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/facets?sellerType=private',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(facets.getFacets).toHaveBeenCalledWith(expect.objectContaining({
+      sellerType: ['private'],
+    }))
+
+    await app.close()
+  })
+
   it('rejects invalid numeric facet query params', async () => {
     const { app, facets } = buildTestApp()
 
@@ -270,6 +303,7 @@ describe('GET /facets', () => {
       conversionBreakdown: [],
       colorBreakdown: [],
       rampTypeBreakdown: [],
+      sellerTypeBreakdown: [],
       wavFeatureCounts: {},
     })
 
