@@ -69,4 +69,16 @@ describe('normalizeFacetsData', () => {
       { value: 'private', count: 2 },
     ])
   })
+
+  it('normalizes trim breakdown and defaults it to empty', () => {
+    const result = normalizeFacetsData({
+      trimBreakdown: [{ value: 'LX', count: 5 }, { value: 'EX', count: 3 }],
+    })
+
+    expect(result.trimBreakdown).toEqual([
+      { value: 'LX', count: 5 },
+      { value: 'EX', count: 3 },
+    ])
+    expect(normalizeFacetsData({}).trimBreakdown).toEqual([])
+  })
 })

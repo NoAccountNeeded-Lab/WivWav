@@ -272,6 +272,22 @@ describe('GET /facets', () => {
     await app.close()
   })
 
+  it('passes trim to facet filtering', async () => {
+    const { app, facets } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/facets?trim=LX,EX',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(facets.getFacets).toHaveBeenCalledWith(expect.objectContaining({
+      trim: ['LX', 'EX'],
+    }))
+
+    await app.close()
+  })
+
   it('rejects invalid numeric facet query params', async () => {
     const { app, facets } = buildTestApp()
 
@@ -299,6 +315,7 @@ describe('GET /facets', () => {
       mileageDistribution: [],
       makeBreakdown: [],
       modelBreakdown: [],
+      trimBreakdown: [],
       stateBreakdown: [],
       conditionBreakdown: [],
       conversionBreakdown: [],

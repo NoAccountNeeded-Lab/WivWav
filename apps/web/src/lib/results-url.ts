@@ -2,6 +2,7 @@ const RESULT_FILTER_KEYS = [
   'q',
   'make',
   'model',
+  'trim',
   'yearMin',
   'yearMax',
   'priceMin',

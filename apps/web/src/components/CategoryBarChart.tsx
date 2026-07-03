@@ -26,11 +26,11 @@ interface ConversionBrandSummary {
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
-const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'conversionBrand'] as const
+const DISJUNCTIVE_PARAMS = ['make', 'model', 'trim', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'conversionBrand'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
-  'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
+  'q', 'make', 'model', 'trim', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures',
   'conversionBrand', 'color', 'state', 'sellerType',
 ]
@@ -171,6 +171,7 @@ export function CategoryBarChart({
           switch (param) {
             case 'make':           merged.makeBreakdown = d.makeBreakdown; break
             case 'model':          merged.modelBreakdown = d.modelBreakdown; break
+            case 'trim':           merged.trimBreakdown = d.trimBreakdown; break
             case 'condition':      merged.conditionBreakdown = d.conditionBreakdown; break
             case 'conversionType': merged.conversionBreakdown = d.conversionBreakdown; break
             case 'color':          merged.colorBreakdown = d.colorBreakdown; break
@@ -191,6 +192,7 @@ export function CategoryBarChart({
               ...merged,
               makeBreakdown:       stabilizeBars(merged.makeBreakdown,       prev.makeBreakdown),
               modelBreakdown:      stabilizeBars(merged.modelBreakdown,      prev.modelBreakdown),
+              trimBreakdown:       stabilizeBars(merged.trimBreakdown,       prev.trimBreakdown),
               conditionBreakdown:  stabilizeBars(merged.conditionBreakdown,  prev.conditionBreakdown),
               conversionBreakdown: stabilizeBars(merged.conversionBreakdown, prev.conversionBreakdown),
               colorBreakdown:      stabilizeBars(merged.colorBreakdown,      prev.colorBreakdown),
@@ -266,6 +268,7 @@ export function CategoryBarChart({
   }> = data ? [
     { id: 'make',      title: 'Make',       items: toFilterItems(data.makeBreakdown,                                               parseCommaSep(searchParams.get('make'))),           param: 'make'           },
     { id: 'model',     title: 'Model',      items: toFilterItems(data.modelBreakdown,                                              parseCommaSep(searchParams.get('model'))),          param: 'model'          },
+    { id: 'trim',      title: 'Trim',       items: toFilterItems(data.trimBreakdown,                                               parseCommaSep(searchParams.get('trim'))),           param: 'trim'           },
     { id: 'condition', title: 'Condition',  items: toFilterItems(data.conditionBreakdown,                                          parseCommaSep(searchParams.get('condition'))),      param: 'condition'      },
     { id: 'entry',     title: 'Entry type', items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
     { id: 'conversionBrand', title: 'Conversion brand', items: brandItems,                                                                                                             param: 'conversionBrand' },
