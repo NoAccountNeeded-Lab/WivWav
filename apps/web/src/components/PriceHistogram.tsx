@@ -80,6 +80,7 @@ const DEFAULT_MAX = 150000  // dollars
 const FORWARD_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
+  'conversionBrand',
 ]
 
 export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
