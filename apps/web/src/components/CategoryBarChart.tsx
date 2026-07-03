@@ -26,7 +26,7 @@ interface ConversionBrandSummary {
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
-const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state', 'sellerType', 'conversionBrand'] as const
+const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'conversionBrand'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
@@ -175,6 +175,10 @@ export function CategoryBarChart({
             case 'conversionType': merged.conversionBreakdown = d.conversionBreakdown; break
             case 'color':          merged.colorBreakdown = d.colorBreakdown; break
             case 'rampType':       merged.wavFeatures.rampTypes = d.wavFeatures.rampTypes; break
+            case 'wavFeatures':
+              merged.wavFeatures.hasLift = d.wavFeatures.hasLift
+              merged.wavFeatures.handControls = d.wavFeatures.handControls
+              break
             case 'state':          merged.stateBreakdown = d.stateBreakdown; break
             case 'sellerType':     merged.sellerTypeBreakdown = d.sellerTypeBreakdown; break
             case 'conversionBrand': merged.conversionBrandBreakdown = d.conversionBrandBreakdown; break

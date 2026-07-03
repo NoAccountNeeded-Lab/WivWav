@@ -41,6 +41,7 @@ function fmtMiles(miles: number): string {
 const FORWARD_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
+  'conversionBrand',
 ]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────
