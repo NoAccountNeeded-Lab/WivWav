@@ -111,4 +111,64 @@ describe('FilterGroup', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
+
+  it('should move focus to the close button when the dialog opens', async () => {
+    render(
+      <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
+    const closeButton = await screen.findByRole('button', { name: 'Close' })
+    await waitFor(() => expect(document.activeElement).toBe(closeButton))
+  })
+
+  it('should restore focus to the trigger button when the dialog closes', async () => {
+    render(
+      <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
+    )
+    const trigger = await screen.findByRole('button', { name: 'Show 4 more' })
+    // fireEvent.click dispatches a synthetic MouseEvent without the native
+    // default-focus behavior a real click has, so focus it explicitly to
+    // simulate the pre-open focus state the modal needs to restore.
+    trigger.focus()
+    fireEvent.click(trigger)
+    await screen.findByRole('dialog')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('should mark the collapsed facet content inert while the dialog is open', async () => {
+    const { container } = render(
+      <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
+    await screen.findByRole('dialog')
+
+    const collapsedContent = container.querySelector('[role="group"] > div')
+    expect(collapsedContent?.hasAttribute('inert')).toBe(true)
+  })
+
+  it('should lock body scroll while open and restore it once all modals close', async () => {
+    render(
+      <>
+        <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />
+        <FilterGroup title="Model" labelId="model" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />
+      </>,
+    )
+    const [firstMore, secondMore] = await screen.findAllByRole('button', { name: 'Show 4 more' })
+    fireEvent.click(firstMore!)
+    fireEvent.click(secondMore!)
+    await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2))
+    expect(document.body.style.overflow).toBe('hidden')
+
+    const closeButtons = screen.getAllByRole('button', { name: 'Close' })
+    fireEvent.click(closeButtons[0]!)
+    await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(1))
+    expect(document.body.style.overflow).toBe('hidden')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.body.style.overflow).toBe('')
+  })
 })
