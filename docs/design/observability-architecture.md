@@ -117,6 +117,11 @@ When running in Docker (`docker compose up`) **without** `--profile obs`, app co
 
 When running locally with `pnpm dev` (no Docker), `LOG_FORMAT` is not set so pino defaults to pretty-printed output.
 
+The Compose image versions and persisted volumes are upgraded as a coordinated
+unit. Follow the [observability upgrade runbook](../ops/observability-upgrade.md)
+before changing a pin; it records preflight configuration validation, backups,
+rollback constraints, and persistence/datasource smoke checks.
+
 ---
 
 ## Production flow

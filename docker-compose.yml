@@ -236,7 +236,7 @@ services:
   # Grafana UI: http://localhost:3003  (anonymous admin, no login required)
 
   loki:
-    image: grafana/loki:3.3.2
+    image: grafana/loki:3.7.3
     profiles: [obs]
     restart: unless-stopped
     ports:
@@ -247,14 +247,16 @@ services:
       - loki_data:/loki
     command: -config.file=/etc/loki/loki-config.yaml
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      # Loki 3.7 is distroless (no shell or HTTP client). Verify the mounted
+      # config with Loki's own binary here; the upgrade smoke test checks /ready.
+      test: ["CMD", "/usr/bin/loki", "-config.file=/etc/loki/loki-config.yaml", "-verify-config=true"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
 
   alloy:
-    image: grafana/alloy:v1.4.3
+    image: grafana/alloy:v1.17.1
     profiles: [obs]
     restart: unless-stopped
     command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
@@ -287,14 +289,16 @@ services:
       loki:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:12345/-/ready || exit 1"]
+      # The upstream image includes Bash but no wget/curl. Bash's /dev/tcp
+      # checks the real readiness endpoint and fails on connection or non-200.
+      test: ["CMD", "/usr/bin/bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12345 && printf 'GET /-/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '^HTTP/1.1 200' <&3"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
 
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:v3.13.0
     profiles: [obs]
     restart: unless-stopped
     ports:
@@ -320,7 +324,7 @@ services:
       start_period: 20s
 
   grafana:
-    image: grafana/grafana:11.3.0
+    image: grafana/grafana:13.1.0
     profiles: [obs]
     restart: unless-stopped
     ports:
@@ -348,6 +352,12 @@ services:
         condition: service_healthy
       prometheus:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
 volumes:
   postgres_data:
