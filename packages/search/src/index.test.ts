@@ -134,25 +134,14 @@ describe('toDocument — private-seller field normalization', () => {
   })
 })
 
-describe('conversionBrandSlug', () => {
-  it('normalizes brand names to URL-safe slugs', () => {
+// Smoke test only — conversionBrandSlug's full behavior (aliasing, edge cases)
+// is implemented and tested in ./canonicalize.ts / ./canonicalize.test.ts; this
+// just confirms the re-export from this module still works.
+describe('conversionBrandSlug (re-export smoke test)', () => {
+  it('normalizes and aliases via the shared canonicalize.ts implementation', () => {
     expect(conversionBrandSlug(' BraunAbility ')).toBe('braunability')
-    expect(conversionBrandSlug('Freedom Motors')).toBe('freedom-motors')
-    expect(conversionBrandSlug('AMS Vans')).toBe('ams-vans')
-  })
-
-  it('maps common aliases to seeded brand slugs', () => {
     expect(conversionBrandSlug('Rollx')).toBe('rollx-vans')
-    expect(conversionBrandSlug('AMS')).toBe('ams-vans')
-    expect(conversionBrandSlug('Freedom')).toBe('freedom-motors')
-    expect(conversionBrandSlug('Vantage')).toBe('vantage-mobility')
-    expect(conversionBrandSlug('Vantage Mobility International')).toBe('vantage-mobility')
-  })
-
-  it('returns null for missing or blank values', () => {
     expect(conversionBrandSlug(null)).toBeNull()
-    expect(conversionBrandSlug(undefined)).toBeNull()
-    expect(conversionBrandSlug('   ')).toBeNull()
   })
 })
 
