@@ -363,26 +363,26 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
       {/* 3-column filter area below chat */}
       <div className={styles.filterGrid}>
 
-        {/* Col 1: make, model, condition, entry type */}
-        <aside aria-label="Filter by vehicle type">
+        {/* Col 1: make, model, condition, entry type, conversion brand */}
+        <aside aria-label="Filter by vehicle type and brand">
           <Suspense>
             <CategoryBarChart
               showMap={false}
               showHistograms={false}
               singleColumn
-              limitGroups={['make', 'model', 'condition', 'entry']}
+              limitGroups={['make', 'model', 'condition', 'entry', 'conversionBrand']}
             />
           </Suspense>
         </aside>
 
-        {/* Col 2: color, state, WAV features */}
-        <aside aria-label="Filter by feature and location">
+        {/* Col 2: color, state, seller type, WAV features */}
+        <aside aria-label="Filter by feature, location, and seller">
           <Suspense>
             <CategoryBarChart
               showMap={false}
               showHistograms={false}
               singleColumn
-              limitGroups={['color', 'state', 'features']}
+              limitGroups={['color', 'state', 'seller', 'features']}
             />
           </Suspense>
         </aside>
