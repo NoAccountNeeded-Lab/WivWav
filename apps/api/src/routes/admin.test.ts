@@ -601,6 +601,47 @@ describe('GET /repeatables', () => {
 
     await app.close()
   })
+
+  it('attributes source-scrape failures to the source that actually failed, not to every per-source schedule sharing the queue', async () => {
+    const factory = new MockQueueFactory()
+    const scrapeQueue = factory.createQueue(QUEUES.SOURCE_SCRAPE) as MockQueueAdapter
+
+    await scrapeQueue.add({ sourceId: 'blvd-id' })
+    scrapeQueue.markFailed('page.goto: Timeout 30000ms exceeded.')
+    await scrapeQueue.add({ sourceId: 'mw-id' })
+
+    const { app } = buildTestApp({
+      findScheduledSources: vi.fn(async () => [
+        { id: 'blvd-id', name: 'BLVD.com', cronExpression: '0 */6 * * *', timezone: 'America/New_York' },
+        { id: 'mw-id', name: 'MobilityWorks', cronExpression: '0 */8 * * *', timezone: 'America/New_York' },
+      ]),
+    }, {}, factory)
+
+    const res = await app.inject({ method: 'GET', url: '/repeatables' })
+    expect(res.statusCode).toBe(200)
+    const schedules = res.json().data as Array<{
+      id: string
+      lastStatus: string | null
+      recentFailureCount: number
+      recentFailureReason: string | null
+    }>
+
+    const blvd = schedules.find(s => s.id === 'blvd')
+    const mw = schedules.find(s => s.id === 'mw')
+
+    expect(blvd).toMatchObject({
+      lastStatus: 'failed',
+      recentFailureCount: 1,
+      recentFailureReason: 'page.goto: Timeout 30000ms exceeded.',
+    })
+    expect(mw).toMatchObject({
+      lastStatus: null,
+      recentFailureCount: 0,
+      recentFailureReason: null,
+    })
+
+    await app.close()
+  })
 })
 
 // ── Quarantine ──────────────────────────────────────────────────────────────

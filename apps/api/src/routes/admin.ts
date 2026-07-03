@@ -479,10 +479,15 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     data: Record<string, unknown>
     defaultPattern: string
     tz: string
+    /** True when multiple defs share the same name+queue (e.g. per-source scrape schedules) and must be disambiguated by data.sourceId. */
+    sourceScoped?: boolean
   }
 
-  function isMatchingJob(job: { name: string }, def: CanonicalDef): boolean {
-    return job.name === def.name || job.name === def.queue
+  function isMatchingJob(job: JobRecord, def: CanonicalDef): boolean {
+    if (job.name !== def.name && job.name !== def.queue) return false
+    if (!def.sourceScoped) return true
+    const sourceId = def.data['sourceId']
+    return typeof sourceId === 'string' && isJobForSource(job, sourceId)
   }
 
   async function getCanonicalDefs(): Promise<CanonicalDef[]> {
@@ -491,8 +496,8 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     const mw = scheduledSources.find((s) => s.name === 'MobilityWorks')
     const tz = blvd?.timezone ?? 'America/New_York'
     return [
-      ...(blvd ? [{ id: 'blvd', queue: 'source-scrape', jobId: 'blvd', label: 'BLVD.com scrape', name: 'source-scrape', data: { sourceId: blvd.id }, defaultPattern: blvd.cronExpression, tz: blvd.timezone }] : []),
-      ...(mw   ? [{ id: 'mw',   queue: 'source-scrape', jobId: 'mw',   label: 'MobilityWorks scrape', name: 'source-scrape', data: { sourceId: mw.id }, defaultPattern: mw.cronExpression, tz: mw.timezone }] : []),
+      ...(blvd ? [{ id: 'blvd', queue: 'source-scrape', jobId: 'blvd', label: 'BLVD.com scrape', name: 'source-scrape', data: { sourceId: blvd.id }, defaultPattern: blvd.cronExpression, tz: blvd.timezone, sourceScoped: true }] : []),
+      ...(mw   ? [{ id: 'mw',   queue: 'source-scrape', jobId: 'mw',   label: 'MobilityWorks scrape', name: 'source-scrape', data: { sourceId: mw.id }, defaultPattern: mw.cronExpression, tz: mw.timezone, sourceScoped: true }] : []),
       { id: 'detail-crawl',    queue: 'detail-crawl',    label: 'Detail crawl (Playwright)', name: 'detail-crawl',    data: { sourceId: blvd?.id ?? '' }, defaultPattern: '0 * * * *',   tz },
       { id: 'detail-extract',  queue: 'detail-extract',  label: 'Detail extract (HTML)',     name: 'detail-extract',  data: { sourceId: blvd?.id ?? '' }, defaultPattern: '*/5 * * * *', tz },
       { id: 'geocode',         queue: 'geocode',         label: 'Geocode (city → GPS)',      name: 'geocode',         data: {},                          defaultPattern: '0 2 * * *',   tz },
