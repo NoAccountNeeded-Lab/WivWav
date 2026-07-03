@@ -371,6 +371,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
               showHistograms={false}
               singleColumn
               limitGroups={['make', 'model', 'condition', 'entry', 'conversionBrand']}
+              renderers={{ condition: 'donut' }}
             />
           </Suspense>
         </aside>
@@ -383,6 +384,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
               showHistograms={false}
               singleColumn
               limitGroups={['color', 'state', 'seller', 'features']}
+              renderers={{ color: 'swatches', seller: 'donut' }}
             />
           </Suspense>
         </aside>
