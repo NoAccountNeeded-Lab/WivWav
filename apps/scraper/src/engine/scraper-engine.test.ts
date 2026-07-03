@@ -369,6 +369,68 @@ describe('ScraperEngine', () => {
     )
     // Scrape was never attempted
     expect(adapter.scrape).not.toHaveBeenCalled()
+    // The retry budget was exhausted (bounded retries, not a single attempt)
+    expect(malformedDetector.remapFields).toHaveBeenCalledTimes(2)
+  })
+
+  // ─── structure change: transient remap failure recovers on retry ────────────
+
+  it('retries a throwing AI remap call and completes the scrape normally when a later attempt succeeds', async () => {
+    const engine = build()
+    const context = makeContext()
+    const flakyDetector = {
+      remapFields: vi.fn()
+        .mockRejectedValueOnce(new Error('AI remap response was not valid JSON (Unexpected token). Raw response: {"mappings":'))
+        .mockResolvedValueOnce({
+          mappings: [{ targetField: 'make', selector: 'h1', attribute: null, transform: null }],
+          confidence: 0.9,
+          notes: 'Selectors updated',
+        }),
+    } as unknown as StructureDetector
+    const changed: StructureCheckResult = {
+      changed: true, currentHash: 'new', previousHash: 'old', sampleHtml: '<html>updated</html>',
+    }
+    const adapter = makeAdapter('src-1', { checkStructure: vi.fn().mockResolvedValue(changed) })
+    engine.register(adapter, adapter.sourceId)
+
+    await engine.runSource('src-1', context, flakyDetector)
+
+    // Scrape proceeds normally instead of the source being locked into needs_remapping.
+    expect(adapter.scrape).toHaveBeenCalled()
+    expect(sources.markNeedsRemapping).not.toHaveBeenCalled()
+    expect(runs.complete).toHaveBeenCalledWith('run-1', 0, { listingsNew: 0, listingsUpdated: 0 })
+    expect(sources.markActive).toHaveBeenCalled()
+    expect(sources.setMappings).toHaveBeenCalledWith('src-1', expect.any(Array))
+    // The AI provider was called more than once (the first attempt threw).
+    expect(flakyDetector.remapFields).toHaveBeenCalledTimes(2)
+    // The retry is surfaced via the progress-reporting mechanism rather than looking
+    // like a silent hang.
+    expect(context.log).toHaveBeenCalledWith(expect.stringContaining('AI remap attempt 1/2 failed'))
+  })
+
+  it('still marks needs_remapping after the retry budget is exhausted when every attempt throws', async () => {
+    const engine = build()
+    const context = makeContext()
+    const alwaysFailingDetector = {
+      remapFields: vi.fn().mockRejectedValue(new Error('provider timeout')),
+    } as unknown as StructureDetector
+    const changed: StructureCheckResult = {
+      changed: true, currentHash: 'new', previousHash: 'old', sampleHtml: '<html>updated</html>',
+    }
+    const adapter = makeAdapter('src-1', { checkStructure: vi.fn().mockResolvedValue(changed) })
+    engine.register(adapter, adapter.sourceId)
+
+    await expect(engine.runSource('src-1', context, alwaysFailingDetector)).resolves.toBe(false)
+
+    // Preserves the existing operator-intervention fallback once the retry budget is spent.
+    expect(sources.markNeedsRemapping).toHaveBeenCalledWith(
+      'src-1',
+      expect.stringContaining('provider timeout'),
+    )
+    expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('provider timeout'))
+    expect(adapter.scrape).not.toHaveBeenCalled()
+    // Bounded retries: called exactly MAX_REMAP_ATTEMPTS times, not indefinitely.
+    expect(alwaysFailingDetector.remapFields).toHaveBeenCalledTimes(2)
   })
 
   // ─── gone detection ─────────────────────────────────────────────────────────

@@ -15,6 +15,14 @@ import type { JobContext } from '@wivwav/queue'
 const REMAP_CONFIDENCE_THRESHOLD = 0.7
 
 /**
+ * Total attempts (including the first) allowed for a single AI remap call before
+ * falling back to `markNeedsRemapping`. A malformed/transient response (bad JSON,
+ * missing fields, provider timeout) is often a one-off, so a bounded retry avoids
+ * taking a source offline for an operator to notice and fix.
+ */
+const MAX_REMAP_ATTEMPTS = 2
+
+/**
  * Number of hours after which a periodic full crawl is forced even if page-1
  * is unchanged. This prevents price and removal changes on later pages from
  * remaining invisible indefinitely.
@@ -134,11 +142,37 @@ export class ScraperEngine {
         if (structureCheck.sampleHtml && detector) {
           try {
             const previousMappings = await this.sources.getMappings(sourceId)
-            const remap = await detector.remapFields({
-              sourceName: adapter.name,
-              previousMappings,
-              sampleHtml: structureCheck.sampleHtml,
-            })
+
+            // A single malformed/transient AI response shouldn't permanently lock the
+            // source into needs_remapping, so retry the AI call itself a bounded number
+            // of times before giving up. The final attempt's error is what surfaces to
+            // the operator if every attempt fails.
+            let remap: Awaited<ReturnType<StructureDetector['remapFields']>> | undefined
+            let lastAttemptErr: unknown
+            for (let attempt = 1; attempt <= MAX_REMAP_ATTEMPTS; attempt++) {
+              try {
+                remap = await detector.remapFields({
+                  sourceName: adapter.name,
+                  previousMappings,
+                  sampleHtml: structureCheck.sampleHtml,
+                })
+                break
+              } catch (attemptErr) {
+                lastAttemptErr = attemptErr
+                if (attempt < MAX_REMAP_ATTEMPTS) {
+                  const attemptErrMsg = attemptErr instanceof Error ? attemptErr.message : String(attemptErr)
+                  await report(context, `[source-scrape] AI remap attempt ${attempt}/${MAX_REMAP_ATTEMPTS} failed for ${adapter.name} (${attemptErrMsg}); retrying.`, {
+                    stage: 'structure-changed',
+                    current: attempt,
+                    total: MAX_REMAP_ATTEMPTS,
+                  })
+                }
+              }
+            }
+            if (remap === undefined) {
+              throw lastAttemptErr
+            }
+
             await this.sources.setMappings(sourceId, remap.mappings)
 
             if (remap.confidence >= REMAP_CONFIDENCE_THRESHOLD) {
