@@ -5,10 +5,12 @@ import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 import { RobotsCache } from '../util/robots-cache.js'
-import { isNavigationTimeout } from '../util/navigation-timeout.js'
+import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
 import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/db'
 
 const SOURCE_ID = 'blvd'
+const INITIAL_NAV_MAX_ATTEMPTS = 3
+const INITIAL_NAV_BACKOFF_MS = 1_000
 const BASE_URL = 'https://www.blvd.com'
 const LISTINGS_PATH = '/wheelchair-vans-for-sale'
 const FSBO_LISTINGS_PATH = '/wheelchair-vans-for-sale-by-owner'
@@ -22,6 +24,8 @@ interface BlvdConfig {
   browserService?: BrowserService
   /** Inject a RobotsCache instance for testing. Defaults to a new RobotsCache(). */
   robotsCache?: RobotsCache
+  /** Override retry backoff for testing — defaults to INITIAL_NAV_BACKOFF_MS. */
+  navRetryBackoffMs?: number
 }
 
 // Shape returned from page.evaluate — must be JSON-serializable.
@@ -47,6 +51,7 @@ export class BlvdAdapter implements SourceAdapter {
   private readonly maxPages: number
   private readonly browserService: BrowserService | null
   private readonly robotsCache: RobotsCache
+  private readonly navRetryBackoffMs: number
 
   constructor(previousHash: string | null = null, config: BlvdConfig = {}) {
     this.previousHash = previousHash
@@ -54,6 +59,7 @@ export class BlvdAdapter implements SourceAdapter {
     this.maxPages = config.maxPages ?? Infinity
     this.browserService = config.browserService ?? null
     this.robotsCache = config.robotsCache ?? new RobotsCache()
+    this.navRetryBackoffMs = config.navRetryBackoffMs ?? INITIAL_NAV_BACKOFF_MS
   }
 
   private async getBrowserService(): Promise<BrowserService> {
@@ -110,7 +116,11 @@ export class BlvdAdapter implements SourceAdapter {
     const browser = await service.launch()
     try {
       const page = await browser.newPage()
-      await page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await withNavigationRetry(
+        () => page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+        INITIAL_NAV_MAX_ATTEMPTS,
+        this.navRetryBackoffMs,
+      )
 
       const { signature, cardHtml } = await page.evaluate(function (sel: string): { signature: string; cardHtml: string } {
         const cards = document.querySelectorAll(sel)
@@ -198,7 +208,15 @@ export class BlvdAdapter implements SourceAdapter {
           })
 
           try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS })
+            if (pageNum === 1) {
+              await withNavigationRetry(
+                () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS }),
+                INITIAL_NAV_MAX_ATTEMPTS,
+                this.navRetryBackoffMs,
+              )
+            } else {
+              await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS })
+            }
           } catch (err) {
             if (pageNum > 1 && isNavigationTimeout(err)) {
               await report(context, `[blvd] Stopping pagination after timeout loading page ${pageNum}: ${url}`, {

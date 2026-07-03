@@ -394,6 +394,108 @@ describe('BlvdAdapter.checkPage1 timeout handling', () => {
   })
 })
 
+// ─── BlvdAdapter.checkStructure timeout retry ───────────────────────────────
+
+describe('BlvdAdapter.checkStructure timeout retry', () => {
+  it('succeeds and returns a hash when the first goto times out but the second succeeds', async () => {
+    let gotoAttempts = 0
+    const service: BrowserService = {
+      async launch(): Promise<BrowserSession> {
+        return {
+          async newPage(): Promise<BrowserPage> {
+            return {
+              async goto(): Promise<BrowserResponse | null> {
+                gotoAttempts++
+                if (gotoAttempts === 1) {
+                  throw new Error('page.goto: Timeout 30000ms exceeded.')
+                }
+                return { status: () => 200 }
+              },
+              async setContent(): Promise<void> {},
+              async content(): Promise<string> { return '' },
+              url(): string { return '' },
+              evaluate<T>(): Promise<T> { return Promise.resolve({ signature: 'no-cards', cardHtml: '' } as unknown as T) },
+              async waitForSelector(): Promise<void> {},
+              async close(): Promise<void> {},
+            }
+          },
+          async close(): Promise<void> {},
+        }
+      },
+    }
+
+    const adapter = new BlvdAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    const result = await adapter.checkStructure()
+
+    expect(gotoAttempts).toBe(2)
+    expect(result).toMatchObject({
+      currentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      changed: expect.any(Boolean),
+    })
+  })
+
+  it('rethrows after exhausting all retry attempts', async () => {
+    const service = makeTimeoutService({ 'blvd.com': new Error('page.goto: Timeout 30000ms exceeded.') })
+    const adapter = new BlvdAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    await expect(adapter.checkStructure()).rejects.toThrow('Timeout 30000ms exceeded')
+  })
+})
+
+// ─── BlvdAdapter.scrape page 1 timeout retry ────────────────────────────────
+
+describe('BlvdAdapter.scrape page 1 timeout retry', () => {
+  it('retries a page-1 timeout and continues scraping once it succeeds', async () => {
+    let gotoAttempts = 0
+    const robotsCache = {
+      async isAllowed(): Promise<boolean> { return true },
+      clear(): void {},
+    } as unknown as RobotsCache
+
+    const service: BrowserService = {
+      async launch(): Promise<BrowserSession> {
+        return {
+          async newPage(): Promise<BrowserPage> {
+            return {
+              async goto(): Promise<BrowserResponse | null> {
+                gotoAttempts++
+                if (gotoAttempts === 1) {
+                  throw new Error('page.goto: Timeout 30000ms exceeded.')
+                }
+                return { status: () => 200 }
+              },
+              async setContent(): Promise<void> {},
+              async content(): Promise<string> { return '<html></html>' },
+              url(): string { return '' },
+              // No cards on any page → pagination stops right after each path's page 1.
+              evaluate<T>(): Promise<T> { return Promise.resolve([] as unknown as T) },
+              async waitForSelector(): Promise<void> {},
+              async close(): Promise<void> {},
+            }
+          },
+          async close(): Promise<void> {},
+        }
+      },
+    }
+
+    const adapter = new BlvdAdapter(null, { browserService: service, robotsCache, navRetryBackoffMs: 0 })
+
+    // Should not throw — the first attempt's timeout is retried and the second succeeds.
+    const result = await adapter.scrape()
+    expect(result.listings).toBeInstanceOf(Array)
+    expect(gotoAttempts).toBeGreaterThanOrEqual(2)
+  })
+
+  it('rethrows a page-1 timeout after exhausting all retry attempts (no partial listings to return)', async () => {
+    const robotsCache = {
+      async isAllowed(): Promise<boolean> { return true },
+      clear(): void {},
+    } as unknown as RobotsCache
+    const service = makeTimeoutService({ 'blvd.com': new Error('page.goto: Timeout 30000ms exceeded.') })
+    const adapter = new BlvdAdapter(null, { browserService: service, robotsCache, navRetryBackoffMs: 0 })
+    await expect(adapter.scrape()).rejects.toThrow('Timeout 30000ms exceeded')
+  })
+})
+
 // ─── BlvdAdapter.scrape robots.txt skip ─────────────────────────────────────
 
 describe('BlvdAdapter.scrape robots.txt skip', () => {
