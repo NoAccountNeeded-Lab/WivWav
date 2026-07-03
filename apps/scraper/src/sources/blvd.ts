@@ -513,6 +513,14 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// Precompiled once at module load — parseConversionManufacturer runs per card
+// during scraping, so building a fresh RegExp per prefix per call is wasted work.
+const KNOWN_CONVERTER_PREFIX_PATTERNS: Array<{ name: string; pattern: RegExp }> =
+  KNOWN_CONVERTER_PREFIXES.map((name) => ({
+    name,
+    pattern: new RegExp(`^${escapeRegExp(name)}(?:\\b|$)`, 'i'),
+  }))
+
 /**
  * Recognizes a known conversion-manufacturer name at the start of the
  * `conversion` card field. Returns null when no known name is recognized —
@@ -524,14 +532,13 @@ function escapeRegExp(s: string): string {
  * once verified, rather than reintroducing a first-word guess.
  */
 export function parseConversionManufacturer(text: string): string | null {
-  // "Driverge Driverge Flex Maxx Wheelchair Van Conversion" → "Driverge Driverge Flex Maxx"
+  // e.g. "Driverge Driverge Flex Maxx Wheelchair Van Conversion" → cleaned to
+  // "Driverge Driverge Flex Maxx", which then matches the "Driverge" prefix below.
   const cleaned = text.replace(/wheelchair van conversion/i, '').trim()
   if (!cleaned) return null
 
-  for (const name of KNOWN_CONVERTER_PREFIXES) {
-    if (new RegExp(`^${escapeRegExp(name)}(?:\\b|$)`, 'i').test(cleaned)) {
-      return name
-    }
+  for (const { name, pattern } of KNOWN_CONVERTER_PREFIX_PATTERNS) {
+    if (pattern.test(cleaned)) return name
   }
 
   return null
