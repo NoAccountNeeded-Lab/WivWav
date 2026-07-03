@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ScraperEngine } from './scraper-engine.js'
+import { ScraperEngine, MAX_REMAP_ATTEMPTS } from './scraper-engine.js'
 import type { ScraperRunRepository, SourceRepository, ListingRepository } from './repositories.js'
 import type { SourceAdapter, ScrapeResult, StructureCheckResult, Page1CheckResult } from './source-adapter.js'
 import type { StructureDetector } from '../ai/structure-detector.js'
@@ -370,7 +370,7 @@ describe('ScraperEngine', () => {
     // Scrape was never attempted
     expect(adapter.scrape).not.toHaveBeenCalled()
     // The retry budget was exhausted (bounded retries, not a single attempt)
-    expect(malformedDetector.remapFields).toHaveBeenCalledTimes(2)
+    expect(malformedDetector.remapFields).toHaveBeenCalledTimes(MAX_REMAP_ATTEMPTS)
   })
 
   // ─── structure change: transient remap failure recovers on retry ────────────
@@ -402,10 +402,10 @@ describe('ScraperEngine', () => {
     expect(sources.markActive).toHaveBeenCalled()
     expect(sources.setMappings).toHaveBeenCalledWith('src-1', expect.any(Array))
     // The AI provider was called more than once (the first attempt threw).
-    expect(flakyDetector.remapFields).toHaveBeenCalledTimes(2)
+    expect(flakyDetector.remapFields).toHaveBeenCalledTimes(MAX_REMAP_ATTEMPTS)
     // The retry is surfaced via the progress-reporting mechanism rather than looking
     // like a silent hang.
-    expect(context.log).toHaveBeenCalledWith(expect.stringContaining('AI remap attempt 1/2 failed'))
+    expect(context.log).toHaveBeenCalledWith(expect.stringContaining(`AI remap attempt 1/${MAX_REMAP_ATTEMPTS} failed`))
   })
 
   it('still marks needs_remapping after the retry budget is exhausted when every attempt throws', async () => {
@@ -430,7 +430,7 @@ describe('ScraperEngine', () => {
     expect(runs.fail).toHaveBeenCalledWith('run-1', expect.stringContaining('provider timeout'))
     expect(adapter.scrape).not.toHaveBeenCalled()
     // Bounded retries: called exactly MAX_REMAP_ATTEMPTS times, not indefinitely.
-    expect(alwaysFailingDetector.remapFields).toHaveBeenCalledTimes(2)
+    expect(alwaysFailingDetector.remapFields).toHaveBeenCalledTimes(MAX_REMAP_ATTEMPTS)
   })
 
   // ─── gone detection ─────────────────────────────────────────────────────────
