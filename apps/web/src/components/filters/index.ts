@@ -1,5 +1,5 @@
 export { FilterGroup } from './FilterGroup'
-export { BarsRenderer } from './BarsRenderer'
+export { BarsRenderer, BarsCountLeftRenderer } from './BarsRenderer'
 export { ChipsRenderer } from './ChipsRenderer'
 export { DonutRenderer } from './DonutRenderer'
 export { SwatchesRenderer } from './SwatchesRenderer'

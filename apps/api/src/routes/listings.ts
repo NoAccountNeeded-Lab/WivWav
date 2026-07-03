@@ -202,6 +202,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
           colorBreakdown: [],
           rampTypeBreakdown: [],
           sellerTypeBreakdown: [],
+          conversionBrandBreakdown: [],
           wavFeatureCounts: {},
         },
       })

@@ -371,7 +371,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
               showHistograms={false}
               singleColumn
               limitGroups={['make', 'model', 'condition', 'entry', 'conversionBrand']}
-              renderers={{ condition: 'donut' }}
+              renderers={{ condition: 'donut', conversionBrand: 'barsCountLeft' }}
             />
           </Suspense>
         </aside>

@@ -96,6 +96,7 @@ function buildTestApp(
       colorBreakdown: [],
       rampTypeBreakdown: [],
       sellerTypeBreakdown: [],
+      conversionBrandBreakdown: [],
       wavFeatureCounts: {},
     })),
     ...facetsOverrides,
@@ -304,6 +305,7 @@ describe('GET /facets', () => {
       colorBreakdown: [],
       rampTypeBreakdown: [],
       sellerTypeBreakdown: [],
+      conversionBrandBreakdown: [],
       wavFeatureCounts: {},
     })
 

@@ -26,7 +26,7 @@ interface ConversionBrandSummary {
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
-const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state', 'sellerType'] as const
+const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state', 'sellerType', 'conversionBrand'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
@@ -177,6 +177,7 @@ export function CategoryBarChart({
             case 'rampType':       merged.wavFeatures.rampTypes = d.wavFeatures.rampTypes; break
             case 'state':          merged.stateBreakdown = d.stateBreakdown; break
             case 'sellerType':     merged.sellerTypeBreakdown = d.sellerTypeBreakdown; break
+            case 'conversionBrand': merged.conversionBrandBreakdown = d.conversionBrandBreakdown; break
           }
         })
 
@@ -191,6 +192,7 @@ export function CategoryBarChart({
               colorBreakdown:      stabilizeBars(merged.colorBreakdown,      prev.colorBreakdown),
               stateBreakdown:      stabilizeBars(merged.stateBreakdown,      prev.stateBreakdown),
               sellerTypeBreakdown: stabilizeBars(merged.sellerTypeBreakdown, prev.sellerTypeBreakdown),
+              conversionBrandBreakdown: stabilizeBars(merged.conversionBrandBreakdown, prev.conversionBrandBreakdown),
               wavFeatures: {
                 ...merged.wavFeatures,
                 rampTypes: stabilizeBars(merged.wavFeatures.rampTypes, prev.wavFeatures.rampTypes),
@@ -240,6 +242,18 @@ export function CategoryBarChart({
 
   // ── Build group definitions ──────────────────────────────────────────────
 
+  // Facet values are raw scraper slugs; only the curated /v1/conversion-brands
+  // list is trustworthy enough to display (the index also holds noise values
+  // like "yes" or "fr"). It doubles as the display-name source ("BraunAbility",
+  // not "Braunability").
+  const brandNameBySlug = new Map(conversionBrands.map((b) => [b.slug, b.name]))
+  const brandItems = data
+    ? toFilterItems(
+        data.conversionBrandBreakdown.filter((b) => brandNameBySlug.has(b.value)),
+        parseCommaSep(searchParams.get('conversionBrand')),
+      ).map((item) => ({ ...item, label: brandNameBySlug.get(item.value) ?? item.label }))
+    : []
+
   const groups: Array<{
     id: string
     title: string
@@ -250,6 +264,7 @@ export function CategoryBarChart({
     { id: 'model',     title: 'Model',      items: toFilterItems(data.modelBreakdown,                                              parseCommaSep(searchParams.get('model'))),          param: 'model'          },
     { id: 'condition', title: 'Condition',  items: toFilterItems(data.conditionBreakdown,                                          parseCommaSep(searchParams.get('condition'))),      param: 'condition'      },
     { id: 'entry',     title: 'Entry type', items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
+    { id: 'conversionBrand', title: 'Conversion brand', items: brandItems,                                                                                                             param: 'conversionBrand' },
     { id: 'color',     title: 'Color',      items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
     { id: 'state',     title: 'State',      items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
     { id: 'seller',    title: 'Seller type', items: toFilterItems(data.sellerTypeBreakdown,                                        parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
@@ -297,10 +312,8 @@ export function CategoryBarChart({
     : groups
 
   const showFeatures = !limitGroups || limitGroups.includes('features')
-  const showConversionBrands = !limitGroups || limitGroups.includes('conversionBrand')
 
   const r = (id: string): CategoricalRendererType => renderers[id] ?? 'bars'
-  const activeConversionBrands = parseCommaSep(searchParams.get('conversionBrand'))
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -317,25 +330,6 @@ export function CategoryBarChart({
             />
           </div>
         </div>
-      )}
-
-      {showConversionBrands && conversionBrands.length > 0 && (
-        <fieldset className={styles.brandGroup}>
-          <legend className={styles.brandTitle}>Conversion Brand</legend>
-          <div className={styles.brandOptions}>
-            {conversionBrands.map((brand) => (
-              <label key={brand.id} className={styles.brandOption}>
-                <input
-                  type="checkbox"
-                  className={styles.brandCheckbox}
-                  checked={activeConversionBrands.includes(brand.slug)}
-                  onChange={() => toggleArray('conversionBrand', brand.slug)}
-                />
-                <span className={styles.brandName}>{brand.name}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
       )}
 
       {showHistograms ? (

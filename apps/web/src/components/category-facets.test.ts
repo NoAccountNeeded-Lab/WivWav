@@ -47,6 +47,18 @@ describe('normalizeFacetsData', () => {
     })
   })
 
+  it('normalizes conversionBrand breakdown and defaults it to empty', () => {
+    const result = normalizeFacetsData({
+      conversionBrandBreakdown: [{ value: 'braunability', count: 7 }, { value: 'ams-vans', count: 2 }],
+    })
+
+    expect(result.conversionBrandBreakdown).toEqual([
+      { value: 'braunability', count: 7 },
+      { value: 'ams-vans', count: 2 },
+    ])
+    expect(normalizeFacetsData({}).conversionBrandBreakdown).toEqual([])
+  })
+
   it('normalizes sellerType breakdown', () => {
     const result = normalizeFacetsData({
       sellerTypeBreakdown: [{ value: 'dealer', count: 4 }, { value: 'private', count: 2 }],
