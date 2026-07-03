@@ -75,7 +75,7 @@ describe('ListingFacetsService', () => {
 
     const result = await new ListingFacetsService(search, cache).getFacets({})
 
-    expect(cache.get).toHaveBeenCalledWith('facets:eligible-v1:{}')
+    expect(cache.get).toHaveBeenCalledWith('facets:eligible-v2:{}')
     expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
       facets: expect.arrayContaining(['rampType', 'wavFeatures', 'sellerType']),
       limit: 0,
@@ -110,6 +110,36 @@ describe('ListingFacetsService', () => {
     expect(result.sellerTypeBreakdown).toEqual([
       { value: 'dealer', count: 5 },
       { value: 'private', count: 2 },
+    ])
+  })
+
+  it('returns conversion brand breakdown sorted by count', async () => {
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [],
+        total: 6,
+        facetDistribution: {
+          conversionBrand: { 'ams-vans': 1, braunability: 4, 'freedom-motors': 1 },
+        },
+      })),
+    } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      del: vi.fn(async () => {}),
+      ping: vi.fn(async () => {}),
+      getOrSet: vi.fn(),
+    } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
+      facets: expect.arrayContaining(['conversionBrand']),
+    }))
+    expect(result.conversionBrandBreakdown).toEqual([
+      { value: 'braunability', count: 4 },
+      { value: 'ams-vans', count: 1 },
+      { value: 'freedom-motors', count: 1 },
     ])
   })
 })

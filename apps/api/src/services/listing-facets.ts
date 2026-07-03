@@ -18,12 +18,14 @@ export interface FacetsResult {
   colorBreakdown: Array<{ value: string; count: number }>
   rampTypeBreakdown: Array<{ value: string; count: number }>
   sellerTypeBreakdown: Array<{ value: string; count: number }>
+  /** Counts per conversion brand slug (e.g. `braunability`). */
+  conversionBrandBreakdown: Array<{ value: string; count: number }>
   /** Counts per WavFeature key. Keyed by WavFeature enum value. */
   wavFeatureCounts: Record<string, number>
 }
 
 const CACHE_TTL_SECONDS = 60
-const CACHE_NAMESPACE = 'facets:eligible-v1'
+const CACHE_NAMESPACE = 'facets:eligible-v2'
 
 export class ListingFacetsService {
   constructor(
@@ -48,7 +50,7 @@ export class ListingFacetsService {
       facets: [
         'make', 'model', 'year', 'condition', 'conversionType',
         'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
-        'priceBucket', 'mileageBucket',
+        'conversionBrand', 'priceBucket', 'mileageBucket',
       ],
       limit: 0,
     })
@@ -68,6 +70,7 @@ export class ListingFacetsService {
       colorBreakdown: toValueCount(dist['color'] ?? {}),
       rampTypeBreakdown: toValueCount(dist['rampType'] ?? {}),
       sellerTypeBreakdown: toValueCount(dist['sellerType'] ?? {}),
+      conversionBrandBreakdown: toValueCount(dist['conversionBrand'] ?? {}),
       wavFeatureCounts: dist['wavFeatures'] ?? {},
     }
 

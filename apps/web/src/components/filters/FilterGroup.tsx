@@ -10,6 +10,7 @@ import styles from './FilterGroup.module.css'
 
 const RENDERERS: Record<CategoricalRendererType, React.LazyExoticComponent<React.ComponentType<CategoricalRendererProps>>> = {
   bars:     lazy(() => import('./BarsRenderer').then((m) => ({ default: m.BarsRenderer }))),
+  barsCountLeft: lazy(() => import('./BarsRenderer').then((m) => ({ default: m.BarsCountLeftRenderer }))),
   chips:    lazy(() => import('./ChipsRenderer').then((m) => ({ default: m.ChipsRenderer }))),
   donut:    lazy(() => import('./DonutRenderer').then((m) => ({ default: m.DonutRenderer }))),
   swatches: lazy(() => import('./SwatchesRenderer').then((m) => ({ default: m.SwatchesRenderer }))),
