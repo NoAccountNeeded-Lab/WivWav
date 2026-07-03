@@ -186,3 +186,25 @@ Token and cache counters are not fully exposed by this runtime; subagent totals 
 | fix | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Applied all 4 review findings; re-ran full validation: `@wivwav/search` 86/86, `@wivwav/scraper` 674/674, `@wivwav/web` 493/493, `@wivwav/api` 465/465 tests passing; `turbo run typecheck lint` clean (0 errors) across search/web/scraper/api; local Docker `builder`-stage build for web succeeds end-to-end (`next build` completes). |
 
 Token and cache counters are not fully exposed by this runtime; subagent totals are reported where available via task-notification usage metadata.
+
+---
+
+# Usage Report: Issue #623
+
+## Metadata
+
+- Sprint run: run-sprint/2026-07-03T23:36
+- Branch: fix/issue-623-a-single-malformed-ai-remap-response-permanently-l
+- Effort guidance: high
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts. |
+| implementation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | In `apps/scraper/src/engine/scraper-engine.ts`, wrapped the `detector.remapFields(...)` call inside `runSource`'s structure-change handling in a bounded retry loop (new exported `MAX_REMAP_ATTEMPTS = 2` constant); each non-final failed attempt is logged via the existing `report(...)` progress mechanism (stage `structure-changed`) so retries are visible on the ops Logs page instead of looking like a silent hang; if every attempt throws, the last attempt's error still falls through to the unchanged `markNeedsRemapping` terminal path. Ran `pnpm install` (workspace symlinks were present but dependency packages weren't built yet) and used `pnpm turbo typecheck/lint/test --filter=@wivwav/scraper` (turbo's `^build` task dependency builds `@wivwav/db`/`types`/`queue`/`agents`/`search`/`logger`/`observability` first) rather than `pnpm --filter` directly. Added 2 new tests (throws-once-then-succeeds; throws-every-attempt-budget-exhausted) plus a call-count assertion on the pre-existing malformed-response test; all 696 scraper tests passing. |
+| review | reviewer/1 (subagent) | Anthropic | Claude Sonnet 5 (subagent) | 52572 (subagent total) | unavailable | unavailable | unavailable | 12 | Combined reviewer + qa + performance roles, foreground/blocking. Verdict REVISION_NEEDED: no; 0 CRITICAL/WARNING. 3 SUGGESTIONs: (1) `lastAttemptErr` could theoretically be thrown as `undefined` if `MAX_REMAP_ATTEMPTS` were ever misconfigured to < 1 — fixed with an `?? new Error(...)` fallback; (2) retry-count test assertions were hardcoded literals not tied to the constant — fixed by exporting `MAX_REMAP_ATTEMPTS` and asserting against it in all 3 relevant test assertions; (3) no backoff delay between the two AI-call attempts — left as-is, explicitly out of scope per the issue's "small bounded retry loop, e.g. 2 attempts total" framing. |
+| fix | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Applied both actionable review suggestions; re-ran `pnpm turbo typecheck lint test --filter=@wivwav/scraper` — all green (696/696 tests). |
+
+Token and cache counters are not fully exposed by this runtime; subagent totals are reported where available via task-notification usage metadata.
