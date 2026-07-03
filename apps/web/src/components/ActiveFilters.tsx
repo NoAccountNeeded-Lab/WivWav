@@ -24,6 +24,7 @@ function parseCommaSep(v: string | null): string[] {
 const MULTI_PARAM_LABELS: Record<string, { singular: string; plural: string }> = {
   make:           { singular: 'Make',       plural: 'Makes'       },
   model:          { singular: 'Model',      plural: 'Models'      },
+  trim:           { singular: 'Trim',       plural: 'Trims'       },
   condition:      { singular: 'Condition',  plural: 'Conditions'  },
   conversionBrand: { singular: 'Conversion brand', plural: 'Conversion brands' },
   conversionType: { singular: 'Entry type', plural: 'Entry types' },

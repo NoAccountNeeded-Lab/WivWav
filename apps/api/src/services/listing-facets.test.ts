@@ -142,4 +142,33 @@ describe('ListingFacetsService', () => {
       { value: 'freedom-motors', count: 1 },
     ])
   })
+
+  it('returns trim breakdown sorted by count', async () => {
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [],
+        total: 4,
+        facetDistribution: {
+          trim: { LX: 3, EX: 1 },
+        },
+      })),
+    } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      del: vi.fn(async () => {}),
+      ping: vi.fn(async () => {}),
+      getOrSet: vi.fn(),
+    } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
+      facets: expect.arrayContaining(['trim']),
+    }))
+    expect(result.trimBreakdown).toEqual([
+      { value: 'LX', count: 3 },
+      { value: 'EX', count: 1 },
+    ])
+  })
 })

@@ -6,6 +6,7 @@ export interface BarDatum {
 export interface FacetsData {
   makeBreakdown: BarDatum[]
   modelBreakdown: BarDatum[]
+  trimBreakdown: BarDatum[]
   conditionBreakdown: BarDatum[]
   conversionBreakdown: BarDatum[]
   colorBreakdown: BarDatum[]
@@ -45,6 +46,7 @@ export function normalizeFacetsData(raw: unknown): FacetsData {
   return {
     makeBreakdown: toBars(source.makeBreakdown),
     modelBreakdown: toBars(source.modelBreakdown),
+    trimBreakdown: toBars(source.trimBreakdown),
     conditionBreakdown: toBars(source.conditionBreakdown),
     conversionBreakdown: toBars(source.conversionBreakdown),
     colorBreakdown: toBars(source.colorBreakdown),

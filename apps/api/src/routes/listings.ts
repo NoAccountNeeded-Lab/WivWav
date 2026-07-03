@@ -111,6 +111,7 @@ interface FilterQuery {
   q?: string
   make?: string
   model?: string
+  trim?: string
   yearMin?: number
   yearMax?: number
   priceMin?: number
@@ -136,6 +137,7 @@ const filterQuerySchema = {
     q: { type: 'string' },
     make: { type: 'string' },
     model: { type: 'string' },
+    trim: { type: 'string' },
     yearMin: { type: 'integer' },
     yearMax: { type: 'integer' },
     priceMin: { type: 'integer' },
@@ -171,6 +173,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         q: q.q,
         make: parseArr(q.make),
         model: parseArr(q.model),
+        trim: parseArr(q.trim),
         yearMin: q.yearMin,
         yearMax: q.yearMax,
         priceMin: q.priceMin,
@@ -196,6 +199,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
           mileageDistribution: [],
           makeBreakdown: [],
           modelBreakdown: [],
+          trimBreakdown: [],
           stateBreakdown: [],
           conditionBreakdown: [],
           conversionBreakdown: [],
@@ -221,6 +225,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
         perPage,
         make: parseArr(q.make),
         model: parseArr(q.model),
+        trim: parseArr(q.trim),
         yearMin: q.yearMin,
         yearMax: q.yearMax,
         priceMin: q.priceMin,
