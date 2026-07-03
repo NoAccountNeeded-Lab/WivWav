@@ -301,7 +301,11 @@ export class MobilityWorksAdapter implements SourceAdapter {
 
               // Subsequent-field boundary used to truncate bleed when the card DOM has no newlines.
               // stock is a single alphanumeric token; color/convMake/conversion truncate at the next field keyword.
-              const nextField = /\s+(?:Mileage|Color|Conv\s*Make|Conv\b|Conversion|Location|Stock[:\s]|Request|Schedule).*/i
+              // `\s*` (not `\s+`): when a listing has no value for the current field, its label sits
+              // directly against the next label with zero whitespace (e.g. "ColorConv MakeEldorado"),
+              // and a `\s+` requirement fails to match at position 0 — leaking the next field's
+              // label+value into this one instead of truncating to an empty string.
+              const nextField = /\s*(?:Mileage|Color|Conv\s*Make|Conv\b|Conversion|Location|Stock[:\s]|Request|Schedule).*/i
               results.push({
                 href,
                 title,
