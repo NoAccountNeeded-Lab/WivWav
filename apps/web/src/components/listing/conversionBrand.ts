@@ -1,4 +1,7 @@
 import type { ConversionType, RampType } from '@wivwav/types'
+import { conversionBrandSlug } from '@wivwav/search'
+
+export { conversionBrandSlug }
 
 export interface ConversionProduct {
   id: string
@@ -24,28 +27,6 @@ interface ListingConversionMatchInput {
   model: string
   conversionType: ConversionType
   rampType: RampType
-}
-
-const BRAND_SLUG_ALIASES: Record<string, string> = {
-  ams: 'ams-vans',
-  'ams-and-vans': 'ams-vans',
-  freedom: 'freedom-motors',
-  rollx: 'rollx-vans',
-  vantage: 'vantage-mobility',
-  'vantage-mobility-international': 'vantage-mobility',
-}
-
-export function conversionBrandSlug(value: string | null | undefined): string | null {
-  const slug = value
-    ?.trim()
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  if (!slug) return null
-
-  return BRAND_SLUG_ALIASES[slug] ?? slug
 }
 
 export function matchConversionProduct(
