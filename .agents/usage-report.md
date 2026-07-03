@@ -143,3 +143,25 @@ Token and cache counters are not exposed by this runtime.
 | validation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Built `@wivwav/search`/`observability`/`types`/`db`/`queue`/`logger` (were unbuilt in the fresh worktree, blocking API tests). Full `@wivwav/api` suite (464/464) and `@wivwav/web` suite (481/481) passing; both apps' `tsc --noEmit` clean; both apps' `eslint` at 0 errors (pre-existing i18next warnings only, unrelated to this change). |
 
 Token and cache counters are not fully exposed by this runtime; subagent totals are reported where available via task-notification usage metadata.
+
+---
+
+# Usage Report: Issue #603
+
+## Metadata
+
+- Sprint run: run-sprint/2026-07-03T06:44
+- Branch: fix/issue-603-conversionbrand-index-values-contain-extraction-no
+- Effort guidance: high
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts. |
+| implementation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Traced the 44-slug conversionBrand facet distribution to root cause: `parseConversionManufacturer` in `apps/scraper/src/sources/blvd.ts` blindly returned the first word of a mixed-purpose "conversion" field (entry-style descriptions vs. manufacturer-led product names), producing extraction noise ("Yes", "FR", "AT", "Side", "Commercial", …); fixed to only recognize a known converter name at the start of the field. Tightened `canonicalConversionManufacturer` in `packages/search/src/canonicalize.ts` from a "reject known-bad, accept everything else" fallback to a true allowlist (unrecognized values now null), matching the module's own documented design principle. Added 8 new curated brands (Driverge, All Terrain Conversions/ATC, Tempest, MobilityWorks, Eldorado, Revability, Ryno, MV-1) to `apps/scraper/src/seeds/conversion-brands.json` and new aliases for variant spellings/typos/product lines (braun, mv1, revabilty, northstar, entervan, ats). Moved `conversionBrandSlug`/`BRAND_SLUG_ALIASES` from `packages/search/src/index.ts` into `canonicalize.ts` as the single shared implementation; `apps/web` now imports it from `@wivwav/search` instead of a second copy that had drifted out of sync. Documented a full 44-slug disposition table (alias / new curated / extraction-noise-fixed / insufficient-evidence-nulled) in the PR description, deliberately leaving website/founded/nmedaCertified unset for unverified new brands rather than fabricating facts. Also removed the facet container's outer border in `apps/web/src/components/filters/FilterGroup.module.css` (unrelated sprint-scope addition). |
+| review | reviewer/1 (subagent) | Anthropic | Claude Sonnet 5 (subagent) | unavailable | unavailable | unavailable | unavailable | 75 | Combined reviewer + qa + accessibility + performance roles, foreground/blocking. Verdict REVISION_NEEDED: yes; 1 CRITICAL (`docker/web.Dockerfile` never copied `packages/search`/`packages/db` into the builder stage for the new `@wivwav/search` dependency — reproduced the break, fixed by mirroring `docker/api.Dockerfile`'s pattern, verified with a local `docker build --target builder`), 3 SUGGESTIONs (stale comment showing the old first-word return value; per-call regex recompilation instead of module-load precompilation; `conversionBrandSlug` test coverage duplicated across 3 files) — all fixed. QA confirmed all 4 ACs satisfied at the code level; accessibility and performance passes found nothing. |
+| fix | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Applied all 4 review findings; re-ran full validation: `@wivwav/search` 86/86, `@wivwav/scraper` 674/674, `@wivwav/web` 493/493, `@wivwav/api` 465/465 tests passing; `turbo run typecheck lint` clean (0 errors) across search/web/scraper/api; local Docker `builder`-stage build for web succeeds end-to-end (`next build` completes). |
+
+Token and cache counters are not fully exposed by this runtime; subagent totals are reported where available via task-notification usage metadata.
