@@ -19,8 +19,11 @@ const REMAP_CONFIDENCE_THRESHOLD = 0.7
  * falling back to `markNeedsRemapping`. A malformed/transient response (bad JSON,
  * missing fields, provider timeout) is often a one-off, so a bounded retry avoids
  * taking a source offline for an operator to notice and fix.
+ *
+ * Exported so tests can assert the retry-loop call count against this constant
+ * rather than a hardcoded literal that would silently drift if this changes.
  */
-const MAX_REMAP_ATTEMPTS = 2
+export const MAX_REMAP_ATTEMPTS = 2
 
 /**
  * Number of hours after which a periodic full crawl is forced even if page-1
@@ -170,7 +173,10 @@ export class ScraperEngine {
               }
             }
             if (remap === undefined) {
-              throw lastAttemptErr
+              // Every attempt threw (or MAX_REMAP_ATTEMPTS is misconfigured to < 1 and the
+              // loop never ran) — surface the last real error, or a fallback if none exists,
+              // rather than ever throwing `undefined`.
+              throw lastAttemptErr ?? new Error('AI remap failed with no attempts recorded')
             }
 
             await this.sources.setMappings(sourceId, remap.mappings)
