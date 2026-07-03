@@ -17,8 +17,13 @@
  * fuelType       → canonicalFuelType (only when NOT an engine description)
  * engine         → used to derive canonicalFuelType when fuelType is missing
  * conversionManufacturer → retained only when it passes converterGate()
+ * conversionManufacturer → conversionBrandSlug (facet/filter slug; curated-brand alias-normalized)
  * make/model     → preferably from VIN decode; alias-normalized
  * conversionStatus / wheelchairCapacity → null unless evidence-backed (caller responsibility)
+ *
+ * conversionBrandSlug is the single shared implementation for both the search
+ * index (packages/search) and the web app (apps/web) — do not fork a second
+ * copy; import this one (refs #603).
  *
  * @module
  */
@@ -289,11 +294,18 @@ const REJECTED_CONVERTER_PATTERNS = [
 
 /**
  * Known legitimate WAV conversion manufacturers.
- * Used to accept values that might otherwise be rejected by the pattern rules
- * (e.g. short names like "VMI").
+ *
+ * This is an allowlist, not a denylist bypass: since #603, any value that
+ * doesn't resolve to an entry here is rejected (see the fallback at the end
+ * of canonicalConversionManufacturer). Add a new converter here — and a
+ * matching curated `conversion_brands` seed entry once verified — rather
+ * than loosening that fallback; a permissive fallback is exactly what let
+ * scraper extraction noise ("Yes", "FR", "Side", "Commercial", …) reach the
+ * public conversionBrand facet and filter (refs #603).
  */
 const KNOWN_CONVERTERS = new Set([
   'BraunAbility', 'braunability',
+  'Braun', 'braun', // unaliased shorthand — folds to braunability via BRAND_SLUG_ALIASES
   'VMI', 'vmi',
   'AMS Vans', 'ams', 'ams vans',
   'Freedom Motors', 'freedom motors', 'freedom',
@@ -305,7 +317,18 @@ const KNOWN_CONVERTERS = new Set([
   'Creative Carriage', 'creative carriage',
   'National Mobility Equipment', 'nme',
   'Revability', 'revability',
+  'Revabilty', 'revabilty', // known typo variant — folds to revability via BRAND_SLUG_ALIASES
   'Mobility SVM', 'mobility svm', 'svm',
+  'Driverge', 'driverge',
+  'All Terrain Conversions', 'all terrain conversions',
+  'ATC', 'atc',
+  'ATS', 'ats', // observed variant spelling — folds to atc via BRAND_SLUG_ALIASES
+  'Tempest', 'tempest',
+  'Ryno', 'ryno',
+  'MV-1', 'mv-1',
+  'MV1', 'mv1', // unhyphenated variant — folds to mv-1 via BRAND_SLUG_ALIASES
+  'Northstar', 'northstar', // VMI product line — folds to vmi via BRAND_SLUG_ALIASES
+  'Entervan', 'entervan', // BraunAbility product line — folds to braunability via BRAND_SLUG_ALIASES
 ])
 
 /**
@@ -324,10 +347,20 @@ function converterLookupKey(s: string): string {
  * - Year numbers ("2026")
  * - Generic WAV/conversion text ("Wheelchair", "Non", "WAV", "Conversion")
  * - Source/dealer names unless the value also appears in KNOWN_CONVERTERS
+ * - Anything else not recognized in KNOWN_CONVERTERS (refs #603)
+ *
+ * This is deliberately an allowlist, not a "reject known-bad, accept everything
+ * else" gate: an earlier version of this function accepted any leftover string
+ * verbatim, which let scraper extraction noise ("Yes", "FR", "Side", "AT",
+ * "Commercial", …) flow straight into the public conversionBrand facet and
+ * filter — those fragments come from a source field that mixes entry-style
+ * descriptions with manufacturer names, so no denylist can enumerate them all.
+ * Per this module's design principle, unknown input must produce null, never
+ * a misleading value.
  *
  * AC: Conversion-manufacturer normalization rejects year numbers, generic conversion
- * text, missing-value tokens, and source/dealer names unless supported by explicit
- * converter evidence.
+ * text, missing-value tokens, source/dealer names, and unrecognized values, unless
+ * supported by explicit converter evidence (KNOWN_CONVERTERS).
  */
 export function canonicalConversionManufacturer(
   raw: string | null | undefined,
@@ -366,8 +399,62 @@ export function canonicalConversionManufacturer(
     return trimmed
   }
 
-  // Accept — return as-is (caller provided value)
-  return trimmed
+  // Reject anything not recognized as a real conversion manufacturer (refs #603).
+  // Add new real converters to KNOWN_CONVERTERS above (and a matching curated
+  // conversion_brands seed entry once verified) rather than loosening this gate.
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Conversion brand slug normalization
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps variant spellings, abbreviations, typos, and product-line names to the
+ * canonical slug of a curated `conversion_brands` entry (see
+ * apps/scraper/src/seeds/conversion-brands.json). Keys must already be in
+ * slug form (lower-case, hyphenated) — apply after conversionBrandSlug's own
+ * normalization, not before.
+ *
+ * This is the single shared alias map for both the search index and the web
+ * app (refs #603) — previously duplicated in
+ * apps/web/src/components/listing/conversionBrand.ts, which drifted out of
+ * sync with this one. Import conversionBrandSlug from `@wivwav/search`
+ * instead of re-implementing it.
+ */
+const BRAND_SLUG_ALIASES: Record<string, string> = {
+  ams: 'ams-vans',
+  'ams-and-vans': 'ams-vans',
+  freedom: 'freedom-motors',
+  rollx: 'rollx-vans',
+  vantage: 'vantage-mobility',
+  'vantage-mobility-international': 'vantage-mobility',
+  braun: 'braunability',
+  revabilty: 'revability', // known typo
+  mv1: 'mv-1',
+  northstar: 'vmi', // VMI product line, not a distinct brand
+  entervan: 'braunability', // BraunAbility product line, not a distinct brand
+  ats: 'atc', // observed variant spelling of All Terrain Conversions
+  'all-terrain-conversions': 'atc',
+}
+
+/**
+ * Derives the public facet/filter slug for a conversion manufacturer value.
+ * Returns null for empty input. Applies BRAND_SLUG_ALIASES so variant
+ * spellings, abbreviations, typos, and product-line names collapse onto the
+ * canonical curated-brand slug.
+ */
+export function conversionBrandSlug(value: string | null | undefined): string | null {
+  const slug = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  if (!slug) return null
+
+  return BRAND_SLUG_ALIASES[slug] ?? slug
 }
 
 // ---------------------------------------------------------------------------

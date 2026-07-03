@@ -14,7 +14,10 @@ interface ProductSeed {
 interface BrandSeed {
   name: string
   slug: string
-  website: string
+  // Nullable: newly curated brands may not yet have a verified website/founding
+  // year/certification status. Fill in once confirmed rather than guessing —
+  // see the "products: []" entries added in #603 for the current examples.
+  website: string | null
   nmedaCertified: boolean
   founded: number | null
   products: ProductSeed[]
