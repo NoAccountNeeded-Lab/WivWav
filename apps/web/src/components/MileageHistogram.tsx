@@ -40,7 +40,7 @@ function fmtMiles(miles: number): string {
 // Omit mileageMax so histogram shows cross-filtered counts (all mileages visible)
 const FORWARD_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
-  'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state',
+  'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
 ]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────

@@ -321,6 +321,20 @@ describe('ListingSearchService.search', () => {
     expect(opts.filters?.['state']).toEqual(['CA', 'TX'])
   })
 
+  it('adds sellerType filter as string array', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({ sellerType: ['dealer'] })
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['sellerType']).toEqual(['dealer'])
+  })
+
+  it('omits sellerType filter when not provided', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({})
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['sellerType']).toBeUndefined()
+  })
+
   it('passes sort when provided', async () => {
     const { service, searchMock } = makeService()
     await service.search({ sort: 'priceCents:asc' })
@@ -392,7 +406,7 @@ describe('ListingSearchService.search', () => {
     await service.search({})
     const [, opts] = searchMock.mock.calls[0]!
     expect(opts.facets).toEqual(
-      expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state']),
+      expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType']),
     )
   })
 })

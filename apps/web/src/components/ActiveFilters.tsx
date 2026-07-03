@@ -30,6 +30,7 @@ const MULTI_PARAM_LABELS: Record<string, { singular: string; plural: string }> =
   color:          { singular: 'Color',      plural: 'Colors'      },
   rampType:       { singular: 'Ramp type',  plural: 'Ramp types'  },
   state:          { singular: 'State',      plural: 'States'      },
+  sellerType:     { singular: 'Seller type', plural: 'Seller types' },
 }
 
 const WAV_FEATURE_LABELS: Record<string, string> = {

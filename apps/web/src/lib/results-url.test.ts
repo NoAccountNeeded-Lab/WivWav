@@ -48,4 +48,12 @@ describe('countActiveResultFilters', () => {
 
     expect(countActiveResultFilters(params)).toBe(2)
   })
+
+  it('should count an active sellerType filter', () => {
+    const params = new URLSearchParams({
+      sellerType: 'dealer',
+    })
+
+    expect(countActiveResultFilters(params)).toBe(1)
+  })
 })

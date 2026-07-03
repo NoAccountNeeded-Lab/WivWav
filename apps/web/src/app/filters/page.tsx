@@ -60,7 +60,7 @@ async function fetchListings(
   const forward = [
     'q', 'page', 'make', 'model',
     'yearMin', 'yearMax', 'priceMin', 'priceMax', 'mileageMax',
-    'condition', 'conversionBrand', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sort',
+    'condition', 'conversionBrand', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'sort',
   ]
 
   for (const key of forward) {

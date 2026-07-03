@@ -39,10 +39,22 @@ describe('normalizeFacetsData', () => {
     })
 
     expect(result.conversionBreakdown).toEqual([])
+    expect(result.sellerTypeBreakdown).toEqual([])
     expect(result.wavFeatures).toEqual({
       hasLift: 2,
       handControls: 0,
       rampTypes: [],
     })
+  })
+
+  it('normalizes sellerType breakdown', () => {
+    const result = normalizeFacetsData({
+      sellerTypeBreakdown: [{ value: 'dealer', count: 4 }, { value: 'private', count: 2 }],
+    })
+
+    expect(result.sellerTypeBreakdown).toEqual([
+      { value: 'dealer', count: 4 },
+      { value: 'private', count: 2 },
+    ])
   })
 })

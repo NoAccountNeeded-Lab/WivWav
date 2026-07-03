@@ -121,3 +121,25 @@ Token, cache, and tool-call counters are unavailable in this runtime.
 | finish | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Committed, pushed, opened draft PR #581, posted review verdict comment. Manual browser QA (heat map rendering, tooltip, click-to-filter, light/dark mode) explicitly flagged in the PR body as not performable from this environment. |
 
 Token and cache counters are not exposed by this runtime.
+
+---
+
+# Usage Report: Issue #582
+
+## Metadata
+
+- Sprint run: run-sprint/2026-07-03T02:07
+- Branch: feat/issue-582-filter-listings-by-seller-type-dealer-vs-private
+- Effort guidance: standard
+- Model guidance: sonnet
+
+## Phase Usage
+
+| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| run-sprint | orchestrator/0 | n/a | n/a | unavailable | unavailable | unavailable | unavailable | deterministic CLI | Prepared worktree and context artifacts. |
+| implementation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Discovered the issue's "Likely Files" (`SearchFilters.tsx`) were stale — the real filter-control surface is `CategoryBarChart.tsx`'s generic facet-group machinery (shared with make/model/color/state). Added `sellerType?: string[]` to `SearchParams`/`buildListingFilters` (`listing-search.ts`), `sellerTypeBreakdown` to `FacetsResult`/`ListingFacetsService` (`listing-facets.ts`), threaded `sellerType` through both `/v1/listings` and `/v1/listings/facets` query schemas and handlers (`listings.ts`), added `sellerType` to `RESULT_FILTER_KEYS` (`results-url.ts`), added `sellerTypeBreakdown` to the web `FacetsData`/`normalizeFacetsData` (`category-facets.ts`), added a new "Seller type" facet group to `CategoryBarChart.tsx` (disjunctive param, merge case, stabilizeBars) reusing the existing checkbox/count UI, added a `sellerType` pill label to `ActiveFilters.tsx`, and forwarded `sellerType` through both `filters/page.tsx` route trees and all three histogram components' cross-filter param lists for consistency with every other facet. |
+| review | reviewer/1 (subagent) | Anthropic | Claude Sonnet 5 (subagent) | 55468 (subagent total) | unavailable | unavailable | unavailable | 20 | Combined reviewer + qa + accessibility roles, foreground/blocking. Verdict REVISION_NEEDED: no. 2 SUGGESTIONs only, both explicitly out of scope: (1) `sellerType` has no enum validation restricting it to dealer/private, consistent with existing unvalidated free-text params like `state`/`color`; (2) the Discover page's two `CategoryBarChart` `limitGroups` allowlists don't include the new `seller` group id, so seller-type filtering doesn't appear there (issue targets `/results` only). |
+| validation | worker/1 | Anthropic | Claude Sonnet 5 | unavailable | unavailable | unavailable | unavailable | unavailable | Built `@wivwav/search`/`observability`/`types`/`db`/`queue`/`logger` (were unbuilt in the fresh worktree, blocking API tests). Full `@wivwav/api` suite (464/464) and `@wivwav/web` suite (481/481) passing; both apps' `tsc --noEmit` clean; both apps' `eslint` at 0 errors (pre-existing i18next warnings only, unrelated to this change). |
+
+Token and cache counters are not fully exposed by this runtime; subagent totals are reported where available via task-notification usage metadata.
