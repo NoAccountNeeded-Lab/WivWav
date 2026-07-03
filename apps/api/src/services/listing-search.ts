@@ -28,6 +28,7 @@ export interface SearchParams {
   wavFeatures?: string[] | undefined
   color?: string[] | undefined
   state?: string[] | undefined
+  sellerType?: string[] | undefined
   sort?: string | undefined
 }
 
@@ -94,6 +95,7 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   if (params.wavFeatures?.length) filters['wavFeatures'] = params.wavFeatures
   if (params.color?.length) filters['color'] = params.color
   if (params.state?.length) filters['state'] = params.state
+  if (params.sellerType?.length) filters['sellerType'] = params.sellerType
 
   const rangeFilters: RangeFilter[] = []
   if (params.yearMin != null || params.yearMax != null) {
@@ -130,7 +132,7 @@ export class ListingSearchService {
       ...(params.q != null ? { query: params.q } : {}),
       filters,
       ...(rangeFilters.length ? { rangeFilters } : {}),
-      facets: ['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state'],
+      facets: ['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType'],
       ...(params.sort ? { sort: [params.sort] } : {}),
       limit: perPage,
       offset: (page - 1) * perPage,

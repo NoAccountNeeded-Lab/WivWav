@@ -26,13 +26,13 @@ interface ConversionBrandSummary {
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
-const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state'] as const
+const DISJUNCTIVE_PARAMS = ['make', 'model', 'condition', 'conversionType', 'color', 'rampType', 'state', 'sellerType'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures',
-  'conversionBrand', 'color', 'state',
+  'conversionBrand', 'color', 'state', 'sellerType',
 ]
 
 const MAX_BARS = 8
@@ -176,6 +176,7 @@ export function CategoryBarChart({
             case 'color':          merged.colorBreakdown = d.colorBreakdown; break
             case 'rampType':       merged.wavFeatures.rampTypes = d.wavFeatures.rampTypes; break
             case 'state':          merged.stateBreakdown = d.stateBreakdown; break
+            case 'sellerType':     merged.sellerTypeBreakdown = d.sellerTypeBreakdown; break
           }
         })
 
@@ -189,6 +190,7 @@ export function CategoryBarChart({
               conversionBreakdown: stabilizeBars(merged.conversionBreakdown, prev.conversionBreakdown),
               colorBreakdown:      stabilizeBars(merged.colorBreakdown,      prev.colorBreakdown),
               stateBreakdown:      stabilizeBars(merged.stateBreakdown,      prev.stateBreakdown),
+              sellerTypeBreakdown: stabilizeBars(merged.sellerTypeBreakdown, prev.sellerTypeBreakdown),
               wavFeatures: {
                 ...merged.wavFeatures,
                 rampTypes: stabilizeBars(merged.wavFeatures.rampTypes, prev.wavFeatures.rampTypes),
@@ -250,6 +252,7 @@ export function CategoryBarChart({
     { id: 'entry',     title: 'Entry type', items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
     { id: 'color',     title: 'Color',      items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
     { id: 'state',     title: 'State',      items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
+    { id: 'seller',    title: 'Seller type', items: toFilterItems(data.sellerTypeBreakdown,                                        parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
   ].filter((g) => g.items.length > 0) : []
 
   const activeWavFeatures = parseCommaSep(searchParams.get('wavFeatures'))

@@ -61,6 +61,7 @@ describe('ListingFacetsService', () => {
         facetDistribution: {
           rampType: { in_floor: 2, fold_out: 1 },
           wavFeatures: { has_lift: 2, hand_controls: 1 },
+          sellerType: { dealer: 2, private: 1 },
         },
       })),
     } as unknown as SearchService
@@ -76,7 +77,7 @@ describe('ListingFacetsService', () => {
 
     expect(cache.get).toHaveBeenCalledWith('facets:eligible-v1:{}')
     expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
-      facets: expect.arrayContaining(['rampType', 'wavFeatures']),
+      facets: expect.arrayContaining(['rampType', 'wavFeatures', 'sellerType']),
       limit: 0,
     }))
     expect(result.rampTypeBreakdown).toEqual([
@@ -84,5 +85,31 @@ describe('ListingFacetsService', () => {
       { value: 'fold_out', count: 1 },
     ])
     expect(result.wavFeatureCounts).toEqual({ has_lift: 2, hand_controls: 1 })
+  })
+
+  it('returns sellerType breakdown from facet distribution', async () => {
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [],
+        total: 3,
+        facetDistribution: {
+          sellerType: { dealer: 5, private: 2 },
+        },
+      })),
+    } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      del: vi.fn(async () => {}),
+      ping: vi.fn(async () => {}),
+      getOrSet: vi.fn(),
+    } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(result.sellerTypeBreakdown).toEqual([
+      { value: 'dealer', count: 5 },
+      { value: 'private', count: 2 },
+    ])
   })
 })
