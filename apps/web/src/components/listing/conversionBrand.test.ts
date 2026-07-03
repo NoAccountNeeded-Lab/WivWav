@@ -1,25 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { conversionBrandSlug, matchConversionProduct } from './conversionBrand'
 
-describe('conversionBrandSlug', () => {
-  it('normalizes a conversion manufacturer string to the API slug format', () => {
+// Smoke test only — conversionBrandSlug is implemented and fully tested in
+// @wivwav/search (packages/search/src/canonicalize.ts /
+// canonicalize.test.ts), which this module re-exports (refs #603). This just
+// confirms the re-export is wired up correctly for apps/web callers.
+describe('conversionBrandSlug (re-export smoke test)', () => {
+  it('normalizes and aliases via the shared @wivwav/search implementation', () => {
     expect(conversionBrandSlug(' BraunAbility ')).toBe('braunability')
-    expect(conversionBrandSlug('Freedom Motors')).toBe('freedom-motors')
-    expect(conversionBrandSlug('AMS Vans')).toBe('ams-vans')
-  })
-
-  it('maps known scraper aliases to seeded brand slugs', () => {
     expect(conversionBrandSlug('Rollx')).toBe('rollx-vans')
-    expect(conversionBrandSlug('AMS')).toBe('ams-vans')
-    expect(conversionBrandSlug('Freedom')).toBe('freedom-motors')
-    expect(conversionBrandSlug('Vantage')).toBe('vantage-mobility')
-    expect(conversionBrandSlug('Vantage Mobility International')).toBe('vantage-mobility')
-  })
-
-  it('returns null for empty or missing values', () => {
     expect(conversionBrandSlug(null)).toBeNull()
-    expect(conversionBrandSlug(undefined)).toBeNull()
-    expect(conversionBrandSlug('   ')).toBeNull()
   })
 })
 
