@@ -40,19 +40,37 @@ export class PlaywrightBrowserService implements BrowserService {
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         })
 
+        const unexpectedRequests: string[] = []
+
         // Abort byte-heavy subresources before they're requested. Scrapers read
         // asset URLs from HTML attributes, never the bytes, so loading them only
         // accumulates in-flight requests across navigations on this reused page
         // and eventually trips net::ERR_INSUFFICIENT_RESOURCES.
         const blocked = options?.blockResourceTypes
-        if (blocked && blocked.length > 0) {
+        if ((blocked && blocked.length > 0) || options?.failOnExternalRequests) {
           const blockedSet = new Set<string>(blocked)
-          await page.route('**/*', route => {
+          await page.route('**/*', (route) => {
+            const requestUrl = route.request().url()
+            if (
+              options?.failOnExternalRequests &&
+              !/^(?:about|blob|data):/i.test(requestUrl)
+            ) {
+              unexpectedRequests.push(requestUrl)
+              return route.abort()
+            }
             if (blockedSet.has(route.request().resourceType())) {
               return route.abort()
             }
             return route.continue()
           })
+        }
+
+        function assertNoExternalRequests(): void {
+          if (unexpectedRequests.length > 0) {
+            throw new Error(
+              `Offline fixture attempted external request(s): ${unexpectedRequests.join(', ')}`,
+            )
+          }
         }
 
         return {
@@ -64,6 +82,7 @@ export class PlaywrightBrowserService implements BrowserService {
 
           setContent: async (html, options): Promise<void> => {
             await page.setContent(html, options)
+            assertNoExternalRequests()
           },
 
           content: (): Promise<string> => page.content(),
@@ -75,9 +94,15 @@ export class PlaywrightBrowserService implements BrowserService {
               return (page.evaluate as (fn: (arg: A) => T, arg: A) => Promise<T>)(
                 fn as (arg: A) => T,
                 arg,
-              )
+              ).then((result) => {
+                assertNoExternalRequests()
+                return result
+              })
             }
-            return (page.evaluate as (fn: () => T) => Promise<T>)(fn as () => T)
+            return (page.evaluate as (fn: () => T) => Promise<T>)(fn as () => T).then((result) => {
+              assertNoExternalRequests()
+              return result
+            })
           },
 
           waitForSelector: async (selector, options): Promise<void> => {
