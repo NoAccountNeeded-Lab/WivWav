@@ -75,6 +75,7 @@ Local models do not always expose provider-side prompt caching. The best optimiz
 - `worker-context.md` — compact worker start packet that points to the full issue context.
 - `review-context.md` — acceptance criteria and an evidence-map stub for review.
 - `finish-context.md` — validation checklist and PR evidence inputs.
+- `recovery-state.md` — branch, worktree, sprint, and preparation state used for safe retries.
 
 The likely-file hints are deterministic filename matches and are explicitly non-authoritative. Agents must still verify by reading source code before editing.
 
