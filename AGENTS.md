@@ -135,7 +135,7 @@ Run one foreground/blocking reviewer with `.claude/roles/reviewer.md` and `.clau
 Add `.claude/roles/accessibility.md` for `apps/web`.
 Add `.claude/roles/performance.md` for API, scraper, DB, queue, or search changes.
 Add `.claude/roles/docs-accuracy.md` for route or Markdown changes.
-Apply all findings; record review results; update `.agents/usage-report.md`.
+Apply all findings and record review results.
 Finish with `/wivwav-finish-issue N`.
 On failure: comment, set `status:stuck`, and report the reason.
 

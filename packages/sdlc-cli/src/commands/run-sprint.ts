@@ -198,7 +198,6 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
     `You are implementing issue #${target.issue.number}.`,
     '',
     'Before reading source files, use the local context artifacts to write a scoped plan that names the likely files and the evidence you need from each one.',
-    'Track model and token usage in `.agents/usage-report.md` before finishing so sprint cost can be reviewed by issue area.',
     '',
     `Worktree: ${target.worktreePath}`,
     `Branch: ${target.branch}`,
