@@ -133,6 +133,48 @@ function makeDb(
   return db
 }
 
+function makeStatefulDb() {
+  let state: Record<string, unknown> | null = null
+
+  const db = {
+    listing: {
+      findUnique: vi.fn().mockImplementation(async () => state),
+      create: vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+        state = { id: 'list-created', status: 'active', ...data }
+        return { id: 'list-created' }
+      }),
+      update: vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+        if (state === null) throw new Error('Cannot update a missing listing')
+        state = { ...state, ...data }
+        return state
+      }),
+    },
+    listingPriceHistory: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    listingMileageHistory: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    listingConversionHistory: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    listingObservation: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    $transaction: vi.fn(),
+  }
+  db.$transaction.mockImplementation(async (callback: (tx: typeof db) => Promise<unknown>) => callback(db))
+
+  return {
+    db,
+    getState: () => state,
+    applyDetailExtraction: (values: Record<string, unknown>) => {
+      if (state === null) throw new Error('Cannot apply detail extraction to a missing listing')
+      state = { ...state, ...values }
+    },
+  }
+}
+
 describe('PrismaListingRepository', () => {
   describe('upsert price history', () => {
     it('writes a history row when price changes on re-scrape', async () => {
@@ -448,6 +490,115 @@ describe('PrismaListingRepository', () => {
       expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ color: 'Midnight Blue' }),
       }))
+    })
+
+    it.each([
+      { field: 'rampType', detailValue: 'fold_out' },
+      { field: 'wavFeatures', detailValue: ['has_lift', 'transfer_seat'] },
+      { field: 'floorLoweringInches', detailValue: 14 },
+      { field: 'wheelchairCapacity', detailValue: 2 },
+    ])('preserves detail-extracted $field through create, detail extraction, and card recrawl', async ({
+      field,
+      detailValue,
+    }) => {
+      const detailScrapedAt = new Date('2026-07-03T18:00:00Z')
+      const { db, getState, applyDetailExtraction } = makeStatefulDb()
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing())).resolves.toMatchObject({ outcome: 'created' })
+      applyDetailExtraction({ [field]: detailValue, detailScrapedAt })
+
+      await expect(repo.upsert(makeListing())).resolves.toEqual({
+        listingId: 'list-created',
+        outcome: 'unchanged',
+        changedFields: [],
+      })
+
+      expect(getState()).toEqual(expect.objectContaining({
+        [field]: detailValue,
+        detailScrapedAt,
+      }))
+      expect(db.listing.update).not.toHaveBeenCalled()
+      expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
+      expect(db.listingObservation.create).toHaveBeenCalledTimes(1)
+    })
+
+    it('preserves all accessibility absence placeholders when another card field changes', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 2500000,
+        rampType: 'fold_out',
+        wavFeatures: ['has_lift', 'transfer_seat'],
+        floorLoweringInches: 14,
+        wheelchairCapacity: 2,
+      })
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing({ priceCents: 3000000 }))).resolves.toEqual({
+        listingId: 'list-1',
+        outcome: 'updated',
+        changedFields: ['priceCents'],
+      })
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          rampType: 'fold_out',
+          wavFeatures: ['has_lift', 'transfer_seat'],
+          floorLoweringInches: 14,
+          wheelchairCapacity: 2,
+        }),
+      }))
+      expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
+      expect(db.listingObservation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          changedFields: ['priceCents'],
+          after: expect.objectContaining({
+            rampType: 'fold_out',
+            wavFeatures: ['has_lift', 'transfer_seat'],
+            floorLoweringInches: 14,
+            wheelchairCapacity: 2,
+          }),
+        }),
+      })
+    })
+
+    it.each([
+      { field: 'rampType', previous: 'fold_out', observed: 'in_floor' },
+      { field: 'wavFeatures', previous: ['has_lift'], observed: ['hand_controls'] },
+      { field: 'floorLoweringInches', previous: 10, observed: 14 },
+      { field: 'wheelchairCapacity', previous: 1, observed: 2 },
+    ])('commits a real conflicting card $field observation with audit evidence', async ({
+      field,
+      previous,
+      observed,
+    }) => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        [field]: previous,
+      })
+      const repo = new PrismaListingRepository(db as never)
+      const wav = { ...makeListing().wav, [field]: observed }
+
+      await expect(repo.upsert(makeListing({ wav }))).resolves.toMatchObject({
+        outcome: 'updated',
+        changedFields: expect.arrayContaining([field]),
+      })
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          [field]: observed,
+          publicationStatus: 'pending',
+        }),
+      }))
+      expect(db.listingConversionHistory.create).toHaveBeenCalledTimes(1)
+      expect(db.listingObservation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          changedFields: expect.arrayContaining([field]),
+          before: expect.objectContaining({ [field]: previous }),
+          after: expect.objectContaining({ [field]: observed }),
+        }),
+      })
     })
 
     it('clears stale geocoding when a source-owned location changes', async () => {
