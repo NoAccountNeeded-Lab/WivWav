@@ -264,6 +264,21 @@ export class PrismaListingRepository implements ListingRepository {
         // card recrawl silently regresses a detail-extracted color back to null
         // before it can ever be validated as eligible (refs #629).
         after.color = listing.color ?? existing.color
+
+        // Current card adapters use these values when the card exposes no
+        // accessibility evidence. Preserve a detail/resolution-owned value for
+        // those absence sentinels; a real card value still replaces the current
+        // value and is recorded below for resolution (fixes #633).
+        after.rampType = listing.wav.rampType === 'unknown'
+          ? existing.rampType
+          : listing.wav.rampType
+        after.wavFeatures = listing.wav.wavFeatures.length === 0
+          ? existing.wavFeatures
+          : listing.wav.wavFeatures
+        after.floorLoweringInches = listing.wav.floorLoweringInches
+          ?? existing.floorLoweringInches
+        after.wheelchairCapacity = listing.wav.wheelchairCapacity
+          ?? existing.wheelchairCapacity
       }
 
       if (existing === null) {
@@ -411,11 +426,11 @@ export class PrismaListingRepository implements ListingRepository {
           color: after.color,
           conversionType: listing.wav.conversionType,
           conversionManufacturer: listing.wav.conversionManufacturer,
-          floorLoweringInches: listing.wav.floorLoweringInches,
-          rampType: listing.wav.rampType,
+          floorLoweringInches: after.floorLoweringInches,
+          rampType: after.rampType,
           conversionStatus: listing.wav.conversionStatus,
-          wavFeatures: listing.wav.wavFeatures,
-          wheelchairCapacity: listing.wav.wheelchairCapacity,
+          wavFeatures: after.wavFeatures,
+          wheelchairCapacity: after.wheelchairCapacity,
           zip: listing.location.zip,
           city: listing.location.city,
           state: listing.location.state,
@@ -450,7 +465,7 @@ export class PrismaListingRepository implements ListingRepository {
         data: {
           listingId: existing.id,
           conversionStatus: listing.wav.conversionStatus,
-          wavFeatures: listing.wav.wavFeatures,
+          wavFeatures: after.wavFeatures,
         },
       })
       }
