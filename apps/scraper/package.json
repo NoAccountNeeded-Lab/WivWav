@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run src --exclude '**/*.integration.test.ts'",
+    "test:fixtures": "vitest run src/sources/fixture-contract.test.ts",
     "test:integration": "vitest run src/**/*.integration.test.ts",
     "clean": "rm -rf dist",
     "eval": "node --import tsx evals/run-eval.ts"

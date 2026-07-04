@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto'
-import type { SourceAdapter, ScrapeResult, StructureCheckResult, Page1CheckResult } from '../engine/source-adapter.js'
+import type {
+  SourceAdapter,
+  ScrapeResult,
+  StructureCheckResult,
+  Page1CheckResult,
+} from '../engine/source-adapter.js'
 import type { ConversionType, Listing, ListingCondition } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
-import type { BrowserService } from '../browser/index.js'
+import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 import { RobotsCache } from '../util/robots-cache.js'
 import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
@@ -31,15 +36,68 @@ interface BlvdConfig {
 // Shape returned from page.evaluate — must be JSON-serializable.
 export interface RawCard {
   href: string
-  fullTitle: string   // "2024 Toyota Sienna FWD XLE" from desktop h3
-  conversion: string  // "Driverge Flex Maxx Wheelchair Van Conversion"
-  condition: string   // "Used" | "New" from Vehicle Condition indicator, or "" when absent
-  miles: string       // "50,094"
-  price: string       // "$71,991" | "Call" | ""
-  seller: string      // "MobilityWorks"
-  location: string    // "North Las Vegas, NV"
+  fullTitle: string // "2024 Toyota Sienna FWD XLE" from desktop h3
+  conversion: string // "Driverge Flex Maxx Wheelchair Van Conversion"
+  condition: string // "Used" | "New" from Vehicle Condition indicator, or "" when absent
+  miles: string // "50,094"
+  price: string // "$71,991" | "Call" | ""
+  seller: string // "MobilityWorks"
+  location: string // "North Las Vegas, NV"
   imageUrl: string
   dataId: string
+}
+
+export async function evaluateBlvdCards(page: BrowserPage): Promise<RawCard[]> {
+  return page.evaluate(
+    function ({ sel, baseUrl }: { sel: string; baseUrl: string }): RawCard[] {
+      const results: RawCard[] = []
+
+      document.querySelectorAll(sel).forEach(function (card) {
+        const detailLink = card.querySelector('a.more-van-details-btn') as HTMLAnchorElement | null
+        const href = detailLink?.getAttribute('href') ?? ''
+
+        const h3s = Array.from(card.querySelectorAll('h3'))
+        const fullTitleH3 = h3s.find(function (h) {
+          return /^\d{4}\s/.test(h.textContent?.trim() ?? '')
+        })
+        const fullTitle = fullTitleH3?.textContent?.trim() ?? ''
+
+        const conversion = card.querySelector('h4.conversion')?.textContent?.trim() ?? ''
+        const condEl = card.querySelector(
+          '.newusedicon[data-title="Vehicle Condition"]',
+        ) as HTMLElement | null
+        const condition = condEl === null ? '' : condEl.classList.contains('Used') ? 'Used' : 'New'
+
+        const fields: Record<string, string> = {}
+        card.querySelectorAll('div.vlistp').forEach(function (label) {
+          const h4 = label.nextElementSibling
+          if (h4?.tagName === 'H4') {
+            fields[label.textContent?.trim() ?? ''] = h4.textContent?.trim() ?? ''
+          }
+        })
+
+        const imgEl = card.querySelector('img.img-responsive') as HTMLImageElement | null
+        const imgSrc = imgEl?.getAttribute('src') ?? ''
+        const imageUrl = imgSrc.startsWith('http') ? imgSrc : imgSrc ? `${baseUrl}${imgSrc}` : ''
+
+        results.push({
+          href,
+          fullTitle,
+          conversion,
+          condition,
+          miles: fields['Miles'] ?? '',
+          price: fields['Price'] ?? '',
+          seller: fields['Seller'] ?? '',
+          location: fields['Loc.'] ?? '',
+          imageUrl,
+          dataId: card.getAttribute('data-id') ?? '',
+        })
+      })
+
+      return results
+    },
+    { sel: CARD_SEL, baseUrl: BASE_URL },
+  )
 }
 
 export class BlvdAdapter implements SourceAdapter {
@@ -77,7 +135,10 @@ export class BlvdAdapter implements SourceAdapter {
       const entries: string[] = []
       for (const listingPath of LISTING_PATHS) {
         try {
-          await page.goto(getPage1CheckUrl(listingPath), { waitUntil: 'domcontentloaded', timeout: 30_000 })
+          await page.goto(getPage1CheckUrl(listingPath), {
+            waitUntil: 'domcontentloaded',
+            timeout: 30_000,
+          })
         } catch (err) {
           if (isNavigationTimeout(err)) continue
           throw err
@@ -86,21 +147,25 @@ export class BlvdAdapter implements SourceAdapter {
         // Hash "id:price" per card so a price change triggers a full crawl even when
         // the set of listings on page 1 is unchanged.
         const pathEntries = await page.evaluate(function (sel: string): string[] {
-          return Array.from(document.querySelectorAll(sel)).map(function (card) {
-            const id = card.getAttribute('data-id') ?? ''
-            if (!id) return ''
-            let price = ''
-            card.querySelectorAll('div.vlistp').forEach(function (label) {
-              const h4 = label.nextElementSibling
-              if (label.textContent?.trim() === 'Price' && h4?.tagName === 'H4') {
-                price = h4.textContent?.trim() ?? ''
-              }
+          return Array.from(document.querySelectorAll(sel))
+            .map(function (card) {
+              const id = card.getAttribute('data-id') ?? ''
+              if (!id) return ''
+              let price = ''
+              card.querySelectorAll('div.vlistp').forEach(function (label) {
+                const h4 = label.nextElementSibling
+                if (label.textContent?.trim() === 'Price' && h4?.tagName === 'H4') {
+                  price = h4.textContent?.trim() ?? ''
+                }
+              })
+              return `${id}:${price}`
             })
-            return `${id}:${price}`
-          }).filter(function (s) { return s.length > 0 })
+            .filter(function (s) {
+              return s.length > 0
+            })
         }, CARD_SEL)
 
-        entries.push(...pathEntries.map(entry => `${listingPath}:${entry}`))
+        entries.push(...pathEntries.map((entry) => `${listingPath}:${entry}`))
       }
 
       const currentHash = hashPage1Entries(entries)
@@ -117,12 +182,19 @@ export class BlvdAdapter implements SourceAdapter {
     try {
       const page = await browser.newPage()
       await withNavigationRetry(
-        () => page.goto(`${BASE_URL}${LISTINGS_PATH}`, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+        () =>
+          page.goto(`${BASE_URL}${LISTINGS_PATH}`, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30_000,
+          }),
         INITIAL_NAV_MAX_ATTEMPTS,
         this.navRetryBackoffMs,
       )
 
-      const { signature, cardHtml } = await page.evaluate(function (sel: string): { signature: string; cardHtml: string } {
+      const { signature, cardHtml } = await page.evaluate(function (sel: string): {
+        signature: string
+        cardHtml: string
+      } {
         const cards = document.querySelectorAll(sel)
         const first = cards[0]
         if (!first) return { signature: 'no-cards', cardHtml: '' }
@@ -210,85 +282,36 @@ export class BlvdAdapter implements SourceAdapter {
           try {
             if (pageNum === 1) {
               await withNavigationRetry(
-                () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS }),
+                () =>
+                  page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS }),
                 INITIAL_NAV_MAX_ATTEMPTS,
                 this.navRetryBackoffMs,
               )
             } else {
-              await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS })
+              await page.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: NAVIGATION_TIMEOUT_MS,
+              })
             }
           } catch (err) {
             if (pageNum > 1 && isNavigationTimeout(err)) {
-              await report(context, `[blvd] Stopping pagination after timeout loading page ${pageNum}: ${url}`, {
-                stage: 'scraping',
-                source: SOURCE_ID,
-                page: pageNum,
-                listings: listings.length,
-                reason: 'page_timeout',
-              })
+              await report(
+                context,
+                `[blvd] Stopping pagination after timeout loading page ${pageNum}: ${url}`,
+                {
+                  stage: 'scraping',
+                  source: SOURCE_ID,
+                  page: pageNum,
+                  listings: listings.length,
+                  reason: 'page_timeout',
+                },
+              )
               break
             }
             throw err
           }
 
-          const cards = await page.evaluate(
-            function ({ sel, baseUrl }: { sel: string; baseUrl: string }): RawCard[] {
-              const results: RawCard[] = []
-
-              document.querySelectorAll(sel).forEach(function (card) {
-                // VIN and source URL from the "Details" link
-                const detailLink = card.querySelector('a.more-van-details-btn') as HTMLAnchorElement | null
-                const href = detailLink?.getAttribute('href') ?? ''
-
-                // The desktop h3 has the full "2024 Toyota Sienna FWD XLE".
-                // Find the h3 whose text starts with a 4-digit year.
-                const h3s = Array.from(card.querySelectorAll('h3'))
-                const fullTitleH3 = h3s.find(function (h) {
-                  return /^\d{4}\s/.test(h.textContent?.trim() ?? '')
-                })
-                const fullTitle = fullTitleH3?.textContent?.trim() ?? ''
-
-                const conversion = card.querySelector('h4.conversion')?.textContent?.trim() ?? ''
-
-                // Vehicle condition badge — first newusedicon with data-title="Vehicle Condition".
-                // Return '' when the element is absent so parseCard can skip ambiguous cards
-                // rather than fabricating a 'new' condition.
-                const condEl = card.querySelector(
-                  '.newusedicon[data-title="Vehicle Condition"]',
-                ) as HTMLElement | null
-                const condition = condEl === null ? '' : condEl.classList.contains('Used') ? 'Used' : 'New'
-
-                // vlistp label→value pairs (Miles / Price / Seller / Loc.)
-                const fields: Record<string, string> = {}
-                card.querySelectorAll('div.vlistp').forEach(function (label) {
-                  const h4 = label.nextElementSibling
-                  if (h4?.tagName === 'H4') {
-                    fields[label.textContent?.trim() ?? ''] = h4.textContent?.trim() ?? ''
-                  }
-                })
-
-                const imgEl = card.querySelector('img.img-responsive') as HTMLImageElement | null
-                const imgSrc = imgEl?.getAttribute('src') ?? ''
-                const imageUrl = imgSrc.startsWith('http') ? imgSrc : `${baseUrl}${imgSrc}`
-
-                results.push({
-                  href,
-                  fullTitle,
-                  conversion,
-                  condition,
-                  miles: fields['Miles'] ?? '',
-                  price: fields['Price'] ?? '',
-                  seller: fields['Seller'] ?? '',
-                  location: fields['Loc.'] ?? '',
-                  imageUrl,
-                  dataId: card.getAttribute('data-id') ?? '',
-                })
-              })
-
-              return results
-            },
-            { sel: CARD_SEL, baseUrl: BASE_URL },
-          )
+          const cards = await evaluateBlvdCards(page)
 
           await report(context, `[blvd] Page ${pageNum} returned ${cards.length} card(s)`, {
             stage: 'scraping',
@@ -318,30 +341,36 @@ export class BlvdAdapter implements SourceAdapter {
             }
           }
 
-          await report(context, `[blvd] Parsed ${parsedOnPage}/${cards.length} card(s) on page ${pageNum}; ${listings.length} listing(s) total`, {
-            stage: 'scraping',
-            source: SOURCE_ID,
-            page: pageNum,
-            cards: cards.length,
-            parsed: parsedOnPage,
-            listings: listings.length,
-          })
-
-          const hasNext = await page.evaluate(
-            function () {
-              return Array.from(document.querySelectorAll('a')).some(function (a) {
-                return a.textContent?.trim() === 'Next'
-              })
-            },
-          )
-
-          if (!hasNext) {
-            await report(context, `[blvd] No next page after page ${pageNum}; pagination complete`, {
+          await report(
+            context,
+            `[blvd] Parsed ${parsedOnPage}/${cards.length} card(s) on page ${pageNum}; ${listings.length} listing(s) total`,
+            {
               stage: 'scraping',
               source: SOURCE_ID,
               page: pageNum,
+              cards: cards.length,
+              parsed: parsedOnPage,
               listings: listings.length,
+            },
+          )
+
+          const hasNext = await page.evaluate(function () {
+            return Array.from(document.querySelectorAll('a')).some(function (a) {
+              return a.textContent?.trim() === 'Next'
             })
+          })
+
+          if (!hasNext) {
+            await report(
+              context,
+              `[blvd] No next page after page ${pageNum}; pagination complete`,
+              {
+                stage: 'scraping',
+                source: SOURCE_ID,
+                page: pageNum,
+                listings: listings.length,
+              },
+            )
             break
           }
           pageNum++
@@ -349,7 +378,7 @@ export class BlvdAdapter implements SourceAdapter {
       }
 
       const fingerprintHash = createHash('sha256')
-        .update(listings.map(l => l.vin ?? l.sourceUrl).join('|'))
+        .update(listings.map((l) => l.vin ?? l.sourceUrl).join('|'))
         .digest('hex')
 
       return { listings, fingerprintHash }
@@ -369,7 +398,9 @@ function getListingPageUrl(path: string, pageNum: number): string {
 }
 
 export function hashPage1Entries(entries: string[]): string {
-  return createHash('sha256').update(entries.sort().join(',') || 'empty').digest('hex')
+  return createHash('sha256')
+    .update(entries.sort().join(',') || 'empty')
+    .digest('hex')
 }
 
 export { isNavigationTimeout } from '../util/navigation-timeout.js'
@@ -420,7 +451,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   const mileage = parseMileage(raw.miles)
   const priceCents = parsePrice(raw.price)
 
-  const locationParts = raw.location.split(',').map(s => s.trim())
+  const locationParts = raw.location.split(',').map((s) => s.trim())
   const city = locationParts[0] || null
   const state = locationParts[1] || null
 
@@ -509,20 +540,29 @@ export function parseConversionType(text: string): ConversionType {
 // Sorted longest-first so a full name (e.g. "All Terrain Conversions") wins
 // over a shorter one that happens to be a prefix of it.
 const KNOWN_CONVERTER_PREFIXES = [
-  'BraunAbility', 'Braun',
-  'Vantage Mobility International', 'Vantage Mobility', 'Vantage',
+  'BraunAbility',
+  'Braun',
+  'Vantage Mobility International',
+  'Vantage Mobility',
+  'Vantage',
   'Freedom Motors',
-  'Rollx Vans', 'Rollx',
+  'Rollx Vans',
+  'Rollx',
   'AMS Vans',
   'VMI',
-  'MobilityWorks', 'Mobility Works',
+  'MobilityWorks',
+  'Mobility Works',
   'Driverge',
-  'All Terrain Conversions', 'ATC', 'ATS',
+  'All Terrain Conversions',
+  'ATC',
+  'ATS',
   'Tempest',
   'Ryno',
   'Eldorado',
-  'Revability', 'Revabilty',
-  'MV-1', 'MV1',
+  'Revability',
+  'Revabilty',
+  'MV-1',
+  'MV1',
   'Northstar',
   'Entervan',
 ].sort((a, b) => b.length - a.length)

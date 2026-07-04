@@ -22,6 +22,11 @@ export type BlockableResourceType = 'image' | 'media' | 'font' | 'stylesheet'
 export interface NewPageOptions {
   /** Resource types to abort instead of loading. */
   blockResourceTypes?: BlockableResourceType[]
+  /**
+   * Abort and fail when fixture HTML attempts any non-inert external request.
+   * Intended for deterministic offline browser contracts.
+   */
+  failOnExternalRequests?: boolean
 }
 
 /** Minimal response object returned by BrowserPage.goto(). */
