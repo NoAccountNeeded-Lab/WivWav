@@ -324,6 +324,34 @@ export class SuperiorVanAdapter implements SourceAdapter {
           listings: listings.length,
         })
 
+        // Belt-and-suspenders alongside the cards.length===0 check above: if a
+        // future FacetWP/theme change clamps out-of-range pagination to the last
+        // page instead of rendering an empty grid, cards.length would never reach
+        // 0 and this loop would otherwise run until maxPages (Infinity in
+        // production). The FacetWP pager markup is injected by client-side JS
+        // from preloaded config (it is not present in the raw server response),
+        // so give it a moment to hydrate before reading it — a pager that never
+        // appears is treated as "no next page" rather than retried, which fails
+        // toward stopping early rather than looping unbounded.
+        await page.waitForSelector('.facetwp-pager a', { timeout: 5_000 }).catch(() => {})
+        const hasNext = await page.evaluate(function (): boolean {
+          const pager = document.querySelector('.facetwp-pager')
+          if (!pager) return false
+          return Array.from(pager.querySelectorAll('a')).some(function (a) {
+            return a.className.includes('next')
+          })
+        })
+
+        if (!hasNext) {
+          await report(context, `[superior-van] No next-page link after page ${pageNum}; pagination complete`, {
+            stage: 'scraping',
+            source: SOURCE_ID,
+            page: pageNum,
+            listings: listings.length,
+          })
+          break
+        }
+
         pageNum++
       }
 
@@ -362,7 +390,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
 
   const titleParts = raw.fullTitle.trim().split(/\s+/)
   const year = parseInt(titleParts[0] ?? '0', 10)
-  if (year < 1990 || year > new Date().getFullYear() + 2) return null
+  if (Number.isNaN(year) || year < 1990 || year > new Date().getFullYear() + 2) return null
 
   const makeSlug = extractClassToken(raw.className, 'make-')
   const make = capitalizeWord(makeSlug)
