@@ -327,6 +327,26 @@ export class FreedomMotorsAdapter implements SourceAdapter {
           listings: listings.length,
         })
 
+        // Belt-and-suspenders alongside the cards.length===0 check above: if a
+        // future WooCommerce/WordPress redesign clamps out-of-range pagination to
+        // the last page instead of rendering an empty grid, cards.length would
+        // never reach 0 and this loop would otherwise run until maxPages (Infinity
+        // in production). WooCommerce's default pagination renders a real
+        // next-page link only while a next page exists.
+        const hasNext = await page.evaluate(function (): boolean {
+          return document.querySelector('a.next.page-numbers') !== null
+        })
+
+        if (!hasNext) {
+          await report(context, `[freedom-motors] No next-page link after page ${pageNum}; pagination complete`, {
+            stage: 'scraping',
+            source: SOURCE_ID,
+            page: pageNum,
+            listings: listings.length,
+          })
+          break
+        }
+
         pageNum++
       }
 
@@ -357,7 +377,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   const model = parts[2] ?? ''
   const trim = parts.slice(3).join(' ') || null
 
-  if (!make || !model || year < 1990 || year > new Date().getFullYear() + 2) return null
+  if (!make || !model || Number.isNaN(year) || year < 1990 || year > new Date().getFullYear() + 2) return null
 
   const normalizedVin = normalizeVin(raw.sku)
   const qualityIssueCodes: string[] = []

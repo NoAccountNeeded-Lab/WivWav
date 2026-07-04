@@ -260,6 +260,96 @@ describe('FreedomMotorsAdapter.scrape empty page handling', () => {
   })
 })
 
+// ─── FreedomMotorsAdapter.scrape multi-page traversal ───────────────────────
+
+describe('FreedomMotorsAdapter.scrape multi-page traversal', () => {
+  it('advances to page 2 via the next-page link and stops once page 2 has no cards', async () => {
+    const gotoUrls: string[] = []
+    // evaluate() is called twice per page that has cards (card extraction, then
+    // the next-page-link check) and once for a page with no cards (extraction
+    // only — the loop breaks before checking for a next link).
+    const evaluateReturns: unknown[] = [
+      [{ ...validCard }], // page 1: one card
+      true,               // page 1: a.next.page-numbers found
+      [],                 // page 2: no cards
+    ]
+
+    function makeTwoPageService(): BrowserService {
+      return {
+        async launch(): Promise<BrowserSession> {
+          return {
+            async newPage(): Promise<BrowserPage> {
+              return {
+                async goto(url: string): Promise<BrowserResponse | null> {
+                  gotoUrls.push(url)
+                  return { status: () => 200 }
+                },
+                async setContent(): Promise<void> {},
+                async content(): Promise<string> { return '<html></html>' },
+                url(): string { return '' },
+                evaluate<T>(): Promise<T> { return Promise.resolve(evaluateReturns.shift() as T) },
+                async waitForSelector(): Promise<void> {},
+                async close(): Promise<void> {},
+              }
+            },
+            async close(): Promise<void> {},
+          }
+        },
+      }
+    }
+
+    const adapter = new FreedomMotorsAdapter(null, { browserService: makeTwoPageService() })
+    const result = await adapter.scrape()
+
+    expect(gotoUrls).toEqual([
+      'https://www.freedommotors.com/handicap-vehicles-for-sale/',
+      'https://www.freedommotors.com/handicap-vehicles-for-sale/page/2/',
+    ])
+    expect(result.listings).toHaveLength(1)
+    expect(result.listings[0]!.vin).toBe(validCard.sku)
+  })
+
+  it('stops after page 1 when no next-page link is present, even though page 1 had cards', async () => {
+    const evaluateReturns: unknown[] = [
+      [{ ...validCard }], // page 1: one card
+      false,              // page 1: no next-page link
+    ]
+    const gotoUrls: string[] = []
+
+    function makeOnePageService(): BrowserService {
+      return {
+        async launch(): Promise<BrowserSession> {
+          return {
+            async newPage(): Promise<BrowserPage> {
+              return {
+                async goto(url: string): Promise<BrowserResponse | null> {
+                  gotoUrls.push(url)
+                  return { status: () => 200 }
+                },
+                async setContent(): Promise<void> {},
+                async content(): Promise<string> { return '<html></html>' },
+                url(): string { return '' },
+                evaluate<T>(): Promise<T> { return Promise.resolve(evaluateReturns.shift() as T) },
+                async waitForSelector(): Promise<void> {},
+                async close(): Promise<void> {},
+              }
+            },
+            async close(): Promise<void> {},
+          }
+        },
+      }
+    }
+
+    const adapter = new FreedomMotorsAdapter(null, { browserService: makeOnePageService() })
+    const result = await adapter.scrape()
+
+    // Only page 1 was ever requested — the missing next-page link stopped
+    // pagination before a page 2 request was made.
+    expect(gotoUrls).toEqual(['https://www.freedommotors.com/handicap-vehicles-for-sale/'])
+    expect(result.listings).toHaveLength(1)
+  })
+})
+
 // ─── FreedomMotorsAdapter.checkPage1 timeout handling ───────────────────────
 
 describe('FreedomMotorsAdapter.checkPage1 timeout handling', () => {
