@@ -13,7 +13,7 @@ verified public truth.
 | `sourceUrl`, source fallback `buyerUrl`, `externalId`, `stockNumber` | list/card scrape | Replace when the card changes. A dealer-enriched direct `buyerUrl` is preserved when the card only repeats its source URL. |
 | `make`, `model`, `year`, `trim`, `vin`, `condition`, `sellerType` | list/card scrape, then resolution | Persist corrected card evidence and move publication to `pending`. VIN enrichment may link the resulting VIN to `vehicleId`, but does not rewrite the observed VIN. Resolution owns public conflict decisions (#499). |
 | `priceCents`, `mileage` | list/card scrape | Replace on change. Non-null transitions append their specialized history rows in the same serializable transaction. |
-| `conversionType`, `conversionManufacturer`, `conversionStatus`, `rampType`, `wavFeatures`, `floorLoweringInches`, `wheelchairCapacity` | resolution | Card and detail stages persist their latest bounded observations and invalidate publication. The #499 resolver/validator owns verified public truth; neither scraper stage marks the row eligible. |
+| `conversionType`, `conversionManufacturer`, `conversionStatus`, `rampType`, `wavFeatures`, `floorLoweringInches`, `wheelchairCapacity` | resolution | Card and detail stages persist real bounded observations and invalidate publication. Card absence sentinels preserve existing detail/resolved evidence. The #499 resolver/validator owns verified public truth; neither scraper stage marks the row eligible. |
 | `color` | list/card scrape, then detail scrape | A corrected card color is persisted; bounded detail specifications may refine it. Missing detail evidence preserves the card value. |
 | `fuelType`, `engine`, `transmission` | detail scrape | Replace only when the bounded specification extraction succeeded. Missing/failed extraction preserves the previous value. |
 | `zip`, `city`, `state` | list/card scrape | Replace on change and clear `lat`/`lng`, forcing geocoding to recompute coordinates. Detail may supply a bounded ZIP observation. |
@@ -46,6 +46,13 @@ before/after values. Detail evidence has three states:
   existing value may be cleared;
 - `missing`: the container/evidence was absent or extraction failed, so the
   existing value must be preserved.
+
+Card accessibility fields use equivalent absence semantics until adapters emit
+explicit field evidence: `rampType: unknown`, `wavFeatures: []`,
+`floorLoweringInches: null`, and `wheelchairCapacity: null` mean `missing` and
+preserve the existing value. A non-placeholder card value is committed, moves
+publication to `pending`, and retains the replaced detail/resolved value in the
+observation's `before` payload for the resolution path.
 
 Each detail raw-page version has a unique `(stage, rawPageId:scrapedAt)` observation. A job retry
 therefore does not apply it twice. `searchSyncedAt` records the completed index
