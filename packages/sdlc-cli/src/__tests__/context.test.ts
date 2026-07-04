@@ -199,9 +199,11 @@ describe('writeContextArtifacts — happy path', () => {
 
 describe('writeContextArtifacts — idempotent mode', () => {
   it('should skip artifact files that already exist at the current schema version', () => {
-    // Simulate existing files at current schema version
+    // Simulate existing files at current schema version, for the same issue
     mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(`<!-- schema-version: ${ARTIFACT_SCHEMA_VERSION} -->`)
+    mockReadFileSync.mockReturnValue(
+      `<!-- schema-version: ${ARTIFACT_SCHEMA_VERSION} -->\n# Issue #99: existing content`,
+    )
 
     writeContextArtifacts(makeInput(), { idempotent: true })
 
@@ -294,11 +296,26 @@ describe('writeContextArtifacts — recovery state', () => {
     expect(() => writeContextArtifacts(makeInput(), { resume: true })).not.toThrow()
   })
 
-  it('should refuse when recovery state issue number does not match', () => {
+  it('should refuse when recovery state issue number does not match and status is running', () => {
     mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(recoveryContent({ Issue: '#55' }))
+    mockReadFileSync.mockReturnValue(recoveryContent({ Issue: '#55', Status: 'running' }))
 
+    // Matches current behavior: neither --resume nor omitting flags bypasses
+    // an issue-number mismatch while the prior recovery state is still running.
     expect(() => writeContextArtifacts(makeInput())).toThrow(ContextError)
+    expect(() => writeContextArtifacts(makeInput(), { resume: true })).toThrow(ContextError)
+  })
+
+  it('should allow a completed recovery state for a different issue number and let writes proceed', () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(recoveryContent({ Issue: '#40', Status: 'complete' }))
+
+    expect(() => writeContextArtifacts(makeInput())).not.toThrow()
+
+    const written = mockWriteFileSync.mock.calls.map(([path]) => String(path))
+    for (const file of Object.values(ARTIFACT_FILES)) {
+      expect(written.some((p) => p.endsWith(file))).toBe(true)
+    }
   })
 
   it('should skip recovery-state check and overwrite when force-replace is set', () => {
@@ -308,6 +325,42 @@ describe('writeContextArtifacts — recovery state', () => {
     )
 
     expect(() => writeContextArtifacts(makeInput(), { forceReplace: true })).not.toThrow()
+  })
+
+  it('regenerates all four content artifacts (discarding stale content) when a different issue\'s recovery state was left complete', () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockImplementation((path) => {
+      const p = String(path)
+      if (p.endsWith('recovery-state.md')) {
+        return recoveryContent({ Issue: '#40', Status: 'complete' })
+      }
+      // Stale content artifacts left behind by issue #40, at the current
+      // schema version — schema version alone must not be enough to skip them.
+      return `<!-- schema-version: ${ARTIFACT_SCHEMA_VERSION} -->\n# Issue #40: previous issue title`
+    })
+
+    writeContextArtifacts(makeInput())
+
+    const issueWrite = mockWriteFileSync.mock.calls.find(([path]) =>
+      String(path).endsWith(ARTIFACT_FILES.issueContext),
+    )
+    expect(String(issueWrite?.[1])).toContain('Issue #99')
+    expect(String(issueWrite?.[1])).not.toContain('Issue #40')
+
+    const workerWrite = mockWriteFileSync.mock.calls.find(([path]) =>
+      String(path).endsWith(ARTIFACT_FILES.workerContext),
+    )
+    expect(String(workerWrite?.[1])).toContain('Issue #99')
+
+    const reviewWrite = mockWriteFileSync.mock.calls.find(([path]) =>
+      String(path).endsWith(ARTIFACT_FILES.reviewContext),
+    )
+    expect(String(reviewWrite?.[1])).toContain('Issue #99')
+
+    const finishWrite = mockWriteFileSync.mock.calls.find(([path]) =>
+      String(path).endsWith(ARTIFACT_FILES.finishContext),
+    )
+    expect(String(finishWrite?.[1])).toContain('Issue #99')
   })
 })
 

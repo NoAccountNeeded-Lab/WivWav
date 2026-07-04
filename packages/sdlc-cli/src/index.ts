@@ -33,6 +33,7 @@ Options (all commands):
 
 Options (start):
   --branch <name>   Override the derived branch name
+  --force-replace   Bypass recovery-state compatibility checks and overwrite .agents/ artifacts
 
 Options (review):
   --full            Run the full validation suite instead of affected-only
@@ -139,7 +140,10 @@ async function main(): Promise<void> {
         if (isNaN(issueNumber)) {
           throw new CliError('Usage: wivwav start <issue-number>')
         }
-        const opts: StartOptions = { dryRun: boolFlag(flags, 'dry-run') }
+        const opts: StartOptions = {
+          dryRun: boolFlag(flags, 'dry-run'),
+          forceReplace: boolFlag(flags, 'force-replace'),
+        }
         const branch = strFlag(flags, 'branch')
         if (branch !== undefined) opts.branch = branch
         const agentRole = strFlag(flags, 'agent-role')
