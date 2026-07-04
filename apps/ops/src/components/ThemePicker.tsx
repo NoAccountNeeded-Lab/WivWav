@@ -126,6 +126,25 @@ function toFamilyId(themeId: string): string {
   return family ? family.id : themeId
 }
 
+/**
+ * Sync the <meta name="theme-color"> tag to the resolved theme's background,
+ * so the Safari/mobile browser chrome matches the page (mirrors the
+ * data-theme attribute this always accompanies).
+ */
+function applyThemeColor(themeId: string) {
+  const family = THEME_FAMILIES.find(f => f.id === themeId || f.lightId === themeId)
+  if (!family) return
+  const color = family.id === themeId ? family.darkBg : family.lightBg
+
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    document.head.appendChild(meta)
+  }
+  meta.content = color
+}
+
 /* ── Component ───────────────────────────────────────────────────────────── */
 
 export function ThemePicker() {
@@ -158,6 +177,7 @@ export function ThemePicker() {
 
     const resolved = resolveTheme(initFamilyId, storedMode, currentOsDark)
     document.documentElement.dataset.theme = resolved
+    applyThemeColor(resolved)
     // Persist the chosen theme so reloads are consistent
     localStorage.setItem(THEME_KEY, resolved)
   }, [])
@@ -173,6 +193,7 @@ export function ThemePicker() {
           if (prevMode === 'system') {
             const resolved = resolveTheme(prev, 'system', newOsDark)
             document.documentElement.dataset.theme = resolved
+            applyThemeColor(resolved)
             localStorage.setItem(THEME_KEY, resolved)
           }
           return prevMode
@@ -210,6 +231,7 @@ export function ThemePicker() {
       const currentOsDark = readOsDark()
       const resolved = resolveTheme(prev, newMode, currentOsDark)
       document.documentElement.dataset.theme = resolved
+      applyThemeColor(resolved)
       localStorage.setItem(THEME_KEY, resolved)
       return prev
     })
@@ -221,6 +243,7 @@ export function ThemePicker() {
       const currentOsDark = readOsDark()
       const resolved = resolveTheme(newFamilyId, prevMode, currentOsDark)
       document.documentElement.dataset.theme = resolved
+      applyThemeColor(resolved)
       localStorage.setItem(THEME_KEY, resolved)
       return prevMode
     })
