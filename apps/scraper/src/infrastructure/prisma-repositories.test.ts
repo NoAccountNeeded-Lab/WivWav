@@ -414,6 +414,42 @@ describe('PrismaListingRepository', () => {
       })
     })
 
+    it('preserves a detail-extracted color when the card payload reports null (refs #629)', async () => {
+      // BLVD's card scraper always reports color: null (it only appears on the
+      // detail page); a prior detail-extract run had set the real value.
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, color: 'White' })
+      const repo = new PrismaListingRepository(db as never)
+
+      await expect(repo.upsert(makeListing({ priceCents: 3000000, color: null }))).resolves.toEqual({
+        listingId: 'list-1',
+        outcome: 'unchanged',
+        changedFields: [],
+      })
+      expect(db.listing.update).not.toHaveBeenCalled()
+    })
+
+    it('keeps a detail-extracted color intact when another field changes on the same recrawl', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 2500000, color: 'White' })
+      const repo = new PrismaListingRepository(db as never)
+
+      await repo.upsert(makeListing({ priceCents: 3000000, color: null }))
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ color: 'White' }),
+      }))
+    })
+
+    it('still applies a genuine color correction from the card payload', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, color: 'White' })
+      const repo = new PrismaListingRepository(db as never)
+
+      await repo.upsert(makeListing({ priceCents: 3000000, color: 'Midnight Blue' }))
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ color: 'Midnight Blue' }),
+      }))
+    })
+
     it('clears stale geocoding when a source-owned location changes', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 3000000, city: 'Old City' })
       const repo = new PrismaListingRepository(db as never)
