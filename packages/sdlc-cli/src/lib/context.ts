@@ -166,6 +166,11 @@ function checkRecoveryCompatibility(
   opts: GenerateOptions,
 ): string | null {
   if (existing.issue !== input.issue.number) {
+    // A completed prior issue's recovery state has no reason to block a new
+    // issue's start — the prior work is done and poses no actual conflict.
+    if (existing.status === RECOVERY_STATUS_COMPLETE) {
+      return null
+    }
     return `Recovery state is for issue #${existing.issue}, not #${input.issue.number}.`
   }
   if (existing.branch !== input.runtime.branch) {
@@ -341,22 +346,40 @@ function resolveArtifactPath(worktreePath: string, relativePath: string): string
   return join(worktreePath, relativePath)
 }
 
-function existingSchemaVersion(filePath: string): string | null {
-  if (!existsSync(filePath)) return null
+/**
+ * Read the schema version (from the artifact header, line 1) and the issue
+ * number (from the title line, line 2, e.g. `# Issue #99: ...`) embedded in
+ * an existing content artifact, without assuming either is present.
+ */
+function existingArtifactMeta(filePath: string): { schemaVersion: string | null; issueNumber: number | null } {
+  if (!existsSync(filePath)) return { schemaVersion: null, issueNumber: null }
   try {
-    const first = readFileSync(filePath, 'utf8').split('\n')[0] ?? ''
-    const m = /schema-version:\s*(\S+)/.exec(first)
-    return m?.[1] ?? null
+    const lines = readFileSync(filePath, 'utf8').split('\n')
+    const header = lines[0] ?? ''
+    const titleLine = lines[1] ?? ''
+    const schemaMatch = /schema-version:\s*(\S+)/.exec(header)
+    const issueMatch = /Issue #(\d+)/.exec(titleLine)
+    return {
+      schemaVersion: schemaMatch?.[1] ?? null,
+      issueNumber: issueMatch?.[1] !== undefined ? parseInt(issueMatch[1], 10) : null,
+    }
   } catch {
-    return null
+    return { schemaVersion: null, issueNumber: null }
   }
 }
 
-function shouldSkipExisting(filePath: string, opts: Required<GenerateOptions>): boolean {
+/**
+ * Decide whether an existing content artifact can be left in place.
+ * Requires both a matching schema version AND a matching issue number, so a
+ * stale artifact left behind by a different issue (e.g. because its
+ * recovery-state.md was skipped or is missing) is never mistaken for
+ * up-to-date content and is always regenerated.
+ */
+function shouldSkipExisting(filePath: string, expectedIssueNumber: number, opts: Required<GenerateOptions>): boolean {
   if (opts.forceReplace) return false
   if (!opts.idempotent) return false
-  const version = existingSchemaVersion(filePath)
-  return version === ARTIFACT_SCHEMA_VERSION
+  const meta = existingArtifactMeta(filePath)
+  return meta.schemaVersion === ARTIFACT_SCHEMA_VERSION && meta.issueNumber === expectedIssueNumber
 }
 
 function safeWrite(filePath: string, content: string, dryRun: boolean): void {
@@ -432,7 +455,7 @@ export function writeContextArtifacts(input: ContextInput, opts: GenerateOptions
 
   for (const [relativePath, content] of artifacts) {
     const filePath = resolveArtifactPath(worktreePath, relativePath)
-    if (shouldSkipExisting(filePath, resolvedOpts)) {
+    if (shouldSkipExisting(filePath, input.issue.number, resolvedOpts)) {
       if (dryRun) {
         console.log(`  [dry-run] skip ${filePath} (current schema version)`)
       }
