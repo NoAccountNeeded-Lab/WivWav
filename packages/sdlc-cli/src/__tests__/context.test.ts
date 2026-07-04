@@ -150,15 +150,6 @@ describe('writeContextArtifacts — happy path', () => {
     expect(String(workerWrite?.[1])).toContain('- Model: sonnet')
   })
 
-  it('should include usage-report table header in usage-report artifact', () => {
-    writeContextArtifacts(makeInput())
-
-    const usageWrite = mockWriteFileSync.mock.calls.find(([path]) =>
-      String(path).endsWith(ARTIFACT_FILES.usageReport),
-    )
-    expect(String(usageWrite?.[1])).toContain('| Phase | Agent role/index | Provider | Model | Input tokens |')
-  })
-
   it('should write recovery-state as running then complete', () => {
     writeContextArtifacts(makeInput())
 

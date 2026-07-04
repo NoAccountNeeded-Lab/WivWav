@@ -27,7 +27,7 @@ Use the printed worker prompt; do not append the full issue body.
 
 On success: comment draft PR URL, commit SHA, and sprint ID; set recovery state to `Status: success`; record PR URL.
 On failure: set `status:stuck`; comment the reason; set recovery state to `Status: stuck`.
-After each completion: preserve `.agents/usage-report.md` evidence; run `git worktree remove --force {worktree}` then `git worktree prune`.
+After each completion: run `git worktree remove --force {worktree}` then `git worktree prune`.
 Do not cancel other workers because one fails.
 
 Final report: mode; outcome per issue; remaining `status:ready` count.

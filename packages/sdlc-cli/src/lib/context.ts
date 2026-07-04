@@ -254,7 +254,6 @@ function workerContextContent(input: ContextInput): string {
     '- Treat likely-file hints as non-authoritative.',
     `- Completed issues must close on merge: use \`pnpm wivwav finish ${issue.number}\` without \`--refs\`.`,
     `- Use \`pnpm wivwav finish ${issue.number} --refs\` only for intentionally partial work that should leave the issue open.`,
-    '- Append your model and token usage to `.agents/usage-report.md` before finishing.',
     '',
     '## Acceptance Criteria',
     '',
@@ -331,45 +330,6 @@ function finishContextContent(input: ContextInput): string {
     `- Run \`pnpm wivwav finish ${issue.number}\` for completed work. The default uses GitHub closing keywords in the commit and PR body.`,
     `- Use \`pnpm wivwav finish ${issue.number} --refs\` only when the PR is intentionally partial and issue #${issue.number} should remain open.`,
     '',
-    '## Usage Reporting',
-    '',
-    '- Update `.agents/usage-report.md` with model and token usage before opening the PR.',
-    '',
-  ].join('\n')
-}
-
-function usageReportContent(input: ContextInput): string {
-  const { issue, runtime } = input
-  return [
-    artifactHeader(ARTIFACT_SCHEMA_VERSION),
-    `# Usage Report: Issue #${issue.number}`,
-    '',
-    'Purpose: record model and token usage by phase so sprint costs can be compared by issue area.',
-    '',
-    '## Metadata',
-    '',
-    `- Sprint run: ${runtime.sprintId}`,
-    `- Branch: ${runtime.branch}`,
-    `- Worktree: ${runtime.worktreePath}`,
-    `- Effort guidance: ${runtime.effort}`,
-    `- Model guidance: ${runtime.model}`,
-    `- Labels: ${issue.labels.join(', ') || 'none'}`,
-    '',
-    '## Phase Usage',
-    '',
-    '| Phase | Agent role/index | Provider | Model | Input tokens | Output tokens | Cache read tokens | Cache write tokens | Tool calls | Notes |',
-    '| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |',
-    `| run-sprint | orchestrator/0 | n/a | n/a | 0 | 0 | 0 | 0 | deterministic CLI | Generated context artifacts. |`,
-    '| worker | worker/1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | Fill before finish. |',
-    '| reviewer | reviewer/TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | Fill after review. |',
-    '| finish | worker/1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | Fill after PR creation. |',
-    '',
-    '## Reporting Notes',
-    '',
-    '- Use provider-reported token counts when available.',
-    '- If a runtime does not expose token usage, write `unavailable` and include the model name.',
-    '- Keep provider-specific model names here; keep workflow prompts provider-neutral.',
-    '',
   ].join('\n')
 }
 
@@ -421,7 +381,6 @@ export const ARTIFACT_FILES = {
   workerContext: '.agents/worker-context.md',
   reviewContext: '.agents/review-context.md',
   finishContext: '.agents/finish-context.md',
-  usageReport: '.agents/usage-report.md',
   recoveryState: '.agents/recovery-state.md',
 } as const
 
@@ -469,7 +428,6 @@ export function writeContextArtifacts(input: ContextInput, opts: GenerateOptions
     [ARTIFACT_FILES.workerContext, workerContextContent(input)],
     [ARTIFACT_FILES.reviewContext, reviewContextContent(input)],
     [ARTIFACT_FILES.finishContext, finishContextContent(input)],
-    [ARTIFACT_FILES.usageReport, usageReportContent(input)],
   ]
 
   for (const [relativePath, content] of artifacts) {

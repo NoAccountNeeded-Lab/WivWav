@@ -25,8 +25,7 @@ output_contract: "Success: commit SHA and PR URL; failure: reason and status:stu
 12. Supply issue acceptance criteria, worktree root, and `git diff origin/main`; require `REVISION_NEEDED: yes|no`.
 13. Apply all findings. If the reviewer fails to return, record the failure and use the test suite as fallback.
 14. Post review roles, verdict, and fixed-finding count using the required attribution header.
-15. Update `.agents/usage-report.md` with provider, model, tokens, cache tokens, and tool-call count; use `unavailable` when not exposed.
-16. Run `/wivwav-finish-issue {N}`.
+15. Run `/wivwav-finish-issue {N}`.
 
 Failure:
 
