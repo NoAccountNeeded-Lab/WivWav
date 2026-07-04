@@ -41,6 +41,16 @@ export function listingCompletenessScore(listing: Listing): number {
 }
 
 /**
+ * Deterministic grouping key: verified vehicle groups share `vehicleId`;
+ * everything else is its own singleton group keyed by its own `id`. Shared
+ * between the incremental (`syncListings`) and full-rebuild sync paths so
+ * both agree on group membership for the same listing.
+ */
+export function groupKeyOf(row: Pick<Listing, 'id' | 'vehicleId'>): string {
+  return row.vehicleId ?? row.id
+}
+
+/**
  * Selects the deterministic representative listing from a set of eligible
  * listings in a verified vehicle group.
  *
@@ -173,7 +183,7 @@ export function toDocument(row: Listing): ListingDocument {
   return {
     id: row.id,
     vehicleId: row.vehicleId,
-    vehicleGroupKey: row.vehicleId ?? row.id,
+    vehicleGroupKey: groupKeyOf(row),
     sourceId: row.sourceId,
     sourceUrl: row.sourceUrl,
     buyerUrl: row.buyerUrl,
