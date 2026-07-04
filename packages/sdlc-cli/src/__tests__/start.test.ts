@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { slugify, deriveBranchPrefix, buildBranchName, sanitizeBranchName } from '../commands/start.js'
+import type * as ContextModule from '../lib/context.js'
 
 describe('slugify', () => {
   it('lowercases and replaces spaces with hyphens', () => {
@@ -99,6 +100,17 @@ vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => false),
 }))
 
+// Partial mock: keep the real `writeContextArtifacts` behavior (it only
+// touches the mocked `node:fs` above) while recording call arguments so
+// tests can assert the CLI actually threads `resume` through.
+vi.mock('../lib/context.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof ContextModule>()
+  return {
+    ...actual,
+    writeContextArtifacts: vi.fn(actual.writeContextArtifacts),
+  }
+})
+
 vi.mock('../lib/github.js', () => ({
   fetchIssue: vi.fn(),
   editIssueLabels: vi.fn(),
@@ -134,6 +146,7 @@ import { startCommand } from '../commands/start.js'
 import * as githubMod from '../lib/github.js'
 import * as gitMod from '../lib/git.js'
 import * as validationMod from '../lib/validation.js'
+import * as contextMod from '../lib/context.js'
 import * as fsMod from 'node:fs'
 
 const mockFetchIssue = githubMod.fetchIssue as ReturnType<typeof vi.fn>
@@ -145,6 +158,7 @@ const mockRepoRoot = gitMod.repoRoot as ReturnType<typeof vi.fn>
 const mockValidateIssue = validationMod.validateIssueForStart as ReturnType<typeof vi.fn>
 const mockValidateBranch = validationMod.validateBranchName as ReturnType<typeof vi.fn>
 const mockMergeResults = validationMod.mergeResults as ReturnType<typeof vi.fn>
+const mockWriteContextArtifacts = contextMod.writeContextArtifacts as ReturnType<typeof vi.fn>
 const mockWriteFileSync = fsMod.writeFileSync as ReturnType<typeof vi.fn>
 const mockExistsSync = fsMod.existsSync as ReturnType<typeof vi.fn>
 const mockReadFileSync = fsMod.readFileSync as ReturnType<typeof vi.fn>
@@ -376,5 +390,67 @@ describe('startCommand — force-replace', () => {
     )
 
     await expect(startCommand(42, { forceReplace: true })).resolves.toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// --resume flag (issue #651): CLI-level flag threaded through to
+// writeContextArtifacts, matching the --resume instructions already
+// referenced in context.ts's recovery-state error message.
+// ---------------------------------------------------------------------------
+
+function recoveryContent(overrides: Record<string, string> = {}): string {
+  const defaults = {
+    'Schema-Version': '2',
+    'Issue': '#42',
+    'Branch': 'fix/issue-42-old-branch',
+    'WorktreePath': '/repo',
+    'SprintId': 'start/2026-06-27T10:12',
+    'Status': 'running',
+  }
+  return Object.entries({ ...defaults, ...overrides })
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n') + '\n'
+}
+
+describe('startCommand — resume flag', () => {
+  it('passes resume: true through to writeContextArtifacts when opts.resume is set', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42, { resume: true })
+
+    expect(mockWriteContextArtifacts).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ resume: true }),
+    )
+  })
+
+  it('does not set resume: true on writeContextArtifacts when --resume is absent', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await startCommand(42)
+
+    expect(mockWriteContextArtifacts).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.not.objectContaining({ resume: true }),
+    )
+  })
+
+  it('throws when an in-progress recovery state for a different branch exists and --resume is not passed', async () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(
+      recoveryContent({ Branch: 'fix/issue-42-old-branch', Status: 'running' }),
+    )
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await expect(startCommand(42)).rejects.toThrow()
+  })
+
+  it('proceeds without throwing when an in-progress recovery state for a different branch exists and --resume is passed', async () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(
+      recoveryContent({ Branch: 'fix/issue-42-old-branch', Status: 'running' }),
+    )
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await expect(startCommand(42, { resume: true })).resolves.toBeUndefined()
   })
 })

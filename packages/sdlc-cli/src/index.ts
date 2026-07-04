@@ -34,6 +34,7 @@ Options (all commands):
 Options (start):
   --branch <name>   Override the derived branch name
   --force-replace   Bypass recovery-state compatibility checks and overwrite .agents/ artifacts
+  --resume          Continue past an in-progress recovery state for a different branch
 
 Options (review):
   --full            Run the full validation suite instead of affected-only
@@ -143,6 +144,7 @@ async function main(): Promise<void> {
         const opts: StartOptions = {
           dryRun: boolFlag(flags, 'dry-run'),
           forceReplace: boolFlag(flags, 'force-replace'),
+          resume: boolFlag(flags, 'resume'),
         }
         const branch = strFlag(flags, 'branch')
         if (branch !== undefined) opts.branch = branch

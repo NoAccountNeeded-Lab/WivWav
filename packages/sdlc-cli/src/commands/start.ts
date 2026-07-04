@@ -37,6 +37,11 @@ export interface StartOptions {
    * state left behind for a different issue).
    */
   forceReplace?: boolean
+  /**
+   * Resume mode: continue past an in-progress recovery state left by an
+   * earlier run for a different branch, instead of failing closed.
+   */
+  resume?: boolean
 }
 
 /**
@@ -182,7 +187,7 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
         likelyFiles: [],
       },
     },
-    { forceReplace: opts.forceReplace ?? false },
+    { forceReplace: opts.forceReplace ?? false, resume: opts.resume ?? false },
   )
 
   // Post check-in comment
