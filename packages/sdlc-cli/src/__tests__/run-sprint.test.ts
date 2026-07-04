@@ -134,20 +134,11 @@ describe('runSprintCommand — issue selection', () => {
     expect(writtenFiles).toContain(
       '/repo/.claude/worktrees/issue-42-featapi-add-listing-search/.agents/issue-context.md',
     )
-    expect(writtenFiles).toContain(
-      '/repo/.claude/worktrees/issue-42-featapi-add-listing-search/.agents/usage-report.md',
-    )
     expect(
       mockWriteFileSync.mock.calls.some(
         ([, contents]) =>
           String(contents).includes('## Acceptance Criteria') &&
           String(contents).includes('- [ ] works'),
-      ),
-    ).toBe(true)
-    expect(
-      mockWriteFileSync.mock.calls.some(
-        ([, contents]) =>
-          String(contents).includes('| Phase | Agent role/index | Provider | Model | Input tokens |'),
       ),
     ).toBe(true)
     expect(
@@ -169,7 +160,6 @@ describe('runSprintCommand — issue selection', () => {
     const output = log.mock.calls.map((c) => String(c[0])).join('\n')
     expect(output).toContain('Worker instructions')
     expect(output).toContain('read `.agents/worker-context.md`')
-    expect(output).toContain('Track model and token usage')
   })
 
   it('writes provider-neutral effort and model guidance', async () => {

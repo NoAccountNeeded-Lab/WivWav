@@ -66,12 +66,6 @@ Local models do not always expose provider-side prompt caching. The best optimiz
 3. Keep Codex canonical instructions in `AGENTS.md`, but explicitly discourage speculative full-file reads.
 4. Add concise Gemini and Cursor entry points that point to `AGENTS.md` only for deep reference.
 5. Keep Copilot repository instructions short and path/task-oriented.
-6. Measure token usage by sprint run:
-   - `pnpm wivwav run-sprint` writes `.agents/usage-report.md` into each worker worktree.
-   - Workers, reviewers, and finish steps record provider, model, input tokens, output tokens, cache read/write tokens, tool calls, and notes by phase.
-   - Claude Code: use `ccusage` or account usage when available and copy the phase totals into the local usage report.
-   - `packages/agents`: log provider usage fields when APIs expose cached token counts.
-   - GitHub issue/PR data: track completion, stuck labels, and review cycles per issue.
 
 ## Sprint Context Artifacts
 
@@ -81,7 +75,6 @@ Local models do not always expose provider-side prompt caching. The best optimiz
 - `worker-context.md` — compact worker start packet that points to the full issue context.
 - `review-context.md` — acceptance criteria and an evidence-map stub for review.
 - `finish-context.md` — validation checklist and PR evidence inputs.
-- `usage-report.md` — model and token usage table for run-sprint, worker, reviewer, and finish phases.
 
 The likely-file hints are deterministic filename matches and are explicitly non-authoritative. Agents must still verify by reading source code before editing.
 
@@ -90,10 +83,9 @@ The likely-file hints are deterministic filename matches and are explicitly non-
 - `--effort auto|low|standard|high` sets the expected reasoning effort. `auto` is based on labels and issue body size.
 - `--model auto|<provider-specific-model>` records a model hint without hard-coding provider mappings in the generic workflow.
 
-Provider-specific model selection belongs to the agent runtime. The SDLC CLI only records guidance and the eventual model used in `.agents/usage-report.md`.
+Provider-specific model selection belongs to the agent runtime. The SDLC CLI records provider-neutral guidance only.
 
 ## Follow-Ups
 
-- Add structured usage logging to `packages/agents` when provider responses include cache read/write token counts.
 - Split `AGENTS.md` into optional topic imports only if multiple agents continue loading the full file unnecessarily.
 - Add path-scoped Claude rules for `apps/web`, `apps/api`, and `apps/scraper` if Claude Code workers still over-read after this change.
