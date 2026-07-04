@@ -19,6 +19,9 @@ function buildTestApp() {
 
   const meili = {
     health: vi.fn(async () => ({ status: 'available' as const })),
+    index: vi.fn(() => ({
+      getStats: vi.fn(async () => ({ numberOfDocuments: 42, rawDocumentDbSize: 123456 })),
+    })),
   }
 
   const queueFactory = new MockQueueFactory()
@@ -46,7 +49,7 @@ function buildTestApp() {
     registry,
   })
 
-  return { app, db, cache, meili }
+  return { app, db, cache, meili, queueFactory }
 }
 
 describe('GET /metrics', () => {
@@ -77,6 +80,9 @@ describe('GET /metrics', () => {
     expect(res.payload).toContain('wivwav_db_up')
     expect(res.payload).toContain('wivwav_valkey_up')
     expect(res.payload).toContain('wivwav_meilisearch_up')
+    expect(res.payload).toContain('wivwav_meilisearch_documents_total')
+    expect(res.payload).toContain('wivwav_meilisearch_index_size_bytes')
+    expect(res.payload).toContain('wivwav_meilisearch_last_sync_timestamp_seconds')
     expect(res.payload).toContain('wivwav_db_size_bytes')
     expect(res.payload).toContain('wivwav_db_listing_count')
     expect(res.payload).toContain('wivwav_queue_depth')
@@ -120,6 +126,80 @@ describe('GET /metrics', () => {
     await app.close()
 
     expect(res.payload).toMatch(/wivwav_meilisearch_up\s+0/)
+  })
+
+  it('reports meilisearch documents_total and index_size_bytes with correct values', async () => {
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/' })
+    await app.close()
+
+    expect(res.payload).toMatch(/wivwav_meilisearch_documents_total\s+42/)
+    expect(res.payload).toMatch(/wivwav_meilisearch_index_size_bytes\s+123456/)
+  })
+
+  it('degrades meilisearch documents_total and index_size_bytes to 0 when index stats throw', async () => {
+    const { app, meili } = buildTestApp()
+    meili.index.mockReturnValue({
+      getStats: vi.fn(async () => {
+        throw new Error('unavailable')
+      }),
+    })
+    const res = await app.inject({ method: 'GET', url: '/' })
+    await app.close()
+
+    expect(res.payload).toMatch(/wivwav_meilisearch_documents_total\s+0/)
+    expect(res.payload).toMatch(/wivwav_meilisearch_index_size_bytes\s+0/)
+  })
+
+  it('reports meilisearch last sync timestamp from the most recently completed listing-sync job', async () => {
+    const app = Fastify()
+    void app.register(sensible)
+
+    const db = {
+      $queryRaw: vi.fn(async () => [{ size: BigInt(1024) }]),
+      listing: { count: vi.fn(async () => 0) },
+      source: { aggregate: vi.fn(async () => ({ _max: { lastScrapedAt: null } })) },
+    }
+    const cache = { ping: vi.fn(async () => undefined) }
+    const meili = {
+      health: vi.fn(async () => ({ status: 'available' as const })),
+      index: vi.fn(() => ({
+        getStats: vi.fn(async () => ({ numberOfDocuments: 0, rawDocumentDbSize: 0 })),
+      })),
+    }
+    const completedListingSyncJobs = [
+      { id: '1', finishedAt: new Date('2026-06-01T00:00:00Z') },
+      { id: '2', finishedAt: new Date('2026-06-18T12:00:00Z') },
+    ]
+    const queueFactory = {
+      createQueue: vi.fn(() => ({ getJobs: vi.fn(async () => completedListingSyncJobs) })),
+    }
+
+    const { registry } = createMetricsRegistry()
+    void app.register(metricsRoutes, {
+      db: db as never,
+      cache: cache as never,
+      meili: meili as never,
+      queueFactory: queueFactory as never,
+      lokiUrl: 'http://loki.test',
+      registry,
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/' })
+    await app.close()
+
+    expect(res.payload).toMatch(/wivwav_meilisearch_last_sync_timestamp_seconds\s+1781784000/)
+  })
+
+  it('reports meilisearch last sync timestamp=0 when the listing-sync queue is unreachable', async () => {
+    const { app, queueFactory } = buildTestApp()
+    vi.spyOn(queueFactory, 'createQueue').mockImplementation(() => {
+      throw new Error('queue unavailable')
+    })
+    const res = await app.inject({ method: 'GET', url: '/' })
+    await app.close()
+
+    expect(res.payload).toMatch(/wivwav_meilisearch_last_sync_timestamp_seconds\s+0/)
   })
 
   it('reports loki_up=0 when Loki readiness fails', async () => {
