@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "facetFields": [
+    "make",
+    "model",
+    "trim",
+    "year",
+    "priceCents",
+    "mileage",
+    "condition",
+    "sellerType",
+    "state",
+    "color",
+    "conversionType",
+    "conversionManufacturer",
+    "rampType",
+    "wavFeatures"
+  ],
+  "cases": [
+    {
+      "id": "blvd-normal",
+      "source": "blvd",
+      "listFixture": "blvd-list-v1.html",
+      "cardIndex": 0,
+      "detailFixture": "blvd-detail-v1.html",
+      "expected": {
+        "make": "Toyota",
+        "model": "Sienna",
+        "trim": "XLE",
+        "year": 2022,
+        "priceCents": 7199100,
+        "mileage": 50094,
+        "condition": "used",
+        "sellerType": "dealer",
+        "state": "CO",
+        "color": "Celestial Silver",
+        "conversionType": "rear_entry",
+        "conversionManufacturer": "Driverge",
+        "rampType": "fold_out",
+        "wavFeatures": [
+          "transfer_seat",
+          "lowered_floor",
+          "power_ramp",
+          "kneel_system",
+          "tie_down_system",
+          "automatic_door"
+        ]
+      }
+    },
+    {
+      "id": "blvd-edge",
+      "source": "blvd",
+      "listFixture": "blvd-list-v1.html",
+      "cardIndex": 1,
+      "detailFixture": "blvd-detail-edge-v1.html",
+      "expected": {
+        "make": "Chrysler",
+        "model": "Pacifica",
+        "trim": "Touring L",
+        "year": 2021,
+        "priceCents": null,
+        "mileage": null,
+        "condition": "used",
+        "sellerType": "private",
+        "state": null,
+        "color": "White",
+        "conversionType": "unknown",
+        "conversionManufacturer": null,
+        "rampType": "unknown",
+        "wavFeatures": []
+      }
+    },
+    {
+      "id": "mobilityworks-normal",
+      "source": "mobilityworks",
+      "listFixture": "mobilityworks-list-v1.html",
+      "cardIndex": 0,
+      "detailFixture": "mobilityworks-detail-v1.html",
+      "expected": {
+        "make": "Toyota",
+        "model": "Sienna",
+        "trim": "XLE",
+        "year": 2022,
+        "priceCents": 6825000,
+        "mileage": 14200,
+        "condition": "used",
+        "sellerType": "dealer",
+        "state": "GA",
+        "color": "Blueprint",
+        "conversionType": "side_entry",
+        "conversionManufacturer": "BraunAbility",
+        "rampType": "in_floor",
+        "wavFeatures": [
+          "hand_controls",
+          "transfer_seat",
+          "lowered_floor",
+          "power_ramp",
+          "kneel_system",
+          "tie_down_system",
+          "automatic_door"
+        ]
+      }
+    },
+    {
+      "id": "mobilityworks-edge",
+      "source": "mobilityworks",
+      "listFixture": "mobilityworks-list-v1.html",
+      "cardIndex": 1,
+      "detailFixture": "mobilityworks-detail-edge-v1.html",
+      "expected": {
+        "make": "Chrysler",
+        "model": "Pacifica",
+        "trim": "Touring L",
+        "year": 2020,
+        "priceCents": null,
+        "mileage": null,
+        "condition": "used",
+        "sellerType": "dealer",
+        "state": null,
+        "color": "Silver",
+        "conversionType": "unknown",
+        "conversionManufacturer": null,
+        "rampType": "unknown",
+        "wavFeatures": []
+      }
+    }
+  ],
+  "recrawl": {
+    "source": "blvd",
+    "fixture": "blvd-list-v2-recrawl.html",
+    "cardIndex": 0,
+    "sourceRecordKey": "BLVD-NORMAL-001",
+    "expectedPriceCents": 6950000,
+    "expectedMileage": 50211,
+    "detailOwnedFields": {
+      "color": null,
+      "rampType": "unknown",
+      "wavFeatures": []
+    }
+  }
+}
