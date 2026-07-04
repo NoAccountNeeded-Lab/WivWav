@@ -48,6 +48,7 @@ import { runConversionBrandsSeedJob } from './sources/conversion-brands.js'
 import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
 import { runModelResearchJob } from './jobs/model-research.js'
 import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
+import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing-resolve.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
 import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
 import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fueleconomy-msrp.js'
@@ -352,6 +353,13 @@ queueFactory.createWorker(
     runMeilisearchSyncJob(context),
   ),
   { lockDuration: 300_000, logger },
+)
+queueFactory.createWorker<ListingResolveJobData>(
+  QUEUES.LISTING_RESOLVE,
+  withSentryCapture<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, (data, context) =>
+    runListingResolveJob(data, context),
+  ),
+  { lockDuration: 120_000, logger },
 )
 queueFactory.createWorker(
   QUEUES.RAWPAGE_CLEANUP,
