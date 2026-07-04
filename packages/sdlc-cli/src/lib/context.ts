@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 /** Artifact schema version — increment when the artifact shape changes in a breaking way. */
-export const ARTIFACT_SCHEMA_VERSION = '1'
+export const ARTIFACT_SCHEMA_VERSION = '2'
 
 /** Sentinel written into recovery state when preparation is running. */
 const RECOVERY_STATUS_RUNNING = 'running'
