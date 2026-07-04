@@ -310,6 +310,93 @@ describe('SuperiorVanAdapter.scrape empty page handling', () => {
   })
 })
 
+// ─── SuperiorVanAdapter.scrape multi-page traversal ─────────────────────────
+
+describe('SuperiorVanAdapter.scrape multi-page traversal', () => {
+  it('advances to page 2 via ?_paged= and stops once page 2 has no cards', async () => {
+    const gotoUrls: string[] = []
+    // evaluate() is called twice per page that has cards (card extraction, then
+    // the FacetWP next-page check) and once for a page with no cards (extraction
+    // only — the loop breaks before checking for a next link).
+    const evaluateReturns: unknown[] = [
+      [{ ...validCard }], // page 1: one card
+      true,               // page 1: a FacetWP "next" pager link found
+      [],                 // page 2: no cards
+    ]
+
+    function makeTwoPageService(): BrowserService {
+      return {
+        async launch(): Promise<BrowserSession> {
+          return {
+            async newPage(): Promise<BrowserPage> {
+              return {
+                async goto(url: string): Promise<BrowserResponse | null> {
+                  gotoUrls.push(url)
+                  return { status: () => 200 }
+                },
+                async setContent(): Promise<void> {},
+                async content(): Promise<string> { return '<html></html>' },
+                url(): string { return '' },
+                evaluate<T>(): Promise<T> { return Promise.resolve(evaluateReturns.shift() as T) },
+                async waitForSelector(): Promise<void> {},
+                async close(): Promise<void> {},
+              }
+            },
+            async close(): Promise<void> {},
+          }
+        },
+      }
+    }
+
+    const adapter = new SuperiorVanAdapter(null, { browserService: makeTwoPageService() })
+    const result = await adapter.scrape()
+
+    expect(gotoUrls).toEqual([
+      'https://superiorvan.com/inventory/',
+      'https://superiorvan.com/inventory/?_paged=2',
+    ])
+    expect(result.listings).toHaveLength(1)
+  })
+
+  it('stops after page 1 when the FacetWP pager has no "next" link, even though page 1 had cards', async () => {
+    const evaluateReturns: unknown[] = [
+      [{ ...validCard }], // page 1: one card
+      false,              // page 1: no "next" pager link (last page)
+    ]
+    const gotoUrls: string[] = []
+
+    function makeOnePageService(): BrowserService {
+      return {
+        async launch(): Promise<BrowserSession> {
+          return {
+            async newPage(): Promise<BrowserPage> {
+              return {
+                async goto(url: string): Promise<BrowserResponse | null> {
+                  gotoUrls.push(url)
+                  return { status: () => 200 }
+                },
+                async setContent(): Promise<void> {},
+                async content(): Promise<string> { return '<html></html>' },
+                url(): string { return '' },
+                evaluate<T>(): Promise<T> { return Promise.resolve(evaluateReturns.shift() as T) },
+                async waitForSelector(): Promise<void> {},
+                async close(): Promise<void> {},
+              }
+            },
+            async close(): Promise<void> {},
+          }
+        },
+      }
+    }
+
+    const adapter = new SuperiorVanAdapter(null, { browserService: makeOnePageService() })
+    const result = await adapter.scrape()
+
+    expect(gotoUrls).toEqual(['https://superiorvan.com/inventory/'])
+    expect(result.listings).toHaveLength(1)
+  })
+})
+
 // ─── SuperiorVanAdapter.checkPage1 timeout handling ─────────────────────────
 
 describe('SuperiorVanAdapter.checkPage1 timeout handling', () => {
