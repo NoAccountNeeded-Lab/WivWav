@@ -30,6 +30,13 @@ export interface StartOptions {
   effort?: 'low' | 'standard' | 'high'
   /** Model guidance passed into context artifacts (default: 'sonnet'). */
   model?: string
+  /**
+   * Bypass recovery-state compatibility checks entirely and overwrite all
+   * `.agents/` artifacts unconditionally. Escape hatch for mismatch cases
+   * that are not automatically resolved (e.g. a lingering `running` recovery
+   * state left behind for a different issue).
+   */
+  forceReplace?: boolean
 }
 
 /**
@@ -153,27 +160,30 @@ export async function startCommand(issueNumber: number, opts: StartOptions = {})
 
   // Write context artifacts to the current worktree root.
   console.log('Writing .agents/ context artifacts...')
-  writeContextArtifacts({
-    issue: {
-      number: issue.number,
-      title: issue.title,
-      body: issue.body,
-      labels: labelNames(issue),
+  writeContextArtifacts(
+    {
+      issue: {
+        number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        labels: labelNames(issue),
+      },
+      repo: { root },
+      runtime: {
+        worktreePath: root,
+        branch: branchName,
+        sprintId: startSprintId(),
+        effort: opts.effort ?? 'standard',
+        model: opts.model ?? 'sonnet',
+        agentIndex: opts.agentIndex ?? 1,
+      },
+      content: {
+        acceptanceCriteria: extractAcceptanceCriteria(issue.body),
+        likelyFiles: [],
+      },
     },
-    repo: { root },
-    runtime: {
-      worktreePath: root,
-      branch: branchName,
-      sprintId: startSprintId(),
-      effort: opts.effort ?? 'standard',
-      model: opts.model ?? 'sonnet',
-      agentIndex: opts.agentIndex ?? 1,
-    },
-    content: {
-      acceptanceCriteria: extractAcceptanceCriteria(issue.body),
-      likelyFiles: [],
-    },
-  })
+    { forceReplace: opts.forceReplace ?? false },
+  )
 
   // Post check-in comment
   const today = new Date().toISOString().slice(0, 10)

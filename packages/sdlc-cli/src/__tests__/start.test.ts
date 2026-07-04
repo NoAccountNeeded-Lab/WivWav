@@ -146,6 +146,8 @@ const mockValidateIssue = validationMod.validateIssueForStart as ReturnType<type
 const mockValidateBranch = validationMod.validateBranchName as ReturnType<typeof vi.fn>
 const mockMergeResults = validationMod.mergeResults as ReturnType<typeof vi.fn>
 const mockWriteFileSync = fsMod.writeFileSync as ReturnType<typeof vi.fn>
+const mockExistsSync = fsMod.existsSync as ReturnType<typeof vi.fn>
+const mockReadFileSync = fsMod.readFileSync as ReturnType<typeof vi.fn>
 
 function makeIssue(overrides = {}) {
   return {
@@ -171,6 +173,8 @@ beforeEach(() => {
     errors: results.flatMap((r) => r.errors),
     warnings: results.flatMap((r) => r.warnings),
   }))
+  mockExistsSync.mockReturnValue(false)
+  mockReadFileSync.mockReturnValue('')
 })
 
 afterEach(() => {
@@ -312,5 +316,65 @@ describe('startCommand — happy path', () => {
           String(contents).includes('- Model: claude-opus-4-5'),
       ),
     ).toBe(true)
+  })
+
+  it('succeeds without extra flags when a prior issue\'s recovery state was left complete', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(
+      [
+        'Schema-Version: 2',
+        'Issue: #7',
+        'Branch: fix/issue-7-other-work',
+        'WorktreePath: /repo',
+        'SprintId: run-sprint/2026-07-01T00:00',
+        'Status: complete',
+        '',
+      ].join('\n'),
+    )
+
+    await expect(startCommand(42)).resolves.toBeUndefined()
+
+    expect(
+      mockWriteFileSync.mock.calls.some(([path]) => String(path) === '/repo/.agents/issue-context.md'),
+    ).toBe(true)
+  })
+})
+
+describe('startCommand — force-replace', () => {
+  it('still fails without --force-replace when a running recovery state is for a different issue', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(
+      [
+        'Schema-Version: 2',
+        'Issue: #7',
+        'Branch: fix/issue-7-other-work',
+        'WorktreePath: /repo',
+        'SprintId: run-sprint/2026-07-01T00:00',
+        'Status: running',
+        '',
+      ].join('\n'),
+    )
+
+    await expect(startCommand(42)).rejects.toThrow('Recovery state is for issue #7')
+  })
+
+  it('bypasses recovery-state compatibility checks when --force-replace is set', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(
+      [
+        'Schema-Version: 2',
+        'Issue: #7',
+        'Branch: fix/issue-7-other-work',
+        'WorktreePath: /repo',
+        'SprintId: run-sprint/2026-07-01T00:00',
+        'Status: running',
+        '',
+      ].join('\n'),
+    )
+
+    await expect(startCommand(42, { forceReplace: true })).resolves.toBeUndefined()
   })
 })
