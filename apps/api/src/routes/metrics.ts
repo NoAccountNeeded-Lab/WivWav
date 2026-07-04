@@ -4,6 +4,7 @@ import type { CacheService } from '../services/cache/index.js'
 import type { Meilisearch } from 'meilisearch'
 import type { QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
+import { INDEX_NAME } from '@wivwav/search'
 import {
   Registry,
   collectDefaultMetrics,
@@ -54,6 +55,7 @@ export function createMetricsRegistry() {
  *   - BullMQ queue depths (waiting / active / completed / failed / delayed) per queue
  *   - Database size and connection health gauge
  *   - Cache (Valkey) and search (Meilisearch) availability gauges
+ *   - Meilisearch listings index document count, on-disk size, and last sync recency
  *   - Loki availability, last successful source scrape, and NHTSA refresh recency gauges
  *
  * Scrape this endpoint from the Prometheus config:
@@ -134,6 +136,24 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
     registers: [registry],
   })
 
+  const meilisearchDocumentsTotal = new Gauge({
+    name: 'wivwav_meilisearch_documents_total',
+    help: 'Current document count in the Meilisearch listings index',
+    registers: [registry],
+  })
+
+  const meilisearchIndexSizeBytes = new Gauge({
+    name: 'wivwav_meilisearch_index_size_bytes',
+    help: 'On-disk size of the Meilisearch listings index in bytes',
+    registers: [registry],
+  })
+
+  const meilisearchLastSyncTimestamp = new Gauge({
+    name: 'wivwav_meilisearch_last_sync_timestamp_seconds',
+    help: 'Unix timestamp of the most recently completed listing-sync queue job',
+    registers: [registry],
+  })
+
   // ── Log pipeline diagnostics ───────────────────────────────────────────────
 
   const lokiUp = new Gauge({
@@ -203,6 +223,32 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
           meilisearchUp.set(health.status === 'available' ? 1 : 0)
         } catch {
           meilisearchUp.set(0)
+        }
+      })(),
+
+      // Meilisearch index stats (document count + on-disk size)
+      (async () => {
+        try {
+          const stats = await meili.index(INDEX_NAME).getStats()
+          meilisearchDocumentsTotal.set(stats.numberOfDocuments)
+          meilisearchIndexSizeBytes.set(stats.rawDocumentDbSize)
+        } catch {
+          meilisearchDocumentsTotal.set(0)
+          meilisearchIndexSizeBytes.set(0)
+        }
+      })(),
+
+      // Meilisearch last sync recency from the most recently completed listing-sync job
+      (async () => {
+        try {
+          const jobs = await queueFactory.createQueue(QUEUES.LISTING_SYNC).getJobs(['completed'])
+          const latestFinishedAt = jobs.reduce<number>((latest, job) => {
+            const finishedAt = job.finishedAt?.getTime() ?? 0
+            return Math.max(latest, finishedAt)
+          }, 0)
+          meilisearchLastSyncTimestamp.set(Math.floor(latestFinishedAt / 1000))
+        } catch {
+          meilisearchLastSyncTimestamp.set(0)
         }
       })(),
 
