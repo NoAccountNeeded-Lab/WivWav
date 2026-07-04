@@ -4,7 +4,7 @@ COMPOSE = docker compose
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report \
         db-push db-generate db-migrate db-seed db-studio \
-        agents
+        agents prune
 
 # ── Docker stack ──────────────────────────────────────────────────────────────
 
@@ -15,10 +15,13 @@ COMPOSE = docker compose
 up:
 	$(COMPOSE) --profile ai --profile obs up -d --remove-orphans
 
-## build  Rebuild all Docker images without starting containers.
-##        Run this after changing a Dockerfile or pulling new base images.
+## build  Rebuild all Docker images without starting containers. Prunes
+##        dangling images afterward so repeated rebuilds don't fill the
+##        Docker VM disk (each rebuild leaves the old, now-untagged layers
+##        behind). Run 'make prune' for a deeper clean of build cache/volumes.
 build:
 	$(COMPOSE) --profile ai --profile obs build
+	docker image prune -f
 
 ## down   Stop all running containers and remove orphaned ones.
 down:
@@ -27,6 +30,14 @@ down:
 ## logs   Tail live logs from all running containers. Press Ctrl-C to stop.
 logs:
 	$(COMPOSE) logs -f
+
+## prune  Reclaim disk space: dangling images plus unused build cache. Run
+##        this if 'docker system df' shows the Docker VM disk getting full.
+##        Does not touch named volumes (Postgres/Meilisearch/etc data) or
+##        images still referenced by docker-compose.yml.
+prune:
+	docker image prune -f
+	docker builder prune -f
 
 # ── Local development ─────────────────────────────────────────────────────────
 
