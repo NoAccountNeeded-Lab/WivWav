@@ -19,6 +19,8 @@ import type { JobOptions, QueueAdapter } from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
 import { BlvdAdapter } from './sources/blvd.js'
 import { MobilityWorksAdapter } from './sources/mobilityworks.js'
+import { FreedomMotorsAdapter } from './sources/freedom-motors.js'
+import { SuperiorVanAdapter } from './sources/superior-van.js'
 import { OllamaProvider } from './ai/ollama-provider.js'
 import { StructureDetector } from './ai/structure-detector.js'
 import { resolveOllamaModel } from './ai/ollama-config.js'
@@ -183,6 +185,49 @@ const mwSource = await db.source.upsert({
 engine.register(
   new MobilityWorksAdapter(mwSource.fingerprintHash, { previousPage1Hash: mwSource.page1Hash, browserService }),
   mwSource.id,
+)
+
+// Freedom Motors and Superior Van & Mobility (#400) surface all normalized listing
+// fields — including dealer/location, which is either constant (Freedom Motors is a
+// single-location manufacturer) or genuinely unavailable per-listing (Superior Van's
+// grid has no per-card location) — directly from the listing grid, so neither source
+// needs a detail-crawl/detail-extract pass. Only source-scrape is scheduled below.
+const freedomMotorsSource = await db.source.upsert({
+  where: { name: 'Freedom Motors' },
+  update: {},
+  create: {
+    name: 'Freedom Motors',
+    baseUrl: 'https://www.freedommotors.com',
+    cronExpression: '0 */12 * * *',
+    timezone: 'America/New_York',
+  },
+})
+
+engine.register(
+  new FreedomMotorsAdapter(freedomMotorsSource.fingerprintHash, {
+    previousPage1Hash: freedomMotorsSource.page1Hash,
+    browserService,
+  }),
+  freedomMotorsSource.id,
+)
+
+const superiorVanSource = await db.source.upsert({
+  where: { name: 'Superior Van & Mobility' },
+  update: {},
+  create: {
+    name: 'Superior Van & Mobility',
+    baseUrl: 'https://superiorvan.com',
+    cronExpression: '0 */12 * * *',
+    timezone: 'America/New_York',
+  },
+})
+
+engine.register(
+  new SuperiorVanAdapter(superiorVanSource.fingerprintHash, {
+    previousPage1Hash: superiorVanSource.page1Hash,
+    browserService,
+  }),
+  superiorVanSource.id,
 )
 
 // Workers — each processor is wrapped with withSentryCapture so that job
@@ -384,6 +429,22 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     pattern: mwSource.cronExpression,
     tz: mwSource.timezone,
     jobId: 'mw',
+  },
+  {
+    queue: scrapeQueue,
+    name: QUEUES.SOURCE_SCRAPE,
+    data: { sourceId: freedomMotorsSource.id },
+    pattern: freedomMotorsSource.cronExpression,
+    tz: freedomMotorsSource.timezone,
+    jobId: 'freedom-motors',
+  },
+  {
+    queue: scrapeQueue,
+    name: QUEUES.SOURCE_SCRAPE,
+    data: { sourceId: superiorVanSource.id },
+    pattern: superiorVanSource.cronExpression,
+    tz: superiorVanSource.timezone,
+    jobId: 'superior-van',
   },
   {
     queue: crawlQueue,
