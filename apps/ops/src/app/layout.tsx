@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import {
   DM_Mono,
   DM_Sans,
@@ -53,6 +53,12 @@ export const metadata: Metadata = {
   title: 'WivWav Ops',
   description: 'WivWav internal operations panel',
   robots: 'noindex, nofollow',
+}
+
+// Matches the SSR default data-theme="terminal" below; ThemePicker corrects
+// this to the user's resolved theme once it mounts and reads localStorage.
+export const viewport: Viewport = {
+  themeColor: '#050d17',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
