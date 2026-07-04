@@ -257,6 +257,15 @@ export class PrismaListingRepository implements ListingRepository {
           : listing.buyerUrl
       const after = sourceObservation(listing, buyerUrl)
 
+      if (existing !== null) {
+        // A card-level payload with color: null means the source's listing card
+        // doesn't expose color (e.g. BLVD, which only surfaces it on the detail
+        // page) — not that the vehicle has no color. Without this, a routine
+        // card recrawl silently regresses a detail-extracted color back to null
+        // before it can ever be validated as eligible (refs #629).
+        after.color = listing.color ?? existing.color
+      }
+
       if (existing === null) {
         const created = await tx.listing.create({ data: {
         sourceId: listing.sourceId,
@@ -399,7 +408,7 @@ export class PrismaListingRepository implements ListingRepository {
           sellerType: listing.sellerType,
           priceCents: listing.priceCents,
           mileage: listing.mileage,
-          color: listing.color,
+          color: after.color,
           conversionType: listing.wav.conversionType,
           conversionManufacturer: listing.wav.conversionManufacturer,
           floorLoweringInches: listing.wav.floorLoweringInches,
