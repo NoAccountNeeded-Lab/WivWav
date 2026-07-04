@@ -23,6 +23,16 @@ export interface MetricsPluginOptions {
   registry: Registry
 }
 
+/** Unix timestamp (seconds) of the most recently completed job in a queue, or 0 if none/unreachable. */
+async function latestCompletedTimestampSeconds(queueFactory: QueueFactory, queueName: string): Promise<number> {
+  const jobs = await queueFactory.createQueue(queueName).getJobs(['completed'])
+  const latestFinishedAt = jobs.reduce<number>((latest, job) => {
+    const finishedAt = job.finishedAt?.getTime() ?? 0
+    return Math.max(latest, finishedAt)
+  }, 0)
+  return Math.floor(latestFinishedAt / 1000)
+}
+
 /** Create the shared metrics registry and HTTP counters. Call this in the root app before registering metricsRoutes. */
 export function createMetricsRegistry() {
   const registry = new Registry()
@@ -241,12 +251,7 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
       // Meilisearch last sync recency from the most recently completed listing-sync job
       (async () => {
         try {
-          const jobs = await queueFactory.createQueue(QUEUES.LISTING_SYNC).getJobs(['completed'])
-          const latestFinishedAt = jobs.reduce<number>((latest, job) => {
-            const finishedAt = job.finishedAt?.getTime() ?? 0
-            return Math.max(latest, finishedAt)
-          }, 0)
-          meilisearchLastSyncTimestamp.set(Math.floor(latestFinishedAt / 1000))
+          meilisearchLastSyncTimestamp.set(await latestCompletedTimestampSeconds(queueFactory, QUEUES.LISTING_SYNC))
         } catch {
           meilisearchLastSyncTimestamp.set(0)
         }
@@ -283,12 +288,7 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
         await Promise.allSettled(
           [QUEUES.NHTSA_RECALLS, QUEUES.NHTSA_COMPLAINTS, QUEUES.NHTSA_SAFETY_RATINGS].map(async (name) => {
             try {
-              const jobs = await queueFactory.createQueue(name).getJobs(['completed'])
-              const latestFinishedAt = jobs.reduce<number>((latest, job) => {
-                const finishedAt = job.finishedAt?.getTime() ?? 0
-                return Math.max(latest, finishedAt)
-              }, 0)
-              nhtsaLastCompletedTimestamp.labels(name).set(Math.floor(latestFinishedAt / 1000))
+              nhtsaLastCompletedTimestamp.labels(name).set(await latestCompletedTimestampSeconds(queueFactory, name))
             } catch {
               nhtsaLastCompletedTimestamp.labels(name).set(0)
             }
