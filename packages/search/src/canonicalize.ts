@@ -240,6 +240,48 @@ const MODEL_ALIASES: Record<string, string> = {
 }
 
 /**
+ * Multi-word model keys from MODEL_ALIASES (i.e. keys containing internal
+ * whitespace), tokenized and sorted longest-first.
+ *
+ * Exported via matchMultiWordModelTokenCount() so scrapers can detect where a
+ * multi-word model name ends while tokenizing a raw listing title — before
+ * canonicalModel() ever runs (refs #618). Without this, naively assuming
+ * "model is always exactly one token" truncates "Town & Country" to "Town"
+ * and dumps "& Country ..." into trim.
+ */
+const MULTI_WORD_MODEL_TOKENS: string[][] = Object.keys(MODEL_ALIASES)
+  .filter((key) => key.includes(' '))
+  .map((key) => key.split(' '))
+  .sort((a, b) => b.length - a.length)
+
+/**
+ * Given the upper-cased tokens of a raw listing title starting at the
+ * expected model position, returns how many leading tokens form a known
+ * multi-word model (e.g. 3 for `["TOWN", "&", "COUNTRY", ...]`, 2 for
+ * `["GRAND", "CARAVAN", ...]`), or 0 if none match (the common single-token
+ * case). The longest known sequence wins when more than one could match.
+ */
+export function matchMultiWordModelTokenCount(upperTokensFromModel: readonly string[]): number {
+  for (const candidate of MULTI_WORD_MODEL_TOKENS) {
+    if (candidate.length > upperTokensFromModel.length) continue
+    if (candidate.every((token, i) => upperTokensFromModel[i] === token)) {
+      return candidate.length
+    }
+  }
+  return 0
+}
+
+/**
+ * First token of each known multi-word model (e.g. "TOWN", "GRAND") — the
+ * value the pre-#618 scraper tokenizers truncated a multi-word model down
+ * to. Exported so a one-time backfill job can find previously-corrupted
+ * `Listing.model` rows by exact value, without re-deriving the list.
+ */
+export const MULTI_WORD_MODEL_FIRST_TOKENS: readonly string[] = [
+  ...new Set(MULTI_WORD_MODEL_TOKENS.map((tokens) => tokens[0]!)),
+]
+
+/**
  * Canonical make name — title-cased, with known aliases resolved.
  * Prefers the VIN-decoded make when available.
  */
