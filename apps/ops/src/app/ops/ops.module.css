@@ -1334,3 +1334,148 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Schedule timeline (issue #610) ─────────────────────── */
+
+.timeline {
+  margin: 0 0 1.25rem;
+  padding: 1.25rem 1.5rem 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-surface);
+}
+
+.timelineAxis {
+  position: relative;
+  height: 1.125rem;
+  margin: 0 0 0.625rem;
+  padding-left: 9rem;
+}
+
+.timelineTick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 0.6875rem;
+  color: var(--clr-text-muted);
+  white-space: nowrap;
+}
+
+.timelineRows {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.timelineRow {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Dim only the decorative track/markers when disabled — the label text and
+   "Disabled" tag stay at full opacity and use --clr-text-muted (rather than
+   opacity) so they keep meeting WCAG 2.1 AA contrast in every theme. */
+.timelineRow[data-enabled="false"] .timelineTrack {
+  opacity: 0.6;
+}
+
+.timelineRow[data-enabled="false"] .timelineRowLabelText {
+  color: var(--clr-text-muted);
+}
+
+.timelineRowLabel {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--clr-text);
+}
+
+.timelineRowLabelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.timelineDisabledTag {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--clr-text-muted);
+}
+
+.timelineTrack {
+  position: relative;
+  display: block;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border);
+}
+
+.timelineNowLine {
+  position: absolute;
+  top: -0.25rem;
+  bottom: -0.25rem;
+  width: 1px;
+  background: var(--clr-border-strong);
+}
+
+.timelineMarker {
+  position: absolute;
+  top: 50%;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--clr-bg);
+}
+
+.timelineMarker[data-variant="success"] {
+  background: var(--clr-success);
+}
+
+.timelineMarker[data-variant="neutral"] {
+  background: var(--clr-text-muted);
+}
+
+/* Failed markers get an extra ring, not just a color change, so status is not
+   conveyed by hue alone (see ScrapeRunChart in src/components/SparklineChart.tsx).
+   box-shadow (rather than a wider border) keeps the element's own box size
+   untouched, so the data-kind="last" size rule below still applies to it. */
+.timelineMarker[data-variant="danger"] {
+  background: var(--clr-danger);
+  box-shadow: 0 0 0 2px var(--clr-danger);
+}
+
+/* Declared after the variant rules so its smaller size and reduced opacity
+   always win, even when a row's variant is "danger". */
+.timelineMarker[data-kind="last"] {
+  width: 0.5rem;
+  height: 0.5rem;
+  opacity: 0.55;
+}
+
+.timelineCaption {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--clr-text-muted);
+}
+
+@media (max-width: 700px) {
+  .timelineAxis {
+    padding-left: 6rem;
+  }
+
+  .timelineRow {
+    grid-template-columns: 6rem 1fr;
+  }
+
+  .timelineRowLabel {
+    font-size: 0.75rem;
+  }
+}

@@ -6,8 +6,9 @@ import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { SCHEDULE_RUNBOOK_IDS } from '../runbooks'
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
+import { ScheduleTimeline } from './ScheduleTimeline'
 
-interface ScheduleEntry {
+export interface ScheduleEntry {
   id: string
   queue: string
   jobId: string | null
@@ -190,6 +191,8 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
         ) : schedules.length === 0 ? (
           <p className={styles.empty}>No recurring jobs are registered. Start the scraper worker so default schedules can be registered, then refresh.</p>
         ) : (
+          <>
+          <ScheduleTimeline schedules={schedules} />
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
               <thead>
@@ -345,6 +348,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         <details className={styles.helpPanel}>
