@@ -70,11 +70,18 @@ export interface PriceHistoryRow {
  * How many consecutive complete crawls without an observation before a
  * possibly_gone listing is promoted to gone.
  *
- * The value 3 balances tolerance for transient failures (one-off failures
- * should not permanently remove a listing) against staleness (a genuinely
- * removed listing should be confirmed gone within 3 complete crawl cycles).
+ * Raised from 3 to 6 after a real incident (refs #618 investigation,
+ * 2026-07-05): two back-to-back manual full crawls of BLVD.com landed
+ * minutes apart, and the site's soft rate-limiting on the second crawl
+ * returned a truncated result. 3885 legitimate listings took a miss on that
+ * single degraded crawl; at the old threshold of 3, two more such crawls
+ * (plausible during active dev/testing, or repeated site throttling) would
+ * have permanently marked real, still-live inventory as gone. `gone` is not
+ * auto-reversible even if the listing reappears later (see markGone).
+ * 6 gives more headroom against transient scraper/site hiccups; revisit
+ * post-launch once real production crawl reliability data exists.
  */
-export const GONE_AFTER_CONSECUTIVE_MISSING = 3
+export const GONE_AFTER_CONSECUTIVE_MISSING = 6
 
 export interface MarkGoneOptions {
   /** When true the crawl visited every page; missing listings count as evidence of removal. */
