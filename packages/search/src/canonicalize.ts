@@ -346,7 +346,6 @@ function converterLookupKey(s: string): string {
  * - Missing-value placeholders ("unknown", "undefined", "N/A", etc.)
  * - Year numbers ("2026")
  * - Generic WAV/conversion text ("Wheelchair", "Non", "WAV", "Conversion")
- * - Source/dealer names unless the value also appears in KNOWN_CONVERTERS
  * - Anything else not recognized in KNOWN_CONVERTERS (refs #603)
  *
  * This is deliberately an allowlist, not a "reject known-bad, accept everything
@@ -358,14 +357,22 @@ function converterLookupKey(s: string): string {
  * Per this module's design principle, unknown input must produce null, never
  * a misleading value.
  *
+ * Policy (refs #656): KNOWN_CONVERTERS membership is the only signal this
+ * function trusts — it does not compare the value against the listing's
+ * source/dealer name. An earlier version rejected values that echoed the
+ * source name, on the assumption that sources and converters are disjoint.
+ * That assumption doesn't hold: some sources *are* the converter (e.g.
+ * Freedom Motors converts every vehicle in-house), so a value matching its
+ * own source name can be the correct answer, not boilerplate. The echo check
+ * ran before the allowlist bypass and nulled 189 genuine Freedom Motors rows.
+ * Any future source named after a curated converter is monitorable via
+ * `canonicalize-backfill --report`.
+ *
  * AC: Conversion-manufacturer normalization rejects year numbers, generic conversion
- * text, missing-value tokens, source/dealer names, and unrecognized values, unless
- * supported by explicit converter evidence (KNOWN_CONVERTERS).
+ * text, missing-value tokens, and unrecognized values, unless supported by explicit
+ * converter evidence (KNOWN_CONVERTERS).
  */
-export function canonicalConversionManufacturer(
-  raw: string | null | undefined,
-  sourceName: string | null | undefined,
-): string | null {
+export function canonicalConversionManufacturer(raw: string | null | undefined): string | null {
   if (!raw) return null
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -378,20 +385,6 @@ export function canonicalConversionManufacturer(
   // Pattern rejections
   for (const pattern of REJECTED_CONVERTER_PATTERNS) {
     if (pattern.test(trimmed)) return null
-  }
-
-  // If the value matches the source/dealer name, reject it (it's probably boilerplate).
-  // This check runs before the known-converter bypass so that a source named after
-  // a known converter (e.g. MobilityWorks) doesn't accidentally accept its own name
-  // as a conversion manufacturer on all its listings.
-  // NOTE: If a future source is named after a real converter, this rejection will
-  // produce false negatives for that source. The assumption is that sources and
-  // converters are disjoint; if that changes, revisit this ordering.
-  if (
-    sourceName &&
-    lower === sourceName.trim().toLowerCase()
-  ) {
-    return null
   }
 
   // Known converters bypass all other checks

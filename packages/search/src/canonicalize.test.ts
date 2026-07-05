@@ -226,74 +226,72 @@ describe('canonicalModel', () => {
 
 describe('canonicalConversionManufacturer', () => {
   it('returns null for null/empty inputs', () => {
-    expect(canonicalConversionManufacturer(null, null)).toBeNull()
-    expect(canonicalConversionManufacturer(undefined, null)).toBeNull()
-    expect(canonicalConversionManufacturer('', null)).toBeNull()
-    expect(canonicalConversionManufacturer('   ', null)).toBeNull()
+    expect(canonicalConversionManufacturer(null)).toBeNull()
+    expect(canonicalConversionManufacturer(undefined)).toBeNull()
+    expect(canonicalConversionManufacturer('')).toBeNull()
+    expect(canonicalConversionManufacturer('   ')).toBeNull()
   })
 
   it('rejects missing-value tokens (audit: "undefined" in 60 rows)', () => {
-    expect(canonicalConversionManufacturer('unknown', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Unknown', null)).toBeNull()
-    expect(canonicalConversionManufacturer('undefined', null)).toBeNull()
-    expect(canonicalConversionManufacturer('N/A', null)).toBeNull()
-    expect(canonicalConversionManufacturer('n/a', null)).toBeNull()
-    expect(canonicalConversionManufacturer('None', null)).toBeNull()
-    expect(canonicalConversionManufacturer('null', null)).toBeNull()
-    expect(canonicalConversionManufacturer('TBD', null)).toBeNull()
-    expect(canonicalConversionManufacturer('--', null)).toBeNull()
-    expect(canonicalConversionManufacturer('not available', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Not Applicable', null)).toBeNull()
+    expect(canonicalConversionManufacturer('unknown')).toBeNull()
+    expect(canonicalConversionManufacturer('Unknown')).toBeNull()
+    expect(canonicalConversionManufacturer('undefined')).toBeNull()
+    expect(canonicalConversionManufacturer('N/A')).toBeNull()
+    expect(canonicalConversionManufacturer('n/a')).toBeNull()
+    expect(canonicalConversionManufacturer('None')).toBeNull()
+    expect(canonicalConversionManufacturer('null')).toBeNull()
+    expect(canonicalConversionManufacturer('TBD')).toBeNull()
+    expect(canonicalConversionManufacturer('--')).toBeNull()
+    expect(canonicalConversionManufacturer('not available')).toBeNull()
+    expect(canonicalConversionManufacturer('Not Applicable')).toBeNull()
   })
 
   it('rejects year numbers (audit: "2026" in converter field)', () => {
-    expect(canonicalConversionManufacturer('2026', null)).toBeNull()
-    expect(canonicalConversionManufacturer('2025', null)).toBeNull()
-    expect(canonicalConversionManufacturer('2010', null)).toBeNull()
-    expect(canonicalConversionManufacturer('1999', null)).toBeNull()
+    expect(canonicalConversionManufacturer('2026')).toBeNull()
+    expect(canonicalConversionManufacturer('2025')).toBeNull()
+    expect(canonicalConversionManufacturer('2010')).toBeNull()
+    expect(canonicalConversionManufacturer('1999')).toBeNull()
   })
 
   it('rejects generic WAV/conversion text (audit: "Non", "Wheelchair")', () => {
-    expect(canonicalConversionManufacturer('Non', null)).toBeNull()
-    expect(canonicalConversionManufacturer('non', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Wheelchair', null)).toBeNull()
-    expect(canonicalConversionManufacturer('wheelchair', null)).toBeNull()
-    expect(canonicalConversionManufacturer('WAV', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Conversion', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Accessible', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Adapted', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Mobility', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Non')).toBeNull()
+    expect(canonicalConversionManufacturer('non')).toBeNull()
+    expect(canonicalConversionManufacturer('Wheelchair')).toBeNull()
+    expect(canonicalConversionManufacturer('wheelchair')).toBeNull()
+    expect(canonicalConversionManufacturer('WAV')).toBeNull()
+    expect(canonicalConversionManufacturer('Conversion')).toBeNull()
+    expect(canonicalConversionManufacturer('Accessible')).toBeNull()
+    expect(canonicalConversionManufacturer('Adapted')).toBeNull()
+    expect(canonicalConversionManufacturer('Mobility')).toBeNull()
   })
 
-  it('rejects values that match the source/dealer name', () => {
-    expect(canonicalConversionManufacturer('MobilityWorks', 'MobilityWorks')).toBeNull()
-    expect(canonicalConversionManufacturer('BLVD', 'BLVD')).toBeNull()
+  // refs #656 — a prior version rejected any value that echoed the listing's
+  // source/dealer name, on the assumption that sources and converters are
+  // disjoint. That assumption broke once a source is itself a curated
+  // converter: Freedom Motors converts every vehicle in-house, so its source
+  // name and its converter value are the same string, and the echo check ran
+  // *before* the KNOWN_CONVERTERS allowlist bypass — nulling 189 genuine rows.
+  // KNOWN_CONVERTERS membership alone must decide this, regardless of source.
+  it('preserves known converters even when the value matches the source name (refs #656)', () => {
+    expect(canonicalConversionManufacturer('Freedom Motors')).toBe('Freedom Motors')
+    expect(canonicalConversionManufacturer('MobilityWorks')).toBe('MobilityWorks')
   })
 
   it('accepts known conversion manufacturers', () => {
-    expect(canonicalConversionManufacturer('BraunAbility', null)).toBe('BraunAbility')
-    expect(canonicalConversionManufacturer('VMI', null)).toBe('VMI')
-    expect(canonicalConversionManufacturer('AMS Vans', null)).toBe('AMS Vans')
-    expect(canonicalConversionManufacturer('Freedom Motors', null)).toBe('Freedom Motors')
-    expect(canonicalConversionManufacturer('Rollx Vans', null)).toBe('Rollx Vans')
-    expect(canonicalConversionManufacturer('Vantage Mobility', null)).toBe('Vantage Mobility')
+    expect(canonicalConversionManufacturer('BraunAbility')).toBe('BraunAbility')
+    expect(canonicalConversionManufacturer('VMI')).toBe('VMI')
+    expect(canonicalConversionManufacturer('AMS Vans')).toBe('AMS Vans')
+    expect(canonicalConversionManufacturer('Freedom Motors')).toBe('Freedom Motors')
+    expect(canonicalConversionManufacturer('Rollx Vans')).toBe('Rollx Vans')
+    expect(canonicalConversionManufacturer('Vantage Mobility')).toBe('Vantage Mobility')
   })
 
   it('accepts known converter case variants', () => {
-    expect(canonicalConversionManufacturer('braunability', null)).toBe('braunability')
-    expect(canonicalConversionManufacturer('vmi', null)).toBe('vmi')
-    expect(canonicalConversionManufacturer('ams', null)).toBe('ams')
-    expect(canonicalConversionManufacturer('freedom', null)).toBe('freedom')
-    expect(canonicalConversionManufacturer('rollx', null)).toBe('rollx')
-  })
-
-  it('rejects dealer/source names that are not known converters', () => {
-    // If the converter value exactly matches the source name, reject it
-    expect(canonicalConversionManufacturer('Some Dealer Name', 'Some Dealer Name')).toBeNull()
-  })
-
-  it('is case-insensitive for source name rejection', () => {
-    expect(canonicalConversionManufacturer('mobilityworks', 'MobilityWorks')).toBeNull()
+    expect(canonicalConversionManufacturer('braunability')).toBe('braunability')
+    expect(canonicalConversionManufacturer('vmi')).toBe('vmi')
+    expect(canonicalConversionManufacturer('ams')).toBe('ams')
+    expect(canonicalConversionManufacturer('freedom')).toBe('freedom')
+    expect(canonicalConversionManufacturer('rollx')).toBe('rollx')
   })
 
   // refs #603 — tightened from an earlier "reject known-bad patterns, accept
@@ -303,46 +301,48 @@ describe('canonicalConversionManufacturer', () => {
   // that isn't a company name at all — there's no pattern that reliably
   // distinguishes the two, so unrecognized values must now produce null.
   it('rejects values not found in KNOWN_CONVERTERS, even plausible-looking company names', () => {
-    expect(canonicalConversionManufacturer('Apex Mobility', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Northstar Conversions', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Apex Mobility')).toBeNull()
+    expect(canonicalConversionManufacturer('Northstar Conversions')).toBeNull()
+    // Not in KNOWN_CONVERTERS, even though it happens to look like a dealer/source name.
+    expect(canonicalConversionManufacturer('Some Dealer Name')).toBeNull()
   })
 
   it('rejects scraper extraction noise observed in the live conversionBrand facet (refs #603)', () => {
-    expect(canonicalConversionManufacturer('Yes', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Commercial', null)).toBeNull()
-    expect(canonicalConversionManufacturer('FR', null)).toBeNull()
-    expect(canonicalConversionManufacturer('AT', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Side', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Passenger', null)).toBeNull()
-    expect(canonicalConversionManufacturer('See', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Rear', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Regular', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Triple', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Adaptive', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Other', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Yes')).toBeNull()
+    expect(canonicalConversionManufacturer('Commercial')).toBeNull()
+    expect(canonicalConversionManufacturer('FR')).toBeNull()
+    expect(canonicalConversionManufacturer('AT')).toBeNull()
+    expect(canonicalConversionManufacturer('Side')).toBeNull()
+    expect(canonicalConversionManufacturer('Passenger')).toBeNull()
+    expect(canonicalConversionManufacturer('See')).toBeNull()
+    expect(canonicalConversionManufacturer('Rear')).toBeNull()
+    expect(canonicalConversionManufacturer('Regular')).toBeNull()
+    expect(canonicalConversionManufacturer('Triple')).toBeNull()
+    expect(canonicalConversionManufacturer('Adaptive')).toBeNull()
+    expect(canonicalConversionManufacturer('Other')).toBeNull()
     // Low-confidence tail values with no verifiable brand evidence — nulled
     // rather than guessed at; candidates for a follow-up research pass.
-    expect(canonicalConversionManufacturer('Americas', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Vanability', null)).toBeNull()
-    expect(canonicalConversionManufacturer('Promaster', null)).toBeNull()
+    expect(canonicalConversionManufacturer('Americas')).toBeNull()
+    expect(canonicalConversionManufacturer('Vanability')).toBeNull()
+    expect(canonicalConversionManufacturer('Promaster')).toBeNull()
   })
 
   it('accepts newly curated converters (refs #603)', () => {
-    expect(canonicalConversionManufacturer('Driverge', null)).toBe('Driverge')
-    expect(canonicalConversionManufacturer('ATC', null)).toBe('ATC')
-    expect(canonicalConversionManufacturer('ATS', null)).toBe('ATS')
-    expect(canonicalConversionManufacturer('Tempest', null)).toBe('Tempest')
-    expect(canonicalConversionManufacturer('Ryno', null)).toBe('Ryno')
-    expect(canonicalConversionManufacturer('MV-1', null)).toBe('MV-1')
+    expect(canonicalConversionManufacturer('Driverge')).toBe('Driverge')
+    expect(canonicalConversionManufacturer('ATC')).toBe('ATC')
+    expect(canonicalConversionManufacturer('ATS')).toBe('ATS')
+    expect(canonicalConversionManufacturer('Tempest')).toBe('Tempest')
+    expect(canonicalConversionManufacturer('Ryno')).toBe('Ryno')
+    expect(canonicalConversionManufacturer('MV-1')).toBe('MV-1')
   })
 
   it('accepts variant spellings, typos, and product-line names pending slug aliasing (refs #603)', () => {
-    expect(canonicalConversionManufacturer('Braun', null)).toBe('Braun')
-    expect(canonicalConversionManufacturer('braun', null)).toBe('braun')
-    expect(canonicalConversionManufacturer('MV1', null)).toBe('MV1')
-    expect(canonicalConversionManufacturer('Revabilty', null)).toBe('Revabilty')
-    expect(canonicalConversionManufacturer('Northstar', null)).toBe('Northstar')
-    expect(canonicalConversionManufacturer('Entervan', null)).toBe('Entervan')
+    expect(canonicalConversionManufacturer('Braun')).toBe('Braun')
+    expect(canonicalConversionManufacturer('braun')).toBe('braun')
+    expect(canonicalConversionManufacturer('MV1')).toBe('MV1')
+    expect(canonicalConversionManufacturer('Revabilty')).toBe('Revabilty')
+    expect(canonicalConversionManufacturer('Northstar')).toBe('Northstar')
+    expect(canonicalConversionManufacturer('Entervan')).toBe('Entervan')
   })
 })
 
