@@ -26,6 +26,7 @@ interface StoredJob {
 export class MockQueueAdapter implements QueueAdapter {
   readonly name: string
   private jobs: StoredJob[] = []
+  private repeatableJobs: RepeatableJob[] = []
   private paused = false
   private counter = 0
 
@@ -95,9 +96,32 @@ export class MockQueueAdapter implements QueueAdapter {
       }))
   }
 
-  async getRepeatableJobs(): Promise<RepeatableJob[]> { return [] }
-  async addRepeatable(_name: string, _data: unknown, _pattern: string, _tz?: string, _jobId?: string, _options?: JobOptions): Promise<void> {}
-  async removeRepeatableByKey(): Promise<boolean> { return true }
+  async getRepeatableJobs(): Promise<RepeatableJob[]> {
+    return this.repeatableJobs.map((job) => ({ ...job }))
+  }
+
+  async addRepeatable(name: string, _data: unknown, pattern: string, tz?: string, jobId?: string, _options?: JobOptions): Promise<void> {
+    const key = jobId ?? name
+    const repeatable: RepeatableJob = {
+      key,
+      name,
+      id: key,
+      tz: tz ?? null,
+      pattern,
+      next: Date.now() + 60_000,
+      legacy: false,
+    }
+    const index = this.repeatableJobs.findIndex((job) => job.key === key)
+    if (index === -1) this.repeatableJobs.push(repeatable)
+    else this.repeatableJobs[index] = repeatable
+  }
+
+  async removeRepeatableByKey(key: string): Promise<boolean> {
+    const initialLength = this.repeatableJobs.length
+    this.repeatableJobs = this.repeatableJobs.filter((job) => job.key !== key)
+    return this.repeatableJobs.length !== initialLength
+  }
+
   async cleanFailed(_limit?: number): Promise<number> { return 0 }
 
   async close(): Promise<void> {}
@@ -116,9 +140,22 @@ export class MockQueueAdapter implements QueueAdapter {
     job.attemptsMade = attemptsMade
   }
 
+  /** Test helper: mark the most recently added job as completed. */
+  markCompleted(): void {
+    const job = this.jobs.at(-1)
+    if (!job) throw new Error('markCompleted: no jobs have been added yet')
+    job.status = 'completed'
+  }
+
+  /** Test helper: seed BullMQ repeatable metadata, including legacy entries. */
+  seedRepeatable(job: RepeatableJob): void {
+    this.repeatableJobs.push({ ...job })
+  }
+
   /** Test helper: reset state between tests. */
   clear(): void {
     this.jobs = []
+    this.repeatableJobs = []
     this.counter = 0
   }
 }

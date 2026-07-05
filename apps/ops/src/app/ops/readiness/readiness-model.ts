@@ -88,8 +88,6 @@ const CRITICAL_QUEUE_NAMES = [
 ] as const
 
 const CRITICAL_SCHEDULE_IDS = [
-  'detail-crawl',
-  'detail-extract',
   'geocode',
   'deduplicate',
   'vin-enrich',
@@ -97,6 +95,11 @@ const CRITICAL_SCHEDULE_IDS = [
   'nhtsa-complaints',
   'nhtsa-safety-ratings',
 ] as const
+
+const CRITICAL_SOURCE_SCHEDULE_QUEUES = new Set([
+  'detail-crawl',
+  'detail-extract',
+])
 
 export function buildReadinessReport(inputs: ReadinessInputs): ReadinessReport {
   const checks = [
@@ -265,7 +268,13 @@ function checkCriticalSchedules(schedules: ResourceState<ScheduleSnapshot[]>): R
 
   const enabledSourceSchedules = schedules.data.filter(schedule => schedule.queue === 'source-scrape' && schedule.enabled)
   const disabled = schedules.data
-    .filter(schedule => CRITICAL_SCHEDULE_IDS.includes(schedule.id as (typeof CRITICAL_SCHEDULE_IDS)[number]) && !schedule.enabled)
+    .filter(schedule =>
+      (
+        CRITICAL_SCHEDULE_IDS.includes(schedule.id as (typeof CRITICAL_SCHEDULE_IDS)[number]) ||
+        CRITICAL_SOURCE_SCHEDULE_QUEUES.has(schedule.queue)
+      ) &&
+      !schedule.enabled,
+    )
     .map(schedule => schedule.label)
 
   if (enabledSourceSchedules.length === 0) disabled.unshift('At least one source scrape schedule')
