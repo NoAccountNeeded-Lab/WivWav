@@ -43,13 +43,21 @@ manual full sync only when the containment runbook allows publication.
 
 Schedules are stored in **Valkey** by BullMQ, not in node-cron or any config file. The scraper registers defaults on first boot only — subsequent restarts do not override user changes. Disabling a schedule removes it from BullMQ; it stays disabled across scraper restarts.
 
+BLVD.com and MobilityWorks have independent `detail-crawl` and
+`detail-extract` rows. Disable or edit the row labeled for the affected source;
+the other source keeps its own scheduler key and remains enabled. On the first
+startup after upgrading from legacy BullMQ repeatables, the scraper replaces a
+collided detail schedule with both source-specific schedulers. No direct Valkey
+edit is required. To roll back an individual source, disable only its crawl and
+extract rows before reverting the deployment.
+
 ## Background job schedule (defaults)
 
 | Queue                | Default schedule  | Notes |
 | -------------------- | ----------------- | ----- |
 | source-scrape        | Per-source (6–8h) | Configured on each Source row |
-| detail-crawl         | Hourly            | Playwright; rate-limited to 1 page/2 s |
-| detail-extract       | Every 5 min       | No network; reads stored HTML |
+| detail-crawl         | Per-source hourly | Playwright; rate-limited to 1 page/2 s |
+| detail-extract       | Per-source every 5 min | No network; reads stored HTML |
 | listing-sync         | Nightly 1:30 AM   | Clears and rebuilds search with active, eligible rows |
 | geocode              | Nightly 2 AM      | Deduplicated by city/state |
 | deduplicate          | Nightly 3 AM      | VIN-matched |

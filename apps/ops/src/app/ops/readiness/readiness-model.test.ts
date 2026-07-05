@@ -37,11 +37,15 @@ function baseInputs(): ReadinessInputs {
     ]),
     sources: loaded([
       { id: 'source-1', name: 'BLVD.com', status: 'active', lastScrapedAt: '2026-06-18T11:00:00.000Z', listingCount: 12 },
+      { id: 'source-2', name: 'MobilityWorks', status: 'active', lastScrapedAt: '2026-06-18T11:15:00.000Z', listingCount: 8 },
     ]),
     schedules: loaded([
       { id: 'blvd', queue: 'source-scrape', label: 'BLVD.com scrape', enabled: true },
-      { id: 'detail-crawl', queue: 'detail-crawl', label: 'Detail crawl', enabled: true },
-      { id: 'detail-extract', queue: 'detail-extract', label: 'Detail extract', enabled: true },
+      { id: 'mw', queue: 'source-scrape', label: 'MobilityWorks scrape', enabled: true },
+      { id: 'blvd-crawl', queue: 'detail-crawl', label: 'BLVD.com detail crawl', enabled: true },
+      { id: 'mw-crawl', queue: 'detail-crawl', label: 'MobilityWorks detail crawl', enabled: true },
+      { id: 'blvd-extract', queue: 'detail-extract', label: 'BLVD.com detail extract', enabled: true },
+      { id: 'mw-extract', queue: 'detail-extract', label: 'MobilityWorks detail extract', enabled: true },
       { id: 'geocode', queue: 'geocode', label: 'Geocode', enabled: true },
       { id: 'deduplicate', queue: 'deduplicate', label: 'Deduplicate', enabled: true },
       { id: 'vin-enrich', queue: 'vin-enrich', label: 'VIN enrichment', enabled: true },
@@ -76,6 +80,21 @@ describe('buildReadinessReport', () => {
     inputs.runs = loaded([])
 
     expect(buildReadinessReport(inputs).totals.fail).toBeGreaterThanOrEqual(5)
+  })
+
+  it('should fail when one source-specific detail schedule is disabled', () => {
+    const inputs = baseInputs()
+    const schedules = inputs.schedules.status === 'loaded' ? inputs.schedules.data : []
+    inputs.schedules = loaded(schedules.map((schedule) =>
+      schedule.id === 'mw-crawl' ? { ...schedule, enabled: false } : schedule,
+    ))
+
+    const check = buildReadinessReport(inputs).checks.find(
+      (entry) => entry.id === 'critical-schedules',
+    )
+
+    expect(check?.status).toBe('fail')
+    expect(check?.remediation).toContain('MobilityWorks detail crawl')
   })
 
   it('should mark individual checks unavailable when upstream data cannot be loaded', () => {

@@ -15,7 +15,6 @@ process.on('uncaughtException', (err) => {
 import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
 import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
-import type { JobOptions, QueueAdapter } from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
 import { BlvdAdapter } from './sources/blvd.js'
 import { MobilityWorksAdapter } from './sources/mobilityworks.js'
@@ -32,6 +31,11 @@ import {
 } from './infrastructure/prisma-repositories.js'
 import { runDetailCrawlJob } from './jobs/detail-crawl.js'
 import { runDetailExtractJob } from './jobs/detail-extract.js'
+import {
+  buildDetailScheduleDefinitions,
+  reconcileSchedules,
+  type ScheduleDefinition,
+} from './schedule-registration.js'
 import { runGeocodeJob } from './jobs/geocode.js'
 import { runDeduplicateJob } from './jobs/deduplicate.js'
 import { runVinEnrichJob } from './jobs/vin-enrich.js'
@@ -409,19 +413,9 @@ const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 // On startup we only add a schedule if it isn't already in BullMQ, so that
 // changes made via the ops UI (/ops/schedules) survive scraper restarts.
 
-interface ScheduleDef {
-  queue: QueueAdapter
-  name: string
-  data: Record<string, unknown>
-  pattern: string
-  tz: string
-  jobId?: string // stable ID used to identify per-source repeatable jobs
-  options?: JobOptions
-}
-
 const tz = blvdSource.timezone
 
-const SCHEDULE_DEFS: ScheduleDef[] = [
+const SCHEDULE_DEFS: ScheduleDefinition[] = [
   {
     queue: scrapeQueue,
     name: QUEUES.SOURCE_SCRAPE,
@@ -454,42 +448,14 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
     tz: superiorVanSource.timezone,
     jobId: 'superior-van',
   },
-  {
-    queue: crawlQueue,
-    name: QUEUES.DETAIL_CRAWL,
-    data: { sourceId: blvdSource.id },
-    pattern: '0 * * * *',
-    tz,
-    jobId: 'blvd-crawl',
-    options: CRITICAL_JOB_OPTIONS,
-  },
-  {
-    queue: crawlQueue,
-    name: QUEUES.DETAIL_CRAWL,
-    data: { sourceId: mwSource.id },
-    pattern: '0 * * * *',
-    tz: mwSource.timezone,
-    jobId: 'mw-crawl',
-    options: CRITICAL_JOB_OPTIONS,
-  },
-  {
-    queue: extractQueue,
-    name: QUEUES.DETAIL_EXTRACT,
-    data: { sourceId: blvdSource.id },
-    pattern: '*/5 * * * *',
-    tz,
-    jobId: 'blvd-extract',
-    options: CRITICAL_JOB_OPTIONS,
-  },
-  {
-    queue: extractQueue,
-    name: QUEUES.DETAIL_EXTRACT,
-    data: { sourceId: mwSource.id },
-    pattern: '*/5 * * * *',
-    tz: mwSource.timezone,
-    jobId: 'mw-extract',
-    options: CRITICAL_JOB_OPTIONS,
-  },
+  ...buildDetailScheduleDefinitions(
+    [
+      { id: blvdSource.id, timezone: blvdSource.timezone, schedulerPrefix: 'blvd' },
+      { id: mwSource.id, timezone: mwSource.timezone, schedulerPrefix: 'mw' },
+    ],
+    { crawl: crawlQueue, extract: extractQueue },
+    CRITICAL_JOB_OPTIONS,
+  ),
   // Pipeline jobs are staggered to minimise concurrent listing mutations.
   // Row-level locking (processingLockedAt) provides defence-in-depth if
   // schedules slip, but by design these windows should not overlap:
@@ -558,24 +524,7 @@ const SCHEDULE_DEFS: ScheduleDef[] = [
   { queue: fuelEconomyMsrpQueue, name: QUEUES.FUELECONOMY_MSRP, data: {}, pattern: '30 7 * * 0', tz },
 ]
 
-for (const def of SCHEDULE_DEFS) {
-  const existing = await def.queue.getRepeatableJobs()
-  // BullMQ 5 omits `id` from repeatable metadata, so also fall back to name+pattern.
-  const alreadyScheduled = def.jobId
-    ? (existing.some((r) => r.id === def.jobId) ||
-       existing.some((r) => r.name === def.name && r.pattern === def.pattern))
-    : existing.some((r) => r.name === def.name)
-
-  if (!alreadyScheduled) {
-    await def.queue.addRepeatable(def.name, def.data, def.pattern, def.tz, def.jobId, def.options)
-    logger.info(
-      { queue: def.name, jobId: def.jobId, pattern: def.pattern, tz: def.tz },
-      'Schedule registered',
-    )
-  } else {
-    logger.debug({ queue: def.name, jobId: def.jobId }, 'Schedule already registered')
-  }
-}
+await reconcileSchedules(SCHEDULE_DEFS, logger)
 
 const deprecatedProvider = await readConfigValue('ai.scraper.structure.provider')
 if (deprecatedProvider) {

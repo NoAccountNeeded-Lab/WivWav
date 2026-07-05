@@ -52,6 +52,8 @@ export interface RepeatableJob {
   tz: string | null
   pattern: string | null
   next: number | null
+  /** True when BullMQ returned a pre-Job-Scheduler repeatable entry. */
+  legacy?: boolean
 }
 
 export interface QueueAdapter {

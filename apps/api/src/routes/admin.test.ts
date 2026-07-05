@@ -550,6 +550,139 @@ describe('GET /listing-refresh/status', () => {
 })
 
 describe('GET /repeatables', () => {
+  it('does not report one legacy collided schedule as enabled for both sources', async () => {
+    const factory = new MockQueueFactory()
+    const crawlQueue = factory.createQueue(QUEUES.DETAIL_CRAWL) as MockQueueAdapter
+    crawlQueue.seedRepeatable({
+      key: 'legacy-crawl',
+      name: QUEUES.DETAIL_CRAWL,
+      id: null,
+      tz: 'America/New_York',
+      pattern: '0 * * * *',
+      next: Date.now() + 60_000,
+      legacy: true,
+    })
+    const { app } = buildTestApp({
+      findScheduledSources: vi.fn(async () => [
+        { id: 'blvd-id', name: 'BLVD.com', cronExpression: '0 */6 * * *', timezone: 'America/New_York' },
+        { id: 'mw-id', name: 'MobilityWorks', cronExpression: '0 */8 * * *', timezone: 'America/New_York' },
+      ]),
+    }, {}, factory)
+
+    const res = await app.inject({ method: 'GET', url: '/repeatables' })
+
+    const schedules = res.json().data as Array<{ id: string; enabled: boolean }>
+    expect(schedules.find((schedule) => schedule.id === 'blvd-crawl')?.enabled).toBe(false)
+    expect(schedules.find((schedule) => schedule.id === 'mw-crawl')?.enabled).toBe(false)
+
+    await app.close()
+  })
+
+  it('returns independent source-specific crawl and extract schedules with live state', async () => {
+    const factory = new MockQueueFactory()
+    const crawlQueue = factory.createQueue(QUEUES.DETAIL_CRAWL) as MockQueueAdapter
+    const extractQueue = factory.createQueue(QUEUES.DETAIL_EXTRACT) as MockQueueAdapter
+    await crawlQueue.addRepeatable(
+      QUEUES.DETAIL_CRAWL,
+      { sourceId: 'blvd-id' },
+      '0 * * * *',
+      'America/New_York',
+      'blvd-crawl',
+    )
+    await crawlQueue.addRepeatable(
+      QUEUES.DETAIL_CRAWL,
+      { sourceId: 'mw-id' },
+      '0 * * * *',
+      'America/Chicago',
+      'mw-crawl',
+    )
+    await extractQueue.addRepeatable(
+      QUEUES.DETAIL_EXTRACT,
+      { sourceId: 'blvd-id' },
+      '*/5 * * * *',
+      'America/New_York',
+      'blvd-extract',
+    )
+    await extractQueue.addRepeatable(
+      QUEUES.DETAIL_EXTRACT,
+      { sourceId: 'mw-id' },
+      '*/5 * * * *',
+      'America/Chicago',
+      'mw-extract',
+    )
+    await crawlQueue.add({ sourceId: 'blvd-id' })
+    crawlQueue.markFailed('BLVD crawl failed')
+    await crawlQueue.add({ sourceId: 'mw-id' })
+    crawlQueue.markCompleted()
+
+    const { app } = buildTestApp({
+      findScheduledSources: vi.fn(async () => [
+        { id: 'blvd-id', name: 'BLVD.com', cronExpression: '0 */6 * * *', timezone: 'America/New_York' },
+        { id: 'mw-id', name: 'MobilityWorks', cronExpression: '0 */8 * * *', timezone: 'America/Chicago' },
+      ]),
+    }, {}, factory)
+
+    const res = await app.inject({ method: 'GET', url: '/repeatables' })
+
+    expect(res.statusCode).toBe(200)
+    const schedules = res.json().data as Array<{
+      id: string
+      jobId: string
+      label: string
+      data: { sourceId: string }
+      enabled: boolean
+      key: string
+      pattern: string
+      tz: string
+      next: number
+      lastStatus: string | null
+    }>
+    expect(schedules.filter((schedule) =>
+      schedule.id.endsWith('-crawl') || schedule.id.endsWith('-extract'),
+    )).toEqual([
+      expect.objectContaining({
+        id: 'blvd-crawl',
+        jobId: 'blvd-crawl',
+        label: 'BLVD.com detail crawl (Playwright)',
+        data: { sourceId: 'blvd-id' },
+        enabled: true,
+        key: 'blvd-crawl',
+        pattern: '0 * * * *',
+        tz: 'America/New_York',
+        next: expect.any(Number),
+        lastStatus: 'failed',
+      }),
+      expect.objectContaining({
+        id: 'mw-crawl',
+        jobId: 'mw-crawl',
+        label: 'MobilityWorks detail crawl (Playwright)',
+        data: { sourceId: 'mw-id' },
+        enabled: true,
+        key: 'mw-crawl',
+        pattern: '0 * * * *',
+        tz: 'America/Chicago',
+        next: expect.any(Number),
+        lastStatus: 'completed',
+      }),
+      expect.objectContaining({
+        id: 'blvd-extract',
+        jobId: 'blvd-extract',
+        data: { sourceId: 'blvd-id' },
+        enabled: true,
+        next: expect.any(Number),
+      }),
+      expect.objectContaining({
+        id: 'mw-extract',
+        jobId: 'mw-extract',
+        data: { sourceId: 'mw-id' },
+        enabled: true,
+        next: expect.any(Number),
+      }),
+    ])
+
+    await app.close()
+  })
+
   it('includes canonical NHTSA and VIN refresh schedules with monitoring metadata', async () => {
     const factory = new MockQueueFactory()
     const { app } = buildTestApp({}, {}, factory)
