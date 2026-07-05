@@ -178,7 +178,7 @@ export function toDocument(row: Listing): ListingDocument {
   // engine is the raw engine description; fuelType may be an engine description on legacy rows
   // from BLVD before the engine/fuelType separation was introduced (pre-#515 backfill).
   const canonFuelType = canonicalFuelType(row.fuelType, row.engine ?? null)
-  const canonConverter = canonicalConversionManufacturer(row.conversionManufacturer, null)
+  const canonConverter = canonicalConversionManufacturer(row.conversionManufacturer)
 
   return {
     id: row.id,
