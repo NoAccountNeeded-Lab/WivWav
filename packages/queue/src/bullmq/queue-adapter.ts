@@ -71,28 +71,36 @@ export class BullMQQueueAdapter implements QueueAdapter {
   }
 
   async getRepeatableJobs(): Promise<RepeatableJob[]> {
-    const jobs = await this.queue.getRepeatableJobs()
+    const jobs = await this.queue.getJobSchedulers()
     return jobs.map((j) => ({
       key: j.key,
       name: j.name,
-      id: j.id ?? null,
+      // Job Scheduler metadata does not populate `id`; the caller-supplied
+      // scheduler identity is returned as `key`.
+      id: j.key,
       tz: j.tz ?? null,
       pattern: j.pattern ?? null,
       next: j.next ?? null,
+      legacy: j.iterationCount === undefined,
     }))
   }
 
   async addRepeatable(name: string, data: unknown, pattern: string, tz?: string, jobId?: string, options?: JobOptions): Promise<void> {
-    const opts: JobsOptions = {
-      repeat: { pattern, ...(tz ? { tz } : {}) },
-      ...(jobId ? { jobId } : {}),
-    }
+    const opts: JobsOptions = {}
     if (options?.attempts !== undefined) opts.attempts = options.attempts
     if (options?.backoff !== undefined) opts.backoff = options.backoff
-    await this.queue.add(name, data as object, opts)
+    await this.queue.upsertJobScheduler(
+      jobId ?? name,
+      { pattern, ...(tz ? { tz } : {}) },
+      { name, data: data as object, opts },
+    )
   }
 
   async removeRepeatableByKey(key: string): Promise<boolean> {
+    const removed = await this.queue.removeJobScheduler(key)
+    if (removed) return true
+    // Legacy repeatable hashes can remain after upgrading to the Job Scheduler
+    // API. Keep the deprecated removal call only as a migration fallback.
     return this.queue.removeRepeatableByKey(key)
   }
 

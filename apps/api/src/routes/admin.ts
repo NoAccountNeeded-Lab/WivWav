@@ -498,8 +498,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     return [
       ...(blvd ? [{ id: 'blvd', queue: 'source-scrape', jobId: 'blvd', label: 'BLVD.com scrape', name: 'source-scrape', data: { sourceId: blvd.id }, defaultPattern: blvd.cronExpression, tz: blvd.timezone, sourceScoped: true }] : []),
       ...(mw   ? [{ id: 'mw',   queue: 'source-scrape', jobId: 'mw',   label: 'MobilityWorks scrape', name: 'source-scrape', data: { sourceId: mw.id }, defaultPattern: mw.cronExpression, tz: mw.timezone, sourceScoped: true }] : []),
-      { id: 'detail-crawl',    queue: 'detail-crawl',    label: 'Detail crawl (Playwright)', name: 'detail-crawl',    data: { sourceId: blvd?.id ?? '' }, defaultPattern: '0 * * * *',   tz },
-      { id: 'detail-extract',  queue: 'detail-extract',  label: 'Detail extract (HTML)',     name: 'detail-extract',  data: { sourceId: blvd?.id ?? '' }, defaultPattern: '*/5 * * * *', tz },
+      ...(blvd ? [{ id: 'blvd-crawl', queue: 'detail-crawl', jobId: 'blvd-crawl', label: 'BLVD.com detail crawl (Playwright)', name: 'detail-crawl', data: { sourceId: blvd.id }, defaultPattern: '0 * * * *', tz: blvd.timezone, sourceScoped: true }] : []),
+      ...(mw ? [{ id: 'mw-crawl', queue: 'detail-crawl', jobId: 'mw-crawl', label: 'MobilityWorks detail crawl (Playwright)', name: 'detail-crawl', data: { sourceId: mw.id }, defaultPattern: '0 * * * *', tz: mw.timezone, sourceScoped: true }] : []),
+      ...(blvd ? [{ id: 'blvd-extract', queue: 'detail-extract', jobId: 'blvd-extract', label: 'BLVD.com detail extract (HTML)', name: 'detail-extract', data: { sourceId: blvd.id }, defaultPattern: '*/5 * * * *', tz: blvd.timezone, sourceScoped: true }] : []),
+      ...(mw ? [{ id: 'mw-extract', queue: 'detail-extract', jobId: 'mw-extract', label: 'MobilityWorks detail extract (HTML)', name: 'detail-extract', data: { sourceId: mw.id }, defaultPattern: '*/5 * * * *', tz: mw.timezone, sourceScoped: true }] : []),
       { id: 'geocode',         queue: 'geocode',         label: 'Geocode (city → GPS)',      name: 'geocode',         data: {},                          defaultPattern: '0 2 * * *',   tz },
       { id: 'deduplicate',     queue: 'deduplicate',     label: 'Deduplicate (VIN)',         name: 'deduplicate',     data: {},                          defaultPattern: '0 3 * * *',   tz },
       { id: 'rawpage-cleanup', queue: 'rawpage-cleanup', label: 'RawPage cleanup (TTL)',      name: 'rawpage-cleanup', data: {},                          defaultPattern: '0 1 * * *',   tz },
@@ -529,12 +531,23 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
     const data = defs.map((def) => {
       const live = liveByQueue.get(def.queue) ?? []
-      // BullMQ 5 stores repeatables in a Redis hash that omits `id`, so r.id is
-      // always null for new-format entries. Fall back to name+pattern matching.
-      const match = def.jobId
-        ? (live.find((r) => r.id === def.jobId) ??
-           live.find((r) => r.name === def.name && r.pattern === def.defaultPattern))
-        : live.find((r) => r.name === def.name)
+      const exactMatch = def.jobId
+        ? live.find((repeatable) => repeatable.id === def.jobId)
+        : undefined
+      const signatureIsAmbiguous = defs.some((candidate) =>
+        candidate.id !== def.id &&
+        candidate.queue === def.queue &&
+        candidate.name === def.name &&
+        candidate.defaultPattern === def.defaultPattern,
+      )
+      const match = exactMatch ?? (
+        signatureIsAmbiguous
+          ? undefined
+          : live.find((repeatable) =>
+              repeatable.name === def.name &&
+              (!def.jobId || repeatable.pattern === def.defaultPattern),
+            )
+      )
       const jobs = (jobsByQueue.get(def.queue) ?? []).filter((job) => isMatchingJob(job, def))
       const latestJob = [...jobs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
       const failedJobs = jobs.filter((job) => job.status === 'failed')
