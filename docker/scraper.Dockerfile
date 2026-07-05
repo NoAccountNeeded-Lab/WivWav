@@ -1,10 +1,19 @@
-FROM node:24-alpine AS base
+# syntax=docker/dockerfile:1
+
+# Playwright supports Debian/glibc, not Alpine/musl. Keep every stage on the
+# same runtime family so native packages such as sharp are built for the final
+# image's libc and architecture.
+FROM node:24-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
 FROM base AS builder
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY packages/config/package.json ./packages/config/
 COPY packages/types/package.json ./packages/types/
@@ -28,40 +37,46 @@ COPY packages/queue ./packages/queue
 COPY packages/search ./packages/search
 COPY packages/agents ./packages/agents
 COPY apps/scraper ./apps/scraper
-RUN pnpm --filter @wivwav/types build
-RUN pnpm --filter @wivwav/observability build
-RUN pnpm --filter @wivwav/db generate
-RUN pnpm --filter @wivwav/db build
-RUN pnpm --filter @wivwav/logger build
-RUN pnpm --filter @wivwav/queue build
-RUN pnpm --filter @wivwav/search build
-RUN pnpm --filter @wivwav/agents build
-RUN pnpm --filter @wivwav/scraper build
+RUN pnpm --filter @wivwav/db generate \
+    && pnpm --filter @wivwav/scraper... run build
 
-FROM mcr.microsoft.com/playwright:v1.60.0-noble AS runner
+# Materialize a portable production-only app. Build scripts already ran in the
+# glibc builder, so the deploy step must not rerun workspace postinstall hooks.
+# Prisma exposes TypeScript and its CLI as optional peers; remove those build
+# tools after deploy because the generated client is already in @wivwav/db/dist.
+RUN pnpm --config.inject-workspace-packages=true \
+      --filter @wivwav/scraper \
+      --prod \
+      --ignore-scripts \
+      deploy /prod/scraper \
+    && find /prod/scraper/node_modules/.pnpm -maxdepth 1 -type d \
+      \( -name 'typescript@*' -o -name 'prisma@*' \) -exec rm -rf '{}' + \
+    && find /prod/scraper/node_modules -xtype l -delete \
+    && ! find /prod/scraper/node_modules/.pnpm -maxdepth 1 -type d \
+      \( -name 'typescript@*' -o -name 'vitest@*' -o -name 'eslint@*' \
+         -o -name 'prettier@*' -o -name 'turbo@*' \) | grep -q . \
+    && cd /prod/scraper \
+    && node -e "const sharp = require('sharp'); console.log('sharp', sharp.versions.sharp)"
+
+FROM base AS runner
 ENV NODE_ENV=production
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV HOME=/home/scraper
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/scraper/node_modules ./apps/scraper/node_modules
-COPY --from=builder /app/packages/types/dist ./packages/types/dist
-COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
-COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
-COPY --from=builder /app/packages/observability/package.json ./packages/observability/package.json
-COPY --from=builder /app/packages/db/dist ./packages/db/dist
-COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
-COPY --from=builder /app/packages/db/node_modules ./packages/db/node_modules
-COPY --from=builder /app/packages/logger/dist ./packages/logger/dist
-COPY --from=builder /app/packages/logger/package.json ./packages/logger/package.json
-COPY --from=builder /app/packages/logger/node_modules ./packages/logger/node_modules
-COPY --from=builder /app/packages/queue/dist ./packages/queue/dist
-COPY --from=builder /app/packages/queue/package.json ./packages/queue/package.json
-COPY --from=builder /app/packages/queue/node_modules ./packages/queue/node_modules
-COPY --from=builder /app/packages/search/dist ./packages/search/dist
-COPY --from=builder /app/packages/search/package.json ./packages/search/package.json
-COPY --from=builder /app/packages/agents/dist ./packages/agents/dist
-COPY --from=builder /app/packages/agents/package.json ./packages/agents/package.json
-COPY --from=builder /app/apps/scraper/dist ./apps/scraper/dist
-COPY --from=builder /app/apps/scraper/package.json ./apps/scraper/
+RUN groupadd --gid 10001 scraper \
+    && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin scraper
 
-CMD ["node", "apps/scraper/dist/index.js"]
+COPY --from=builder --chown=scraper:scraper /prod/scraper ./
+
+# The scraper launches Playwright's default headless mode without a channel, so
+# only Chromium headless shell is required. Firefox, WebKit, and full Chromium
+# are intentionally not installed.
+RUN ./node_modules/.bin/playwright install --with-deps --only-shell chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && chown -R scraper:scraper /ms-playwright
+
+COPY --chown=scraper:scraper docker/scraper-smoke.mjs ./smoke.mjs
+
+USER scraper
+CMD ["node", "dist/index.js"]

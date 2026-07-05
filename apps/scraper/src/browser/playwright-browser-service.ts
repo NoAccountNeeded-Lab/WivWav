@@ -31,7 +31,7 @@ chromium.use(StealthPlugin())
 
 export class PlaywrightBrowserService implements BrowserService {
   async launch(): Promise<BrowserSession> {
-    const browser = await chromium.launch()
+    const browser = await chromium.launch({ chromiumSandbox: true })
 
     return {
       newPage: async (options?: NewPageOptions): Promise<BrowserPage> => {
