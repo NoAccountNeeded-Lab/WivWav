@@ -26,6 +26,14 @@
  * `unresolved` and require a re-scrape (the source site itself still has the
  * correct, untruncated title) rather than a backfill.
  *
+ * Caveat — ambiguous first tokens (e.g. "Transit"): some multi-word models
+ * share their first token with a legitimate standalone model ("Transit
+ * Connect" vs. plain "Transit"). For these
+ * (`AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS`), a failed reconstruction does
+ * NOT imply corruption — it just as often means the row was a correct
+ * standalone model all along. Such rows are reported separately as
+ * `alreadyCorrect` and require no action, unlike genuinely `unresolved` rows.
+ *
  * Usage:
  *   pnpm tsx apps/scraper/src/jobs/title-tokenizer-backfill.ts --report
  *   pnpm tsx apps/scraper/src/jobs/title-tokenizer-backfill.ts --apply
@@ -61,7 +69,11 @@
  */
 
 import { getDb } from '@wivwav/db'
-import { matchMultiWordModelTokenCount, MULTI_WORD_MODEL_FIRST_TOKENS } from '@wivwav/search'
+import {
+  matchMultiWordModelTokenCount,
+  MULTI_WORD_MODEL_FIRST_TOKENS,
+  AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS,
+} from '@wivwav/search'
 
 interface CorrectedRow {
   id: string
@@ -88,6 +100,17 @@ export interface TitleTokenizerBackfillReport {
     total: number
     bySource: Record<string, number>
     samples: UnresolvedRow[]
+  }
+  /**
+   * Rows whose model exactly matches an ambiguous first token (e.g.
+   * "Transit") but failed multi-word reconstruction. Unlike `unresolved`,
+   * this does NOT mean the row is corrupted — "Transit" is also a valid
+   * standalone model, so these rows were most likely never touched by the
+   * pre-#618 bug and require no action.
+   */
+  alreadyCorrect: {
+    total: number
+    bySource: Record<string, number>
   }
 }
 
@@ -120,6 +143,7 @@ export async function runBackfill(opts: { apply: boolean }): Promise<TitleTokeni
     totalCandidates: 0,
     corrected: { total: 0, bySource: {}, samples: [] },
     unresolved: { total: 0, bySource: {}, samples: [] },
+    alreadyCorrect: { total: 0, bySource: {} },
   }
 
   const candidates = await db.listing.findMany({
@@ -147,6 +171,12 @@ export async function runBackfill(opts: { apply: boolean }): Promise<TitleTokeni
         })
       }
       toApply.push({ id: row.id, model: reconstructed.model, trim: reconstructed.trim })
+    } else if (AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS.has(row.model.toUpperCase())) {
+      // "Transit"-style token: also a valid standalone model, so a failed
+      // reconstruction means this row was never corrupted, not that it
+      // needs a re-scrape. No action needed.
+      report.alreadyCorrect.total++
+      report.alreadyCorrect.bySource[sourceName] = (report.alreadyCorrect.bySource[sourceName] ?? 0) + 1
     } else {
       report.unresolved.total++
       report.unresolved.bySource[sourceName] = (report.unresolved.bySource[sourceName] ?? 0) + 1
@@ -211,6 +241,13 @@ function printReport(report: TitleTokenizerBackfillReport, applied: boolean): vo
   }
   for (const sample of report.unresolved.samples) {
     console.log(`    [${sample.id}] model="${sample.model}" trim="${sample.trim ?? ''}"`)
+  }
+
+  console.log('\n── Already correct (ambiguous first token, e.g. "Transit" — no action needed) ──')
+  console.log(`  Total: ${report.alreadyCorrect.total}`)
+  console.log('  By source:')
+  for (const [source, count] of Object.entries(report.alreadyCorrect.bySource)) {
+    console.log(`    ${source}: ${count}`)
   }
 
   console.log('\n=== Done ===\n')

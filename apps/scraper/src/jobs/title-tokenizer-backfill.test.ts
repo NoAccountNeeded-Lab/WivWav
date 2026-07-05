@@ -130,6 +130,37 @@ describe('runBackfill', () => {
     expect(db.listing.update).not.toHaveBeenCalled()
   })
 
+  it('reports a plain "Transit" row as alreadyCorrect, not unresolved, since "Transit" is a valid standalone model', async () => {
+    db.listing.findMany.mockResolvedValueOnce([
+      { id: 'l-4', sourceId: 'blvd', model: 'Transit', trim: '350 XLT', source: { name: 'BLVD' } },
+    ])
+
+    const report = await runBackfill({ apply: true })
+
+    expect(report.alreadyCorrect.total).toBe(1)
+    expect(report.alreadyCorrect.bySource['BLVD']).toBe(1)
+    expect(report.unresolved.total).toBe(0)
+    expect(db.listing.update).not.toHaveBeenCalled()
+  })
+
+  it('still corrects a genuine "Transit Connect" truncation', async () => {
+    db.listing.findMany.mockResolvedValueOnce([
+      {
+        id: 'l-5',
+        sourceId: 'blvd',
+        model: 'Transit',
+        trim: 'Connect Wheelchair Handicap',
+        source: { name: 'BLVD' },
+      },
+    ])
+
+    const report = await runBackfill({ apply: false })
+
+    expect(report.corrected.total).toBe(1)
+    expect(report.corrected.samples[0]?.after).toEqual({ model: 'Transit Connect', trim: 'Wheelchair Handicap' })
+    expect(report.alreadyCorrect.total).toBe(0)
+  })
+
   it('tallies a mix of corrected and unresolved rows across sources', async () => {
     db.listing.findMany.mockResolvedValueOnce([
       { id: 'l-1', sourceId: 'blvd', model: 'Town', trim: '& Country Touring', source: { name: 'BLVD' } },

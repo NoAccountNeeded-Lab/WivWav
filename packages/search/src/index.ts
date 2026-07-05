@@ -83,6 +83,7 @@ export {
   ENGINE_DESCRIPTION_PATTERN,
   matchMultiWordModelTokenCount,
   MULTI_WORD_MODEL_FIRST_TOKENS,
+  AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS,
 } from './canonicalize.js'
 export type { CanonicalFuelType } from './canonicalize.js'
 
