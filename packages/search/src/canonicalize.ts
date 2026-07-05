@@ -282,6 +282,20 @@ export const MULTI_WORD_MODEL_FIRST_TOKENS: readonly string[] = [
 ]
 
 /**
+ * Subset of MULTI_WORD_MODEL_FIRST_TOKENS that are ALSO a legitimate
+ * standalone model in their own right (e.g. "Transit" is both a standalone
+ * Ford model and the first token of "Transit Connect"), unlike "Town" or
+ * "Grand", which are never valid models by themselves. A listing whose
+ * `model` exactly equals one of these tokens may never have been corrupted
+ * by the pre-#618 tokenizer bug — so callers (the backfill's candidate
+ * report) must not treat a failed multi-word reconstruction for these tokens
+ * as evidence of corruption the way they safely can for unambiguous tokens.
+ */
+export const AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS: ReadonlySet<string> = new Set(
+  MULTI_WORD_MODEL_FIRST_TOKENS.filter((token) => token in MODEL_ALIASES),
+)
+
+/**
  * Canonical make name — title-cased, with known aliases resolved.
  * Prefers the VIN-decoded make when available.
  */
