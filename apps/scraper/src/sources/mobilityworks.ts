@@ -10,6 +10,7 @@ import type { JobContext } from '@wivwav/queue'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
+import { parseVehicleTitle } from '../lib/parse-vehicle-title.js'
 
 const SOURCE_ID = 'mobilityworks'
 const INITIAL_NAV_MAX_ATTEMPTS = 3
@@ -458,11 +459,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   const condition: ListingCondition = condPrefix?.[1]?.toLowerCase() === 'new' ? 'new' : 'used'
   const titleBody = titleClean.replace(/^(Used|New|Certified Pre[- ]Owned|CPO)\s+/i, '').trim()
 
-  const parts = titleBody.split(/\s+/)
-  const year = parseInt(parts[0] ?? '0', 10)
-  const make = parts[1] ?? ''
-  const model = parts[2] ?? ''
-  const trim = parts.slice(3).join(' ') || null
+  const { year, make, model, trim } = parseVehicleTitle(titleBody)
 
   if (!make || !model || year < 1990 || year > new Date().getFullYear() + 2) return null
 

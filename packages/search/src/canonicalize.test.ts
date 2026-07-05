@@ -14,6 +14,8 @@ import {
   canonicalModel,
   canonicalConversionManufacturer,
   conversionBrandSlug,
+  matchMultiWordModelTokenCount,
+  MULTI_WORD_MODEL_FIRST_TOKENS,
 } from './canonicalize.js'
 
 // ---------------------------------------------------------------------------
@@ -217,6 +219,60 @@ describe('canonicalModel', () => {
 
   it('title-cases unknown models', () => {
     expect(canonicalModel(null, 'some unknown model')).toBe('Some Unknown Model')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// matchMultiWordModelTokenCount (refs #618)
+// ---------------------------------------------------------------------------
+
+describe('matchMultiWordModelTokenCount', () => {
+  it('matches "GRAND CARAVAN" as 2 tokens', () => {
+    expect(matchMultiWordModelTokenCount(['GRAND', 'CARAVAN', 'SXT'])).toBe(2)
+  })
+
+  it('matches "TOWN & COUNTRY" as 3 tokens', () => {
+    expect(matchMultiWordModelTokenCount(['TOWN', '&', 'COUNTRY', 'TOURING'])).toBe(3)
+  })
+
+  it('matches "TOWN AND COUNTRY" as 3 tokens', () => {
+    expect(matchMultiWordModelTokenCount(['TOWN', 'AND', 'COUNTRY', 'LX'])).toBe(3)
+  })
+
+  it('matches "TRANSIT CONNECT" as 2 tokens', () => {
+    expect(matchMultiWordModelTokenCount(['TRANSIT', 'CONNECT', 'XLT'])).toBe(2)
+  })
+
+  it('returns 0 for a single-word model with no multi-word candidate', () => {
+    expect(matchMultiWordModelTokenCount(['SIENNA', 'FWD', 'XLE'])).toBe(0)
+  })
+
+  it('returns 0 for an empty token list', () => {
+    expect(matchMultiWordModelTokenCount([])).toBe(0)
+  })
+
+  it('does not match a partial/truncated sequence', () => {
+    // "Town & C" is missing the rest of "Country" — a different (unrelated) data
+    // quality issue, not something this matcher should paper over.
+    expect(matchMultiWordModelTokenCount(['TOWN', '&', 'C', 'TOURING'])).toBe(0)
+  })
+
+  it('prefers the longest match when multiple candidates could apply', () => {
+    // "TRANSIT" alone is a single-word alias, but "TRANSIT CONNECT" must win
+    // when both tokens are present.
+    expect(matchMultiWordModelTokenCount(['TRANSIT', 'CONNECT'])).toBe(2)
+  })
+})
+
+describe('MULTI_WORD_MODEL_FIRST_TOKENS', () => {
+  it('includes the truncated first token of each known multi-word model', () => {
+    expect(MULTI_WORD_MODEL_FIRST_TOKENS).toContain('TOWN')
+    expect(MULTI_WORD_MODEL_FIRST_TOKENS).toContain('GRAND')
+    expect(MULTI_WORD_MODEL_FIRST_TOKENS).toContain('TRANSIT')
+  })
+
+  it('has no duplicates', () => {
+    expect(new Set(MULTI_WORD_MODEL_FIRST_TOKENS).size).toBe(MULTI_WORD_MODEL_FIRST_TOKENS.length)
   })
 })
 
