@@ -7,6 +7,7 @@ import { report } from '../jobs/job-progress.js'
 import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
 import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/db'
 import { isVehicleImageUrl } from './image-filter.js'
+import { parseVehicleTitle } from '../lib/parse-vehicle-title.js'
 
 const SOURCE_ID = 'freedom-motors'
 const INITIAL_NAV_MAX_ATTEMPTS = 3
@@ -371,11 +372,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   if (!raw.productLink || !raw.itemName) return null
 
   // "2025 Kia Telluride EX" → year, make, model, trim
-  const parts = raw.itemName.trim().split(/\s+/)
-  const year = parseInt(parts[0] ?? '0', 10)
-  const make = parts[1] ?? ''
-  const model = parts[2] ?? ''
-  const trim = parts.slice(3).join(' ') || null
+  const { year, make, model, trim } = parseVehicleTitle(raw.itemName)
 
   if (!make || !model || Number.isNaN(year) || year < 1990 || year > new Date().getFullYear() + 2) return null
 

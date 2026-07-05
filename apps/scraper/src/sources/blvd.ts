@@ -12,6 +12,7 @@ import { report } from '../jobs/job-progress.js'
 import { RobotsCache } from '../util/robots-cache.js'
 import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
 import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/db'
+import { parseVehicleTitle } from '../lib/parse-vehicle-title.js'
 
 const SOURCE_ID = 'blvd'
 const INITIAL_NAV_MAX_ATTEMPTS = 3
@@ -411,11 +412,7 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
   if (raw.condition === '') return null
 
   // "2024 Toyota Sienna FWD XLE" → year, make, model, trim
-  const parts = raw.fullTitle.trim().split(/\s+/)
-  const year = parseInt(parts[0] ?? '0', 10)
-  const make = parts[1] ?? ''
-  const model = parts[2] ?? ''
-  const trim = parts.slice(3).join(' ') || null
+  const { year, make, model, trim } = parseVehicleTitle(raw.fullTitle)
 
   if (!make || !model || year < 1990 || year > new Date().getFullYear() + 2) return null
 

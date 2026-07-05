@@ -299,6 +299,26 @@ describe('parseCard', () => {
     const result = parseCard(validCard)
     expect(result!.dealer.name).toBe('MobilityWorks')
   })
+
+  // ─── Multi-word model titles (refs #618) ────────────────────────────────────
+  // The tokenizer used to assume `model` was always exactly one token, which
+  // truncated multi-word models and dumped the rest into `trim`.
+
+  it('parses "Town & Country" as the full model, not just "Town"', () => {
+    const result = parseCard({ ...validCard, title: 'Used 2024 Chrysler Town & Country Touring' })
+    expect(result).not.toBeNull()
+    expect(result!.make).toBe('Chrysler')
+    expect(result!.model).toBe('Town & Country')
+    expect(result!.trim).toBe('Touring')
+  })
+
+  it('parses "Grand Caravan" as the full model, not just "Grand"', () => {
+    const result = parseCard({ ...validCard, title: 'Used 2019 Dodge Grand Caravan SXT' })
+    expect(result).not.toBeNull()
+    expect(result!.make).toBe('Dodge')
+    expect(result!.model).toBe('Grand Caravan')
+    expect(result!.trim).toBe('SXT')
+  })
 })
 
 // ─── MobilityWorksAdapter.checkPage1 retry behaviour ────────────────────────
