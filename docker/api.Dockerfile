@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -16,7 +17,8 @@ COPY packages/logger/package.json ./packages/logger/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/search/package.json ./packages/search/
 COPY apps/api/package.json ./apps/api/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 COPY packages/config ./packages/config
 COPY packages/types ./packages/types

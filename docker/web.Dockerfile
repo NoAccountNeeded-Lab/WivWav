@@ -27,7 +27,8 @@ COPY packages/db/prisma.config.ts ./packages/db/
 COPY packages/db/prisma/schema.prisma ./packages/db/prisma/
 COPY packages/search/package.json ./packages/search/
 COPY apps/web/package.json ./apps/web/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 COPY packages/config ./packages/config
 COPY packages/types ./packages/types
