@@ -154,6 +154,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Ubuntu 24.04 runner images restrict unprivileged user namespaces via
+      # AppArmor, which breaks Chromium's own sandbox for the real (unmocked)
+      # browser launch in fixture-contract.test.ts. This is Playwright's
+      # documented preferred fix (over passing chromiumSandbox: false) since
+      # it doesn't weaken the sandbox PlaywrightBrowserService now enables.
+      - name: Enable unprivileged user namespaces for Chromium sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v6
