@@ -26,7 +26,8 @@ COPY packages/queue/package.json ./packages/queue/
 COPY packages/search/package.json ./packages/search/
 COPY packages/agents/package.json ./packages/agents/
 COPY apps/scraper/package.json ./apps/scraper/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 COPY packages/config ./packages/config
 COPY packages/types ./packages/types
