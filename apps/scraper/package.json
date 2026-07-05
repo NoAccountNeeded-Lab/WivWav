@@ -2,6 +2,9 @@
   "name": "@wivwav/scraper",
   "version": "0.0.1",
   "private": true,
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "scripts": {
     "build": "tsc",

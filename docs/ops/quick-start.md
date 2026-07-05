@@ -66,6 +66,33 @@ All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run o
 
 Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the sprint runner: with `TURBO_TOKEN`/`TURBO_TEAM` set, unchanged inputs skip re-execution. See [docs/design/turbo-remote-cache.md](../design/turbo-remote-cache.md) for setup, cache keys, invalidation, and troubleshooting.
 
+## Scraper browser sandbox
+
+The production scraper image runs both Node.js and Chromium as the dedicated
+non-root `scraper` user (UID 10001). The application explicitly enables
+Playwright's Chromium sandbox. Chromium creates its internal user namespace
+under the pinned Playwright seccomp profile at
+`docker/chromium-seccomp.json`; the profile extends Docker's allowlist with
+`clone`, `setns`, and `unshare`, as recommended for crawling untrusted sites.
+Do not add `--no-sandbox` or run the scraper image as root.
+
+Docker Compose applies the seccomp profile, `--init`, and host IPC settings to
+the scraper service. To build and verify the image directly:
+
+```bash
+docker build -f docker/scraper.Dockerfile -t wivwav-scraper:local .
+docker run --rm --init --ipc=host \
+  --security-opt seccomp=./docker/chromium-seccomp.json \
+  wivwav-scraper:local node smoke.mjs
+```
+
+The smoke script fails unless the process is non-root, `sharp` can process an
+image, the Chromium headless shell is the only installed browser, development
+tools are absent, and sandboxed Chromium launches and closes successfully.
+The seccomp profile is copied from
+[Playwright v1.60.0](https://github.com/microsoft/playwright/blob/v1.60.0/utils/docker/seccomp_profile.json)
+so its browser/runtime contract stays aligned with the workspace dependency.
+
 ## SDLC delivery metrics report
 
 ```bash
