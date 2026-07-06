@@ -218,6 +218,13 @@ services:
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       LOG_FORMAT: json
+      # Operator session signing secret (HMAC) — required in production; falls
+      # back to an insecure dev-only value outside production (see session.ts).
+      OPS_SESSION_SECRET: ${OPS_SESSION_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
+      # Single shared operator credential (#450 D1 — proportional to a
+      # single-operator beta; upgrade to OIDC once operator count grows).
+      OPS_ADMIN_USERNAME: ${OPS_ADMIN_USERNAME:-operator}
+      OPS_ADMIN_PASSWORD: ${OPS_ADMIN_PASSWORD:-changeme-local-dev-password}
     depends_on:
       api:
         condition: service_healthy

@@ -55,7 +55,7 @@ export function FetchErrorMonitor(): null {
         // This guard fires before the origin check and protects against recursion in
         // both cross-origin API deployments and same-origin proxy deployments (where
         // isTracked would be true but we must never report on the reporting endpoint itself).
-        if (path === '/admin/client-events') return response
+        if (path === '/telemetry/client-events') return response
 
         // Track same-origin requests and requests to the configured API host.
         // Use host (hostname+port) not just hostname so that localhost:3003 and

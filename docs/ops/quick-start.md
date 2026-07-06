@@ -9,6 +9,7 @@ pnpm db:generate
 cp apps/api/.env.example apps/api/.env
 cp apps/scraper/.env.example apps/scraper/.env
 cp apps/web/.env.example apps/web/.env.local
+cp apps/ops/.env.example apps/ops/.env.local
 cp packages/db/.env.example packages/db/.env
 
 # Each session
@@ -24,6 +25,8 @@ make dev       # apply pending migrations, then start api, web, scraper with hot
 | API         | http://localhost:3001 |
 | Ops app     | http://localhost:3002 |
 | Meilisearch | http://localhost:7700 |
+
+The ops app requires an operator login (set `OPS_ADMIN_USERNAME`/`OPS_ADMIN_PASSWORD` in `apps/ops/.env.local`; defaults to `operator` / `changeme-local-dev-password` when run via `docker compose` without overrides). Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/admin/*` routes directly. See `docs/api-routes.md#admin-auth-boundary-fail-closed`.
 
 ## Observability stack
 

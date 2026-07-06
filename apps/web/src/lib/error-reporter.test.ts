@@ -57,7 +57,7 @@ describe('reportError — no API URL', () => {
 // ---------------------------------------------------------------------------
 
 describe('reportError — endpoint and type field', () => {
-  it('POSTs to {apiUrl}/admin/client-events', () => {
+  it('POSTs to {apiUrl}/telemetry/client-events', () => {
     const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', mockFetch)
 
@@ -65,7 +65,7 @@ describe('reportError — endpoint and type field', () => {
 
     expect(mockFetch).toHaveBeenCalledOnce()
     const [url] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('http://api.test/admin/client-events')
+    expect(url).toBe('http://api.test/telemetry/client-events')
   })
 
   it('always includes the type field in the payload', () => {
