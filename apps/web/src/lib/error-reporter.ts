@@ -1,7 +1,7 @@
 /**
  * Browser-side error reporter.
  *
- * Sends structured error events to POST /admin/client-events so they flow
+ * Sends structured error events to POST /telemetry/client-events so they flow
  * through pino → Loki and appear in /ops/logs alongside api/scraper logs.
  *
  * This module is safe to import in client components — it never runs on the
@@ -37,14 +37,14 @@ function getApiBaseUrl(): string {
 }
 
 /**
- * Fire-and-forget POST to /admin/client-events.
+ * Fire-and-forget POST to /telemetry/client-events.
  * Silently swallows any network or serialisation errors to avoid error loops.
  */
 export function reportError(event: ClientEvent): void {
   const apiUrl = getApiBaseUrl()
   if (!apiUrl) return
 
-  const endpoint = `${apiUrl}/admin/client-events`
+  const endpoint = `${apiUrl}/telemetry/client-events`
 
   // Build payload explicitly to satisfy exactOptionalPropertyTypes —
   // undefined optional fields must not be spread into the object.

@@ -1,0 +1,77 @@
+.main {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--clr-bg);
+  color: var(--clr-fg, #e6f1f8);
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.5rem;
+  padding: 2rem;
+  background: var(--clr-surface, rgba(255, 255, 255, 0.02));
+}
+
+.title {
+  margin: 0 0 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.field label {
+  font-size: 0.875rem;
+}
+
+.field input {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--clr-border);
+  background: var(--clr-bg);
+  color: inherit;
+  font: inherit;
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 1px;
+}
+
+.submit {
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: var(--clr-primary);
+  color: #04101c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0 0 1rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #c0392b;
+  color: #ff9d92;
+  font-size: 0.875rem;
+}

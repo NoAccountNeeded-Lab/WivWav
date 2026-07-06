@@ -36,6 +36,7 @@ import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
+import { adminAuthPlugin } from './plugins/admin-auth.js'
 import { metricsRoutes, createMetricsRegistry } from './routes/metrics.js'
 import { conversionBrandRoutes } from './routes/conversion-brands.js'
 
@@ -143,28 +144,55 @@ export async function buildApp(
   await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo })
   await app.register(conversionBrandRoutes, { prefix: '/v1/conversion-brands', conversionBrands: conversionBrandRepo })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
-  await app.register(adminRoutes, { prefix: '/admin', listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
-  await app.register(adminVehicleIdentityRoutes, { prefix: '/admin/vehicle-identity', vehicleIdentityDecisions: vehicleIdentityDecisionRepo })
-  await app.register(adminAiRoutes, {
-    prefix: '/admin/ai',
-    sources: sourceRepo,
-    ollamaBaseUrl: config.OLLAMA_BASE_URL,
-    queueFactory,
-  })
-  await app.register(adminConfigRoutes, {
-    prefix: '/admin/config',
-    db,
-    cache,
-    encryptionSecret: config.CONFIG_ENCRYPTION_SECRET,
-    internalApiSecret: config.INTERNAL_API_SECRET,
-  })
-  await app.register(adminLogsRoutes, {
-    prefix: '/admin/logs',
-    lokiUrl: config.LOKI_URL,
-  })
-  // Intentionally unauthenticated despite the /admin prefix — this endpoint accepts
-  // only pre-validated structured browser error events and is rate-limited per-route.
-  await app.register(adminClientEventsRoutes, { prefix: '/admin/client-events' })
+
+  // Every route nested under /admin — including Bull Board — is guarded by a
+  // single fail-closed auth hook (see plugins/admin-auth.ts). Fastify plugin
+  // encapsulation means the hook applies to all children registered inside
+  // this callback without each route needing its own check.
+  await app.register(
+    async (adminScope) => {
+      // Called directly (not via .register) so the onRequest hook attaches to
+      // adminScope itself rather than a further-nested encapsulation context —
+      // otherwise it would only guard routes registered inside this plugin's
+      // own scope, not the sibling route registrations below.
+      await adminAuthPlugin(adminScope, {
+        internalApiSecret: config.INTERNAL_API_SECRET,
+        nodeEnv: config.NODE_ENV,
+      })
+
+      await adminScope.register(adminRoutes, { listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
+      await adminScope.register(adminVehicleIdentityRoutes, { prefix: '/vehicle-identity', vehicleIdentityDecisions: vehicleIdentityDecisionRepo })
+      await adminScope.register(adminAiRoutes, {
+        prefix: '/ai',
+        sources: sourceRepo,
+        ollamaBaseUrl: config.OLLAMA_BASE_URL,
+        queueFactory,
+      })
+      await adminScope.register(adminConfigRoutes, {
+        prefix: '/config',
+        db,
+        cache,
+        encryptionSecret: config.CONFIG_ENCRYPTION_SECRET,
+        internalApiSecret: config.INTERNAL_API_SECRET,
+      })
+      await adminScope.register(adminLogsRoutes, {
+        prefix: '/logs',
+        lokiUrl: config.LOKI_URL,
+      })
+
+      const boardAdapter = new FastifyAdapter()
+      boardAdapter.setBasePath('/admin/board')
+      createBullBoard({ queues: createBullBoardQueues(queueFactory), serverAdapter: boardAdapter })
+      await adminScope.register(boardAdapter.registerPlugin(), { prefix: '/board' })
+    },
+    { prefix: '/admin' },
+  )
+
+  // Intentionally unauthenticated and outside /admin — this endpoint accepts only
+  // pre-validated structured browser error events and is rate-limited per-route.
+  // See docs/api-routes.md for the full list of public exceptions to the admin
+  // fail-closed boundary (this route, /health, /metrics).
+  await app.register(adminClientEventsRoutes, { prefix: '/telemetry/client-events' })
   await app.register(metricsRoutes, {
     prefix: '/metrics',
     db,
@@ -174,11 +202,6 @@ export async function buildApp(
     lokiUrl: config.LOKI_URL,
     registry,
   })
-
-  const boardAdapter = new FastifyAdapter()
-  boardAdapter.setBasePath('/admin/board')
-  createBullBoard({ queues: createBullBoardQueues(queueFactory), serverAdapter: boardAdapter })
-  await app.register(boardAdapter.registerPlugin(), { prefix: '/admin/board' })
 
   return app
 }
