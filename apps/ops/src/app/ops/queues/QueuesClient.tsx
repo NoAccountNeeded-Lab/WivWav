@@ -279,7 +279,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
-            <a href={`${apiBaseUrl}/admin/board`} target="_blank" rel="noopener noreferrer" className={`${styles.btn} ${styles.btnGhost}`}>
+            <a href="/admin/board" target="_blank" rel="noopener noreferrer" className={`${styles.btn} ${styles.btnGhost}`}>
               Bull Board diagnostics ↗
             </a>
             <button
@@ -499,7 +499,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
             </ol>
             <p><strong>After geocoding completes, click "Sync Meilisearch"</strong> (top right) to push the new coordinates into the search index — that&apos;s what makes pins appear on the map. Geocode updates Postgres; sync copies it to Meilisearch.</p>
             <p><strong>Pausing</strong> a queue stops workers from picking up new jobs — jobs already in progress finish. <strong>Triggering</strong> enqueues a job immediately without waiting for the cron schedule.</p>
-            <p>For raw queue internals such as job payloads, retry counts, and stack traces, open <a href={`${apiBaseUrl}/admin/board`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>Bull Board diagnostics ↗</a>.</p>
+            <p>For raw queue internals such as job payloads, retry counts, and stack traces, open <a href="/admin/board" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>Bull Board diagnostics ↗</a>.</p>
           </div>
         </details>
       </div>

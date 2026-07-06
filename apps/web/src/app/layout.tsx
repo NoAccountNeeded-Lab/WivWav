@@ -39,7 +39,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Expose the public API base URL to client components via a data attribute
-  // so the browser-side error reporter can POST to /admin/client-events without
+  // so the browser-side error reporter can POST to /telemetry/client-events without
   // needing next/headers or build-time environment variables in client code.
   const apiBaseUrl = getPublicApiBaseUrl()
 

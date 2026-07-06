@@ -52,8 +52,26 @@ Canonical list of HTTP routes exposed by `apps/api`. **Keep this table current**
 | DELETE | /admin/config/:key             | Soft-delete: inserts a tombstone row (value: null) |
 | GET    | /admin/logs                    | Recent log entries from Loki (query params: `service`, `search`, `limit` [default 200, max 500], `start` [ISO or ns epoch, default: 1 hour ago], `end` [ISO or ns epoch, default: now]); response: `{ data: { entries: LogEntry[], services: string[] } }`. Requires `LOKI_URL` env var (default `http://localhost:3100`; Docker Compose sets `http://loki:3100`). |
 | GET    | /admin/logs/services           | Distinct service label values from Loki; response: `{ data: string[] }` |
-| POST   | /admin/client-events           | Ingest a browser error event (js-error, unhandled-rejection, fetch-error, react-error) and log it via pino with `service: "web-client"` so it appears in the Loki pipeline. Returns 204. Unauthenticated. |
-| GET    | /admin/board                   | Queue job inspector UI               |
+| GET    | /admin/board                   | Queue job inspector UI (Bull Board). Reachable only through the ops BFF's authenticated session; fails closed like every other `/admin` route. |
+| POST   | /telemetry/client-events       | Ingest a browser error event (js-error, unhandled-rejection, fetch-error, react-error) and log it via pino with `service: "web-client"` so it appears in the Loki pipeline. Returns 204. Unauthenticated (public exception — see below); moved out of `/admin` in #450 so it isn't caught by the admin fail-closed boundary. Same narrow schema and per-route rate limit as before. |
 | GET    | /metrics                       | Prometheus text-format scrape endpoint (prom-client). Exposes Node.js process metrics, HTTP request counts/latency by route, BullMQ queue depths per queue and status, DB size/listing count, Valkey and Meilisearch up gauges, Meilisearch listings-index document count/size and last sync timestamp, Loki up gauge, last successful source scrape timestamp, and NHTSA refresh recency by queue. Scraped by Prometheus every 15 s when the `obs` profile is active. |
 
 Most responses use `{ data: T }` for success and `{ error: { code, message } }` for errors. Exceptions: `GET /v1/listings` returns `{ data, facets, pagination }`; `GET /v1/sources` returns `{ sources: [] }`.
+
+## Admin auth boundary (fail-closed)
+
+Every route under `/admin` — including `/admin/board` — is guarded by a single `onRequest` hook (`apps/api/src/plugins/admin-auth.ts`) applied via Fastify plugin encapsulation:
+
+- **Production, no `INTERNAL_API_SECRET` configured:** every `/admin/*` request is refused with `503 ADMIN_DISABLED`. The API never silently serves admin surfaces unauthenticated in production.
+- **`INTERNAL_API_SECRET` configured (any environment):** requests must carry `Authorization: Bearer <secret>`, or receive `401 UNAUTHORIZED`.
+- **Non-production, no secret configured:** requests pass through unauthenticated. This permissive mode only exists for local dev/CI and is unreachable when `NODE_ENV=production`.
+
+`apps/ops` never calls `/admin/*` from the browser. It authenticates operators with its own session (login page + signed cookie) and proxies admin calls server-side through its BFF routes (`apps/ops/src/app/api/bff/*` and `apps/ops/src/app/admin/board/*`), injecting `INTERNAL_API_SECRET` there. See `apps/ops/src/lib/session.ts` and `apps/ops/src/middleware.ts`.
+
+### Public exceptions to the admin boundary
+
+These routes are deliberately reachable without the admin credential:
+
+- `/health` — liveness/readiness probe; no sensitive data returned.
+- `/metrics` — Prometheus scrape endpoint; policy is network-level isolation (only scraped by Prometheus on the internal `obs` compose network), not application auth. Do not expose this port publicly.
+- `/telemetry/client-events` — narrow, schema-validated browser telemetry sink, rate-limited per-route (10/min), re-pathed out of `/admin` in #450 specifically so it is never caught by the fail-closed admin boundary above.

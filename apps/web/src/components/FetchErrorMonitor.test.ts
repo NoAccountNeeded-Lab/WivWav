@@ -52,7 +52,7 @@ function evaluateFetchError(req: MonitoredRequest): MonitorDecision | null {
   }
 
   // Never report the error-reporter endpoint itself
-  if (path === '/admin/client-events') return null
+  if (path === '/telemetry/client-events') return null
 
   const apiHost = req.apiHost ?? null
 
@@ -145,9 +145,9 @@ describe('FetchErrorMonitor — status threshold', () => {
 })
 
 describe('FetchErrorMonitor — error-reporter endpoint exclusion', () => {
-  it('skips /admin/client-events to prevent recursive loops', () => {
+  it('skips /telemetry/client-events to prevent recursive loops', () => {
     const result = evaluateFetchError({
-      input: '/admin/client-events',
+      input: '/telemetry/client-events',
       status: 500,
       origin: ORIGIN,
       host: HOST,
@@ -155,9 +155,9 @@ describe('FetchErrorMonitor — error-reporter endpoint exclusion', () => {
     expect(result).toBeNull()
   })
 
-  it('skips absolute URL that resolves to /admin/client-events path', () => {
+  it('skips absolute URL that resolves to /telemetry/client-events path', () => {
     const result = evaluateFetchError({
-      input: `${ORIGIN}/admin/client-events`,
+      input: `${ORIGIN}/telemetry/client-events`,
       status: 500,
       origin: ORIGIN,
       host: HOST,
@@ -165,10 +165,10 @@ describe('FetchErrorMonitor — error-reporter endpoint exclusion', () => {
     expect(result).toBeNull()
   })
 
-  it('skips /admin/client-events even when called on the API host', () => {
+  it('skips /telemetry/client-events even when called on the API host', () => {
     // The loop guard fires before the origin check — must hold for cross-origin API too
     const result = evaluateFetchError({
-      input: `http://${API_HOST}/admin/client-events`,
+      input: `http://${API_HOST}/telemetry/client-events`,
       status: 500,
       origin: ORIGIN,
       host: HOST,
