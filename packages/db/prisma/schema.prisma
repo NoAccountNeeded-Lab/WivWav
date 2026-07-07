@@ -363,6 +363,9 @@ model ListingPriceHistory {
   recordedAt DateTime @default(now())
 
   @@index([listingId, recordedAt])
+  /// Supports the market-trends time-bucket aggregation, which scans by
+  /// recordedAt across listings (not scoped to one listingId).
+  @@index([recordedAt])
   @@map("listing_price_history")
 }
 
@@ -836,4 +839,29 @@ model VehicleModelPricing {
 
   @@unique([vehicleModelId])
   @@map("vehicle_model_pricing")
+}
+
+// ── Paid API tiers ───────────────────────────────────────────────────────────
+// Minimal tier record needed to gate the historical-data endpoints added in
+// #454 (VIN history, dealer listing history, market trends). Full key
+// provisioning, per-key rate limiting, and the Stripe tier-upgrade webhook
+// are tracked separately in #453; this model is intentionally small so that
+// work can extend it (rateLimitRpm, provisioning endpoints, etc.) without a
+// breaking migration.
+enum ApiKeyTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model ApiKey {
+  id         String     @id @default(cuid())
+  /// SHA-256 hex digest of the raw key. The raw key itself is never stored.
+  keyHash    String     @unique
+  ownerEmail String
+  tier       ApiKeyTier @default(FREE)
+  createdAt  DateTime   @default(now())
+  revokedAt  DateTime?
+
+  @@map("api_key")
 }

@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { normalizeVin } from '@wivwav/db'
-import type { VehicleRepository, ListingRepository } from '../repositories/index.js'
+import type { VehicleRepository, ListingRepository, ApiKeyRepository } from '../repositories/index.js'
 import { decodeVin, isValidVin } from '../services/vin-decoder.js'
+import { resolveApiKeyTier, tierAtLeast } from '../services/api-key-tier.js'
 
 interface VinPluginOptions {
   vehicles: VehicleRepository
   listings: ListingRepository
+  apiKeys: ApiKeyRepository
 }
 
 interface ComplaintGroup {
@@ -37,7 +39,86 @@ function normalizeRecallStatus(remedy: string | null): RecallStatus {
   return 'remedied'
 }
 
-export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { vehicles, listings }) => {
+export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { vehicles, listings, apiKeys }) => {
+  /**
+   * GET /v1/vin/:vin/listings
+   *
+   * All active, publication-eligible listings across sources for a VIN.
+   * FREE tier — powers the cross-listing section of the listing detail page.
+   *
+   * Example response:
+   * ```json
+   * { "data": { "vin": "5TDYK3DC1FS123456", "listings": [
+   *   { "id": "cl1", "sourceUrl": "https://...", "dealerName": "Acme Vans",
+   *     "priceCents": 4500000, "mileage": 32000, "status": "active",
+   *     "listedAt": "2026-05-01T00:00:00.000Z", "goneAt": null, "soldAt": null }
+   * ] } }
+   * ```
+   */
+  app.get<{ Params: { vin: string } }>('/:vin/listings', async (req, reply) => {
+    const vin = normalizeVin(req.params.vin)
+    if (!isValidVin(vin)) return reply.badRequest('VIN must be 17 characters and cannot contain I, O, or Q')
+
+    const rows = await listings.findListingsByVin(vin, true)
+    return reply.send({
+      data: {
+        vin,
+        listings: rows.map((r) => ({
+          id: r.id,
+          sourceUrl: r.sourceUrl,
+          dealerName: r.dealerName,
+          priceCents: r.priceCents,
+          mileage: r.mileage,
+          status: r.status,
+          listedAt: r.listedAt.toISOString(),
+          goneAt: r.goneAt ? r.goneAt.toISOString() : null,
+          soldAt: r.soldAt ? r.soldAt.toISOString() : null,
+        })),
+      },
+    })
+  })
+
+  /**
+   * GET /v1/vin/:vin/history
+   *
+   * Merged price and mileage history for every listing (any status, any
+   * source) matching a VIN, ordered by `recordedAt` ascending. PRO+ only —
+   * returns 403 `upgrade_required` for FREE-tier callers.
+   *
+   * Example response:
+   * ```json
+   * { "data": { "vin": "5TDYK3DC1FS123456", "history": [
+   *   { "listingId": "cl1", "type": "price", "value": 4700000, "recordedAt": "2026-04-01T00:00:00.000Z" },
+   *   { "listingId": "cl1", "type": "mileage", "value": 31000, "recordedAt": "2026-04-01T00:00:00.000Z" },
+   *   { "listingId": "cl1", "type": "price", "value": 4500000, "recordedAt": "2026-05-01T00:00:00.000Z" }
+   * ] } }
+   * ```
+   */
+  app.get<{ Params: { vin: string } }>('/:vin/history', async (req, reply) => {
+    const vin = normalizeVin(req.params.vin)
+    if (!isValidVin(vin)) return reply.badRequest('VIN must be 17 characters and cannot contain I, O, or Q')
+
+    const tier = await resolveApiKeyTier(apiKeys, req.headers)
+    if (!tierAtLeast(tier, 'PRO')) {
+      return reply.code(403).send({
+        error: { code: 'upgrade_required', message: 'GET /v1/vin/:vin/history requires a PRO or higher API key' },
+      })
+    }
+
+    const rows = await listings.findHistoryByVin(vin)
+    return reply.send({
+      data: {
+        vin,
+        history: rows.map((r) => ({
+          listingId: r.listingId,
+          type: r.type,
+          value: r.value,
+          recordedAt: r.recordedAt.toISOString(),
+        })),
+      },
+    })
+  })
+
   app.get<{ Params: { vin: string } }>('/:vin/safety', async (req, reply) => {
     const vin = normalizeVin(req.params.vin)
     if (!isValidVin(vin)) return reply.badRequest('VIN must be 17 characters and cannot contain I, O, or Q')
