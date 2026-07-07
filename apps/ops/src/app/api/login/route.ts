@@ -28,6 +28,23 @@ function isRateLimited(key: string): boolean {
 }
 
 /**
+ * Whether the session cookie should get the `Secure` attribute.
+ *
+ * Deliberately not based on `NODE_ENV`: the Next.js standalone build always
+ * hardcodes `NODE_ENV=production` at runtime (see `docker/ops.Dockerfile`),
+ * even for a plain-HTTP local `docker compose` deployment — so it can't tell
+ * us anything about the actual transport. Trusts `X-Forwarded-Proto` from the
+ * reverse proxy that terminates TLS in real deployments (same trust model as
+ * the `X-Forwarded-For` client-IP lookup above), falling back to the
+ * request's own URL scheme when there's no proxy in front.
+ */
+export function isRequestOverHttps(requestHeaders: Headers, requestUrl: string): boolean {
+  const forwardedProto = requestHeaders.get('x-forwarded-proto')
+  if (forwardedProto) return forwardedProto.split(',')[0]?.trim() === 'https'
+  return new URL(requestUrl).protocol === 'https:'
+}
+
+/**
  * POST /api/login — verifies the operator credential and, on success, sets a
  * signed httpOnly session cookie.
  *
@@ -73,11 +90,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const cookieStore = await cookies()
-  const isProduction = process.env['NODE_ENV'] === 'production'
 
   cookieStore.set(SESSION_COOKIE_NAME, createSessionValue(), {
     httpOnly: true,
-    secure: isProduction,
+    secure: isRequestOverHttps(incomingHeaders, request.url),
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
