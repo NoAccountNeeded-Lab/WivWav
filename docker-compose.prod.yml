@@ -1,0 +1,187 @@
+# Production deployment definition — digest-pinned.
+#
+# Every wivwav-owned image below is referenced by immutable digest, never by a
+# mutable tag (`:latest` or `:<sha>`). The digests here are exactly the ones
+# the CI test jobs ran against: `.github/workflows/ci.yml`'s `publish` job
+# builds each final image once, runs the full test suite against that build,
+# and only on a fully green run does it push the resulting digests to GHCR
+# and rewrite this file (commit message `chore(deploy): pin published image
+# digests ...`). Never hand-edit the digests below — let CI own them.
+#
+# See docs/ops/deployment.md for migration-before-rollout ordering and
+# rollback compatibility expectations before applying an update with this file.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+name: wivwav
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-wivwav}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wav} -d ${POSTGRES_DB:-wivwav}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.45.2
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilisearch_data_v1_45:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Runs prisma migrate deploy against `postgres` and exits. `api` and `web`
+  # both wait on `service_completed_successfully` so no app container can
+  # start against a schema it doesn't understand yet. See
+  # docs/ops/deployment.md for why migrations must land before app rollout
+  # and what that implies for rollback.
+  migrate:
+    image: ghcr.io/noaccountneeded-lab/wivwav/migrate@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ghcr.io/noaccountneeded-lab/wivwav/api@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
+      VALKEY_URL: redis://valkey:6379
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_REQUIRED: "false"
+      CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN}
+      CONFIG_ENCRYPTION_SECRET: ${CONFIG_ENCRYPTION_SECRET:?set CONFIG_ENCRYPTION_SECRET}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: json
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      meilisearch:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  scraper:
+    image: ghcr.io/noaccountneeded-lab/wivwav/scraper@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    init: true
+    ipc: host
+    security_opt:
+      - seccomp=./docker/chromium-seccomp.json
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      QUEUE_REDIS_URL: redis://valkey:6379
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_API_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
+      SCRAPER_CONCURRENCY: ${SCRAPER_CONCURRENCY:-2}
+      SCRAPER_HEADLESS: "true"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: json
+    tmpfs:
+      - /tmp:size=512m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/noaccountneeded-lab/wivwav/web@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+      API_INTERNAL_URL: http://api:3001
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
+      LOG_FORMAT: json
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  ops:
+    image: ghcr.io/noaccountneeded-lab/wivwav/ops@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+      API_INTERNAL_URL: http://api:3001
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      LOG_FORMAT: json
+      OPS_SESSION_SECRET: ${OPS_SESSION_SECRET:?set OPS_SESSION_SECRET}
+      OPS_ADMIN_USERNAME: ${OPS_ADMIN_USERNAME:?set OPS_ADMIN_USERNAME}
+      OPS_ADMIN_PASSWORD: ${OPS_ADMIN_PASSWORD:?set OPS_ADMIN_PASSWORD}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:3002/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  valkey_data:
+  meilisearch_data_v1_45:
