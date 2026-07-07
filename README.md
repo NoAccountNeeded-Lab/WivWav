@@ -18,6 +18,10 @@ WivWav scrapes, normalizes, and indexes WAV listings so buyers can filter by wha
 
 **Prerequisites:** Docker, Node 24, pnpm 11
 
+Pick one of the two paths below — both start api, web, and scraper, so don't run both.
+
+### Option A: local dev with hot reload (recommended while developing)
+
 ```bash
 # One-time setup
 pnpm install
@@ -27,11 +31,39 @@ cp apps/scraper/.env.example apps/scraper/.env
 cp apps/web/.env.example apps/web/.env.local
 cp packages/db/.env.example packages/db/.env
 
+# apps/api refuses to start without CONFIG_ENCRYPTION_SECRET. Generate one and
+# uncomment it in apps/api/.env with the value below:
+openssl rand -hex 32
+
 # Each session
-make up        # start Postgres, Valkey, Meilisearch in Docker
-pnpm db:push   # push schema (first time, or after schema changes)
-make dev       # start api, web, scraper with hot reload
+make dev       # starts Postgres, Valkey, Meilisearch in Docker, applies
+               # migrations, then runs api, web, and scraper locally with hot reload
 ```
+
+| Service     | URL                   |
+| ----------- | --------------------- |
+| Web app     | http://localhost:4000 |
+| API         | http://localhost:3001 |
+| Meilisearch | http://localhost:7700 |
+
+```bash
+make down      # stop the Postgres/Valkey/Meilisearch containers started by make dev
+```
+
+### Option B: full Docker stack
+
+```bash
+# One-time setup
+cp apps/api/.env.example apps/api/.env
+
+# Each session
+make up        # starts the entire stack in Docker — infra, api, web, scraper,
+               # Ollama, and observability. Builds images automatically on first run.
+```
+
+`CONFIG_ENCRYPTION_SECRET` has a working default baked into `docker-compose.yml`
+for this path, so no manual secret setup is needed here (set your own value for
+anything beyond local dev).
 
 | Service     | URL                   |
 | ----------- | --------------------- |
@@ -40,7 +72,12 @@ make dev       # start api, web, scraper with hot reload
 | Meilisearch | http://localhost:7700 |
 
 ```bash
-make down      # stop infra
+make down      # stop all containers
+```
+
+### Quality checks (either path)
+
+```bash
 make test      # unit tests
 make typecheck # type check
 make lint      # lint
@@ -68,7 +105,7 @@ If neither provider is reachable, scraping continues without AI remapping — la
 ```
 apps/
   api/       Fastify REST API (TypeScript, Node 24)
-  web/       Next.js 15 frontend (App Router)
+  web/       Next.js 16 frontend (App Router)
   scraper/   Playwright + AI scraper engine
 packages/
   types/     Shared TypeScript interfaces
