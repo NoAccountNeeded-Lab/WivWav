@@ -201,6 +201,23 @@ describe('GET /trends', () => {
     await app.close()
   })
 
+  it('rejects a from..to span wider than the max', async () => {
+    const market = { getTrends: vi.fn() }
+    const apiKeys = { findActiveByHash: vi.fn().mockResolvedValue({ tier: 'PRO' as const }) }
+    const app = buildTestApp(market, apiKeys)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/trends?make=Toyota&model=Sienna&from=2000-01-01T00:00:00.000Z&to=2026-01-01T00:00:00.000Z',
+      headers: { 'x-api-key': 'a-pro-key' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(market.getTrends).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
   it('rejects when from is after to', async () => {
     const market = { getTrends: vi.fn() }
     const apiKeys = { findActiveByHash: vi.fn().mockResolvedValue({ tier: 'ENTERPRISE' }) }

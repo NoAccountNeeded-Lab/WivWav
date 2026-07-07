@@ -38,6 +38,32 @@ describe('PrismaMarketRepository.getPricingStats', () => {
   })
 })
 
+describe('PrismaMarketRepository.getTrends', () => {
+  it('builds a single CTE-based query scoped to the make/model and maps rows', async () => {
+    const db = {
+      $queryRaw: vi.fn().mockResolvedValueOnce([
+        { bucketStart: new Date('2026-04-01T00:00:00.000Z'), medianPriceCents: null, activeInventoryCount: 1, avgDaysToGone: null },
+        { bucketStart: new Date('2026-05-01T00:00:00.000Z'), medianPriceCents: 4500000.4, activeInventoryCount: 1, avgDaysToGone: 12.34 },
+      ]),
+    }
+    const repo = new PrismaMarketRepository(db as never)
+
+    const result = await repo.getTrends('Toyota', 'Sienna', 'month', new Date('2026-04-01'), new Date('2026-06-01'))
+
+    // Exactly one query call — trends must not fan out per-bucket (no N+1).
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1)
+    const sql = sqlFromCall(db.$queryRaw.mock.calls[0]!)
+    expect(sql).toContain('generate_series')
+    expect(sql).toContain('"publicationStatus" = \'eligible\'')
+    expect(sql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+
+    expect(result).toEqual([
+      { bucketStart: new Date('2026-04-01T00:00:00.000Z'), medianPriceCents: null, activeInventoryCount: 1, avgDaysToGone: null },
+      { bucketStart: new Date('2026-05-01T00:00:00.000Z'), medianPriceCents: 4500000, activeInventoryCount: 1, avgDaysToGone: 12.34 },
+    ])
+  })
+})
+
 describe('PrismaMarketRepository.getPopular', () => {
   it('builds popular stats from representative vehicle group queries', async () => {
     const db = {
