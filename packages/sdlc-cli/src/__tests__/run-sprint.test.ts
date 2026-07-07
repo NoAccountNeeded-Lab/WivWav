@@ -145,6 +145,8 @@ describe('runSprintCommand — issue selection', () => {
       mockWriteFileSync.mock.calls.some(
         ([path, contents]) =>
           String(path).endsWith('.agents/worker-context.md') &&
+          String(contents).includes('Commit policy: coherent functional commits') &&
+          String(contents).includes('no WIP commits or unrelated churn') &&
           String(contents).includes('Completed issues must close on merge') &&
           String(contents).includes('without `--refs`'),
       ),
@@ -160,6 +162,8 @@ describe('runSprintCommand — issue selection', () => {
     const output = log.mock.calls.map((c) => String(c[0])).join('\n')
     expect(output).toContain('Worker instructions')
     expect(output).toContain('read `.agents/worker-context.md`')
+    expect(output).toContain('Commit policy: coherent functional commits')
+    expect(output).toContain('preserve commits through PR creation')
   })
 
   it('writes provider-neutral effort and model guidance', async () => {
