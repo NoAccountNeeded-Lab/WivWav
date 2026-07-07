@@ -36,7 +36,12 @@
 }
 
 .select:focus-visible {
-  outline: 2px solid var(--color-primary-solid);
+  /* --color-primary-solid was never defined (see globals.css), so this
+     outline silently no-opped: an undefined custom property with no
+     fallback makes the whole declaration invalid, leaving no focus
+     indicator at all. --clr-focus is the token every other focus-visible
+     style in this app uses. */
+  outline: 2px solid var(--clr-focus);
   outline-offset: 2px;
 }
 

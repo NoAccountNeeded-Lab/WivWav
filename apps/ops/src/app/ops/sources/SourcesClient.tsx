@@ -139,9 +139,14 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                   <th>Name</th>
                   <th>
                     Status
+                    {/* Not a control (no click/keydown handler): tabIndex makes it
+                      focusable so :focus CSS reveals the tooltip for keyboard users
+                      the same way :hover does for pointer users. aria-label already
+                      exposes the description to assistive tech. */}
                     <span
                       className={styles.tip}
                       data-tip="active = scraping normally · error = last run failed (retried automatically next cycle) · needs_remapping = HTML structure changed but AI could not remap (no sample HTML or AI unavailable); operator intervention required · paused = manually paused"
+                      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                       tabIndex={0}
                       aria-label="Status field explanation"
                     >?</span>
@@ -151,6 +156,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                     <span
                       className={styles.tip}
                       data-tip="Standard 5-field cron expression (minute hour day month weekday). Example: '0 */6 * * *' = every 6 hours. Drives the automatic scrape schedule."
+                      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- see rationale above
                       tabIndex={0}
                       aria-label="Cron expression explanation"
                     >?</span>

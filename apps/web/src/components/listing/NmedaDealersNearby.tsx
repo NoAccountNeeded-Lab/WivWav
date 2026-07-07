@@ -123,6 +123,11 @@ function DealerModal({ dealers, onClose, triggerRef }: DealerModalProps) {
   }
 
   return (
+    // The dialog element owns onKeyDown itself so it can implement its own
+    // Escape-to-close and focus-trap behavior; onClick's backdrop-click-close
+    // is a pointer-only convenience that Escape already covers for keyboard
+    // users, so this is a deliberate, already-accessible use of both handlers.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={styles.modalOverlay}
       role="dialog"

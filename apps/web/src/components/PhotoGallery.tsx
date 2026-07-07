@@ -164,6 +164,11 @@ export function PhotoGallery({
       aria-roledescription="carousel"
       aria-label={`${alt} photos`}
     >
+      {/* Click-to-advance on the viewport is a pointer-only convenience: the
+        ArrowLeft/ArrowRight keydown handler above and the dedicated
+        previous/next buttons below already give keyboard users full,
+        equivalent control over the carousel. */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
         className={[styles.viewport, viewportClassName].filter(Boolean).join(' ')}
         onClick={handleViewportClick}
