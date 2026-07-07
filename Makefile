@@ -2,7 +2,7 @@ COMPOSE = docker compose
 
 .PHONY: up build down dev test test-integration typecheck lint build-app clean format logs \
         check-affected typecheck-affected lint-affected test-affected \
-        sdlc-report \
+        sdlc-report restore-drill \
         db-push db-generate db-migrate db-seed db-studio \
         agents prune
 
@@ -138,6 +138,20 @@ db-seed:
 ##                     the local database. Requires 'make dev' first.
 db-studio:
 	pnpm --filter @wivwav/db db:studio
+
+# ── Backup / restore ─────────────────────────────────────────────────────────
+
+## restore-drill  Run the PostgreSQL restore drill (docs/data/backup-restore.md).
+##                Self-test mode by default: builds an ephemeral source
+##                database, seeds a fixture, dumps and restores it, and
+##                verifies invariants. Pass DUMP=<path> to drill a real
+##                backup file instead. Requires docker; self-test mode also
+##                requires 'pnpm install' to have run.
+##                Examples:
+##                  make restore-drill
+##                  make restore-drill DUMP=./wivwav-20260101T000000Z.dump
+restore-drill:
+	bash scripts/restore-drill.sh $(if $(DUMP),--dump $(DUMP),)
 
 # ── SDLC metrics ─────────────────────────────────────────────────────────────
 
