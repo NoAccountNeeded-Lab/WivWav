@@ -352,12 +352,38 @@ jobs:
         run: pnpm test:integration
 
   # Publishes the exact images the jobs above just tested — never a rebuild.
+  # Proves a PostgreSQL backup taken with docker/postgres-backup/backup.sh's
+  # pg_dump flags actually restores and that the invariants in #667's
+  # acceptance criteria hold: history-table row counts, a vehicle-identity
+  # decision, and a decryptable encrypted config secret. See
+  # docs/data/backup-restore.md. Self-test mode needs no pre-existing
+  # backup — it builds its own ephemeral source database.
+  restore-drill:
+    name: Restore drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --filter @wivwav/db...
+
+      - name: Run restore drill
+        run: bash scripts/restore-drill.sh
+
   # Gated on every test job passing, and only runs for pushes to main, so a
-  # failing job (docker build, lint/typecheck, or test) publishes nothing.
+  # failing job (docker build, lint/typecheck, test, or restore drill)
+  # publishes nothing.
   publish:
     name: Publish images (digest-pinned)
     runs-on: ubuntu-latest
-    needs: [docker-done, lint-typecheck, test]
+    needs: [docker-done, lint-typecheck, test, restore-drill]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
