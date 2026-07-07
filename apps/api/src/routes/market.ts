@@ -48,6 +48,10 @@ const trendsQuerySchema = {
 } as const
 
 const DEFAULT_TRENDS_LOOKBACK_DAYS = 180
+// Caps the `from`..`to` span so an unbounded caller-supplied range can't force
+// getTrends' generate_series to materialize an unbounded number of buckets
+// (each bucket cross-joins representative_listings in the price_points CTE).
+const MAX_TRENDS_SPAN_DAYS = 1826 // ~5 years
 
 export const marketRoutes: FastifyPluginAsync<MarketPluginOptions> = async (app, { market, apiKeys }) => {
   app.get<{ Querystring: PricingQuery }>('/pricing', { schema: { querystring: pricingQuerySchema } }, async (req, reply) => {
@@ -132,6 +136,10 @@ export const marketRoutes: FastifyPluginAsync<MarketPluginOptions> = async (app,
 
     if (from.getTime() > to.getTime()) {
       return reply.badRequest('`from` must be before `to`')
+    }
+    const spanDays = (to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)
+    if (spanDays > MAX_TRENDS_SPAN_DAYS) {
+      return reply.badRequest(`\`from\`..\`to\` span cannot exceed ${MAX_TRENDS_SPAN_DAYS} days`)
     }
 
     try {

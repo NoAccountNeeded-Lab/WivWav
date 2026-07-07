@@ -418,6 +418,10 @@ export class PrismaListingRepository implements ListingRepository {
     const listingIds = matching.map((l) => l.id)
     if (listingIds.length === 0) return []
 
+    // Unbounded by design: a VIN's re-listing count and history depth are
+    // both small in practice (a handful of dealers over a few scrape cycles),
+    // unlike make/model-scoped queries. Revisit with a cap/pagination if this
+    // becomes a hot endpoint for VINs with unusually long observation history.
     const [priceRows, mileageRows] = await Promise.all([
       this.db.listingPriceHistory.findMany({
         where: { listingId: { in: listingIds } },
