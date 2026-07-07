@@ -2,6 +2,10 @@
 
 **Prerequisites:** Docker, Node 24, pnpm 11
 
+Pick one of the two paths below — both start api, web, ops, and scraper, so don't run both.
+
+### Option A: local dev with hot reload (recommended while developing)
+
 ```bash
 # One-time setup
 pnpm install
@@ -12,12 +16,46 @@ cp apps/web/.env.example apps/web/.env.local
 cp apps/ops/.env.example apps/ops/.env.local
 cp packages/db/.env.example packages/db/.env
 
+# apps/api refuses to start without CONFIG_ENCRYPTION_SECRET. Generate one and
+# uncomment it in apps/api/.env with the value below:
+openssl rand -hex 32
+
+# apps/ops rejects operator login without OPS_ADMIN_PASSWORD set. Pick a local
+# password and set it in apps/ops/.env.local (OPS_ADMIN_USERNAME defaults to
+# "operator" if left unset):
+# OPS_ADMIN_PASSWORD=<your local password>
+
 # Each session
-make up        # start full stack: Postgres, Valkey, Meilisearch, Ollama, and observability in Docker
-make dev       # apply pending migrations, then start api, web, scraper with hot reload
+make dev       # starts Postgres, Valkey, Meilisearch in Docker, applies
+               # migrations, then runs api, web, ops, and scraper locally with hot reload
 ```
 
-## Service URLs
+| Service     | URL                   |
+| ----------- | --------------------- |
+| Web app     | http://localhost:4000 |
+| API         | http://localhost:3001 |
+| Ops app     | http://localhost:3002 |
+| Meilisearch | http://localhost:7700 |
+
+```bash
+make down      # stop the Postgres/Valkey/Meilisearch containers started by make dev
+```
+
+### Option B: full Docker stack
+
+```bash
+# One-time setup
+cp apps/api/.env.example apps/api/.env
+
+# Each session
+make up        # starts the entire stack in Docker — infra, api, web, ops, scraper,
+               # Ollama, and observability. Builds images automatically on first run.
+```
+
+`CONFIG_ENCRYPTION_SECRET`, `OPS_SESSION_SECRET`, and `OPS_ADMIN_PASSWORD` all
+have working defaults baked into `docker-compose.yml` for this path (operator
+login defaults to `operator` / `changeme-local-dev-password`) — set your own
+values for anything beyond local dev.
 
 | Service     | URL                   |
 | ----------- | --------------------- |
@@ -26,7 +64,11 @@ make dev       # apply pending migrations, then start api, web, scraper with hot
 | Ops app     | http://localhost:3002 |
 | Meilisearch | http://localhost:7700 |
 
-The ops app requires an operator login (set `OPS_ADMIN_USERNAME`/`OPS_ADMIN_PASSWORD` in `apps/ops/.env.local`; defaults to `operator` / `changeme-local-dev-password` when run via `docker compose` without overrides). Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/admin/*` routes directly. See `docs/api-routes.md#admin-auth-boundary-fail-closed`.
+```bash
+make down      # stop all containers
+```
+
+Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/admin/*` routes directly. See `docs/api-routes.md#admin-auth-boundary-fail-closed`.
 
 ## Observability stack
 
