@@ -7,7 +7,7 @@
   --color-primary-light: #f0eeff;
   --color-text: #100e1a;          /* near-black with violet cast */
   --color-text-secondary: #3d3568;
-  --color-text-muted: #7b70a8;
+  --color-text-muted: #6a5f92;    /* was #7b70a8 (4.44:1, fails WCAG AA); 5.73:1 on white */
   --color-surface: #f8f7fe;       /* near-white with violet cast */
   --color-border: #d8d3f2;
   --color-border-strong: #bdb8e2;

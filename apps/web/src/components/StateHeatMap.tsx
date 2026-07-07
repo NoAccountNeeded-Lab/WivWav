@@ -64,10 +64,14 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
 
   return (
     <div className={styles.root}>
+      {/* role="img" would mark this subtree presentational and hide the
+          per-state role="button" controls below from the accessibility
+          tree entirely, even though they stay keyboard-focusable — so this
+          is a labelled group of interactive controls, not a static image. */}
       <ComposableMap
         projection="geoAlbersUsa"
         className={styles.map}
-        role="img"
+        role="group"
         aria-label="Map of the United States shaded by number of matching listings per state"
         aria-describedby={statusId}
       >

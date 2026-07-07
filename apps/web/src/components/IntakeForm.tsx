@@ -166,7 +166,7 @@ export function IntakeForm() {
         <div className={styles.chatHeader}>
           <span className={styles.chatAvatarWrap}>
             <span className={styles.chatAvatar} aria-hidden="true">W</span>
-            <span className={styles.chatOnline} aria-label="Online" />
+            <span className={styles.chatOnline} role="img" aria-label="Online" />
           </span>
           <h1 id="hero-heading" className={styles.chatHeading}>
             Find the right accessible vehicle

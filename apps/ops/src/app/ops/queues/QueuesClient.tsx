@@ -337,9 +337,14 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                             <div className={styles.queueName}>
                               <code style={{ fontSize: '0.8125rem' }}>{q.name}</code>
                               {meta && (
+                                // Not a control (no click/keydown handler): tabIndex makes it
+                                // focusable so :focus CSS reveals the tooltip for keyboard
+                                // users the same way :hover does for pointer users. aria-label
+                                // already exposes the short description to assistive tech.
                                 <span
                                   className={styles.tip}
                                   data-tip={`${meta.short}\n\n${meta.detail}`}
+                                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                                   tabIndex={0}
                                   aria-label={`Info: ${meta.short}`}
                                 >?</span>

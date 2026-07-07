@@ -2,7 +2,10 @@
   "extends": "@wivwav/config/tsconfig-node",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    // page.evaluate() callbacks in tests/accessibility.spec.ts execute in the
+    // browser, not Node, and reference window/getComputedStyle.
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["playwright.config.ts", "support/**/*.ts", "tests/**/*.ts"]
 }
