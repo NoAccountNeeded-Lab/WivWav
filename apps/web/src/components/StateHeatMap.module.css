@@ -14,7 +14,13 @@
   stroke: var(--clr-surface);
   stroke-width: 0.75;
   outline: none;
-  transition: stroke-width 0.15s ease, filter 0.15s ease;
+  /* stroke-width intentionally excluded from the transition: it is the
+     keyboard focus indicator for these SVG paths (see :focus-visible
+     below), and an eased transition delays the visible/computed change
+     just long enough that a keyboard user's very next stroke-width read
+     (and axe/E2E's synchronous check right after Tab) still sees the
+     pre-focus value. Filter keeps its hover animation. */
+  transition: filter 0.15s ease;
 }
 
 .state:hover {
