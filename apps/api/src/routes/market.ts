@@ -1,8 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { MarketRepository } from '../repositories/index.js'
+import type { MarketRepository, ApiKeyRepository, MarketTrendInterval } from '../repositories/index.js'
+import { resolveApiKeyTier, tierAtLeast } from '../services/api-key-tier.js'
 
 interface MarketPluginOptions {
   market: MarketRepository
+  apiKeys: ApiKeyRepository
 }
 
 interface PricingQuery {
@@ -24,7 +26,30 @@ const pricingQuerySchema = {
   additionalProperties: false,
 } as const
 
-export const marketRoutes: FastifyPluginAsync<MarketPluginOptions> = async (app, { market }) => {
+interface TrendsQuery {
+  make: string
+  model: string
+  interval?: MarketTrendInterval
+  from?: string
+  to?: string
+}
+
+const trendsQuerySchema = {
+  type: 'object',
+  required: ['make', 'model'],
+  properties: {
+    make: { type: 'string', minLength: 1 },
+    model: { type: 'string', minLength: 1 },
+    interval: { type: 'string', enum: ['week', 'month'], default: 'month' },
+    from: { type: 'string', format: 'date-time' },
+    to: { type: 'string', format: 'date-time' },
+  },
+  additionalProperties: false,
+} as const
+
+const DEFAULT_TRENDS_LOOKBACK_DAYS = 180
+
+export const marketRoutes: FastifyPluginAsync<MarketPluginOptions> = async (app, { market, apiKeys }) => {
   app.get<{ Querystring: PricingQuery }>('/pricing', { schema: { querystring: pricingQuerySchema } }, async (req, reply) => {
     const { make, model } = req.query
     const year = req.query.year ?? null
@@ -71,6 +96,62 @@ export const marketRoutes: FastifyPluginAsync<MarketPluginOptions> = async (app,
     } catch (err) {
       app.log.error(err, 'Failed to fetch popular listings data')
       return reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch popular listings data' } })
+    }
+  })
+
+  /**
+   * GET /v1/market/trends?make=&model=&interval=week|month&from=&to=
+   *
+   * Time-bucketed median price, active inventory count, and average
+   * days-to-gone for a make/model. `interval` defaults to `month`; `from`
+   * defaults to 180 days before `to`, and `to` defaults to now. PRO+ only —
+   * returns 403 `upgrade_required` for FREE-tier callers.
+   *
+   * Example response:
+   * ```json
+   * { "data": { "make": "Toyota", "model": "Sienna", "interval": "month", "points": [
+   *   { "bucketStart": "2026-05-01T00:00:00.000Z", "medianPriceCents": 4500000,
+   *     "activeInventoryCount": 12, "avgDaysToGone": 34.5 }
+   * ] } }
+   * ```
+   */
+  app.get<{ Querystring: TrendsQuery }>('/trends', { schema: { querystring: trendsQuerySchema } }, async (req, reply) => {
+    const tier = await resolveApiKeyTier(apiKeys, req.headers)
+    if (!tierAtLeast(tier, 'PRO')) {
+      return reply.code(403).send({
+        error: { code: 'upgrade_required', message: 'GET /v1/market/trends requires a PRO or higher API key' },
+      })
+    }
+
+    const { make, model } = req.query
+    const interval: MarketTrendInterval = req.query.interval ?? 'month'
+    const to = req.query.to ? new Date(req.query.to) : new Date()
+    const from = req.query.from
+      ? new Date(req.query.from)
+      : new Date(to.getTime() - DEFAULT_TRENDS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
+
+    if (from.getTime() > to.getTime()) {
+      return reply.badRequest('`from` must be before `to`')
+    }
+
+    try {
+      const points = await market.getTrends(make, model, interval, from, to)
+      return reply.send({
+        data: {
+          make,
+          model,
+          interval,
+          points: points.map((p) => ({
+            bucketStart: p.bucketStart.toISOString(),
+            medianPriceCents: p.medianPriceCents,
+            activeInventoryCount: p.activeInventoryCount,
+            avgDaysToGone: p.avgDaysToGone,
+          })),
+        },
+      })
+    } catch (err) {
+      req.log.error(err, 'Failed to fetch market trends')
+      return reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch market trends' } })
     }
   })
 }

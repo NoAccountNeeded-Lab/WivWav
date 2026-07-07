@@ -2,12 +2,12 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { marketRoutes } from './market.js'
-import type { MarketRepository } from '../repositories/index.js'
+import type { MarketRepository, ApiKeyRepository } from '../repositories/index.js'
 
-function buildTestApp(market: Partial<MarketRepository>) {
+function buildTestApp(market: Partial<MarketRepository>, apiKeys: Partial<ApiKeyRepository> = {}) {
   const app = Fastify()
   void app.register(sensible)
-  void app.register(marketRoutes, { market: market as MarketRepository })
+  void app.register(marketRoutes, { market: market as MarketRepository, apiKeys: apiKeys as ApiKeyRepository })
   return app
 }
 
@@ -152,6 +152,75 @@ describe('GET /popular', () => {
     expect(res.statusCode).toBe(500)
     expect(res.json()).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch popular listings data' } })
 
+    await app.close()
+  })
+})
+
+describe('GET /trends', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const TREND_POINTS = [
+    { bucketStart: new Date('2026-05-01T00:00:00.000Z'), medianPriceCents: 4500000, activeInventoryCount: 12, avgDaysToGone: 34.5 },
+  ]
+
+  it('returns 403 upgrade_required for a FREE-tier caller', async () => {
+    const market = { getTrends: vi.fn() }
+    const apiKeys = { findActiveByHash: vi.fn().mockResolvedValue(null) }
+    const app = buildTestApp(market, apiKeys)
+
+    const res = await app.inject({ method: 'GET', url: '/trends?make=Toyota&model=Sienna&interval=month' })
+
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error.code).toBe('upgrade_required')
+    expect(market.getTrends).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('returns trend points for a PRO-tier caller', async () => {
+    const market = { getTrends: vi.fn().mockResolvedValue(TREND_POINTS) }
+    const apiKeys = { findActiveByHash: vi.fn().mockResolvedValue({ tier: 'PRO' }) }
+    const app = buildTestApp(market, apiKeys)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/trends?make=Toyota&model=Sienna&interval=month',
+      headers: { 'x-api-key': 'a-pro-key' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const { data } = res.json()
+    expect(data.make).toBe('Toyota')
+    expect(data.model).toBe('Sienna')
+    expect(data.interval).toBe('month')
+    expect(data.points).toEqual([
+      { bucketStart: '2026-05-01T00:00:00.000Z', medianPriceCents: 4500000, activeInventoryCount: 12, avgDaysToGone: 34.5 },
+    ])
+    expect(market.getTrends).toHaveBeenCalledWith('Toyota', 'Sienna', 'month', expect.any(Date), expect.any(Date))
+
+    await app.close()
+  })
+
+  it('rejects when from is after to', async () => {
+    const market = { getTrends: vi.fn() }
+    const apiKeys = { findActiveByHash: vi.fn().mockResolvedValue({ tier: 'ENTERPRISE' }) }
+    const app = buildTestApp(market, apiKeys)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/trends?make=Toyota&model=Sienna&from=2026-06-01T00:00:00.000Z&to=2026-01-01T00:00:00.000Z',
+      headers: { 'x-api-key': 'a-key' },
+    })
+
+    expect(res.statusCode).toBe(400)
+
+    await app.close()
+  })
+
+  it('requires make and model', async () => {
+    const app = buildTestApp({ getTrends: vi.fn() })
+    const res = await app.inject({ method: 'GET', url: '/trends?make=Toyota' })
+    expect(res.statusCode).toBe(400)
     await app.close()
   })
 })

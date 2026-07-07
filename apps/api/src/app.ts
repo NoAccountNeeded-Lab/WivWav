@@ -23,12 +23,15 @@ import {
   PrismaMarketRepository,
   PrismaConversionBrandRepository,
   PrismaVehicleIdentityDecisionRepository,
+  PrismaDealerRepository,
+  PrismaApiKeyRepository,
 } from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
 import { vehicleRoutes } from './routes/vehicles.js'
 import { vinRoutes } from './routes/vin.js'
 import { marketRoutes } from './routes/market.js'
+import { dealerRoutes } from './routes/dealers.js'
 import { sourceRoutes } from './routes/sources.js'
 import { adminRoutes } from './routes/admin.js'
 import { adminVehicleIdentityRoutes } from './routes/admin-vehicle-identity.js'
@@ -136,12 +139,15 @@ export async function buildApp(
   const marketRepo = new PrismaMarketRepository(db)
   const conversionBrandRepo = new PrismaConversionBrandRepository(db)
   const vehicleIdentityDecisionRepo = new PrismaVehicleIdentityDecisionRepository(db)
+  const dealerRepo = new PrismaDealerRepository(db)
+  const apiKeyRepo = new PrismaApiKeyRepository(db)
 
   await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
   await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets, queueFactory })
   await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
-  await app.register(vinRoutes, { prefix: '/v1/vin', vehicles: vehicleRepo, listings: listingRepo })
-  await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo })
+  await app.register(vinRoutes, { prefix: '/v1/vin', vehicles: vehicleRepo, listings: listingRepo, apiKeys: apiKeyRepo })
+  await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo, apiKeys: apiKeyRepo })
+  await app.register(dealerRoutes, { prefix: '/v1/dealers', dealers: dealerRepo, apiKeys: apiKeyRepo })
   await app.register(conversionBrandRoutes, { prefix: '/v1/conversion-brands', conversionBrands: conversionBrandRepo })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
 

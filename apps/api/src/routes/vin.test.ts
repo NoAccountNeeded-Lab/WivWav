@@ -2,7 +2,7 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { vinRoutes } from './vin.js'
-import type { VehicleRepository, ListingRepository, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow } from '../repositories/index.js'
+import type { VehicleRepository, ListingRepository, ApiKeyRepository, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow } from '../repositories/index.js'
 
 function vpicResponse(make: string | null, model: string | null, year: string | null) {
   return {
@@ -16,12 +16,17 @@ function vpicResponse(make: string | null, model: string | null, year: string | 
   }
 }
 
-function buildTestApp(vehicles: Partial<VehicleRepository>, listings: Partial<ListingRepository>) {
+function buildTestApp(
+  vehicles: Partial<VehicleRepository>,
+  listings: Partial<ListingRepository>,
+  apiKeys: Partial<ApiKeyRepository> = {},
+) {
   const app = Fastify()
   void app.register(sensible)
   void app.register(vinRoutes, {
     vehicles: vehicles as VehicleRepository,
     listings: listings as ListingRepository,
+    apiKeys: apiKeys as ApiKeyRepository,
   })
   return app
 }
@@ -47,6 +52,78 @@ function makeVehicleModelWithSafety(overrides: {
     manufacturerCommunications: [],
   }
 }
+
+describe('GET /:vin/listings', () => {
+  const VIN = '5TDYK3DC1FS123456'
+
+  it('rejects invalid VINs', async () => {
+    const app = buildTestApp({}, {})
+    const res = await app.inject({ method: 'GET', url: '/not-a-vin/listings' })
+    expect(res.statusCode).toBe(400)
+    await app.close()
+  })
+
+  it('returns active listings for the VIN without requiring an API key', async () => {
+    const listedAt = new Date('2026-05-01T00:00:00.000Z')
+    const listings = {
+      findListingsByVin: vi.fn(async () => [
+        { id: 'l1', sourceUrl: 'https://a.example/1', dealerName: 'Acme Vans', priceCents: 4500000, mileage: 32000, status: 'active', listedAt, goneAt: null, soldAt: null },
+      ]),
+    }
+    const app = buildTestApp({}, listings)
+
+    const res = await app.inject({ method: 'GET', url: `/${VIN}/listings` })
+
+    expect(res.statusCode).toBe(200)
+    expect(listings.findListingsByVin).toHaveBeenCalledWith(VIN, true)
+    expect(res.json().data).toMatchObject({
+      vin: VIN,
+      listings: [{ id: 'l1', priceCents: 4500000, status: 'active', listedAt: '2026-05-01T00:00:00.000Z', goneAt: null, soldAt: null }],
+    })
+    await app.close()
+  })
+})
+
+describe('GET /:vin/history', () => {
+  const VIN = '5TDYK3DC1FS123456'
+
+  it('returns 403 upgrade_required for a FREE-tier caller', async () => {
+    const listings = { findHistoryByVin: vi.fn() }
+    const apiKeys = { findActiveByHash: vi.fn(async () => null) }
+    const app = buildTestApp({}, listings, apiKeys)
+
+    const res = await app.inject({ method: 'GET', url: `/${VIN}/history` })
+
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error.code).toBe('upgrade_required')
+    expect(listings.findHistoryByVin).not.toHaveBeenCalled()
+    await app.close()
+  })
+
+  it('returns merged price and mileage history for a PRO-tier caller', async () => {
+    const recordedAt = new Date('2026-05-01T00:00:00.000Z')
+    const listings = {
+      findHistoryByVin: vi.fn(async () => [
+        { listingId: 'l1', type: 'price' as const, value: 4500000, recordedAt },
+        { listingId: 'l1', type: 'mileage' as const, value: 32000, recordedAt },
+      ]),
+    }
+    const apiKeys = { findActiveByHash: vi.fn(async () => ({ tier: 'PRO' as const })) }
+    const app = buildTestApp({}, listings, apiKeys)
+
+    const res = await app.inject({ method: 'GET', url: `/${VIN}/history`, headers: { 'x-api-key': 'a-pro-key' } })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toMatchObject({
+      vin: VIN,
+      history: [
+        { listingId: 'l1', type: 'price', value: 4500000, recordedAt: '2026-05-01T00:00:00.000Z' },
+        { listingId: 'l1', type: 'mileage', value: 32000, recordedAt: '2026-05-01T00:00:00.000Z' },
+      ],
+    })
+    await app.close()
+  })
+})
 
 describe('GET /:vin/safety', () => {
   afterEach(() => {

@@ -1,8 +1,14 @@
-export type { ListingRepository, ListingWithSource, CrossListingRow, ListingSafetyResult, ListingVinRow, ListingPublicationCountRow, VehicleModelWithSafetyData, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow, InvestigationRow, ManufacturerCommunicationRow, PriceHistoryRow, QuarantinedListingRow, QuarantineFilter, SourcePipelineStageRow } from './listing-repository.js'
+export type { ListingRepository, ListingWithSource, CrossListingRow, ListingSafetyResult, ListingVinRow, VinListingRow, VinHistoryRow, VinHistoryEntryType, ListingPublicationCountRow, VehicleModelWithSafetyData, SafetyRecallRow, SafetyComplaintRow, SafetyRatingRow, InvestigationRow, ManufacturerCommunicationRow, PriceHistoryRow, QuarantinedListingRow, QuarantineFilter, SourcePipelineStageRow } from './listing-repository.js'
 export { PrismaListingRepository } from './listing-repository.js'
 
-export type { MarketRepository, PricingStats, PopularStats } from './market-repository.js'
+export type { MarketRepository, PricingStats, PopularStats, MarketTrendInterval, MarketTrendPoint } from './market-repository.js'
 export { PrismaMarketRepository } from './market-repository.js'
+
+export type { DealerRepository, DealerProfileRow, DealerListingRow, DealerReviewRow, DealerListingStatusFilter } from './dealer-repository.js'
+export { PrismaDealerRepository } from './dealer-repository.js'
+
+export type { ApiKeyRepository, ActiveApiKeyRow } from './api-key-repository.js'
+export { PrismaApiKeyRepository } from './api-key-repository.js'
 
 export type { VehicleRepository, VehicleModelRow, RecallRow, ComplaintRow, VehicleStatsRow, VehicleResearchRow } from './vehicle-repository.js'
 export { PrismaVehicleRepository } from './vehicle-repository.js'

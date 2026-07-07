@@ -109,6 +109,30 @@ export type ListingVinRow = {
   conversionManufacturer: string | null
 }
 
+/** Row for `GET /v1/vin/:vin/listings`. */
+export type VinListingRow = {
+  id: string
+  sourceUrl: string
+  dealerName: string | null
+  priceCents: number | null
+  mileage: number | null
+  status: string
+  listedAt: Date
+  goneAt: Date | null
+  soldAt: Date | null
+}
+
+export type VinHistoryEntryType = 'price' | 'mileage'
+
+/** One price or mileage observation, merged across all listings matching a VIN. */
+export type VinHistoryRow = {
+  listingId: string
+  type: VinHistoryEntryType
+  /** Cents for `type: 'price'`, odometer reading for `type: 'mileage'`. */
+  value: number
+  recordedAt: Date
+}
+
 export type DealerReviewRow = {
   id: string
   authorName: string
@@ -219,6 +243,17 @@ export interface ListingRepository {
   findByIdForDealer(id: string): Promise<ListingDealerResult | null>
   findDealerProfile(dealerProfileId: string): Promise<DealerProfileResult | null>
   findByVin(vin: string): Promise<ListingVinRow | null>
+  /**
+   * All listings matching a VIN across sources, for the cross-listing detail
+   * page feature. `activeOnly` restricts to publication-eligible active
+   * listings — the FREE-tier shape used by `GET /v1/vin/:vin/listings`.
+   */
+  findListingsByVin(vin: string, activeOnly: boolean): Promise<VinListingRow[]>
+  /**
+   * Merged price + mileage history for every listing matching a VIN,
+   * ordered by `recordedAt` ascending. PRO-gated — see `GET /v1/vin/:vin/history`.
+   */
+  findHistoryByVin(vin: string): Promise<VinHistoryRow[]>
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null>
   findManyActive(skip: number, take: number): Promise<Listing[]>
   countObservedActive(): Promise<number>
@@ -351,6 +386,55 @@ export class PrismaListingRepository implements ListingRepository {
       },
       select: { id: true, conversionManufacturer: true },
     })
+  }
+
+  findListingsByVin(vin: string, activeOnly: boolean): Promise<VinListingRow[]> {
+    return this.db.listing.findMany({
+      where: {
+        vin,
+        publicationStatus: 'eligible',
+        ...(activeOnly ? { status: 'active' } : {}),
+      },
+      orderBy: { listedAt: 'desc' },
+      select: {
+        id: true,
+        sourceUrl: true,
+        dealerName: true,
+        priceCents: true,
+        mileage: true,
+        status: true,
+        listedAt: true,
+        goneAt: true,
+        soldAt: true,
+      },
+    })
+  }
+
+  async findHistoryByVin(vin: string): Promise<VinHistoryRow[]> {
+    const matching = await this.db.listing.findMany({
+      where: { vin, publicationStatus: 'eligible' },
+      select: { id: true },
+    })
+    const listingIds = matching.map((l) => l.id)
+    if (listingIds.length === 0) return []
+
+    const [priceRows, mileageRows] = await Promise.all([
+      this.db.listingPriceHistory.findMany({
+        where: { listingId: { in: listingIds } },
+        select: { listingId: true, priceCents: true, recordedAt: true },
+      }),
+      this.db.listingMileageHistory.findMany({
+        where: { listingId: { in: listingIds } },
+        select: { listingId: true, mileage: true, recordedAt: true },
+      }),
+    ])
+
+    const merged: VinHistoryRow[] = [
+      ...priceRows.map((r) => ({ listingId: r.listingId, type: 'price' as const, value: r.priceCents, recordedAt: r.recordedAt })),
+      ...mileageRows.map((r) => ({ listingId: r.listingId, type: 'mileage' as const, value: r.mileage, recordedAt: r.recordedAt })),
+    ]
+    merged.sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime())
+    return merged
   }
 
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null> {
