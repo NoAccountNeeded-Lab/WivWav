@@ -376,7 +376,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download built images
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: docker-image-*
           path: /tmp/images
