@@ -15,6 +15,7 @@ Never implement directly on `main`.
 
 Search first with `rg`; state likely files, types, and risks; read the smallest relevant ranges.
 Keep changes and commits issue-scoped; do not mix unrelated work.
+Code-changing workers must make coherent, functional commits. Do not collapse an issue into one large commit when behavior, tests, docs, or review fixes can stand separately. Avoid WIP commits and unrelated churn.
 Never commit `.env` files, secrets, generated caches, or unrelated formatting churn.
 Never commit with failing relevant checks.
 Update `docs/api-routes.md` when adding, removing, or renaming API routes.
@@ -131,7 +132,8 @@ At SDLC handoffs, state status and give 2–4 concrete next steps; mark the safe
 `pnpm wivwav run-sprint` owns issue selection, labels, branches, worktrees, and worker context.
 Workers receive issue number and execution metadata; do not include the full issue body in spawn prompts.
 Workers verify the prepared worktree and branch; read `.agents/worker-context.md` and `.agents/issue-context.md`; plan before source reads.
-Implement code and tests; commit logical changes; open a draft PR after the first commit.
+Implement code and tests; commit after each coherent functional slice.
+Preserve those commits through PR creation; do not squash unless explicitly instructed.
 Run one foreground/blocking reviewer with `.claude/roles/reviewer.md` and `.claude/roles/qa.md`.
 Add `.claude/roles/accessibility.md` for `apps/web`.
 Add `.claude/roles/performance.md` for API, scraper, DB, queue, or search changes.
