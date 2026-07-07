@@ -12,6 +12,7 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:e2e": "pnpm --filter @wivwav/db generate && pnpm --filter @wivwav/db build && pnpm --filter @wivwav/e2e e2e",
     "clean": "turbo clean",
     "typecheck:affected": "turbo typecheck --filter=\"...[origin/main]\"",
     "lint:affected": "turbo lint --filter=\"...[origin/main]\"",

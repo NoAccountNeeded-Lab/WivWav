@@ -1,0 +1,23 @@
+{
+  "name": "@wivwav/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test --config playwright.config.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf test-results playwright-report"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@wivwav/db": "workspace:*",
+    "pg": "^8.21.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.9.2",
+    "@types/pg": "^8.20.0",
+    "@wivwav/config": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}
