@@ -62,15 +62,28 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The official postgres:17-alpine entrypoint does two startup phases on a
+# fresh volume: it runs initdb, briefly starts postgres on localhost only to
+# execute init scripts, shuts that instance down, then does the real
+# startup. `pg_isready` can succeed during that first, transient instance —
+# right before it shuts down for the restart — so a single successful
+# pg_isready is not sufficient and leaves a race where pg_restore connects
+# just as the server is shutting down ("the database system is shutting
+# down"). Both startup phases log "database system is ready to accept
+# connections"; waiting for that line to appear twice in the container log
+# reliably spans the restart window instead of racing it.
 wait_for_postgres() {
   local container="$1"
-  for _ in $(seq 1 60); do
-    if docker exec "$container" pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
+  local ready_marker="database system is ready to accept connections"
+  for _ in $(seq 1 120); do
+    local ready_count
+    ready_count="$(docker logs "$container" 2>&1 | grep -c "$ready_marker" || true)"
+    if [ "${ready_count:-0}" -ge 2 ]; then
       return 0
     fi
     sleep 1
   done
-  fail "$container did not become ready within 60s"
+  fail "$container did not complete its startup restart (fewer than two \"$ready_marker\" log lines) within 120s"
 }
 
 # Publishes to a Docker-assigned ephemeral host port (-p 0:5432) rather than
