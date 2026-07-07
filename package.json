@@ -13,6 +13,7 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:e2e": "pnpm --filter @wivwav/db generate && pnpm --filter @wivwav/db build && pnpm --filter @wivwav/e2e exec playwright install chromium && pnpm --filter @wivwav/e2e e2e",
+    "test:integration": "turbo test:integration --concurrency=1 --filter=@wivwav/api --filter=@wivwav/search",
     "clean": "turbo clean",
     "typecheck:affected": "turbo typecheck --filter=\"...[origin/main]\"",
     "lint:affected": "turbo lint --filter=\"...[origin/main]\"",
