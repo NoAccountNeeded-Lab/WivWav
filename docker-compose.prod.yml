@@ -38,6 +38,14 @@ services:
   # which loops internally; no separate cron daemon is needed. Uses the same
   # postgres:17-alpine image already pulled for `postgres` above, so no new
   # third-party image or license is introduced.
+  #
+  # No `user:` override here: the container starts as root (the image
+  # default once `entrypoint` is overridden), but backup.sh itself chowns
+  # $BACKUP_DIR and immediately re-execs as `postgres` via gosu before doing
+  # anything else — the actual dump/prune loop never runs as root. See the
+  # comment at the top of backup.sh for why that has to happen inside the
+  # script rather than via a compose-level `user: postgres` pin (a fresh
+  # named volume is root-owned until something chowns it).
   pg-backup:
     image: postgres:17-alpine
     restart: unless-stopped
