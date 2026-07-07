@@ -13,8 +13,14 @@ Canonical list of HTTP routes exposed by `apps/api`. **Keep this table current**
 | POST   | /v1/listings/:id/refresh-safety | Trigger on-demand NHTSA refresh (recalls, complaints, ratings, investigations, manufacturer communications) for the vehicle model linked to this listing. Rate-limited to once per model per hour. Returns `{ enqueued: bool, reason?, retryAfter?, jobIds? }`. |
 | GET    | /v1/listings/:id/dealer        | Dealer profile + top 5 reviews for a listing. Returns `{ dealerProfile: null }` when no profile exists yet. |
 | GET    | /v1/vin/:vin/safety            | Decode a VIN and return NHTSA safety summary when data is available |
+| GET    | /v1/vin/:vin/listings          | All active, publication-eligible listings across sources for a VIN. FREE. Powers the listing detail page cross-listings feature. |
+| GET    | /v1/vin/:vin/history           | Merged price + mileage history (any listing status/source) for a VIN, ordered by `recordedAt` ascending. PRO+; 403 `upgrade_required` for FREE-tier callers. |
+| GET    | /v1/dealers/:id                | Dealer profile: name, zip, rating, reviewCount, hours. FREE. 404 if the dealer does not exist. |
+| GET    | /v1/dealers/:id/listings        | Paginated listings for a dealer (`?status=active\|gone\|all`, `?skip=`, `?take=`). `status=active` (default) is FREE; `status=gone`/`all` are PRO+ (403 `upgrade_required` for FREE-tier callers). |
+| GET    | /v1/dealers/:id/reviews        | Paginated dealer reviews, newest first (`?skip=`, `?take=`). FREE. |
 | GET    | /v1/market/pricing                     | Price stats (percentiles, days listed, drop rate) for a make/model spec |
 | GET    | /v1/market/popular                     | Top 10 makes, models, and conversion brands by active listing count |
+| GET    | /v1/market/trends              | Time-bucketed median price, active inventory count, and avg days-to-gone for a make/model (`?interval=week\|month`, `?from=`, `?to=`). PRO+; 403 `upgrade_required` for FREE-tier callers. |
 | GET    | /v1/vehicles/:make/:model/stats            | Lifespan and reliability stats; returns `methodology` string and `sources: [{name, url}]` array (empty array when no source is recorded); optional `?year` falls back to aggregate row when no year-specific record exists |
 | GET    | /v1/vehicles/:make/:model/:year/recalls        | Open recalls for a vehicle           |
 | GET    | /v1/vehicles/:make/:model/:year/complaints     | Complaints for a vehicle             |
