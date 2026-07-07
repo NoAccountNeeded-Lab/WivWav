@@ -249,8 +249,35 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      meilisearch:
+        image: getmeili/meilisearch:v1.45.2
+        env:
+          MEILI_MASTER_KEY: wav_master_key
+          MEILI_ENV: development
+          MEILI_NO_ANALYTICS: "true"
+        ports:
+          - 7700:7700
+        options: >-
+          --health-cmd "curl -f http://localhost:7700/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      valkey:
+        image: valkey/valkey:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       DATABASE_URL: postgresql://wav:wav@localhost:5432/wivwav
+      MEILISEARCH_HOST: http://localhost:7700
+      MEILISEARCH_API_KEY: wav_master_key
+      VALKEY_URL: redis://localhost:6379
       # Turbo remote cache — both vars must be set for remote caching to activate.
       # Create a token at https://vercel.com/account/tokens and store it as a
       # repository secret named TURBO_TOKEN. TURBO_TEAM is the Vercel team slug
@@ -318,6 +345,11 @@ jobs:
           else
             echo "Remote cache: disabled (TURBO_TOKEN not set — set repository secret to enable)"
           fi
+
+      - name: Test (integration)
+        # Runs repositories, syncListings, and cache round-trips against the
+        # real postgres/meilisearch/valkey service containers above (#599).
+        run: pnpm test:integration
 
   # Publishes the exact images the jobs above just tested — never a rebuild.
   # Gated on every test job passing, and only runs for pushes to main, so a
