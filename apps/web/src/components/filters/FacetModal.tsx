@@ -73,6 +73,10 @@ export function FacetModal({ title, onClose, children }: FacetModalProps) {
   }
 
   return createPortal(
+    // Backdrop-click-to-close is a pointer-only convenience: Escape (handled
+    // above) is the keyboard equivalent, and the focus trap keeps keyboard
+    // users inside the panel, so the backdrop itself is never tab-reachable.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className={styles.backdrop} onMouseDown={handleBackdropMouseDown}>
       <div
         ref={panelRef}
