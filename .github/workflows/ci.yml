@@ -351,7 +351,6 @@ jobs:
         # real postgres/meilisearch/valkey service containers above (#599).
         run: pnpm test:integration
 
-  # Publishes the exact images the jobs above just tested — never a rebuild.
   # Proves a PostgreSQL backup taken with docker/postgres-backup/backup.sh's
   # pg_dump flags actually restores and that the invariants in #667's
   # acceptance criteria hold: history-table row counts, a vehicle-identity
@@ -371,12 +370,16 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      # Full install, matching every other job — a filtered install
+      # (--filter @wivwav/db...) is a narrower dependency graph than what
+      # actually runs here and was never itself exercised.
       - name: Install dependencies
-        run: pnpm install --filter @wivwav/db...
+        run: pnpm install
 
       - name: Run restore drill
         run: bash scripts/restore-drill.sh
 
+  # Publishes the exact images the jobs above just tested — never a rebuild.
   # Gated on every test job passing, and only runs for pushes to main, so a
   # failing job (docker build, lint/typecheck, test, or restore drill)
   # publishes nothing.

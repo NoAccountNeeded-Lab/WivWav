@@ -35,7 +35,12 @@ PG_IMAGE="postgres:17-alpine"
 DB_USER="drill"
 DB_PASSWORD="drill"
 DB_NAME="wivwav_drill"
-RUN_ID="$$-$(date +%s)"
+# PID + bash's $RANDOM + wall-clock second. Second-granularity timestamps
+# alone collide too easily on a shared/self-hosted runner where two drills
+# could start in the same second; $RANDOM adds enough entropy without
+# relying on `date +%s%N`, which isn't portable (BSD/macOS date has no
+# nanosecond field).
+RUN_ID="$$-${RANDOM}-$(date +%s)"
 SRC_CONTAINER="wivwav-restore-drill-src-${RUN_ID}"
 DST_CONTAINER="wivwav-restore-drill-dst-${RUN_ID}"
 WORKDIR="$(mktemp -d)"

@@ -18,6 +18,23 @@ BACKUP_DIR="${BACKUP_DIR:-/backups}"
 INTERVAL_SECONDS="${BACKUP_INTERVAL_SECONDS:-86400}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 
+# This entrypoint replaces the image's normal docker-entrypoint.sh (which
+# drops root via gosu before exec'ing postgres), so without this the whole
+# loop below — pg_dump, find, mv — would run as root for the sidecar's
+# entire lifetime. A brand-new named volume mounted at $BACKUP_DIR is
+# root-owned by Docker by default, so the drop can't happen unconditionally
+# on every start: the first boot needs root once to create/chown the
+# directory. Mirror the image's own pattern — if started as root, fix
+# ownership, then re-exec this same script as `postgres` via gosu (already
+# present in this image) so the actual dump loop never runs privileged. If
+# already started as a non-root user (e.g. `user: postgres` set externally
+# on an already-provisioned volume), skip straight to the loop.
+if [ "$(id -u)" = "0" ]; then
+  mkdir -p "$BACKUP_DIR"
+  chown postgres:postgres "$BACKUP_DIR"
+  exec gosu postgres "$0" "$@"
+fi
+
 mkdir -p "$BACKUP_DIR"
 
 log() {

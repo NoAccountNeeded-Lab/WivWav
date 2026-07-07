@@ -57,12 +57,18 @@ variables (see `docs/ops/deployment.md`).
   interval if 24 hours of potential data loss is unacceptable — the sidecar
   and script make no assumption about cadence beyond "at least once per
   interval."
-- **Recovery Time Objective (RTO): under 10 minutes for a database of this
-  scale.** The [restore drill](#restore-drill) below performs a full
-  migrate → seed → dump → restore → verify cycle in single-digit seconds
-  against an empty schema; a production-sized restore is dominated by
-  `pg_restore` I/O rather than orchestration overhead. Re-measure RTO against
-  the current production database size periodically and update this number.
+- **Recovery Time Objective (RTO): not yet measured at production scale —
+  target under 10 minutes, pending a real measurement.** The [restore
+  drill](#restore-drill) below completes a full migrate → seed → dump →
+  restore → verify cycle in single-digit seconds, but that is against a
+  handful of hand-seeded fixture rows on an empty schema, not a
+  production-sized dataset. `pg_restore` time scales with data volume, so
+  this number is an extrapolation, not a measurement — treat it as a target,
+  not a guarantee. Run `scripts/restore-drill.sh --dump <real backup>`
+  against an actual production-sized backup and record the wall-clock time
+  it reports before relying on this number for an incident response plan;
+  update it here once measured, and re-measure periodically as the database
+  grows.
 
 ## Retention
 
@@ -128,8 +134,9 @@ This needs no existing backup. It:
      with the correct `CONFIG_ENCRYPTION_SECRET`, **and** fails to decrypt
      with a wrong one (negative control — proves the check isn't a false
      positive).
-7. Tears down both containers and prints `PASS` with the elapsed time (a
-   live RTO measurement for this drill's scale).
+7. Tears down both containers and prints `PASS` with the elapsed time — this
+   times the fixture-scale drill itself, not a production-sized restore; see
+   [RPO / RTO](#rpo--rto) above for how to get a real RTO measurement.
 
 This mode is wired into CI (`.github/workflows/ci.yml`, job `restore-drill`)
 so a change to the schema, the backup flags, or the config encryption
