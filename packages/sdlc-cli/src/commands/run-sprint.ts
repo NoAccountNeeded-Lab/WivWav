@@ -194,6 +194,7 @@ function workerPrompt(target: SprintTarget, sprintId: string): string {
     'Read `.claude/core.md` and `.claude/roles/worker.md` before doing anything else.',
     'Then read `.agents/worker-context.md` and `.agents/issue-context.md`; only call `gh issue view` if you need live issue updates.',
     'Keep startup context lean: do not read `AGENTS.md`, package manifests, or broad directory listings unless your plan identifies a specific need for them.',
+    'Commit policy: coherent functional commits; no WIP commits or unrelated churn; preserve commits through PR creation unless explicitly told to squash.',
     '',
     `You are implementing issue #${target.issue.number}.`,
     '',

@@ -150,6 +150,17 @@ describe('writeContextArtifacts — happy path', () => {
     expect(String(workerWrite?.[1])).toContain('- Model: sonnet')
   })
 
+  it('should include commit policy in worker-context artifact', () => {
+    writeContextArtifacts(makeInput())
+
+    const workerWrite = mockWriteFileSync.mock.calls.find(([path]) =>
+      String(path).endsWith(ARTIFACT_FILES.workerContext),
+    )
+    expect(String(workerWrite?.[1])).toContain('Commit policy: coherent functional commits')
+    expect(String(workerWrite?.[1])).toContain('no WIP commits or unrelated churn')
+    expect(String(workerWrite?.[1])).toContain('preserve commits through PR creation')
+  })
+
   it('should write recovery-state as running then complete', () => {
     writeContextArtifacts(makeInput())
 

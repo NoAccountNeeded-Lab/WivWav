@@ -257,6 +257,7 @@ function workerContextContent(input: ContextInput): string {
     '- Read `.claude/core.md` and `.claude/roles/worker.md`.',
     '- Write a scoped plan before reading source files.',
     '- Treat likely-file hints as non-authoritative.',
+    '- Commit policy: coherent functional commits; no WIP commits or unrelated churn; preserve commits through PR creation unless explicitly told to squash.',
     `- Completed issues must close on merge: use \`pnpm wivwav finish ${issue.number}\` without \`--refs\`.`,
     `- Use \`pnpm wivwav finish ${issue.number} --refs\` only for intentionally partial work that should leave the issue open.`,
     '',
