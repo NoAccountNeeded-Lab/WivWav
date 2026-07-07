@@ -32,6 +32,31 @@ services:
       timeout: 5s
       retries: 10
 
+  # Scheduled pg_dump sidecar — see docs/data/backup-restore.md for RPO/RTO,
+  # retention, and access policy, and for the restore drill that proves these
+  # dumps are actually restorable. Runs docker/postgres-backup/backup.sh,
+  # which loops internally; no separate cron daemon is needed. Uses the same
+  # postgres:17-alpine image already pulled for `postgres` above, so no new
+  # third-party image or license is introduced.
+  pg-backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    entrypoint: ["/scripts/backup.sh"]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:?set POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-wivwav}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - postgres_backups:/backups
+      - ./docker/postgres-backup/backup.sh:/scripts/backup.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   valkey:
     image: valkey/valkey:8-alpine
     restart: unless-stopped
@@ -183,5 +208,6 @@ services:
 
 volumes:
   postgres_data:
+  postgres_backups:
   valkey_data:
   meilisearch_data_v1_45:

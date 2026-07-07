@@ -12,9 +12,11 @@ There is no separate publish workflow and no staging registry:
    **final** image stage exactly once — the same `runner`-stage (or, for
    `migrate`, single-stage) image that would run in production. On a push to
    `main` the built image is also saved as a workflow artifact.
-2. `lint-typecheck` and `test` run independently, in parallel with the build.
+2. `lint-typecheck`, `test`, and `restore-drill` run independently, in
+   parallel with the build. `restore-drill` proves a PostgreSQL backup
+   actually restores — see `docs/data/backup-restore.md`.
 3. `publish` runs only for a push to `main`, and only after `docker-done`,
-   `lint-typecheck`, and `test` have all succeeded. It loads the artifacts
+   `lint-typecheck`, `test`, and `restore-drill` have all succeeded. It loads the artifacts
    from step 1 — never rebuilding — tags and pushes each one to GHCR by
    digest, then rewrites `docker-compose.prod.yml` with the digests it just
    pushed and commits that file back to `main` (`chore(deploy): pin published
@@ -83,3 +85,13 @@ rollback only**; it does not run a migration in reverse.
 - `migrate`'s container stays in `docker-compose.prod.yml`'s history via git,
   so the schema state associated with any prior deploy is always
   reconstructable from the commit that pinned it.
+
+## Backups
+
+Rollback (above) undoes a bad app deploy; it does not recover lost or
+corrupted data. `docker-compose.prod.yml` runs a `pg-backup` sidecar that
+takes scheduled `pg_dump` backups of `postgres`, and `scripts/restore-drill.sh`
+is the scripted drill that proves those backups actually restore. See
+`docs/data/backup-restore.md` for RPO/RTO, retention, access policy, and how
+to run a restore. Valkey has no equivalent backup — see
+`docs/data/valkey-state-audit.md` for why.
