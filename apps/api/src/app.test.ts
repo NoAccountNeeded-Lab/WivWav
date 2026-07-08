@@ -472,3 +472,21 @@ describe('setErrorHandler — Sentry capture', () => {
     await app.close()
   })
 })
+
+describe('GET /openapi.json', () => {
+  it('serves a generated OpenAPI 3 document that includes the TypeBox-converted listings routes', async () => {
+    const { app: appPromise } = buildTestApp()
+    const app = await appPromise
+
+    const response = await app.inject({ method: 'GET', url: '/openapi.json' })
+
+    expect(response.statusCode).toBe(200)
+    const doc = response.json<{ openapi: string; paths: Record<string, unknown> }>()
+    expect(doc.openapi).toMatch(/^3\./)
+    // Fastify represents the plugin-prefix root route with a trailing slash.
+    expect(doc.paths).toHaveProperty('/v1/listings/')
+    expect(doc.paths).toHaveProperty('/v1/listings/facets')
+
+    await app.close()
+  })
+})
