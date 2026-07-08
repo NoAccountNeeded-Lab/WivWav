@@ -11,11 +11,11 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@wivwav/db": "workspace:*",
-    "pg": "^8.21.0"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.0",
     "@types/pg": "^8.20.0",
     "@wivwav/config": "workspace:*",
