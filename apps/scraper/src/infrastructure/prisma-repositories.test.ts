@@ -184,6 +184,8 @@ describe('PrismaListingRepository', () => {
       const repo = new PrismaListingRepository(db as never)
 
       await expect(repo.upsert(makeListing())).resolves.toMatchObject({ outcome: 'created' })
+      // This checks retry non-duplication (the transaction boundary), not
+      // ingest diffing logic — that stays covered in listing-ingest.test.ts.
       expect(db.listingObservation.create).toHaveBeenCalledTimes(1)
     })
   })
