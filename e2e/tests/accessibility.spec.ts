@@ -91,7 +91,17 @@ test.describe('accessibility smoke (axe)', () => {
       const focused = page.locator(':focus')
       await expect(focused).toBeVisible()
 
-      const { outerHTML, indicator } = await focused.evaluate((el) => {
+      const { outerHTML, indicator } = await focused.evaluate(async (el) => {
+        // Focus styling can be CSS-transitioned (e.g. StateHeatMap's
+        // stroke-width animates over 0.15s), so let any in-flight
+        // transition settle before reading computed style — otherwise we
+        // race the animation and read a mid-transition value.
+        const waitForStyleSettle = async () => {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+          await Promise.allSettled((el as Element).getAnimations().map((a) => a.finished))
+        }
+        await waitForStyleSettle()
+
         const focusedStyle = window.getComputedStyle(el)
         const outlineStyle = focusedStyle.outlineStyle
         const outlineWidth = focusedStyle.outlineWidth
@@ -107,12 +117,13 @@ test.describe('accessibility smoke (axe)', () => {
         let baselineStrokeWidth = focusedStrokeWidth
         if (typeof (el as Partial<HTMLOrSVGElement>).blur === 'function') {
           ;(el as HTMLOrSVGElement).blur()
+          await waitForStyleSettle()
           baselineStrokeWidth = parseFloat(window.getComputedStyle(el).strokeWidth || '0')
           ;(el as HTMLOrSVGElement).focus()
         }
 
         return {
-          outerHTML: el.outerHTML.slice(0, 120),
+          outerHTML: el.outerHTML,
           indicator: { outlineStyle, outlineWidth, boxShadow, focusedStrokeWidth, baselineStrokeWidth },
         }
       })
@@ -121,11 +132,14 @@ test.describe('accessibility smoke (axe)', () => {
         (indicator.outlineStyle !== 'none' && indicator.outlineWidth !== '0px') ||
         indicator.boxShadow !== 'none' ||
         indicator.focusedStrokeWidth > indicator.baselineStrokeWidth
-      expect(hasVisibleFocus, `stop ${i + 1} (${outerHTML}) has no visible focus indicator`).toBe(true)
+      expect(hasVisibleFocus, `stop ${i + 1} (${outerHTML.slice(0, 120)}) has no visible focus indicator`).toBe(true)
 
       // Focus order: each stop should be a distinct element, i.e. Tab is
-      // actually advancing rather than looping back onto the same node.
-      expect(seen.has(outerHTML), `stop ${i + 1} repeats a previous focus target: ${outerHTML}`).toBe(false)
+      // actually advancing rather than looping back onto the same node. Uses
+      // the full outerHTML (not a truncated prefix) since sibling controls
+      // with identical markup shape (e.g. BarsRenderer's bar buttons) share
+      // the same first ~100 chars and only diverge in their label/count text.
+      expect(seen.has(outerHTML), `stop ${i + 1} repeats a previous focus target: ${outerHTML.slice(0, 120)}`).toBe(false)
       seen.add(outerHTML)
     }
   }
@@ -140,6 +154,14 @@ test.describe('accessibility smoke (axe)', () => {
   test('keyboard-only pass: results has an in-order, visible focus sequence', async ({ page }) => {
     await page.goto('/en/results')
     await expect(page.getByText(/vehicle found|vehicles found/i)).toBeVisible()
+
+    // StateHeatMap loads via next/dynamic (ssr: false) and fetches its
+    // topojson data client-side, independently of the "vehicles found" text
+    // above. Its interactive <path> elements aren't in the DOM until that
+    // resolves, so tabbing before it's ready makes focus land on whatever
+    // comes after it instead — a race, not a real focus-order bug. Wait for
+    // the map to be interactive so the tab sequence below is deterministic.
+    await expect(page.locator('[role="group"][aria-label*="Map of the United States"] [role="button"]').first()).toBeAttached()
 
     await assertTabOrderHasVisibleFocus(page)
   })
