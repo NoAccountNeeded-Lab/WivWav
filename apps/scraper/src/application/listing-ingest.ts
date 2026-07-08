@@ -10,6 +10,12 @@ import type { ListingUpsertData, ListingUpsertResult } from '../engine/repositor
  * Takes the already-open Prisma transaction client: `prisma-repositories.ts`
  * owns opening the transaction (with retry) and passes its `tx` here — it
  * must not duplicate any of this diffing/write logic itself.
+ *
+ * Deliberate exception to core.md's "keep swappable dependencies behind
+ * interfaces": this service has one owner and one implementation (Prisma),
+ * so `ListingIngestTx` aliases Prisma's own transaction-client type rather
+ * than a hand-rolled port. Revisit only if a second persistence adapter is
+ * ever justified.
  */
 export type ListingIngestTx = Prisma.TransactionClient
 
