@@ -4,6 +4,9 @@ import Fastify, { type FastifyError, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import rateLimit from '@fastify/rate-limit'
+import swagger from '@fastify/swagger'
+import swaggerUi from '@fastify/swagger-ui'
+import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox'
 import { createBullBoard } from '@bull-board/api'
 import { FastifyAdapter } from '@bull-board/fastify'
 import type { CacheService } from './services/cache/index.js'
@@ -83,7 +86,7 @@ export async function buildApp(
       const forwarded = req.headers['x-request-id']
       return (Array.isArray(forwarded) ? forwarded[0] : forwarded) ?? randomUUID()
     },
-  })
+  }).withTypeProvider<TypeBoxTypeProvider>()
 
   const { registry, httpRequests, httpDuration } = createMetricsRegistry()
 
@@ -95,6 +98,20 @@ export async function buildApp(
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
   })
   await app.register(sensible)
+
+  // Schema-first route contracts (TypeBox) are converted route group by route
+  // group — see docs/api-routes.md. The generated OpenAPI 3 document reflects
+  // whichever routes currently carry TypeBox schemas; unconverted routes still
+  // appear (Fastify introspects every registered route) but without detailed
+  // request/response shapes until they are converted in follow-up issues.
+  await app.register(swagger, {
+    openapi: {
+      openapi: '3.0.3',
+      info: { title: 'WivWav API', version: '1.0.0' },
+    },
+  })
+  await app.register(swaggerUi, { routePrefix: '/docs' })
+  app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger())
 
   app.addHook('onResponse', (request, reply, done) => {
     request.log.info({

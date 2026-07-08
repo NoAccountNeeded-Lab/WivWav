@@ -2,11 +2,15 @@
 
 Canonical list of HTTP routes exposed by `apps/api`. **Keep this table current** when you add, remove, or rename a route (see `AGENTS.md` → "How agents work").
 
+A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `GET /docs`). Routes converted to TypeBox schema-first contracts (`apps/api/src/app.ts` registers the `@fastify/type-provider-typebox` type provider) are documented canonically by that generated spec — this table's description column may lag the schema for those routes. Currently converted: `GET /v1/listings`, `GET /v1/listings/facets`. All other routes remain documented here until converted in follow-up issues.
+
 | Method | Path                           | Description                          |
 | ------ | ------------------------------ | ------------------------------------ |
 | GET    | /health                        | Health check                         |
-| GET    | /v1/listings                   | Search listings with filters         |
-| GET    | /v1/listings/facets            | Facet aggregations (cached 60s)      |
+| GET    | /openapi.json                  | Generated OpenAPI 3 document (TypeBox schema-first routes) |
+| GET    | /docs                          | Swagger UI for the generated OpenAPI document |
+| GET    | /v1/listings                   | Search listings with filters. Schema-first (TypeBox); see `/openapi.json`. |
+| GET    | /v1/listings/facets            | Facet aggregations (cached 60s). Schema-first (TypeBox); see `/openapi.json`. |
 | GET    | /v1/listings/:id               | Single listing detail                |
 | GET    | /v1/listings/:id/price-history | Listing price history                |
 | GET    | /v1/listings/:id/safety        | Safety summary (recalls with `status: open|remedied|unknown`, complaints, ratings, investigations, manufacturerCommunications, `safetyFreshnessDate`) for a listing |

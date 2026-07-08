@@ -53,9 +53,15 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^6.0.0
         version: 6.0.0
+      '@fastify/type-provider-typebox':
+        specifier: ^5.2.0
+        version: 5.2.0(@sinclair/typebox@0.34.49)(fastify@5.8.5)
       '@sentry/node':
         specifier: ^10.57.0
         version: 10.57.0
+      '@sinclair/typebox':
+        specifier: ^0.34.49
+        version: 0.34.49
       '@wivwav/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -1120,6 +1126,12 @@ packages:
 
   '@fastify/swagger@9.7.0':
     resolution: {integrity: sha512-Vp1SC1GC2Hrkd3faFILv86BzUNyFz5N4/xdExqtCgkGASOzn/x+eMe4qXIGq7cdT6wif/P/oa6r1Ruqx19paZA==}
+
+  '@fastify/type-provider-typebox@5.2.0':
+    resolution: {integrity: sha512-RoUFTQNYlaVM/gXosFqlrUAD/JHC+OXLcj4DxNoMOag2GI7OydfCt+3vdT+6D2daJwhGAdkpxB0wLNqS7gf4CQ==}
+    peerDependencies:
+      '@sinclair/typebox': '>=0.26 <=0.34'
+      fastify: ^5.0.0
 
   '@fastify/view@11.1.1':
     resolution: {integrity: sha512-GiHqT3R2eKJgWmy0s45eELTC447a4+lTM2o+8fSWeKwBe9VToeePuHJcKtOEXPrKGSddGO0RsNayULiS3aeHeQ==}
@@ -2285,6 +2297,9 @@ packages:
     engines: {node: '>= 18'}
     peerDependencies:
       webpack: '>=5.0.0'
+
+  '@sinclair/typebox@0.34.49':
+    resolution: {integrity: sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A==}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -5757,6 +5772,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@fastify/type-provider-typebox@5.2.0(@sinclair/typebox@0.34.49)(fastify@5.8.5)':
+    dependencies:
+      '@sinclair/typebox': 0.34.49
+      fastify: 5.8.5
+
   '@fastify/view@11.1.1':
     dependencies:
       fastify-plugin: 5.1.0
@@ -6682,6 +6702,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+
+  '@sinclair/typebox@0.34.49': {}
 
   '@standard-schema/spec@1.1.0': {}
 
