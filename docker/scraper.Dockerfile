@@ -3,7 +3,7 @@
 # Playwright supports Debian/glibc, not Alpine/musl. Keep every stage on the
 # same runtime family so native packages such as sharp are built for the final
 # image's libc and architecture.
-FROM node:24-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
