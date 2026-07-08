@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@bull-board/api": "^7.1.5",
-    "@bull-board/fastify": "^7.1.5",
+    "@bull-board/fastify": "^8.1.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^11.1.0",
     "@fastify/sensible": "^6.0.4",
