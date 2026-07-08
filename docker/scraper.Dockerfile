@@ -6,7 +6,7 @@
 FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN npm install -g corepack@latest && corepack enable
 
 FROM base AS builder
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
