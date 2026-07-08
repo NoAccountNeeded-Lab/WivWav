@@ -5,7 +5,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 # enabling hard links instead of copies (avoids cross-mount slowness on startup).
 ENV PNPM_STORE_DIR="/pnpm/store"
 RUN apk add --no-cache git
-RUN corepack enable && echo "store-dir=/pnpm/store" >> /root/.npmrc
+RUN npm install -g corepack@latest && corepack enable && echo "store-dir=/pnpm/store" >> /root/.npmrc
 
 WORKDIR /workspace
 
