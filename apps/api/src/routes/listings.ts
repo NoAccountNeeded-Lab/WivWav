@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import type { Listing } from '@wivwav/db'
 import type { BullMQQueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
@@ -107,66 +107,87 @@ interface ListingsPluginOptions {
   queueFactory: BullMQQueueFactory
 }
 
-interface FilterQuery {
-  q?: string
-  make?: string
-  model?: string
-  trim?: string
-  yearMin?: number
-  yearMax?: number
-  priceMin?: number
-  priceMax?: number
-  mileageMax?: number
-  condition?: string
-  conversionBrand?: string
-  'conversionBrand[]'?: string
-  conversionType?: string
-  rampType?: string
-  wavFeatures?: string
-  color?: string
-  state?: string
-  sellerType?: string
-  sort?: string
-  page?: number
-  perPage?: number
-}
-
-const filterQuerySchema = {
-  type: 'object',
-  properties: {
-    q: { type: 'string' },
-    make: { type: 'string' },
-    model: { type: 'string' },
-    trim: { type: 'string' },
-    yearMin: { type: 'integer' },
-    yearMax: { type: 'integer' },
-    priceMin: { type: 'integer' },
-    priceMax: { type: 'integer' },
-    mileageMax: { type: 'integer' },
-    condition: { type: 'string' },
-    conversionBrand: { type: 'string' },
-    'conversionBrand[]': { type: 'string' },
-    conversionType: { type: 'string' },
-    rampType: { type: 'string' },
-    wavFeatures: { type: 'string' },
-    color: { type: 'string' },
-    state: { type: 'string' },
-    sellerType: { type: 'string' },
-    sort: { type: 'string' },
-    page: { type: 'integer', minimum: 1, default: 1 },
-    perPage: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+const filterQuerySchema = Type.Object(
+  {
+    q: Type.Optional(Type.String()),
+    make: Type.Optional(Type.String()),
+    model: Type.Optional(Type.String()),
+    trim: Type.Optional(Type.String()),
+    yearMin: Type.Optional(Type.Integer()),
+    yearMax: Type.Optional(Type.Integer()),
+    priceMin: Type.Optional(Type.Integer()),
+    priceMax: Type.Optional(Type.Integer()),
+    mileageMax: Type.Optional(Type.Integer()),
+    condition: Type.Optional(Type.String()),
+    conversionBrand: Type.Optional(Type.String()),
+    'conversionBrand[]': Type.Optional(Type.String()),
+    conversionType: Type.Optional(Type.String()),
+    rampType: Type.Optional(Type.String()),
+    wavFeatures: Type.Optional(Type.String()),
+    color: Type.Optional(Type.String()),
+    state: Type.Optional(Type.String()),
+    sellerType: Type.Optional(Type.String()),
+    sort: Type.Optional(Type.String()),
+    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+    perPage: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
   },
-  additionalProperties: false,
-} as const
+  { additionalProperties: false },
+)
 
-export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (app, { listings, search, facets, queueFactory }) => {
+// A single named facet bucket, e.g. `{ value: 'Toyota', count: 12 }`.
+const facetCountSchema = Type.Object({ value: Type.String(), count: Type.Number() })
+
+// Mirrors `FacetsResult` (apps/api/src/services/listing-facets.ts) field-for-field so the
+// generated OpenAPI document stays the single source of truth for this exemplar route.
+// Every field is `Type.Optional` — fast-json-stringify throws on a required property that
+// is absent from the payload, and callers (including this route's Meilisearch-outage
+// fallback branch) are not guaranteed to populate every breakdown — so optional keeps
+// serialization behaviour unchanged while still validating the type of whatever is present.
+const facetsResultSchema = Type.Object({
+  total: Type.Optional(Type.Number()),
+  priceDistribution: Type.Optional(Type.Array(Type.Object({ bucket: Type.String(), count: Type.Number() }))),
+  yearDistribution: Type.Optional(Type.Array(Type.Object({ year: Type.Number(), count: Type.Number() }))),
+  mileageDistribution: Type.Optional(Type.Array(Type.Object({ bucket: Type.String(), count: Type.Number() }))),
+  makeBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  modelBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  trimBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  stateBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  conditionBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  conversionBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  colorBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  rampTypeBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  sellerTypeBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  conversionBrandBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  wavFeatureCounts: Type.Optional(Type.Record(Type.String(), Type.Number())),
+})
+
+const facetsResponseSchema = Type.Object({ data: facetsResultSchema })
+
+// `data` holds either Meilisearch-sourced `ListingDocument` hits or, on Meilisearch
+// fallback, raw repository rows — two different shapes sharing one envelope. Left
+// unconstrained (`Type.Unknown()` serializes as pass-through, unlike a typed object
+// schema which would silently strip undeclared fields) rather than modelled strictly,
+// so the exemplar's schema-first validation covers the querystring and envelope shape
+// without risking silent field loss on either response path.
+const listingsSearchResponseSchema = Type.Object({
+  data: Type.Array(Type.Unknown()),
+  facets: Type.Record(Type.String(), Type.Unknown()),
+  pagination: Type.Object({
+    page: Type.Number(),
+    perPage: Type.Number(),
+    total: Type.Number(),
+    totalPages: Type.Number(),
+  }),
+})
+
+export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = async (app, { listings, search, facets, queueFactory }) => {
   const recallsQueue = queueFactory.createQueue(QUEUES.NHTSA_RECALLS)
   const complaintsQueue = queueFactory.createQueue(QUEUES.NHTSA_COMPLAINTS)
   const safetyRatingsQueue = queueFactory.createQueue(QUEUES.NHTSA_SAFETY_RATINGS)
   const investigationsQueue = queueFactory.createQueue(QUEUES.NHTSA_INVESTIGATIONS)
   const manufacturerCommunicationsQueue = queueFactory.createQueue(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS)
 
-  app.get<{ Querystring: FilterQuery }>('/facets', { schema: { querystring: filterQuerySchema } }, async (req, reply) => {
+  app.get('/facets', { schema: { querystring: filterQuerySchema, response: { 200: facetsResponseSchema } } }, async (req, reply) => {
     const q = req.query
     try {
       const result = await facets.getFacets({
@@ -213,7 +234,7 @@ export const listingRoutes: FastifyPluginAsync<ListingsPluginOptions> = async (a
     }
   })
 
-  app.get<{ Querystring: FilterQuery }>('/', { schema: { querystring: filterQuerySchema } }, async (req, reply) => {
+  app.get('/', { schema: { querystring: filterQuerySchema, response: { 200: listingsSearchResponseSchema } } }, async (req, reply) => {
     const q = req.query
     const page = q.page ?? 1
     const perPage = q.perPage ?? 20
