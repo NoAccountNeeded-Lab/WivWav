@@ -25,6 +25,11 @@
       "cache": false,
       "env": ["DATABASE_URL", "MEILISEARCH_HOST", "MEILISEARCH_API_KEY", "VALKEY_URL"]
     },
+    "test:integration:offline": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["DATABASE_URL", "MEILISEARCH_HOST", "MEILISEARCH_API_KEY", "MEILI_HOST", "MEILI_API_KEY", "VALKEY_URL"]
+    },
     "clean": {
       "cache": false
     }
