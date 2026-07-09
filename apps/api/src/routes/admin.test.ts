@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { describe, expect, it, vi } from 'vitest'
-import { MockQueueFactory, QUEUES } from '@wivwav/queue'
+import { MockQueueFactory, QUEUES, getQueuePolicy } from '@wivwav/queue'
 import type { MockQueueAdapter } from '@wivwav/queue'
 import { adminRoutes } from './admin.js'
 
@@ -70,7 +70,12 @@ describe('GET /queues', () => {
     expect(Array.isArray(body.data)).toBe(true)
     const names = body.data.map((q: { name: string }) => q.name)
     expect(names).toContain(QUEUES.SOURCE_SCRAPE)
-    expect(body.data[0]).toMatchObject({ name: expect.any(String), paused: false, stats: expect.any(Object) })
+    expect(body.data[0]).toMatchObject({
+      name: expect.any(String),
+      paused: false,
+      stats: expect.any(Object),
+      policy: expect.objectContaining(getQueuePolicy(body.data[0].name)),
+    })
     await app.close()
   })
 
@@ -78,6 +83,7 @@ describe('GET /queues', () => {
     const factory = {
       createQueue: () => ({
         name: QUEUES.SOURCE_SCRAPE,
+        getPolicy: vi.fn(() => getQueuePolicy(QUEUES.SOURCE_SCRAPE)),
         isPaused: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
         getStats: vi.fn(),
         add: vi.fn(),
@@ -110,6 +116,7 @@ describe('GET /queues/:name', () => {
     const { data } = res.json()
     expect(data.name).toBe(QUEUES.SOURCE_SCRAPE)
     expect(data.stats).toMatchObject({ waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 })
+    expect(data.policy).toEqual(getQueuePolicy(QUEUES.SOURCE_SCRAPE))
     expect(Array.isArray(data.jobs)).toBe(true)
     await app.close()
   })
@@ -521,6 +528,7 @@ describe('GET /listing-refresh/status', () => {
     const factory = {
       createQueue: () => ({
         name: QUEUES.SOURCE_SCRAPE,
+        getPolicy: vi.fn(() => getQueuePolicy(QUEUES.SOURCE_SCRAPE)),
         isPaused: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
         getStats: vi.fn(),
         add: vi.fn(),

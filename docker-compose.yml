@@ -123,7 +123,7 @@ services:
       QUEUE_REDIS_URL: redis://valkey:6379
       MEILI_HOST: http://meilisearch:7700
       MEILI_API_KEY: wav_master_key
-      SCRAPER_CONCURRENCY: 2
+      SCRAPER_RUNTIME_MODE: all
       SCRAPER_HEADLESS: "true"
       # Docker service name resolves automatically — no user config needed
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}

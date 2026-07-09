@@ -16,10 +16,6 @@ import { getDb } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
 import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
-import { BlvdAdapter } from './sources/blvd.js'
-import { MobilityWorksAdapter } from './sources/mobilityworks.js'
-import { FreedomMotorsAdapter } from './sources/freedom-motors.js'
-import { SuperiorVanAdapter } from './sources/superior-van.js'
 import { OllamaProvider } from './ai/ollama-provider.js'
 import { StructureDetector } from './ai/structure-detector.js'
 import { resolveOllamaModel } from './ai/ollama-config.js'
@@ -60,6 +56,8 @@ import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fuele
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
+import { buildDetailScheduleSources, buildSourceScrapeScheduleSources, registerSources } from './sources/registry.js'
+import { resolveScraperRuntimeMode, shouldRegisterSchedules, shouldStartWorkers } from './runtime-mode.js'
 
 const db = getDb()
 const logger = createLogger({
@@ -77,6 +75,7 @@ const engine = new ScraperEngine({
 })
 
 const browserService = new PlaywrightBrowserService()
+const runtimeMode = resolveScraperRuntimeMode()
 
 /** Read a string config value from the DB. Falls back to null if unavailable. */
 async function readConfigValue(key: string): Promise<string | null> {
@@ -145,242 +144,7 @@ process.once('SIGINT', () => void shutdown('SIGINT'))
 // is created below. createWorker starts consuming immediately, so any repeatable
 // source-scrape job that is already due (or stalled from a prior run) would call
 // engine.runSource() before registration and fail with "No adapter registered".
-
-const blvdSource = await db.source.upsert({
-  where: { name: 'BLVD.com' },
-  update: {},
-  create: {
-    name: 'BLVD.com',
-    baseUrl: 'https://www.blvd.com',
-    cronExpression: '0 */6 * * *',
-    timezone: 'America/New_York',
-  },
-})
-
-engine.register(
-  new BlvdAdapter(blvdSource.fingerprintHash, { previousPage1Hash: blvdSource.page1Hash, browserService }),
-  blvdSource.id,
-)
-
-const mwSource = await db.source.upsert({
-  where: { name: 'MobilityWorks' },
-  update: {},
-  create: {
-    name: 'MobilityWorks',
-    baseUrl: 'https://www.mobilityworks.com',
-    cronExpression: '0 */8 * * *',
-    timezone: 'America/New_York',
-  },
-})
-
-engine.register(
-  new MobilityWorksAdapter(mwSource.fingerprintHash, { previousPage1Hash: mwSource.page1Hash, browserService }),
-  mwSource.id,
-)
-
-// Freedom Motors and Superior Van & Mobility (#400) surface all normalized listing
-// fields — including dealer/location, which is either constant (Freedom Motors is a
-// single-location manufacturer) or genuinely unavailable per-listing (Superior Van's
-// grid has no per-card location) — directly from the listing grid, so neither source
-// needs a detail-crawl/detail-extract pass. Only source-scrape is scheduled below.
-const freedomMotorsSource = await db.source.upsert({
-  where: { name: 'Freedom Motors' },
-  update: {},
-  create: {
-    name: 'Freedom Motors',
-    baseUrl: 'https://www.freedommotors.com',
-    cronExpression: '0 */12 * * *',
-    timezone: 'America/New_York',
-  },
-})
-
-engine.register(
-  new FreedomMotorsAdapter(freedomMotorsSource.fingerprintHash, {
-    previousPage1Hash: freedomMotorsSource.page1Hash,
-    browserService,
-  }),
-  freedomMotorsSource.id,
-)
-
-const superiorVanSource = await db.source.upsert({
-  where: { name: 'Superior Van & Mobility' },
-  update: {},
-  create: {
-    name: 'Superior Van & Mobility',
-    baseUrl: 'https://superiorvan.com',
-    cronExpression: '0 */12 * * *',
-    timezone: 'America/New_York',
-  },
-})
-
-engine.register(
-  new SuperiorVanAdapter(superiorVanSource.fingerprintHash, {
-    previousPage1Hash: superiorVanSource.page1Hash,
-    browserService,
-  }),
-  superiorVanSource.id,
-)
-
-// Workers — each processor is wrapped with withSentryCapture so that job
-// failures are reported to Sentry before BullMQ marks them as failed.
-// Explicit type parameters on withSentryCapture preserve the same type safety
-// as the original createWorker<T> call sites.
-queueFactory.createWorker<{ sourceId: string }>(
-  QUEUES.SOURCE_SCRAPE,
-  withSentryCapture<{ sourceId: string }>(QUEUES.SOURCE_SCRAPE, async ({ sourceId }, context) => {
-    const ollamaProvider = await buildOllamaProvider()
-    const aiAvailable = await ollamaProvider.isAvailable()
-    if (!aiAvailable) {
-      context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
-      await context?.log('Ollama unavailable — running without AI-assisted remapping')
-    }
-    const listingsChanged = await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
-    // A changed source observation can move an eligible listing back to
-    // pending. Rebuild promptly so its stale document does not remain public
-    // until the nightly reconciliation.
-    if (listingsChanged) {
-      await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
-      await listingResolveQueue.add({ sourceId }, CRITICAL_JOB_OPTIONS)
-    }
-  }),
-  { lockDuration: 300_000, logger },
-)
-queueFactory.createWorker<{ sourceId: string }>(
-  QUEUES.DETAIL_CRAWL,
-  withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, ({ sourceId }, context) =>
-    runDetailCrawlJob(sourceId, context, browserService),
-  ),
-  { lockDuration: 120_000, logger },
-)
-queueFactory.createWorker<{ sourceId: string }>(
-  QUEUES.DETAIL_EXTRACT,
-  withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, ({ sourceId }, context) =>
-    runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
-  ),
-  { lockDuration: 60_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.GEOCODE,
-  withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context)),
-  { lockDuration: 120_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.DEDUPLICATE,
-  withSentryCapture(QUEUES.DEDUPLICATE, (_data: unknown, context) => runDeduplicateJob(context)),
-  { lockDuration: 120_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.VIN_ENRICH,
-  withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context)),
-  { lockDuration: 300_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.NHTSA_RECALLS,
-  withSentryCapture(QUEUES.NHTSA_RECALLS, (data: NhtsaRecallsJobData, context) =>
-    runNhtsaRecallsJob(context, data),
-  ),
-  { lockDuration: 300_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.NHTSA_COMPLAINTS,
-  withSentryCapture(QUEUES.NHTSA_COMPLAINTS, (data: NhtsaComplaintsJobData, context) =>
-    runNhtsaComplaintsJob(context, data),
-  ),
-  { lockDuration: 600_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.NHTSA_SAFETY_RATINGS,
-  withSentryCapture(QUEUES.NHTSA_SAFETY_RATINGS, (data: NhtsaSafetyRatingsJobData, context) =>
-    runNhtsaSafetyRatingsJob(context, data),
-  ),
-  { lockDuration: 600_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.NHTSA_INVESTIGATIONS,
-  withSentryCapture(QUEUES.NHTSA_INVESTIGATIONS, (data: NhtsaInvestigationsJobData, context) =>
-    runNhtsaInvestigationsJob(context, data),
-  ),
-  { lockDuration: 600_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
-  withSentryCapture(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS, (data: NhtsaManufacturerCommunicationsJobData, context) =>
-    runNhtsaManufacturerCommunicationsJob(context, data),
-  ),
-  { lockDuration: 600_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.VEHICLE_STATS_REFRESH,
-  withSentryCapture(QUEUES.VEHICLE_STATS_REFRESH, (_data: unknown, context) =>
-    runVehicleStatsRefreshJob(context),
-  ),
-  { lockDuration: 60_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.CONVERSION_BRANDS_SEED,
-  withSentryCapture(QUEUES.CONVERSION_BRANDS_SEED, (_data: unknown, context) =>
-    runConversionBrandsSeedJob(context),
-  ),
-  { lockDuration: 60_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.NMEDA_DEALERS_SEED,
-  withSentryCapture(QUEUES.NMEDA_DEALERS_SEED, (_data: unknown, context) =>
-    runNmedaDealersSeedJob(context),
-  ),
-  { lockDuration: 60_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.MODEL_RESEARCH,
-  withSentryCapture(QUEUES.MODEL_RESEARCH, (_data: unknown, context) =>
-    runModelResearchJob(context),
-  ),
-  { lockDuration: 600_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.LISTING_SYNC,
-  withSentryCapture(QUEUES.LISTING_SYNC, (_data: unknown, context) =>
-    runMeilisearchSyncJob(context),
-  ),
-  { lockDuration: 300_000, logger },
-)
-// Single-owner incremental search indexer (#669) — the only steady-state
-// writer of incremental changes to the listings search projection.
-queueFactory.createWorker(
-  QUEUES.LISTING_INDEX_POLL,
-  withSentryCapture(QUEUES.LISTING_INDEX_POLL, (_data: unknown, context) =>
-    runSearchIndexerPollJob(context),
-  ),
-  { lockDuration: 120_000, logger },
-)
-queueFactory.createWorker<ListingResolveJobData>(
-  QUEUES.LISTING_RESOLVE,
-  withSentryCapture<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, (data, context) =>
-    runListingResolveJob(data, context),
-  ),
-  { lockDuration: 120_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.RAWPAGE_CLEANUP,
-  withSentryCapture(QUEUES.RAWPAGE_CLEANUP, (_data: unknown, context) =>
-    runRawPageCleanupJob(context),
-  ),
-  { lockDuration: 120_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.DEALER_ENRICH,
-  withSentryCapture(QUEUES.DEALER_ENRICH, (_data: unknown, context) =>
-    runDealerEnrichJob(context),
-  ),
-  { lockDuration: 300_000, logger },
-)
-queueFactory.createWorker(
-  QUEUES.FUELECONOMY_MSRP,
-  withSentryCapture(QUEUES.FUELECONOMY_MSRP, (data: FuelEconomyMsrpJobData, context) =>
-    runFuelEconomyMsrpJob(context, data),
-  ),
-  { lockDuration: 600_000, logger },
-)
+const registeredSources = await registerSources(db, engine, browserService)
 
 const scrapeQueue = queueFactory.createQueue(QUEUES.SOURCE_SCRAPE)
 const crawlQueue = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
@@ -404,51 +168,190 @@ const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 
+function registerWorkers(): void {
+  // Workers — each processor is wrapped with withSentryCapture so that job
+  // failures are reported to Sentry before BullMQ marks them as failed.
+  // Explicit type parameters on withSentryCapture preserve the same type safety
+  // as the original createWorker<T> call sites.
+  queueFactory.createWorker<{ sourceId: string }>(
+    QUEUES.SOURCE_SCRAPE,
+    withSentryCapture<{ sourceId: string }>(QUEUES.SOURCE_SCRAPE, async ({ sourceId }, context) => {
+      const ollamaProvider = await buildOllamaProvider()
+      const aiAvailable = await ollamaProvider.isAvailable()
+      if (!aiAvailable) {
+        context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
+        await context?.log('Ollama unavailable — running without AI-assisted remapping')
+      }
+      const listingsChanged = await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
+      if (listingsChanged) {
+        await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
+        await listingResolveQueue.add({ sourceId }, CRITICAL_JOB_OPTIONS)
+      }
+    }),
+    { lockDuration: 300_000, logger },
+  )
+  queueFactory.createWorker<{ sourceId: string }>(
+    QUEUES.DETAIL_CRAWL,
+    withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, ({ sourceId }, context) =>
+      runDetailCrawlJob(sourceId, context, browserService),
+    ),
+    { lockDuration: 120_000, logger },
+  )
+  queueFactory.createWorker<{ sourceId: string }>(
+    QUEUES.DETAIL_EXTRACT,
+    withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, ({ sourceId }, context) =>
+      runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
+    ),
+    { lockDuration: 60_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.GEOCODE,
+    withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context)),
+    { lockDuration: 120_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.DEDUPLICATE,
+    withSentryCapture(QUEUES.DEDUPLICATE, (_data: unknown, context) => runDeduplicateJob(context)),
+    { lockDuration: 120_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.VIN_ENRICH,
+    withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context)),
+    { lockDuration: 300_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.NHTSA_RECALLS,
+    withSentryCapture(QUEUES.NHTSA_RECALLS, (data: NhtsaRecallsJobData, context) =>
+      runNhtsaRecallsJob(context, data),
+    ),
+    { lockDuration: 300_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.NHTSA_COMPLAINTS,
+    withSentryCapture(QUEUES.NHTSA_COMPLAINTS, (data: NhtsaComplaintsJobData, context) =>
+      runNhtsaComplaintsJob(context, data),
+    ),
+    { lockDuration: 600_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.NHTSA_SAFETY_RATINGS,
+    withSentryCapture(QUEUES.NHTSA_SAFETY_RATINGS, (data: NhtsaSafetyRatingsJobData, context) =>
+      runNhtsaSafetyRatingsJob(context, data),
+    ),
+    { lockDuration: 600_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.NHTSA_INVESTIGATIONS,
+    withSentryCapture(QUEUES.NHTSA_INVESTIGATIONS, (data: NhtsaInvestigationsJobData, context) =>
+      runNhtsaInvestigationsJob(context, data),
+    ),
+    { lockDuration: 600_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+    withSentryCapture(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS, (data: NhtsaManufacturerCommunicationsJobData, context) =>
+      runNhtsaManufacturerCommunicationsJob(context, data),
+    ),
+    { lockDuration: 600_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.VEHICLE_STATS_REFRESH,
+    withSentryCapture(QUEUES.VEHICLE_STATS_REFRESH, (_data: unknown, context) =>
+      runVehicleStatsRefreshJob(context),
+    ),
+    { lockDuration: 60_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.CONVERSION_BRANDS_SEED,
+    withSentryCapture(QUEUES.CONVERSION_BRANDS_SEED, (_data: unknown, context) =>
+      runConversionBrandsSeedJob(context),
+    ),
+    { lockDuration: 60_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.NMEDA_DEALERS_SEED,
+    withSentryCapture(QUEUES.NMEDA_DEALERS_SEED, (_data: unknown, context) =>
+      runNmedaDealersSeedJob(context),
+    ),
+    { lockDuration: 60_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.MODEL_RESEARCH,
+    withSentryCapture(QUEUES.MODEL_RESEARCH, (_data: unknown, context) =>
+      runModelResearchJob(context),
+    ),
+    { lockDuration: 600_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.LISTING_SYNC,
+    withSentryCapture(QUEUES.LISTING_SYNC, (_data: unknown, context) =>
+      runMeilisearchSyncJob(context),
+    ),
+    { lockDuration: 300_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.LISTING_INDEX_POLL,
+    withSentryCapture(QUEUES.LISTING_INDEX_POLL, (_data: unknown, context) =>
+      runSearchIndexerPollJob(context),
+    ),
+    { lockDuration: 120_000, logger },
+  )
+  queueFactory.createWorker<ListingResolveJobData>(
+    QUEUES.LISTING_RESOLVE,
+    withSentryCapture<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, (data, context) =>
+      runListingResolveJob(data, context),
+    ),
+    { lockDuration: 120_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.RAWPAGE_CLEANUP,
+    withSentryCapture(QUEUES.RAWPAGE_CLEANUP, (_data: unknown, context) =>
+      runRawPageCleanupJob(context),
+    ),
+    { lockDuration: 120_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.DEALER_ENRICH,
+    withSentryCapture(QUEUES.DEALER_ENRICH, (_data: unknown, context) =>
+      runDealerEnrichJob(context),
+    ),
+    { lockDuration: 300_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.FUELECONOMY_MSRP,
+    withSentryCapture(QUEUES.FUELECONOMY_MSRP, (data: FuelEconomyMsrpJobData, context) =>
+      runFuelEconomyMsrpJob(context, data),
+    ),
+    { lockDuration: 600_000, logger },
+  )
+}
+
+if (shouldStartWorkers(runtimeMode)) {
+  registerWorkers()
+}
+
 // --- Repeatable schedules ---
 // BullMQ/Valkey owns the schedule; no node-cron process needed.
 // On startup we only add a schedule if it isn't already in BullMQ, so that
 // changes made via the ops UI (/ops/schedules) survive scraper restarts.
 
-const tz = blvdSource.timezone
+const schedulerSource = registeredSources[0]
+if (!schedulerSource) {
+  throw new Error('No scraper sources are registered')
+}
+const tz = schedulerSource.row.timezone
 
 const SCHEDULE_DEFS: ScheduleDefinition[] = [
-  {
+  ...buildSourceScrapeScheduleSources(registeredSources).map((source) => ({
     queue: scrapeQueue,
     name: QUEUES.SOURCE_SCRAPE,
-    data: { sourceId: blvdSource.id },
-    pattern: blvdSource.cronExpression,
-    tz: blvdSource.timezone,
-    jobId: 'blvd',
-  },
-  {
-    queue: scrapeQueue,
-    name: QUEUES.SOURCE_SCRAPE,
-    data: { sourceId: mwSource.id },
-    pattern: mwSource.cronExpression,
-    tz: mwSource.timezone,
-    jobId: 'mw',
-  },
-  {
-    queue: scrapeQueue,
-    name: QUEUES.SOURCE_SCRAPE,
-    data: { sourceId: freedomMotorsSource.id },
-    pattern: freedomMotorsSource.cronExpression,
-    tz: freedomMotorsSource.timezone,
-    jobId: 'freedom-motors',
-  },
-  {
-    queue: scrapeQueue,
-    name: QUEUES.SOURCE_SCRAPE,
-    data: { sourceId: superiorVanSource.id },
-    pattern: superiorVanSource.cronExpression,
-    tz: superiorVanSource.timezone,
-    jobId: 'superior-van',
-  },
+    data: source.data,
+    pattern: source.pattern,
+    tz: source.tz,
+    jobId: source.jobId,
+  })),
   ...buildDetailScheduleDefinitions(
-    [
-      { id: blvdSource.id, timezone: blvdSource.timezone, schedulerPrefix: 'blvd' },
-      { id: mwSource.id, timezone: mwSource.timezone, schedulerPrefix: 'mw' },
-    ],
+    buildDetailScheduleSources(registeredSources),
     { crawl: crawlQueue, extract: extractQueue },
     CRITICAL_JOB_OPTIONS,
   ),
@@ -524,7 +427,9 @@ const SCHEDULE_DEFS: ScheduleDefinition[] = [
   { queue: fuelEconomyMsrpQueue, name: QUEUES.FUELECONOMY_MSRP, data: {}, pattern: '30 7 * * 0', tz },
 ]
 
-await reconcileSchedules(SCHEDULE_DEFS, logger)
+if (shouldRegisterSchedules(runtimeMode)) {
+  await reconcileSchedules(SCHEDULE_DEFS, logger)
+}
 
 const deprecatedProvider = await readConfigValue('ai.scraper.structure.provider')
 if (deprecatedProvider) {
@@ -534,4 +439,4 @@ if (deprecatedProvider) {
   )
 }
 
-logger.info('Scraper service started')
+logger.info({ runtimeMode }, 'Scraper service started')

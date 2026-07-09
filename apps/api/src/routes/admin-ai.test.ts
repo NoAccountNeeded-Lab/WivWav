@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobRecord } from '@wivwav/queue'
+import { getQueuePolicy, QUEUES } from '@wivwav/queue'
 import { adminAiRoutes } from './admin-ai.js'
 
 function buildTestApp(sources: unknown, queueFactory?: unknown) {
@@ -11,7 +12,10 @@ function buildTestApp(sources: unknown, queueFactory?: unknown) {
     sources: sources as never,
     ollamaBaseUrl: 'http://ollama.test',
     queueFactory: (queueFactory ?? {
-      createQueue: () => ({ getJobs: vi.fn(async () => []) }),
+      createQueue: () => ({
+        getJobs: vi.fn(async () => []),
+        getPolicy: vi.fn(() => getQueuePolicy(QUEUES.SOURCE_SCRAPE)),
+      }),
     }) as never,
   })
   return app
@@ -25,6 +29,7 @@ function buildQueueFactory(jobs: Partial<JobRecord>[]) {
   return {
     createQueue: vi.fn((_name: string) => ({
       getJobs: vi.fn(async () => jobs),
+      getPolicy: vi.fn(() => getQueuePolicy(QUEUES.SOURCE_SCRAPE)),
     })),
   }
 }

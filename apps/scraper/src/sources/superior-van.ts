@@ -60,6 +60,13 @@ interface SuperiorVanConfig {
   navRetryBackoffMs?: number
 }
 
+export function createSourceAdapter(
+  previousHash: string | null,
+  config: SuperiorVanConfig = {},
+): SourceAdapter {
+  return new SuperiorVanAdapter(previousHash, config)
+}
+
 // Shape returned from page.evaluate — must be JSON-serializable.
 export interface RawCard {
   href: string           // e.g. "https://superiorvan.com/inventory/2010-vantage-mobility-vmi-chrysler-town-country-2a4rr4de0ar108839/"

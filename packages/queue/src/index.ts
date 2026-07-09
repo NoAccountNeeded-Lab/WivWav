@@ -16,6 +16,8 @@ export { QUEUES } from './queues.js'
 export type { QueueName } from './queues.js'
 
 export { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from './defaults.js'
+export { QUEUE_POLICIES, getQueuePolicy } from './policies.js'
+export type { QueuePolicy, QueueRetentionPolicy } from './policies.js'
 
 export { BullMQQueueFactory } from './bullmq/factory.js'
 export { MockQueueFactory, MockQueueAdapter } from './mock/factory.js'
