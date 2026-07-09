@@ -29,13 +29,27 @@ pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --json --out au
 
 # Limit scan for quick spot-checks (does not produce a representative baseline)
 pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --limit 500
+
+# Compare against a previously approved coverage baseline (search reconciliation)
+pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json
+
+# Approve the current coverage/unknown-rates as the new baseline after a
+# deliberate schema or canonicalization change
+pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --approve-baseline search-baseline.json
+
+# Tune how large a coverage-rate drop (0–1, absolute) triggers a baseline alert (default 0.1)
+pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json --coverage-drop-threshold 0.15
 ```
 
 Always run against a live production database. The audit is read-only and
-produces no mutations.
+produces no mutations, against both Postgres and Meilisearch.
 
-If Meilisearch credentials are set in the environment (`MEILISEARCH_URL`,
-`MEILISEARCH_MASTER_KEY`), the audit will also check search index divergence.
+Search index reconciliation (see below) uses `MEILI_HOST` / `MEILI_API_KEY`
+(the same environment variables the rest of the app uses) and the queue
+backend's standard `QUEUE_REDIS_URL` / `VALKEY_URL`. It is skipped —
+correctly, not silently — whenever `--source` scopes the audit, since a
+verified vehicle group can span more than one source and a per-source
+reconciliation would report false divergence.
 
 ---
 
@@ -116,13 +130,122 @@ Run it first:
 pnpm tsx apps/scraper/src/jobs/image-integrity-backfill.ts --apply
 ```
 
-### Search index divergence
+### Search index reconciliation (#642)
 
-Shows whether the number of active-eligible listings in the DB matches the
-number of documents in the Meilisearch index.  A divergence of >0 is
-unexpected after a successful `listing-sync` run.
+Reconciles the *expected* search catalog — every eligible active listing
+grouped by verified vehicle group, with the same deterministic
+representative-selection policy production indexing uses (`groupKeyOf` /
+`selectRepresentative` / `toDocument` from `@wivwav/search`) — against the
+*actual* documents currently in Meilisearch, across every public facet: make,
+model, trim, year, price bucket, mileage bucket, state, condition,
+conversion type, color, ramp type, seller type, conversion brand, and WAV
+features.
 
-If Meilisearch is unavailable, the field shows `null` with a note.
+This replaces the pre-#642 check, which compared the raw count of eligible
+listing *rows* against the Meilisearch document count. Search holds exactly
+one representative per verified vehicle group, so that comparison
+over-counted whenever any group had more than one eligible member — it could
+report "divergence" during entirely normal operation while missing a real
+defect (e.g. #636) that puts more than one representative for the same group
+in the index.
+
+| Field | What it means | Alert threshold |
+|---|---|---|
+| `expectedTotal` / `actualTotal` | Expected representative count vs. live index document count | Any mismatch is unexpected after a successful `listing-sync` run |
+| `missingFromIndex` | Expected representative ids absent from the index entirely | >0 means the indexer poller (#669) has a stalled or failed batch — check `searchIndexerCheckpoint` |
+| `unexpectedInIndex` | Documents in the index with no corresponding expected representative | >0 means a stale or orphaned document — usually a listing that became ineligible without a subsequent sync |
+| `duplicateVehicleIds` | More than one document in the index sharing the same non-null `vehicleId` | Always a bug — `distinctAttribute` only dedupes at *search* time, it does not prevent duplicate documents; investigate `syncListings` (refs #636) |
+| `canonicalizationDivergenceSamples` | Documents present on both sides whose field value differs from what current canonicalization would produce | Indicates a stale index entry — a raw source value or the canonicalization/alias table changed since the last sync |
+| `facetComparisons` | Per-facet value-set and count comparison between expected and actual distributions | A diverged required facet (see below) is always a bug; a diverged optional facet may just mean the index is temporarily behind a fast-moving DB |
+| `invariantViolations` | Required facets (make, model, year, condition, sellerType, conversionType, rampType) missing on an expected document, or a duplicate-vehicleId group | Always investigate — required facets are never legitimately absent |
+| `coverage` / `unknownRates` | Global and per-source ratios for optional facets (trim, color, state, price/mileage bucket, conversionBrand) and the `unknown` sentinel rate on conversionType/rampType | Informational unless `coverageDropAlerts` fires — sparse optional data is normal |
+| `coverageDropAlerts` | Coverage/unknown-rate entries that dropped by ≥ `--coverage-drop-threshold` (default 0.1) vs. the supplied `--baseline` | A sudden per-source drop usually means a parser regression on that source |
+| `publicationBacklog` | `pending` / `quarantined` listing counts and the `listing-resolve` queue's waiting+active+delayed job count | A rising `listing-resolve` backlog means resolution is stalled — eligible listings are not reaching the index at all |
+
+If Meilisearch is unavailable, `available` is `false`, `actualTotal` is
+`null`, and every index-dependent field is empty — required-facet invariant
+violations are still computed against the expected (Postgres-only) catalog.
+If the `listing-resolve` queue backend is unreachable,
+`publicationBacklog.listingResolveBacklog` is `null` rather than blocking the
+rest of the audit (bounded by an internal timeout so a down queue can never
+hang the audit).
+
+#### Interpretation
+
+- **`expectedTotal` ≠ `actualTotal` with no missing/unexpected/duplicate
+  entries**: transient — the indexer poller (#669) lags the DB by design;
+  re-run the audit after its next tick.
+- **`missingFromIndex` > 0**: the indexer poller has not yet — or has failed
+  to — sync these representatives. Check `/ops/queues` for the
+  `listing-index-poll` queue and the `searchIndexerCheckpoint` row.
+- **`unexpectedInIndex` > 0**: a listing became ineligible (quarantined, gone,
+  no longer the group representative) without a corresponding delete. Confirm
+  the listing's current `publicationStatus`/`status`, then re-trigger sync for
+  its id.
+- **`duplicateVehicleIds` non-empty**: a `syncListings` defect left more than
+  one representative for a group in the index — this is the class of bug
+  #636 fixes. Do not resolve by deleting index documents by hand; fix the
+  underlying sync defect first, or a subsequent sync may reintroduce it.
+- **`canonicalizationDivergenceSamples` non-empty**: either the raw source
+  data changed or the canonicalization/alias table (`packages/search/src/canonicalize.ts`)
+  changed since these documents were last synced. Confirm which, then remediate
+  per below.
+- **`invariantViolations` non-empty for a required facet**: a data-integrity
+  bug upstream of search — a required field is null on an eligible listing.
+  This should be caught by the publication validator; if it wasn't, treat it
+  as a validator gap, not a search-layer issue.
+- **`coverageDropAlerts` fires for one source only**: a parser regression on
+  that source, not a global change — check recent scraper commits for that
+  source.
+- **`publicationBacklog.listingResolveBacklog` rising steadily**: the
+  `listing-resolve` worker is stalled or falling behind; eligible listings
+  are stuck at `pending` and will never reach search until it drains.
+
+#### Remediation
+
+1. **Stale/missing/unexpected documents**: re-trigger the incremental
+   indexer for the affected ids, or if widespread, run a full-rebuild sync
+   (`LISTING_SYNC` queue with the `LISTING_SYNC_REBUILD_JOB_ID`, see
+   `packages/search`/`apps/scraper/src/jobs/meilisearch-sync.ts`) to force a
+   clean re-derivation of every representative from current Postgres state.
+2. **Duplicate vehicleId documents**: identify and fix the `syncListings`
+   defect that let a non-representative member survive a sync, then run a
+   full-rebuild sync to remove the stray documents — do not delete them by
+   hand from a partial understanding, since the same defect will reintroduce
+   them on the next incremental sync.
+3. **Canonicalization divergence**: if caused by an alias-table change,
+   run a full-rebuild sync so every document picks up the new canonical
+   values. If caused by unexpected raw source drift, file a fixture/parser
+   fix first, then re-sync.
+4. **Invariant violations**: fix the underlying validator/extraction gap
+   that let a required field go null on an eligible listing; the search
+   layer cannot repair this since `toDocument()` only transforms what
+   Postgres already has.
+5. **Backlog stalls**: check `/ops/queues` for the `listing-resolve` queue;
+   restart the worker or clear a poison job (see `qualityIssueCodes` on the
+   stuck listings) as appropriate.
+
+#### Rollback
+
+If a full-rebuild sync itself introduces new divergence (e.g. a bad
+deploy), the rebuild target index is versioned and swapped only on success
+(refs `docs/architecture/decisions/0001-search-projection-mechanism.md`) —
+re-point the live alias back to the previous versioned index rather than
+attempting to patch documents in place, then re-run this audit against the
+restored index before re-attempting the rebuild.
+
+#### Post-rebuild verification
+
+After any full-rebuild sync (or a fix for one of the above), re-run:
+
+```bash
+pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --json --out post-rebuild-audit.json
+```
+
+and confirm `searchReconciliation.countDivergence` is `false`,
+`missingFromIndex.count` / `unexpectedInIndex.count` / `duplicateVehicleIds`
+are all `0`/empty, and no `facetComparisons` entry for a required facet is
+diverged, before approving a new baseline with `--approve-baseline`.
 
 ---
 
@@ -175,7 +298,11 @@ range.  Common failure patterns and responses:
 | Stale detail count rose rapidly | detail-crawl queue is stalled or rate-limited | Check `/ops/queues`; restart or tune the detail-crawl job |
 | `unsupported_accessibility_claim` count nonzero | AI agent emitting unverified WAV features | Check AI agent prompt; verify model version; add test case |
 | Image placeholders > 10% | Source serving stock photos for sold/missing vehicles | Investigate with image-integrity-backfill report; may need image filter update |
-| Search index diverged from DB | listing-sync job failed or ran on stale data | Re-trigger listing-sync from `/ops/queues` |
+| `searchReconciliation.countDivergence` / missing / unexpected documents | listing-sync/indexer poller failed or ran on stale data | Re-trigger the indexer poller or a full-rebuild sync from `/ops/queues` |
+| `duplicateVehicleIds` non-empty | `syncListings` left a stale non-representative document in the index | Fix the sync defect, then run a full-rebuild sync |
+| A required facet diverged or has an invariant violation | Validator gap let a required field go null on an eligible listing | Fix the publication validator; search cannot repair this |
+| `coverageDropAlerts` fires for a single source | Parser regression on that source | Check recent scraper commits for the source; add a gold fixture case |
+| `publicationBacklog.listingResolveBacklog` rising | `listing-resolve` worker stalled | Check `/ops/queues`; restart the worker |
 
 ---
 
@@ -229,5 +356,9 @@ follow-up work before they can be gated:
 - **WAV feature false-positive rate** — requires a human-reviewed label set
   beyond the current gold fixtures.
 - **User-reported quality signals** — will be added when issue #147 lands.
+- **Search reconciliation scoped to a single source** — skipped when
+  `--source` is passed, since a verified vehicle group can include members
+  from more than one source; only an unscoped run rebuilds the expected
+  catalog correctly.
 
 These gaps are included in every audit report under `knownGaps`.
