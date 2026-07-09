@@ -348,7 +348,6 @@ model ListingObservation {
   before            Json
   after             Json
   observedAt        DateTime @default(now())
-  searchSyncedAt    DateTime?
 
   @@unique([stage, reference])
   @@index([listingId, observedAt])
@@ -864,4 +863,18 @@ model ApiKey {
   revokedAt  DateTime?
 
   @@map("api_key")
+}
+
+/// Durable checkpoint for the single-owner search indexer poller (#669).
+/// One row per named projection — `id` is the projection name (e.g.
+/// "listings"). Advances only after the corresponding search-engine write
+/// commits, so a crash between the index write and the checkpoint write
+/// safely replays the same batch (syncListings is idempotent).
+model SearchIndexerCheckpoint {
+  id            String   @id
+  lastUpdatedAt DateTime
+  lastId        String
+  updatedAt     DateTime @updatedAt
+
+  @@map("search_indexer_checkpoint")
 }
