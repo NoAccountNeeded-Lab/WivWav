@@ -89,6 +89,49 @@ export type { CanonicalFuelType } from './canonicalize.js'
 
 export const INDEX_NAME = 'listings'
 
+/**
+ * Configure a Meilisearch index with the listings-index settings.
+ * Parameterized by `indexName` so both the live index (API startup, a no-op
+ * settings refresh) and a versioned rebuild target (full-rebuild swap, #669)
+ * share one settings definition instead of drifting apart.
+ *
+ * `updateSettings` implicitly creates the index if `indexName` does not yet
+ * exist, so this also serves as "create and configure" for a fresh index.
+ */
+export async function configureIndexSettings(client: Meilisearch, indexName: string): Promise<void> {
+  const index = client.index(indexName)
+  const task = await index.updateSettings({
+    filterableAttributes: [
+      'make', 'model', 'year', 'trim', 'condition', 'sellerType',
+      'conversionType', 'rampType', 'wavFeatures',
+      'conversionBrand', 'color', 'state', 'city', 'sourceId',
+      'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
+      'publicationStatus', 'vehicleId', 'vehicleGroupKey',
+    ],
+    sortableAttributes: ['priceCents', 'mileage', 'year', 'listedAt'],
+    pagination: { maxTotalHits: 20000 },
+    searchableAttributes: [
+      'make', 'model', 'trim', 'description',
+      'conversionManufacturer', 'city', 'state',
+    ],
+    distinctAttribute: 'vehicleGroupKey',
+  })
+  const result = await client.tasks.waitForTask(task.taskUid, { timeout: 15_000 })
+  if (result.status !== 'succeeded') {
+    throw new Error(`Meilisearch settings update failed on "${indexName}": task ${result.uid} ended with status ${result.status}`)
+  }
+}
+
+/** True when `indexName` currently exists on the Meilisearch instance. */
+export async function indexExists(client: Meilisearch, indexName: string): Promise<boolean> {
+  try {
+    await client.getRawIndex(indexName)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export interface ListingDocument {
   id: string
   vehicleId: string | null
