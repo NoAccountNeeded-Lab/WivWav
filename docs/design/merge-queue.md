@@ -21,6 +21,18 @@ order instead of its stale base, removing that window.
 
 `bypass_actors` is empty — no role or app can skip the ruleset, including admins.
 
+### E2E smoke is signal, not a required check
+
+`ci.yml` also runs an `e2e` job (`E2E smoke`) on every PR, merge-group, and
+`main` run, but it is deliberately **not** in the ruleset's required status
+checks above and does not block the merge queue. The suite is still early
+and growing, and its critical smoke path hasn't been defined yet, so a flaky
+or slow E2E run should not stall unrelated PRs from merging. It does,
+however, gate post-merge image publishing: `publish` in `ci.yml` needs `e2e`
+to succeed on the `main` push before it pushes anything to GHCR — see
+`docs/ops/deployment.md`. Promoting `E2E smoke` to a required merge-queue
+check is a deliberate future decision, not an oversight.
+
 ### Merge queue parameters
 
 | Parameter | Value | Meaning |
