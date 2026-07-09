@@ -140,7 +140,11 @@ export function toFacetDoc(doc: ListingDocument): FacetDoc {
 /** Returns the set of facet values a document contributes for `key` (0 or 1 for exclusive facets). */
 function facetValues(doc: FacetDoc, key: FacetKey): string[] {
   if (key === 'wavFeatures') return doc.wavFeatures
-  if (key === 'year') return [String(doc.year)]
+  // `year` is a non-nullable Int column, but `0` is the established sentinel
+  // for "missing" elsewhere in this audit (see scanSourceListings) — treat it
+  // the same way here so a missing year can actually be flagged as a required
+  // -facet violation instead of always counting as present.
+  if (key === 'year') return doc.year === 0 ? [] : [String(doc.year)]
   const value = doc[key] as string | null
   return value == null || value === '' ? [] : [value]
 }
