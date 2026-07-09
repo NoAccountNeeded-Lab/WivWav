@@ -25,10 +25,19 @@ vi.mock('@wivwav/db', () => ({
 }))
 
 // Meilisearch is optional — the audit gracefully handles its absence.
-vi.mock('meilisearch', () => ({
-  MeiliSearch: vi.fn().mockImplementation(() => ({
+vi.mock('../lib/meili.js', () => ({
+  getMeiliClient: vi.fn(() => ({
     index: vi.fn().mockReturnValue({
       getStats: vi.fn().mockRejectedValue(new Error('unavailable')),
+    }),
+  })),
+}))
+
+// Queue backend is optional — the audit gracefully handles its absence.
+vi.mock('../lib/queue-factory.js', () => ({
+  getQueueFactory: vi.fn(() => ({
+    createQueue: vi.fn().mockReturnValue({
+      getStats: vi.fn().mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 }),
     }),
   })),
 }))
@@ -115,8 +124,15 @@ function makeDb(listings: ReturnType<typeof makeListing>[], overrides?: {
   }
 
   // Simulate pagination: return all listings on first page, then empty.
+  // These fixtures only carry the narrow field set scanSourceListings selects
+  // (its query always passes `select`); the search-reconciliation full-row
+  // scan (no `select`) is exercised with properly-shaped fixtures in
+  // search-reconciliation.test.ts instead, so it always sees an empty page
+  // here rather than crashing on fields (e.g. `listedAt`) these fixtures
+  // don't carry.
   let pageCalled = false
-  db.listing.findMany.mockImplementation(async () => {
+  db.listing.findMany.mockImplementation(async (args?: { select?: unknown }) => {
+    if (!args?.select) return []
     if (pageCalled) return []
     pageCalled = true
     return listings
@@ -185,7 +201,11 @@ describe('runListingQualityAudit', () => {
 
     const db = makeDb([])
     let pageCount = 0
-    db.listing.findMany.mockImplementation(async () => {
+    db.listing.findMany.mockImplementation(async (args?: { select?: unknown }) => {
+      // Only the field-select scan (scanSourceListings) is under test here —
+      // the reconciliation full-row scan always sees an empty page (see
+      // makeDb's comment on why these fixtures can't stand in for it).
+      if (!args?.select) return []
       pageCount++
       if (pageCount === 1) return page1
       if (pageCount === 2) return page2
@@ -332,9 +352,18 @@ describe('runListingQualityAudit', () => {
     vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
 
     const report = await runListingQualityAudit({})
-    expect(report.searchIndex.indexCount).toBeNull()
-    expect(report.searchIndex.diverged).toBe(false)
-    expect(report.searchIndex.note).toMatch(/unavailable/)
+    expect(report.searchReconciliation).not.toBeNull()
+    expect(report.searchReconciliation?.available).toBe(false)
+    expect(report.searchReconciliation?.actualTotal).toBeNull()
+    expect(report.searchReconciliation?.note).toMatch(/unavailable/)
+  })
+
+  it('skips search reconciliation when --source scopes the audit', async () => {
+    const db = makeDb([makeListing({})])
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
+
+    const report = await runListingQualityAudit({ sourceId: 'test-source' })
+    expect(report.searchReconciliation).toBeNull()
   })
 
   it('does not include description or personal data in report output', async () => {
