@@ -2,10 +2,9 @@ import type { Meilisearch } from 'meilisearch'
 import type { ListingDocument } from '@wivwav/search'
 import {
   INDEX_NAME,
-  toDocument,
+  configureIndexSettings,
 } from '@wivwav/search'
 import type { SearchService, SearchFilters, RangeFilter } from './search/index.js'
-import type { ListingRepository } from '../repositories/index.js'
 
 export { INDEX_NAME, priceBucket, mileageBucket } from '@wivwav/search'
 export type { ListingDocument } from '@wivwav/search'
@@ -39,39 +38,18 @@ export interface SearchResult {
   facets: Record<string, Record<string, number>>
 }
 
-const BATCH_SIZE = 1000
-
 /**
  * Configure the Meilisearch listings index with required settings.
- * This function is intentionally Meilisearch-specific because index settings
- * (filterable attributes, sortable attributes, pagination limits) are not
- * part of the generic SearchService interface.
+ * Thin wrapper over the shared `configureIndexSettings` (packages/search) so
+ * the scraper's versioned-rebuild path and the API's idempotent startup
+ * settings-refresh apply the exact same settings definition.
+ *
+ * Called on every API startup so filters/facets work on the first request.
+ * Idempotent — safe on every restart, including a fresh container. Never
+ * clears or rebuilds the live index's documents.
  */
 export async function configureListingsIndex(client: Meilisearch): Promise<void> {
-  const index = client.index(INDEX_NAME)
-  const task = await index.updateSettings({
-    filterableAttributes: [
-      'make', 'model', 'year', 'trim', 'condition', 'sellerType',
-      'conversionType', 'rampType', 'wavFeatures',
-      'conversionBrand', 'color', 'state', 'city', 'sourceId',
-      'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
-      'publicationStatus', 'vehicleId', 'vehicleGroupKey',
-    ],
-    sortableAttributes: ['priceCents', 'mileage', 'year', 'listedAt'],
-    pagination: { maxTotalHits: 20000 },
-    searchableAttributes: [
-      'make', 'model', 'trim', 'description',
-      'conversionManufacturer', 'city', 'state',
-    ],
-    distinctAttribute: 'vehicleGroupKey',
-  })
-  // Wait for Meilisearch to finish applying settings before the server opens.
-  // updateSettings only enqueues a task; without this the index may still have
-  // stale attributes when the first request arrives after a fresh deployment.
-  const result = await client.tasks.waitForTask(task.taskUid, { timeout: 15_000 })
-  if (result.status !== 'succeeded') {
-    throw new Error(`Meilisearch settings update failed: task ${result.uid} ended with status ${result.status}`)
-  }
+  await configureIndexSettings(client, INDEX_NAME)
 }
 
 /**
@@ -145,25 +123,6 @@ export class ListingSearchService {
       total: result.total,
       facets: (result.facetDistribution ?? {}) as Record<string, Record<string, number>>,
     }
-  }
-
-  async syncAll(listings: ListingRepository): Promise<number> {
-    await this.searchService.clear(INDEX_NAME)
-
-    let synced = 0
-    let cursor: string | undefined
-
-    for (;;) {
-      const rows = await listings.findPageForSync(BATCH_SIZE, cursor)
-      if (rows.length === 0) break
-
-      await this.searchService.upsert(INDEX_NAME, rows.map(toDocument))
-      synced += rows.length
-      cursor = rows[rows.length - 1]!.id
-      if (rows.length < BATCH_SIZE) break
-    }
-
-    return synced
   }
 }
 

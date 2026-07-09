@@ -274,17 +274,18 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         },
       })
     } catch (err) {
-      // Meilisearch unavailable — fall back to repository query
-      req.log.warn(err, '[listings] Meilisearch unavailable, falling back to repository')
-      const skip = (page - 1) * perPage
-      const [rows, total] = await Promise.all([
-        listings.findManyActive(skip, perPage),
-        listings.countActive(),
-      ])
-      return reply.send({
-        data: rows,
-        facets: {},
-        pagination: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
+      // Meilisearch unavailable — return an explicit degraded response rather
+      // than silently dropping requested filters (#669, D3). A repository
+      // fallback here would either ignore filters (wrong results presented
+      // as correct) or require re-implementing full filter/facet semantics
+      // against Postgres (a second search engine to keep in sync). An honest
+      // 503 lets the client render a clear degraded state instead.
+      req.log.warn(err, '[listings] Meilisearch unavailable, returning degraded response')
+      return reply.code(503).send({
+        error: {
+          code: 'SEARCH_UNAVAILABLE',
+          message: 'Search is temporarily unavailable. Please try again shortly.',
+        },
       })
     }
   })

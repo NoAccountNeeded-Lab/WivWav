@@ -183,7 +183,7 @@ export async function buildApp(
         nodeEnv: config.NODE_ENV,
       })
 
-      await adminScope.register(adminRoutes, { listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory, search })
+      await adminScope.register(adminRoutes, { listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory })
       await adminScope.register(adminVehicleIdentityRoutes, { prefix: '/vehicle-identity', vehicleIdentityDecisions: vehicleIdentityDecisionRepo })
       await adminScope.register(adminAiRoutes, {
         prefix: '/ai',

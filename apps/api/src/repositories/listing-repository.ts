@@ -262,8 +262,6 @@ export interface ListingRepository {
   countActiveMissingCoordinates(): Promise<number>
   getPublicationCountsBySource(): Promise<ListingPublicationCountRow[]>
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]>
-  /** Cursor-based page for bulk sync operations. Returns listings in id order. */
-  findPageForSync(take: number, afterId?: string): Promise<Listing[]>
   /** Lists quarantined listings, optionally filtered by source, rule, and age. */
   findQuarantined(filter: QuarantineFilter): Promise<QuarantinedListingRow[]>
   countQuarantined(filter: Omit<QuarantineFilter, 'skip' | 'take'>): Promise<number>
@@ -536,18 +534,6 @@ export class PrismaListingRepository implements ListingRepository {
       where: { listingId },
       orderBy: { recordedAt: 'asc' },
       select: { id: true, priceCents: true, recordedAt: true },
-    })
-  }
-
-  findPageForSync(take: number, afterId?: string): Promise<Listing[]> {
-    return this.db.listing.findMany({
-      take,
-      ...(afterId ? { skip: 1, cursor: { id: afterId } } : {}),
-      where: {
-        status: 'active',
-        publicationStatus: 'eligible',
-      },
-      orderBy: { id: 'asc' },
     })
   }
 

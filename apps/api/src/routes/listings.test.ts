@@ -200,22 +200,21 @@ describe('GET /', () => {
     await app.close()
   })
 
-  it('falls back to repository when Meilisearch is unavailable', async () => {
+  it('returns an explicit 503 degraded error envelope when Meilisearch is unavailable, without falling back to an unfiltered repository query', async () => {
     const failingSearch = { search: vi.fn(async () => { throw new Error('Meilisearch down') }) }
-    const dbListings = [{ id: 'row-1' }]
-    const { app, listings } = buildTestApp(failingSearch, {
-      findManyActive: vi.fn(async () => dbListings),
-      countActive: vi.fn(async () => 7),
+    const { app, listings } = buildTestApp(failingSearch)
+
+    const res = await app.inject({ method: 'GET', url: '/?page=2&perPage=5&make=Toyota' })
+
+    expect(res.statusCode).toBe(503)
+    expect(res.json()).toEqual({
+      error: {
+        code: 'SEARCH_UNAVAILABLE',
+        message: 'Search is temporarily unavailable. Please try again shortly.',
+      },
     })
-
-    const res = await app.inject({ method: 'GET', url: '/?page=2&perPage=5' })
-
-    expect(res.statusCode).toBe(200)
-    const body = res.json<{ data: unknown[]; facets: unknown; pagination: Record<string, unknown> }>()
-    expect(body.data).toEqual(dbListings)
-    expect(body.facets).toEqual({})
-    expect(body.pagination).toEqual({ page: 2, perPage: 5, total: 7, totalPages: 2 })
-    expect(listings.findManyActive).toHaveBeenCalledWith(5, 5)
+    // A repository fallback would silently drop the `make` filter — must not happen (#669).
+    expect(listings.findManyActive).not.toHaveBeenCalled()
 
     await app.close()
   })

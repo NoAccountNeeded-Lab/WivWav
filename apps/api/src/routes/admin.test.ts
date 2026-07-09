@@ -5,8 +5,6 @@ import { MockQueueFactory, QUEUES } from '@wivwav/queue'
 import type { MockQueueAdapter } from '@wivwav/queue'
 import { adminRoutes } from './admin.js'
 
-const mockSearch = { syncAll: vi.fn(async () => 42) }
-
 function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
   return {
     findById: vi.fn(async () => null),
@@ -19,7 +17,6 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     countActiveMissingCoordinates: vi.fn(async () => 0),
     getPublicationCountsBySource: vi.fn(async () => []),
     findPriceHistory: vi.fn(async () => []),
-    findPageForSync: vi.fn(async () => []),
     findQuarantined: vi.fn(async () => []),
     countQuarantined: vi.fn(async () => 0),
     reprocessQuarantined: vi.fn(async () => true),
@@ -52,7 +49,6 @@ function buildTestApp(
   sourceRepoOverrides: Record<string, unknown> = {},
   scraperRunRepoOverrides: Record<string, unknown> = {},
   factory: MockQueueFactory,
-  search = mockSearch,
   listingRepoOverrides: Record<string, unknown> = {},
 ) {
   const app = Fastify()
@@ -60,7 +56,7 @@ function buildTestApp(
   const listings = buildDefaultListingRepo(listingRepoOverrides)
   const sources = buildDefaultSourceRepo(sourceRepoOverrides)
   const scraperRuns = buildDefaultScraperRunRepo(scraperRunRepoOverrides)
-  void app.register(adminRoutes, { listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, queueFactory: factory as never, search: search as never })
+  void app.register(adminRoutes, { listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, queueFactory: factory as never })
   return { app, listings, sources, scraperRuns }
 }
 
@@ -353,7 +349,6 @@ describe('GET /sources/:id/pipeline', () => {
       },
       {},
       factory,
-      mockSearch,
       {
         getSourcePipelineStages: vi.fn(async () => [
           { stage: 'detail-crawl', pendingCount: 5, lastCompletedAt: staleCompletion },
@@ -401,7 +396,6 @@ describe('GET /sources', () => {
       { findAll: vi.fn(async () => [source]) },
       {},
       factory,
-      mockSearch,
       {
         getPublicationCountsBySource: vi.fn(async () => [{
           sourceId: 'src-1',
@@ -425,15 +419,19 @@ describe('GET /sources', () => {
 })
 
 describe('POST /sync', () => {
-  it('re-indexes all listings and returns the count', async () => {
-    const search = { syncAll: vi.fn(async () => 7) }
+  it('enqueues the full-rebuild job on the listing-sync queue with a fixed jobId', async () => {
     const factory = new MockQueueFactory()
-    const { app } = buildTestApp({}, {}, factory, search)
+    const { app } = buildTestApp({}, {}, factory)
 
     const res = await app.inject({ method: 'POST', url: '/sync' })
-    expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ synced: 7 })
-    expect(search.syncAll).toHaveBeenCalledOnce()
+    expect(res.statusCode).toBe(202)
+    expect(res.json().data.enqueued).toBe(true)
+
+    const listingSyncQueue = factory.getQueue(QUEUES.LISTING_SYNC)
+    const jobs = listingSyncQueue?.getEnqueued() ?? []
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0]).toMatchObject({ data: {}, status: 'waiting' })
+    expect(jobs[0]?.options).toMatchObject({ jobId: 'listing-sync-rebuild' })
 
     await app.close()
   })
@@ -472,7 +470,6 @@ describe('GET /listing-refresh/status', () => {
       },
       { findRecent: vi.fn(async () => [run]) },
       factory,
-      mockSearch,
       {
         countObservedActive: vi.fn(async () => 10),
         countActive: vi.fn(async () => 3),
@@ -802,7 +799,7 @@ describe('GET /quarantine', () => {
   it('returns quarantined listings with rule severity attached', async () => {
     const factory = new MockQueueFactory()
     const row = makeQuarantinedRow()
-    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app, listings } = buildTestApp({}, {}, factory, {
       findQuarantined: vi.fn(async () => [row]),
       countQuarantined: vi.fn(async () => 1),
     })
@@ -824,7 +821,7 @@ describe('GET /quarantine', () => {
 
   it('passes sourceId and rule filters through to the repository', async () => {
     const factory = new MockQueueFactory()
-    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app, listings } = buildTestApp({}, {}, factory, {
       findQuarantined: vi.fn(async () => []),
       countQuarantined: vi.fn(async () => 0),
     })
@@ -840,7 +837,7 @@ describe('GET /quarantine', () => {
 
   it('resolves a severity filter to its set of rule codes', async () => {
     const factory = new MockQueueFactory()
-    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app, listings } = buildTestApp({}, {}, factory, {
       findQuarantined: vi.fn(async () => []),
       countQuarantined: vi.fn(async () => 0),
     })
@@ -856,7 +853,7 @@ describe('GET /quarantine', () => {
 
   it('short-circuits when rule and severity filters contradict each other', async () => {
     const factory = new MockQueueFactory()
-    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app, listings } = buildTestApp({}, {}, factory, {
       findQuarantined: vi.fn(async () => []),
       countQuarantined: vi.fn(async () => 0),
     })
@@ -873,7 +870,7 @@ describe('GET /quarantine', () => {
 
   it('caps take at the maximum page size', async () => {
     const factory = new MockQueueFactory()
-    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app, listings } = buildTestApp({}, {}, factory, {
       findQuarantined: vi.fn(async () => []),
       countQuarantined: vi.fn(async () => 0),
     })
@@ -889,7 +886,7 @@ describe('GET /quarantine', () => {
 describe('POST /quarantine/:id/reprocess', () => {
   it('reprocesses a quarantined listing', async () => {
     const factory = new MockQueueFactory()
-    const { app, listings } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app, listings } = buildTestApp({}, {}, factory, {
       reprocessQuarantined: vi.fn(async () => true),
     })
 
@@ -904,7 +901,7 @@ describe('POST /quarantine/:id/reprocess', () => {
 
   it('returns 404 when the listing is not quarantined', async () => {
     const factory = new MockQueueFactory()
-    const { app } = buildTestApp({}, {}, factory, mockSearch, {
+    const { app } = buildTestApp({}, {}, factory, {
       reprocessQuarantined: vi.fn(async () => false),
     })
 
