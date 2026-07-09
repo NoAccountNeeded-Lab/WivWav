@@ -1,11 +1,11 @@
-FROM node:24-alpine
+FROM node:26-alpine
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 # Pin pnpm store inside the image so it's on the same filesystem as node_modules,
 # enabling hard links instead of copies (avoids cross-mount slowness on startup).
 ENV PNPM_STORE_DIR="/pnpm/store"
 RUN apk add --no-cache git
-RUN corepack enable && echo "store-dir=/pnpm/store" >> /root/.npmrc
+RUN npm install -g corepack@latest && corepack enable && echo "store-dir=/pnpm/store" >> /root/.npmrc
 
 WORKDIR /workspace
 

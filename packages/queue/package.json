@@ -27,8 +27,8 @@
   },
   "dependencies": {
     "@wivwav/logger": "workspace:*",
-    "@bull-board/api": "^7.1.5",
-    "@bull-board/ui": "^7.1.5",
+    "@bull-board/api": "^8.1.2",
+    "@bull-board/ui": "^8.1.2",
     "bullmq": "^5.79.3"
   },
   "devDependencies": {
