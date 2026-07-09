@@ -292,6 +292,13 @@ describe('detectRequiredFacetViolations', () => {
     expect(violations.length).toBe(1)
     expect(violations[0]).toMatch(/make/)
   })
+
+  it('treats the year=0 sentinel as missing, not as a valid year', () => {
+    const docs: FacetDoc[] = [{ ...toFacetDoc(toDocument(makeListing())), year: 0 }]
+    const violations = detectRequiredFacetViolations(docs)
+    expect(violations.length).toBe(1)
+    expect(violations[0]).toMatch(/year/)
+  })
 })
 
 describe('detectDuplicateVehicleIds', () => {

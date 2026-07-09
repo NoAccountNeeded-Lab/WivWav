@@ -11,6 +11,9 @@
  *   pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --source <sourceId>
  *   pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --limit 1000
  *   pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --out audit.json
+ *   pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json
+ *   pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --approve-baseline search-baseline.json
+ *   pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --coverage-drop-threshold 0.15
  *
  * Report dimensions:
  *   1. active/total listings, by source

@@ -229,7 +229,7 @@ hang the audit).
 
 If a full-rebuild sync itself introduces new divergence (e.g. a bad
 deploy), the rebuild target index is versioned and swapped only on success
-(refs `docs/architecture/decisions/0001-search-projection-mechanism.md`) —
+(refs `docs/design/search-projection-mechanism.md`) —
 re-point the live alias back to the previous versioned index rather than
 attempting to patch documents in place, then re-run this audit against the
 restored index before re-attempting the rebuild.
