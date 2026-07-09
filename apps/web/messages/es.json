@@ -26,6 +26,8 @@
     "noVehicles": "Ningún vehículo coincide con sus filtros actuales.",
     "noVehiclesForBrand": "Ningún vehículo coincide con la marca de conversión seleccionada. Pruebe otra marca o borre el filtro de marca.",
     "clearAllFilters": "Borrar todos los filtros",
+    "searchUnavailableHeading": "La búsqueda no está disponible temporalmente",
+    "searchUnavailableMessage": "No podemos cargar los vehículos en este momento. Vuelva a intentarlo en unos minutos.",
     "pagination": {
       "ariaLabel": "Paginación",
       "previous": "Anterior",

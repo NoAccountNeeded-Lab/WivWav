@@ -49,11 +49,15 @@ interface ListingsResponse {
   pagination: Pagination
 }
 
+type ListingsFetchResult =
+  | { ok: true; data: ListingDoc[]; pagination: Pagination }
+  | { ok: false }
+
 // ── Data fetching ────────────────────────────────────────
 
 async function fetchListings(
   searchParams: Record<string, string>,
-): Promise<ListingsResponse> {
+): Promise<ListingsFetchResult> {
   const base = getServerApiBaseUrl()
   const url = new URL(`${base}/v1/listings`)
 
@@ -72,9 +76,14 @@ async function fetchListings(
     url.searchParams.set('sort', 'listedAt:desc')
   }
 
+  // The API returns an explicit 503 error envelope when search is down
+  // (#669) rather than silently dropping filters — render an honest
+  // degraded state instead of throwing into the framework's generic error
+  // boundary, which would lose the page chrome and any request context.
   const res = await apiFetch(url.toString(), { next: { revalidate: 0 } })
-  if (!res.ok) throw new Error(`Listings fetch failed: ${res.status}`)
-  return res.json() as Promise<ListingsResponse>
+  if (!res.ok) return { ok: false }
+  const body = await res.json() as ListingsResponse
+  return { ok: true, data: body.data, pagination: body.pagination }
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -288,6 +297,8 @@ export interface ResultsPageLabels {
   noVehicles: string
   noVehiclesForBrand: string
   clearAllFilters: string
+  searchUnavailableHeading: string
+  searchUnavailableMessage: string
   paginationAriaLabel: string
   previous: string
   next: string
@@ -307,6 +318,8 @@ const DEFAULT_LABELS: ResultsPageLabels = {
   noVehiclesForBrand:
     'No vehicles match the selected conversion brand. Try another brand or clear the brand filter.',
   clearAllFilters: 'Clear all filters',
+  searchUnavailableHeading: 'Search is temporarily unavailable',
+  searchUnavailableMessage: "We're unable to load vehicle listings right now. Please try again in a few minutes.",
   paginationAriaLabel: 'Pagination',
   previous: 'Previous',
   next: 'Next',
@@ -339,12 +352,34 @@ export async function ListingsResults({
   personalized = false,
 }: ListingsResultsProps) {
   const params = await searchParams
-  const { data: listings, pagination } = await fetchListings(params)
+  const result = await fetchListings(params)
   const hasConversionBrandFilter = Boolean(params.conversionBrand)
   const activeFilterCount = countActiveResultFilters(new URLSearchParams(params))
   const listingPathPrefix = resultsPath.endsWith('/results')
     ? resultsPath.slice(0, -'/results'.length)
     : ''
+
+  // Search is down (#669) — render an honest, accessible degraded state
+  // instead of a partial page built from data we don't have. `role="alert"`
+  // announces the failure to assistive tech immediately, without requiring
+  // the user to discover a silently empty results grid.
+  if (!result.ok) {
+    return (
+      <>
+        <SiteHeader />
+        <main id="main-content" className={styles.main}>
+          <div className={styles.container}>
+            <div className={styles.emptyState} role="alert">
+              <h1>{labels.searchUnavailableHeading}</h1>
+              <p>{labels.searchUnavailableMessage}</p>
+            </div>
+          </div>
+        </main>
+      </>
+    )
+  }
+
+  const { data: listings, pagination } = result
 
   return (
     <>
