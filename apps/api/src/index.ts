@@ -22,7 +22,6 @@ import { buildApp } from './app.js'
 import { configureListingsIndex, ListingSearchService } from './services/listing-search.js'
 import { ListingFacetsService } from './services/listing-facets.js'
 import { MeilisearchService } from './services/search/index.js'
-import { PrismaListingRepository } from './repositories/index.js'
 
 const config = loadConfig()
 if (!config.CONFIG_ENCRYPTION_SECRET) {
@@ -96,11 +95,6 @@ try {
   process.exit(1)
 }
 
-// Initial sync runs in the background — can take minutes with many listings.
-// Idempotent; safe to run on every restart.
-void search.syncAll(new PrismaListingRepository(db))
-  .then(n => app.log.info(`[search] Initial sync complete — ${n} listings indexed`))
-  .catch(err => {
-    const reason = err instanceof Error ? `: ${err.message}` : ''
-    app.log.warn(`[search] Initial sync skipped; Meilisearch may not be available${reason}`)
-  })
+// API startup never rebuilds or clears the search index (#669) — the scraper's
+// single-owner indexer poller and scheduled full-rebuild job are the only
+// writers to the listings projection.

@@ -20,46 +20,6 @@ function buildDb(overrides: Record<string, unknown> = {}) {
   }
 }
 
-describe('PrismaListingRepository.findPageForSync', () => {
-  it('omits cursor when afterId is undefined', async () => {
-    const db = buildDb()
-    const repo = new PrismaListingRepository(db as never)
-    await repo.findPageForSync(10)
-    expect(db.listing.findMany).toHaveBeenCalledWith({
-      take: 10,
-      where: {
-        status: 'active',
-        publicationStatus: 'eligible',
-      },
-      orderBy: { id: 'asc' },
-    })
-  })
-
-  it('applies skip:1 and cursor when afterId is provided', async () => {
-    const db = buildDb()
-    const repo = new PrismaListingRepository(db as never)
-    await repo.findPageForSync(10, 'listing-abc')
-    expect(db.listing.findMany).toHaveBeenCalledWith({
-      take: 10,
-      skip: 1,
-      cursor: { id: 'listing-abc' },
-      where: {
-        status: 'active',
-        publicationStatus: 'eligible',
-      },
-      orderBy: { id: 'asc' },
-    })
-  })
-
-  it('returns the listings from Prisma', async () => {
-    const rows = [{ id: 'l-1' }, { id: 'l-2' }]
-    const db = buildDb({ findMany: vi.fn(async () => rows) })
-    const repo = new PrismaListingRepository(db as never)
-    const result = await repo.findPageForSync(5)
-    expect(result).toEqual(rows)
-  })
-})
-
 describe('PrismaListingRepository.findManyActive', () => {
   it('queries active representative vehicle groups ordered by listedAt desc', async () => {
     const db = buildDb()

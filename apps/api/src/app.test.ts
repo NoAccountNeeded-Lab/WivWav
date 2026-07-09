@@ -64,7 +64,6 @@ describe('isAllowedCorsOrigin', () => {
 function buildTestApp() {
   const search = {
     search: vi.fn(async () => ({ hits: [], total: 0, facets: {} })),
-    syncAll: vi.fn(async () => 7),
   }
   const facets = {
     getFacets: vi.fn(async () => ({
@@ -365,17 +364,16 @@ describe('rate limiting', () => {
   })
 
   it('uses a tighter limit for admin sync', async () => {
-    const { app: appPromise, search } = buildTestApp()
+    const { app: appPromise } = buildTestApp()
     const app = await appPromise
 
     for (let i = 0; i < 5; i++) {
       const response = await app.inject({ method: 'POST', url: '/admin/sync' })
-      expect(response.statusCode).toBe(200)
+      expect(response.statusCode).toBe(202)
     }
 
     const limited = await app.inject({ method: 'POST', url: '/admin/sync' })
     expect(limited.statusCode).toBe(429)
-    expect(search.syncAll).toHaveBeenCalledTimes(5)
 
     await app.close()
   })
