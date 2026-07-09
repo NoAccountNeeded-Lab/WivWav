@@ -163,6 +163,13 @@ const facetsResultSchema = Type.Object({
 
 const facetsResponseSchema = Type.Object({ data: facetsResultSchema })
 
+const searchUnavailableResponseSchema = Type.Object({
+  error: Type.Object({
+    code: Type.Literal('SEARCH_UNAVAILABLE'),
+    message: Type.String(),
+  }),
+})
+
 // `data` holds either Meilisearch-sourced `ListingDocument` hits or, on Meilisearch
 // fallback, raw repository rows — two different shapes sharing one envelope. Left
 // unconstrained (`Type.Unknown()` serializes as pass-through, unlike a typed object
@@ -234,7 +241,7 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
     }
   })
 
-  app.get('/', { schema: { querystring: filterQuerySchema, response: { 200: listingsSearchResponseSchema } } }, async (req, reply) => {
+  app.get('/', { schema: { querystring: filterQuerySchema, response: { 200: listingsSearchResponseSchema, 503: searchUnavailableResponseSchema } } }, async (req, reply) => {
     const q = req.query
     const page = q.page ?? 1
     const perPage = q.perPage ?? 20
