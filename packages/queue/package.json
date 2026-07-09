@@ -29,13 +29,13 @@
     "@wivwav/logger": "workspace:*",
     "@bull-board/api": "^8.1.2",
     "@bull-board/ui": "^8.1.2",
-    "bullmq": "^5.78.0"
+    "bullmq": "^5.79.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.10"
   }
 }
