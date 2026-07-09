@@ -27,6 +27,13 @@ interface MobilityWorksConfig {
   navRetryBackoffMs?: number
 }
 
+export function createSourceAdapter(
+  previousHash: string | null,
+  config: MobilityWorksConfig = {},
+): SourceAdapter {
+  return new MobilityWorksAdapter(previousHash, config)
+}
+
 // Shape returned from page.evaluate — must be JSON-serializable.
 export interface RawCard {
   href: string // e.g. "/wheelchair-vans-for-sale/2024-toyota-sienna-driverge-5tdyrkec8rs205440/"

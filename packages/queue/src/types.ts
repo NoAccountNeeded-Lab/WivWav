@@ -4,6 +4,8 @@ export interface JobOptions {
   delay?: number
   attempts?: number
   backoff?: { type: 'exponential' | 'fixed'; delay: number }
+  removeOnComplete?: boolean | number
+  removeOnFail?: boolean | number
   /**
    * Fixed job id. Adding a job with an id that already has a waiting, active,
    * or delayed job collapses into that existing job instead of creating a
@@ -59,6 +61,7 @@ export interface RepeatableJob {
 export interface QueueAdapter {
   readonly name: string
   add(data: unknown, options?: JobOptions): Promise<string>
+  getPolicy(): import('./policies.js').QueuePolicy
   pause(): Promise<void>
   resume(): Promise<void>
   isPaused(): Promise<boolean>
@@ -84,6 +87,7 @@ export interface WorkerAdapter {
 
 export interface WorkerOptions {
   lockDuration?: number
+  concurrency?: number
   logger?: WivWavLogger
 }
 

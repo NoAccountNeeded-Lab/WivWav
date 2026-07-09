@@ -34,6 +34,10 @@ interface BlvdConfig {
   navRetryBackoffMs?: number
 }
 
+export function createSourceAdapter(previousHash: string | null, config: BlvdConfig = {}): SourceAdapter {
+  return new BlvdAdapter(previousHash, config)
+}
+
 // Shape returned from page.evaluate — must be JSON-serializable.
 export interface RawCard {
   href: string

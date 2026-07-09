@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
-import { QUALITY_RULE_SEVERITY } from '@wivwav/types'
+import { QUALITY_RULE_SEVERITY, SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
 import type {
   ListingPublicationCountRow,
   ListingRepository,
@@ -130,6 +130,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
           name,
           paused: await q.isPaused(),
           stats: await q.getStats(),
+          policy: q.getPolicy(),
         })),
       )
       return reply.send({ data })
@@ -148,7 +149,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       q.isPaused(),
       q.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed']),
     ])
-    return reply.send({ data: { name: req.params.name, paused, stats, jobs } })
+    return reply.send({ data: { name: req.params.name, paused, stats, jobs, policy: q.getPolicy() } })
   })
 
   // POST /admin/queues/:name/jobs — enqueue a job
@@ -496,17 +497,62 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   }
 
   async function getCanonicalDefs(): Promise<CanonicalDef[]> {
-    const scheduledSources = await sources.findScheduledSources(['BLVD.com', 'MobilityWorks'])
-    const blvd = scheduledSources.find((s) => s.name === 'BLVD.com')
-    const mw = scheduledSources.find((s) => s.name === 'MobilityWorks')
-    const tz = blvd?.timezone ?? 'America/New_York'
+    const scheduledSources = await sources.findScheduledSources(
+      SCRAPER_SOURCE_REGISTRY.map((entry) => entry.name),
+    )
+    const tz = scheduledSources[0]?.timezone ?? 'America/New_York'
+    const scheduledByName = new Map(scheduledSources.map((source) => [source.name, source]))
+    const scrapeDefs: CanonicalDef[] = []
+    const crawlDefs: CanonicalDef[] = []
+    const extractDefs: CanonicalDef[] = []
+
+    for (const definition of SCRAPER_SOURCE_REGISTRY) {
+      const source = scheduledByName.get(definition.name)
+      if (!source) continue
+      const schedulerKey = definition.schedulerKey ?? definition.key
+
+      scrapeDefs.push({
+        id: schedulerKey,
+        queue: QUEUES.SOURCE_SCRAPE,
+        jobId: schedulerKey,
+        label: `${definition.name} scrape`,
+        name: QUEUES.SOURCE_SCRAPE,
+        data: { sourceId: source.id },
+        defaultPattern: source.cronExpression,
+        tz: source.timezone,
+        sourceScoped: true,
+      })
+
+      if (definition.pipeline === 'detail-pages') {
+        crawlDefs.push({
+          id: `${schedulerKey}-crawl`,
+          queue: QUEUES.DETAIL_CRAWL,
+          jobId: `${schedulerKey}-crawl`,
+          label: `${definition.name} detail crawl (Playwright)`,
+          name: QUEUES.DETAIL_CRAWL,
+          data: { sourceId: source.id },
+          defaultPattern: '0 * * * *',
+          tz: source.timezone,
+          sourceScoped: true,
+        })
+        extractDefs.push({
+          id: `${schedulerKey}-extract`,
+          queue: QUEUES.DETAIL_EXTRACT,
+          jobId: `${schedulerKey}-extract`,
+          label: `${definition.name} detail extract (HTML)`,
+          name: QUEUES.DETAIL_EXTRACT,
+          data: { sourceId: source.id },
+          defaultPattern: '*/5 * * * *',
+          tz: source.timezone,
+          sourceScoped: true,
+        })
+      }
+    }
+
+    const sourceDefs = [...scrapeDefs, ...crawlDefs, ...extractDefs]
+
     return [
-      ...(blvd ? [{ id: 'blvd', queue: 'source-scrape', jobId: 'blvd', label: 'BLVD.com scrape', name: 'source-scrape', data: { sourceId: blvd.id }, defaultPattern: blvd.cronExpression, tz: blvd.timezone, sourceScoped: true }] : []),
-      ...(mw   ? [{ id: 'mw',   queue: 'source-scrape', jobId: 'mw',   label: 'MobilityWorks scrape', name: 'source-scrape', data: { sourceId: mw.id }, defaultPattern: mw.cronExpression, tz: mw.timezone, sourceScoped: true }] : []),
-      ...(blvd ? [{ id: 'blvd-crawl', queue: 'detail-crawl', jobId: 'blvd-crawl', label: 'BLVD.com detail crawl (Playwright)', name: 'detail-crawl', data: { sourceId: blvd.id }, defaultPattern: '0 * * * *', tz: blvd.timezone, sourceScoped: true }] : []),
-      ...(mw ? [{ id: 'mw-crawl', queue: 'detail-crawl', jobId: 'mw-crawl', label: 'MobilityWorks detail crawl (Playwright)', name: 'detail-crawl', data: { sourceId: mw.id }, defaultPattern: '0 * * * *', tz: mw.timezone, sourceScoped: true }] : []),
-      ...(blvd ? [{ id: 'blvd-extract', queue: 'detail-extract', jobId: 'blvd-extract', label: 'BLVD.com detail extract (HTML)', name: 'detail-extract', data: { sourceId: blvd.id }, defaultPattern: '*/5 * * * *', tz: blvd.timezone, sourceScoped: true }] : []),
-      ...(mw ? [{ id: 'mw-extract', queue: 'detail-extract', jobId: 'mw-extract', label: 'MobilityWorks detail extract (HTML)', name: 'detail-extract', data: { sourceId: mw.id }, defaultPattern: '*/5 * * * *', tz: mw.timezone, sourceScoped: true }] : []),
+      ...sourceDefs,
       { id: 'geocode',         queue: 'geocode',         label: 'Geocode (city → GPS)',      name: 'geocode',         data: {},                          defaultPattern: '0 2 * * *',   tz },
       { id: 'deduplicate',     queue: 'deduplicate',     label: 'Deduplicate (VIN)',         name: 'deduplicate',     data: {},                          defaultPattern: '0 3 * * *',   tz },
       { id: 'rawpage-cleanup', queue: 'rawpage-cleanup', label: 'RawPage cleanup (TTL)',      name: 'rawpage-cleanup', data: {},                          defaultPattern: '0 1 * * *',   tz },

@@ -51,6 +51,13 @@ interface FreedomMotorsConfig {
   navRetryBackoffMs?: number
 }
 
+export function createSourceAdapter(
+  previousHash: string | null,
+  config: FreedomMotorsConfig = {},
+): SourceAdapter {
+  return new FreedomMotorsAdapter(previousHash, config)
+}
+
 // Shape returned from page.evaluate — must be JSON-serializable.
 export interface RawCard {
   productLink: string   // e.g. "https://www.freedommotors.com/product/wheelchair-suv/2025-kia-telluride-ex-6/"
