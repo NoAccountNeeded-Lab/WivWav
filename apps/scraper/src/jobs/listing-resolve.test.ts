@@ -5,11 +5,7 @@ vi.mock('@wivwav/db', async (importOriginal) => {
   const actual = await importOriginal<typeof WivwavDb>()
   return { ...actual, getDb: vi.fn() }
 })
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn(() => ({}) as never) }))
-
 import { getDb, Prisma } from '@wivwav/db'
-import { syncListings } from '@wivwav/search'
 import { resolveRow, runListingResolveJob, toValidatorInput } from './listing-resolve.js'
 
 function makeListingRow(overrides: Record<string, unknown> = {}) {
@@ -161,7 +157,7 @@ describe('runListingResolveJob — single listing', () => {
     vi.mocked(getDb).mockReturnValue(db as never)
   })
 
-  it('resolves exactly the listing referenced by listingId and syncs it', async () => {
+  it('resolves exactly the listing referenced by listingId', async () => {
     const row = makeListingRow()
     db.listing.findUnique.mockResolvedValueOnce(row)
 
@@ -169,7 +165,6 @@ describe('runListingResolveJob — single listing', () => {
 
     expect(db.listing.findUnique).toHaveBeenCalledWith({ where: { id: 'l-1', status: { not: 'gone' } } })
     expect(db.listing.update).toHaveBeenCalledTimes(1)
-    expect(syncListings).toHaveBeenCalledWith(['l-1'], db, expect.anything())
   })
 
   it('does nothing when the listing no longer exists or is gone', async () => {
@@ -178,29 +173,6 @@ describe('runListingResolveJob — single listing', () => {
     await runListingResolveJob({ listingId: 'gone-1', observationReference: 'raw-1:2026-01-01T00:00:00.000Z' })
 
     expect(db.listing.update).not.toHaveBeenCalled()
-    expect(syncListings).not.toHaveBeenCalled()
-  })
-
-  it('does not sync when the write is skipped as stale', async () => {
-    db.listing.findUnique.mockResolvedValueOnce(makeListingRow())
-    db.listing.update.mockRejectedValueOnce(staleConflictError)
-
-    await runListingResolveJob({ listingId: 'l-1', observationReference: 'raw-1:2026-01-01T00:00:00.000Z' })
-
-    expect(syncListings).not.toHaveBeenCalled()
-  })
-
-  it('propagates a search-sync failure so the caller (and BullMQ) can retry', async () => {
-    db.listing.findUnique.mockResolvedValueOnce(makeListingRow())
-    vi.mocked(syncListings).mockRejectedValueOnce(new Error('meilisearch unreachable'))
-
-    await expect(
-      runListingResolveJob({ listingId: 'l-1', observationReference: 'raw-1:2026-01-01T00:00:00.000Z' }),
-    ).rejects.toThrow('meilisearch unreachable')
-    // The decision was still committed — only the search sync failed. Resolution does
-    // not roll back the publication write; a retry re-derives the same decision and
-    // retries the sync, which is idempotent.
-    expect(db.listing.update).toHaveBeenCalledTimes(1)
   })
 
   it('lets a resolution failure propagate so BullMQ marks the job retryable/failed', async () => {
@@ -261,15 +233,6 @@ describe('runListingResolveJob — source-scoped fan-out', () => {
     const secondCallArgs = db.listing.findMany.mock.calls[1]![0]
     expect(secondCallArgs).toMatchObject({ skip: 1, cursor: { id: `b1-${BATCH_SIZE - 1}` } })
     expect(db.listing.update).toHaveBeenCalledTimes(BATCH_SIZE + 1)
-    // Sync is batched once per page, not once per row.
-    expect(syncListings).toHaveBeenCalledTimes(2)
-    expect(syncListings).toHaveBeenNthCalledWith(
-      1,
-      batch1.map((r) => r.id),
-      db,
-      expect.anything(),
-    )
-    expect(syncListings).toHaveBeenNthCalledWith(2, ['b2-0'], db, expect.anything())
   })
 
   it('stops after a single batch shorter than the page size', async () => {
@@ -312,7 +275,7 @@ describe('runListingResolveJob — source-scoped fan-out', () => {
     expect(db.listing.update).toHaveBeenCalledTimes(2)
   })
 
-  it('excludes a stale-skipped listing from the batched sync but still syncs the rest', async () => {
+  it('processes the rest of the page after a stale-skipped listing', async () => {
     db.listing.findMany.mockResolvedValueOnce([
       makeListingRow({ id: 'l-1' }),
       makeListingRow({ id: 'l-2' }),
@@ -322,7 +285,5 @@ describe('runListingResolveJob — source-scoped fan-out', () => {
     await runListingResolveJob({ sourceId: 'src-1' })
 
     expect(db.listing.update).toHaveBeenCalledTimes(2)
-    expect(syncListings).toHaveBeenCalledTimes(1)
-    expect(syncListings).toHaveBeenCalledWith(['l-2'], db, expect.anything())
   })
 })

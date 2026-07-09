@@ -3,11 +3,8 @@ import { normalizeVehicleField } from './normalize-vehicle-fields.js'
 
 // Mock DB and fetch before importing the job
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { syncListings } from '@wivwav/search'
 import { runVinEnrichJob } from './vin-enrich.js'
 
 // ── normalizeVehicleField ────────────────────────────────────────────────────
@@ -59,6 +56,19 @@ function mockFetch(decoded: Record<string, string>) {
         Results: Object.entries(decoded).map(([Variable, Value]) => ({ Variable, Value })),
       }),
   })
+}
+
+/** Ids of listings that received a vehicleModelId link, in call order. */
+function enrichedListingIds(db: ReturnType<typeof makeDb>): string[] {
+  return db.listing.update.mock.calls
+    .filter((call) => {
+      const [{ data }] = call as [{ data: Record<string, unknown> }]
+      return data['vehicleModelId'] !== undefined
+    })
+    .map((call) => {
+      const [{ where }] = call as [{ where: { id: string } }]
+      return where.id
+    })
 }
 
 describe('runVinEnrichJob — case normalization', () => {
@@ -181,7 +191,7 @@ describe('runVinEnrichJob — case normalization', () => {
     })
   })
 
-  it('issues exactly one batched syncListings call after the loop, not one per listing', async () => {
+  it('enriches every eligible listing in the batch, not just the first', async () => {
     db.listing.findMany.mockResolvedValue([
       { id: 'b1', vin: 'VIN1', make: 'Toyota', model: 'Sienna', year: 2020 },
       { id: 'b2', vin: 'VIN2', make: 'Toyota', model: 'Sienna', year: 2020 },
@@ -193,22 +203,8 @@ describe('runVinEnrichJob — case normalization', () => {
 
     await runVinEnrichJob()
 
-    expect(vi.mocked(syncListings)).toHaveBeenCalledTimes(1)
-    const [ids] = vi.mocked(syncListings).mock.calls[0]!
-    expect(ids).toEqual(['b1', 'b2'])
-  })
-
-  it('skips syncListings when no listings are enriched', async () => {
-    db.listing.findMany.mockResolvedValue([{ id: 'b3', vin: 'BADVN', make: 'Toyota', model: 'Sienna', year: 2020 }])
-    // Fetch returns an unparseable response (missing make/model/year) → decoded = null
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ Results: [] }),
-    })
-
-    await runVinEnrichJob()
-
-    expect(vi.mocked(syncListings)).not.toHaveBeenCalled()
+    const enrichedIds = enrichedListingIds(db)
+    expect(enrichedIds).toEqual(['b1', 'b2'])
   })
 
   it('skips a listing when acquireListingLock returns false (locked by another job)', async () => {
@@ -297,7 +293,7 @@ describe('runVinEnrichJob — authoritative mismatch', () => {
     })
   })
 
-  it('excludes mismatched listings from the syncListings batch', async () => {
+  it('excludes mismatched listings from the vehicleModelId link', async () => {
     db.listing.findMany.mockResolvedValue([
       { id: 'm4', vin: 'MISMATCH04', make: 'Toyota', model: 'Sienna', year: 2020 },
       { id: 'm5', vin: 'MATCH05', make: 'Toyota', model: 'Sienna', year: 2020 },
@@ -319,8 +315,7 @@ describe('runVinEnrichJob — authoritative mismatch', () => {
 
     await runVinEnrichJob()
 
-    expect(vi.mocked(syncListings)).toHaveBeenCalledTimes(1)
-    const [ids] = vi.mocked(syncListings).mock.calls[0]!
-    expect(ids).toEqual(['m5'])
+    const enrichedIds = enrichedListingIds(db)
+    expect(enrichedIds).toEqual(['m5'])
   })
 })

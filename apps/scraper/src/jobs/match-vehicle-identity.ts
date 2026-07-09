@@ -1,13 +1,11 @@
 import { getDb, upsertVehicleIdentityDecision, VehicleIdentityDecisionState } from '@wivwav/db'
 import type { Listing, PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
 import {
   matchListingPair,
   type MatchableListing,
   type VehicleIdentityMatchResult,
 } from '../engine/vehicle-identity-matcher.js'
-import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { acquireListingLock, releaseListingLocks } from './listing-lock.js'
 
@@ -143,11 +141,11 @@ export async function runMatchVehicleIdentityJob(context?: JobContext): Promise<
     })
   }
 
-  await syncListings(touchedIds, db, getMeiliClient())
-
+  // Search-index sync is no longer this job's concern — the single-owner
+  // indexer poller (#669) picks up any touched listing on its next tick.
   await report(
     context,
-    `[match-vehicle-identity] Done. ${autoLinked} pair(s) auto-linked, ${candidates} candidate(s) recorded, ${touchedIds.length} listing(s) updated and synced to Meilisearch.`,
+    `[match-vehicle-identity] Done. ${autoLinked} pair(s) auto-linked, ${candidates} candidate(s) recorded, ${touchedIds.length} listing(s) updated.`,
     { stage: 'complete', current: totalPairs, total: totalPairs },
   )
   await db.$disconnect()

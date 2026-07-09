@@ -30,18 +30,14 @@
  * repeatedly loses this race cannot occupy the head of the result set forever
  * and stall the rest of the backlog.
  *
- * Meilisearch sync is batched once per page (or once for the single-listing
- * case) via `syncListings`, not once per row — it upserts every eligible
- * listing/vehicle-group representative touched and removes every ineligible
- * one, so a single call after a page's decisions are written covers both
- * outcomes.
+ * This job writes decisions to Postgres only. Search-index sync is not its
+ * concern — the single-owner indexer poller (#669) picks up every touched
+ * listing (via `updatedAt`) on its next tick.
  */
 import { getDb, Prisma, type Listing as PrismaListing, type PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
 import { validateListing, decidePublication } from '../engine/listing-validator.js'
 import type { ListingUpsertData } from '../engine/repositories.js'
-import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 
 export type ListingResolveJobData =
@@ -150,10 +146,6 @@ async function resolveOneListing(
     `[listing-resolve] Listing ${listingId} (observation ${observationReference}): ${outcome}`,
     { stage: 'complete', current: 1, total: 1 },
   )
-
-  if (outcome !== 'skipped-stale') {
-    await syncListings([listingId], db, getMeiliClient())
-  }
 }
 
 /**
@@ -161,9 +153,7 @@ async function resolveOneListing(
  * Pages are cursor-paginated (not re-queried from scratch) so a listing that
  * repeatedly loses the optimistic-concurrency race — and so stays 'pending' —
  * cannot occupy the head of the result set forever and stall the drain; the
- * cursor always advances past it. Each page's decisions are written one row
- * at a time (bounded transactions), but the page's Meilisearch sync is
- * batched into a single syncListings() call instead of one per row.
+ * cursor always advances past it.
  */
 async function resolveSourceBacklog(
   db: PrismaClient,
@@ -184,19 +174,11 @@ async function resolveSourceBacklog(
     })
     if (rows.length === 0) break
 
-    const resolvedIds: string[] = []
     for (const row of rows) {
       const outcome = await resolveRow(db, row, context)
       processed++
       if (outcome === 'skipped-stale') skippedStale++
-      else {
-        resolved++
-        resolvedIds.push(row.id)
-      }
-    }
-
-    if (resolvedIds.length > 0) {
-      await syncListings(resolvedIds, db, getMeiliClient())
+      else resolved++
     }
 
     cursor = rows[rows.length - 1]!.id
