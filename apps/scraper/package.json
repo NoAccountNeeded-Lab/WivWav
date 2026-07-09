@@ -15,6 +15,7 @@
     "test": "vitest run src --exclude '**/*.integration.test.ts'",
     "test:fixtures": "vitest run src/sources/fixture-contract.test.ts",
     "test:integration": "vitest run src/**/*.integration.test.ts",
+    "test:integration:offline": "vitest run src/pipeline/fixture-to-facets.integration.test.ts src/schedule-registration.integration.test.ts",
     "clean": "rm -rf dist",
     "eval": "node --import tsx evals/run-eval.ts"
   },

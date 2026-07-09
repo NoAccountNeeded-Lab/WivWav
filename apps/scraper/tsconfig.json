@@ -6,5 +6,14 @@
     "types": ["node"],
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // fixture-to-facets.integration.test.ts deliberately imports apps/api
+  // service modules by relative path (see the file's header comment) so it
+  // can exercise real facet/search service code against real Postgres +
+  // Meilisearch without apps/scraper declaring a package dependency on
+  // apps/api. Vitest/esbuild runs it fine (verified via `pnpm test:integration`),
+  // but `tsc` requires every file it type-checks to live under this project's
+  // `rootDir` — excluding just this file keeps the rest of the program's
+  // rootDir guarantee intact for the real build output.
+  "exclude": ["src/pipeline/fixture-to-facets.integration.test.ts"]
 }
