@@ -22,6 +22,8 @@ export default async function ResultsPage({ params, searchParams }: ResultsPageP
     noVehicles: t('noVehicles'),
     noVehiclesForBrand: t('noVehiclesForBrand'),
     clearAllFilters: t('clearAllFilters'),
+    searchUnavailableHeading: t('searchUnavailableHeading'),
+    searchUnavailableMessage: t('searchUnavailableMessage'),
     paginationAriaLabel: t('pagination.ariaLabel'),
     previous: t('pagination.previous'),
     next: t('pagination.next'),
