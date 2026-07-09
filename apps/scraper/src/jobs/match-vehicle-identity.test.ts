@@ -8,11 +8,8 @@ vi.mock('@wivwav/db', () => ({
   isValidVin: (vin: string) => vin.length === 17 && !/[IOQ]/.test(vin),
   checkDigitValid: () => true,
 }))
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb, upsertVehicleIdentityDecision } from '@wivwav/db'
-import { syncListings } from '@wivwav/search'
 import { runMatchVehicleIdentityJob } from './match-vehicle-identity.js'
 
 function makeListing(overrides: Record<string, unknown> = {}) {
@@ -92,9 +89,6 @@ describe('runMatchVehicleIdentityJob', () => {
       expect.anything(),
       expect.objectContaining({ listingAId: 'a', listingBId: 'b', state: 'verified', vehicleId: 'vehicle-new' }),
     )
-    // Auto-linked listings must be re-synced to Meilisearch, same as deduplicate.ts —
-    // otherwise the search index keeps serving the stale (pre-link) vehicle grouping.
-    expect(syncListings).toHaveBeenCalledWith(expect.arrayContaining(['a', 'b']), db, undefined)
   })
 
   it('persists a fuzzy match below auto-link as a candidate without assigning vehicleId', async () => {
@@ -116,9 +110,6 @@ describe('runMatchVehicleIdentityJob', () => {
       expect.anything(),
       expect.objectContaining({ listingAId: 'a', listingBId: 'b', state: 'candidate' }),
     )
-    // No listings were mutated, so syncListings is still called (matching
-    // deduplicate.ts's unconditional call) but with an empty id list.
-    expect(syncListings).toHaveBeenCalledWith([], db, undefined)
   })
 
   it('a conflicting valid VIN blocks linking and records no decision', async () => {

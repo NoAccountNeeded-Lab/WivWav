@@ -1,17 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { WivWavLogger } from '@wivwav/logger'
 import { MockBrowserService } from '../browser/index.js'
 import type { MockPageRecord } from '../browser/index.js'
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { MockQueueAdapter, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
 import { runDetailCrawlJob } from './detail-crawl.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,7 +31,7 @@ function makeBrowserService(pages: Map<string, MockPageRecord> = new Map()) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('runDetailCrawlJob – listing-sync enqueue', () => {
+describe('runDetailCrawlJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -48,58 +43,7 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
     expect(getDb).not.toHaveBeenCalled()
   })
 
-  it('syncs the gone listing to Meilisearch directly after a 404, without enqueuing a rebuild', async () => {
-    const db = makeDb({
-      listing: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'listing-1', sourceUrl: 'https://example.com/listing/1', status: 'active' },
-        ]),
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-    })
-    vi.mocked(getDb).mockReturnValue(db as never)
-
-    const pages = new Map<string, MockPageRecord>([
-      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
-    ])
-    const browser = makeBrowserService(pages)
-    const listingSyncQueue = new MockQueueAdapter('listing-sync')
-
-    await runDetailCrawlJob('src-1', undefined, listingSyncQueue, browser)
-
-    expect(vi.mocked(syncListings)).toHaveBeenCalledWith(['listing-1'], db, undefined)
-    expect(listingSyncQueue.getEnqueued()).toHaveLength(0)
-  })
-
-  it('falls back to a deduped listing-sync rebuild job when the direct sync fails', async () => {
-    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
-
-    const db = makeDb({
-      listing: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'listing-1', sourceUrl: 'https://example.com/listing/1', status: 'active' },
-        ]),
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-    })
-    vi.mocked(getDb).mockReturnValue(db as never)
-
-    const pages = new Map<string, MockPageRecord>([
-      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
-    ])
-    const browser = makeBrowserService(pages)
-    const listingSyncQueue = new MockQueueAdapter('listing-sync')
-
-    await runDetailCrawlJob('src-1', undefined, listingSyncQueue, browser)
-
-    const enqueued = listingSyncQueue.getEnqueued()
-    expect(enqueued).toHaveLength(1)
-    expect(enqueued[0]?.options).toEqual({ ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
-  })
-
-  it('does not throw when both the direct sync and the fallback queue.add() reject', async () => {
-    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
-
+  it('marks a listing gone after a 404, without touching the search index directly', async () => {
     const db = makeDb({
       listing: {
         findMany: vi.fn().mockResolvedValue([
@@ -115,50 +59,14 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
     ])
     const browser = makeBrowserService(pages)
 
-    const failingQueue = new MockQueueAdapter('listing-sync')
-    vi.spyOn(failingQueue, 'add').mockRejectedValue(new Error('queue unavailable'))
+    await runDetailCrawlJob('src-1', undefined, browser)
 
-    const errorArgs: unknown[][] = []
-    const mockLogger: WivWavLogger = {
-      debug: (..._args: unknown[]) => {},
-      info: (..._args: unknown[]) => {},
-      warn: (..._args: unknown[]) => {},
-      error: (...args: unknown[]) => void errorArgs.push(args),
-      level: 'info',
-      child: () => mockLogger,
-    }
-
-    await expect(
-      runDetailCrawlJob(
-        'src-1',
-        { logger: mockLogger, log: async () => {}, updateProgress: async () => {} },
-        failingQueue,
-        browser,
-      ),
-    ).resolves.toBeUndefined()
-
-    // logger.error was called with (ctx, msg) — second argument is the message
-    expect(errorArgs.some(args => args[1] === '[detail-crawl] Failed to enqueue listing-sync job')).toBe(true)
-  })
-
-  it('skips the listing-sync enqueue when no queue is provided', async () => {
-    const db = makeDb({
-      listing: {
-        findMany: vi.fn().mockResolvedValue([
-          { sourceUrl: 'https://example.com/listing/1', status: 'active' },
-        ]),
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
+    // Search-index sync is the single-owner indexer poller's concern (#669) —
+    // this job only needs to have committed the status change to Postgres.
+    expect(db.listing.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['listing-1'] } },
+      data: { status: 'gone', goneAt: expect.any(Date) },
     })
-    vi.mocked(getDb).mockReturnValue(db as never)
-
-    const pages = new Map<string, MockPageRecord>([
-      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
-    ])
-    const browser = makeBrowserService(pages)
-
-    // No listingSyncQueue — must not throw
-    await expect(runDetailCrawlJob('src-1', undefined, undefined, browser)).resolves.toBeUndefined()
   })
 
   it('upserts raw page HTML for a successful 200 crawl', async () => {
@@ -177,7 +85,7 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
     ])
     const browser = makeBrowserService(pages)
 
-    await runDetailCrawlJob('src-1', undefined, undefined, browser)
+    await runDetailCrawlJob('src-1', undefined, browser)
 
     expect(db.rawPage.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,7 +107,7 @@ describe('runDetailCrawlJob – listing-sync enqueue', () => {
     vi.mocked(getDb).mockReturnValue(db as never)
 
     const browser = makeBrowserService()
-    await runDetailCrawlJob('src-1', undefined, undefined, browser)
+    await runDetailCrawlJob('src-1', undefined, browser)
 
     const [session] = browser.sessions
     expect(session?.closed).toBe(true)
