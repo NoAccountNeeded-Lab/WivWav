@@ -24,7 +24,13 @@
  *   8. exact/near-duplicate photo clusters (from image_cluster table)
  *   9. suspected placeholder clusters
  *  10. same-source / cross-source identity duplicates (isDuplicate flag)
- *  11. search index divergence — active eligible listings not in Meilisearch
+ *  11. search index reconciliation (#642) — expected representative catalog
+ *      (eligible listings grouped by verified vehicle group, same policy as
+ *      indexing) vs. the live Meilisearch catalog, across every public
+ *      facet, plus duplicate-vehicleId detection, coverage ratios, required-
+ *      facet invariants, historical coverage-drop baselines, and the
+ *      pending/quarantined/listing-resolve publication backlog. Skipped when
+ *      `--source` scopes the audit, since vehicle groups may span sources.
  *
  * Privacy / redaction:
  *   Representative IDs are included for investigation. Descriptions, dealer
@@ -41,6 +47,8 @@
 import { getDb } from '@wivwav/db'
 import { detectSourceDrift } from '../engine/listing-validator.js'
 import type { SourceDriftBaseline, SourceDriftObservation } from '../engine/listing-validator.js'
+import { reconcileSearchCatalog } from './search-reconciliation.js'
+import type { CoverageBaseline, SearchReconciliationReport } from './search-reconciliation.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -114,15 +122,6 @@ export interface SourceDriftAlert {
   reason: string
 }
 
-export interface SearchIndexDivergence {
-  /** Active eligible listings in DB. */
-  dbEligibleActive: number
-  /** Estimated in-index count (null if Meilisearch unavailable). */
-  indexCount: number | null
-  diverged: boolean
-  note: string
-}
-
 export interface ListingQualityReport {
   /** ISO8601 timestamp of when this audit was run. */
   auditedAt: string
@@ -136,8 +135,12 @@ export interface ListingQualityReport {
   bySources: SourceSummary[]
   /** Image cluster summary across all sources. */
   imageClusters: ImageClusterSummary
-  /** Search index divergence check. */
-  searchIndex: SearchIndexDivergence
+  /**
+   * Search index reconciliation (#642). Null when the audit was scoped to a
+   * single source via `--source` — vehicle groups can span sources, so a
+   * per-source reconciliation would report false divergence.
+   */
+  searchReconciliation: SearchReconciliationReport | null
   /**
    * Drift alerts from per-source error/missing rate comparison against baselines.
    * Empty when no baseline file exists (run with --approve-baseline to set one).
@@ -413,47 +416,14 @@ async function auditImageClusters(db: DbClient): Promise<ImageClusterSummary> {
 }
 
 /**
- * Check search index divergence.
- * Only counts DB-side eligible/active — Meilisearch connectivity is optional.
- */
-async function auditSearchIndex(db: DbClient): Promise<SearchIndexDivergence> {
-  const dbEligibleActive = await db.listing.count({
-    where: { status: 'active', publicationStatus: 'eligible' },
-  })
-
-  let indexCount: number | null = null
-  let diverged = false
-  let note: string
-
-  try {
-    const meiliModule = await import('meilisearch')
-    // The meilisearch package exports MeiliSearch as a named export and also as default.
-    // Use a type-safe dynamic access to handle both CJS and ESM builds.
-    const MeiliSearchCtor = (meiliModule as Record<string, unknown>)['MeiliSearch'] as new (opts: { host: string; apiKey: string }) => { index(name: string): { getStats(): Promise<{ numberOfDocuments: number }> } }
-    const url = process.env['MEILISEARCH_URL'] ?? 'http://localhost:7700'
-    const key = process.env['MEILISEARCH_MASTER_KEY'] ?? ''
-    const ms = new MeiliSearchCtor({ host: url, apiKey: key })
-    const stats = await ms.index('listings').getStats()
-    indexCount = stats.numberOfDocuments
-    const count = indexCount
-    diverged = Math.abs(count - dbEligibleActive) > 0
-    note = diverged
-      ? `Index count ${count} diverges from DB eligible-active count ${dbEligibleActive}.`
-      : `Index count ${count} matches DB eligible-active count.`
-  } catch {
-    note = 'Meilisearch unavailable — search index divergence not checked.'
-  }
-
-  return { dbEligibleActive, indexCount, diverged, note }
-}
-
-/**
  * Run the full listing quality audit.
  * Read-only — no DB mutations.
  */
 export async function runListingQualityAudit(opts: {
   sourceId?: string
   limit?: number
+  coverageBaseline?: CoverageBaseline | null
+  coverageDropThreshold?: number
 }): Promise<ListingQualityReport> {
   const db = getDb()
   const auditedAt = new Date().toISOString()
@@ -471,9 +441,18 @@ export async function runListingQualityAudit(opts: {
   const totalActive = bySources.reduce((sum, s) => sum + s.activeListings, 0)
   const totalAll = bySources.reduce((sum, s) => sum + s.totalListings, 0)
 
-  const [imageClusters, searchIndex] = await Promise.all([
+  // Search reconciliation spans verified vehicle groups, which can include
+  // members from more than one source — a `--source`-scoped run cannot
+  // rebuild the expected catalog correctly, so it is skipped rather than
+  // reporting false divergence.
+  const [imageClusters, searchReconciliation] = await Promise.all([
     auditImageClusters(db),
-    auditSearchIndex(db),
+    opts.sourceId === undefined
+      ? reconcileSearchCatalog(db, {
+          baseline: opts.coverageBaseline ?? null,
+          ...(opts.coverageDropThreshold !== undefined ? { coverageDropThreshold: opts.coverageDropThreshold } : {}),
+        })
+      : Promise.resolve(null),
   ])
 
   // Drift detection — compare each source's current error/missing rates against a
@@ -507,7 +486,7 @@ export async function runListingQualityAudit(opts: {
     totalAll,
     bySources,
     imageClusters,
-    searchIndex,
+    searchReconciliation,
     driftAlerts,
     knownGaps: [
       'VIN/NHTSA field-level mismatch counts require a live NHTSA vPIC check not run here — see vin-enrich job results in listing qualityIssueCodes (nhtsa_make_mismatch, nhtsa_model_mismatch, nhtsa_year_mismatch).',
@@ -516,6 +495,7 @@ export async function runListingQualityAudit(opts: {
       'User-reported quality signals (#147) are not yet ingested into the listing quality dimension.',
       'Field-level false-positive rates for WAV feature extraction cannot be measured without human-reviewed label sets beyond the current gold datasets.',
       'Drift baseline is not yet persisted — driftAlerts always uses a zero baseline (no historical comparison). Run with --approve-baseline to begin accumulating a rolling baseline.',
+      'Search index reconciliation (#642) is skipped when --source scopes the audit — vehicle groups can span sources.',
     ],
   }
 }
@@ -594,11 +574,52 @@ function printReport(report: ListingQualityReport): void {
   console.log(`  Placeholder clusters:      ${ic.placeholderClusters}`)
   console.log(`  Cross-vehicle clusters:    ${ic.crossVehicleClusters}`)
 
-  const si = report.searchIndex
-  console.log(`\n── Search index divergence ──`)
-  console.log(`  DB eligible-active: ${si.dbEligibleActive}`)
-  console.log(`  Index count:        ${si.indexCount ?? 'unavailable'}`)
-  console.log(`  ${si.note}`)
+  console.log(`\n── Search index reconciliation (#642) ──`)
+  const sr = report.searchReconciliation
+  if (sr === null) {
+    console.log(`  Skipped — audit was scoped with --source.`)
+  } else if (!sr.available) {
+    console.log(`  ${sr.note}`)
+  } else {
+    console.log(`  Expected representatives: ${sr.expectedTotal}`)
+    console.log(`  Index document count:     ${sr.actualTotal}`)
+    console.log(`  ${sr.note}`)
+    console.log(`  Missing from index:       ${sr.missingFromIndex.count}${sr.missingFromIndex.sampleIds.length > 0 ? ` (e.g. ${sr.missingFromIndex.sampleIds.join(', ')})` : ''}`)
+    console.log(`  Unexpected in index:      ${sr.unexpectedInIndex.count}${sr.unexpectedInIndex.sampleIds.length > 0 ? ` (e.g. ${sr.unexpectedInIndex.sampleIds.join(', ')})` : ''}`)
+    console.log(`  Duplicate vehicleIds:     ${sr.duplicateVehicleIds.length}`)
+    console.log(`  Canonicalization divergences: ${sr.canonicalizationDivergenceCount}`)
+
+    const divergedFacets = sr.facetComparisons.filter((f) => f.diverged)
+    console.log(`\n  Facet distributions (${sr.facetComparisons.length} checked, ${divergedFacets.length} diverged):`)
+    for (const f of divergedFacets) {
+      console.log(`    ⚠ ${f.facet}: onlyExpected=[${f.onlyInExpected.join(', ')}] onlyActual=[${f.onlyInActual.join(', ')}] mismatches=${f.countMismatches.length}`)
+    }
+
+    console.log(`\n  Coverage (optional facets, global):`)
+    for (const c of sr.coverage.filter((c) => c.sourceId === 'global')) {
+      console.log(`    ${c.field.padEnd(18)} ${pct(c.rate).padStart(6)}  (${c.present}/${c.total})`)
+    }
+
+    console.log(`\n  Unknown-value rate (enum facets, global):`)
+    for (const u of sr.unknownRates.filter((u) => u.sourceId === 'global')) {
+      console.log(`    ${u.field.padEnd(18)} ${pct(1 - u.rate).padStart(6)} unknown`)
+    }
+
+    if (sr.invariantViolations.length > 0) {
+      console.log(`\n  ⚠ Invariant violations:`)
+      for (const v of sr.invariantViolations) console.log(`    ${v}`)
+    }
+
+    if (sr.coverageDropAlerts.length > 0) {
+      console.log(`\n  ⚠ Coverage drop vs baseline:`)
+      for (const a of sr.coverageDropAlerts) {
+        console.log(`    ${a.field} (${a.sourceId}): ${pct(a.previousRate)} → ${pct(a.currentRate)} (−${pct(a.drop)})`)
+      }
+    }
+
+    const pb = sr.publicationBacklog
+    console.log(`\n  Publication backlog: pending=${pb.pending} quarantined=${pb.quarantined} listing-resolve-queue=${pb.listingResolveBacklog ?? 'unavailable'}`)
+  }
 
   console.log(`\n── Source drift alerts ──`)
   if (report.driftAlerts.length === 0) {
@@ -626,10 +647,14 @@ function parseArgs(argv: string[]): {
   limit?: number
   json: boolean
   out?: string
+  baseline?: string
+  approveBaseline?: string
+  coverageDropThreshold?: number
 } {
   if (!argv.includes('--report')) {
     console.error(
-      'Usage: listing-quality-audit.ts --report [--json] [--source <sourceId>] [--limit N] [--out <file>]',
+      'Usage: listing-quality-audit.ts --report [--json] [--source <sourceId>] [--limit N] [--out <file>] '
+      + '[--baseline <file>] [--approve-baseline <file>] [--coverage-drop-threshold <0-1>]',
     )
     process.exit(1)
   }
@@ -641,27 +666,72 @@ function parseArgs(argv: string[]): {
   const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : undefined
   const outIdx = argv.indexOf('--out')
   const out = outIdx >= 0 ? argv[outIdx + 1] : undefined
+  const baselineIdx = argv.indexOf('--baseline')
+  const baseline = baselineIdx >= 0 ? argv[baselineIdx + 1] : undefined
+  const approveBaselineIdx = argv.indexOf('--approve-baseline')
+  const approveBaseline = approveBaselineIdx >= 0 ? argv[approveBaselineIdx + 1] : undefined
+  const thresholdIdx = argv.indexOf('--coverage-drop-threshold')
+  const thresholdRaw = thresholdIdx >= 0 ? argv[thresholdIdx + 1] : undefined
+  const coverageDropThreshold = thresholdRaw !== undefined ? parseFloat(thresholdRaw) : undefined
 
-  const result: { sourceId?: string; limit?: number; json: boolean; out?: string } = {
+  const result: {
+    sourceId?: string
+    limit?: number
+    json: boolean
+    out?: string
+    baseline?: string
+    approveBaseline?: string
+    coverageDropThreshold?: number
+  } = {
     json: argv.includes('--json'),
   }
   if (sourceId !== undefined) result.sourceId = sourceId
   if (limit !== undefined && !isNaN(limit)) result.limit = limit
   if (out !== undefined) result.out = out
+  if (baseline !== undefined) result.baseline = baseline
+  if (approveBaseline !== undefined) result.approveBaseline = approveBaseline
+  if (coverageDropThreshold !== undefined && !isNaN(coverageDropThreshold)) result.coverageDropThreshold = coverageDropThreshold
   return result
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const options = parseArgs(process.argv.slice(2))
-  const auditOpts: { sourceId?: string; limit?: number } = {}
-  if (options.sourceId !== undefined) auditOpts.sourceId = options.sourceId
-  if (options.limit !== undefined) auditOpts.limit = options.limit
-  runListingQualityAudit(auditOpts)
-    .then(async (report) => {
+
+  void (async () => {
+    const { existsSync, readFileSync, writeFileSync } = await import('node:fs')
+
+    let coverageBaseline: CoverageBaseline | null = null
+    if (options.baseline !== undefined && existsSync(options.baseline)) {
+      coverageBaseline = JSON.parse(readFileSync(options.baseline, 'utf-8')) as CoverageBaseline
+    }
+
+    const auditOpts: {
+      sourceId?: string
+      limit?: number
+      coverageBaseline?: CoverageBaseline | null
+      coverageDropThreshold?: number
+    } = {}
+    if (options.sourceId !== undefined) auditOpts.sourceId = options.sourceId
+    if (options.limit !== undefined) auditOpts.limit = options.limit
+    if (coverageBaseline !== null) auditOpts.coverageBaseline = coverageBaseline
+    if (options.coverageDropThreshold !== undefined) auditOpts.coverageDropThreshold = options.coverageDropThreshold
+
+    try {
+      const report = await runListingQualityAudit(auditOpts)
+
+      if (options.approveBaseline !== undefined && report.searchReconciliation?.available) {
+        const sr = report.searchReconciliation
+        const newBaseline: CoverageBaseline = {
+          capturedAt: report.auditedAt,
+          entries: [...sr.coverage, ...sr.unknownRates].map((e) => ({ field: e.field, sourceId: e.sourceId, rate: e.rate })),
+        }
+        writeFileSync(options.approveBaseline, JSON.stringify(newBaseline, null, 2), 'utf-8')
+        console.log(`Coverage baseline written to ${options.approveBaseline}`)
+      }
+
       if (options.json || options.out) {
         const json = JSON.stringify(report, null, 2)
         if (options.out) {
-          const { writeFileSync } = await import('node:fs')
           writeFileSync(options.out, json, 'utf-8')
           console.log(`Audit report written to ${options.out}`)
         } else {
@@ -670,9 +740,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       } else {
         printReport(report)
       }
-    })
-    .catch((err: unknown) => {
+    } catch (err: unknown) {
       console.error('Listing quality audit failed:', err)
       process.exit(1)
-    })
+    }
+  })()
 }
