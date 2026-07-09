@@ -14,10 +14,19 @@ interface QueueStats {
   delayed: number
 }
 
+interface QueuePolicy {
+  concurrency: number
+  retention: {
+    completed: number
+    failed: number
+  }
+}
+
 interface QueueRow {
   name: string
   paused: boolean
   stats: QueueStats
+  policy: QueuePolicy
 }
 
 interface JobRecord {
@@ -351,6 +360,9 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                               )}
                             </div>
                             {meta && <div className={styles.queueDesc}>{meta.short}</div>}
+                            <div className={styles.queueDesc}>
+                              concurrency {q.policy.concurrency} · keep {q.policy.retention.completed} completed / {q.policy.retention.failed} failed
+                            </div>
                             {!meta && <div className={styles.queueDesc}>Not yet implemented</div>}
                           </div>
                         </td>

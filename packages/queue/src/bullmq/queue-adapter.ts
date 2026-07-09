@@ -1,10 +1,14 @@
 import type { Queue, JobsOptions } from 'bullmq'
 import type { QueueAdapter, JobOptions, JobRecord, JobStats, JobStatus, RepeatableJob } from '../types.js'
+import type { QueuePolicy } from '../policies.js'
 
 export class BullMQQueueAdapter implements QueueAdapter {
   readonly name: string
 
-  constructor(private readonly queue: Queue) {
+  constructor(
+    private readonly queue: Queue,
+    private readonly policy: QueuePolicy,
+  ) {
     this.name = queue.name
   }
 
@@ -14,9 +18,15 @@ export class BullMQQueueAdapter implements QueueAdapter {
     if (options?.attempts !== undefined) opts.attempts = options.attempts
     if (options?.backoff !== undefined) opts.backoff = options.backoff
     if (options?.jobId !== undefined) opts.jobId = options.jobId
+    opts.removeOnComplete = options?.removeOnComplete ?? this.policy.retention.completed
+    opts.removeOnFail = options?.removeOnFail ?? this.policy.retention.failed
 
     const job = await this.queue.add(this.name, data as object, opts)
     return job.id ?? ''
+  }
+
+  getPolicy(): QueuePolicy {
+    return this.policy
   }
 
   async pause(): Promise<void> {
@@ -89,6 +99,8 @@ export class BullMQQueueAdapter implements QueueAdapter {
     const opts: JobsOptions = {}
     if (options?.attempts !== undefined) opts.attempts = options.attempts
     if (options?.backoff !== undefined) opts.backoff = options.backoff
+    opts.removeOnComplete = options?.removeOnComplete ?? this.policy.retention.completed
+    opts.removeOnFail = options?.removeOnFail ?? this.policy.retention.failed
     await this.queue.upsertJobScheduler(
       jobId ?? name,
       { pattern, ...(tz ? { tz } : {}) },

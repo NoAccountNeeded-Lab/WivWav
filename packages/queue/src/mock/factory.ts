@@ -10,6 +10,7 @@ import type {
   RepeatableJob,
   WorkerOptions,
 } from '../types.js'
+import { getQueuePolicy } from '../policies.js'
 
 interface StoredJob {
   id: string
@@ -32,6 +33,10 @@ export class MockQueueAdapter implements QueueAdapter {
 
   constructor(name: string) {
     this.name = name
+  }
+
+  getPolicy() {
+    return getQueuePolicy(this.name)
   }
 
   async add(data: unknown, options?: JobOptions): Promise<string> {

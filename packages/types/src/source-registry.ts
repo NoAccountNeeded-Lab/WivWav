@@ -1,0 +1,51 @@
+export type ScraperPipelineKind = 'scrape-only' | 'detail-pages'
+
+export interface ScraperSourceRegistryEntry {
+  key: string
+  schedulerKey?: string
+  name: string
+  baseUrl: string
+  cronExpression: string
+  timezone: string
+  pipeline: ScraperPipelineKind
+}
+
+export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
+  {
+    key: 'blvd',
+    name: 'BLVD.com',
+    baseUrl: 'https://www.blvd.com',
+    cronExpression: '0 */6 * * *',
+    timezone: 'America/New_York',
+    pipeline: 'detail-pages',
+  },
+  {
+    key: 'mobilityworks',
+    schedulerKey: 'mw',
+    name: 'MobilityWorks',
+    baseUrl: 'https://www.mobilityworks.com',
+    cronExpression: '0 */8 * * *',
+    timezone: 'America/New_York',
+    pipeline: 'detail-pages',
+  },
+  {
+    key: 'freedom-motors',
+    name: 'Freedom Motors',
+    baseUrl: 'https://www.freedommotors.com',
+    cronExpression: '0 */12 * * *',
+    timezone: 'America/New_York',
+    pipeline: 'scrape-only',
+  },
+  {
+    key: 'superior-van',
+    name: 'Superior Van & Mobility',
+    baseUrl: 'https://superiorvan.com',
+    cronExpression: '0 */12 * * *',
+    timezone: 'America/New_York',
+    pipeline: 'scrape-only',
+  },
+] as const
+
+export function findScraperSourceByName(name: string): ScraperSourceRegistryEntry | undefined {
+  return SCRAPER_SOURCE_REGISTRY.find((entry) => entry.name === name)
+}

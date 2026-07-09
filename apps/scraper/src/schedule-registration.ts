@@ -12,10 +12,11 @@ export interface ScheduleDefinition {
   options?: JobOptions
 }
 
-interface DetailScheduleSource {
+export interface DetailScheduleSource {
   id: string
   timezone: string
   schedulerPrefix: string
+  sourceName?: string
 }
 
 interface DetailScheduleQueues {

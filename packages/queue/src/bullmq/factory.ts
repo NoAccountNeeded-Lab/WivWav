@@ -6,6 +6,7 @@ import type {
   JobProcessor,
   WorkerOptions,
 } from '../types.js'
+import { getQueuePolicy } from '../policies.js'
 import { BullMQQueueAdapter } from './queue-adapter.js'
 import { BullMQWorkerAdapter } from './worker-adapter.js'
 import { connectionFromEnv, type RedisConnectionOptions } from './connection.js'
@@ -25,7 +26,7 @@ export class BullMQQueueFactory implements QueueFactory {
       queue = new Queue(name, { connection: this.connection })
       this.queues.set(name, queue)
     }
-    return new BullMQQueueAdapter(queue)
+    return new BullMQQueueAdapter(queue, getQueuePolicy(name))
   }
 
   createWorker<T = unknown>(
@@ -64,6 +65,7 @@ export class BullMQQueueFactory implements QueueFactory {
       },
       {
         connection: this.connection,
+        concurrency: options?.concurrency ?? getQueuePolicy(name).concurrency,
         ...(options?.lockDuration !== undefined && { lockDuration: options.lockDuration }),
       },
     )
