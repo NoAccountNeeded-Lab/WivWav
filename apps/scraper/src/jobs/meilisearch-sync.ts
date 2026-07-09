@@ -2,12 +2,15 @@ import { getDb, Prisma } from '@wivwav/db'
 import type { Listing, PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { Meilisearch } from 'meilisearch'
-import { INDEX_NAME, groupKeyOf, selectRepresentative, toDocument } from '@wivwav/search'
+import { INDEX_NAME, configureIndexSettings, groupKeyOf, indexExists, selectRepresentative, toDocument } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 1000
 const TASK_TIMEOUT_MS = 15_000
+
+/** Prefix for versioned rebuild-target indexes, e.g. "listings_v1751234567890". */
+const VERSIONED_INDEX_PREFIX = `${INDEX_NAME}_v`
 
 type VehicleAwareCountRow = {
   count: number | bigint
@@ -88,13 +91,55 @@ async function waitForMeiliTask(client: Meilisearch, taskUid: number, label: str
   }
 }
 
+/**
+ * Removes versioned rebuild-target indexes left behind by a run that crashed
+ * before it could swap and clean up (e.g. process killed mid-rebuild). Runs
+ * at the start of every rebuild so orphans never accumulate. Best-effort:
+ * failing to delete a stray index does not block this run.
+ */
+async function cleanupOrphanedIndexes(client: Meilisearch, keepIndexName: string): Promise<void> {
+  const { results } = await client.getIndexes({ limit: 100 })
+  const orphans = results.filter((idx) => idx.uid.startsWith(VERSIONED_INDEX_PREFIX) && idx.uid !== keepIndexName)
+  for (const orphan of orphans) {
+    await client.deleteIndexIfExists(orphan.uid).catch(() => {})
+  }
+}
+
 export async function runMeilisearchSyncJob(context?: JobContext): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
-  const index = client.index(INDEX_NAME)
+  // Build into a freshly created, uniquely named index and swap it into
+  // service atomically once fully populated and validated (#669) — the live
+  // index (`INDEX_NAME`) is never cleared, so in-flight queries never
+  // observe an empty or partially rebuilt index.
+  const versionedIndexName = `${VERSIONED_INDEX_PREFIX}${Date.now()}`
 
   try {
+    await cleanupOrphanedIndexes(client, versionedIndexName)
+    await configureIndexSettings(client, versionedIndexName)
+    const index = client.index(versionedIndexName)
     await runFullRebuild(context, db, client, index)
+
+    // First-ever rebuild: the live index may not exist yet. swapIndexes
+    // requires both sides to exist, so create it (empty, but configured)
+    // rather than special-casing the swap away.
+    if (!(await indexExists(client, INDEX_NAME))) {
+      await configureIndexSettings(client, INDEX_NAME)
+    }
+
+    const swapTask = await client.swapIndexes([{ indexes: [INDEX_NAME, versionedIndexName], rename: false }])
+    await waitForMeiliTask(client, swapTask.taskUid, 'swapIndexes')
+
+    // versionedIndexName now holds the *previous* live content post-swap;
+    // it is no longer referenced by anything and can be dropped.
+    await client.deleteIndexIfExists(versionedIndexName).catch((err: unknown) => {
+      context?.logger?.warn({ err, versionedIndexName }, '[meili-sync] Failed to clean up the pre-swap index — non-fatal')
+    })
+  } catch (err) {
+    // The rebuild target never went live — remove it rather than leaving a
+    // half-built index for the next run's orphan cleanup to find.
+    await client.deleteIndexIfExists(versionedIndexName).catch(() => {})
+    throw err
   } finally {
     await db.$disconnect()
   }
@@ -119,9 +164,6 @@ async function runFullRebuild(
     current: 0,
     total: activeCount,
   })
-
-  const clearTask = await index.deleteAllDocuments()
-  await waitForMeiliTask(client, clearTask.taskUid, 'clear')
 
   // Buffer a full vehicle group across pages so that representative selection
   // across page boundaries is correct. Groups spanning more than BATCH_SIZE
