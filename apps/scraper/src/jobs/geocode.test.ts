@@ -1,11 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { syncListings } from '@wivwav/search'
 import { runGeocodeJob } from './geocode.js'
 
 function makeDb() {
@@ -69,11 +66,6 @@ describe('runGeocodeJob', () => {
       where: { id: { in: ['l1', 'l2'] } },
       data: { lat: 27.9506, lng: -82.4572 },
     })
-    expect(vi.mocked(syncListings)).toHaveBeenCalledWith(
-      expect.arrayContaining(['l1', 'l2']),
-      db,
-      undefined,
-    )
   })
 
   it('deduplicates city+state pairs — one Nominatim call per unique location', async () => {
@@ -168,29 +160,4 @@ describe('runGeocodeJob', () => {
     expect(db.$disconnect).toHaveBeenCalledTimes(1)
   })
 
-  it('does not throw when the Meilisearch sync fails — coordinates stay committed', async () => {
-    db.listing.findMany.mockResolvedValue([{ id: 'l1', city: 'Tampa', state: 'FL' }])
-    mockFetchCoords('27.9506', '-82.4572')
-    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
-
-    // Job resolves rather than rejecting (which would mark the BullMQ job failed)
-    await expect(runGeocodeJob()).resolves.toBeUndefined()
-
-    // The coordinate write still happened before the sync attempt
-    expect(db.listing.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['l1'] } },
-      data: { lat: 27.9506, lng: -82.4572 },
-    })
-  })
-
-  it('enqueues a listing-sync job to reconcile when the inline Meilisearch sync fails', async () => {
-    db.listing.findMany.mockResolvedValue([{ id: 'l1', city: 'Tampa', state: 'FL' }])
-    mockFetchCoords('27.9506', '-82.4572')
-    vi.mocked(syncListings).mockRejectedValueOnce(new Error('Meili down'))
-    const listingSyncQueue = { add: vi.fn().mockResolvedValue(undefined) }
-
-    await runGeocodeJob(undefined, listingSyncQueue as never)
-
-    expect(listingSyncQueue.add).toHaveBeenCalledTimes(1)
-  })
 })

@@ -1,8 +1,5 @@
 import { getDb } from '@wivwav/db'
-import type { JobContext, QueueAdapter } from '@wivwav/queue'
-import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
-import { getMeiliClient } from '../lib/meili.js'
+import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from './job-progress.js'
 import { jitteredSleep } from '../util/jitter-sleep.js'
@@ -15,7 +12,6 @@ const STALE_DETAIL_DAYS = 30
 export async function runDetailCrawlJob(
   sourceId: string,
   context?: JobContext,
-  listingSyncQueue?: QueueAdapter,
   browserService?: BrowserService,
 ): Promise<void> {
   if (typeof sourceId !== 'string' || sourceId.trim().length === 0) {
@@ -97,28 +93,9 @@ export async function runDetailCrawlJob(
               where: { id: { in: goneListings.map((l) => l.id) } },
               data: { status: 'gone', goneAt: new Date() },
             })
-            // Remove the now-gone listing(s) from Meilisearch immediately, rather
-            // than waiting on the queued full-catalog rebuild, so it stops
-            // surfacing in search the moment it's confirmed gone.
-            if (goneListings.length > 0) {
-              try {
-                await syncListings(goneListings.map((l) => l.id), db, getMeiliClient())
-              } catch (syncErr) {
-                context?.logger?.error({ err: syncErr, sourceUrl }, '[detail-crawl] Meilisearch sync failed — deferring to listing-sync queue')
-                await report(context, `[detail-crawl] Meilisearch sync failed for ${sourceUrl}, deferring to listing-sync queue: ${syncErr}`)
-                if (listingSyncQueue !== undefined) {
-                  try {
-                    await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
-                  } catch (enqueueErr) {
-                    context?.logger?.error(
-                      { err: enqueueErr, sourceUrl },
-                      '[detail-crawl] Failed to enqueue listing-sync job',
-                    )
-                    await report(context, `[detail-crawl] Failed to enqueue listing-sync job: ${enqueueErr}`)
-                  }
-                }
-              }
-            }
+            // Search-index sync is no longer this job's concern — the
+            // single-owner indexer poller (#669) picks up the status change
+            // (via `updatedAt`) on its next tick.
             await report(context, `[detail-crawl] ${is404 ? '404' : 'Off-domain redirect'} — marked ${sourceUrl} as gone`)
           } else {
             const html = await page.content()

@@ -8,8 +8,6 @@ vi.mock('@wivwav/db', () => ({
   checkDigitValid: vi.fn(() => true),
   normalizeVin: vi.fn((vin: string) => vin.trim().toUpperCase()),
 }))
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { checkDigitValid, findOrCreateVehicle, getDb, isValidVin } from '@wivwav/db'
 import { runDeduplicateJob } from './deduplicate.js'

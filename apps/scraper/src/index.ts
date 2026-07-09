@@ -52,6 +52,7 @@ import { runConversionBrandsSeedJob } from './sources/conversion-brands.js'
 import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
 import { runModelResearchJob } from './jobs/model-research.js'
 import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
+import { runSearchIndexerPollJob } from './jobs/search-indexer-poll.js'
 import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing-resolve.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
 import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
@@ -59,8 +60,6 @@ import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fuele
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
-import { getMeiliClient } from './lib/meili.js'
 
 const db = getDb()
 const logger = createLogger({
@@ -68,26 +67,13 @@ const logger = createLogger({
   env: process.env['NODE_ENV'] ?? 'development',
 })
 
-// Referenced by onListingsGone below via closure; listingSyncQueue is
-// initialized further down in "Queue setup", before any job runs.
-async function syncGoneListings(ids: string[]): Promise<void> {
-  try {
-    await syncListings(ids, db, getMeiliClient())
-  } catch (syncErr) {
-    logger.error({ err: syncErr, count: ids.length }, '[engine] Meilisearch sync failed for newly-gone listings — deferring to listing-sync queue')
-    try {
-      await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
-    } catch (enqueueErr) {
-      logger.error({ err: enqueueErr }, '[engine] Failed to enqueue listing-sync job')
-    }
-  }
-}
-
+// No onListingsGone hook here (#669): the single-owner indexer poller picks
+// up newly-gone listings (via `updatedAt`) on its next tick instead of an
+// eager per-mutation search sync.
 const engine = new ScraperEngine({
   runs: new PrismaScraperRunRepository(db),
   sources: new PrismaSourceRepository(db),
   listings: new PrismaListingRepository(db),
-  onListingsGone: syncGoneListings,
 })
 
 const browserService = new PlaywrightBrowserService()
@@ -262,7 +248,7 @@ queueFactory.createWorker<{ sourceId: string }>(
 queueFactory.createWorker<{ sourceId: string }>(
   QUEUES.DETAIL_CRAWL,
   withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, ({ sourceId }, context) =>
-    runDetailCrawlJob(sourceId, context, listingSyncQueue, browserService),
+    runDetailCrawlJob(sourceId, context, browserService),
   ),
   { lockDuration: 120_000, logger },
 )
@@ -275,7 +261,7 @@ queueFactory.createWorker<{ sourceId: string }>(
 )
 queueFactory.createWorker(
   QUEUES.GEOCODE,
-  withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context, listingSyncQueue)),
+  withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context)),
   { lockDuration: 120_000, logger },
 )
 queueFactory.createWorker(
@@ -285,7 +271,7 @@ queueFactory.createWorker(
 )
 queueFactory.createWorker(
   QUEUES.VIN_ENRICH,
-  withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context, listingSyncQueue)),
+  withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context)),
   { lockDuration: 300_000, logger },
 )
 queueFactory.createWorker(
@@ -358,6 +344,15 @@ queueFactory.createWorker(
   ),
   { lockDuration: 300_000, logger },
 )
+// Single-owner incremental search indexer (#669) — the only steady-state
+// writer of incremental changes to the listings search projection.
+queueFactory.createWorker(
+  QUEUES.LISTING_INDEX_POLL,
+  withSentryCapture(QUEUES.LISTING_INDEX_POLL, (_data: unknown, context) =>
+    runSearchIndexerPollJob(context),
+  ),
+  { lockDuration: 120_000, logger },
+)
 queueFactory.createWorker<ListingResolveJobData>(
   QUEUES.LISTING_RESOLVE,
   withSentryCapture<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, (data, context) =>
@@ -403,6 +398,7 @@ const conversionBrandsSeedQueue = queueFactory.createQueue(QUEUES.CONVERSION_BRA
 const nmedaDealersSeedQueue = queueFactory.createQueue(QUEUES.NMEDA_DEALERS_SEED)
 const modelResearchQueue = queueFactory.createQueue(QUEUES.MODEL_RESEARCH)
 const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
+const listingIndexPollQueue = queueFactory.createQueue(QUEUES.LISTING_INDEX_POLL)
 const listingResolveQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
@@ -516,6 +512,10 @@ const SCHEDULE_DEFS: ScheduleDefinition[] = [
   { queue: nmedaDealersSeedQueue, name: QUEUES.NMEDA_DEALERS_SEED, data: {}, pattern: '20 1 * * 0', tz },
   { queue: modelResearchQueue, name: QUEUES.MODEL_RESEARCH, data: {}, pattern: '30 5 * * 0', tz },
   { queue: listingSyncQueue, name: QUEUES.LISTING_SYNC, data: {}, pattern: '30 1 * * *', tz, options: CRITICAL_JOB_OPTIONS },
+  // Single-owner incremental indexer poll (#669) — runs every minute so
+  // Postgres writes reach the live search index within a bounded, small
+  // delay without any mutation path calling the search service directly.
+  { queue: listingIndexPollQueue, name: QUEUES.LISTING_INDEX_POLL, data: {}, pattern: '* * * * *', tz, options: CRITICAL_JOB_OPTIONS },
   { queue: rawPageCleanupQueue, name: QUEUES.RAWPAGE_CLEANUP, data: {}, pattern: '0 0 * * *', tz },
   // dealer-enrich runs nightly at 07:00 — after the main pipeline windows.
   // At 50 dealers * 2 requests each = 100 requests, staying within the free-tier budget.

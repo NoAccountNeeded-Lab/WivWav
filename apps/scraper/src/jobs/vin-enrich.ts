@@ -1,8 +1,5 @@
 import { getDb } from '@wivwav/db'
-import type { JobContext, QueueAdapter } from '@wivwav/queue'
-import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
-import { getMeiliClient } from '../lib/meili.js'
+import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
 import { normalizeVehicleField, type VehicleModelMatchConfidence } from './normalize-vehicle-fields.js'
 import { acquireListingLock, releaseListingLock, unlockableWhere } from './listing-lock.js'
@@ -90,7 +87,7 @@ async function findOrCreateVehicleModel(
   return { id: created.id, bodyType: created.bodyType, confidence: 'exact' }
 }
 
-export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: QueueAdapter): Promise<void> {
+export async function runVinEnrichJob(context?: JobContext): Promise<void> {
   const db = getDb()
 
   // Exclude listings locked by another concurrent job (e.g. geocode, deduplicate)
@@ -113,7 +110,6 @@ export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: Q
   let failed = 0
   let skipped = 0
   let mismatched = 0
-  const enrichedIds: string[] = []
 
   for (let i = 0; i < listings.length; i++) {
     const { id, vin, make: scrapedMake, model: scrapedModel, year: scrapedYear } = listings[i]!
@@ -190,7 +186,6 @@ export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: Q
               qualityCheckedAt: null,
             },
           })
-          enrichedIds.push(id)
           enriched++
 
           await report(
@@ -214,26 +209,9 @@ export async function runVinEnrichJob(context?: JobContext, listingSyncQueue?: Q
     if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
   }
 
-  // VIN enrichment is already committed to Postgres. Treat a Meilisearch sync
-  // failure as non-fatal so the enrichment work is not lost and the job is not
-  // marked failed; defer reconciliation to the dedicated listing-sync queue.
-  if (enrichedIds.length > 0) {
-    try {
-      await syncListings(enrichedIds, db, getMeiliClient())
-    } catch (syncErr) {
-      context?.logger?.error({ err: syncErr, count: enrichedIds.length }, '[vin-enrich] Meilisearch sync failed — enrichment saved, deferring to listing-sync queue')
-      await report(context, `[vin-enrich] Meilisearch sync failed (${enrichedIds.length} listing(s) saved but not yet indexed): ${syncErr}`)
-      if (listingSyncQueue !== undefined) {
-        try {
-          await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
-        } catch (enqueueErr) {
-          context?.logger?.error({ err: enqueueErr }, '[vin-enrich] Failed to enqueue listing-sync job')
-          await report(context, `[vin-enrich] Failed to enqueue listing-sync job: ${enqueueErr}`)
-        }
-      }
-    }
-  }
-
+  // VIN enrichment is committed to Postgres above. Search-index sync is no
+  // longer this job's concern — the single-owner indexer poller (#669) picks
+  // up any touched listing on its next tick.
   await report(context, `[vin-enrich] Done. ${enriched} enriched, ${mismatched} quarantined (NHTSA mismatch), ${failed} failed, ${skipped} skipped (locked).`, {
     stage: 'complete',
     current: listings.length,

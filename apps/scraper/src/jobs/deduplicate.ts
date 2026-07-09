@@ -1,8 +1,6 @@
 import { checkDigitValid, findOrCreateVehicle, getDb, isValidVin, normalizeVin } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import { syncListings } from '@wivwav/search'
-import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { acquireListingLock, releaseListingLocks } from './listing-lock.js'
 
@@ -55,7 +53,6 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
   let vehicleGroupsLinked = 0
   let listingsLinked = 0
   let skippedGroups = 0
-  const touchedIds: string[] = []
 
   for (let i = 0; i < rows.length; i++) {
     const rawVin = rows[i]!.vin
@@ -124,7 +121,6 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
           where: { id: listing.id },
           data: { vehicleId: vehicle.id },
         })
-        touchedIds.push(listing.id)
         listingsLinked++
       }
       vehicleGroupsLinked++
@@ -139,8 +135,9 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
     })
   }
 
-  await syncListings(touchedIds, db, getMeiliClient())
-  await report(context, `[deduplicate] Done. ${vehicleGroupsLinked} vehicle group(s) linked, ${listingsLinked} listing(s) assigned vehicleId, ${skippedGroups} group(s) skipped. ${touchedIds.length} listing(s) synced to Meilisearch.`, {
+  // Search-index sync is no longer this job's concern — the single-owner
+  // indexer poller (#669) picks up any touched listing on its next tick.
+  await report(context, `[deduplicate] Done. ${vehicleGroupsLinked} vehicle group(s) linked, ${listingsLinked} listing(s) assigned vehicleId, ${skippedGroups} group(s) skipped.`, {
     stage: 'complete',
     current: rows.length,
     total: rows.length,

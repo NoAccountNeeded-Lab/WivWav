@@ -1,7 +1,6 @@
 import { getDb, type Prisma } from '@wivwav/db'
 import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
 import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
-import { syncListings } from '@wivwav/search'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
 import {
@@ -11,7 +10,6 @@ import {
   type BlvdDealerEnrichment,
 } from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
-import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 100
@@ -311,6 +309,12 @@ export async function runDetailExtractJob(
         })
 
         if (listing) {
+          // Retry idempotency: if this observation reference was already recorded
+          // (a prior attempt committed the listing update but the job was retried
+          // before marking rawPage.processedAt), skip straight to that bookkeeping
+          // rather than re-applying the detail update. Search-index sync is not
+          // this job's concern either way — the single-owner indexer poller (#669)
+          // picks up any touched listing (via `updatedAt`) on its next tick.
           const alreadyApplied = await db.listingObservation.findUnique({
             where: {
               stage_reference: {
@@ -318,16 +322,9 @@ export async function runDetailExtractJob(
                 reference: observationReference,
               },
             },
-            select: { id: true, changedFields: true, searchSyncedAt: true, listingId: true },
+            select: { id: true },
           })
           if (alreadyApplied) {
-            if (alreadyApplied.changedFields.length > 0 && alreadyApplied.searchSyncedAt === null) {
-              await syncListings([alreadyApplied.listingId], db, getMeiliClient())
-              await db.listingObservation.update({
-                where: { id: alreadyApplied.id },
-                data: { searchSyncedAt: new Date() },
-              })
-            }
             await db.rawPage.update({
               where: { id: rawPage.id },
               data: { processedAt: new Date() },
@@ -378,22 +375,12 @@ export async function runDetailExtractJob(
                 before: before as Prisma.InputJsonObject,
                 after: after as Prisma.InputJsonObject,
                 observedAt: now,
-                ...(changedFields.length === 0 ? { searchSyncedAt: now } : {}),
               },
             })
           }, { isolationLevel: 'Serializable' })
-          if (changedFields.length > 0) {
-            await syncListings([listing.id], db, getMeiliClient())
-            await db.listingObservation.update({
-              where: {
-                stage_reference: {
-                  stage: 'detail',
-                  reference: observationReference,
-                },
-              },
-              data: { searchSyncedAt: new Date() },
-            })
-          }
+          // Search-index sync is no longer this job's concern — the
+          // single-owner indexer poller (#669) picks up the change (via
+          // `updatedAt`, bumped by the transaction above) on its next tick.
           if (requiresListingResolution(changedFields)) {
             await resolutionQueue?.add(
               { listingId: listing.id, observationReference },
