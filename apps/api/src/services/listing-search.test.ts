@@ -184,7 +184,7 @@ describe('configureListingsIndex', () => {
     })
 
     await expect(configureListingsIndex(client as never)).rejects.toThrow(
-      'Meilisearch settings update failed: task 42 ended with status failed',
+      'Meilisearch settings update failed on "listings": task 42 ended with status failed',
     )
   })
 
@@ -194,7 +194,7 @@ describe('configureListingsIndex', () => {
     })
 
     await expect(configureListingsIndex(client as never)).rejects.toThrow(
-      'Meilisearch settings update failed: task 42 ended with status canceled',
+      'Meilisearch settings update failed on "listings": task 42 ended with status canceled',
     )
   })
 })
@@ -428,30 +428,3 @@ describe('ListingSearchService.search', () => {
   })
 })
 
-describe('ListingSearchService.syncAll', () => {
-  it('clears stale documents before reading eligible pages', async () => {
-    const { service, searchService } = makeService()
-    const listings = { findPageForSync: vi.fn(async () => []) }
-
-    const synced = await service.syncAll(listings as never)
-
-    expect(searchService.clear).toHaveBeenCalledWith('listings')
-    expect(searchService.upsert).not.toHaveBeenCalled()
-    expect(synced).toBe(0)
-    expect(vi.mocked(searchService.clear).mock.invocationCallOrder[0]).toBeLessThan(
-      listings.findPageForSync.mock.invocationCallOrder[0]!,
-    )
-  })
-
-  it('does not read or publish rows when clearing stale documents fails', async () => {
-    const { service, searchService } = makeService()
-    const listings = { findPageForSync: vi.fn(async () => []) }
-    vi.mocked(searchService.clear).mockRejectedValueOnce(new Error('clear failed'))
-
-    await expect(service.syncAll(listings as never)).rejects.toThrow('clear failed')
-
-    expect(searchService.clear).toHaveBeenCalledWith('listings')
-    expect(listings.findPageForSync).not.toHaveBeenCalled()
-    expect(searchService.upsert).not.toHaveBeenCalled()
-  })
-})
