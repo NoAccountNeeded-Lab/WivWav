@@ -25,12 +25,12 @@
   },
   "dependencies": {
     "@wivwav/db": "workspace:*",
-    "meilisearch": "^0.58.0"
+    "meilisearch": "^0.59.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.10"
   }
 }
