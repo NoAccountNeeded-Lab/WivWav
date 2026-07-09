@@ -14,11 +14,13 @@ vi.mock('@wivwav/search', () => ({
   toDocument: vi.fn((row: { id: string }) => ({ id: row.id })),
   selectRepresentative: vi.fn((listings: { id: string }[]) => listings[0]!),
   groupKeyOf: vi.fn((row: { id: string; vehicleId: string | null }) => row.vehicleId ?? row.id),
+  configureIndexSettings: vi.fn(async () => undefined),
+  indexExists: vi.fn(async () => true),
 }))
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
-import { selectRepresentative } from '@wivwav/search'
+import { configureIndexSettings, indexExists, selectRepresentative } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { runMeilisearchSyncJob } from './meilisearch-sync.js'
 
@@ -35,9 +37,12 @@ function listingRowsFor(ids: string[], vehicleId: string | null): ListingRow[] {
 
 describe('runMeilisearchSyncJob', () => {
   let addDocuments: ReturnType<typeof vi.fn>
-  let deleteAllDocuments: ReturnType<typeof vi.fn>
-  let waitForTask: ReturnType<typeof vi.fn>
   let getStats: ReturnType<typeof vi.fn>
+  let waitForTask: ReturnType<typeof vi.fn>
+  let indexFn: ReturnType<typeof vi.fn>
+  let getIndexes: ReturnType<typeof vi.fn>
+  let deleteIndexIfExists: ReturnType<typeof vi.fn>
+  let swapIndexes: ReturnType<typeof vi.fn>
   let db: {
     $queryRaw: ReturnType<typeof vi.fn>
     listing: { findMany: ReturnType<typeof vi.fn> }
@@ -46,10 +51,17 @@ describe('runMeilisearchSyncJob', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(configureIndexSettings).mockResolvedValue(undefined)
+    vi.mocked(indexExists).mockResolvedValue(true)
+
     addDocuments = vi.fn(async () => ({ taskUid: 20 }))
-    deleteAllDocuments = vi.fn(async () => ({ taskUid: 10 }))
-    waitForTask = vi.fn(async () => ({ status: 'succeeded', uid: 10 }))
     getStats = vi.fn(async () => ({ numberOfDocuments: 3 }))
+    waitForTask = vi.fn(async (uid: number) => ({ status: 'succeeded', uid }))
+    indexFn = vi.fn(() => ({ addDocuments, getStats }))
+    getIndexes = vi.fn(async () => ({ results: [] }))
+    deleteIndexIfExists = vi.fn(async () => true)
+    swapIndexes = vi.fn(async () => ({ taskUid: 30 }))
+
     db = {
       // Call order: [0] vehicle-aware count, [1..] one per fetchOrderedIdPage call.
       // These are ungrouped (no vehicleId) listings, so each is its own singleton group
@@ -65,8 +77,11 @@ describe('runMeilisearchSyncJob', () => {
 
     vi.mocked(getDb).mockReturnValue(db as never)
     vi.mocked(getMeiliClient).mockReturnValue({
-      index: vi.fn(() => ({ addDocuments, deleteAllDocuments, getStats })),
+      index: indexFn,
       tasks: { waitForTask },
+      getIndexes,
+      deleteIndexIfExists,
+      swapIndexes,
     } as never)
   })
 
@@ -113,45 +128,67 @@ describe('runMeilisearchSyncJob', () => {
     expect(sql).toContain('COALESCE("vehicleId", id) AS "groupKey"')
   })
 
-  it('clears stale documents before upserting eligible listing documents', async () => {
+  it('builds into a freshly created versioned index and swaps it into service atomically', async () => {
     await runMeilisearchSyncJob()
 
-    expect(deleteAllDocuments).toHaveBeenCalledOnce()
-    expect(waitForTask).toHaveBeenCalledWith(10, { timeout: 15_000 })
-    expect(waitForTask).toHaveBeenCalledWith(20, { timeout: 15_000 })
+    // The rebuild writes documents into a new, uniquely named index — never
+    // clearing or writing directly into the live "listings" index.
+    const versionedNames = indexFn.mock.calls.map((call) => call[0] as string)
+    expect(versionedNames.every((name) => name.startsWith('listings_v'))).toBe(true)
+    expect(vi.mocked(configureIndexSettings)).toHaveBeenCalledWith(expect.anything(), versionedNames[0])
+
     expect(addDocuments).toHaveBeenCalledWith(
       [{ id: 'listing-1' }, { id: 'listing-2' }, { id: 'listing-3' }],
       { primaryKey: 'id' },
     )
-    expect(deleteAllDocuments.mock.invocationCallOrder[0]).toBeLessThan(
-      addDocuments.mock.invocationCallOrder[0]!,
-    )
-    expect(db.listing.findMany).toHaveBeenCalledWith({
-      where: {
-        id: { in: ['listing-1', 'listing-2', 'listing-3'] },
-        status: 'active',
-        publicationStatus: 'eligible',
-      },
-    })
+
+    // Only after a fully validated build does the swap happen, and it swaps
+    // the live name with the versioned build target.
+    expect(swapIndexes).toHaveBeenCalledWith([{ indexes: ['listings', versionedNames[0]], rename: false }])
+    expect(addDocuments.mock.invocationCallOrder[0]).toBeLessThan(swapIndexes.mock.invocationCallOrder[0]!)
+
+    // The pre-swap index (now holding stale content) is cleaned up afterward.
+    expect(deleteIndexIfExists).toHaveBeenCalledWith(versionedNames[0])
   })
 
-  it('fails closed when stale document deletion fails', async () => {
-    waitForTask.mockResolvedValueOnce({ status: 'failed', uid: 10 })
+  it('creates the live index when it does not exist yet, so the first-ever rebuild can still swap', async () => {
+    vi.mocked(indexExists).mockResolvedValueOnce(false)
 
-    await expect(runMeilisearchSyncJob()).rejects.toThrow(
-      'Meilisearch clear failed: task 10 ended with status failed',
-    )
-    expect(addDocuments).not.toHaveBeenCalled()
+    await runMeilisearchSyncJob()
+
+    expect(vi.mocked(configureIndexSettings)).toHaveBeenCalledWith(expect.anything(), 'listings')
+    expect(swapIndexes).toHaveBeenCalled()
+  })
+
+  it('removes orphaned versioned indexes left behind by a prior crashed run', async () => {
+    getIndexes.mockResolvedValueOnce({
+      results: [{ uid: 'listings' }, { uid: 'listings_v1' }, { uid: 'listings_v2' }],
+    })
+
+    await runMeilisearchSyncJob()
+
+    expect(deleteIndexIfExists).toHaveBeenCalledWith('listings_v1')
+    expect(deleteIndexIfExists).toHaveBeenCalledWith('listings_v2')
+    expect(deleteIndexIfExists).not.toHaveBeenCalledWith('listings')
+  })
+
+  it('deletes the half-built versioned index instead of swapping when the rebuild fails validation', async () => {
+    getStats.mockResolvedValueOnce({ numberOfDocuments: 2 })
+
+    await expect(runMeilisearchSyncJob()).rejects.toThrow(/Count mismatch/)
+
+    expect(swapIndexes).not.toHaveBeenCalled()
+    const versionedName = indexFn.mock.calls[0]![0] as string
+    expect(deleteIndexIfExists).toHaveBeenCalledWith(versionedName)
   })
 
   it('fails closed when an addDocuments task does not succeed', async () => {
-    waitForTask
-      .mockResolvedValueOnce({ status: 'succeeded', uid: 10 })
-      .mockResolvedValueOnce({ status: 'failed', uid: 20 })
+    waitForTask.mockResolvedValueOnce({ status: 'failed', uid: 20 })
 
     await expect(runMeilisearchSyncJob()).rejects.toThrow(
       'Meilisearch addDocuments failed: task 20 ended with status failed',
     )
+    expect(swapIndexes).not.toHaveBeenCalled()
   })
 
   it('fails closed and reports blocked when submitted and committed counts do not match the DB group count', async () => {
@@ -167,6 +204,7 @@ describe('runMeilisearchSyncJob', () => {
     expect(context.updateProgress).toHaveBeenCalledWith(
       expect.objectContaining({ stage: 'blocked' }),
     )
+    expect(swapIndexes).not.toHaveBeenCalled()
   })
 
   it('does not crash when every row on a non-final page turns ineligible before the full-row fetch', async () => {
