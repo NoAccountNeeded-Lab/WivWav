@@ -7,6 +7,14 @@ on:
     branches: [main]
   merge_group:
 
+# PR pushes group by PR number, so a newer commit cancels the older
+# in-progress run for that PR. `merge_group` and `push` runs group by
+# `github.run_id` — a value unique to every run — so they can never share a
+# group and therefore can never cancel or queue behind each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   docker:
     name: Docker build (${{ matrix.service }})
@@ -381,12 +389,15 @@ jobs:
 
   # Publishes the exact images the jobs above just tested — never a rebuild.
   # Gated on every test job passing, and only runs for pushes to main, so a
-  # failing job (docker build, lint/typecheck, test, or restore drill)
-  # publishes nothing.
+  # failing job (docker build, lint/typecheck, test, restore drill, or E2E
+  # smoke) publishes nothing. E2E is not a required merge-queue check (see
+  # docs/design/merge-queue.md) but it does gate this post-merge publish step,
+  # so a failing or still-running E2E smoke on main blocks image publishing
+  # even though it never blocked the merge itself.
   publish:
     name: Publish images (digest-pinned)
     runs-on: ubuntu-latest
-    needs: [docker-done, lint-typecheck, test, restore-drill]
+    needs: [docker-done, lint-typecheck, test, restore-drill, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write

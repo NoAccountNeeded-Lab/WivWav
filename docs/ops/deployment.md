@@ -14,17 +14,49 @@ There is no separate publish workflow and no staging registry:
    `main` the built image is also saved as a workflow artifact.
 2. `lint-typecheck`, `test`, and `restore-drill` run independently, in
    parallel with the build. `restore-drill` proves a PostgreSQL backup
-   actually restores — see `docs/data/backup-restore.md`.
+   actually restores — see `docs/data/backup-restore.md`. `e2e` (E2E smoke)
+   runs against the built `migrate`, `api`, and `web` images once
+   `docker-done` succeeds.
 3. `publish` runs only for a push to `main`, and only after `docker-done`,
-   `lint-typecheck`, `test`, and `restore-drill` have all succeeded. It loads the artifacts
-   from step 1 — never rebuilding — tags and pushes each one to GHCR by
-   digest, then rewrites `docker-compose.prod.yml` with the digests it just
-   pushed and commits that file back to `main` (`chore(deploy): pin published
-   image digests ... [skip ci]`).
+   `lint-typecheck`, `test`, `restore-drill`, and `e2e` have all succeeded. It
+   loads the artifacts from step 1 — never rebuilding — tags and pushes each
+   one to GHCR by digest, then rewrites `docker-compose.prod.yml` with the
+   digests it just pushed and commits that file back to `main`
+   (`chore(deploy): pin published image digests ... [skip ci]`).
 
-If any test job fails, `publish` does not run and nothing is pushed to GHCR.
-The digest recorded in `docker-compose.prod.yml` is always exactly the image
-the test jobs exercised — never a respin built after the fact.
+If any of those five gates fails — Docker builds, lint/typecheck, unit and
+integration tests, the restore drill, or E2E smoke — `publish` does not run
+and nothing is pushed to GHCR. The digest recorded in
+`docker-compose.prod.yml` is always exactly the `docker` job's image the
+other jobs exercised — never a respin built after the fact.
+
+### What E2E does and doesn't prove about the published images
+
+`publish` pushes the exact bytes the `docker` job built and saved as
+artifacts. `e2e`, by contrast, rebuilds the `migrate`, `api`, and `web`
+images from the GitHub Actions build cache rather than loading those
+artifacts — same commit and cache scope give effectively identical layers,
+but `e2e` is not itself proof that it ran the identical tar `publish` later
+pushes. `e2e` also only exercises `migrate`, `api`, and `web`: `scraper` is
+covered separately by the `docker` job's own smoke test, and `ops` is built
+but not exercised by any E2E flow. Gating `publish` on `e2e` is still a net
+risk reduction — it stops production images from shipping while the core
+user-facing flow is provably broken — but it is a three-service smoke check
+gating five images, not a guarantee about every published service.
+
+See `docs/design/merge-queue.md` for why E2E gates publishing here but is
+not (yet) a required merge-queue check.
+
+### If E2E flakes on a `main` push
+
+`publish` simply does not run for that commit — no image is pushed and
+`docker-compose.prod.yml` is left pointing at the previous digest. Use
+**Re-run failed jobs** on that workflow run to retry `e2e` (and `publish`
+once it turns green) without repeating the whole pipeline. This only works
+while the `docker` job's image artifacts are still present; they are
+uploaded with `retention-days: 1`, so once a day has passed since the
+original run, re-run **all** jobs instead — the saved artifacts will have
+expired and `publish` needs them.
 
 ## Deploying
 
