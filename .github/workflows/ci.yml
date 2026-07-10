@@ -159,6 +159,18 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
+      - name: Build runnable scraper image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/scraper.Dockerfile
+          target: runner
+          push: false
+          load: true
+          tags: wivwav-ci-scraper:${{ github.sha }}
+          cache-from: type=gha,scope=scraper
+          cache-to: type=gha,mode=max,scope=scraper
+
       - name: Install Chromium for E2E
         run: pnpm --filter @wivwav/e2e exec playwright install --with-deps chromium
 
@@ -169,6 +181,7 @@ jobs:
           WIVWAV_E2E_MIGRATE_IMAGE: wivwav-ci-migrate:${{ github.sha }}
           WIVWAV_E2E_API_IMAGE: wivwav-ci-api:${{ github.sha }}
           WIVWAV_E2E_WEB_IMAGE: wivwav-ci-web:${{ github.sha }}
+          WIVWAV_E2E_SCRAPER_IMAGE: wivwav-ci-scraper:${{ github.sha }}
 
       - name: Upload Playwright artifacts
         if: failure()
