@@ -1,4 +1,5 @@
 import type { WivWavLogger } from '@wivwav/logger'
+import type { QueuePolicy } from './policies.js'
 
 export interface JobOptions {
   delay?: number
@@ -61,7 +62,7 @@ export interface RepeatableJob {
 export interface QueueAdapter {
   readonly name: string
   add(data: unknown, options?: JobOptions): Promise<string>
-  getPolicy(): import('./policies.js').QueuePolicy
+  getPolicy(): QueuePolicy
   pause(): Promise<void>
   resume(): Promise<void>
   isPaused(): Promise<boolean>
