@@ -49,7 +49,7 @@
 
 import { getDb } from '@wivwav/db'
 import { detectSourceDrift } from '../engine/listing-validator.js'
-import type { SourceDriftBaseline, SourceDriftObservation } from '../engine/listing-validator.js'
+import type { SourceDriftObservation } from '../engine/listing-validator.js'
 import { reconcileSearchCatalog } from './search-reconciliation.js'
 import type { CoverageBaseline, SearchReconciliationReport } from './search-reconciliation.js'
 
@@ -471,10 +471,10 @@ export async function runListingQualityAudit(opts: {
       ? (src.noVinCount + src.staleDetailCount) / src.activeListings
       : 0
     const observation: SourceDriftObservation = { errorRate, missingRate }
-    // Use a zero baseline so the first run never fires a false alert.  Callers
-    // that maintain a rolling baseline should pass it here instead.
-    const zeroBaseline: SourceDriftBaseline = { baselineErrorRate: 0, baselineMissingRate: 0 }
-    const driftResult = detectSourceDrift(zeroBaseline, observation)
+    // Pass null (no baseline) so this always-first-observation audit run never
+    // fires a false "abrupt drift" alert against an implicit 0% baseline.
+    // Callers that maintain a rolling baseline should pass it here instead.
+    const driftResult = detectSourceDrift(null, observation)
     if (driftResult.drifted && driftResult.reason) {
       driftAlerts.push({ sourceId: src.sourceId, reason: driftResult.reason })
     }
