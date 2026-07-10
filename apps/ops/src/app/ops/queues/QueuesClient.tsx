@@ -247,8 +247,8 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
     try {
       const res = await fetch(`${apiBaseUrl}/admin/sync`, { method: 'POST' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
-      const body = (await res.json()) as { data: { synced: number } }
-      setSyncState({ loading: false, feedback: `Synced ${body.data.synced.toLocaleString()} listings`, isError: false })
+      const body = (await res.json()) as { data: { enqueued: boolean; jobId: string } }
+      setSyncState({ loading: false, feedback: `Sync queued (job ${body.data.jobId})`, isError: false })
     } catch (err) {
       setSyncState({ loading: false, feedback: err instanceof Error ? err.message : 'Error', isError: true })
     }

@@ -35,8 +35,8 @@ export interface SourceRepository {
   setMappings(id: string, mappings: FieldMapping[]): Promise<void>
   /** Returns the timestamp of the most recent complete crawl, or null if none. */
   getLastFullCrawlAt(id: string): Promise<Date | null>
-  /** Returns the source's rolling drift baseline, or zeros if none recorded yet. */
-  getDriftBaseline(id: string): Promise<SourceDriftBaseline>
+  /** Returns the source's rolling drift baseline, or null if no run has completed yet. */
+  getDriftBaseline(id: string): Promise<SourceDriftBaseline | null>
   /** Persists the updated rolling drift baseline after a run. */
   setDriftBaseline(id: string, baseline: SourceDriftBaseline): Promise<void>
 }

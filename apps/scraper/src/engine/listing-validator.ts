@@ -513,9 +513,20 @@ const BASELINE_SMOOTHING_FACTOR = 0.2 // weight given to the new observation eac
  * while still detecting sudden breakage).
  */
 export function detectSourceDrift(
-  baseline: SourceDriftBaseline,
+  baseline: SourceDriftBaseline | null,
   observation: SourceDriftObservation,
 ): SourceDriftResult {
+  // No prior run to compare against — seed the baseline from this observation
+  // instead of comparing against an implicit 0%, which would flag every new
+  // or freshly-reset source's very first run as "abrupt drift".
+  if (baseline == null) {
+    return {
+      drifted: false,
+      reason: null,
+      nextBaseline: { baselineErrorRate: observation.errorRate, baselineMissingRate: observation.missingRate },
+    }
+  }
+
   const errorDelta = observation.errorRate - baseline.baselineErrorRate
   const missingDelta = observation.missingRate - baseline.baselineMissingRate
 

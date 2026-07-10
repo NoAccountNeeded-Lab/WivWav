@@ -128,14 +128,15 @@ export class PrismaSourceRepository implements SourceRepository {
     })
   }
 
-  async getDriftBaseline(id: string): Promise<SourceDriftBaseline> {
+  async getDriftBaseline(id: string): Promise<SourceDriftBaseline | null> {
     const source = await this.db.source.findUnique({
       where: { id },
       select: { baselineErrorRate: true, baselineMissingRate: true },
     })
+    if (source?.baselineErrorRate == null || source.baselineMissingRate == null) return null
     return {
-      baselineErrorRate: source?.baselineErrorRate ?? 0,
-      baselineMissingRate: source?.baselineMissingRate ?? 0,
+      baselineErrorRate: source.baselineErrorRate,
+      baselineMissingRate: source.baselineMissingRate,
     }
   }
 
