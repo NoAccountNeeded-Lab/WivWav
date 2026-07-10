@@ -523,7 +523,7 @@
   transform: translateX(-50%);
   background: var(--clr-header-bg);
   border: 1px solid var(--clr-border-strong);
-  color: var(--clr-text);
+  color: var(--clr-header-text);
   font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.45;

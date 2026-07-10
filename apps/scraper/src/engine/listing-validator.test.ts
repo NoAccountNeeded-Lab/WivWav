@@ -498,6 +498,17 @@ describe('detectSourceDrift', () => {
     expect(result.nextBaseline.baselineErrorRate).toBeGreaterThan(0.02)
   })
 
+  it('never flags drift on a source with no prior baseline (cold start)', () => {
+    // A brand-new or freshly-reset source has no rolling history yet.
+    // Comparing its first-ever observation against an implicit 0% baseline
+    // would flag any nonzero missing/error rate as "abrupt drift" and pause
+    // the source before it ever gets a chance to establish a real baseline.
+    const result = detectSourceDrift(null, { errorRate: 0.1, missingRate: 0.63 })
+    expect(result.drifted).toBe(false)
+    expect(result.reason).toBeNull()
+    expect(result.nextBaseline).toEqual({ baselineErrorRate: 0.1, baselineMissingRate: 0.63 })
+  })
+
   it('exposes the configured threshold', () => {
     expect(DRIFT_THRESHOLD_PERCENTAGE_POINTS).toBe(0.15)
   })
