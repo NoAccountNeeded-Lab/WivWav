@@ -24,6 +24,9 @@ services:
       INTERNAL_API_SECRET: ${WIVWAV_E2E_INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
       LOG_LEVEL: info
 
+  scraper:
+    image: ${WIVWAV_E2E_SCRAPER_IMAGE:-wivwav-e2e-scraper:local}
+
   web:
     image: ${WIVWAV_E2E_WEB_IMAGE:-wivwav-e2e-web:local}
     ports:
