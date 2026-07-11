@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { getExpectedLifespan, formatK } from '@/app/listings/[id]/utils'
+import { getExpectedLifespan, formatK } from '@/app/[locale]/listings/[id]/utils'
 import styles from './MileageGauge.module.css'
 
 interface MileageGaugeProps {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Phone, ShieldCheck, X } from 'lucide-react'
-import type { NmeaDealer } from '@/app/listings/[id]/types'
+import type { NmeaDealer } from '@/app/[locale]/listings/[id]/types'
 import styles from './NmedaDealersNearby.module.css'
 
 interface NmedaDealersNearbyProps {

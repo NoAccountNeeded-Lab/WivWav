@@ -1,5 +1,5 @@
 import { DoorOpen, ExternalLink, ShieldCheck, Truck } from 'lucide-react'
-import { abbreviate } from '@/app/listings/[id]/utils'
+import { abbreviate } from '@/app/[locale]/listings/[id]/utils'
 import type { ConversionBrandDetail, ConversionProduct } from './conversionBrand'
 import styles from './WavConversionInfo.module.css'
 
