@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { formatPrice, rampLabel, daysListed } from '@/app/listings/[id]/utils'
-import type { SimilarListing } from '@/app/listings/[id]/types'
+import { formatPrice, rampLabel, daysListed } from '@/app/[locale]/listings/[id]/utils'
+import type { SimilarListing } from '@/app/[locale]/listings/[id]/types'
 import { vehicleDetailPath } from '@/lib/vehicle-url'
 import styles from './SimilarListings.module.css'
 

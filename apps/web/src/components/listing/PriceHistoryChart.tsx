@@ -10,7 +10,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts'
-import type { PricePoint } from '@/app/listings/[id]/types'
+import type { PricePoint } from '@/app/[locale]/listings/[id]/types'
 
 interface PriceHistoryChartProps {
   priceHistory: PricePoint[]

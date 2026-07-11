@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import type { ListingProvenance } from '@/app/listings/[id]/types'
+import type { ListingProvenance } from '@/app/[locale]/listings/[id]/types'
 import {
   hasFullProvenance,
   hasProvenanceLink,

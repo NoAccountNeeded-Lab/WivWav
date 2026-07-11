@@ -1,4 +1,4 @@
-import type { ListingProvenance } from '@/app/listings/[id]/types'
+import type { ListingProvenance } from '@/app/[locale]/listings/[id]/types'
 
 /** Returns true for URLs that are safe to use as an href. Rejects non-http(s) schemes. */
 function isSafeUrl(url: string): boolean {
