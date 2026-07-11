@@ -1,9 +1,55 @@
+# Dependencies
 node_modules
 **/node_modules
 .pnpm-store
 **/.pnpm-store
-.git
-**/.next
+
+# Build outputs (Dockerfiles build fresh inside the image; a stale local
+# `dist` or generated Prisma client must never leak into the build context)
 **/dist
+**/.next
 **/.turbo
 **/coverage
+**/src/generated
+
+# Version control and CI
+.git
+.github
+
+# Environment files — never send local secrets into a build stage. Add a
+# narrowly scoped `!path/to/file.env.example` exception only where a
+# Dockerfile explicitly requires that example file.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Agent worktrees, sprint context, and workflow scratch state
+.agents
+.claude/worktrees
+.claude/scratchpad
+
+# Editors, OS cruft, logs
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test output
+test-results
+playwright-report
+**/test-results
+**/playwright-report
+
+# Python/other virtual environments (defense in depth; this repo has none
+# checked in, but a local one must never enter a build context)
+.venv
+venv
+**/.venv
+**/venv
+__pycache__
+**/__pycache__
