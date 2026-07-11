@@ -130,8 +130,11 @@ export async function waitForFixtureInSearch(): Promise<void> {
   }, 'fixture listing to appear in search')
 }
 
-export async function poll(predicate: () => Promise<boolean>, label: string): Promise<void> {
-  const timeoutMs = 30_000
+export async function poll(
+  predicate: () => Promise<boolean>,
+  label: string,
+  timeoutMs = 30_000,
+): Promise<void> {
   const intervalMs = 1_000
   const startedAt = Date.now()
 

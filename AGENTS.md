@@ -37,7 +37,7 @@ Set `WIVWAV_CO_AUTHOR` or pass `--co-author` to override the default `Co-Authore
 Treat missing GitHub auth, invalid issue state, missing acceptance criteria, protected branches, rebase conflicts, validation failures, and unrelated dirty files as blockers.
 
 Iteration: `pnpm check:affected`.
-Built-container Playwright smoke suite: `pnpm test:e2e`.
+Built-container Playwright suite (smoke, accessibility, Discover facets): `pnpm test:e2e`.
 Before finish: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`.
 Finish only from a feature branch rebased onto `origin/main`.
 Finish must commit, push, open or update a draft PR, and set `status:needs-review`.

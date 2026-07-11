@@ -20,6 +20,9 @@ services:
       - "127.0.0.1:${WIVWAV_E2E_API_PORT:-53001}:3001"
     environment:
       NODE_ENV: development
+      # Facet renderers fetch independently; the full browser suite exceeds
+      # the production default when all cases share one isolated client IP.
+      RATE_LIMIT_MAX: 1000
       CORS_ORIGIN: http://127.0.0.1:${WIVWAV_E2E_WEB_PORT:-53000},http://localhost:${WIVWAV_E2E_WEB_PORT:-53000}
       INTERNAL_API_SECRET: ${WIVWAV_E2E_INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
       LOG_LEVEL: info

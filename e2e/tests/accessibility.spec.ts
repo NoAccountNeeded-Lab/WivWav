@@ -1,25 +1,16 @@
-import { AxeBuilder } from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import type { TriagedAxeViolation } from '../support/axe.js'
+import { assertNoGatingViolations as assertNoGatingViolationsBase } from '../support/axe.js'
 import { fixtureListingId } from '../support/fixture.js'
 
-type AxeResults = Awaited<ReturnType<InstanceType<typeof AxeBuilder>['analyze']>>
-type AxeViolation = AxeResults['violations'][number]
-type TriagedAxeViolation = {
-  page: string
-  ruleId: string
-  owner: string
-  reason: string
-}
-
 // Issue #673 / decision D9 (#666): every user-facing page must meet WCAG 2.1
-// AA. This runs axe-core against the same built-container app the smoke
-// suite in smoke.spec.ts already boots (see e2e/support/global-setup.ts),
-// rather than a parallel harness, and fails CI on serious/critical
-// violations. Moderate/minor findings are reported but not gating; triage
-// any that appear into the list below with an owner instead of loosening
-// the assertion.
-const GATING_IMPACTS = new Set(['serious', 'critical'])
+// AA. This runs axe-core (support/axe.ts) against the same built-container
+// app the smoke suite in smoke.spec.ts already boots (see
+// e2e/support/global-setup.ts), rather than a parallel harness, and fails CI
+// on serious/critical violations. Moderate/minor findings are reported but
+// not gating; triage any that appear into the list below with an owner
+// instead of loosening the assertion.
 
 // Known, already-triaged violations that are allowed to persist below
 // serious/critical severity. Empty: no findings have needed a waiver so far.
@@ -27,31 +18,8 @@ const GATING_IMPACTS = new Set(['serious', 'critical'])
 // `{ page: '<path>', ruleId: '<rule>', owner: '<github handle>', reason: '...' }`.
 const TRIAGED: readonly TriagedAxeViolation[] = []
 
-function isTriaged(pagePath: string, ruleId: string): boolean {
-  return TRIAGED.some((entry) => entry.page === pagePath && entry.ruleId === ruleId)
-}
-
 async function assertNoGatingViolations(page: Page, pagePath: string): Promise<void> {
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze()
-
-  const gating = results.violations.filter(
-    (violation: AxeViolation) =>
-      violation.impact != null &&
-      GATING_IMPACTS.has(violation.impact) &&
-      !isTriaged(pagePath, violation.id),
-  )
-
-  if (gating.length > 0) {
-    const summary = gating
-      .map((violation) => {
-        const targets = violation.nodes.map((node) => `    ${node.target.join(' ')}`).join('\n')
-        return `- [${violation.impact}] ${violation.id}: ${violation.help}\n  ${violation.helpUrl}\n${targets}`
-      })
-      .join('\n')
-    throw new Error(`axe found serious/critical violations on ${pagePath}:\n${summary}`)
-  }
+  await assertNoGatingViolationsBase(page, pagePath, TRIAGED)
 }
 
 test.describe('accessibility smoke (axe)', () => {
