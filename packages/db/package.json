@@ -4,7 +4,8 @@
   "private": true,
   "files": [
     "dist",
-    "prisma",
+    "prisma/schema.prisma",
+    "prisma/migrations",
     "prisma.config.ts"
   ],
   "main": "./dist/index.js",
