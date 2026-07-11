@@ -4,6 +4,7 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(3001),
   HOST: z.string().default('0.0.0.0'),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   DATABASE_URL: z.url(),
   MEILISEARCH_HOST: z.url().default('http://localhost:7700'),
   MEILISEARCH_API_KEY: z.string(),

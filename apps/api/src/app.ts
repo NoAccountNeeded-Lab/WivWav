@@ -90,7 +90,7 @@ export async function buildApp(
 
   const { registry, httpRequests, httpDuration } = createMetricsRegistry()
 
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
+  await app.register(rateLimit, { max: config.RATE_LIMIT_MAX, timeWindow: '1 minute' })
   await app.register(cors, {
     origin: (origin, cb) => {
       cb(null, isAllowedCorsOrigin(origin, config))

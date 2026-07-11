@@ -6,6 +6,7 @@ const baseConfig = {
   NODE_ENV: 'test' as const,
   PORT: 3001,
   HOST: '127.0.0.1',
+  RATE_LIMIT_MAX: 100,
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/wivwav',
   MEILISEARCH_HOST: 'http://localhost:7700',
   MEILISEARCH_API_KEY: 'test',
