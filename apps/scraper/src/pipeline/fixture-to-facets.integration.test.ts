@@ -465,9 +465,9 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
     expect(await getListingsTotal({ priceMin: 4_900_000, priceMax: 5_100_000 })).toBe(1)
     // yearMin/yearMax spanning the two 2023 rows only.
     expect(await getListingsTotal({ yearMin: 2023, yearMax: 2023 })).toBe(2)
-    // mileageMax=25000 isolates the "0-25000" bucket (2 rows) plus the exact
-    // 25,000-mile boundary row (bucket-boundaries) — 3 total.
-    expect(await getListingsTotal({ mileageMax: 25_000 })).toBe(3)
+    // mileageMax=24000 isolates the 0-12000 and 12000-24000 buckets (2 rows)
+    // plus the exact 24,000-mile boundary row (bucket-boundaries) — 3 total.
+    expect(await getListingsTotal({ mileageMax: 24_000 })).toBe(3)
   })
 
   it('[facet API checkpoint] disjunctive-faceting requests used by the web client are covered', async () => {

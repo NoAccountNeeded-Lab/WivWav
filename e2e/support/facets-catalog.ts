@@ -169,9 +169,9 @@ const CATALOG: Prisma.ListingUncheckedCreateInput[] = [
   }),
   row({
     // rampType 'none' must be hidden from the Features group; price and
-    // mileage sit exactly on $5,000 / 25,000-mile bucket lower bounds.
+    // mileage sit exactly on $5,000 / 12,000-mile bucket lower bounds.
     n: 7, make: 'Ram', model: 'ProMaster', year: 2023, trim: 'Cargo',
-    condition: 'used', sellerType: 'dealer', priceCents: 5_000_000, mileage: 25_000,
+    condition: 'used', sellerType: 'dealer', priceCents: 5_000_000, mileage: 24_000,
     color: 'Gray', state: 'AZ', conversionType: 'rear_entry',
     conversionManufacturer: null, rampType: 'none',
     wavFeatures: [],

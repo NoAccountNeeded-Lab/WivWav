@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { conversionBrandSlug, listingCompletenessScore, selectRepresentative, syncListings, toDocument } from './index.js'
+import { conversionBrandSlug, listingCompletenessScore, mileageBucket, selectRepresentative, syncListings, toDocument } from './index.js'
 import type { Listing } from '@wivwav/db'
 
 // Minimal Listing row that satisfies the Prisma-generated type for toDocument.
@@ -142,6 +142,28 @@ describe('conversionBrandSlug (re-export smoke test)', () => {
     expect(conversionBrandSlug(' BraunAbility ')).toBe('braunability')
     expect(conversionBrandSlug('Rollx')).toBe('rollx-vans')
     expect(conversionBrandSlug(null)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// mileageBucket
+// ---------------------------------------------------------------------------
+
+describe('mileageBucket', () => {
+  it('returns null for a null mileage', () => {
+    expect(mileageBucket(null)).toBeNull()
+  })
+
+  it('buckets in 12,000-mile widths, matching the standard annual-mileage benchmark', () => {
+    expect(mileageBucket(0)).toBe('0-12000')
+    expect(mileageBucket(11999)).toBe('0-12000')
+    expect(mileageBucket(12000)).toBe('12000-24000')
+    expect(mileageBucket(23999)).toBe('12000-24000')
+    expect(mileageBucket(24000)).toBe('24000-36000')
+  })
+
+  it('accepts a custom bucket size', () => {
+    expect(mileageBucket(45000, 25000)).toBe('25000-50000')
   })
 })
 

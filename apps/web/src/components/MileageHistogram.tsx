@@ -22,7 +22,7 @@ interface BucketDatum {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-const BUCKET_SIZE_MILES = 10000
+const BUCKET_SIZE_MILES = 12000
 const DEFAULT_MAX = 200000
 
 function parseBucket(raw: string): { lo: number; hi: number } {
@@ -173,7 +173,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
 
   const ariaLabel = useMemo(() => {
     const suffix = hasFilter ? `, filtered to ${fmtMiles(displayMax)}k miles or less` : ', no mileage filter active'
-    return `Mileage distribution histogram showing listing counts per 10,000-mile bracket${suffix}`
+    return `Mileage distribution histogram showing listing counts per ${BUCKET_SIZE_MILES.toLocaleString('en-US')}-mile bracket${suffix}`
   }, [hasFilter, displayMax])
 
   const highLabel = displayMax >= rangeMax ? `${fmtMiles(rangeMax)}k+ mi` : `${fmtMiles(displayMax)}k mi`
