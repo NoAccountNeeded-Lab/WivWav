@@ -37,29 +37,27 @@ RUN pnpm --filter @wivwav/queue build
 RUN pnpm --filter @wivwav/search build
 RUN pnpm --filter @wivwav/api build
 
+# `pnpm deploy` resolves @wivwav/api's production dependency closure only —
+# the runtime workspace packages it needs (each pruned to its own `files`
+# allowlist, e.g. just `dist`) plus their third-party production deps. No
+# TypeScript, Vitest, ESLint, Prettier, Turbo, tsx, or root devDependencies
+# make it into the deployed tree. `--no-optional` additionally drops the
+# `prisma` CLI and `typescript`, which @prisma/client lists as *optional*
+# peer dependencies — the API only needs the already-generated client, never
+# the CLI that generated it. `--ignore-scripts` is safe here: the Prisma
+# client and every workspace package's `dist` were already built above, and
+# this step only re-links already-built artifacts into a pruned tree.
+FROM builder AS deploy
+RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
+    pnpm --filter @wivwav/api deploy --prod --no-optional --ignore-scripts --legacy /app/deploy/api
+
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN addgroup -S wivwav && adduser -S wivwav -G wivwav
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=builder /app/packages/types/dist ./packages/types/dist
-COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
-COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
-COPY --from=builder /app/packages/observability/package.json ./packages/observability/package.json
-COPY --from=builder /app/packages/db/dist ./packages/db/dist
-COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
-COPY --from=builder /app/packages/db/node_modules ./packages/db/node_modules
-COPY --from=builder /app/packages/logger/dist ./packages/logger/dist
-COPY --from=builder /app/packages/logger/package.json ./packages/logger/package.json
-COPY --from=builder /app/packages/logger/node_modules ./packages/logger/node_modules
-COPY --from=builder /app/packages/queue/dist ./packages/queue/dist
-COPY --from=builder /app/packages/queue/package.json ./packages/queue/package.json
-COPY --from=builder /app/packages/queue/node_modules ./packages/queue/node_modules
-COPY --from=builder /app/packages/search/dist ./packages/search/dist
-COPY --from=builder /app/packages/search/package.json ./packages/search/package.json
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=deploy --chown=wivwav:wivwav /app/deploy/api ./
 
+USER wivwav
 EXPOSE 3001
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["node", "dist/index.js"]

@@ -26,6 +26,8 @@ jobs:
           - service: api
             file: docker/api.Dockerfile
             target: runner
+            # 25% below the 685 MB baseline measured pre-#658, ARM64.
+            max-size-mb: 514
           - service: scraper
             file: docker/scraper.Dockerfile
             target: runner
@@ -37,6 +39,8 @@ jobs:
             target: runner
           - service: migrate
             file: docker/migrate.Dockerfile
+            # 50% below the 1.52 GB baseline measured pre-#658, ARM64.
+            max-size-mb: 760
     steps:
       - uses: actions/checkout@v7
 
@@ -46,7 +50,9 @@ jobs:
       # Build the exact final (immutable, production-shaped) image once. It is
       # loaded into the local daemon so it can be smoke-tested here and, on a
       # push to main, saved as an artifact so the `publish` job pushes the
-      # identical bytes the test jobs ran against — never a respin.
+      # identical bytes the test jobs ran against — never a respin. api and
+      # migrate are always loaded so the forbidden-content and size-budget
+      # checks below can run on every PR, not only on pushes to main.
       - name: Build ${{ matrix.service }}
         uses: docker/build-push-action@v7
         with:
@@ -54,7 +60,7 @@ jobs:
           file: ${{ matrix.file }}
           target: ${{ matrix.target }}
           push: false
-          load: ${{ matrix.service == 'scraper' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+          load: ${{ matrix.service == 'scraper' || matrix.service == 'api' || matrix.service == 'migrate' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
           tags: wivwav-ci-${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
@@ -66,6 +72,69 @@ jobs:
             --security-opt seccomp=./docker/chromium-seccomp.json \
             wivwav-ci-scraper:${{ github.sha }} \
             node smoke.mjs
+
+      # #658: the API and migration images must ship only what production
+      # needs — no local secrets, no build/test-only tooling, and within an
+      # agreed size budget relative to the pre-#658 baselines above.
+      - name: Inspect final image for forbidden content
+        if: matrix.service == 'api' || matrix.service == 'migrate'
+        run: |
+          set -euo pipefail
+          image="wivwav-ci-${{ matrix.service }}:${{ github.sha }}"
+          cid=$(docker create "$image")
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+
+          echo "== Checking for .env files =="
+          env_files=$(docker export "$cid" | tar -tf - | grep -E '(^|/)\.env($|\.)' || true)
+          if [ -n "$env_files" ]; then
+            echo "Forbidden .env file(s) found in $image:"
+            echo "$env_files"
+            exit 1
+          fi
+
+          # Only the API image must be free of build/test-only tooling — the
+          # migration runner intentionally keeps @wivwav/db's devDependencies
+          # so the Prisma CLI (itself a devDependency) is retained; see the
+          # comment above the `deploy` stage in docker/migrate.Dockerfile.
+          if [ "${{ matrix.service }}" = "api" ]; then
+            echo "== Checking for build/test-only tools =="
+            forbidden_tools="typescript vitest eslint prettier turbo tsx"
+            found_tools=""
+            for tool in $forbidden_tools; do
+              if docker export "$cid" | tar -tf - | grep -qE "node_modules/${tool}/package.json$"; then
+                found_tools="$found_tools $tool"
+              fi
+            done
+            if [ -n "$found_tools" ]; then
+              echo "Forbidden dev tool(s) found in $image:$found_tools"
+              exit 1
+            fi
+          fi
+
+          if [ "${{ matrix.service }}" = "migrate" ]; then
+            echo "== Checking the pnpm store was not retained =="
+            if docker export "$cid" | tar -tf - | grep -q '^pnpm/store'; then
+              echo "Retained /pnpm/store found in $image"
+              exit 1
+            fi
+          fi
+
+          echo "== Checking the container runs as non-root =="
+          uid=$(docker inspect --format '{{.Config.User}}' "$image")
+          if [ -z "$uid" ] || [ "$uid" = "root" ] || [ "$uid" = "0" ]; then
+            echo "Image $image does not declare a non-root user (got: '$uid')"
+            exit 1
+          fi
+
+          echo "== Checking image size budget =="
+          size_bytes=$(docker image inspect "$image" --format '{{.Size}}')
+          size_mb=$(( size_bytes / 1000 / 1000 ))
+          budget_mb=${{ matrix.max-size-mb }}
+          echo "$image size: ${size_mb} MB (budget: ${budget_mb} MB)"
+          if [ "$size_mb" -gt "$budget_mb" ]; then
+            echo "Image $image (${size_mb} MB) exceeds its ${budget_mb} MB budget"
+            exit 1
+          fi
 
       # Only needed when this run could publish. Saving/uploading every PR
       # build would burn artifact storage and time for images that are
