@@ -9,6 +9,11 @@ allowBuilds:
   '@prisma/engines': true
   '@sentry/cli': true
   '@swc/core': true
+  # Runs `prisma generate` via its own postinstall script. Needed so
+  # `pnpm deploy` (used by docker/api.Dockerfile and docker/migrate.Dockerfile
+  # to build pruned production images) doesn't block on this local workspace
+  # package's build script during its isolated install.
+  '@wivwav/db': true
   esbuild: true
   msgpackr-extract: true
   prisma: true
