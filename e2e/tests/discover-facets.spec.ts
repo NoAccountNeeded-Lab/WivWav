@@ -56,6 +56,22 @@ async function waitForFacets(page: Page): Promise<void> {
   await expect(facetButton(page, 'Make', 'Toyota', FACETS_EXPECTED.make.Toyota)).toBeVisible()
 }
 
+async function expectHistogramCounts(
+  page: Page,
+  accessibleName: RegExp,
+  expectedCounts: readonly number[],
+): Promise<void> {
+  const chart = page.getByRole('img', { name: accessibleName })
+  await expect(chart).toBeVisible()
+  const bars = chart.locator('.recharts-bar-rectangle path')
+  await expect(bars).toHaveCount(expectedCounts.length)
+  for (const [index, count] of expectedCounts.entries()) {
+    await bars.nth(index).hover()
+    const noun = count === 1 ? 'listing' : 'listings'
+    await expect(page.locator('.recharts-tooltip-wrapper').getByText(`${count} ${noun}`)).toBeVisible()
+  }
+}
+
 // ── Suite ──────────────────────────────────────────────────────────────────
 
 test.describe('Discover facets against the fixture catalog', () => {
@@ -105,10 +121,11 @@ test.describe('Discover facets against the fixture catalog', () => {
       Object.keys(FACETS_EXPECTED.color).length,
     )
 
-    // Range controls are present and named for assistive tech.
-    await expect(page.getByRole('img', { name: /^Price distribution histogram/ })).toBeVisible()
-    await expect(page.getByRole('img', { name: /^Year distribution histogram/ })).toBeVisible()
-    await expect(page.getByRole('img', { name: /^Mileage distribution histogram/ })).toBeVisible()
+    // Every rendered histogram bucket exposes its exact count on hover; the
+    // bar totals and order are hand-derived from the fixture catalog.
+    await expectHistogramCounts(page, /^Price distribution histogram/, [1, 1, 1, 1, 2, 1])
+    await expectHistogramCounts(page, /^Year distribution histogram/, [1, 1, 1, 1, 1, 2, 1])
+    await expectHistogramCounts(page, /^Mileage distribution histogram/, [2, 2, 2, 2])
 
     // The null-price row is disclosed instead of silently dropped.
     await expect(page.getByText('+ 1 without price listed')).toBeVisible()
@@ -159,6 +176,12 @@ test.describe('Discover facets against the fixture catalog', () => {
     // visible as disabled zero bars (em dash) rather than lingering counts.
     await expect(facetButton(page, 'Model', 'Sienna', 2)).toBeEnabled()
     await expect(facetButton(page, 'Model', 'Pacifica', '—')).toBeDisabled()
+    // Product-rule zero states: entry type, ramp type, and WAV features stay
+    // visible as disabled ghosts instead of retaining stale counts.
+    await expect(facetButton(page, 'Entry type', 'Rear Entry', '—')).toBeDisabled()
+    await expect(facetButton(page, 'Features', 'Fold In', '—')).toBeDisabled()
+    await expect(facetButton(page, 'Features', 'Has lift', '—')).toBeDisabled()
+    await expect(facetButton(page, 'Features', 'Hand controls', '—')).toBeDisabled()
   })
 
   test('donut renderer: selecting a condition filters results and keeps disjunctive counts', async ({ page }) => {
@@ -468,8 +491,8 @@ test.describe('Discover facets against the fixture catalog', () => {
       })
       expect(horizontalOverflow, 'page must not scroll horizontally at 375px').toBeLessThanOrEqual(0)
 
-      // WCAG 2.5.8 minimum target size (24×24 CSS px) across one control of
-      // each renderer type.
+      // Repository accessibility contract: at least 44×44 CSS px across one
+      // control of each renderer type.
       const targets: Array<[string, Locator]> = [
         ['bars', facetButton(page, 'Make', 'Toyota', 2)],
         ['donut legend', facetButton(page, 'Condition', 'Used', 7)],
@@ -478,8 +501,8 @@ test.describe('Discover facets against the fixture catalog', () => {
       for (const [kind, locator] of targets) {
         const box = await locator.boundingBox()
         if (!box) throw new Error(`${kind} control is not visible, so it has no tap target`)
-        expect(box.width, `${kind} control width`).toBeGreaterThanOrEqual(24)
-        expect(box.height, `${kind} control height`).toBeGreaterThanOrEqual(24)
+        expect(box.width, `${kind} control width`).toBeGreaterThanOrEqual(44)
+        expect(box.height, `${kind} control height`).toBeGreaterThanOrEqual(44)
       }
 
       // Interaction still works at mobile width.
