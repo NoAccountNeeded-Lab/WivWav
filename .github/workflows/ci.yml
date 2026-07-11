@@ -82,10 +82,18 @@ jobs:
           set -euo pipefail
           image="wivwav-ci-${{ matrix.service }}:${{ github.sha }}"
           cid=$(docker create "$image")
-          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          trap 'rm -f manifest.txt image.tar; docker rm -f "$cid" >/dev/null' EXIT
+
+          # Export the image contents to a file once and check the export's
+          # own exit code — piping `docker export` straight into `grep`
+          # would let `grep`'s "no match" exit(1) (masked by `|| true`) hide
+          # a genuine export failure (daemon hiccup, disk pressure) as a
+          # false "nothing forbidden found".
+          docker export "$cid" -o image.tar
+          tar -tf image.tar > manifest.txt
 
           echo "== Checking for .env files =="
-          env_files=$(docker export "$cid" | tar -tf - | grep -E '(^|/)\.env($|\.)' || true)
+          env_files=$(grep -E '(^|/)\.env($|\.)' manifest.txt || true)
           if [ -n "$env_files" ]; then
             echo "Forbidden .env file(s) found in $image:"
             echo "$env_files"
@@ -101,7 +109,7 @@ jobs:
             forbidden_tools="typescript vitest eslint prettier turbo tsx"
             found_tools=""
             for tool in $forbidden_tools; do
-              if docker export "$cid" | tar -tf - | grep -qE "node_modules/${tool}/package.json$"; then
+              if grep -qE "node_modules/${tool}/package.json$" manifest.txt; then
                 found_tools="$found_tools $tool"
               fi
             done
@@ -113,7 +121,7 @@ jobs:
 
           if [ "${{ matrix.service }}" = "migrate" ]; then
             echo "== Checking the pnpm store was not retained =="
-            if docker export "$cid" | tar -tf - | grep -q '^pnpm/store'; then
+            if grep -q '^pnpm/store' manifest.txt; then
               echo "Retained /pnpm/store found in $image"
               exit 1
             fi
