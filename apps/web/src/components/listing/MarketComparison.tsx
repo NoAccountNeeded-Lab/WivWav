@@ -1,6 +1,6 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
-import { formatPrice, formatDate } from '@/app/listings/[id]/utils'
-import type { MarketPricing, PricePoint } from '@/app/listings/[id]/types'
+import { formatPrice, formatDate } from '@/app/[locale]/listings/[id]/utils'
+import type { MarketPricing, PricePoint } from '@/app/[locale]/listings/[id]/types'
 import styles from './MarketComparison.module.css'
 
 interface MarketComparisonProps {

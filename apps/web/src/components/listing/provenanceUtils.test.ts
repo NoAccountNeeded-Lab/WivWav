@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { ListingProvenance } from '@/app/listings/[id]/types'
+import type { ListingProvenance } from '@/app/[locale]/listings/[id]/types'
 import {
   hasFullProvenance,
   hasProvenanceLink,

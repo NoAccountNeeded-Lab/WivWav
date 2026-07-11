@@ -1,4 +1,4 @@
-import type { SafetyRating } from '@/app/listings/[id]/types'
+import type { SafetyRating } from '@/app/[locale]/listings/[id]/types'
 import styles from './SafetyRatings.module.css'
 
 interface SafetyRatingsProps {

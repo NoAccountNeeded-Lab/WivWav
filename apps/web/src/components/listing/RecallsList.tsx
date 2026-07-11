@@ -1,7 +1,7 @@
 import { AlertTriangle, Check, HelpCircle } from 'lucide-react'
-import { formatDate } from '@/app/listings/[id]/utils'
-import { recallStatusLabel } from '@/app/listings/[id]/safetyTabUtils'
-import type { Recall, SafetyData } from '@/app/listings/[id]/types'
+import { formatDate } from '@/app/[locale]/listings/[id]/utils'
+import { recallStatusLabel } from '@/app/[locale]/listings/[id]/safetyTabUtils'
+import type { Recall, SafetyData } from '@/app/[locale]/listings/[id]/types'
 import styles from './RecallsList.module.css'
 
 interface RecallsListProps {

@@ -1,4 +1,4 @@
-import type { ListingDetail } from '@/app/listings/[id]/types'
+import type { ListingDetail } from '@/app/[locale]/listings/[id]/types'
 
 export interface VehicleSpec {
   label: string
