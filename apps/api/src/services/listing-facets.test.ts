@@ -35,20 +35,20 @@ describe('mileageBucket', () => {
     expect(mileageBucket(null)).toBeNull()
   })
 
-  it('puts 0 miles in the 0-25000 bucket', () => {
-    expect(mileageBucket(0)).toBe('0-25000')
+  it('puts 0 miles in the 0-12000 bucket', () => {
+    expect(mileageBucket(0)).toBe('0-12000')
   })
 
-  it('puts 24 999 miles in the 0-25000 bucket', () => {
-    expect(mileageBucket(24999)).toBe('0-25000')
+  it('puts 11 999 miles in the 0-12000 bucket', () => {
+    expect(mileageBucket(11999)).toBe('0-12000')
   })
 
-  it('puts exactly 25 000 miles in the 25000-50000 bucket', () => {
-    expect(mileageBucket(25000)).toBe('25000-50000')
+  it('puts exactly 12 000 miles in the 12000-24000 bucket', () => {
+    expect(mileageBucket(12000)).toBe('12000-24000')
   })
 
-  it('puts 87 000 miles in the 75000-100000 bucket', () => {
-    expect(mileageBucket(87000)).toBe('75000-100000')
+  it('puts 87 000 miles in the 84000-96000 bucket', () => {
+    expect(mileageBucket(87000)).toBe('84000-96000')
   })
 })
 

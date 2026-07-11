@@ -270,7 +270,7 @@ export function buildHandAuthoredRows(ids: CatalogSourceIds): CatalogRow[] {
         condition: 'used',
         sellerType: 'dealer',
         priceCents: 5_000_000, // exact $50,000 bucket boundary
-        mileage: 25_000, // exact 25,000-mile bucket boundary
+        mileage: 24_000, // exact 12,000-mile bucket boundary
         color: 'Guard', // alias -> Green
         wav: {
           conversionType: 'rear_entry',
@@ -398,10 +398,12 @@ export const EXPECTED_PRICE_BUCKETS: Record<string, number> = {
 }
 
 export const EXPECTED_MILEAGE_BUCKETS: Record<string, number> = {
-  '0-25000': 2, // mobilityworks-normal fixture (14,200) + extra-diversity (10)
-  '25000-50000': 2, // bucket-boundaries (exact 25,000 boundary) + conversion-brand-alias (45,000)
-  '50000-75000': 1, // blvd-normal fixture (50,094)
-  '75000-100000': 1, // duplicate-b-mobilityworks representative (79,500)
+  '0-12000': 1, // extra-diversity (10)
+  '12000-24000': 1, // mobilityworks-normal fixture (14,200)
+  '24000-36000': 1, // bucket-boundaries (exact 24,000 boundary)
+  '36000-48000': 1, // conversion-brand-alias (45,000)
+  '48000-60000': 1, // blvd-normal fixture (50,094)
+  '72000-84000': 1, // duplicate-b-mobilityworks representative (79,500)
 }
 
 /**

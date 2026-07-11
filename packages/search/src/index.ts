@@ -202,7 +202,7 @@ export function priceBucket(priceCents: number | null, bucketSizeDollars = 5000)
   return `${lo}-${lo + bucketSizeDollars}`
 }
 
-export function mileageBucket(mileage: number | null, bucketSize = 25000): string | null {
+export function mileageBucket(mileage: number | null, bucketSize = 12000): string | null {
   if (mileage == null) return null
   const lo = Math.floor(mileage / bucketSize) * bucketSize
   return `${lo}-${lo + bucketSize}`

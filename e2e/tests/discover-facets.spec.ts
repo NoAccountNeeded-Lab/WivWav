@@ -125,7 +125,7 @@ test.describe('Discover facets against the fixture catalog', () => {
     // bar totals and order are hand-derived from the fixture catalog.
     await expectHistogramCounts(page, /^Price distribution histogram/, [1, 1, 1, 1, 2, 1])
     await expectHistogramCounts(page, /^Year distribution histogram/, [1, 1, 1, 1, 1, 2, 1])
-    await expectHistogramCounts(page, /^Mileage distribution histogram/, [2, 2, 2, 2])
+    await expectHistogramCounts(page, /^Mileage distribution histogram/, [1, 1, 1, 1, 2, 1, 1])
 
     // The null-price row is disclosed instead of silently dropped.
     await expect(page.getByText('+ 1 without price listed')).toBeVisible()
@@ -344,15 +344,15 @@ test.describe('Discover facets against the fixture catalog', () => {
     await waitForFacets(page)
 
     const thumb = page.getByRole('slider', { name: 'Maximum mileage' })
-    await expect(thumb).toHaveAttribute('aria-valuenow', '100000')
+    await expect(thumb).toHaveAttribute('aria-valuenow', '96000')
 
     await thumb.press('ArrowLeft')
 
-    await expect(page).toHaveURL(/mileageMax=90000/)
-    // Excludes the 95,000-mile Grand Caravan.
+    await expect(page).toHaveURL(/mileageMax=84000/)
+    // Excludes the 95,000-mile Grand Caravan (84000-96000 bucket).
     await expect(vehiclesFound(page, 7)).toBeVisible()
     await expect(
-      page.getByRole('list', { name: 'Active filters' }).getByText('Under 90,000 mi'),
+      page.getByRole('list', { name: 'Active filters' }).getByText('Under 84,000 mi'),
     ).toBeVisible()
   })
 
