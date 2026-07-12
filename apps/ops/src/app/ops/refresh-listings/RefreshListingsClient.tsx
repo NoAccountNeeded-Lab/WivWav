@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { OpsProgressDeterminate } from '@/components/OpsProgress'
 import styles from '../ops.module.css'
 import {
   buildListingRefreshSteps,
+  buildWorkflowProgressSummary,
+  buildWorkflowStepProgress,
   getActiveSourceIds,
   type ListingRefreshStatus,
   type RefreshSource,
@@ -63,6 +66,7 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
   }, [refresh])
 
   const steps = useMemo(() => status ? buildListingRefreshSteps(status, health) : [], [health, status])
+  const workflowProgress = useMemo(() => buildWorkflowProgressSummary(steps), [steps])
 
   function setAction(actionId: WorkflowActionId, state: ActionState) {
     setActionStates(prev => ({ ...prev, [actionId]: state }))
@@ -156,11 +160,35 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
               </div>
             </section>
 
+            <section className={styles.workflowProgressPanel} aria-label="Listing refresh progress">
+              <OpsProgressDeterminate
+                value={workflowProgress.value}
+                min={0}
+                max={workflowProgress.max}
+                label="Listing refresh workflow progress"
+                caption={workflowProgress.caption}
+              />
+            </section>
+
             <section className={styles.workflowList} aria-label="Listing refresh steps">
               {steps.map((step, index) => (
                 <article key={step.id} className={styles.workflowStep}>
                   <div className={styles.workflowStepMarker} aria-hidden="true">{index + 1}</div>
                   <div className={styles.workflowStepBody}>
+                    {status && (() => {
+                      const progress = buildWorkflowStepProgress(step, status)
+                      return progress ? (
+                        <div className={styles.workflowStepProgress}>
+                          <OpsProgressDeterminate
+                            value={progress.value}
+                            min={0}
+                            max={progress.max}
+                            label={`${step.title} progress`}
+                            caption={progress.caption}
+                          />
+                        </div>
+                      ) : null
+                    })()}
                     <div className={styles.workflowStepTopline}>
                       <h2 className={styles.workflowStepTitle}>{step.title}</h2>
                       <span className={styles.badge} data-variant={statusVariant(step.status)}>{statusLabel(step.status)}</span>
