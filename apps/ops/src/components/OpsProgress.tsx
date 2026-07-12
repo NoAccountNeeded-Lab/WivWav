@@ -9,7 +9,7 @@ import styles from './OpsProgress.module.css'
      visual fill/marker position is derived only from value/min/max — never
      from elapsed time or a fixed animation duration.
    - OpsProgressIndeterminate never renders a percentage or a partial track
-     fill; it shows a looping decorative sweep plus plain-language status
+     fill; it shows a looping decorative marker plus plain-language status
      text, and is exposed as a status region rather than a progressbar.
 ────────────────────────────────────────────────────────────────────────────── */
 
@@ -59,7 +59,9 @@ export function OpsProgressDeterminate({
           <Bot size={12} />
         </span>
       </div>
-      {caption && <p className={styles.caption}>{caption}</p>}
+      {/* Always render a visible caption so the progress has an on-screen
+          label, not just an aria-label read only by assistive tech. */}
+      <p className={styles.caption}>{caption ?? label}</p>
     </div>
   )
 }
@@ -71,15 +73,19 @@ interface OpsProgressIndeterminateProps {
 }
 
 /**
- * Indeterminate progress indicator. Shows a looping decorative sweep plus
- * status text. Deliberately has no `value`/`max` props and never renders a
- * percentage or a measured track fill — there is nothing here to fake.
+ * Indeterminate progress indicator. Shows a looping decorative marker
+ * sliding back and forth over an empty track, plus status text. It
+ * deliberately has no `value`/`max` props and never fills any portion of
+ * the track — a filled segment would visually imply a measured amount,
+ * which there is nothing here to prove.
  */
 export function OpsProgressIndeterminate({ statusText, className }: OpsProgressIndeterminateProps) {
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')} role="status" aria-live="polite">
       <div className={styles.indeterminateTrack} aria-hidden="true">
-        <span className={styles.indeterminateSweep} />
+        <span className={styles.indeterminateMarker}>
+          <Bot size={12} />
+        </span>
       </div>
       <p className={styles.statusText}>{statusText}</p>
     </div>
