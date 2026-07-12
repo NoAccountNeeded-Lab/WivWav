@@ -11,7 +11,7 @@ const SERVICE_NAMES = ['Web', 'API', 'PostgreSQL', 'Meilisearch', 'Valkey', 'Scr
  */
 export default function StatusLoading() {
   return (
-    <OpsShell section="System Status">
+    <OpsShell sectionTitle="System status">
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>
           <section className={styles.statusPanel} aria-hidden="true">
