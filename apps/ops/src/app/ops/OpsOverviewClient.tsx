@@ -44,6 +44,7 @@ import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
 import { ScrapeRunChart, type ScrapeRunPoint } from '@/components/SparklineChart'
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
+import { getOpsOverviewLinks } from './ops-nav'
 
 interface OpsOverviewClientProps {
   apiBaseUrl: string
@@ -62,17 +63,19 @@ const REFRESH_MS = 30_000
 /** Maximum number of polling-cycle samples to retain in the ring buffers */
 const RING_BUFFER_SIZE = 20
 
-const OPS_LINKS = [
-  { href: '/ops/refresh-listings', label: 'Refresh Listings', detail: 'Guided scrape → process → geocode → sync workflow.', Icon: RefreshCw },
-  { href: '/ops/queues',           label: 'Queues',           detail: 'Inspect jobs, trigger geocode, sync Meilisearch.',   Icon: Layers },
-  { href: '/ops/sources',          label: 'Sources',          detail: 'Run scrapes, review source remapping status.',       Icon: Globe },
-  { href: '/ops/runs',             label: 'Runs',             detail: 'Audit scraper run history and listing changes.',     Icon: Activity },
-  { href: '/ops/schedules',        label: 'Schedules',        detail: 'Enable, disable, or edit repeatable jobs.',          Icon: Calendar },
-  { href: '/ops/logs',             label: 'Logs',             detail: 'Search application and worker logs.',                Icon: Terminal },
-  { href: '/ops/ai',               label: 'AI',               detail: 'Check Ollama and remapping support.',                Icon: Bot },
-  { href: '/ops/config',           label: 'AI Config',        detail: 'Manage AI providers, models, and secrets.',         Icon: Settings2 },
-  { href: '/status',               label: 'System Status',    detail: 'View raw service health details.',                  Icon: ShieldCheck },
-]
+const OPS_LINK_ICONS: Record<string, LucideIcon> = {
+  '/ops/refresh-listings': RefreshCw,
+  '/ops/queues': Layers,
+  '/ops/sources': Globe,
+  '/ops/runs': Activity,
+  '/ops/schedules': Calendar,
+  '/ops/logs': Terminal,
+  '/ops/ai': Bot,
+  '/ops/config': Settings2,
+  '/status': ShieldCheck,
+}
+
+const OPS_LINKS = getOpsOverviewLinks()
 
 const CARD_ICONS: Record<string, LucideIcon> = {
   api:                        Zap,
@@ -323,13 +326,17 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
 
       {/* ── Nav grid ──────────────────────────────────────────────────────── */}
       <nav className={styles.linkGrid} aria-label="Operations areas">
-        {OPS_LINKS.map(link => (
-          <Link key={link.href} href={link.href} className={styles.areaLink}>
-            <span className={styles.areaIcon}><link.Icon size={18} /></span>
-            <strong className={styles.areaLabel}>{link.label}</strong>
-            <span className={styles.areaDetail}>{link.detail}</span>
-          </Link>
-        ))}
+        {OPS_LINKS.map(link => {
+          const Icon = OPS_LINK_ICONS[link.href] ?? Activity
+
+          return (
+            <Link key={link.href} href={link.href} className={styles.areaLink}>
+              <span className={styles.areaIcon}><Icon size={18} /></span>
+              <strong className={styles.areaLabel}>{link.shell?.overviewQuickLink?.label ?? link.title}</strong>
+              <span className={styles.areaDetail}>{link.desc}</span>
+            </Link>
+          )
+        })}
       </nav>
 
       <OpsRunbooks ids={OPS_RUNBOOK_IDS} />

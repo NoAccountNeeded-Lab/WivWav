@@ -619,7 +619,7 @@ a.metricCard:focus-visible {
   .span3 { grid-column: span 2; }
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 40rem) {
   .main { padding: 1rem 1rem 3rem; }
 
   .bentoGrid {
