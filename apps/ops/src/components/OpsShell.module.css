@@ -26,17 +26,21 @@
 /* Inspector docked width (E6/D4/R1). The third column stays 0 (reserved,
    inert) unless an `InspectorPanel` is actually rendering into it — `:has()`
    keeps this scoped to when the inspector is open, so no existing route's
-   layout shifts until a future consumer (F1/F2) opens one. 320–380px at
-   --ops-breakpoint-xl (80rem/1280px), growing to 400–440px at
-   --ops-breakpoint-xxl (96rem/1536px). */
+   layout shifts until a future consumer (F1/F2) opens one. The `:not(.placeholder)`
+   exclusion matters: when no `inspector` prop is passed, `OpsShell` still
+   renders the inert `.placeholder` div into this slot (matching the nav
+   slot's pattern), which would otherwise satisfy `:has(.inspectorSlot > *)`
+   unconditionally on every current route. 320–380px at --ops-breakpoint-xl
+   (80rem/1280px), growing to 400–440px at --ops-breakpoint-xxl
+   (96rem/1536px). */
 @media (min-width: 80rem) {
-  .shell:has(.inspectorSlot > *) {
+  .shell:has(.inspectorSlot > *:not(.placeholder)) {
     grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) minmax(20rem, 23.75rem);
   }
 }
 
 @media (min-width: 96rem) {
-  .shell:has(.inspectorSlot > *) {
+  .shell:has(.inspectorSlot > *:not(.placeholder)) {
     grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) minmax(25rem, 27.5rem);
   }
 }
