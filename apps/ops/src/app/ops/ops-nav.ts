@@ -31,6 +31,43 @@ export interface OpsNavGroup {
   items: OpsNavItem[]
 }
 
+/**
+ * True when `pathname` is the current location for `item`.
+ *
+ * API-origin destinations (Bull Board) are full-navigation external links and
+ * are never treated as an "active" in-app route — the operator has left the
+ * SPA-feeling shell entirely while there.
+ *
+ * Internal items match on exact pathname or on a `/segment` boundary so a
+ * dynamic child route (e.g. `/ops/sources/abc123`) still activates its
+ * parent nav item (`/ops/sources`) without `/ops/sourcesx` false-matching.
+ */
+export function isNavItemActive(pathname: string, item: OpsNavItem): boolean {
+  if (item.apiOrigin) return false
+  return pathname === item.href || pathname.startsWith(`${item.href}/`)
+}
+
+/**
+ * Finds the nav group/item pair whose href matches `pathname`, preferring the
+ * longest (most specific) href when more than one item could match a nested
+ * route. Returns `undefined` for routes with no nav entry (e.g. the `/ops`
+ * overview root itself), so callers can fall back to a generic heading.
+ */
+export function getActiveNavItem(
+  pathname: string,
+): { group: OpsNavGroup; item: OpsNavItem } | undefined {
+  let best: { group: OpsNavGroup; item: OpsNavItem } | undefined
+  for (const group of OPS_NAV_GROUPS) {
+    for (const item of group.items) {
+      if (!isNavItemActive(pathname, item)) continue
+      if (!best || item.href.length > best.item.href.length) {
+        best = { group, item }
+      }
+    }
+  }
+  return best
+}
+
 export const OPS_NAV_GROUPS: OpsNavGroup[] = [
   {
     id: 'overview',

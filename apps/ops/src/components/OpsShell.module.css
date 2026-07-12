@@ -1,0 +1,78 @@
+/* ── Shell grid ────────────────────────────────────────────────────────────
+   Mobile-first: single column, no persistent sidebar — navigation lives in
+   the drawer. At >=64rem (matches the bentoGrid/page breakpoints already
+   used across /ops) a left nav column becomes permanent.
+─────────────────────────────────────────────────────────────────────────── */
+
+.shell {
+  display: block;
+}
+
+@media (min-width: 64rem) {
+  .shell {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.content {
+  min-width: 0;
+}
+
+/* ── Persistent sidebar (tablet/desktop) ──────────────────────────────────── */
+
+.sidebar {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .sidebar {
+    display: block;
+    position: sticky;
+    top: 3rem; /* header height */
+    height: calc(100vh - 3rem);
+    overflow-y: auto;
+    padding: 1.25rem 0.75rem;
+    border-right: 1px solid var(--clr-border);
+    background: var(--clr-bg);
+  }
+}
+
+/* ── Mobile drawer ─────────────────────────────────────────────────────────
+   Rendered only while open (see OpsShell.tsx), so no closed-state transform
+   is needed — mount/unmount is the show/hide mechanism. The backdrop and
+   panel both sit above the sticky header (z-index 100).
+─────────────────────────────────────────────────────────────────────────── */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 151;
+  width: min(80vw, 18rem);
+  overflow-y: auto;
+  padding: 1.25rem 0.75rem;
+  padding-top: calc(3rem + 1.25rem); /* clear the sticky header */
+  background: var(--clr-bg);
+  border-right: 1px solid var(--clr-border);
+  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 64rem) {
+  /* Sidebar is persistent at this width; the drawer/backdrop are never
+     rendered here (the menu button that opens them is hidden), but this is
+     a defensive guard against stale state during a resize. */
+  .backdrop,
+  .drawer {
+    display: none;
+  }
+}

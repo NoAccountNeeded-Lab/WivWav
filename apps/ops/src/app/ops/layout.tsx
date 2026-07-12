@@ -1,10 +1,5 @@
-import { OpsHeader } from '@/components/OpsHeader'
+import { OpsShell } from '@/components/OpsShell'
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <OpsHeader />
-      {children}
-    </>
-  )
+  return <OpsShell>{children}</OpsShell>
 }

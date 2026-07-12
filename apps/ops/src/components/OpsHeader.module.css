@@ -37,6 +37,42 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+}
+
+/* ── Mobile menu toggle ────────────────────────────────────────────────────── */
+
+.menuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-left: -0.625rem;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--clr-header-text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.menuButton:hover {
+  background: color-mix(in srgb, var(--clr-header-text) 10%, transparent);
+}
+
+.menuButton:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+  border-radius: var(--radius);
+}
+
+/* Sidebar is persistent at this breakpoint (see OpsShell.module.css), so the
+   toggle that opens the mobile drawer serves no purpose and is hidden. */
+@media (min-width: 64rem) {
+  .menuButton {
+    display: none;
+  }
 }
 
 .right {
@@ -76,9 +112,20 @@
 }
 
 .section {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.8125rem;
   color: var(--clr-header-muted);
   letter-spacing: 0.04em;
+}
+
+@media (max-width: 420px) {
+  .divider,
+  .section {
+    display: none;
+  }
 }
 
 /* Live indicator */

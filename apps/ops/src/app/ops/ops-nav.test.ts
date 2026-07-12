@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
+import { getActiveNavItem, isNavItemActive, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
 
 /**
  * All known Next.js page routes under apps/web/src/app.
@@ -129,5 +129,51 @@ describe('OPS_NAV_GROUPS', () => {
     for (const item of bullBoardItems) {
       expect(item.apiOrigin, 'Bull Board must have apiOrigin: true so renderers use the API base URL').toBe(true)
     }
+  })
+})
+
+describe('isNavItemActive', () => {
+  const sources = OPS_NAV_GROUPS.flatMap(g => g.items).find(i => i.href === '/ops/sources')!
+  const bullBoard = OPS_NAV_GROUPS.flatMap(g => g.items).find(i => i.href === '/admin/board')!
+
+  it('matches an exact pathname', () => {
+    expect(isNavItemActive('/ops/sources', sources)).toBe(true)
+  })
+
+  it('matches a nested child route under the item href', () => {
+    expect(isNavItemActive('/ops/sources/abc123', sources)).toBe(true)
+  })
+
+  it('does not match a sibling route that merely shares a prefix', () => {
+    expect(isNavItemActive('/ops/sourcesx', sources)).toBe(false)
+  })
+
+  it('does not match an unrelated route', () => {
+    expect(isNavItemActive('/ops/queues', sources)).toBe(false)
+  })
+
+  it('never treats an apiOrigin destination as active, even on an exact pathname match', () => {
+    expect(isNavItemActive('/admin/board', bullBoard)).toBe(false)
+  })
+})
+
+describe('getActiveNavItem', () => {
+  it('returns the group and item for an exact match', () => {
+    const result = getActiveNavItem('/ops/queues')
+    expect(result?.group.id).toBe('advanced')
+    expect(result?.item.href).toBe('/ops/queues')
+  })
+
+  it('returns the group and item for a nested dynamic route', () => {
+    const result = getActiveNavItem('/ops/sources/abc123')
+    expect(result?.item.href).toBe('/ops/sources')
+  })
+
+  it('returns undefined for the overview root, which has no nav entry', () => {
+    expect(getActiveNavItem('/ops')).toBeUndefined()
+  })
+
+  it('returns undefined for a route outside the nav model', () => {
+    expect(getActiveNavItem('/login')).toBeUndefined()
   })
 })
