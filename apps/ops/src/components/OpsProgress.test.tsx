@@ -44,6 +44,14 @@ describe('OpsProgressDeterminate', () => {
     const bar = screen.getByRole('progressbar')
     expect(bar.getAttribute('aria-valuenow')).toBe('999')
   })
+
+  it('should always render a visible on-screen caption, falling back to the label when none is given', () => {
+    const { getByText, rerender } = render(<OpsProgressDeterminate value={10} max={100} label="Scrape progress" />)
+    expect(getByText('Scrape progress')).toBeDefined()
+
+    rerender(<OpsProgressDeterminate value={10} max={100} label="Scrape progress" caption="10 / 100 sources" />)
+    expect(getByText('10 / 100 sources')).toBeDefined()
+  })
 })
 
 describe('OpsProgressIndeterminate', () => {
@@ -60,5 +68,11 @@ describe('OpsProgressIndeterminate', () => {
   it('should not render a percentage value anywhere in its output', () => {
     const { container } = render(<OpsProgressIndeterminate statusText="Fetching sources…" />)
     expect(container.textContent).not.toMatch(/%/)
+  })
+
+  it('should never render a filled track segment, only a travelling marker', () => {
+    const { container } = render(<OpsProgressIndeterminate statusText="Fetching sources…" />)
+    expect(container.querySelector('[class*="fill"]')).toBeNull()
+    expect(container.querySelector('[class*="marker"]')).not.toBeNull()
   })
 })
