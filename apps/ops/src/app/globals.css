@@ -175,4 +175,15 @@ h1, h2, h3, h4, h5, h6 {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* Defense in depth for the E8 cross-route fade (useViewTransitionNav.ts):
+     `::view-transition-*` pseudo-elements aren't matched by `*::before`/
+     `*::after` above, so the View Transitions API's own crossfade animation
+     needs an explicit reduced-motion override even though the navigation
+     hook already declines to start a transition in this case. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
 }

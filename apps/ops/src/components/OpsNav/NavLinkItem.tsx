@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import type { OpsNavItem } from '@/app/ops/ops-nav'
 import { getOpsNavIcon } from './nav-icons'
+import { useViewTransitionNav } from './useViewTransitionNav'
 import styles from './NavLinkItem.module.css'
 
 interface NavLinkItemProps {
@@ -25,6 +26,7 @@ interface NavLinkItemProps {
 export function NavLinkItem({ item, isActive, showDesc, onNavigate, className }: NavLinkItemProps) {
   const Icon = getOpsNavIcon(item.href)
   const rowClassName = [styles.item, className].filter(Boolean).join(' ')
+  const viewTransitionNav = useViewTransitionNav()
 
   if (item.apiOrigin || item.external) {
     return (
@@ -54,7 +56,10 @@ export function NavLinkItem({ item, isActive, showDesc, onNavigate, className }:
       aria-current={isActive ? 'page' : undefined}
       className={rowClassName}
       data-active={isActive || undefined}
-      {...(onNavigate ? { onClick: onNavigate } : {})}
+      onClick={event => {
+        viewTransitionNav(event, item.href)
+        onNavigate?.()
+      }}
     >
       {Icon && <Icon size={18} aria-hidden="true" className={styles.icon} />}
       <span className={styles.textCol}>

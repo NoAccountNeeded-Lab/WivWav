@@ -3,10 +3,14 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MobileNav } from './MobileNav'
 
-const { usePathnameMock } = vi.hoisted(() => ({ usePathnameMock: vi.fn() }))
+const { usePathnameMock, useRouterMock } = vi.hoisted(() => ({
+  usePathnameMock: vi.fn(),
+  useRouterMock: vi.fn(() => ({ push: vi.fn() })),
+}))
 
 vi.mock('next/navigation', () => ({
   usePathname: usePathnameMock,
+  useRouter: useRouterMock,
 }))
 
 afterEach(() => {

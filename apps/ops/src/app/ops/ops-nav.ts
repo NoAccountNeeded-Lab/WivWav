@@ -293,3 +293,15 @@ export function getOpsMobileTabs(groups: OpsNavGroup[] = OPS_NAV_GROUPS): Array<
     }))
     .sort((a, b) => a.order - b.order)
 }
+
+/**
+ * Looks up an item's registry `title` by its exact `href` (E8/#735): the
+ * single source of truth for a route's document `<title>`, so page-level
+ * metadata can't drift from the nav registry's own label for that
+ * destination. Returns `undefined` for routes that intentionally aren't in
+ * the registry (e.g. a dynamic `/ops/sources/[id]` detail page) — callers
+ * supply their own literal title in that case.
+ */
+export function getOpsNavTitle(href: string, groups: OpsNavGroup[] = OPS_NAV_GROUPS): string | undefined {
+  return groups.flatMap(group => group.items).find(item => item.href === href)?.title
+}

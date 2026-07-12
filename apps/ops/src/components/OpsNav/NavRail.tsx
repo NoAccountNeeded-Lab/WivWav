@@ -8,6 +8,7 @@ import { getOpsNavIcon } from './nav-icons'
 import { isNavItemActive } from './isActive'
 import { MoreSheet } from './MoreSheet'
 import { useNavSheet } from './useNavSheet'
+import { useViewTransitionNav } from './useViewTransitionNav'
 import styles from './NavRail.module.css'
 
 const RAIL_ITEMS = OPS_NAV_GROUPS
@@ -22,6 +23,7 @@ const RAIL_ITEMS = OPS_NAV_GROUPS
 export function NavRail() {
   const pathname = usePathname()
   const { isOpen, toggle, close, triggerRef } = useNavSheet<HTMLButtonElement>()
+  const viewTransitionNav = useViewTransitionNav()
 
   return (
     <>
@@ -54,6 +56,7 @@ export function NavRail() {
               data-active={active || undefined}
               className={styles.item}
               title={item.title}
+              onClick={event => viewTransitionNav(event, item.href)}
             >
               {Icon && <Icon size={20} aria-hidden="true" />}
               <span className="sr-only">{item.title}</span>
