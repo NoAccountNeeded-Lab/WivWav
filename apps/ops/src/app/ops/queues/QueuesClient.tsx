@@ -380,7 +380,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                                 </div>
                               ) : (
                                 <div className={styles.queueProgress}>
-                                  <OpsProgressIndeterminate statusText="No visible jobs in this snapshot yet." />
+                                  <span className={styles.queueProgressMeta}>No visible jobs in this snapshot yet.</span>
                                 </div>
                               )
                             })()}
