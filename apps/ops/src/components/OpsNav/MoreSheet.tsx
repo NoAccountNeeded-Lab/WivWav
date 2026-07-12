@@ -70,6 +70,25 @@ export function MoreSheet({ isOpen, onClose, triggerRef }: MoreSheetProps) {
     }
   }, [isOpen, onClose])
 
+  // Auto-close on breakpoint crossing. `MobileNav` and `NavRail` each mount
+  // their own `MoreSheet` instance and only their active surface is visible
+  // at a given width (the others are `display: none`, per OpsNav.module.css);
+  // resizing across a breakpoint while a sheet is open would otherwise hide
+  // it without ever running its close cleanup, leaving `document.body`
+  // permanently unscrollable. This does not drive which nav surface renders
+  // (that stays CSS-only) — it only dismisses an already-open dialog whose
+  // trigger is about to disappear.
+  useEffect(() => {
+    if (!isOpen || typeof window.matchMedia !== 'function') return undefined
+
+    const queries = ['(min-width: 48rem)', '(min-width: 64rem)'].map(query => window.matchMedia(query))
+    queries.forEach(mql => mql.addEventListener('change', onClose))
+
+    return () => {
+      queries.forEach(mql => mql.removeEventListener('change', onClose))
+    }
+  }, [isOpen, onClose])
+
   // Return focus to the trigger whenever the sheet transitions from open to closed.
   useEffect(() => {
     if (isOpen) {
