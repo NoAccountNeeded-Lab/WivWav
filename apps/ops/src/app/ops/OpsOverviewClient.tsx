@@ -48,11 +48,11 @@ import { OPS_RUNBOOK_IDS } from './runbooks'
 import type { ScrapeRunPoint } from '@/components/SparklineChart'
 import { fetchJson } from '@/lib/fetch-json'
 import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
+import { getOpsOverviewLinks } from './ops-nav'
 
 /** Subset of resource state the attention-panel retry buttons need — avoids
  *  variance issues from mixing differently-typed resources in one map. */
 type RetryableResource = Pick<PolledResourceState<unknown>, 'retry' | 'isRefreshing'>
-import { getOpsOverviewLinks } from './ops-nav'
 
 // The scrape-run bar chart is not needed for first paint and pulls in its own
 // rendering logic — load it on demand so it never blocks the rest of the
@@ -158,10 +158,9 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     REFRESH_MS,
   )
 
-  const resources: Record<OverviewResourceKey, RetryableResource> = useMemo(
-    () => ({ health, queues, sources, runs, schedules }),
-    [health, queues, sources, runs, schedules],
-  )
+  // Not memoized: usePolledResource returns a new object every render
+  // regardless, so a useMemo here would never actually skip recomputation.
+  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules }
 
   // Ring buffer — accumulate samples across 30-second polling cycles
   // We track the run IDs we've already added to the scrape run chart to avoid duplicates
