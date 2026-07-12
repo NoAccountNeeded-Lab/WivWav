@@ -111,6 +111,6 @@
   .liveDot { animation: none; }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 40rem) {
   .live { display: none; }
 }
