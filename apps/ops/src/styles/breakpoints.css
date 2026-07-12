@@ -1,0 +1,7 @@
+:root {
+  --ops-breakpoint-sm: 40rem;
+  --ops-breakpoint-md: 48rem;
+  --ops-breakpoint-lg: 64rem;
+  --ops-breakpoint-xl: 80rem;
+  --ops-breakpoint-xxl: 96rem;
+}

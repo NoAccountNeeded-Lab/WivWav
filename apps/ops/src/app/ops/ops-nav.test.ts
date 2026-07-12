@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
+import { getOpsMobileTabs, getOpsOverviewLinks, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
 
 /**
  * All known Next.js page routes under apps/web/src/app.
@@ -47,6 +47,7 @@ describe('OPS_NAV_GROUPS', () => {
     const hrefs = new Set(OPS_NAV_GROUPS.flatMap(group => group.items.map(item => item.href)))
 
     expect(hrefs).toEqual(new Set([
+      '/ops',
       '/ops/readiness',
       '/status',
       '/ops/refresh-listings',
@@ -59,6 +60,32 @@ describe('OPS_NAV_GROUPS', () => {
       '/ops/config',
       '/admin/board',
     ]))
+  })
+
+  it('should expose the shell mobile tabs in the agreed order', () => {
+    expect(getOpsMobileTabs()).toEqual([
+      { href: '/ops', label: 'Overview', order: 0 },
+      { href: '/ops/refresh-listings', label: 'Refresh', order: 1 },
+      { href: '/ops/sources', label: 'Sources', order: 2 },
+      { href: '/ops/queues', label: 'Queues', order: 3 },
+    ])
+  })
+
+  it('should derive overview quick links from the navigation registry metadata', () => {
+    expect(getOpsOverviewLinks().map(item => ({
+      href: item.href,
+      label: item.shell?.overviewQuickLink?.label,
+    }))).toEqual([
+      { href: '/ops/refresh-listings', label: 'Refresh Listings' },
+      { href: '/ops/queues', label: 'Queues' },
+      { href: '/ops/sources', label: 'Sources' },
+      { href: '/ops/runs', label: 'Runs' },
+      { href: '/ops/schedules', label: 'Schedules' },
+      { href: '/ops/logs', label: 'Logs' },
+      { href: '/ops/ai', label: 'AI' },
+      { href: '/ops/config', label: 'AI Config' },
+      { href: '/status', label: 'System Status' },
+    ])
   })
 
   it('should keep raw queue tools under advanced diagnostics', () => {
