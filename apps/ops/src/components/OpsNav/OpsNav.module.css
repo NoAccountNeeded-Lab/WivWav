@@ -1,0 +1,36 @@
+/*
+ * Breakpoints mirror apps/ops/src/styles/breakpoints.css (E1 tokens):
+ * --ops-breakpoint-md: 48rem (768px), --ops-breakpoint-lg: 64rem (1024px).
+ * CSS-only visibility switching — no JS width listeners.
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.railOnly,
+.columnOnly {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .railOnly {
+    display: block;
+    height: 100%;
+  }
+}
+
+@media (min-width: 64rem) {
+  .railOnly {
+    display: none;
+  }
+
+  .columnOnly {
+    display: block;
+    height: 100%;
+  }
+}
