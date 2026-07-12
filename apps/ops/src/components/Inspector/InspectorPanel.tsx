@@ -35,6 +35,15 @@ export function InspectorPanel({ isOpen, title, onClose, children }: InspectorPa
   const panelRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const previouslyFocusedRef = useRef<HTMLElement | null>(null)
+  // `onClose` (typically `useInspectorParam().close`) is recreated whenever
+  // unrelated search params change identity. Reading it via a ref keeps the
+  // open/close effect keyed only on `isOpen`, so an unrelated param change
+  // while the panel is open doesn't re-run setup — re-stealing focus onto
+  // the close button and re-capturing `previouslyFocusedRef` mid-session.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -45,7 +54,7 @@ export function InspectorPanel({ isOpen, title, onClose, children }: InspectorPa
     function handleKeydown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -68,12 +77,14 @@ export function InspectorPanel({ isOpen, title, onClose, children }: InspectorPa
     }
 
     document.addEventListener('keydown', handleKeydown)
+    document.body.style.overflow = 'hidden'
 
     return () => {
       document.removeEventListener('keydown', handleKeydown)
+      document.body.style.overflow = ''
       previouslyFocusedRef.current?.focus()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 
