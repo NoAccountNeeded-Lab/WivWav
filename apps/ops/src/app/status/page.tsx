@@ -5,7 +5,7 @@ import styles from './page.module.css'
 
 export default function StatusPage() {
   return (
-    <OpsShell section="System Status">
+    <OpsShell sectionTitle="System status">
       <main id="main-content" className={styles.main}>
         <div className={styles.container}>
           <StatusDashboard apiBaseUrl={getPublicApiBaseUrl()} />
