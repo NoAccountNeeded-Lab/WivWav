@@ -1,4 +1,4 @@
-import styles from './page.module.css'
+import styles from './loading.module.css'
 
 /**
  * Shown in place of the routed page content while a nested /ops/* route

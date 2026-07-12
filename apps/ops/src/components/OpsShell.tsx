@@ -90,7 +90,15 @@ export function OpsShell({ children }: OpsShellProps) {
         drawerId={drawerId}
       />
       <div className={styles.shell}>
-        <nav className={styles.sidebar} aria-label="Ops sections">
+        {/* `inert` while the drawer is open keeps the persistent sidebar and
+            routed content out of the keyboard/AT tree entirely, on top of
+            the dialog's own aria-modal — belt and suspenders for the modal
+            contract. The header (brand link, live indicator, theme picker,
+            menu button) is deliberately left out of this: the menu button
+            itself must stay focusable so closeDrawer() can return focus to
+            it, and splitting it from its sibling controls isn't worth the
+            added complexity for a small header. */}
+        <nav className={styles.sidebar} aria-label="Ops sections" inert={drawerOpen}>
           <OpsNav variant="sidebar" />
         </nav>
 
@@ -111,7 +119,7 @@ export function OpsShell({ children }: OpsShellProps) {
           </>
         )}
 
-        <div className={styles.content}>{children}</div>
+        <div className={styles.content} inert={drawerOpen}>{children}</div>
       </div>
     </>
   )

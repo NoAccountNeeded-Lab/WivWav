@@ -1,0 +1,17 @@
+/* Route-segment loading fallback (see loading.tsx). Deliberately its own
+   small module, not borrowed from page.module.css, so this shell-level
+   skeleton doesn't silently depend on an unrelated page's styles. */
+
+.main {
+  padding: 1.5rem 1.5rem 4rem;
+}
+
+.loadingPanel {
+  padding: 2rem 1.5rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-surface);
+  color: var(--clr-text-muted);
+  font-family: var(--font);
+  font-size: 0.875rem;
+}
