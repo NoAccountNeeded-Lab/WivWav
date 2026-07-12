@@ -29,6 +29,23 @@ export function NavRail() {
         {RAIL_ITEMS.map(item => {
           const Icon = getOpsNavIcon(item.href)
           const active = isNavItemActive(pathname, item.href)
+
+          if (item.apiOrigin || item.external) {
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.item}
+                title={item.title}
+              >
+                {Icon && <Icon size={20} aria-hidden="true" />}
+                <span className="sr-only">{item.title} (opens in new tab)</span>
+              </a>
+            )
+          }
+
           return (
             <Link
               key={item.href}
