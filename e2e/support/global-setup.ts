@@ -1,5 +1,11 @@
 import { apiBaseUrl, composeDown, runDockerCompose, webBaseUrl } from './compose.js'
-import { poll, seedSmokeFixture, syncSearchIndex, waitForFixtureInSearch } from './fixture.js'
+import {
+  poll,
+  seedSmokeFixture,
+  syncSearchIndex,
+  waitForFixtureInSearch,
+  waitForSyncJobToComplete,
+} from './fixture.js'
 
 export default async function globalSetup(): Promise<void> {
   const skipCompose = process.env['WIVWAV_E2E_SKIP_COMPOSE'] === '1'
@@ -35,7 +41,13 @@ export default async function globalSetup(): Promise<void> {
     }, 'web home page')
 
     await seedSmokeFixture()
-    await syncSearchIndex()
+    const syncJobId = await syncSearchIndex()
+    // Wait on the reindex job's own status first (waiting/active/failed/
+    // completed) rather than blind-polling the search API against a fixed
+    // wall-clock timeout — see #740. Once the job is confirmed complete,
+    // waitForFixtureInSearch only has to absorb Meilisearch's own indexing
+    // latency, not CI queue-worker cold-start/contention as well.
+    await waitForSyncJobToComplete(syncJobId)
     await waitForFixtureInSearch()
   } catch (error) {
     if (!skipCompose && process.env['WIVWAV_E2E_KEEP_STACK'] !== '1') {

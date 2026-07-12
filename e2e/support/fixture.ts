@@ -108,7 +108,13 @@ export async function seedSmokeFixture(): Promise<void> {
   }
 }
 
-export async function syncSearchIndex(): Promise<void> {
+/**
+ * Enqueues the scraper's full versioned search re-index job and returns its
+ * BullMQ job id, so callers can poll the job's own status (waiting/active/
+ * completed/failed) rather than blind-polling the search API — see
+ * `waitForSyncJobToComplete` (#740).
+ */
+export async function syncSearchIndex(): Promise<string> {
   const response = await fetch(`${apiBaseUrl()}/admin/sync`, {
     method: 'POST',
     headers: {
@@ -119,6 +125,68 @@ export async function syncSearchIndex(): Promise<void> {
   if (!response.ok) {
     throw new Error(`Admin search sync failed: ${response.status} ${await response.text()}`)
   }
+
+  const body = (await response.json()) as { data?: { jobId?: string } }
+  const jobId = body.data?.jobId
+  if (!jobId) {
+    throw new Error('Admin search sync response did not include a jobId')
+  }
+  return jobId
+}
+
+// listing-sync is the queue name the scraper's full re-index job runs on
+// (packages/queue/src/queues.ts QUEUES.LISTING_SYNC). Duplicated here as a
+// literal rather than pulling in @wivwav/queue as an e2e dependency.
+const LISTING_SYNC_QUEUE_NAME = 'listing-sync'
+
+interface AdminQueueJob {
+  id: string
+  status: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed'
+  failedReason?: string
+}
+
+/**
+ * Polls the listing-sync queue's own job status for `jobId` instead of
+ * blind-polling the search API, so global setup can distinguish "still
+ * running" from "failed" from "done" (#740) — a job that is genuinely stuck
+ * or has failed produces an immediate, specific error rather than a generic
+ * timeout once every retry is exhausted.
+ */
+export async function waitForSyncJobToComplete(jobId: string, timeoutMs = 90_000): Promise<void> {
+  const intervalMs = 1_000
+  const startedAt = Date.now()
+  let lastKnownStatus: AdminQueueJob['status'] | 'unknown' = 'unknown'
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const response = await fetch(`${apiBaseUrl()}/admin/queues/${LISTING_SYNC_QUEUE_NAME}`, {
+      headers: {
+        authorization: `Bearer ${e2eEnv.internalApiSecret}`,
+      },
+    }).catch(() => null)
+
+    if (response?.ok) {
+      const body = (await response.json()) as { data?: { jobs?: AdminQueueJob[] } }
+      const job = body.data?.jobs?.find((candidate) => candidate.id === jobId)
+
+      if (job) {
+        lastKnownStatus = job.status
+        if (job.status === 'completed') return
+        if (job.status === 'failed') {
+          throw new Error(
+            `Listing-sync job "${jobId}" failed: ${job.failedReason ?? 'no failure reason reported'}`,
+          )
+        }
+        // waiting / active / delayed: the job is progressing normally, keep polling.
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error(
+    `Timed out after ${timeoutMs}ms waiting for listing-sync job "${jobId}" to complete `
+    + `(last known status: ${lastKnownStatus})`,
+  )
 }
 
 export async function waitForFixtureInSearch(): Promise<void> {
@@ -127,7 +195,7 @@ export async function waitForFixtureInSearch(): Promise<void> {
     if (!response.ok) return false
     const body = (await response.json()) as { data?: Array<{ id?: string }> }
     return body.data?.some((listing) => listing.id === fixtureListingId) ?? false
-  }, 'fixture listing to appear in search')
+  }, 'fixture listing to appear in search after listing-sync job completed')
 }
 
 export async function poll(
