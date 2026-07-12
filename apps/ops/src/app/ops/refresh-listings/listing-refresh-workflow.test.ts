@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildListingRefreshSteps,
+  buildWorkflowProgressSummary,
+  buildWorkflowStepProgress,
   getActiveSourceIds,
   type ListingRefreshStatus,
   type RefreshQueueState,
@@ -160,6 +162,35 @@ describe('buildListingRefreshSteps', () => {
     expect(sync?.actions[0]).toMatchObject({
       disabled: true,
       disabledReason: 'No listings are eligible for publication.',
+    })
+  })
+
+  it('builds workflow summary progress from completed steps only', () => {
+    const steps = buildListingRefreshSteps(makeStatus(), makeHealth())
+    expect(buildWorkflowProgressSummary(steps)).toEqual({
+      value: 1,
+      max: 5,
+      caption: '1 of 5 steps complete',
+    })
+  })
+
+  it('builds detail-step progress from visible queue counts', () => {
+    const status = makeStatus({
+      queues: [
+        makeQueue({ name: 'source-scrape' }),
+        makeQueue({ name: 'detail-crawl', stats: { waiting: 2, active: 1, completed: 1, failed: 0, delayed: 0 } }),
+        makeQueue({ name: 'detail-extract' }),
+        makeQueue({ name: 'geocode' }),
+      ],
+    })
+
+    const steps = buildListingRefreshSteps(status, makeHealth())
+    const details = steps.find(step => step.id === 'details')
+
+    expect(details && buildWorkflowStepProgress(details, status)).toEqual({
+      value: 1,
+      max: 4,
+      caption: '1 of 4 visible detail jobs settled',
     })
   })
 })

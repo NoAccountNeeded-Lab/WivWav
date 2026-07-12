@@ -85,6 +85,18 @@ export interface WorkflowStep {
   actions: WorkflowAction[]
 }
 
+export interface WorkflowProgressSummary {
+  value: number
+  max: number
+  caption: string
+}
+
+export interface WorkflowStepProgress {
+  value: number
+  max: number
+  caption: string
+}
+
 export function getActiveSourceIds(sources: RefreshSource[]): string[] {
   return [
     ...new Set(
@@ -219,6 +231,46 @@ export function buildListingRefreshSteps(
   ]
 }
 
+export function buildWorkflowProgressSummary(steps: WorkflowStep[]): WorkflowProgressSummary {
+  const complete = steps.filter(step => step.status === 'complete').length
+  return {
+    value: complete,
+    max: steps.length,
+    caption: `${complete.toLocaleString()} of ${steps.length.toLocaleString()} steps complete`,
+  }
+}
+
+export function buildWorkflowStepProgress(
+  step: WorkflowStep,
+  status: ListingRefreshStatus,
+): WorkflowStepProgress | null {
+  if (step.id === 'scrape') {
+    return buildQueueProgress(findQueue(status, 'source-scrape'), 'visible scrape jobs')
+  }
+
+  if (step.id === 'details') {
+    const crawl = findQueue(status, 'detail-crawl')
+    const extract = findQueue(status, 'detail-extract')
+    return buildCombinedQueueProgress([crawl, extract], 'visible detail jobs')
+  }
+
+  if (step.id === 'geocode') {
+    return buildQueueProgress(findQueue(status, 'geocode'), 'visible geocode jobs')
+  }
+
+  if (step.id === 'verify' && status.listings.eligible > 0) {
+    const value = Math.min(status.listings.mapReady, status.listings.eligible)
+    const max = status.listings.eligible
+    return {
+      value,
+      max,
+      caption: `${value.toLocaleString()} of ${max.toLocaleString()} eligible listings are map-ready`,
+    }
+  }
+
+  return null
+}
+
 function findQueue(status: ListingRefreshStatus, name: RefreshQueueState['name']): RefreshQueueState {
   return status.queues.find(queue => queue.name === name) ?? {
     name,
@@ -254,6 +306,22 @@ function latestIso(values: Array<string | null>): string | null {
 
 function actionDisabledReason(checks: Array<[boolean, string]>): string | null {
   return checks.find(([condition]) => condition)?.[1] ?? null
+}
+
+function buildQueueProgress(queue: RefreshQueueState, label: string): WorkflowStepProgress | null {
+  return buildCombinedQueueProgress([queue], label)
+}
+
+function buildCombinedQueueProgress(queues: RefreshQueueState[], label: string): WorkflowStepProgress | null {
+  const visible = queues.reduce((sum, queue) => sum + queue.stats.waiting + queue.stats.active + queue.stats.delayed + queue.stats.completed + queue.stats.failed, 0)
+  if (visible <= 0) return null
+
+  const settled = queues.reduce((sum, queue) => sum + queue.stats.completed + queue.stats.failed, 0)
+  return {
+    value: settled,
+    max: visible,
+    caption: `${settled.toLocaleString()} of ${visible.toLocaleString()} ${label} settled`,
+  }
 }
 
 function queueAction(
