@@ -111,3 +111,20 @@
   height: 0.5rem;
   width: 40%;
 }
+
+/* ── Table cell ────────────────────────────────────────────────────────── */
+
+.tableCell {
+  padding: 0.75rem 0.875rem;
+  box-sizing: border-box;
+}
+
+.tableCellBlock {
+  display: block;
+  height: 0.75rem;
+  width: 82%;
+}
+
+.tableCellBlock[data-narrow="true"] {
+  width: 45%;
+}

@@ -80,3 +80,36 @@ export function SkeletonListRow({ count = 1, className }: SkeletonListRowProps) 
     </>
   )
 }
+
+interface SkeletonTableRowsProps {
+  /** Number of placeholder `<tr>` rows to render. Defaults to 6. */
+  rows?: number
+  /** Number of `<td>` cells per row — should match the real table's column count. */
+  columns: number
+}
+
+/**
+ * Placeholder `<tr>` rows for a data table, each cell reserving the real
+ * table's fixed `td` padding via the caller's table CSS. Intended to be
+ * rendered inside a real `<table><tbody>` so column widths and row heights
+ * inherit from that table's own styling — only the cell content is a
+ * skeleton block.
+ */
+export function SkeletonTableRows({ rows = 6, columns }: SkeletonTableRowsProps) {
+  return (
+    <>
+      {Array.from({ length: rows }, (_, r) => (
+        <tr key={r} aria-hidden="true">
+          {Array.from({ length: columns }, (_, c) => (
+            <td key={c} className={styles.tableCell}>
+              <span
+                className={[styles.block, styles.tableCellBlock].join(' ')}
+                data-narrow={c === columns - 1 ? 'true' : undefined}
+              />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  )
+}
