@@ -8,6 +8,21 @@
     "nav main inspector";
 }
 
+/* Nav column sizing for the icon rail and full grouped column (E3). Below
+   768px the bottom tab bar renders as a fixed overlay outside this grid, so
+   the nav column stays at 0 width there. */
+@media (min-width: 48rem) {
+  .shell {
+    grid-template-columns: minmax(0, 4rem) minmax(0, 1fr) minmax(0, 0);
+  }
+}
+
+@media (min-width: 64rem) {
+  .shell {
+    grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) minmax(0, 0);
+  }
+}
+
 .headerSlot {
   grid-area: header;
   min-width: 0;
@@ -21,6 +36,15 @@
 .mainSlot {
   grid-area: main;
   min-width: 0;
+  /* Clears the fixed bottom tab bar below 768px (E3); removed once the
+     persistent rail/column replace it. */
+  padding-bottom: calc(2.75rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  .mainSlot {
+    padding-bottom: 0;
+  }
 }
 
 .inspectorSlot {
