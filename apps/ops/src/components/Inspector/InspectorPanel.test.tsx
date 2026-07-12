@@ -95,4 +95,57 @@ describe('InspectorPanel', () => {
 
     expect(document.activeElement).toBe(openButton)
   })
+
+  it('locks body scroll while open, matching the MoreSheet modal contract, and releases it on close', () => {
+    const { rerender } = render(
+      <InspectorPanel isOpen title="Job details" onClose={vi.fn()}>
+        <p>Body</p>
+      </InspectorPanel>,
+    )
+
+    expect(document.body.style.overflow).toBe('hidden')
+
+    rerender(
+      <InspectorPanel isOpen={false} title="Job details" onClose={vi.fn()}>
+        <p>Body</p>
+      </InspectorPanel>,
+    )
+
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('does not re-run open setup (re-focus the close button) when onClose identity changes while open (unrelated param churn)', () => {
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+
+    function Harness() {
+      const [, forceRerender] = useState(0)
+      // A fresh closure every render, mirroring `useInspectorParam().close`
+      // changing identity whenever unrelated search params change.
+      const onClose = () => {}
+      return (
+        <>
+          <button type="button" onClick={() => forceRerender(n => n + 1)}>
+            Trigger unrelated update
+          </button>
+          <InspectorPanel isOpen title="Job details" onClose={onClose}>
+            <p>Body</p>
+          </InspectorPanel>
+        </>
+      )
+    }
+
+    render(<Harness />)
+    const closeButtonFocusCallsAfterOpen = focusSpy.mock.calls.length
+    expect(closeButtonFocusCallsAfterOpen).toBeGreaterThan(0)
+    focusSpy.mockClear()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger unrelated update' }))
+
+    // If the effect were keyed on `onClose` identity, this re-render would
+    // re-run setup and call `.focus()` again to steal focus back onto the
+    // close button.
+    expect(focusSpy).not.toHaveBeenCalled()
+
+    focusSpy.mockRestore()
+  })
 })
