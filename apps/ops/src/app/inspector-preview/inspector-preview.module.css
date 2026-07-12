@@ -1,0 +1,56 @@
+.main {
+  padding: 2rem 0 4rem;
+}
+
+.container {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.heading {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--clr-text);
+}
+
+.intro {
+  margin: 0;
+  color: var(--clr-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.openButton {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: var(--radius);
+  background: rgba(0, 212, 255, 0.08);
+  color: var(--clr-primary);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.openButton:hover {
+  background: rgba(0, 212, 255, 0.15);
+}
+
+.stateText {
+  margin: 0;
+  color: var(--clr-text-muted);
+  font-size: 0.875rem;
+}
+
+.bodyText {
+  margin: 0 0 0.75rem;
+  color: var(--clr-text-secondary);
+  font-size: 0.9375rem;
+}
