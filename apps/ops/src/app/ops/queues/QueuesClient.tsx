@@ -2,8 +2,10 @@
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { OpsProgressDeterminate, OpsProgressIndeterminate } from '@/components/OpsProgress'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
+import { buildJobProgressModel, buildQueueSnapshotProgress } from './progress'
 import { QUEUE_RUNBOOK_IDS } from '../runbooks'
 
 interface QueueStats {
@@ -363,6 +365,25 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                             <div className={styles.queueDesc}>
                               concurrency {q.policy.concurrency} · keep {q.policy.retention.completed} completed / {q.policy.retention.failed} failed
                             </div>
+                            {(() => {
+                              const progress = buildQueueSnapshotProgress(q.stats)
+                              return progress ? (
+                                <div className={styles.queueProgress}>
+                                  <OpsProgressDeterminate
+                                    value={progress.value}
+                                    min={0}
+                                    max={progress.max}
+                                    label={`${q.name} queue snapshot progress`}
+                                    caption={progress.caption}
+                                  />
+                                  <span className={styles.queueProgressMeta}>{progress.statusText}</span>
+                                </div>
+                              ) : (
+                                <div className={styles.queueProgress}>
+                                  <OpsProgressIndeterminate statusText="No visible jobs in this snapshot yet." />
+                                </div>
+                              )
+                            })()}
                             {!meta && <div className={styles.queueDesc}>Not yet implemented</div>}
                           </div>
                         </td>
@@ -466,6 +487,32 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                                     <div className={styles.jobGrid}>
                                       <div>
                                         <h3 className={styles.jobSubhead}>Progress</h3>
+                                        {(() => {
+                                          const progress = buildJobProgressModel(job)
+                                          if (progress.kind === 'determinate') {
+                                            return (
+                                              <div className={styles.jobProgress}>
+                                                <OpsProgressDeterminate
+                                                  value={progress.value}
+                                                  min={0}
+                                                  max={progress.max}
+                                                  label={progress.label}
+                                                  caption={progress.caption}
+                                                />
+                                              </div>
+                                            )
+                                          }
+
+                                          if (progress.kind === 'indeterminate') {
+                                            return (
+                                              <div className={styles.jobProgress}>
+                                                <OpsProgressIndeterminate statusText={progress.statusText} />
+                                              </div>
+                                            )
+                                          }
+
+                                          return null
+                                        })()}
                                         <pre className={styles.miniCode}>{formatUnknown(job.progress)}</pre>
                                       </div>
                                       <div>

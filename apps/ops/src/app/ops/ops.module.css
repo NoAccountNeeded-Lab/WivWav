@@ -662,6 +662,19 @@
   flex-direction: column;
 }
 
+.queueProgress {
+  margin-top: 0.5rem;
+  max-width: 26rem;
+}
+
+.queueProgressMeta {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--clr-text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
 /* ── Loading skeleton / toast ───────────────────────────── */
 
 .toast {
@@ -753,6 +766,10 @@
 
 .jobItem:last-child {
   border-bottom: none;
+}
+
+.jobProgress {
+  margin-bottom: 0.5rem;
 }
 
 .jobTopline {
@@ -968,6 +985,14 @@
   gap: 0.875rem;
 }
 
+.workflowProgressPanel {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-bg);
+}
+
 .workflowStep {
   display: grid;
   grid-template-columns: 2.25rem minmax(0, 1fr);
@@ -995,6 +1020,10 @@
 
 .workflowStepBody {
   min-width: 0;
+}
+
+.workflowStepProgress {
+  margin-bottom: 0.875rem;
 }
 
 .workflowStepTopline {
