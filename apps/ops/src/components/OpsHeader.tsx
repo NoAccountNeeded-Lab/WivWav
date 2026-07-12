@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { HealthResponse, OverallHealthStatus } from '@wivwav/types'
 import { getPublicApiBaseUrl } from '../lib/api-url'
+import { useViewTransitionNav } from './OpsNav/useViewTransitionNav'
 import { ThemePicker } from './ThemePicker'
 import styles from './OpsHeader.module.css'
 
@@ -34,6 +35,7 @@ const SECTION_TITLES: ReadonlyArray<{ prefix: string, title: string }> = [
 
 export function OpsHeader({ sectionTitle }: OpsHeaderProps) {
   const pathname = usePathname()
+  const viewTransitionNav = useViewTransitionNav()
   const [status, setStatus] = useState<HeaderStatus>('unknown')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
@@ -121,7 +123,12 @@ export function OpsHeader({ sectionTitle }: OpsHeaderProps) {
     <header className={styles.header}>
       <div className={styles.inner}>
         <div className={styles.left}>
-          <Link href="/ops" className={styles.brand} aria-label="WivWav Ops — go to ops overview">
+          <Link
+            href="/ops"
+            className={styles.brand}
+            aria-label="WivWav Ops — go to ops overview"
+            onClick={event => viewTransitionNav(event, '/ops')}
+          >
             WivWav Ops
           </Link>
           {title && (
@@ -138,6 +145,7 @@ export function OpsHeader({ sectionTitle }: OpsHeaderProps) {
             className={styles.statusPill}
             data-status={status}
             aria-label={`Overall operational status: ${statusLabel}. Open site readiness.`}
+            onClick={event => viewTransitionNav(event, '/ops/readiness')}
           >
             <span className={styles.statusDot} aria-hidden="true" />
             <span className={styles.statusText}>{statusLabel}</span>
