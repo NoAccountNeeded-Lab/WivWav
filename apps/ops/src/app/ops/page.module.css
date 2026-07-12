@@ -116,24 +116,6 @@
 
 .spinning { animation: spin 0.9s linear infinite; }
 
-/* ── Loading ───────────────────────────────────────────────────────────────── */
-
-.loadingPanel {
-  padding: 2rem 1.5rem;
-  border: 1px solid var(--clr-border);
-  border-radius: var(--radius-lg);
-  background: var(--clr-surface);
-  color: var(--clr-text-muted);
-  font-family: var(--font);
-  font-size: 0.875rem;
-}
-
-[data-theme="terminal"] .loadingPanel::before {
-  content: '▮ ';
-  color: var(--clr-primary);
-  animation: blink-dot 1s step-start infinite;
-}
-
 /* ── Bento grid ────────────────────────────────────────────────────────────── */
 
 .bentoGrid {
@@ -268,6 +250,10 @@
   padding-right: 2.5rem;
 }
 
+.attentionItemWrap[data-has-retry="true"] .attentionItem {
+  padding-right: 4.75rem;
+}
+
 .attentionCopyBtn {
   position: absolute;
   top: 50%;
@@ -281,6 +267,62 @@
 .attentionItemWrap:focus-within .attentionCopyBtn {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Retry action for an attention item backed by a failed endpoint (E5) */
+.attentionRetryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  position: absolute;
+  top: 50%;
+  right: 2.375rem;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface);
+  color: var(--clr-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.attentionRetryBtn:hover:not(:disabled) {
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+
+.attentionRetryBtn:disabled {
+  cursor: wait;
+  opacity: 0.6 !important;
+}
+
+.attentionItemWrap:hover .attentionRetryBtn,
+.attentionItemWrap:focus-within .attentionRetryBtn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.attentionRetryBtn:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 1px;
+}
+
+/* Section-level "refreshing" hint shown when a resource has warm-cached
+   data on screen while a background revalidation is in flight (E5). */
+.sectionRefreshing {
+  margin-left: 0.5rem;
+  color: var(--clr-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-style: italic;
 }
 
 .attentionItem:hover {
