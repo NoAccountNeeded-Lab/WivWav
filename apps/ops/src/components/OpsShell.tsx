@@ -4,16 +4,16 @@ import styles from './OpsShell.module.css'
 
 interface OpsShellProps {
   children: ReactNode
-  section?: ReactNode
+  sectionTitle?: string
   nav?: ReactNode
   inspector?: ReactNode
 }
 
-export function OpsShell({ children, section, nav, inspector }: OpsShellProps) {
+export function OpsShell({ children, sectionTitle, nav, inspector }: OpsShellProps) {
   return (
     <div className={styles.shell}>
       <div className={styles.headerSlot}>
-        <OpsHeader section={section} />
+        <OpsHeader {...(sectionTitle != null ? { sectionTitle } : {})} />
       </div>
       <div className={styles.navSlot}>
         {nav ?? <div aria-hidden="true" className={styles.placeholder} />}
