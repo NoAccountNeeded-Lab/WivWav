@@ -1,0 +1,113 @@
+/* ── Skeleton primitives ───────────────────────────────────────────────────
+   Fixed-dimension loading placeholders. Each variant reserves the exact
+   footprint of the content it stands in for (CLS ≈ 0 contract). Shimmer is
+   purely decorative and is disabled under prefers-reduced-motion, at which
+   point placeholders render as a static flat fill.
+────────────────────────────────────────────────────────────────────────────── */
+
+.block {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--clr-text-muted) 12%, transparent) 20%,
+    color-mix(in srgb, var(--clr-text-muted) 22%, transparent) 40%,
+    color-mix(in srgb, var(--clr-text-muted) 12%, transparent) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block {
+    animation: none;
+    background: color-mix(in srgb, var(--clr-text-muted) 14%, transparent);
+  }
+}
+
+/* ── Card ──────────────────────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  width: 100%;
+  height: 7.5rem;
+  padding: 0.875rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  box-sizing: border-box;
+}
+
+.cardTitle {
+  height: 0.875rem;
+  width: 45%;
+}
+
+.cardLine {
+  height: 0.625rem;
+  width: 100%;
+}
+
+.cardLine[data-short="true"] {
+  width: 65%;
+}
+
+/* ── Chart box ─────────────────────────────────────────────────────────── */
+
+.chartBox {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  box-sizing: border-box;
+}
+
+/* ── List row ──────────────────────────────────────────────────────────── */
+
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  height: 2.5rem;
+  box-sizing: border-box;
+}
+
+.listRow + .listRow {
+  margin-top: 0.5rem;
+}
+
+.listAvatar {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+}
+
+.listLines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.listLineWide {
+  height: 0.625rem;
+  width: 70%;
+}
+
+.listLineNarrow {
+  height: 0.5rem;
+  width: 40%;
+}
