@@ -489,7 +489,16 @@ test.describe('Discover facets against the fixture catalog', () => {
         const root = document.documentElement
         return root.scrollWidth - root.clientWidth
       })
-      expect(horizontalOverflow, 'page must not scroll horizontally at 375px').toBeLessThanOrEqual(0)
+      // A zero-tolerance check is brittle to cross-platform Chromium
+      // subpixel-rounding noise (macOS local vs. Linux CI runners have
+      // produced a spurious 1px delta on unrelated merges — see #739).
+      // A few px of slack still catches genuine overflow regressions,
+      // which run in the tens of pixels for a widened control.
+      const HORIZONTAL_OVERFLOW_TOLERANCE_PX = 2
+      expect(
+        horizontalOverflow,
+        'page must not scroll horizontally at 375px',
+      ).toBeLessThanOrEqual(HORIZONTAL_OVERFLOW_TOLERANCE_PX)
 
       // Repository accessibility contract: at least 44×44 CSS px across one
       // control of each renderer type.
