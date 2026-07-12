@@ -84,13 +84,23 @@ export interface OverviewModel {
   telemetry: OverviewCard[]
 }
 
+export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules'
+
 export interface OverviewInput {
   health: HealthResponse | null
   queues: QueueRow[] | null
   sources: SourceRow[] | null
   runs: RunRow[] | null
   schedules: ScheduleEntry[] | null
-  errors: Partial<Record<'health' | 'queues' | 'sources' | 'runs' | 'schedules', string>>
+  errors: Partial<Record<OverviewResourceKey, string>>
+  /**
+   * Marks a resource as still awaiting its first response (E5: independent
+   * per-section streaming). While pending, a null value renders as "not yet
+   * loaded" rather than being defaulted to an "unavailable" error — the
+   * default error text below only applies once a resource has genuinely
+   * settled with no data and no explicit error.
+   */
+  pending?: Partial<Record<OverviewResourceKey, boolean>>
   now: Date
 }
 
@@ -110,11 +120,11 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const geocodeQueue = input.queues?.find(queue => queue.name === 'geocode') ?? null
   const healthServices = input.health?.services
 
-  const healthError = input.errors.health ?? (input.health === null ? 'Service health telemetry unavailable' : undefined)
-  const queueError = input.errors.queues ?? (input.queues === null ? 'Queue telemetry unavailable' : undefined)
-  const sourceError = input.errors.sources ?? (input.sources === null ? 'Source telemetry unavailable' : undefined)
-  const runError = input.errors.runs ?? (input.runs === null ? 'Scraper run telemetry unavailable' : undefined)
-  const scheduleError = input.errors.schedules ?? (input.schedules === null ? 'Schedule telemetry unavailable' : undefined)
+  const healthError = input.errors.health ?? (input.health === null && !input.pending?.health ? 'Service health telemetry unavailable' : undefined)
+  const queueError = input.errors.queues ?? (input.queues === null && !input.pending?.queues ? 'Queue telemetry unavailable' : undefined)
+  const sourceError = input.errors.sources ?? (input.sources === null && !input.pending?.sources ? 'Source telemetry unavailable' : undefined)
+  const runError = input.errors.runs ?? (input.runs === null && !input.pending?.runs ? 'Scraper run telemetry unavailable' : undefined)
+  const scheduleError = input.errors.schedules ?? (input.schedules === null && !input.pending?.schedules ? 'Schedule telemetry unavailable' : undefined)
 
   const attention: AttentionItem[] = [
     ...serviceAttention(input.health, healthError),
