@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import {
   Activity,
   AlertCircle,
@@ -33,6 +34,7 @@ import {
   buildOpsOverview,
   type OverviewCard,
   type OverviewModel,
+  type OverviewResourceKey,
   type OverviewSeverity,
   type QueueRow,
   type RunRow,
@@ -40,23 +42,28 @@ import {
   type SourceRow,
 } from './overview-helpers'
 import { CopyButton } from '@/components/CopyButton'
+import { SkeletonChartBox } from '@/components/Skeleton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
-import { ScrapeRunChart, type ScrapeRunPoint } from '@/components/SparklineChart'
-import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
+import type { ScrapeRunPoint } from '@/components/SparklineChart'
+import { fetchJson } from '@/lib/fetch-json'
+import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
+
+/** Subset of resource state the attention-panel retry buttons need — avoids
+ *  variance issues from mixing differently-typed resources in one map. */
+type RetryableResource = Pick<PolledResourceState<unknown>, 'retry' | 'isRefreshing'>
 import { getOpsOverviewLinks } from './ops-nav'
+
+// The scrape-run bar chart is not needed for first paint and pulls in its own
+// rendering logic — load it on demand so it never blocks the rest of the
+// overview from streaming in (E5: lazy-load heavy client components).
+const ScrapeRunChart = dynamic(
+  () => import('@/components/SparklineChart').then(mod => mod.ScrapeRunChart),
+  { ssr: false, loading: () => <SkeletonChartBox aspectRatio="4/1" /> },
+)
 
 interface OpsOverviewClientProps {
   apiBaseUrl: string
-}
-
-interface OverviewData {
-  health: HealthResponse | null
-  queues: QueueRow[] | null
-  sources: SourceRow[] | null
-  runs: RunRow[] | null
-  schedules: ScheduleEntry[] | null
-  errors: Partial<Record<'health' | 'queues' | 'sources' | 'runs' | 'schedules', string>>
 }
 
 const REFRESH_MS = 30_000
@@ -112,73 +119,116 @@ const CARD_COL_SPAN: Record<string, number> = {
   'listing-freshness-window': 1,
 }
 
+/** Attention item ids that mean "this resource's endpoint failed" — see overview-helpers.ts */
+const UNAVAILABLE_ATTENTION_ID: Record<string, OverviewResourceKey> = {
+  'health-unavailable':    'health',
+  'queues-unavailable':    'queues',
+  'sources-unavailable':   'sources',
+  'runs-unavailable':      'runs',
+  'schedules-unavailable': 'schedules',
+}
+
 export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
-  const [data, setData] = useState<OverviewData | null>(null)
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  // Each endpoint is fetched, polled, cached, and retried independently so a
+  // slow or failing endpoint never blocks the other sections from rendering
+  // (E5: streaming overview + per-section inline retry).
+  const health = usePolledResource<HealthResponse>(
+    'ops-overview:health',
+    useCallback(() => fetchJson<HealthResponse>(`${apiBaseUrl}/health`), [apiBaseUrl]),
+    REFRESH_MS,
+  )
+  const queues = usePolledResource<QueueRow[]>(
+    'ops-overview:queues',
+    useCallback(() => fetchJson<QueueRow[]>(`${apiBaseUrl}/admin/queues`), [apiBaseUrl]),
+    REFRESH_MS,
+  )
+  const sources = usePolledResource<SourceRow[]>(
+    'ops-overview:sources',
+    useCallback(() => fetchJson<SourceRow[]>(`${apiBaseUrl}/admin/sources`), [apiBaseUrl]),
+    REFRESH_MS,
+  )
+  const runs = usePolledResource<RunRow[]>(
+    'ops-overview:runs',
+    useCallback(() => fetchJson<RunRow[]>(`${apiBaseUrl}/admin/runs`), [apiBaseUrl]),
+    REFRESH_MS,
+  )
+  const schedules = usePolledResource<ScheduleEntry[]>(
+    'ops-overview:schedules',
+    useCallback(() => fetchJson<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`), [apiBaseUrl]),
+    REFRESH_MS,
+  )
+
+  const resources: Record<OverviewResourceKey, RetryableResource> = useMemo(
+    () => ({ health, queues, sources, runs, schedules }),
+    [health, queues, sources, runs, schedules],
+  )
 
   // Ring buffer — accumulate samples across 30-second polling cycles
   // We track the run IDs we've already added to the scrape run chart to avoid duplicates
   const seenRunIdsRef = useRef<Set<string>>(new Set())
   const [scrapeRunPoints, setScrapeRunPoints] = useState<ScrapeRunPoint[]>([])
 
-  const refresh = useCallback(async () => {
-    setIsRefreshing(true)
-    const [health, queues, sources, runs, schedules] = await Promise.all([
-      fetchData<HealthResponse>(`${apiBaseUrl}/health`),
-      fetchData<QueueRow[]>(`${apiBaseUrl}/admin/queues`),
-      fetchData<SourceRow[]>(`${apiBaseUrl}/admin/sources`),
-      fetchData<RunRow[]>(`${apiBaseUrl}/admin/runs`),
-      fetchData<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`),
-    ])
-    const now = new Date()
-
-    // Update scrape run list — add only runs not yet seen, preserving order
-    if (runs.data) {
-      const newRuns = runs.data.filter(r => !seenRunIdsRef.current.has(r.id))
-      if (newRuns.length > 0) {
-        newRuns.forEach(r => seenRunIdsRef.current.add(r.id))
-        setScrapeRunPoints(prev => {
-          const added: ScrapeRunPoint[] = newRuns.map(r => ({
-            label: r.sourceName ?? r.sourceId,
-            success: r.success,
-            listingsFound: r.listingsFound,
-          }))
-          // Keep oldest first; trim to RING_BUFFER_SIZE
-          const combined = [...prev, ...added]
-          return combined.length > RING_BUFFER_SIZE ? combined.slice(-RING_BUFFER_SIZE) : combined
-        })
-      }
-    }
-
-    setData({
-      health: health.data,
-      queues: queues.data,
-      sources: sources.data,
-      runs: runs.data,
-      schedules: schedules.data,
-      errors: {
-        ...(health.error    ? { health:    health.error    } : {}),
-        ...(queues.error    ? { queues:    queues.error    } : {}),
-        ...(sources.error   ? { sources:   sources.error   } : {}),
-        ...(runs.error      ? { runs:      runs.error      } : {}),
-        ...(schedules.error ? { schedules: schedules.error } : {}),
-      },
-    })
-    setUpdatedAt(now)
-    setIsRefreshing(false)
-  }, [apiBaseUrl])
-
   useEffect(() => {
-    void refresh()
-    const id = window.setInterval(() => void refresh(), REFRESH_MS)
-    return () => window.clearInterval(id)
-  }, [refresh])
+    if (!runs.data) return
+    const newRuns = runs.data.filter(r => !seenRunIdsRef.current.has(r.id))
+    if (newRuns.length === 0) return
+    newRuns.forEach(r => seenRunIdsRef.current.add(r.id))
+    setScrapeRunPoints(prev => {
+      const added: ScrapeRunPoint[] = newRuns.map(r => ({
+        label: r.sourceName ?? r.sourceId,
+        success: r.success,
+        listingsFound: r.listingsFound,
+      }))
+      // Keep oldest first; trim to RING_BUFFER_SIZE
+      const combined = [...prev, ...added]
+      return combined.length > RING_BUFFER_SIZE ? combined.slice(-RING_BUFFER_SIZE) : combined
+    })
+  }, [runs.data])
 
-  const overview = useMemo<OverviewModel | null>(() => {
-    if (!data) return null
-    return buildOpsOverview({ ...data, now: updatedAt ?? new Date() })
-  }, [data, updatedAt])
+  const latestUpdatedAtMs = Math.max(
+    health.updatedAt?.getTime() ?? 0,
+    queues.updatedAt?.getTime() ?? 0,
+    sources.updatedAt?.getTime() ?? 0,
+    runs.updatedAt?.getTime() ?? 0,
+    schedules.updatedAt?.getTime() ?? 0,
+  )
+  const updatedAt = latestUpdatedAtMs > 0 ? new Date(latestUpdatedAtMs) : null
+  // `now` only advances when a resource actually settles (tracked via the
+  // primitive `latestUpdatedAtMs`), not on every render.
+  const now = useMemo(() => (latestUpdatedAtMs > 0 ? new Date(latestUpdatedAtMs) : new Date()), [latestUpdatedAtMs])
+
+  const overview = useMemo<OverviewModel>(() => buildOpsOverview({
+    health: health.data,
+    queues: queues.data,
+    sources: sources.data,
+    runs: runs.data,
+    schedules: schedules.data,
+    errors: {
+      ...(health.error    ? { health:    health.error }    : {}),
+      ...(queues.error    ? { queues:    queues.error }    : {}),
+      ...(sources.error   ? { sources:   sources.error }   : {}),
+      ...(runs.error      ? { runs:      runs.error }      : {}),
+      ...(schedules.error ? { schedules: schedules.error } : {}),
+    },
+    pending: {
+      health: health.isLoading,
+      queues: queues.isLoading,
+      sources: sources.isLoading,
+      runs: runs.isLoading,
+      schedules: schedules.isLoading,
+    },
+    now,
+  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, now])
+
+  const isRefreshing = health.isRefreshing || queues.isRefreshing || sources.isRefreshing || runs.isRefreshing || schedules.isRefreshing
+
+  const refreshAll = useCallback(() => {
+    void health.retry()
+    void queues.retry()
+    void sources.retry()
+    void runs.retry()
+    void schedules.retry()
+  }, [health, queues, sources, runs, schedules])
 
   return (
     <main id="main-content" className={styles.main}>
@@ -189,12 +239,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           <p className={styles.kicker}>Operator overview</p>
           <h1 className={styles.heading}>WivWav Health</h1>
         </div>
-        {overview && (
-          <div className={styles.heroStatus} data-severity={overview.overall.severity}>
-            <SeverityIcon severity={overview.overall.severity} size={16} />
-            <span className={styles.heroStatusLabel}>{overview.overall.label}</span>
-          </div>
-        )}
+        <div className={styles.heroStatus} data-severity={overview.overall.severity}>
+          <SeverityIcon severity={overview.overall.severity} size={16} />
+          <span className={styles.heroStatusLabel}>{overview.overall.label}</span>
+        </div>
         <div className={styles.heroRefresh}>
           <span className={styles.updatedAt} aria-live="polite">
             {updatedAt ? formatTime(updatedAt) : '—'}
@@ -202,7 +250,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           <button
             className={styles.refreshButton}
             type="button"
-            onClick={() => void refresh()}
+            onClick={refreshAll}
             disabled={isRefreshing}
           >
             <RefreshCw size={13} className={isRefreshing ? styles.spinning : undefined} />
@@ -211,21 +259,21 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
         </div>
       </header>
 
-      {!overview ? (
-        <div className={styles.loadingPanel} aria-live="polite">Loading…</div>
-      ) : (
-        <div className={styles.bentoGrid}>
+      <div className={styles.bentoGrid}>
 
-          {/* ── Attention panel (4 cols) ───────────────────────────────── */}
-          <aside className={`${styles.bentoCard} ${styles.span4} ${styles.attentionCard}`} aria-label="Attention needed">
-            <div className={styles.cardHeader}>
-              <AlertCircle size={14} />
-              <span>Attention Needed</span>
-              <Link href="/ops/logs" className={styles.cardHeaderLink}>Logs →</Link>
-            </div>
-            <div className={styles.attentionList}>
-              {overview.attention.map(item => (
-                <div key={item.id} className={styles.attentionItemWrap}>
+        {/* ── Attention panel (4 cols) ───────────────────────────────── */}
+        <aside className={`${styles.bentoCard} ${styles.span4} ${styles.attentionCard}`} aria-label="Attention needed">
+          <div className={styles.cardHeader}>
+            <AlertCircle size={14} />
+            <span>Attention Needed</span>
+            <Link href="/ops/logs" className={styles.cardHeaderLink}>Logs →</Link>
+          </div>
+          <div className={styles.attentionList}>
+            {overview.attention.map(item => {
+              const retryResourceKey = UNAVAILABLE_ATTENTION_ID[item.id]
+              const retryResource = retryResourceKey ? resources[retryResourceKey] : undefined
+              return (
+                <div key={item.id} className={styles.attentionItemWrap} data-has-retry={retryResource ? 'true' : 'false'}>
                   <Link href={item.href} className={styles.attentionItem} data-severity={item.severity}>
                     <SeverityIcon severity={item.severity} size={14} />
                     <div>
@@ -233,96 +281,113 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
                       <ExpandableDetail text={item.detail} />
                     </div>
                   </Link>
+                  {retryResource && (
+                    <button
+                      type="button"
+                      className={styles.attentionRetryBtn}
+                      onClick={() => void retryResource.retry()}
+                      disabled={retryResource.isRefreshing}
+                    >
+                      <RefreshCw size={11} className={retryResource.isRefreshing ? styles.spinning : undefined} />
+                      {retryResource.isRefreshing ? 'Retrying…' : 'Retry'}
+                    </button>
+                  )}
                   <CopyButton
                     text={`${item.title}: ${item.detail}`}
                     label={`Copy ${item.title}`}
                     className={styles.attentionCopyBtn}
                   />
                 </div>
-              ))}
-            </div>
-          </aside>
-
-          {/* ── Section: Service & Queue Health ───────────────────────── */}
-          <div className={`${styles.bentoLabel} ${styles.span4}`}>
-            <Cpu size={13} />
-            <span>Service &amp; Queue Health</span>
-            <Link href="/status" className={styles.labelLink}>Raw status →</Link>
+              )
+            })}
           </div>
-          {overview.healthCards.map(card => (
-            <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
-          ))}
+        </aside>
 
-          {/* ── Per-queue breakdown ─────────────────────────────────── */}
-          {data?.queues && data.queues.length > 0 && (
-            <div className={`${styles.bentoCard} ${styles.chartCard} ${styles.span4}`}>
-              <div className={styles.chartCardHeader}>
-                <Layers size={12} />
-                <span>Queues</span>
-                <span className={styles.chartHint}>waiting · active · delayed · failed</span>
-              </div>
-              <div className={styles.chartCardBody}>
-                <div className={styles.queueBreakdown} role="table" aria-label="Per-queue job counts">
-                  {data.queues.map(queue => (
-                    <div key={queue.name} className={styles.queueBreakdownRow} role="row">
-                      <span className={styles.queueBreakdownName} role="cell">
-                        <Link href="/ops/queues">{queue.name}</Link>
-                        {queue.paused && <span className={styles.queueBreakdownPaused}>Paused</span>}
-                      </span>
-                      <span className={styles.queueBreakdownStat} role="cell">{queue.stats.waiting}w</span>
-                      <span className={styles.queueBreakdownStat} role="cell">{queue.stats.active}a</span>
-                      <span className={styles.queueBreakdownStat} role="cell">{queue.stats.delayed}d</span>
-                      <span
-                        className={styles.queueBreakdownStat}
-                        data-alert={queue.stats.failed > 0}
-                        role="cell"
-                      >
-                        {queue.stats.failed}f
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {/* ── Section: Service & Queue Health ───────────────────────── */}
+        <div className={`${styles.bentoLabel} ${styles.span4}`}>
+          <Cpu size={13} />
+          <span>Service &amp; Queue Health</span>
+          {(health.isRefreshing || queues.isRefreshing) && health.data && queues.data && (
+            <span className={styles.sectionRefreshing}>Refreshing…</span>
           )}
+          <Link href="/status" className={styles.labelLink}>Raw status →</Link>
+        </div>
+        {overview.healthCards.map(card => (
+          <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
+        ))}
 
-          {/* ── Section: Listing Freshness ────────────────────────────── */}
-          <div className={`${styles.bentoLabel} ${styles.span4}`}>
-            <Activity size={13} />
-            <span>Listing Freshness</span>
-            <Link href="/ops/runs" className={styles.labelLink}>Scraper runs →</Link>
-          </div>
-          {overview.freshnessCards.map(card => (
-            <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
-          ))}
-
-          {/* ── Scrape success chart ────────────────────────────────── */}
+        {/* ── Per-queue breakdown ─────────────────────────────────── */}
+        {queues.data && queues.data.length > 0 && (
           <div className={`${styles.bentoCard} ${styles.chartCard} ${styles.span4}`}>
             <div className={styles.chartCardHeader}>
-              <Activity size={12} />
-              <span>Scrape Run History</span>
-              <span className={styles.chartHint}>Last {scrapeRunPoints.length > 0 ? scrapeRunPoints.length : '…'} runs · success/failure per run · height = listings found</span>
+              <Layers size={12} />
+              <span>Queues</span>
+              <span className={styles.chartHint}>waiting · active · delayed · failed</span>
             </div>
             <div className={styles.chartCardBody}>
-              <ScrapeRunChart
-                runs={scrapeRunPoints}
-                maxBars={RING_BUFFER_SIZE}
-                ariaLabel="Bar chart of recent scrape run results; green bars are successful runs, red bars are failed runs, height indicates listings found"
-              />
+              <div className={styles.queueBreakdown} role="table" aria-label="Per-queue job counts">
+                {queues.data.map(queue => (
+                  <div key={queue.name} className={styles.queueBreakdownRow} role="row">
+                    <span className={styles.queueBreakdownName} role="cell">
+                      <Link href="/ops/queues">{queue.name}</Link>
+                      {queue.paused && <span className={styles.queueBreakdownPaused}>Paused</span>}
+                    </span>
+                    <span className={styles.queueBreakdownStat} role="cell">{queue.stats.waiting}w</span>
+                    <span className={styles.queueBreakdownStat} role="cell">{queue.stats.active}a</span>
+                    <span className={styles.queueBreakdownStat} role="cell">{queue.stats.delayed}d</span>
+                    <span
+                      className={styles.queueBreakdownStat}
+                      data-alert={queue.stats.failed > 0}
+                      role="cell"
+                    >
+                      {queue.stats.failed}f
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        )}
 
-          {/* ── Section: Telemetry Gaps ───────────────────────────────── */}
-          <div className={`${styles.bentoLabel} ${styles.span4}`}>
-            <FileText size={13} />
-            <span>Telemetry Gaps</span>
-          </div>
-          {overview.telemetry.map(card => (
-            <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
-          ))}
-
+        {/* ── Section: Listing Freshness ────────────────────────────── */}
+        <div className={`${styles.bentoLabel} ${styles.span4}`}>
+          <Activity size={13} />
+          <span>Listing Freshness</span>
+          {(sources.isRefreshing || runs.isRefreshing) && sources.data && runs.data && (
+            <span className={styles.sectionRefreshing}>Refreshing…</span>
+          )}
+          <Link href="/ops/runs" className={styles.labelLink}>Scraper runs →</Link>
         </div>
-      )}
+        {overview.freshnessCards.map(card => (
+          <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
+        ))}
+
+        {/* ── Scrape success chart ────────────────────────────────── */}
+        <div className={`${styles.bentoCard} ${styles.chartCard} ${styles.span4}`}>
+          <div className={styles.chartCardHeader}>
+            <Activity size={12} />
+            <span>Scrape Run History</span>
+            <span className={styles.chartHint}>Last {scrapeRunPoints.length > 0 ? scrapeRunPoints.length : '…'} runs · success/failure per run · height = listings found</span>
+          </div>
+          <div className={styles.chartCardBody}>
+            <ScrapeRunChart
+              runs={scrapeRunPoints}
+              maxBars={RING_BUFFER_SIZE}
+              ariaLabel="Bar chart of recent scrape run results; green bars are successful runs, red bars are failed runs, height indicates listings found"
+            />
+          </div>
+        </div>
+
+        {/* ── Section: Telemetry Gaps ───────────────────────────────── */}
+        <div className={`${styles.bentoLabel} ${styles.span4}`}>
+          <FileText size={13} />
+          <span>Telemetry Gaps</span>
+        </div>
+        {overview.telemetry.map(card => (
+          <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
+        ))}
+
+      </div>
 
       {/* ── Nav grid ──────────────────────────────────────────────────────── */}
       <nav className={styles.linkGrid} aria-label="Operations areas">
@@ -416,25 +481,6 @@ function severityLabel(severity: OverviewSeverity): string {
   if (severity === 'warning')  return 'Warning'
   if (severity === 'critical') return 'Critical'
   return 'Unknown'
-}
-
-async function fetchData<T>(url: string): Promise<{ data: T | null; error?: string }> {
-  try {
-    const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10_000)
-    if (!res.ok) return { data: null, error: `API returned ${res.status}` }
-    const body = (await res.json()) as T | { data: T }
-    if (isDataEnvelope<T>(body)) return { data: body.data }
-    return { data: body }
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      return { data: null, error: 'Request timed out' }
-    }
-    return { data: null, error: err instanceof Error ? err.message : 'Request failed' }
-  }
-}
-
-function isDataEnvelope<T>(body: T | { data: T }): body is { data: T } {
-  return typeof body === 'object' && body !== null && 'data' in body
 }
 
 function formatTime(date: Date): string {
