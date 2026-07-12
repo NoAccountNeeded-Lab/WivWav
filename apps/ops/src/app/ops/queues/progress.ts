@@ -58,16 +58,6 @@ export function buildQueueSnapshotProgress(stats: QueueSnapshotStats): QueueSnap
 }
 
 export function buildJobProgressModel(job: { id: string; status: string; progress: unknown }): JobProgressModel {
-  if (typeof job.progress === 'number' && Number.isFinite(job.progress)) {
-    return {
-      kind: 'determinate',
-      value: job.progress,
-      max: 100,
-      label: `Job #${job.id} progress`,
-      caption: `${formatNumber(job.progress)} of 100 reported`,
-    }
-  }
-
   const countLike = asCountLikeProgress(job.progress)
   if (countLike && typeof countLike.current === 'number' && typeof countLike.total === 'number' && countLike.total > 0) {
     const stage = typeof countLike.stage === 'string' && countLike.stage.trim().length > 0
