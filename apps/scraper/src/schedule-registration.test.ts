@@ -157,6 +157,45 @@ describe('detail schedule registration', () => {
     expect(jobs.find((job) => job.key === 'blvd-crawl')?.data).toEqual({ sourceId: 'blvd-id' })
   })
 
+  it('removes a superseded scheduler matched via the legacy name+pattern fallback under a different key (#767)', async () => {
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    // A single-source signature is unambiguous, so a scheduler with a
+    // different key but the same name+pattern is matched via the legacy
+    // fallback in findScheduledMatch, not by jobId.
+    crawl.seedRepeatable({
+      key: 'legacy-blvd-crawl',
+      name: QUEUES.DETAIL_CRAWL,
+      id: 'legacy-blvd-crawl',
+      tz: 'America/New_York',
+      pattern: '0 * * * *',
+      next: null,
+      legacy: false,
+      data: { sourceId: 'stale-blvd-id' },
+    })
+    const definitions = buildDetailScheduleDefinitions(
+      [{ id: 'blvd-id', timezone: 'America/New_York', schedulerPrefix: 'blvd' }],
+      { crawl, extract },
+      CRITICAL_JOB_OPTIONS,
+    )
+
+    await reconcileSchedules(definitions, logger)
+
+    const jobs = await crawl.getRepeatableJobs()
+    expect(jobs.map((job) => job.key)).toEqual(['blvd-crawl'])
+    expect(jobs[0]?.data).toEqual({ sourceId: 'blvd-id' })
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'legacy-blvd-crawl', replacedBy: 'blvd-crawl' }),
+      'Superseded schedule removed after registering under its canonical key',
+    )
+
+    // A subsequent reconcile pass must be idempotent: no duplicate schedulers.
+    vi.clearAllMocks()
+    await reconcileSchedules(definitions, logger)
+    expect((await crawl.getRepeatableJobs()).map((job) => job.key)).toEqual(['blvd-crawl'])
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
   it('removes a scheduler whose sourceId no longer exists in any current definition (#767)', async () => {
     const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
     const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
