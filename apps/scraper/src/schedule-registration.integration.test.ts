@@ -1,7 +1,11 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
 import type { QueueAdapter } from '@wivwav/queue'
-import { buildDetailScheduleDefinitions, reconcileSchedules } from './schedule-registration.js'
+import {
+  buildDetailScheduleDefinitions,
+  reconcileSchedules,
+  type ScheduleDefinition,
+} from './schedule-registration.js'
 
 // Regression coverage for #631: two SCHEDULE_DEFS entries that share the same
 // `name` + `pattern` (detail-crawl/detail-extract intentionally use one
@@ -62,5 +66,74 @@ describe('reconcileSchedules against real BullMQ/Redis (integration)', () => {
     await reconcileSchedules(definitions, noopLogger)
     expect(await crawl.getRepeatableJobs()).toHaveLength(2)
     expect(await extract.getRepeatableJobs()).toHaveLength(2)
+  }, 20_000)
+})
+
+// Regression coverage for #767: a DB reseed recreates `sources` rows with new
+// cuids while Valkey survives untouched. Schedulers are keyed by a stable
+// jobId (derived from the source's schedulerKey, not the row id), so
+// reconciliation must detect the sourceId payload drift and self-heal on the
+// next scraper startup instead of leaving every scheduler pointed at dead
+// row ids forever.
+describe('reconcileSchedules self-heals a DB reseed against real BullMQ/Redis (integration)', () => {
+  const suffix = `it-reseed-${Date.now()}`
+  const factory = new BullMQQueueFactory()
+  const scrape: QueueAdapter = factory.createQueue(`source-scrape-${suffix}`)
+  const crawl: QueueAdapter = factory.createQueue(`detail-crawl-${suffix}`)
+  const extract: QueueAdapter = factory.createQueue(`detail-extract-${suffix}`)
+
+  afterAll(async () => {
+    for (const queue of [scrape, crawl, extract]) {
+      for (const job of await queue.getRepeatableJobs()) {
+        await queue.removeRepeatableByKey(job.key)
+      }
+    }
+    await factory.close()
+  })
+
+  function definitionsFor(sourceId: string): ScheduleDefinition[] {
+    return [
+      {
+        queue: scrape,
+        name: 'source-scrape',
+        data: { sourceId },
+        pattern: '0 * * * *',
+        tz: 'America/New_York',
+        jobId: 'blvd',
+        options: CRITICAL_JOB_OPTIONS,
+      },
+      ...buildDetailScheduleDefinitions(
+        [{ id: sourceId, timezone: 'America/New_York', schedulerPrefix: 'blvd' }],
+        { crawl, extract },
+        CRITICAL_JOB_OPTIONS,
+      ),
+    ]
+  }
+
+  it('converges scheduler payloads to new source ids after source rows are dropped and recreated', async () => {
+    await reconcileSchedules(definitionsFor('gen1-blvd-id'), noopLogger)
+
+    let scrapeJobs = await scrape.getRepeatableJobs()
+    let crawlJobs = await crawl.getRepeatableJobs()
+    let extractJobs = await extract.getRepeatableJobs()
+    expect(scrapeJobs.find((j) => j.key === 'blvd')?.data).toEqual({ sourceId: 'gen1-blvd-id' })
+    expect(crawlJobs.find((j) => j.key === 'blvd-crawl')?.data).toEqual({ sourceId: 'gen1-blvd-id' })
+    expect(extractJobs.find((j) => j.key === 'blvd-extract')?.data).toEqual({ sourceId: 'gen1-blvd-id' })
+
+    // Simulate a Postgres-only reseed: source rows are dropped and recreated
+    // with new cuids, but the BullMQ schedulers (in Valkey) are untouched —
+    // jobIds stay the same, only the underlying source id changes.
+    await reconcileSchedules(definitionsFor('gen2-blvd-id'), noopLogger)
+
+    scrapeJobs = await scrape.getRepeatableJobs()
+    crawlJobs = await crawl.getRepeatableJobs()
+    extractJobs = await extract.getRepeatableJobs()
+
+    expect(scrapeJobs).toHaveLength(1)
+    expect(crawlJobs).toHaveLength(1)
+    expect(extractJobs).toHaveLength(1)
+    expect(scrapeJobs.find((j) => j.key === 'blvd')?.data).toEqual({ sourceId: 'gen2-blvd-id' })
+    expect(crawlJobs.find((j) => j.key === 'blvd-crawl')?.data).toEqual({ sourceId: 'gen2-blvd-id' })
+    expect(extractJobs.find((j) => j.key === 'blvd-extract')?.data).toEqual({ sourceId: 'gen2-blvd-id' })
   }, 20_000)
 })

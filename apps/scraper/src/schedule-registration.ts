@@ -62,6 +62,8 @@ export async function reconcileSchedules(
     definitionsByQueue.set(definition.queue, queueDefinitions)
   }
 
+  const validSourceIds = collectSourceIds(definitions)
+
   for (const [queue, queueDefinitions] of definitionsByQueue) {
     let existing = await queue.getRepeatableJobs()
     const definitionsBySignature = groupBySignature(queueDefinitions)
@@ -89,18 +91,42 @@ export async function reconcileSchedules(
       existing = existing.filter((job) => !removedKeys.has(job.key))
     }
 
+    const matchedKeys = new Set<string>()
+
     for (const definition of queueDefinitions) {
       const signatureDefinitions = definitionsBySignature.get(signatureFor(definition)) ?? []
-      const alreadyScheduled = isAlreadyScheduled(
+      const match = findScheduledMatch(
         definition,
         existing,
         signatureDefinitions.length > 1,
       )
 
-      if (alreadyScheduled) {
-        logger.debug(
-          { queue: definition.name, jobId: definition.jobId },
-          'Schedule already registered',
+      if (match) {
+        matchedKeys.add(match.key)
+
+        if (payloadsMatch(match.data, definition.data)) {
+          logger.debug(
+            { queue: definition.name, jobId: definition.jobId },
+            'Schedule already registered',
+          )
+          continue
+        }
+
+        await queue.addRepeatable(
+          definition.name,
+          definition.data,
+          definition.pattern,
+          definition.tz,
+          definition.jobId,
+          definition.options,
+        )
+        logger.info(
+          {
+            queue: definition.name,
+            jobId: definition.jobId,
+            key: match.key,
+          },
+          'Schedule payload corrected to match current definition',
         )
         continue
       }
@@ -113,14 +139,17 @@ export async function reconcileSchedules(
         definition.jobId,
         definition.options,
       )
+      const newKey = definition.jobId ?? definition.name
+      matchedKeys.add(newKey)
       existing.push({
-        key: definition.jobId ?? definition.name,
+        key: newKey,
         name: definition.name,
-        id: definition.jobId ?? definition.name,
+        id: newKey,
         tz: definition.tz,
         pattern: definition.pattern,
         next: null,
         legacy: false,
+        data: definition.data,
       })
       logger.info(
         {
@@ -132,7 +161,56 @@ export async function reconcileSchedules(
         'Schedule registered',
       )
     }
+
+    for (const job of existing) {
+      if (matchedKeys.has(job.key)) continue
+
+      const sourceId = extractSourceId(job.data)
+      if (sourceId === undefined || validSourceIds.has(sourceId)) continue
+
+      const removed = await queue.removeRepeatableByKey(job.key)
+      if (removed) {
+        logger.warn(
+          { queue: queue.name, key: job.key, sourceId },
+          'Stale schedule removed: referenced source id no longer exists',
+        )
+      }
+    }
   }
+}
+
+/** Collects every sourceId referenced by the current schedule definitions, across all queues. */
+function collectSourceIds(definitions: readonly ScheduleDefinition[]): Set<string> {
+  const ids = new Set<string>()
+  for (const definition of definitions) {
+    const sourceId = extractSourceId(definition.data)
+    if (sourceId !== undefined) ids.add(sourceId)
+  }
+  return ids
+}
+
+function extractSourceId(data: unknown): string | undefined {
+  if (typeof data !== 'object' || data === null) return undefined
+  const sourceId = (data as Record<string, unknown>)['sourceId']
+  return typeof sourceId === 'string' ? sourceId : undefined
+}
+
+/** Deep-equal comparison of schedule payloads, tolerant of key ordering. */
+function payloadsMatch(existingData: unknown, definitionData: Record<string, unknown>): boolean {
+  return stableStringify(existingData) === stableStringify(definitionData)
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+      a.localeCompare(b),
+    )
+    return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`).join(',')}}`
+  }
+  return JSON.stringify(value)
 }
 
 function groupBySignature(
@@ -159,19 +237,26 @@ function hasSameSignature(
   return job.name === definition.name && job.pattern === definition.pattern
 }
 
-function isAlreadyScheduled(
+/**
+ * Finds the existing scheduler that a definition already occupies, if any.
+ * Matching (jobId, then signature fallback) mirrors the previous
+ * `isAlreadyScheduled` boolean check, but returns the matched job so callers
+ * can compare payloads instead of assuming a match means "nothing to do".
+ */
+function findScheduledMatch(
   definition: ScheduleDefinition,
   existing: readonly RepeatableJob[],
   signatureIsAmbiguous: boolean,
-): boolean {
+): RepeatableJob | undefined {
   if (!definition.jobId) {
-    return existing.some((job) => job.name === definition.name)
+    return existing.find((job) => job.name === definition.name)
   }
 
-  if (existing.some((job) => job.id === definition.jobId)) return true
-  if (signatureIsAmbiguous) return false
+  const byId = existing.find((job) => job.id === definition.jobId)
+  if (byId) return byId
+  if (signatureIsAmbiguous) return undefined
 
   // Preserve a single legacy schedule where name+pattern still identifies one
   // canonical definition. Ambiguous per-source signatures are migrated above.
-  return existing.some((job) => hasSameSignature(job, definition))
+  return existing.find((job) => hasSameSignature(job, definition))
 }
