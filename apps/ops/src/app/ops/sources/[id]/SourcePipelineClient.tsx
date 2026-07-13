@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../../ops.module.css'
 import { stageStatus, stageStatusLabel, type PipelineStage } from './source-pipeline-helpers'
 
@@ -55,16 +56,6 @@ const STAGE_META: Record<string, { label: string; description: string }> = {
     label: 'VIN enrich',
     description: 'Decodes VINs via NHTSA vPIC and links listings to vehicle models. Runs across all sources.',
   },
-}
-
-function fmtDateTime(value: string | null): string {
-  if (!value) return 'Never'
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
 }
 
 function fmtTime(date: Date): string {
@@ -224,7 +215,9 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
                     </div>
                     <div className={styles.metric}>
                       <span className={styles.metricLabel}>Last completed</span>
-                      <span className={styles.metricValue} style={{ fontSize: '0.875rem' }}>{fmtDateTime(stage.lastCompletedAt)}</span>
+                      <span className={styles.metricValue} style={{ fontSize: '0.875rem' }}>
+                        <RelativeTimestamp value={stage.lastCompletedAt} fallback="Never" />
+                      </span>
                     </div>
                   </div>
                   {stage.failedCount > 0 && (

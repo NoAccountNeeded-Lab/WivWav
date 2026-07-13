@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
 
 interface RunRow {
@@ -24,16 +25,6 @@ interface RunsClientProps {
 }
 
 const REFRESH_MS = 15_000
-
-function fmtDate(val: string | null): string {
-  if (!val) return '—'
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(val))
-}
 
 function duration(start: string, end: string | null): string {
   if (!end) return 'running…'
@@ -162,7 +153,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
               <tbody>
                 {filtered.map(r => (
                   <tr key={r.id}>
-                    <td className={styles.muted}>{fmtDate(r.startedAt)}</td>
+                    <td className={styles.muted}><RelativeTimestamp value={r.startedAt} /></td>
                     <td>
                       {r.sourceName
                         ? <span style={{ fontWeight: 600 }}>{r.sourceName}</span>

@@ -32,7 +32,6 @@ const SCHEDULES_BODY = {
     lastRunAt: new Date().toISOString(), lastStatus: 'completed', recentFailureCount: 0, recentFailureReason: null,
   }],
 }
-
 function mockFetchWithFailingRuns() {
   return vi.fn(async (url: string) => {
     if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
@@ -54,6 +53,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -106,5 +106,41 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
     expect(screen.getByText('Service & Queue Health')).not.toBeNull()
     expect(screen.getByText('Listing Freshness')).not.toBeNull()
     expect(screen.getByLabelText('Attention needed')).not.toBeNull()
+  })
+
+  it('shows relative freshness text with an absolute tooltip on the overview card', async () => {
+    const finishedAt = new Date(Date.now() - 10 * 60_000).toISOString()
+    const runsBody = {
+      data: [{
+        id: 'run-1',
+        sourceId: 'src-1',
+        sourceName: 'BLVD',
+        startedAt: new Date(Date.now() - 15 * 60_000).toISOString(),
+        finishedAt,
+        success: true,
+        listingsFound: 42,
+        listingsNew: 1,
+        listingsUpdated: 2,
+        errorMessage: null,
+      }],
+    }
+
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
+      if (url.endsWith('/admin/queues')) return jsonResponse(QUEUES_BODY)
+      if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
+      if (url.endsWith('/admin/runs')) return jsonResponse(runsBody)
+      if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+      throw new Error(`Unexpected URL in test: ${url}`)
+    }))
+
+    render(<OpsOverviewClient apiBaseUrl="" />)
+
+    const freshnessLabel = await screen.findByText('Last successful scrape')
+    const card = freshnessLabel.closest('a, article')
+    const relativeValue = card?.querySelector('strong')
+
+    expect(relativeValue?.textContent).toMatch(/ago$/)
+    expect(relativeValue?.getAttribute('title')).toBeTruthy()
   })
 })

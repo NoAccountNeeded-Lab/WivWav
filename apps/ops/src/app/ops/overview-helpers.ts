@@ -1,3 +1,4 @@
+import { formatAbsoluteTimestamp, formatRelativeTimestamp } from '@/lib/relative-time'
 import type { HealthResponse, ServiceHealth } from '@wivwav/types'
 
 export interface QueueStats {
@@ -62,6 +63,7 @@ export interface OverviewCard {
   detail: string
   severity: OverviewSeverity
   href?: string
+  title?: string
 }
 
 export interface AttentionItem {
@@ -117,6 +119,8 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const erroredSources = input.sources?.filter(source => source.status === 'error') ?? []
   const lastSuccessfulRun = findLastSuccessfulRun(input.runs)
   const lastScrapeAgeMs = lastSuccessfulRun?.finishedAt ? input.now.getTime() - new Date(lastSuccessfulRun.finishedAt).getTime() : null
+  const lastSuccessfulRunRelative = lastSuccessfulRun?.finishedAt ? formatRelativeTimestamp(lastSuccessfulRun.finishedAt, { now: input.now }) : null
+  const lastSuccessfulRunTitle = lastSuccessfulRun?.finishedAt ? formatAbsoluteTimestamp(lastSuccessfulRun.finishedAt) : null
   const geocodeQueue = input.queues?.find(queue => queue.name === 'geocode') ?? null
   const healthServices = input.health?.services
 
@@ -164,10 +168,11 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
     {
       id: 'last-successful-scrape',
       label: 'Last successful scrape',
-      value: runError ? 'Unavailable' : lastSuccessfulRun?.finishedAt ? formatRelative(lastSuccessfulRun.finishedAt, input.now) : 'Not yet tracked',
-      detail: runError ?? (lastSuccessfulRun ? `${lastSuccessfulRun.sourceName ?? 'Unknown source'} finished ${formatDateTime(lastSuccessfulRun.finishedAt)}` : 'No successful scraper run found in recent history'),
+      value: runError ? 'Unavailable' : lastSuccessfulRunRelative ?? 'Not yet tracked',
+      detail: runError ?? (lastSuccessfulRun ? `${lastSuccessfulRun.sourceName ?? 'Unknown source'} finished most recently` : 'No successful scraper run found in recent history'),
       severity: runError ? 'unknown' : staleSeverity(lastScrapeAgeMs),
       href: '/ops/runs',
+      ...(lastSuccessfulRunTitle ? { title: lastSuccessfulRunTitle } : {}),
     },
     {
       id: 'sources-needing-remap',
@@ -283,7 +288,7 @@ function serviceSeverity(health: ServiceHealth | null | undefined): OverviewSeve
 function serviceDetail(health: ServiceHealth | null | undefined): string {
   if (!health) return 'Waiting for API data'
   if (health.message) return health.message
-  if (health.lastRunAt) return `Last successful run ${formatDateTime(health.lastRunAt)}`
+  if (health.lastRunAt) return `Last successful run ${formatRelativeTimestamp(health.lastRunAt) ?? 'unknown time'}`
   if (health.latencyMs != null) return `${health.latencyMs} ms response`
   return 'No diagnostic detail returned — check service logs'
 }
@@ -399,7 +404,7 @@ function freshnessAttention(run: RunRow | null, ageMs: number | null, error: str
   return [{
     id: 'stale-scraper-run',
     title: 'Listings may be stale',
-    detail: `Last successful scrape finished ${formatRelative(run.finishedAt, now)}.`,
+    detail: `Last successful scrape finished ${formatRelativeTimestamp(run.finishedAt, { now }) ?? 'unknown time'}.`,
     href: '/ops/runs',
     severity: severity === 'critical' ? 'critical' : 'warning',
   }]
@@ -456,25 +461,4 @@ function serviceName(name: string): string {
   if (name === 'scraper') return 'Scraper'
   if (name === 'ollama') return 'Ollama'
   return name
-}
-
-function formatRelative(value: string | null, now: Date): string {
-  if (!value) return 'Not yet tracked'
-  const ms = now.getTime() - new Date(value).getTime()
-  if (ms < 60_000) return 'less than 1 min ago'
-  const minutes = Math.round(ms / 60_000)
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 48) return `${hours} hr ago`
-  return `${Math.round(hours / 24)} days ago`
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return 'unknown time'
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
 }

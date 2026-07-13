@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { AI_RUNBOOK_IDS } from '../runbooks'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import { MODEL_CATALOG, JOB_RECOMMENDATIONS } from './model-catalog'
 import { JobTestPanel } from './JobTestPanels'
 
@@ -68,15 +69,6 @@ interface AIClientProps {
 }
 
 const REFRESH_MS = 30_000
-
-// ── Formatting helpers ────────────────────────────────────────────────────────
-
-function fmtDate(val: string | null): string {
-  if (!val) return '—'
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  }).format(new Date(val))
-}
 
 function fmtTime(date: Date): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -506,7 +498,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                         return (
                           <tr key={s.id}>
                             <td style={{ fontWeight: 600 }}>{s.name}</td>
-                            <td className={styles.muted}>{fmtDate(s.lastScrapedAt)}</td>
+                            <td className={styles.muted}><RelativeTimestamp value={s.lastScrapedAt} /></td>
                             <td>
                               {s.errorMessage
                                 ? <span className={styles.errorMsg}>{s.errorMessage}</span>
