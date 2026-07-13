@@ -45,7 +45,7 @@ import { CopyButton } from '@/components/CopyButton'
 import { SkeletonChartBox } from '@/components/Skeleton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
-import type { ScrapeRunPoint } from '@/components/SparklineChart'
+import type { ScrapeRunPoint } from '@wivwav/charts'
 import { fetchJson } from '@/lib/fetch-json'
 import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
 import { getOpsOverviewLinks } from './ops-nav'
@@ -58,7 +58,7 @@ type RetryableResource = Pick<PolledResourceState<unknown>, 'retry' | 'isRefresh
 // rendering logic — load it on demand so it never blocks the rest of the
 // overview from streaming in (E5: lazy-load heavy client components).
 const ScrapeRunChart = dynamic(
-  () => import('@/components/SparklineChart').then(mod => mod.ScrapeRunChart),
+  () => import('@wivwav/charts').then(mod => mod.ScrapeRunChart),
   { ssr: false, loading: () => <SkeletonChartBox aspectRatio="4/1" /> },
 )
 

@@ -14,7 +14,7 @@ interface ScheduleTimelineProps {
  * edit, and clear-failed actions stay on the table below, which remains the
  * authoritative accessible source for exact times; this view is decorative
  * (aria-hidden) with a text caption summarizing counts, matching the
- * ScrapeRunChart/QueueDepthChart convention in src/components/SparklineChart.tsx.
+ * ScrapeRunChart convention in packages/charts/src/ScrapeRunChart.tsx.
  */
 export function ScheduleTimeline({ schedules }: ScheduleTimelineProps) {
   const model = buildScheduleTimelineModel(schedules, Date.now())

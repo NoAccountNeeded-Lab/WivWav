@@ -13,6 +13,7 @@
     "clean": "rm -rf .next out"
   },
   "dependencies": {
+    "@wivwav/charts": "workspace:*",
     "@wivwav/types": "workspace:*",
     "lucide-react": "^1.23.0",
     "next": "^16.2.10",

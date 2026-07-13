@@ -120,6 +120,9 @@ importers:
 
   apps/ops:
     dependencies:
+      '@wivwav/charts':
+        specifier: workspace:*
+        version: link:../../packages/charts
       '@wivwav/types':
         specifier: workspace:*
         version: link:../../packages/types

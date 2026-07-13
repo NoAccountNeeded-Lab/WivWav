@@ -7,5 +7,8 @@ export type { DonutChartProps, DonutChartDataPoint } from './DonutChart'
 export { RangeSlider } from './RangeSlider'
 export type { RangeSliderProps } from './RangeSlider'
 
+export { ScrapeRunChart } from './ScrapeRunChart'
+export type { ScrapeRunChartProps, ScrapeRunPoint } from './ScrapeRunChart'
+
 export { StatCard } from './StatCard'
 export type { StatCardProps } from './StatCard'
