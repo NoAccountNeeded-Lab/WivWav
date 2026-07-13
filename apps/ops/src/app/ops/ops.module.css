@@ -1518,7 +1518,7 @@
 }
 
 /* Failed markers get an extra ring, not just a color change, so status is not
-   conveyed by hue alone (see ScrapeRunChart in src/components/SparklineChart.tsx).
+   conveyed by hue alone (see ScrapeRunChart in packages/charts/src/ScrapeRunChart.tsx).
    box-shadow (rather than a wider border) keeps the element's own box size
    untouched, so the data-kind="last" size rule below still applies to it. */
 .timelineMarker[data-variant="danger"] {
