@@ -102,9 +102,8 @@ export async function reconcileSchedules(
       )
 
       if (match) {
-        matchedKeys.add(match.key)
-
         if (payloadsMatch(match.data, definition.data)) {
+          matchedKeys.add(match.key)
           logger.debug(
             { queue: definition.name, jobId: definition.jobId },
             'Schedule already registered',
@@ -120,6 +119,37 @@ export async function reconcileSchedules(
           definition.jobId,
           definition.options,
         )
+        const correctedKey = definition.jobId ?? definition.name
+
+        // The legacy name+pattern fallback can match a scheduler keyed
+        // differently from this definition's canonical key (e.g. after a
+        // registry-key rename). addRepeatable above upserts under
+        // `correctedKey`, so the old-keyed entry is now a distinct,
+        // superseded scheduler — remove it explicitly instead of leaving it
+        // in `matchedKeys`, which would exempt it from the orphan-cleanup
+        // pass below and let two active schedulers run the same job forever.
+        if (match.key !== correctedKey) {
+          const removed = await queue.removeRepeatableByKey(match.key)
+          if (removed) {
+            logger.warn(
+              { queue: queue.name, key: match.key, replacedBy: correctedKey },
+              'Superseded schedule removed after registering under its canonical key',
+            )
+          }
+        }
+
+        matchedKeys.add(correctedKey)
+        existing = existing.filter((job) => job.key !== match.key)
+        existing.push({
+          key: correctedKey,
+          name: definition.name,
+          id: correctedKey,
+          tz: definition.tz,
+          pattern: definition.pattern,
+          next: null,
+          legacy: false,
+          data: definition.data,
+        })
         logger.info(
           {
             queue: definition.name,
