@@ -426,7 +426,7 @@ function MetricCard({ card, span }: { card: OverviewCard; span: number }) {
           aria-label={`${card.label} status: ${card.severity}`}
         />
       </div>
-      <strong className={styles.metricValue}>{card.value}</strong>
+      <strong className={styles.metricValue} title={card.title}>{card.value}</strong>
       <span className={styles.metricDetail}>{card.detail}</span>
     </>
   )

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { OpsRunbooks } from '../OpsRunbooks'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
 import { SOURCE_RUNBOOK_IDS } from '../runbooks'
 
@@ -38,16 +39,6 @@ function statusVariant(status: string): string {
   if (status === 'disabled') return 'neutral'
   if (status === 'error' || status === 'needs_remapping') return 'danger'
   return 'neutral'
-}
-
-function fmtDate(val: string | null): string {
-  if (!val) return '—'
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(val))
 }
 
 function fmtTime(date: Date): string {
@@ -204,7 +195,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                       <td className={styles.num}>{s.listingCount.toLocaleString()}</td>
                       <td className={styles.num}>{s.observedActiveCount.toLocaleString()}</td>
                       <td className={styles.num}>{s.eligibleActiveCount.toLocaleString()}</td>
-                      <td className={styles.muted}>{fmtDate(s.lastScrapedAt)}</td>
+                      <td className={styles.muted}><RelativeTimestamp value={s.lastScrapedAt} /></td>
                       <td>
                         {s.errorMessage
                           ? <span className={styles.errorMsg}>{s.errorMessage}</span>

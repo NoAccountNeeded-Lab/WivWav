@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { HealthResponse, ServiceHealth, ServiceStatus } from '@wivwav/types'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from './page.module.css'
 
 const REFRESH_INTERVAL_MS = 30_000
@@ -11,7 +12,7 @@ type RowStatus = ServiceStatus | 'unknown'
 interface StatusRow {
   id: string
   name: string
-  detail: string
+  detail: ReactNode
   status: RowStatus
 }
 
@@ -132,17 +133,17 @@ export function StatusDashboard({ apiBaseUrl }: StatusDashboardProps) {
 
 function toRow(id: keyof HealthResponse['services'], name: string, health?: ServiceHealth): StatusRow {
   return {
-    id,
+    id: String(id),
     name,
     status: health?.status ?? 'unknown',
     detail: formatDetail(health),
   }
 }
 
-function formatDetail(health?: ServiceHealth): string {
+function formatDetail(health?: ServiceHealth): ReactNode {
   if (!health) return 'Waiting for API data'
   if (health.message) return health.message
-  if (health.lastRunAt) return `Last successful run ${formatDateTime(health.lastRunAt)}`
+  if (health.lastRunAt) return <>Last successful run <RelativeTimestamp value={health.lastRunAt} /></>
   if (health.latencyMs != null) return `${health.latencyMs} ms response`
   return 'No successful response'
 }
@@ -163,13 +164,4 @@ function formatTime(date: Date): string {
     minute: '2-digit',
     second: '2-digit',
   }).format(date)
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
 }
