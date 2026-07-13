@@ -92,6 +92,7 @@ export class BullMQQueueAdapter implements QueueAdapter {
       pattern: j.pattern ?? null,
       next: j.next ?? null,
       legacy: j.iterationCount === undefined,
+      data: j.template?.data,
     }))
   }
 

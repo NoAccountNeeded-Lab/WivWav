@@ -106,4 +106,81 @@ describe('detail schedule registration', () => {
       'mw-crawl',
     ])
   })
+
+  it('updates a scheduler in place when its jobId matches but the sourceId payload is stale (#767)', async () => {
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    // Simulate a DB reseed: the scheduler for 'blvd-crawl' is already
+    // registered, but its payload still references a source row id from a
+    // previous DB generation.
+    crawl.seedRepeatable({
+      key: 'blvd-crawl',
+      name: QUEUES.DETAIL_CRAWL,
+      id: 'blvd-crawl',
+      tz: 'America/New_York',
+      pattern: '0 * * * *',
+      next: null,
+      legacy: false,
+      data: { sourceId: 'stale-blvd-id' },
+    })
+
+    await reconcileSchedules(detailDefinitions(crawl, extract), logger)
+
+    const jobs = await crawl.getRepeatableJobs()
+    const blvdJob = jobs.find((job) => job.key === 'blvd-crawl')
+    expect(blvdJob?.data).toEqual({ sourceId: 'blvd-id' })
+    expect(jobs).toHaveLength(2)
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: 'blvd-crawl' }),
+      'Schedule payload corrected to match current definition',
+    )
+  })
+
+  it('leaves a scheduler untouched and logs the debug path when its payload already matches', async () => {
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    const definitions = detailDefinitions(crawl, extract)
+
+    // First pass registers the schedulers with current payloads.
+    await reconcileSchedules(definitions, logger)
+    vi.clearAllMocks()
+
+    // Second pass: payload already matches, so it should be a no-op.
+    await reconcileSchedules(definitions, logger)
+
+    expect(logger.info).not.toHaveBeenCalled()
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: 'blvd-crawl' }),
+      'Schedule already registered',
+    )
+    const jobs = await crawl.getRepeatableJobs()
+    expect(jobs.find((job) => job.key === 'blvd-crawl')?.data).toEqual({ sourceId: 'blvd-id' })
+  })
+
+  it('removes a scheduler whose sourceId no longer exists in any current definition (#767)', async () => {
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    // An orphaned scheduler from a source that was dropped in a later reseed:
+    // its jobId no longer matches any current definition, and its sourceId
+    // does not appear anywhere in the current definition set.
+    crawl.seedRepeatable({
+      key: 'ghost-crawl',
+      name: QUEUES.DETAIL_CRAWL,
+      id: 'ghost-crawl',
+      tz: 'America/New_York',
+      pattern: '0 * * * *',
+      next: null,
+      legacy: false,
+      data: { sourceId: 'long-gone-id' },
+    })
+
+    await reconcileSchedules(detailDefinitions(crawl, extract), logger)
+
+    const jobs = await crawl.getRepeatableJobs()
+    expect(jobs.map((job) => job.key).sort()).toEqual(['blvd-crawl', 'mw-crawl'])
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'ghost-crawl', sourceId: 'long-gone-id' }),
+      'Stale schedule removed: referenced source id no longer exists',
+    )
+  })
 })
