@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { OpsProgressDeterminate, OpsProgressIndeterminate } from '@/components/OpsProgress'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { buildJobProgressModel, buildQueueSnapshotProgress } from './progress'
@@ -482,7 +483,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                                         {job.status}
                                       </span>
                                       <span className={styles.muted}>attempts {job.attemptsMade}</span>
-                                      <span className={styles.muted}>{fmtDateTime(job.createdAt)}</span>
+                                      <span className={styles.muted}><RelativeTimestamp value={job.createdAt} /></span>
                                     </div>
                                     <div className={styles.jobGrid}>
                                       <div>
@@ -569,14 +570,6 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
       </div>
     </main>
   )
-}
-
-function fmtDateTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(value))
 }
 
 function formatUnknown(value: unknown): string {

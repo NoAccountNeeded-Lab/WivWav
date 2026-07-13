@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { OpsProgressDeterminate } from '@/components/OpsProgress'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
 import {
   buildListingRefreshSteps,
@@ -156,7 +157,7 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
               </div>
               <div className={styles.metric}>
                 <span className={styles.metricLabel}>Latest scrape</span>
-                <strong>{status.latestScrapeRun ? fmtDate(status.latestScrapeRun.startedAt) : 'None'}</strong>
+                <strong><RelativeTimestamp value={status.latestScrapeRun?.startedAt} fallback="None" /></strong>
               </div>
             </section>
 
@@ -196,7 +197,7 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
                     <dl className={styles.workflowFacts}>
                       <div>
                         <dt>Last run</dt>
-                        <dd>{step.lastRunAt ? fmtDate(step.lastRunAt) : 'No run recorded'}</dd>
+                        <dd><RelativeTimestamp value={step.lastRunAt} fallback="No run recorded" /></dd>
                       </div>
                       <div>
                         <dt>Counts</dt>
@@ -285,15 +286,6 @@ function statusLabel(status: WorkflowStepStatus): string {
   if (status === 'running') return 'Running'
   if (status === 'warning') return 'Needs attention'
   return 'Blocked'
-}
-
-function fmtDate(value: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
 }
 
 function fmtTime(date: Date): string {

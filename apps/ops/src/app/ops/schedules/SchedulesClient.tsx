@@ -6,6 +6,7 @@ import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { SCHEDULE_RUNBOOK_IDS } from '../runbooks'
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
+import { RelativeTimestamp } from '@/lib/relative-time'
 import { ScheduleTimeline } from './ScheduleTimeline'
 
 export interface ScheduleEntry {
@@ -256,12 +257,12 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                       </td>
                       <td className={styles.muted} style={{ fontSize: '0.8125rem' }}>{entry.tz}</td>
                       <td className={styles.muted} style={{ fontSize: '0.8125rem' }}>
-                        {entry.next ? fmtDateTime(entry.next) : '—'}
+                        <RelativeTimestamp value={entry.next} fallback="—" />
                       </td>
                       <td>
                         <div className={styles.queueNameWrap}>
                           <span className={styles.muted} style={{ fontSize: '0.8125rem' }}>
-                            {entry.lastRunAt ? fmtDateTime(entry.lastRunAt) : 'No recent run'}
+                            <RelativeTimestamp value={entry.lastRunAt} fallback="No recent run" />
                           </span>
                           {entry.lastStatus && (
                             <span
@@ -372,11 +373,4 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
 
 function fmtTime(date: Date): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(date)
-}
-
-function fmtDateTime(value: number | string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  }).format(new Date(value))
 }

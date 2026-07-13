@@ -50,7 +50,7 @@ describe('buildOpsOverview', () => {
 
     expect(overview.overall.label).toBe('Operations look healthy')
     expect(overview.freshnessCards.find(card => card.id === 'active-listings')?.value).toBe('20')
-    expect(overview.freshnessCards.find(card => card.id === 'last-successful-scrape')?.value).toBe('1 hr ago')
+    expect(overview.freshnessCards.find(card => card.id === 'last-successful-scrape')?.value).toBe('1 hour ago')
     expect(overview.healthCards.find(card => card.id === 'queues')?.value).toBe('No failed jobs')
     expect(overview.attention[0]?.id).toBe('no-attention-needed')
     expect(overview.attention[0]?.severity).toBe('good')
