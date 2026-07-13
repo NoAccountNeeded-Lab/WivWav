@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
+import { Activity } from 'lucide-react'
+import { ScrapeRunChart, type ScrapeRunPoint } from '@wivwav/charts'
 import styles from '../ops.module.css'
 
 interface RunRow {
@@ -89,6 +91,18 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
     }
   }, [runs])
 
+  // `/admin/runs` returns newest-first; ScrapeRunChart expects oldest-first
+  // (it renders left-to-right and keeps the most recent `maxBars` entries
+  // via `.slice(-maxBars)`), so reverse before mapping.
+  const scrapeRunPoints = useMemo<ScrapeRunPoint[]>(() => {
+    if (!filtered) return []
+    return [...filtered].reverse().map(r => ({
+      label: r.sourceName ?? r.sourceId,
+      success: r.success,
+      listingsFound: r.listingsFound,
+    }))
+  }, [filtered])
+
   return (
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
@@ -126,6 +140,24 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
             </button>
           </div>
         </div>
+
+        {filtered && filtered.length > 0 && (
+          <div className={styles.chartCard}>
+            <div className={styles.chartCardHeader}>
+              <Activity size={12} />
+              <span>Scrape Run History</span>
+              <span className={styles.chartHint}>
+                Last {Math.min(scrapeRunPoints.length, 20)} {filter !== 'all' ? `${filter} ` : ''}runs · success/failure per run · height = listings found
+              </span>
+            </div>
+            <div className={styles.chartCardBody}>
+              <ScrapeRunChart
+                runs={scrapeRunPoints}
+                ariaLabel="Bar chart of recent scrape run results; green bars are successful runs, red bars are failed runs, height indicates listings found"
+              />
+            </div>
+          </div>
+        )}
 
         {error ? (
           <p className={styles.error}>Listing import activity could not load: {error}. Check the API, then refresh this page.</p>

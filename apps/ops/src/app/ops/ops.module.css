@@ -183,6 +183,51 @@
   border: 0;
 }
 
+/* ── Chart card ────────────────────── */
+
+.chartCard {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-surface);
+  overflow: hidden;
+}
+
+.chartCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--clr-border);
+  color: var(--clr-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font-ui);
+}
+
+.chartHint {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.625rem;
+  color: var(--clr-text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chartCardBody {
+  padding: 0.75rem 1rem 0.875rem;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Table ─────────────────────────── */
 
 .tableWrapper {
