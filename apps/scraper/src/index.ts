@@ -216,7 +216,9 @@ function registerWorkers(): void {
   )
   queueFactory.createWorker(
     QUEUES.VIN_ENRICH,
-    withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) => runVinEnrichJob(context)),
+    withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) =>
+      runVinEnrichJob(context, listingResolveQueue),
+    ),
     { lockDuration: 300_000, logger },
   )
   queueFactory.createWorker(

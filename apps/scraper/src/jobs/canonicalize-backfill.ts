@@ -35,12 +35,14 @@
  * 2. Run: pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts --report
  *    Review output — confirm affected counts and sample values look correct.
  * 3. Run: pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts --apply
- *    This sets publicationStatus = 'pending' on all corrected rows.
- * 4. Run the publication validator to re-evaluate pending rows (pending → eligible).
- *    Until this step completes, corrected rows are not publicly visible.
- * 5. Trigger a full Meilisearch re-index (meilisearch-sync job) so canonical values
+ *    This sets publicationStatus = 'pending' on all corrected rows and
+ *    enqueues a `listing-resolve` job (refs #652) for every corrected row, so
+ *    each one re-evaluates to 'eligible'/'quarantined' without a manual
+ *    follow-up step or requiring an unrelated future source-scrape or
+ *    detail-extract to trigger resolution.
+ * 4. Trigger a full Meilisearch re-index (meilisearch-sync job) so canonical values
  *    are reflected in search documents.
- * 6. Post-release smoke check: query the Meilisearch facets API on 'fuelType' and
+ * 5. Post-release smoke check: query the Meilisearch facets API on 'fuelType' and
  *    'color' and verify no engine descriptions (e.g. "3.5L V6") or leaked field
  *    labels (e.g. "Conv MakeEldorado") appear in results.
  *
@@ -68,6 +70,8 @@ config({ path: resolve(fileURLToPath(import.meta.url), '..', '..', '..', '.env')
 
 import { getDb } from '@wivwav/db'
 import { canonicalConversionManufacturer, ENGINE_DESCRIPTION_PATTERN } from '@wivwav/search'
+import { CRITICAL_JOB_OPTIONS, QUEUES } from '@wivwav/queue'
+import { getQueueFactory } from '../lib/queue-factory.js'
 
 /**
  * Matches a color value that starts with a leaked MobilityWorks card field
@@ -106,6 +110,11 @@ export async function runBackfill(opts: { apply: boolean }): Promise<BackfillRep
     converterFixes: { total: 0, bySource: {}, rejectedValues: {} },
     colorFieldBleedFixes: { total: 0, bySource: {}, sampleValues: {} },
   }
+  // Every row this run sets publicationStatus back to 'pending' needs a
+  // guaranteed path back to 'eligible'/'quarantined' (#652) — this backfill
+  // is operator-run, not a scheduled producer, so nothing else enqueues
+  // resolution for these rows.
+  const correctedListingIds = new Set<string>()
 
   // ── 1. Engine descriptions stored as fuelType ──────────────────────────────
 
@@ -151,6 +160,7 @@ export async function runBackfill(opts: { apply: boolean }): Promise<BackfillRep
           }),
         ),
       )
+      for (const row of batch) correctedListingIds.add(row.id)
     }
   }
 
@@ -195,6 +205,7 @@ export async function runBackfill(opts: { apply: boolean }): Promise<BackfillRep
           }),
         ),
       )
+      for (const row of batch) correctedListingIds.add(row.id)
     }
   }
 
@@ -234,7 +245,18 @@ export async function runBackfill(opts: { apply: boolean }): Promise<BackfillRep
           }),
         ),
       )
+      for (const row of batch) correctedListingIds.add(row.id)
     }
+  }
+
+  if (correctedListingIds.size > 0) {
+    const queueFactory = getQueueFactory()
+    const resolutionQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
+    const observationReference = `canonicalize-backfill:${new Date().toISOString()}`
+    for (const listingId of correctedListingIds) {
+      await resolutionQueue.add({ listingId, observationReference }, CRITICAL_JOB_OPTIONS)
+    }
+    await queueFactory.close()
   }
 
   await db.$disconnect()
