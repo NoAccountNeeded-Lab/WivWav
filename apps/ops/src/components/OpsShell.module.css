@@ -48,6 +48,12 @@
 .headerSlot {
   grid-area: header;
   min-width: 0;
+  /* Sticky must live on the shell-level grid item. When it lived on the
+     nested OpsHeader, the one-row headerSlot was its containing block and
+     prevented it from travelling with the document scrollport. */
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .navSlot {

@@ -20,4 +20,25 @@ describe('OpsShell scroll container', () => {
     expect(mainSlotBlock, 'mainSlot must not declare its own overflow').not.toMatch(/overflow/)
     expect(shellBlock, 'shell must not declare its own overflow').not.toMatch(/overflow/)
   })
+
+  it('keeps sticky positioning on the shell-level header slot', () => {
+    const css = readFileSync(path.join(import.meta.dirname, 'OpsShell.module.css'), 'utf8')
+    const headerSlotBlock = css.match(/\.headerSlot\s*\{[^}]*\}/)?.[0] ?? ''
+
+    expect(headerSlotBlock).toMatch(/position:\s*sticky/)
+  })
+
+  it('pins the shell-level header slot to the top of the document scrollport', () => {
+    const css = readFileSync(path.join(import.meta.dirname, 'OpsShell.module.css'), 'utf8')
+    const headerSlotBlock = css.match(/\.headerSlot\s*\{[^}]*\}/)?.[0] ?? ''
+
+    expect(headerSlotBlock).toMatch(/top:\s*0/)
+  })
+
+  it('does not constrain sticky positioning to the nested header containing block', () => {
+    const css = readFileSync(path.join(import.meta.dirname, 'OpsHeader.module.css'), 'utf8')
+    const headerBlock = css.match(/(?<!\.\w)\.header\s*\{[^}]*\}/)?.[0] ?? ''
+
+    expect(headerBlock).not.toMatch(/position:\s*sticky/)
+  })
 })
