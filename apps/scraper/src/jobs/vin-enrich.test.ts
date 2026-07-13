@@ -207,6 +207,21 @@ describe('runVinEnrichJob — case normalization', () => {
     expect(enrichedIds).toEqual(['b1', 'b2'])
   })
 
+  it('enqueues listing-resolve with the expected payload when publicationStatus is set to pending', async () => {
+    db.listing.findMany.mockResolvedValue([{ id: 'l1', vin: '1ABCD', make: 'Toyota', model: 'Sienna', year: 2020 }])
+    mockFetch({ Make: 'Toyota', Model: 'Sienna', 'Model Year': '2020', Trim: 'LE', 'Body Class': 'Van' })
+    db.vehicleModel.create.mockResolvedValue({ id: 'vm1', bodyType: 'van' })
+    const resolutionQueue = { add: vi.fn().mockResolvedValue(undefined) }
+
+    await runVinEnrichJob(undefined, resolutionQueue as never)
+
+    expect(resolutionQueue.add).toHaveBeenCalledTimes(1)
+    expect(resolutionQueue.add).toHaveBeenCalledWith(
+      { listingId: 'l1', observationReference: expect.stringContaining('vin-enrich:l1:') },
+      expect.anything(),
+    )
+  })
+
   it('skips a listing when acquireListingLock returns false (locked by another job)', async () => {
     db.listing.findMany.mockResolvedValue([{ id: 'l6', vin: '6ABCD', make: 'Toyota', model: 'Sienna', year: 2020 }])
     // Lock not acquired
@@ -232,6 +247,18 @@ describe('runVinEnrichJob — authoritative mismatch', () => {
     vi.clearAllMocks()
     db = makeDb()
     vi.mocked(getDb).mockReturnValue(db as never)
+  })
+
+  it('does not enqueue listing-resolve when the listing is quarantined for an NHTSA mismatch', async () => {
+    db.listing.findMany.mockResolvedValue([
+      { id: 'm1', vin: 'MISMATCH01', make: 'Toyota', model: 'Sienna', year: 2020 },
+    ])
+    mockFetch({ Make: 'Honda', Model: 'Odyssey', 'Model Year': '2020', Trim: 'EX', 'Body Class': 'Van' })
+    const resolutionQueue = { add: vi.fn().mockResolvedValue(undefined) }
+
+    await runVinEnrichJob(undefined, resolutionQueue as never)
+
+    expect(resolutionQueue.add).not.toHaveBeenCalled()
   })
 
   it('quarantines instead of linking when the NHTSA decode disagrees on make/model', async () => {

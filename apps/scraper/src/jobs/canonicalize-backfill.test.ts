@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
+vi.mock('../lib/queue-factory.js', () => ({ getQueueFactory: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
+import { getQueueFactory } from '../lib/queue-factory.js'
 import { runBackfill, COLOR_FIELD_BLEED_PATTERN } from './canonicalize-backfill.js'
 
 function makeDb(overrides: Record<string, unknown> = {}) {
@@ -15,6 +17,15 @@ function makeDb(overrides: Record<string, unknown> = {}) {
     $disconnect: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
+}
+
+function makeQueueFactory() {
+  const resolutionQueue = { add: vi.fn().mockResolvedValue(undefined) }
+  const factory = {
+    createQueue: vi.fn().mockReturnValue(resolutionQueue),
+    close: vi.fn().mockResolvedValue(undefined),
+  }
+  return { factory, resolutionQueue }
 }
 
 /** Queues the three sequential findMany calls runBackfill makes: engine, converter, color. */
@@ -47,11 +58,14 @@ describe('COLOR_FIELD_BLEED_PATTERN', () => {
 
 describe('runBackfill — color field-bleed detection', () => {
   let db: ReturnType<typeof makeDb>
+  let queue: ReturnType<typeof makeQueueFactory>
 
   beforeEach(() => {
     vi.clearAllMocks()
     db = makeDb()
     vi.mocked(getDb).mockReturnValue(db as never)
+    queue = makeQueueFactory()
+    vi.mocked(getQueueFactory).mockReturnValue(queue.factory as never)
   })
 
   it('reports zero color fixes when there are none', async () => {
@@ -99,6 +113,38 @@ describe('runBackfill — color field-bleed detection', () => {
       where: { id: 'l-1' },
       data: { color: null, publicationStatus: 'pending' },
     })
+  })
+
+  it('enqueues a listing-resolve job for every row corrected by --apply (#652)', async () => {
+    queueFindMany(db, {
+      color: [
+        { id: 'l-1', sourceId: 'src-1', color: 'Conv MakeEldorado', source: { name: 'MobilityWorks' } },
+        { id: 'l-2', sourceId: 'src-1', color: 'Conv MakeOther', source: { name: 'MobilityWorks' } },
+      ],
+    })
+
+    await runBackfill({ apply: true })
+
+    expect(queue.resolutionQueue.add).toHaveBeenCalledTimes(2)
+    expect(queue.resolutionQueue.add).toHaveBeenCalledWith(
+      { listingId: 'l-1', observationReference: expect.stringContaining('canonicalize-backfill:') },
+      expect.anything(),
+    )
+    expect(queue.resolutionQueue.add).toHaveBeenCalledWith(
+      { listingId: 'l-2', observationReference: expect.stringContaining('canonicalize-backfill:') },
+      expect.anything(),
+    )
+    expect(queue.factory.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not touch the resolution queue in report mode', async () => {
+    queueFindMany(db, {
+      color: [{ id: 'l-1', sourceId: 'src-1', color: 'Conv MakeEldorado', source: { name: 'MobilityWorks' } }],
+    })
+
+    await runBackfill({ apply: false })
+
+    expect(getQueueFactory).not.toHaveBeenCalled()
   })
 
   it('tallies multiple affected rows by source and value', async () => {

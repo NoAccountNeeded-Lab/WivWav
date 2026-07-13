@@ -1,5 +1,5 @@
 import { getDb } from '@wivwav/db'
-import type { JobContext } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
 import { report } from './job-progress.js'
 import { normalizeVehicleField, type VehicleModelMatchConfidence } from './normalize-vehicle-fields.js'
 import { acquireListingLock, releaseListingLock, unlockableWhere } from './listing-lock.js'
@@ -87,7 +87,7 @@ async function findOrCreateVehicleModel(
   return { id: created.id, bodyType: created.bodyType, confidence: 'exact' }
 }
 
-export async function runVinEnrichJob(context?: JobContext): Promise<void> {
+export async function runVinEnrichJob(context?: JobContext, resolutionQueue?: QueueAdapter): Promise<void> {
   const db = getDb()
 
   // Exclude listings locked by another concurrent job (e.g. geocode, deduplicate)
@@ -186,6 +186,14 @@ export async function runVinEnrichJob(context?: JobContext): Promise<void> {
               qualityCheckedAt: null,
             },
           })
+          // Guarantee a path back to eligible/quarantined (#652) — vin-enrich
+          // is a regular unattended schedule, not a one-off backfill, so a
+          // listing it invalidates cannot rely on an unrelated future
+          // source-scrape or detail-extract to trigger resolution.
+          await resolutionQueue?.add(
+            { listingId: id, observationReference: `vin-enrich:${id}:${new Date().toISOString()}` },
+            CRITICAL_JOB_OPTIONS,
+          )
           enriched++
 
           await report(
