@@ -9,14 +9,17 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY packages/config/package.json ./packages/config/
 COPY packages/types/package.json ./packages/types/
+COPY packages/charts/package.json ./packages/charts/
 COPY apps/ops/package.json ./apps/ops/
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 COPY packages/config ./packages/config
 COPY packages/types ./packages/types
+COPY packages/charts ./packages/charts
 COPY apps/ops ./apps/ops
 RUN pnpm --filter @wivwav/types build
+RUN pnpm --filter @wivwav/charts build
 RUN pnpm --filter @wivwav/ops build
 
 FROM base AS runner
