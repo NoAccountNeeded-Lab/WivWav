@@ -46,3 +46,11 @@ playwright-report/
 
 # Claude Code subagent worktrees
 .claude/worktrees/
+
+# design-sync (converter scripts, generated build, machine state)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+apps/web/.ds-generated/globals.compiled.css

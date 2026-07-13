@@ -1,0 +1,25 @@
+{
+  "projectId": "7486f792-9f39-4dbd-bd4f-c189a79ad87b",
+  "shape": "package",
+  "pkg": "@wivwav/web",
+  "globalName": "WivWavWeb",
+  "srcDir": "src/components",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".ds-generated/globals.compiled.css",
+  "extraEntries": ["./.ds-generated/process-shim.mjs", "./.ds-generated/preview-provider.tsx"],
+  "provider": { "component": "PreviewProvider" },
+  "componentSrcMap": {
+    "StateHeatMap": null
+  },
+  "extraFonts": [".ds-generated/fonts.css"],
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "FacetModal": { "cardMode": "single", "primaryStory": "Default" },
+    "ChartContainer": { "cardMode": "column" },
+    "ChartTooltip": { "cardMode": "column" },
+    "ChartTooltipContent": { "cardMode": "column" },
+    "PhotoGallery": { "cardMode": "column" },
+    "SiteHeader": { "cardMode": "column" },
+    "PriceHistoryChart": { "cardMode": "column" }
+  }
+}
