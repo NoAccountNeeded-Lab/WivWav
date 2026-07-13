@@ -57,6 +57,8 @@ export interface RepeatableJob {
   next: number | null
   /** True when BullMQ returned a pre-Job-Scheduler repeatable entry. */
   legacy?: boolean
+  /** The job payload the scheduler will dispatch on its next tick, when known. */
+  data?: unknown
 }
 
 export interface QueueAdapter {

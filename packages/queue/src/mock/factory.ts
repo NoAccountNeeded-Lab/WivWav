@@ -105,7 +105,7 @@ export class MockQueueAdapter implements QueueAdapter {
     return this.repeatableJobs.map((job) => ({ ...job }))
   }
 
-  async addRepeatable(name: string, _data: unknown, pattern: string, tz?: string, jobId?: string, _options?: JobOptions): Promise<void> {
+  async addRepeatable(name: string, data: unknown, pattern: string, tz?: string, jobId?: string, _options?: JobOptions): Promise<void> {
     const key = jobId ?? name
     const repeatable: RepeatableJob = {
       key,
@@ -115,6 +115,7 @@ export class MockQueueAdapter implements QueueAdapter {
       pattern,
       next: Date.now() + 60_000,
       legacy: false,
+      data,
     }
     const index = this.repeatableJobs.findIndex((job) => job.key === key)
     if (index === -1) this.repeatableJobs.push(repeatable)
