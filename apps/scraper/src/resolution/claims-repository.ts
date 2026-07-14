@@ -42,8 +42,21 @@ function toFieldClaim(row: ClaimRow): FieldClaim {
  * extraction against an unchanged observation never creates a duplicate row.
  * A genuinely new value/confidence for the same slot always inserts a new
  * row rather than overwriting, preserving the prior claim for audit.
+ *
+ * The read-then-write is not a single atomic statement — an append-only
+ * history table has no natural unique key to upsert against (a later claim
+ * for the same slot is a legitimate new row, not a conflict). Two
+ * transactions racing to record the *same* slot at the *same* instant could
+ * otherwise both pass the `findFirst` check and each insert a row. A
+ * Postgres transaction-scoped advisory lock, keyed by the slot, serializes
+ * that narrow race: the second transaction blocks here until the first
+ * commits (releasing the lock), then its own `findFirst` sees the first
+ * transaction's new row and correctly dedupes against it.
  */
 export async function recordClaim(tx: ClaimsTx, claim: NewFieldClaim): Promise<void> {
+  const lockKey = `listing_field_claim:${claim.listingId}:${claim.field}:${claim.evidenceKind}:${claim.sourceRef ?? ''}`
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`
+
   const latest = await tx.listingFieldClaim.findFirst({
     where: {
       listingId: claim.listingId,
