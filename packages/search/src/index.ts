@@ -178,6 +178,15 @@ export interface ListingDocument {
   conversionBrand: string | null
   floorLoweringInches: number | null
   rampType: string
+  /**
+   * #499 field-resolution status. `conversionType`/`rampType` above already
+   * read `unknown` while conflicting (see apps/scraper/src/resolution),
+   * which is what actually drives side/rear/ramp filter exclusion — these
+   * are exposed only so ops tooling and result cards can show *why* a value
+   * reads unknown without a second Postgres round-trip. Not filterable.
+   */
+  conversionTypeResolution: string
+  rampTypeResolution: string
   wavFeatures: string[]
   wheelchairCapacity: number | null
   zip: string | null
@@ -252,6 +261,8 @@ export function toDocument(row: Listing): ListingDocument {
     conversionBrand: conversionBrandSlug(canonConverter),
     floorLoweringInches: row.floorLoweringInches,
     rampType: row.rampType,
+    conversionTypeResolution: row.conversionTypeResolution,
+    rampTypeResolution: row.rampTypeResolution,
     wavFeatures: row.wavFeatures as string[],
     wheelchairCapacity: row.wheelchairCapacity,
     zip: row.zip,
