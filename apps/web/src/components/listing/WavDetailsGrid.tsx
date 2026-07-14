@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowDownFromLine,
   ArrowUpDown,
   Armchair,
@@ -9,11 +10,18 @@ import {
   Users,
 } from 'lucide-react'
 import { WAV_FEATURES } from '@wivwav/types'
-import type { RampType, WavFeature, WavFeatures } from '@wivwav/types'
+import type { FieldResolutionState, RampType, WavFeature, WavFeatures } from '@wivwav/types'
 import { WavFeatureItem } from './WavFeatureItem'
 
 interface WavDetailsGridProps {
   wav: WavFeatures
+  /**
+   * #499 field-resolution status for `wav.rampType`. When `'conflicting'`,
+   * `wav.rampType` already reads `'unknown'` (the API forces it) — this adds
+   * a "needs verification" row instead of silently omitting the ramp-type
+   * row as if there were no evidence at all.
+   */
+  rampTypeStatus?: FieldResolutionState | undefined
   className?: string | undefined
 }
 
@@ -55,7 +63,7 @@ function rampValue(rampType: RampType): string | null {
   }
 }
 
-function buildRows(wav: WavFeatures): WavDetailRow[] {
+function buildRows(wav: WavFeatures, rampTypeStatus: FieldResolutionState | undefined): WavDetailRow[] {
   const rows: WavDetailRow[] = (Object.keys(WAV_FEATURES) as WavFeature[])
     .filter((feature) => wav.wavFeatures.includes(feature))
     .map((feature) => ({
@@ -82,6 +90,16 @@ function buildRows(wav: WavFeatures): WavDetailRow[] {
       label: 'Ramp type',
       value: ramp,
     })
+  } else if (rampTypeStatus === 'conflicting') {
+    // wav.rampType already reads 'unknown' here (the API forces it while
+    // conflicting) — the text label itself carries the state so this row
+    // never relies on color alone (docs/BRAND.md accessibility rule).
+    rows.push({
+      key: 'ramp-type',
+      icon: <AlertTriangle size={16} aria-hidden />,
+      label: 'Ramp type',
+      value: 'Needs verification — see source listing',
+    })
   }
 
   if (wav.wheelchairCapacity !== null) {
@@ -105,8 +123,8 @@ function buildRows(wav: WavFeatures): WavDetailRow[] {
   return rows
 }
 
-export function WavDetailsGrid({ wav, className }: WavDetailsGridProps) {
-  const rows = buildRows(wav)
+export function WavDetailsGrid({ wav, rampTypeStatus, className }: WavDetailsGridProps) {
+  const rows = buildRows(wav, rampTypeStatus)
 
   if (rows.length === 0) return null
 

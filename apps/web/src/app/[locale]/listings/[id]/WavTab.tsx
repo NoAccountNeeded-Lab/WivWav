@@ -21,7 +21,8 @@ export function WavTab({
   nearbyDealers = [],
   hasCoordinates = false,
 }: WavTabProps) {
-  const { wav } = listing
+  const { wav, fieldResolution } = listing
+  const sourceUrl = listing.buyerUrl ?? listing.sourceUrl
 
   return (
     <div className={styles.tabContent}>
@@ -30,9 +31,11 @@ export function WavTab({
         conversionManufacturer={wav.conversionManufacturer}
         conversionBrand={conversionBrand}
         matchedProduct={matchedConversionProduct}
+        conversionTypeStatus={fieldResolution?.conversionType}
+        sourceUrl={sourceUrl}
       />
 
-      <WavDetailsGrid wav={wav} className={styles.wavGrid} />
+      <WavDetailsGrid wav={wav} rampTypeStatus={fieldResolution?.rampType} className={styles.wavGrid} />
 
       <NmedaDealersNearby dealers={nearbyDealers} hasCoordinates={hasCoordinates} />
     </div>

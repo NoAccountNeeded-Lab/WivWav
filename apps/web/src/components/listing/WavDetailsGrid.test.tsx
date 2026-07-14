@@ -76,4 +76,24 @@ describe('WavDetailsGrid', () => {
     expect(screen.queryByText('Conversion status')).toBeNull()
     expect(screen.queryByText('Ramp type')).toBeNull()
   })
+
+  it('shows an accessible "needs verification" ramp-type row when the field is conflicting (#499)', () => {
+    render(<WavDetailsGrid wav={makeWav({ rampType: 'unknown' })} rampTypeStatus="conflicting" />)
+
+    expect(screen.getByText('Ramp type')).toBeTruthy()
+    expect(screen.getByText(/needs verification/i)).toBeTruthy()
+  })
+
+  it('does not show a needs-verification row when rampType is merely unresolved (not conflicting)', () => {
+    render(<WavDetailsGrid wav={makeWav({ rampType: 'unknown' })} rampTypeStatus="unknown" />)
+
+    expect(screen.queryByText('Ramp type')).toBeNull()
+  })
+
+  it('prefers the real ramp value over the conflicting row when a value is present', () => {
+    render(<WavDetailsGrid wav={makeWav({ rampType: 'in_floor' })} rampTypeStatus="conflicting" />)
+
+    expect(screen.getByText('In-floor ramp')).toBeTruthy()
+    expect(screen.queryByText(/needs verification/i)).toBeNull()
+  })
 })
