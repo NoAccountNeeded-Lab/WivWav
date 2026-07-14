@@ -49,6 +49,8 @@
  * @module
  */
 
+import '../lib/load-env.js'
+
 import { getDb } from '@wivwav/db'
 import { validateListing, decidePublication } from '../engine/listing-validator.js'
 
