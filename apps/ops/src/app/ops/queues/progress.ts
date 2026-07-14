@@ -36,6 +36,8 @@ interface CountLikeProgress {
   current?: unknown
   total?: unknown
   message?: unknown
+  success?: unknown
+  failed?: unknown
 }
 
 export function buildQueueSnapshotProgress(stats: QueueSnapshotStats): QueueSnapshotProgressModel | null {
@@ -66,13 +68,19 @@ export function buildJobProgressModel(job: { id: string; status: string; progres
     const message = typeof countLike.message === 'string' && countLike.message.trim().length > 0
       ? ` · ${countLike.message.trim()}`
       : ''
+    // Surfaced separately from `current`/`total` so a batch that "settled"
+    // (every item accounted for) but partially failed is still visibly
+    // distinguishable from a fully successful run (#637).
+    const outcome = typeof countLike.success === 'number' && typeof countLike.failed === 'number'
+      ? ` (${formatNumber(countLike.success)} succeeded, ${formatNumber(countLike.failed)} failed)`
+      : ''
 
     return {
       kind: 'determinate',
       value: countLike.current,
       max: countLike.total,
       label: `Job #${job.id} ${stage} progress`,
-      caption: `${formatNumber(countLike.current)} of ${formatNumber(countLike.total)} ${stage}${message}`,
+      caption: `${formatNumber(countLike.current)} of ${formatNumber(countLike.total)} ${stage}${message}${outcome}`,
     }
   }
 

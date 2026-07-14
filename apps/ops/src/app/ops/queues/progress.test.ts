@@ -43,6 +43,27 @@ describe('buildJobProgressModel', () => {
     })
   })
 
+  it('appends success/failed counts to the caption when a job reports them separately (#637)', () => {
+    expect(buildJobProgressModel({
+      id: '7',
+      status: 'failed',
+      progress: { stage: 'complete', current: 10, total: 10, success: 7, failed: 3 },
+    })).toMatchObject({
+      kind: 'determinate',
+      caption: '10 of 10 complete (7 succeeded, 3 failed)',
+    })
+  })
+
+  it('omits the success/failed suffix when only one of the two counts is present', () => {
+    expect(buildJobProgressModel({
+      id: '7',
+      status: 'active',
+      progress: { stage: 'extracting', current: 4, total: 10, success: 4 },
+    })).toMatchObject({
+      caption: '4 of 10 extracting',
+    })
+  })
+
   it('falls back to indeterminate status text when active work has no measurable counts', () => {
     expect(buildJobProgressModel({
       id: '42',
