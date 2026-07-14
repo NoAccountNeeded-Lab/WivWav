@@ -227,6 +227,7 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
         <div
           className={styles.messages}
           role="log"
+          aria-label={t('conversationLabel')}
           aria-live="polite"
         >
           {/* Opening AI message */}
@@ -278,6 +279,7 @@ function DiscoverChat({ resultsPath }: { resultsPath: string }) {
             ref={textareaRef}
             id={inputId}
             rows={2}
+            placeholder={t('replyPlaceholder')}
             className={styles.composerTextarea}
             disabled={isThinking}
             maxLength={2000}

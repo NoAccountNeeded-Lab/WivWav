@@ -18,8 +18,10 @@
   "DiscoverChat": {
     "heading": "**** *** ***** ********** *******",
     "avatarOnlineLabel": "******",
+    "conversationLabel": "************",
     "openingMessage": "******** **** *** **** *** *** ******* **** ** **** ****** *** **** ** ***** *** *** *** *** *******",
     "replyLabel": "**** **** *****",
+    "replyPlaceholder": "**** **** ******",
     "sendLabel": "****",
     "sendingLabel": "********",
     "thinkingLabel": "****** ** *******",
@@ -40,11 +42,16 @@
     "formAriaLabel": "******** **** ******* *****"
   },
   "FiltersPage": {
+    "personalizedHeading": "**** ************* ******* *******",
+    "personalizedSummary": "{count, plural, =1 {# ****** **} other {# ******* ***}} ******* ***** *******. ******** **** **** ** ****** ** *** **** ******.",
+    "browseAllSummary": "****** *** ********* *******, ** *** ******* ***** ** *********** ***** *******.",
     "searchResultsLabel": "****** *******",
     "vehiclesFound": "{count, plural, =1 {# *******} other {# ********}}",
     "noVehicles": "** ******** ***** **** ******* ********",
     "noVehiclesForBrand": "** ******** ***** *** ******** ********** ****** *** ******* ***** ** ***** *** ***** *******",
     "clearAllFilters": "***** *** *******",
+    "searchUnavailableHeading": "****** ** *********** *********",
+    "searchUnavailableMessage": "**'** ****** ** **** ******* ******** ***** ***. ****** *** ***** ** * *** ******.",
     "pagination": {
       "ariaLabel": "**********",
       "previous": "********",
