@@ -362,3 +362,21 @@ follow-up work before they can be gated:
   catalog correctly.
 
 These gaps are included in every audit report under `knownGaps`.
+
+---
+
+## Known source-side data quirks
+
+- **Trim values cut off mid-word, no ellipsis (#619)** — some listings show a
+  `trim` value that ends abruptly mid-word (e.g. "...w/Sliding Passenger
+  Sid", "...Mobility Handi"). Confirmed source-side, not a scraper or
+  pipeline bug: two live BLVD listings (VIN `1FDES6PM1HKA99449` and VIN
+  `1FTBW2XG5KKB19787`) show the identical truncated string in the dealer's
+  own detail-page `<h1>`, so the full text does not exist anywhere the
+  scraper can read it from. Deliberately not filtered out of the facet —
+  the cutoff length varies per dealer (observed ~40-65 raw title
+  characters), and a legitimate, complete 40-character trim was found at
+  the same length as some genuinely truncated examples, so a length- or
+  shape-based heuristic would risk hiding real data. See
+  `apps/scraper/src/lib/parse-vehicle-title.ts` for the full investigation
+  note.

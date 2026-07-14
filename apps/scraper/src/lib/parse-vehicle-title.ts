@@ -22,8 +22,7 @@ export interface ParsedVehicleTitle {
  * before falling back to the single-token assumption. Shared by every
  * list-page adapter that parses `"year make model trim"` titles so the fix
  * (and any future multi-word models) lives in exactly one place.
- */
-/**
+ *
  * #619 investigation: some `trim` values in the live facet distribution are
  * cut off mid-word (e.g. "...w/Sliding Passenger Sid", "...Mobility Handi"),
  * with no ellipsis. Confirmed source-side, not a pipeline bug — this
@@ -43,7 +42,8 @@ export interface ParsedVehicleTitle {
  * is a complete, untruncated 40-character trim from the same marketplace, the
  * same length as some genuinely truncated examples. Any shape-based filter
  * risks silently hiding legitimate long trims. Garbled tails are left as-is;
- * operators can spot them via the facet distribution if needed.
+ * operators can spot them via the facet distribution if needed. See
+ * docs/ops/runbook-listing-quality-audit.md for the operator-facing note.
  */
 export function parseVehicleTitle(titleBody: string): ParsedVehicleTitle {
   const parts = titleBody.trim().split(/\s+/)
