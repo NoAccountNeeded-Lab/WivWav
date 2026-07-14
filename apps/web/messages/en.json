@@ -87,7 +87,7 @@
   "SearchFilters": {
     "sortLabel": "Sort",
     "sortOptions": {
-      "newestListings": "Newest listings",
+      "newestListings": "Recently found by WAV Search",
       "priceLowToHigh": "Price: Low to high",
       "priceHighToLow": "Price: High to low",
       "lowestMileage": "Lowest mileage",
@@ -144,7 +144,7 @@
   "ListingDetail": {
     "backAriaLabel": "Back to listings",
     "viewOriginalListing": "View original listing ↗",
-    "listedDate": "Listed {date}",
+    "listedDate": "WAV Search first saw {date}",
     "callForPrice": "Call for price",
     "listingNotFound": "Listing not found — WivWav",
     "notFoundMessage": "Listing unavailable.",

@@ -43,6 +43,8 @@ export interface ListingDetail {
   images: string[]
   description: string | null
   listedAt: string
+  sourceListedAt: string | null
+  sourceUpdatedAt: string | null
   updatedAt: string
   /** May be null when the source join is unavailable; components must handle gracefully. */
   provenance: ListingProvenance | null
@@ -164,6 +166,8 @@ export interface SimilarListing {
   rampType: string
   conversionManufacturer: string | null
   listedAt: string
+  sourceListedAt: string | null
+  sourceUpdatedAt: string | null
 }
 
 export interface ModelResearchSource {

@@ -7,8 +7,8 @@ export function formatEnum(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export function daysListed(listedAt: string): number {
-  return Math.max(0, Math.floor((Date.now() - new Date(listedAt).getTime()) / 86400000))
+export function daysSince(timestamp: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 86400000))
 }
 
 export function estimateMonthly(priceCents: number): number {

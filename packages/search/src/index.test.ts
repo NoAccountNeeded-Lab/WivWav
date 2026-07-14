@@ -57,6 +57,8 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     goneAt: null,
     soldAt: null,
     listedAt: new Date('2024-01-01'),
+    sourceListedAt: null,
+    sourceUpdatedAt: null,
     updatedAt: new Date('2024-01-01'),
     scrapedAt: new Date('2024-01-02'),
     detailScrapedAt: null,
@@ -85,6 +87,22 @@ describe('toDocument — #499 field resolution', () => {
     }))
     expect(doc.conversionType).toBe('unknown')
     expect(doc.rampType).toBe('unknown')
+  })
+})
+
+describe('toDocument — listing date provenance', () => {
+  it('indexes source dates separately from the WAV Search first-seen date', () => {
+    const doc = toDocument(makeListing({
+      listedAt: new Date('2026-05-05T00:00:00Z'),
+      sourceListedAt: new Date('2026-05-01T00:00:00Z'),
+      sourceUpdatedAt: new Date('2026-05-03T00:00:00Z'),
+    }))
+
+    expect(doc).toMatchObject({
+      listedAt: '2026-05-05T00:00:00.000Z',
+      sourceListedAt: '2026-05-01T00:00:00.000Z',
+      sourceUpdatedAt: '2026-05-03T00:00:00.000Z',
+    })
   })
 })
 

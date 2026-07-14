@@ -65,6 +65,8 @@ interface ListingDetail {
   images: string[]
   description: string | null
   listedAt: string
+  sourceListedAt: string | null
+  sourceUpdatedAt: string | null
 }
 
 async function getListing(id: string): Promise<ListingDetail | null> {
@@ -324,7 +326,14 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         {listing.sellerType === 'private' ? 'Contact seller' : 'View seller listing'}
       </a>
 
-      <p className={styles.meta}>Listed {formatDate(listing.listedAt)}</p>
+      <p className={styles.meta}>
+        {listing.sourceListedAt != null
+          ? `Source listed ${formatDate(listing.sourceListedAt)}`
+          : `WAV Search first saw ${formatDate(listing.listedAt)}`}
+        {listing.sourceUpdatedAt != null
+          ? ` · Source updated ${formatDate(listing.sourceUpdatedAt)}`
+          : ''}
+      </p>
     </main>
   )
 }
