@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { DealerRepository, DealerListingStatusFilter, ApiKeyRepository } from '../repositories/index.js'
 import { resolveApiKeyTier, tierAtLeast } from '../services/api-key-tier.js'
+import { getResolvedApiKey } from '../plugins/api-key-auth.js'
 
 interface DealersPluginOptions {
   dealers: DealerRepository
@@ -81,7 +82,11 @@ export const dealerRoutes: FastifyPluginAsync<DealersPluginOptions> = async (app
 
       const status: DealerListingStatusFilter = (req.query.status as DealerListingStatusFilter | undefined) ?? 'active'
       if (status !== 'active') {
-        const tier = await resolveApiKeyTier(apiKeys, req.headers)
+        // Prefer the identity plugins/api-key-auth.ts already resolved for
+        // this request (correctly reflects the INTERNAL_API_SECRET bypass as
+        // ENTERPRISE) — falls back to re-resolving from headers only when
+        // this route is exercised without that app-level hook (e.g. isolated tests).
+        const tier = getResolvedApiKey(req)?.tier ?? (await resolveApiKeyTier(apiKeys, req.headers))
         if (!tierAtLeast(tier, 'PRO')) {
           return reply.code(403).send({
             error: { code: 'upgrade_required', message: `GET /v1/dealers/:id/listings?status=${status} requires a PRO or higher API key` },

@@ -37,6 +37,7 @@
     "@wivwav/types": "workspace:*",
     "dotenv": "^17.4.2",
     "fastify": "^5.10.0",
+    "fastify-plugin": "^6.0.0",
     "ioredis": "^5.11.1",
     "meilisearch": "^0.59.0",
     "prom-client": "^15.1.3",
