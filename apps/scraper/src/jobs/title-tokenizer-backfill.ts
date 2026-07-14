@@ -68,6 +68,8 @@
  * @module
  */
 
+import '../lib/load-env.js'
+
 import { getDb } from '@wivwav/db'
 import {
   matchMultiWordModelTokenCount,

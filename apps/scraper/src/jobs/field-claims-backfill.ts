@@ -54,6 +54,8 @@
  * @module
  */
 
+import '../lib/load-env.js'
+
 import { getDb } from '@wivwav/db'
 import { applyFieldResolution, recordClaim } from '../resolution/claims-repository.js'
 import { NoopPhotoClaimProvider } from '../resolution/photo-claim-provider.js'

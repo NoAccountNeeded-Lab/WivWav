@@ -56,17 +56,7 @@
  * @module
  */
 
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-// Load apps/scraper/.env relative to this file (not process.cwd()) so the
-// documented root-level usage above works when invoked as
-// `pnpm tsx apps/scraper/src/jobs/canonicalize-backfill.ts` from the repo
-// root, matching the packages/db/prisma.config.ts pattern. Without this,
-// DATABASE_URL is undefined and Prisma fails with a SASL auth error rather
-// than a clear "missing env var" message (refs #656).
-config({ path: resolve(fileURLToPath(import.meta.url), '..', '..', '..', '.env') })
+import '../lib/load-env.js'
 
 import { getDb } from '@wivwav/db'
 import { canonicalConversionManufacturer, ENGINE_DESCRIPTION_PATTERN } from '@wivwav/search'
