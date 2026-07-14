@@ -20,6 +20,13 @@ function buildDb(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function firstRawSql(db: ReturnType<typeof buildDb>): string {
+  const calls = (db.$queryRaw as unknown as { mock: { calls: unknown[][] } }).mock.calls
+  const strings = calls[0]?.[0]
+  if (!Array.isArray(strings)) throw new Error('expected a tagged SQL call')
+  return strings.join('?')
+}
+
 describe('PrismaListingRepository.findManyActive', () => {
   it('queries active representative vehicle groups ordered by listedAt desc', async () => {
     const db = buildDb()
@@ -256,6 +263,88 @@ describe('PrismaListingRepository.reprocessQuarantined', () => {
     const repo = new PrismaListingRepository(db as never)
 
     await expect(repo.reprocessQuarantined('l-2')).resolves.toBe(false)
+  })
+})
+
+describe('PrismaListingRepository listing reports', () => {
+  it('creates unresolved listing reports and normalizes blank notes to null', async () => {
+    const reportedAt = new Date('2026-07-14T08:00:00Z')
+    const db = buildDb()
+    db.$queryRaw.mockResolvedValueOnce([{
+      id: 'report-1',
+      listingId: 'listing-1',
+      reportType: 'duplicate',
+      notes: null,
+      status: 'unresolved',
+      reportedAt,
+    }])
+    const repo = new PrismaListingRepository(db as never)
+
+    const result = await repo.createListingReport({
+      listingId: 'listing-1',
+      reportType: 'duplicate',
+      notes: '   ',
+    })
+
+    expect(result).toEqual({
+      id: 'report-1',
+      listingId: 'listing-1',
+      reportType: 'duplicate',
+      notes: null,
+      status: 'unresolved',
+      reportedAt,
+    })
+    const sql = firstRawSql(db)
+    expect(sql).toContain('INSERT INTO listing_reports')
+    expect(sql).toContain('RETURNING id, "listingId", "reportType", notes, status, "reportedAt"')
+  })
+
+  it('counts only unresolved reports for the listing', async () => {
+    const db = buildDb()
+    db.$queryRaw.mockResolvedValueOnce([{ count: 3 }])
+    const repo = new PrismaListingRepository(db as never)
+
+    await expect(repo.countUnresolvedReports('listing-1')).resolves.toBe(3)
+
+    const sql = firstRawSql(db)
+    expect(sql).toContain('WHERE "listingId" =')
+    expect(sql).toContain('status = \'unresolved\'::"ListingReportStatus"')
+  })
+
+  it('aggregates unresolved report triage rows above the configured threshold', async () => {
+    const db = buildDb()
+    db.$queryRaw.mockResolvedValueOnce([{
+      listingId: 'listing-1',
+      sourceUrl: 'https://example.com/listing-1',
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2022,
+      unresolvedCount: BigInt(4),
+      latestReportedAt: new Date('2026-07-14T08:00:00Z'),
+      reportTypes: ['specs_incorrect', 'other'],
+    }])
+    const repo = new PrismaListingRepository(db as never)
+
+    const rows = await repo.findListingReportTriage({ minReports: 3, skip: 5, take: 10 })
+
+    expect(rows[0]!.unresolvedCount).toBe(4)
+    const sql = firstRawSql(db)
+    expect(sql).toContain('JOIN listing_reports')
+    expect(sql).toContain('HAVING COUNT(r.id) >=')
+    expect(sql).toContain('LIMIT')
+    expect(sql).toContain('OFFSET')
+  })
+
+  it('counts listings with unresolved reports above the configured threshold', async () => {
+    const db = buildDb()
+    db.$queryRaw.mockResolvedValueOnce([{ count: 2 }])
+    const repo = new PrismaListingRepository(db as never)
+
+    await expect(repo.countListingReportTriage({ minReports: 3 })).resolves.toBe(2)
+
+    const sql = firstRawSql(db)
+    expect(sql).toContain('GROUP BY r."listingId"')
+    expect(sql).toContain('HAVING COUNT(r.id) >=')
   })
 })
 

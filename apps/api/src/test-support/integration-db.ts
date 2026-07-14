@@ -32,6 +32,7 @@ export async function resetIntegrationDb(db: PrismaClient): Promise<void> {
   await db.$executeRawUnsafe(`
     TRUNCATE TABLE
       "listing_price_history",
+      "listing_reports",
       "listing_field_claim",
       "listings",
       "sources",

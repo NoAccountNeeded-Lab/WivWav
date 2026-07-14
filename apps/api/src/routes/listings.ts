@@ -4,13 +4,14 @@ import type { BullMQQueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
-import type { CrossListingRow, ListingRepository } from '../repositories/index.js'
+import type { CrossListingRow, ListingReportType, ListingRepository } from '../repositories/index.js'
 
 const REFRESH_RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour per vehicle model
 const refreshedAt = new Map<string, number>()
 
 type ListingWithRequiredSource = Listing & { source: { name: string; baseUrl: string } }
 type CrossListingResponse = ReturnType<typeof toCrossListingResponse>
+type ListingReportSummary = { unresolvedCount: number; flagged: boolean }
 
 /**
  * Maximum characters of third-party dealer copy exposed in the public API.
@@ -28,7 +29,11 @@ export function snippetDescription(description: string | null): string | null {
   return trimmed.slice(0, DESCRIPTION_SNIPPET_LENGTH).trimEnd() + '…'
 }
 
-function toListingDetailResponse(listing: ListingWithRequiredSource, crossListings: CrossListingResponse[] = []) {
+function toListingDetailResponse(
+  listing: ListingWithRequiredSource,
+  crossListings: CrossListingResponse[] = [],
+  reportSummary: ListingReportSummary = { unresolvedCount: 0, flagged: false },
+) {
   const {
     source,
     sourceId,
@@ -83,6 +88,7 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
       wheelchairCapacity,
     },
     fieldResolution: { conversionType: conversionTypeResolution, rampType: rampTypeResolution },
+    reportSummary,
     crossListings,
     provenance: {
       sourceName: source.name,
@@ -187,6 +193,21 @@ const searchUnavailableResponseSchema = Type.Object({
     message: Type.String(),
   }),
 })
+
+const reportTypeSchema = Type.Union([
+  Type.Literal('specs_incorrect'),
+  Type.Literal('sold_or_stale'),
+  Type.Literal('duplicate'),
+  Type.Literal('other'),
+])
+
+const createListingReportBodySchema = Type.Object(
+  {
+    reportType: reportTypeSchema,
+    notes: Type.Optional(Type.String({ maxLength: 1000 })),
+  },
+  { additionalProperties: false },
+)
 
 // `data` holds either Meilisearch-sourced `ListingDocument` hits or, on Meilisearch
 // fallback, raw repository rows — two different shapes sharing one envelope. Left
@@ -321,14 +342,18 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
       if (!listing) return reply.notFound('Listing not found')
       if (!listing.source) return reply.internalServerError('Listing source not found')
 
-      const crossListings = listing.vehicleId
-        ? await listings.findCrossListingsByVehicleId(listing.vehicleId, listing.id)
-        : []
+      const [crossListings, unresolvedReportCount] = await Promise.all([
+        listing.vehicleId
+          ? listings.findCrossListingsByVehicleId(listing.vehicleId, listing.id)
+          : Promise.resolve([]),
+        listings.countUnresolvedReports(listing.id),
+      ])
 
       return reply.send({
         data: toListingDetailResponse(
           listing as ListingWithRequiredSource,
           crossListings.map(toCrossListingResponse),
+          { unresolvedCount: unresolvedReportCount, flagged: unresolvedReportCount >= 3 },
         ),
       })
     } catch (err) {
@@ -336,6 +361,28 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
       return reply.internalServerError('Failed to fetch listing')
     }
   })
+
+  app.post<{ Params: { id: string }; Body: { reportType: ListingReportType; notes?: string } }>(
+    '/:id/reports',
+    {
+      schema: {
+        body: createListingReportBodySchema,
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (req, reply) => {
+      const listing = await listings.findByIdForSafety(req.params.id)
+      if (!listing) return reply.notFound('Listing not found')
+
+      const report = await listings.createListingReport({
+        listingId: listing.id,
+        reportType: req.body.reportType,
+        ...(req.body.notes !== undefined ? { notes: req.body.notes } : {}),
+      })
+
+      return reply.code(201).send({ data: report })
+    },
+  )
 
   app.get<{ Params: { id: string } }>('/:id/safety', async (req, reply) => {
     const listing = await listings.findByIdForSafety(req.params.id)

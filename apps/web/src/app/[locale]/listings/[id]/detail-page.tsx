@@ -307,7 +307,7 @@ export default async function VehicleDetailPage({
       id: 'overview',
       label: 'Overview',
       icon: <Info size={14} aria-hidden />,
-      content: <OverviewTab listing={listing} priceHistory={priceHistory} />,
+      content: <OverviewTab listing={listing} priceHistory={priceHistory} apiBaseUrl={getPublicApiBaseUrl()} />,
     },
     {
       id: 'market',

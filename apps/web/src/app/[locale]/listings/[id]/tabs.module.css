@@ -185,6 +185,140 @@
   outline-offset: 2px;
 }
 
+.reportWarning {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--clr-warning);
+  border-radius: 0.5rem;
+  background: var(--clr-surface);
+  color: var(--clr-warning-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.reportSection {
+  padding: 0.25rem 0 1rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.reportToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1.5px solid var(--clr-border-strong);
+  border-radius: 0.5rem;
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  font-family: var(--font);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.reportToggle:hover {
+  border-color: var(--clr-primary);
+}
+.reportToggle:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
+.reportForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.reportField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.reportLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--clr-text-secondary);
+}
+
+.reportSelect,
+.reportTextarea {
+  width: 100%;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: 0.375rem;
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  font-family: var(--font);
+  font-size: 0.875rem;
+}
+
+.reportSelect {
+  min-height: 2.75rem;
+  padding: 0 0.625rem;
+}
+
+.reportTextarea {
+  min-height: 5.5rem;
+  padding: 0.625rem;
+  resize: vertical;
+}
+.reportSelect:focus-visible,
+.reportTextarea:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
+.reportSuccess,
+.reportError {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.reportSuccess {
+  color: var(--clr-success-text);
+}
+
+.reportError {
+  color: var(--clr-danger-text);
+}
+
+.reportSubmit {
+  min-height: 2.75rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--clr-primary);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reportSubmit:hover:not(:disabled) {
+  background: var(--clr-primary-dark);
+}
+.reportSubmit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.reportSubmit:focus-visible {
+  outline: 3px solid var(--clr-focus);
+  outline-offset: 2px;
+}
+
 .descriptionSnippet {
   font-size: 0.8125rem;
   color: var(--clr-text);

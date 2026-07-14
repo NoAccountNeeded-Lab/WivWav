@@ -22,6 +22,8 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     reprocessQuarantined: vi.fn(async () => true),
     findFieldConflicts: vi.fn(async () => []),
     countFieldConflicts: vi.fn(async () => 0),
+    findListingReportTriage: vi.fn(async () => []),
+    countListingReportTriage: vi.fn(async () => 0),
     getSourcePipelineStages: vi.fn(async () => []),
     ...overrides,
   }
@@ -994,6 +996,52 @@ describe('GET /field-conflicts', () => {
     await app.inject({ method: 'GET', url: '/field-conflicts?take=10000' })
 
     expect(listings.findFieldConflicts).toHaveBeenCalledWith(expect.objectContaining({ take: 200 }))
+
+    await app.close()
+  })
+})
+
+describe('GET /listing-reports', () => {
+  it('returns unresolved listing report triage rows with pagination metadata', async () => {
+    const factory = new MockQueueFactory()
+    const rows = [{
+      listingId: 'listing-1',
+      sourceUrl: 'https://example.com/listing-1',
+      make: 'Toyota',
+      model: 'Sienna',
+      year: 2022,
+      unresolvedCount: 4,
+      latestReportedAt: new Date('2026-07-14T08:00:00Z'),
+      reportTypes: ['specs_incorrect', 'sold_or_stale'],
+    }]
+    const { app, listings } = buildTestApp({}, {}, factory, {
+      findListingReportTriage: vi.fn(async () => rows),
+      countListingReportTriage: vi.fn(async () => 1),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-reports?minReports=3&skip=5&take=10' })
+
+    expect(res.statusCode).toBe(200)
+    expect(listings.findListingReportTriage).toHaveBeenCalledWith({ minReports: 3, skip: 5, take: 10 })
+    expect(listings.countListingReportTriage).toHaveBeenCalledWith({ minReports: 3 })
+    expect(res.json()).toEqual({
+      data: [{
+        ...rows[0],
+        latestReportedAt: '2026-07-14T08:00:00.000Z',
+      }],
+      meta: { total: 1, skip: 5, take: 10 },
+    })
+
+    await app.close()
+  })
+
+  it('caps take and defaults minReports to one', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory)
+
+    await app.inject({ method: 'GET', url: '/listing-reports?take=10000&minReports=0' })
+
+    expect(listings.findListingReportTriage).toHaveBeenCalledWith({ minReports: 1, skip: 0, take: 200 })
 
     await app.close()
   })
