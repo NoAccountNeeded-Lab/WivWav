@@ -101,7 +101,7 @@ describe('createNavigationRateLimiter', () => {
 })
 
 describe('fetchDetailPagesWithCrawlee', () => {
-  it('runs the exact provided URLs with non-persistent storage', async () => {
+  it('runs every provided URL with non-persistent storage', async () => {
     const run = vi.fn().mockResolvedValue(undefined)
     let capturedOptions: PlaywrightCrawlerOptions | undefined
     let capturedConfiguration: Configuration | undefined
@@ -112,18 +112,27 @@ describe('fetchDetailPagesWithCrawlee', () => {
     }
     const urls = [
       'https://example.com/listing/1',
-      'https://example.com/listing/2',
+      'https://example.com/listing/1',
     ]
 
     await fetchDetailPagesWithCrawlee(urls, makeHandlers(), createCrawler)
 
     expect({
-      urls: run.mock.calls[0]?.[0],
+      requests: run.mock.calls[0]?.[0],
       persistStorage: capturedConfiguration?.get('persistStorage'),
       purgeOnStart: capturedConfiguration?.get('purgeOnStart'),
       hasRequestHandler: capturedOptions?.requestHandler !== undefined,
     }).toEqual({
-      urls,
+      requests: [
+        {
+          url: urls[0],
+          uniqueKey: `detail-crawl:0:${urls[0]}`,
+        },
+        {
+          url: urls[1],
+          uniqueKey: `detail-crawl:1:${urls[1]}`,
+        },
+      ],
       persistStorage: false,
       purgeOnStart: false,
       hasRequestHandler: true,
