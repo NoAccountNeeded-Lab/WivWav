@@ -1,18 +1,19 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import type { BrowserService } from '../browser/index.js'
 import { report } from './job-progress.js'
-import { jitteredSleep } from '../util/jitter-sleep.js'
+import {
+  fetchDetailPagesWithCrawlee,
+  type DetailPageFetcher,
+  type FetchedDetailPage,
+} from './detail-fetcher.js'
 
 const BATCH_SIZE = 50
-const RATE_LIMIT_MS = 2000
 const STALE_DETAIL_DAYS = 30
-
 
 export async function runDetailCrawlJob(
   sourceId: string,
   context?: JobContext,
-  browserService?: BrowserService,
+  fetchDetailPages: DetailPageFetcher = fetchDetailPagesWithCrawlee,
 ): Promise<void> {
   if (typeof sourceId !== 'string' || sourceId.trim().length === 0) {
     throw new Error('[detail-crawl] sourceId must be a non-empty string')
@@ -29,7 +30,7 @@ export async function runDetailCrawlJob(
         { detailScrapedAt: { lt: staleThreshold } },
       ],
     },
-    select: { sourceUrl: true, status: true },
+    select: { sourceUrl: true },
     take: BATCH_SIZE,
     orderBy: { listedAt: 'asc' },
   })
@@ -50,81 +51,68 @@ export async function runDetailCrawlJob(
     total: listings.length,
   })
 
-  // Lazy import so callers that inject MockBrowserService never trigger a
-  // real Playwright import at all.
-  const { PlaywrightBrowserService } = await import('../browser/index.js')
-  const service = browserService ?? new PlaywrightBrowserService()
-  const browser = await service.launch()
   let success = 0
   let failed = 0
+  let processed = 0
+
+  async function reportProcessed(): Promise<void> {
+    processed++
+    await report(context, `[detail-crawl] Processed ${processed}/${listings.length} page(s)`, {
+      stage: 'crawling',
+      current: processed,
+      total: listings.length,
+      success,
+      failed,
+    })
+  }
+
+  async function persistFetchedPage(page: FetchedDetailPage): Promise<void> {
+    const { sourceUrl, finalUrl, statusCode, html } = page
+    const is404 = statusCode === 404
+    const isOffDomainRedirect =
+      new URL(finalUrl).hostname !== new URL(sourceUrl).hostname
+
+    if (is404 || isOffDomainRedirect) {
+      // Authoritative gone signal — mark directly without waiting for extract.
+      const goneListings = await db.listing.findMany({
+        where: { sourceUrl, status: { not: 'gone' } },
+        select: { id: true },
+      })
+      await db.listing.updateMany({
+        where: { id: { in: goneListings.map((listing) => listing.id) } },
+        data: { status: 'gone', goneAt: new Date() },
+      })
+      // Search-index sync remains the single-owner indexer poller's concern.
+      await report(
+        context,
+        `[detail-crawl] ${is404 ? '404' : 'Off-domain redirect'} — marked ${sourceUrl} as gone`,
+      )
+    } else {
+      await db.rawPage.upsert({
+        where: { url: sourceUrl },
+        // Reset processedAt so the extract job re-processes on re-crawl.
+        update: { html, scrapedAt: new Date(), processedAt: null },
+        create: { url: sourceUrl, sourceId, html },
+      })
+    }
+
+    success++
+    await reportProcessed()
+  }
 
   try {
-    for (let i = 0; i < listings.length; i++) {
-      const { sourceUrl, status } = listings[i]!
-      const page = await browser.newPage()
-
-      try {
-        let response: { status(): number } | null = null
-        let navFailed = false
-
-        try {
-          // networkidle ensures the description text (loaded async) is present before we store
-          response = await page.goto(sourceUrl, { waitUntil: 'networkidle', timeout: 45_000 })
-        } catch (navErr) {
-          // Transient network/timeout failure — leave possibly_gone for the next crawl to retry
-          navFailed = true
-          await report(context, `[detail-crawl] Navigation error ${sourceUrl}: ${navErr}`)
-          if (status !== 'possibly_gone') failed++
-        }
-
-        if (!navFailed) {
-          const finalUrl = page.url()
-          const is404 = response !== null && response.status() === 404
-          const isOffDomainRedirect =
-            new URL(finalUrl).hostname !== new URL(sourceUrl).hostname
-
-          if (is404 || isOffDomainRedirect) {
-            // Authoritative gone signal — mark directly without waiting for extract
-            const goneListings = await db.listing.findMany({
-              where: { sourceUrl, status: { not: 'gone' } },
-              select: { id: true },
-            })
-            await db.listing.updateMany({
-              where: { id: { in: goneListings.map((l) => l.id) } },
-              data: { status: 'gone', goneAt: new Date() },
-            })
-            // Search-index sync is no longer this job's concern — the
-            // single-owner indexer poller (#669) picks up the status change
-            // (via `updatedAt`) on its next tick.
-            await report(context, `[detail-crawl] ${is404 ? '404' : 'Off-domain redirect'} — marked ${sourceUrl} as gone`)
-          } else {
-            const html = await page.content()
-            await db.rawPage.upsert({
-              where: { url: sourceUrl },
-              // Reset processedAt so the extract job re-processes on re-crawl
-              update: { html, scrapedAt: new Date(), processedAt: null },
-              create: { url: sourceUrl, sourceId, html },
-            })
-          }
-          success++
-        }
-      } catch (err) {
-        await report(context, `[detail-crawl] Failed ${sourceUrl}: ${err}`)
-        failed++
-      } finally {
-        await page.close()
-      }
-
-      await report(context, `[detail-crawl] Processed ${i + 1}/${listings.length} page(s)`, {
-        stage: 'crawling',
-        current: i + 1,
-        total: listings.length,
-      })
-
-      if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
-    }
+    await fetchDetailPages(
+      listings.map((listing) => listing.sourceUrl),
+      {
+        onFetched: persistFetchedPage,
+        async onFailed({ sourceUrl, error }): Promise<void> {
+          failed++
+          await report(context, `[detail-crawl] Failed ${sourceUrl}: ${error}`)
+          await reportProcessed()
+        },
+      },
+    )
   } finally {
-    await browser.close()
     await db.$disconnect()
   }
 
