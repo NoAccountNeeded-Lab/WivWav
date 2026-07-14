@@ -25,7 +25,8 @@ Replace the standard data-table car listing with a market research page that let
 ### Hero card
 - Vehicle photo (gallery with dot indicators)
 - Condition badge: New / Used / Certified Pre-Owned (from `listing.condition`)
-- Days listed (calculated from `listing.listedAt`)
+- Days on source (calculated from `sourceListedAt` when available); otherwise
+  label the internal `listedAt` value as when WAV Search first found it
 - Price with estimated monthly payment
 - Price drop history ("Reduced $X on [date]") — requires price history tracking
 - Market velocity: avg days to sell for comparable vehicles — requires market data API
@@ -81,7 +82,8 @@ Replace the standard data-table car listing with a market research page that let
 **Data fields used:** `listing.city`, `listing.state`, `listing.zip`
 
 ### Similar WAVs nearby *(open by default)*
-- 2 listings with: name, key specs, days listed, price, location, condition badge
+- 2 listings with: name, key specs, days on source when available (otherwise
+  WAV Search first-seen age), price, location, condition badge
 - "See all" triggers a filtered search
 
 ---

@@ -106,8 +106,9 @@ export const marketRoutes: FastifyPluginAsync<MarketPluginOptions> = async (app,
   /**
    * GET /v1/market/trends?make=&model=&interval=week|month&from=&to=
    *
-   * Time-bucketed median price, active inventory count, and average
-   * days-to-gone for a make/model. `interval` defaults to `month`; `from`
+   * Time-bucketed median price, observed active inventory count, and average
+   * source-listed-to-gone duration for a make/model. Rows without a source
+   * listing date are excluded from that duration. `interval` defaults to `month`; `from`
    * defaults to 180 days before `to`, and `to` defaults to now. PRO+ only —
    * returns 403 `upgrade_required` for FREE-tier callers.
    *

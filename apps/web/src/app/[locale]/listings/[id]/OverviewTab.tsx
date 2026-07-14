@@ -15,7 +15,7 @@ import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { ReportListingForm } from './ReportListingForm'
 import {
   conditionLabel,
-  daysListed,
+  daysSince,
   estimateMonthly,
   formatDate,
   formatPrice,
@@ -35,7 +35,11 @@ interface OverviewTabProps {
 }
 
 export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabProps) {
-  const days = daysListed(listing.listedAt)
+  const ageTimestamp = listing.sourceListedAt ?? listing.listedAt
+  const days = daysSince(ageTimestamp)
+  const ageLabel = listing.sourceListedAt != null
+    ? days === 0 ? 'On source today' : `${days} day${days === 1 ? '' : 's'} on source`
+    : days === 0 ? 'Found today by WAV Search' : `Found ${days} day${days === 1 ? '' : 's'} ago by WAV Search`
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
@@ -97,9 +101,7 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
       {/* Condition + days pills */}
       <div className={styles.pills}>
         <span className={styles.conditionPill}>{conditionLabel(listing.condition)}</span>
-        <span className={styles.daysPill}>
-          {days === 0 ? 'Listed today' : `${days} day${days === 1 ? '' : 's'} listed`}
-        </span>
+        <span className={styles.daysPill}>{ageLabel}</span>
       </div>
 
       {/* Specs chips */}
@@ -212,7 +214,16 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
       </div>
 
       <p className={styles.footerMeta}>
-        Listed {formatDate(listing.listedAt)} · Updated {formatDate(listing.updatedAt)}
+        {listing.sourceListedAt != null && (
+          <>Source listed {formatDate(listing.sourceListedAt)} · </>
+        )}
+        {listing.sourceUpdatedAt != null && (
+          <>Source updated {formatDate(listing.sourceUpdatedAt)} · </>
+        )}
+        WAV Search first saw {formatDate(listing.listedAt)}
+        {verificationTimestamp !== null && (
+          <> · Last checked {formatDate(verificationTimestamp)}</>
+        )}
       </p>
     </div>
   )

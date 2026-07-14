@@ -49,6 +49,8 @@ function makeListing(overrides: Partial<ListingDetail> = {}): ListingDetail {
     images: [],
     description: null,
     listedAt: '2026-07-01T00:00:00.000Z',
+    sourceListedAt: null,
+    sourceUpdatedAt: null,
     updatedAt: '2026-07-02T00:00:00.000Z',
     provenance: null,
     crossListings: [],
@@ -126,5 +128,50 @@ describe('OverviewTab report warning badge', () => {
     )
 
     expect(screen.getByRole('note', { name: 'Data accuracy warning' }).textContent).toBe('Data accuracy flagged by users')
+  })
+})
+
+describe('OverviewTab listing date provenance', () => {
+  it('labels seller/source dates separately from WAV Search dates', () => {
+    render(
+      <OverviewTab
+        listing={makeListing({
+          listedAt: '2026-05-05T12:00:00.000Z',
+          sourceListedAt: '2026-05-01T12:00:00.000Z',
+          sourceUpdatedAt: '2026-05-03T12:00:00.000Z',
+          provenance: {
+            sourceName: 'Example Dealer',
+            sourceBaseUrl: 'https://dealer.example',
+            sourceUrl: 'https://dealer.example/listing-1',
+            buyerUrl: null,
+            scrapedAt: '2026-05-05T12:00:00.000Z',
+            detailScrapedAt: '2026-05-06T12:00:00.000Z',
+            vehicleModelMatchConfidence: null,
+          },
+        })}
+        priceHistory={[]}
+        apiBaseUrl="https://api.example.com"
+      />,
+    )
+
+    expect(screen.getByText(/Source listed May 1, 2026/).textContent).toContain(
+      'Source updated May 3, 2026',
+    )
+    expect(screen.getByText(/WAV Search first saw May 5, 2026/).textContent).toContain(
+      'Last checked May 6, 2026',
+    )
+  })
+
+  it('labels listedAt as WAV Search first-seen when source dates are unavailable', () => {
+    render(
+      <OverviewTab
+        listing={makeListing({ listedAt: '2026-05-05T12:00:00.000Z' })}
+        priceHistory={[]}
+        apiBaseUrl="https://api.example.com"
+      />,
+    )
+
+    expect(screen.getByText('WAV Search first saw May 5, 2026')).toBeTruthy()
+    expect(screen.queryByText(/Source listed/)).toBeNull()
   })
 })

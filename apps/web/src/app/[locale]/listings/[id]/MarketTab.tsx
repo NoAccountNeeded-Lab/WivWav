@@ -48,7 +48,7 @@ export function MarketTab({
           {marketPricing.medianDaysListed != null && (
             <div className={styles.marketStat}>
               <span className={styles.marketStatVal}>{marketPricing.medianDaysListed} days</span>
-              <span className={styles.marketStatLabel}>avg time to sell</span>
+              <span className={styles.marketStatLabel}>median source listing age</span>
             </div>
           )}
         </div>

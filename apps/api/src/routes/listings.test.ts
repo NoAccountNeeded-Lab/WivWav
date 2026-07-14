@@ -54,6 +54,8 @@ const defaultDbListing = {
   goneAt: null,
   soldAt: null,
   listedAt: new Date('2024-01-01'),
+  sourceListedAt: null,
+  sourceUpdatedAt: null,
   updatedAt: new Date('2024-01-01'),
   scrapedAt: new Date('2024-01-02'),
   detailScrapedAt: null,
@@ -374,6 +376,24 @@ describe('GET /:id — provenance', () => {
       qualityCheckedAt: '2024-01-02T00:00:00.000Z',
     })
 
+    await app.close()
+  })
+
+  it('returns source dates separately from WAV Search timestamps', async () => {
+    const listing = {
+      ...defaultDbListing,
+      sourceListedAt: new Date('2024-01-01T12:00:00Z'),
+      sourceUpdatedAt: new Date('2024-01-03T12:00:00Z'),
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.json<{ data: Record<string, unknown> }>().data).toMatchObject({
+      listedAt: '2024-01-01T00:00:00.000Z',
+      sourceListedAt: '2024-01-01T12:00:00.000Z',
+      sourceUpdatedAt: '2024-01-03T12:00:00.000Z',
+    })
     await app.close()
   })
 
