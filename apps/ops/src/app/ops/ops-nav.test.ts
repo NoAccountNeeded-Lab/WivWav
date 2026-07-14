@@ -9,6 +9,7 @@ const KNOWN_NEXT_ROUTES = new Set([
   '/ops',
   '/ops/ai',
   '/ops/config',
+  '/ops/field-conflicts',
   '/ops/logs',
   '/ops/queues',
   '/ops/readiness',
@@ -54,6 +55,7 @@ describe('OPS_NAV_GROUPS', () => {
       '/ops/sources',
       '/ops/runs',
       '/ops/ai',
+      '/ops/field-conflicts',
       '/ops/schedules',
       '/ops/logs',
       '/ops/queues',
@@ -85,6 +87,7 @@ describe('OPS_NAV_GROUPS', () => {
       { href: '/ops/ai', label: 'AI' },
       { href: '/ops/config', label: 'AI Config' },
       { href: '/status', label: 'System Status' },
+      { href: '/ops/field-conflicts', label: 'Field Conflicts' },
     ])
   })
 
