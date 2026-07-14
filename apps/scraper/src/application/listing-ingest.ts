@@ -55,6 +55,8 @@ function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) 
     state: listing.location.state,
     dealerName: listing.dealer.name,
     cardImages: listing.images,
+    ...(listing.sourceListedAt != null ? { sourceListedAt: listing.sourceListedAt } : {}),
+    ...(listing.sourceUpdatedAt != null ? { sourceUpdatedAt: listing.sourceUpdatedAt } : {}),
     qualityIssueCodes: listing.qualityIssueCodes ?? [],
     status: 'active',
   }
@@ -104,6 +106,8 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
       state: true,
       dealerName: true,
       cardImages: true,
+      sourceListedAt: true,
+      sourceUpdatedAt: true,
       qualityIssueCodes: true,
       status: true,
     },
@@ -181,6 +185,8 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
       publicationStatus: listing.publicationStatus ?? 'pending',
       qualityCheckedAt: listing.qualityCheckedAt ?? null,
       listedAt: listing.listedAt,
+      sourceListedAt: listing.sourceListedAt ?? null,
+      sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
       ...(listing.priceCents != null
         ? { priceHistory: { create: { priceCents: listing.priceCents } } }
         : {}),
@@ -234,6 +240,8 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
     state: existing.state,
     dealerName: existing.dealerName,
     cardImages: existing.cardImages,
+    sourceListedAt: existing.sourceListedAt,
+    sourceUpdatedAt: existing.sourceUpdatedAt,
     qualityIssueCodes: existing.qualityIssueCodes,
     status: existing.status,
   }
@@ -262,7 +270,13 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
   ].includes(field))
   const locationChanged = changedFields.some((field) => ['zip', 'city', 'state'].includes(field))
   const resetDetail = changedFields.some(
-    (field) => !['buyerUrl', 'sellerType', 'qualityIssueCodes'].includes(field),
+    (field) => ![
+      'buyerUrl',
+      'sellerType',
+      'sourceListedAt',
+      'sourceUpdatedAt',
+      'qualityIssueCodes',
+    ].includes(field),
   )
 
   await tx.listing.update({
@@ -295,6 +309,8 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
       ...(locationChanged ? { lat: null, lng: null } : {}),
       dealerName: listing.dealer.name,
       cardImages: listing.images,
+      ...(listing.sourceListedAt != null ? { sourceListedAt: listing.sourceListedAt } : {}),
+      ...(listing.sourceUpdatedAt != null ? { sourceUpdatedAt: listing.sourceUpdatedAt } : {}),
       scrapedAt: new Date(),
       status: 'active',
       goneAt: null,

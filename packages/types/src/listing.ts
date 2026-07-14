@@ -150,7 +150,15 @@ export interface Listing {
   saleStatus: SaleStatus
   soldAt: Date | null
 
+  /**
+   * When WAV Search first observed this source listing. This is an internal
+   * discovery timestamp, not a seller-provided publication date.
+   */
   listedAt: Date
+  /** Seller/source publication timestamp, when explicitly provided. */
+  sourceListedAt: Date | null
+  /** Seller/source modification timestamp, when explicitly provided. */
+  sourceUpdatedAt: Date | null
   updatedAt: Date
   scrapedAt: Date
 }
@@ -186,4 +194,6 @@ export type ListingPreview = Pick<
   | 'wav'
   | 'images'
   | 'listedAt'
+  | 'sourceListedAt'
+  | 'sourceUpdatedAt'
 >

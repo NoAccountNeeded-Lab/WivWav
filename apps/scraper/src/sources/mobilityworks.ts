@@ -512,6 +512,8 @@ export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'upd
     saleStatus: 'active',
     soldAt: null,
     listedAt: new Date(),
+    sourceListedAt: null,
+    sourceUpdatedAt: null,
   }
 }
 

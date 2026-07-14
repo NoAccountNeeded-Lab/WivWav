@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import type * as MobilityworksDetailModule from '../sources/mobilityworks-detail.js'
+import type * as SourceListingDatesModule from '../sources/source-listing-dates.js'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 vi.mock('../sources/mobilityworks-detail.js', async () => {
@@ -11,6 +12,15 @@ vi.mock('../sources/mobilityworks-detail.js', async () => {
   return {
     ...actual,
     evaluateMwDetail: vi.fn(),
+  }
+})
+vi.mock('../sources/source-listing-dates.js', async () => {
+  const actual = await vi.importActual<typeof SourceListingDatesModule>(
+    '../sources/source-listing-dates.js',
+  )
+  return {
+    ...actual,
+    evaluateSourceListingDates: vi.fn(),
   }
 })
 
@@ -27,6 +37,7 @@ import {
 import { runDetailExtractJob } from './detail-extract.js'
 import type { RawDetail } from '../sources/blvd-detail.js'
 import { evaluateMwDetail } from '../sources/mobilityworks-detail.js'
+import { evaluateSourceListingDates } from '../sources/source-listing-dates.js'
 import type { RawMwDetail } from '../sources/mobilityworks-detail.js'
 import { MockBrowserService } from '../browser/index.js'
 import type { MockPageRecord } from '../browser/index.js'
@@ -67,6 +78,8 @@ function baseListingRow(overrides: Record<string, unknown> = {}) {
     dealerWebsite: null,
     buyerUrl: null,
     saleStatus: 'active',
+    sourceListedAt: null,
+    sourceUpdatedAt: null,
     goneAt: null,
     publicationStatus: 'pending',
     qualityIssueCodes: [],
@@ -125,6 +138,10 @@ function makeBrowser(pages: Map<string, MockPageRecord> = new Map()) {
 describe('runDetailExtractJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(evaluateSourceListingDates).mockResolvedValue({
+      sourceListedAt: null,
+      sourceUpdatedAt: null,
+    })
   })
 
   it('rejects an empty source id before querying the database', async () => {
@@ -497,6 +514,8 @@ describe('buildListingDetailUpdateData', () => {
     zip: '95815',
     dealerPhone: '(916) 555-0101',
     saleStatus: 'active' as const,
+    sourceListedAt: null,
+    sourceUpdatedAt: null,
     evidence: {
       color: 'value' as const,
       fuelType: 'value' as const,
@@ -520,6 +539,30 @@ describe('buildListingDetailUpdateData', () => {
       qualityIssueCodes: [],
       qualityCheckedAt: null,
     })
+  })
+
+  it('includes source-provided dates when present', () => {
+    const sourceListedAt = new Date('2026-05-01T00:00:00Z')
+    const sourceUpdatedAt = new Date('2026-05-03T00:00:00Z')
+    const result = buildListingDetailUpdateData({
+      ...detail,
+      sourceListedAt,
+      sourceUpdatedAt,
+    }, { dealerWebsite: null, directVehicleUrl: null }, {}, NOW)
+
+    expect(result).toMatchObject({ sourceListedAt, sourceUpdatedAt })
+  })
+
+  it('omits unavailable source dates so existing values are preserved', () => {
+    const result = buildListingDetailUpdateData(
+      detail,
+      { dealerWebsite: null, directVehicleUrl: null },
+      {},
+      NOW,
+    )
+
+    expect(result).not.toHaveProperty('sourceListedAt')
+    expect(result).not.toHaveProperty('sourceUpdatedAt')
   })
 
   it('omits buyerUrl when enrichment falls back to the existing BLVD URL', () => {
