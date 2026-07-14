@@ -36,7 +36,7 @@ const searchService = new MeilisearchService(meili)
 const search = new ListingSearchService(searchService)
 const facets = new ListingFacetsService(searchService, cache)
 const queueFactory = new BullMQQueueFactory()
-const app = await buildApp(config, db, meili, cache, search, facets, queueFactory)
+const app = await buildApp(config, db, meili, cache, search, facets, queueFactory, redis)
 
 let shutdownPromise: Promise<void> | undefined
 

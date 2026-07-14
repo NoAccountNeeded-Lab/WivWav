@@ -102,4 +102,26 @@ describe('loadConfig', () => {
 
     expect(() => loadConfig()).toThrow('Invalid environment configuration')
   })
+
+  it('allows STRIPE_WEBHOOK_SECRET to be absent (optional)', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    const orig = process.env['STRIPE_WEBHOOK_SECRET']
+    delete process.env['STRIPE_WEBHOOK_SECRET']
+    try {
+      const config = loadConfig()
+      expect(config.STRIPE_WEBHOOK_SECRET).toBeUndefined()
+    } finally {
+      if (orig !== undefined) process.env['STRIPE_WEBHOOK_SECRET'] = orig
+    }
+  })
+
+  it('loads STRIPE_WEBHOOK_SECRET when configured', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
+
+    const config = loadConfig()
+    expect(config.STRIPE_WEBHOOK_SECRET).toBe('whsec_test')
+  })
 })
