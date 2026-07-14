@@ -23,6 +23,16 @@ interface QuarantineListQuery {
   take?: string
 }
 
+interface FieldConflictListQuery {
+  sourceId?: string
+  field?: string
+  skip?: string
+  take?: string
+}
+
+const MAX_FIELD_CONFLICT_PAGE_SIZE = 200
+const DEFAULT_FIELD_CONFLICT_PAGE_SIZE = 50
+
 function quarantineRowToResponse(row: QuarantinedListingRow) {
   return {
     ...row,
@@ -385,6 +395,37 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       return reply.notFound(`Quarantined listing "${req.params.id}" not found`)
     }
     return reply.send({ data: { reprocessed: true } })
+  })
+
+  // ── #499 field conflicts ─────────────────────────────────────────────────────
+  // Operator triage surface for listings whose conversionType/rampType
+  // resolution is `conflicting` (apps/scraper/src/resolution). Reuses #147's
+  // triage list/filter/paginate shape (see the quarantine routes above) —
+  // this issue does not build a separate user-report form, only the
+  // operator-facing conflict list the issue's acceptance criteria require.
+
+  // GET /admin/field-conflicts — list unresolved field conflicts, one row per
+  // (listingId, field), with the competing claims that caused each one.
+  app.get<{ Querystring: FieldConflictListQuery }>('/field-conflicts', async (req, reply) => {
+    const { sourceId, field, skip, take } = req.query
+
+    const parsedTake = Math.min(
+      take ? Number.parseInt(take, 10) || DEFAULT_FIELD_CONFLICT_PAGE_SIZE : DEFAULT_FIELD_CONFLICT_PAGE_SIZE,
+      MAX_FIELD_CONFLICT_PAGE_SIZE,
+    )
+    const parsedSkip = skip ? Math.max(Number.parseInt(skip, 10) || 0, 0) : 0
+
+    const filter = {
+      ...(sourceId ? { sourceId } : {}),
+      ...(field ? { field } : {}),
+    }
+
+    const [rows, total] = await Promise.all([
+      listings.findFieldConflicts({ ...filter, skip: parsedSkip, take: parsedTake }),
+      listings.countFieldConflicts(filter),
+    ])
+
+    return reply.send({ data: rows, meta: { total, skip: parsedSkip, take: parsedTake } })
   })
 
   // GET /admin/listing-refresh/status — aggregate status for the guided refresh workflow

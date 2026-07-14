@@ -99,4 +99,60 @@ describe('PrismaListingRepository (integration)', () => {
       })
     })
   })
+
+  describe('findFieldConflicts / countFieldConflicts (#499)', () => {
+    it('lists only listings whose field resolution is conflicting, with competing claims', async () => {
+      const source = await createSource(db)
+      const conflicting = await createListing(db, source.id, {
+        conversionType: 'unknown',
+        conversionTypeResolution: 'conflicting',
+      })
+      await createListing(db, source.id, { conversionTypeResolution: 'verified', conversionType: 'rear_entry' })
+      await createListing(db, source.id, { status: 'gone', conversionTypeResolution: 'conflicting' })
+
+      await db.listingFieldClaim.createMany({
+        data: [
+          {
+            listingId: conflicting.id,
+            field: 'conversionType',
+            claimedValue: 'side_entry',
+            evidenceKind: 'structured_source',
+            sourceRef: conflicting.sourceUrl,
+            observedAt: new Date('2026-01-01'),
+            extractorVersion: 'v1',
+          },
+          {
+            listingId: conflicting.id,
+            field: 'conversionType',
+            claimedValue: 'rear_entry',
+            evidenceKind: 'vehicle_text',
+            sourceRef: `${conflicting.sourceUrl}/detail`,
+            observedAt: new Date('2026-01-02'),
+            extractorVersion: 'v1',
+          },
+        ],
+      })
+
+      const rows = await repo.findFieldConflicts({})
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({
+        listingId: conflicting.id,
+        field: 'conversionType',
+        competingValues: expect.arrayContaining(['side_entry', 'rear_entry']),
+        evidenceKinds: expect.arrayContaining(['structured_source', 'vehicle_text']),
+      })
+
+      await expect(repo.countFieldConflicts({})).resolves.toBe(1)
+    })
+
+    it('filters by field', async () => {
+      const source = await createSource(db)
+      await createListing(db, source.id, { conversionTypeResolution: 'conflicting', rampTypeResolution: 'verified' })
+      await createListing(db, source.id, { rampTypeResolution: 'conflicting', conversionTypeResolution: 'verified' })
+
+      const conversionRows = await repo.findFieldConflicts({ field: 'conversionType' })
+      expect(conversionRows.every((r) => r.field === 'conversionType')).toBe(true)
+      expect(conversionRows).toHaveLength(1)
+    })
+  })
 })

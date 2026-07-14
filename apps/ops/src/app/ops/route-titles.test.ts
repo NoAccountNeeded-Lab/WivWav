@@ -8,6 +8,7 @@ import * as sourcesPage from './sources/page'
 import * as sourcePipelinePage from './sources/[id]/page'
 import * as runsPage from './runs/page'
 import * as aiPage from './ai/page'
+import * as fieldConflictsPage from './field-conflicts/page'
 import * as schedulesPage from './schedules/page'
 import * as logsPage from './logs/page'
 import * as queuesPage from './queues/page'
@@ -26,6 +27,7 @@ const ROUTE_PAGES: ReadonlyArray<{ href: string; mod: { metadata?: { title?: unk
   { href: '/ops/sources', mod: sourcesPage },
   { href: '/ops/runs', mod: runsPage },
   { href: '/ops/ai', mod: aiPage },
+  { href: '/ops/field-conflicts', mod: fieldConflictsPage },
   { href: '/ops/schedules', mod: schedulesPage },
   { href: '/ops/logs', mod: logsPage },
   { href: '/ops/queues', mod: queuesPage },

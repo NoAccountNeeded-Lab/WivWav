@@ -184,6 +184,18 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
           },
         },
       },
+      {
+        href: '/ops/field-conflicts',
+        title: 'Field conflicts',
+        desc: 'Review listings whose entry type or ramp type has conflicting evidence (#499) and is excluded from side/rear and ramp-type search filters until resolved.',
+        shell: {
+          placement: 'primary',
+          overviewQuickLink: {
+            label: 'Field Conflicts',
+            order: 9,
+          },
+        },
+      },
     ],
   },
   {
