@@ -99,8 +99,8 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
         const body = await postJson<{ data: { id: string } }>(`${apiBaseUrl}/admin/queues/geocode/jobs`)
         setAction(actionId, { loading: false, feedback: `Enqueued geocode job ${body.data.id}`, isError: false })
       } else {
-        const body = await postJson<{ data: { synced: number } }>(`${apiBaseUrl}/admin/sync`)
-        setAction(actionId, { loading: false, feedback: `Synced ${body.data.synced.toLocaleString()} listings`, isError: false })
+        const body = await postJson<{ data: { jobId: string } }>(`${apiBaseUrl}/admin/sync`)
+        setAction(actionId, { loading: false, feedback: `Enqueued search index sync job ${body.data.jobId}`, isError: false })
       }
       setTimeout(() => void refresh(), 1000)
     } catch (err) {
