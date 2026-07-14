@@ -18,8 +18,10 @@
   "DiscoverChat": {
     "heading": "Find the right accessible vehicle",
     "avatarOnlineLabel": "Online",
+    "conversationLabel": "Conversation",
     "openingMessage": "Describe what you need — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
     "replyLabel": "Type your reply",
+    "replyPlaceholder": "Type your reply…",
     "sendLabel": "Send",
     "sendingLabel": "Sending…",
     "thinkingLabel": "WivWav is thinking",
