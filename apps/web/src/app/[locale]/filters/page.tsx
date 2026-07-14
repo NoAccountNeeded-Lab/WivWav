@@ -166,7 +166,7 @@ function ListingCard({
   if (rampLabel) badges.push(rampLabel)
   for (const f of l.wavFeatures) {
     const key = `wavFeature_${f}` as keyof ListingLabels
-    const label = (labels as Record<string, string | undefined>)[key]
+    const label: string | undefined = Object.hasOwn(labels, key) ? labels[key] : undefined
     if (label) badges.push(label)
   }
   const wavFeatures = badges

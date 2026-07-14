@@ -1,8 +1,25 @@
 // @vitest-environment jsdom
+import type { ReactElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { NextIntlClientProvider } from 'next-intl'
 import { FilterGroup } from './FilterGroup'
 import type { FilterItem } from './types'
+
+const messages = {
+  FilterControls: {
+    showFewer: 'Show fewer',
+    showMore: 'Show {count} more',
+  },
+}
+
+function renderWithIntl(ui: ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      {ui}
+    </NextIntlClientProvider>,
+  )
+}
 
 function makeItems(count: number): FilterItem[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -20,7 +37,7 @@ afterEach(() => {
 
 describe('FilterGroup', () => {
   it('should render only maxVisible items when collapsed', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     const buttons = await screen.findAllByRole('button', { name: /^Item \d+/ })
@@ -28,14 +45,14 @@ describe('FilterGroup', () => {
   })
 
   it('should show a "Show N more" button when items exceed maxVisible', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     expect(await screen.findByRole('button', { name: 'Show 4 more' })).toBeDefined()
   })
 
   it('should not show a "Show more" button when items fit within maxVisible', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(5)} onToggle={vi.fn()} maxVisible={8} />,
     )
     await screen.findAllByRole('button', { name: /^Item \d+/ })
@@ -43,7 +60,7 @@ describe('FilterGroup', () => {
   })
 
   it('should open a dialog with the full item list when "Show more" is clicked', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -53,7 +70,7 @@ describe('FilterGroup', () => {
   })
 
   it('should not shift the collapsed list when the modal is open', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -68,7 +85,7 @@ describe('FilterGroup', () => {
   })
 
   it('should close the dialog when the close button is clicked', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -79,7 +96,7 @@ describe('FilterGroup', () => {
   })
 
   it('should close the dialog when the backdrop is clicked', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -91,7 +108,7 @@ describe('FilterGroup', () => {
   })
 
   it('should not close the dialog when clicking inside the panel', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -102,7 +119,7 @@ describe('FilterGroup', () => {
   })
 
   it('should close the dialog when Escape is pressed', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -113,7 +130,7 @@ describe('FilterGroup', () => {
   })
 
   it('should move focus to the close button when the dialog opens', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -122,7 +139,7 @@ describe('FilterGroup', () => {
   })
 
   it('should restore focus to the trigger button when the dialog closes', async () => {
-    render(
+    renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     const trigger = await screen.findByRole('button', { name: 'Show 4 more' })
@@ -139,7 +156,7 @@ describe('FilterGroup', () => {
   })
 
   it('should mark the collapsed facet content inert while the dialog is open', async () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Show 4 more' }))
@@ -150,7 +167,7 @@ describe('FilterGroup', () => {
   })
 
   it('should lock body scroll while open and restore it once all modals close', async () => {
-    render(
+    renderWithIntl(
       <>
         <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />
         <FilterGroup title="Model" labelId="model" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />

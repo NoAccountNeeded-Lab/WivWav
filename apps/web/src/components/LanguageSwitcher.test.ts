@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 
 // LanguageSwitcher is a 'use client' component with React hook dependencies.
 // The handleChange logic is duplicated here as computeLocaleSwitch to test
-// what arguments are actually passed to router.replace.
-// If the implementation changes, update both.
+// what URL LanguageSwitcher's hard navigation (window.location.href) would
+// be given. If the implementation changes, update both.
 
 // Mirrors the handleChange body in LanguageSwitcher.tsx.
 function computeLocaleSwitch(
@@ -18,10 +18,12 @@ function computeLocaleSwitch(
   return { href: pathWithoutLocale, locale: nextLocale }
 }
 
-// Mirrors the locale-gate logic in routing.ts.
-function getLocalesForEnv(nodeEnv: string): string[] {
+// Mirrors the locale-gate logic in routing.ts, which uses an explicit
+// NEXT_PUBLIC_* env var (rather than NODE_ENV) so the filter works reliably
+// in both the Node.js server runtime and the Edge Runtime (middleware).
+function getLocalesForEnv(enableZzLocale: string | undefined): string[] {
   const allLocales = ['en', 'es', 'zz']
-  return allLocales.filter((l) => l !== 'zz' || nodeEnv === 'development')
+  return allLocales.filter((l) => l !== 'zz' || enableZzLocale === 'true')
 }
 
 describe('computeLocaleSwitch', () => {
@@ -80,21 +82,22 @@ describe('computeLocaleSwitch', () => {
 })
 
 describe('locale gate', () => {
-  it('includes zz in development', () => {
-    expect(getLocalesForEnv('development')).toContain('zz')
+  it('includes zz when NEXT_PUBLIC_ENABLE_ZZ_LOCALE is "true"', () => {
+    expect(getLocalesForEnv('true')).toContain('zz')
   })
 
-  it('excludes zz in production', () => {
-    expect(getLocalesForEnv('production')).not.toContain('zz')
+  it('excludes zz when the env var is unset', () => {
+    expect(getLocalesForEnv(undefined)).not.toContain('zz')
   })
 
-  it('excludes zz in test (vitest runs as NODE_ENV=test)', () => {
-    expect(getLocalesForEnv('test')).not.toContain('zz')
+  it('excludes zz for any value other than the literal string "true"', () => {
+    expect(getLocalesForEnv('1')).not.toContain('zz')
+    expect(getLocalesForEnv('false')).not.toContain('zz')
   })
 
-  it('always includes en and es regardless of environment', () => {
-    for (const env of ['development', 'test', 'production']) {
-      const locales = getLocalesForEnv(env)
+  it('always includes en and es regardless of the env var', () => {
+    for (const val of [undefined, 'true', 'false']) {
+      const locales = getLocalesForEnv(val)
       expect(locales).toContain('en')
       expect(locales).toContain('es')
     }
