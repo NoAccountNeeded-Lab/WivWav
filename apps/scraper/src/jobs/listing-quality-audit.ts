@@ -47,6 +47,8 @@
  * @module
  */
 
+import '../lib/load-env.js'
+
 import { getDb } from '@wivwav/db'
 import { detectSourceDrift } from '../engine/listing-validator.js'
 import type { SourceDriftObservation } from '../engine/listing-validator.js'

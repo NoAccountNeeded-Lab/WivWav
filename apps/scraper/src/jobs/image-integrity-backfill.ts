@@ -73,6 +73,8 @@
  * @module
  */
 
+import '../lib/load-env.js'
+
 import { getDb, upsertListingImage, upsertImageCluster } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import { hashImage } from '../images/image-hasher.js'

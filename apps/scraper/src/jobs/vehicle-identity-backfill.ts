@@ -67,6 +67,8 @@
  * @module
  */
 
+import '../lib/load-env.js'
+
 import { getDb, upsertVehicleIdentityDecision, VehicleIdentityDecisionState } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import { matchListingPair, type MatchableListing, type VehicleIdentityMatchResult } from '../engine/vehicle-identity-matcher.js'
