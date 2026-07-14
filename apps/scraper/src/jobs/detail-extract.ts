@@ -166,13 +166,21 @@ function auditValue(value: unknown): unknown {
  * Formats a caught error for logging: message-only (no stack, no thrown
  * non-Error payload dump), whitespace-collapsed, and length-bounded. See
  * `ERROR_LOG_MAX_LENGTH` for why this matters for private-seller data.
+ *
+ * Bounding length alone is not enough: a Prisma validation error's payload
+ * dump starts immediately after a short "Invalid `db.x.y()` invocation:"
+ * header, so a listing's `description` can appear well inside any reasonable
+ * length cap. Cut at the first `{` — where that argument dump begins — and
+ * keep only the header/reason before it.
  */
 export function summarizeError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
-  const collapsed = raw.replace(/\s+/g, ' ').trim()
-  return collapsed.length > ERROR_LOG_MAX_LENGTH
+  const headerOnly = raw.split('{')[0] ?? raw
+  const collapsed = headerOnly.replace(/\s+/g, ' ').trim()
+  const bounded = collapsed.length > ERROR_LOG_MAX_LENGTH
     ? `${collapsed.slice(0, ERROR_LOG_MAX_LENGTH)}…`
     : collapsed
+  return bounded.length > 0 ? bounded : 'error (no message)'
 }
 
 export function buildListingDetailUpdateData(
