@@ -22,10 +22,12 @@ function tierRank(tier: ApiKeyTier): number {
 /**
  * Resolves the caller's tier from the `X-Api-Key` or `Authorization: Bearer`
  * header. Missing, malformed, unknown, or revoked keys resolve to `FREE`
- * rather than rejecting the request — `/v1/` routes have no authentication
- * requirement yet (that lands with #453's key-provisioning and rate-limiting
- * work); this resolver only supplies the tier signal the gated routes added
- * in #454 need.
+ * rather than rejecting the request. Callers behind `plugins/api-key-auth.ts`
+ * (all `/v1/` routes, since #453) are guaranteed to already carry a valid key
+ * or an explicit auth bypass by the time a route handler runs, so in
+ * practice this fallback only matters for routes exercised directly in tests
+ * without that middleware; this resolver supplies the tier signal the
+ * PRO+-gated routes added in #454 need.
  */
 export async function resolveApiKeyTier(apiKeys: ApiKeyRepository, headers: ApiKeyHeaders): Promise<ApiKeyTier> {
   const rawKey = extractRawKey(headers)
@@ -45,7 +47,25 @@ export function hashApiKey(rawKey: string): string {
   return createHash('sha256').update(rawKey).digest('hex')
 }
 
-function extractRawKey(headers: ApiKeyHeaders): string | null {
+/**
+ * Default `rateLimitRpm` for a tier, applied at key creation and by the
+ * Stripe tier-upgrade webhook when the caller doesn't specify an explicit
+ * override. Individual keys may still be provisioned with a custom limit
+ * (e.g. a negotiated enterprise deal).
+ */
+export function defaultRateLimitForTier(tier: ApiKeyTier): number {
+  switch (tier) {
+    case 'FREE':
+      return 60
+    case 'PRO':
+      return 600
+    case 'ENTERPRISE':
+      return 6000
+  }
+}
+
+/** Extracts the raw key from `X-Api-Key` or `Authorization: Bearer`, or null if absent/malformed. */
+export function extractRawKey(headers: ApiKeyHeaders): string | null {
   const apiKeyHeader = headers['x-api-key']
   if (typeof apiKeyHeader === 'string' && apiKeyHeader.length > 0) return apiKeyHeader
   if (Array.isArray(apiKeyHeader) && apiKeyHeader[0]) return apiKeyHeader[0]
