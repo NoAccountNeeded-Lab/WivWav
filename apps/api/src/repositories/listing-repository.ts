@@ -744,12 +744,26 @@ export class PrismaListingRepository implements ListingRepository {
     return rows
   }
 
-  countFieldConflicts(filter: Omit<FieldConflictFilter, 'skip' | 'take'>): Promise<number> {
-    // Approximates row count as listing count — a listing conflicting on
-    // both fields simultaneously is rare and the operator page's pagination
-    // is a soft affordance, not an exact-total requirement. findFieldConflicts
-    // is the source of truth for what actually renders.
-    return this.db.listing.count({ where: this.fieldConflictWhere(filter) })
+  async countFieldConflicts(filter: Omit<FieldConflictFilter, 'skip' | 'take'>): Promise<number> {
+    // findFieldConflicts returns one row per (listing, field) — a listing
+    // conflicting on both fields yields two rows. Count each field
+    // separately and sum, rather than counting listings, so `meta.total`
+    // matches the actual row count across pages instead of undercounting.
+    const wantsConversion = !filter.field || filter.field === 'conversionType'
+    const wantsRamp = !filter.field || filter.field === 'rampType'
+    const baseWhere = {
+      status: 'active' as const,
+      ...(filter.sourceId ? { sourceId: filter.sourceId } : {}),
+    }
+    const [conversionCount, rampCount] = await Promise.all([
+      wantsConversion
+        ? this.db.listing.count({ where: { ...baseWhere, conversionTypeResolution: 'conflicting' } })
+        : Promise.resolve(0),
+      wantsRamp
+        ? this.db.listing.count({ where: { ...baseWhere, rampTypeResolution: 'conflicting' } })
+        : Promise.resolve(0),
+    ])
+    return conversionCount + rampCount
   }
 
   async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {
