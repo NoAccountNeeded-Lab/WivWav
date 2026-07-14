@@ -73,6 +73,20 @@ export interface WavFeatures {
   wheelchairCapacity: number | null
 }
 
+/**
+ * #499 deterministic resolution status for a claim/evidence-backed field.
+ * Distinct from the field's own normalized value (`ConversionType`,
+ * `RampType`) — `conflicting` and `unknown` describe how trustworthy the
+ * stored value is, never a side/rear/ramp value itself. Mirrors Prisma's
+ * `FieldResolutionState` enum (packages/db/prisma/schema.prisma).
+ */
+export type FieldResolutionState = 'verified' | 'source_reported' | 'conflicting' | 'unknown'
+
+export interface WavFieldResolution {
+  conversionType: FieldResolutionState
+  rampType: FieldResolutionState
+}
+
 export interface ListingLocation {
   zip: string | null
   city: string | null
@@ -111,6 +125,13 @@ export interface Listing {
   transmission: string | null
 
   wav: WavFeatures
+  /**
+   * #499 resolution status for `wav.conversionType`/`wav.rampType`. Optional
+   * because ingestion payloads (`ListingUpsertData`) never set it — it is
+   * resolver-owned (apps/scraper/src/resolution) and always present on a
+   * real API response.
+   */
+  fieldResolution?: WavFieldResolution
   location: ListingLocation
   dealer: ListingDealer
 

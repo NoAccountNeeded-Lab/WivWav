@@ -44,6 +44,7 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
     lat, lng, zip, city, state,
     conversionType, conversionManufacturer, floorLoweringInches,
     rampType, conversionStatus, wavFeatures, wheelchairCapacity,
+    conversionTypeResolution, rampTypeResolution,
     description,
     ...rest
   } = listing
@@ -57,6 +58,14 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
   const phone = isPrivate ? null : dealerPhone
   const name = isPrivate ? 'For Sale By Owner' : dealerName
 
+  // #499: the resolver already writes `unknown` to conversionType/rampType
+  // while conflicting (see apps/scraper/src/resolution), but this is the
+  // public response boundary — never let a `conflicting` field read as a
+  // definitive side/rear/ramp value here even if that invariant is ever
+  // violated upstream.
+  const publicConversionType = conversionTypeResolution === 'conflicting' ? 'unknown' : conversionType
+  const publicRampType = rampTypeResolution === 'conflicting' ? 'unknown' : rampType
+
   return {
     ...rest,
     sourceUrl,
@@ -64,7 +73,16 @@ function toListingDetailResponse(listing: ListingWithRequiredSource, crossListin
     description: snippetDescription(description),
     location: { zip, city, state, lat, lng },
     dealer: { name, phone, website: dealerWebsite },
-    wav: { conversionType, conversionManufacturer, floorLoweringInches, rampType, conversionStatus, wavFeatures, wheelchairCapacity },
+    wav: {
+      conversionType: publicConversionType,
+      conversionManufacturer,
+      floorLoweringInches,
+      rampType: publicRampType,
+      conversionStatus,
+      wavFeatures,
+      wheelchairCapacity,
+    },
+    fieldResolution: { conversionType: conversionTypeResolution, rampType: rampTypeResolution },
     crossListings,
     provenance: {
       sourceName: source.name,
