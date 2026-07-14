@@ -488,6 +488,7 @@ describe('buildListingDetailUpdateData', () => {
     engine: '2.5L Hybrid I4',
     transmission: 'automatic',
     rampType: 'fold_out' as const,
+    conversionType: 'rear_entry' as const,
     wavFeatures: ['transfer_seat' as const],
     floorLoweringInches: 14,
     wheelchairCapacity: null,

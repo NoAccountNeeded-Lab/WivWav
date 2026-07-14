@@ -12,6 +12,7 @@ import type {
 import { GONE_AFTER_CONSECUTIVE_MISSING } from '../engine/repositories.js'
 import type { SourceDriftBaseline } from '../engine/listing-validator.js'
 import { ingestListing } from '../application/listing-ingest.js'
+import { recordCardFieldClaims } from '../resolution/card-claims.js'
 
 const TRANSIENT_PRISMA_CODES = new Set(['P2002', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017'])
 const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
@@ -171,10 +172,17 @@ export class PrismaListingRepository implements ListingRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async upsert(listing: ListingUpsertData): Promise<ListingUpsertResult> {
-    return withTransientRetry(() => this.db.$transaction(
+    const result = await withTransientRetry(() => this.db.$transaction(
       (tx) => ingestListing(tx, listing),
       { isolationLevel: 'Serializable' },
     ))
+    // #499: record an independent claim for whatever accessibility evidence
+    // this card observed, then re-resolve. Deliberately its own transaction,
+    // after the upsert commits — see card-claims.ts's docstring. A listing
+    // whose card supplied no accessibility evidence this scrape (the common
+    // case) short-circuits before touching the database again.
+    await recordCardFieldClaims(this.db, result.listingId, listing)
+    return result
   }
 
   async markGone(sourceId: string, activeSourceRecordKeys: string[], options: MarkGoneOptions): Promise<number> {
