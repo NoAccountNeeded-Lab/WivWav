@@ -5,6 +5,42 @@ field. A stage may record evidence for a field owned by resolution, but it must
 set `publicationStatus = pending`; it must not promote its latest string to
 verified public truth.
 
+## #499 claim/evidence resolution (conversionType, rampType)
+
+Card and detail extraction each persist their observed value directly on the
+`Listing` row (as before) **and** record an independent, append-only claim in
+`ListingFieldClaim` (`apps/scraper/src/resolution/claims-repository.ts`).
+Every write path then recomputes the field's resolution from every stored
+claim — including any photo-derived claim from a `PhotoClaimProvider`
+(`apps/scraper/src/resolution/photo-claim-provider.ts`, a no-op until #129
+supplies a real classifier) — via the pure resolver in
+`apps/scraper/src/resolution/resolver.ts`, and writes both the resolved
+normalized value and a separate `conversionTypeResolution`/
+`rampTypeResolution` (`FieldResolutionState`: `verified` | `source_reported` |
+`conflicting` | `unknown`) back onto the row in the same transaction.
+
+`conflicting` is a resolution state, never a value: while conflicting, the
+resolver writes `unknown` to `conversionType`/`rampType` itself, which is what
+actually excludes the listing from side/rear and ramp-type search
+filters/facets (see `packages/search/src/index.ts::toDocument`) — no
+additional filter rule is needed. `GET /v1/listings/:id` mirrors this in
+`fieldResolution: { conversionType, rampType }` and defensively re-forces the
+public `wav` value to `unknown` while conflicting.
+
+Integration points, each gated on "this stage actually observed a value" so
+untouched listings never write to `ListingFieldClaim`:
+- Card: `apps/scraper/src/resolution/card-claims.ts`, called from
+  `PrismaListingRepository.upsert` after `ingestListing` commits.
+- Detail: `apps/scraper/src/resolution/detail-claims.ts`, called from
+  `detail-extract.ts` when the description was actually observed.
+- Backfill (pre-#499 data): `apps/scraper/src/jobs/field-claims-backfill.ts`
+  seeds one claim from the currently-stored value for a listing with no claim
+  history yet — see that file's module docstring for the full deploy
+  procedure and why it can only ever produce `source_reported`, never
+  `conflicting`.
+- Operator triage: `GET /admin/field-conflicts`
+  (`apps/api/src/repositories/listing-repository.ts::findFieldConflicts`).
+
 ## Ownership matrix
 
 | Fields | Storage owner | Refresh rule |
@@ -13,7 +49,8 @@ verified public truth.
 | `sourceUrl`, source fallback `buyerUrl`, `externalId`, `stockNumber` | list/card scrape | Replace when the card changes. A dealer-enriched direct `buyerUrl` is preserved when the card only repeats its source URL. |
 | `make`, `model`, `year`, `trim`, `vin`, `condition`, `sellerType` | list/card scrape, then resolution | Persist corrected card evidence and move publication to `pending`. VIN enrichment may link the resulting VIN to `vehicleId`, but does not rewrite the observed VIN. Resolution owns public conflict decisions (#499). |
 | `priceCents`, `mileage` | list/card scrape | Replace on change. Non-null transitions append their specialized history rows in the same serializable transaction. |
-| `conversionType`, `conversionManufacturer`, `conversionStatus`, `rampType`, `wavFeatures`, `floorLoweringInches`, `wheelchairCapacity` | resolution | Card and detail stages persist real bounded observations and invalidate publication. Card absence sentinels preserve existing detail/resolved evidence. The #499 resolver/validator owns verified public truth; neither scraper stage marks the row eligible. |
+| `conversionType`, `rampType` | resolution (see "#499 claim/evidence resolution" above) | Card and detail stages each persist an independent claim; the resolver, not either stage, owns the final normalized value and its `conversionTypeResolution`/`rampTypeResolution` state. |
+| `conversionManufacturer`, `conversionStatus`, `wavFeatures`, `floorLoweringInches`, `wheelchairCapacity` | resolution | Card and detail stages persist real bounded observations and invalidate publication. Card absence sentinels preserve existing detail/resolved evidence. The #502 validator owns publication eligibility; neither scraper stage marks the row eligible. |
 | `color` | list/card scrape, then detail scrape | A corrected card color is persisted; bounded detail specifications may refine it. Missing detail evidence preserves the card value. |
 | `fuelType`, `engine`, `transmission` | detail scrape | Replace only when the bounded specification extraction succeeded. Missing/failed extraction preserves the previous value. |
 | `zip`, `city`, `state` | list/card scrape | Replace on change and clear `lat`/`lng`, forcing geocoding to recompute coordinates. Detail may supply a bounded ZIP observation. |
