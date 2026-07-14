@@ -10,6 +10,15 @@ export interface RawDetail {
   descriptionText: string
   descriptionFound?: boolean
   imageUrls: string[]
+  /**
+   * True when the scraper successfully located a vehicle gallery — either the
+   * default BLVD template's "_large.jpg" anchors or a reseller dealer
+   * template's bounded gallery/carousel container. False means no gallery
+   * evidence was found at all (never a page-wide fallback), distinguishing
+   * "extraction failed to locate a gallery" from "verified empty gallery".
+   * Optional for backward compatibility with hand-authored fixtures that
+   * predate this field.
+   */
   galleryFound?: boolean
   dealerPhone: string
   dealerAddressText: string
@@ -135,19 +144,52 @@ export async function evaluateBlvdDetail(page: BrowserPage): Promise<RawDetail> 
       }
     }
 
-    // Gallery: all <a href> links pointing to large images, deduped.
-    // The _large.jpg pattern is vehicle-gallery-specific; the path filter guards edge cases.
+    // Gallery: BLVD's own template links directly to "_large.jpg" images; many
+    // reseller dealer templates (e.g. Freedom Motors, United Access) proxy
+    // listings through BLVD without that naming convention, so a bounded
+    // fallback strategy locates a gallery/carousel container and reads its
+    // <img> sources instead. Never fall back to whole-page image collection —
+    // that would pick up site chrome, badges, and dealer-network logos.
     const NON_VEHICLE_PATH =
       /\/(?:icon|logo|badge|banner|avatar|staff|team|person|social|sprite|header|footer|favicon|placeholder|tracking|pixel|spacer|arrow|bullet|star|rating|map|pin|marker)\b/i
-    const galleryFound = document.querySelector('[class*="gallery"], [class*="carousel"], [id*="gallery"]') !== null
     const seen = new Set<string>()
     const imageUrls: string[] = []
+
+    // Strategy 1: default BLVD template — anchors linking directly to "_large.jpg".
     document.querySelectorAll<HTMLAnchorElement>('a[href*="_large.jpg"]').forEach(function (a) {
       const href = a.getAttribute('href') ?? ''
       if (!href || NON_VEHICLE_PATH.test(href)) return
       const abs = href.startsWith('http') ? href : `${baseUrl}${href}`
       if (!seen.has(abs)) { seen.add(abs); imageUrls.push(abs) }
     })
+    let galleryFound = imageUrls.length > 0
+
+    // Strategy 2: reseller dealer templates without "_large.jpg" anchors.
+    // Bounded to a gallery/carousel container's own <img> elements only.
+    if (!galleryFound) {
+      const MIN_W = 200
+      const MIN_H = 150
+      const galleryRoot = document.querySelector<HTMLElement>(
+        '[class*="gallery"], [class*="carousel"], [id*="gallery"], [id*="carousel"], [class*="photo-slider"], [class*="image-slider"], [class*="photo-gallery"]',
+      )
+      galleryFound = galleryRoot !== null
+      if (galleryRoot) {
+        galleryRoot.querySelectorAll<HTMLImageElement>('img').forEach(function (img) {
+          const src = img.getAttribute('data-src') ?? img.getAttribute('src') ?? ''
+          if (!src || src.startsWith('data:') || src.length < 10) return
+          if (NON_VEHICLE_PATH.test(src)) return
+          const attrW = parseInt(img.getAttribute('width') ?? '0', 10)
+          const attrH = parseInt(img.getAttribute('height') ?? '0', 10)
+          if (attrW > 0 && attrW < MIN_W) return
+          if (attrH > 0 && attrH < MIN_H) return
+          const abs = src.startsWith('http') ? src : `${baseUrl}${src}`
+          if (!seen.has(abs) && /\.(jpg|jpeg|webp|png)/i.test(abs)) {
+            seen.add(abs)
+            imageUrls.push(abs)
+          }
+        })
+      }
+    }
 
     // Dealer phone from tel: link
     const phoneEl = document.querySelector<HTMLAnchorElement>('a[href^="tel:"]')
