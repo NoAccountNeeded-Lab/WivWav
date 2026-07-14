@@ -1,8 +1,9 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
+import type * as MobilityworksDetailModule from '../sources/mobilityworks-detail.js'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 vi.mock('../sources/mobilityworks-detail.js', async () => {
-  const actual = await vi.importActual<typeof import('../sources/mobilityworks-detail.js')>(
+  const actual = await vi.importActual<typeof MobilityworksDetailModule>(
     '../sources/mobilityworks-detail.js',
   )
   // Only evaluateMwDetail touches the (unavailable, in this unit test) DOM;
@@ -286,6 +287,19 @@ describe('summarizeError', () => {
 
   it('stringifies non-Error throwables', () => {
     expect(summarizeError('plain string failure')).toBe('plain string failure')
+  })
+
+  it('cuts a Prisma-style argument dump at its opening brace, dropping listing content entirely (refs #637)', () => {
+    const message = 'Invalid `db.listing.update()` invocation: { data: { description: "Private seller notes: call John at 555-0100, address 123 Main St" } }'
+    const result = summarizeError(new Error(message))
+    expect(result).toBe('Invalid `db.listing.update()` invocation:')
+    expect(result).not.toContain('123 Main St')
+    expect(result).not.toContain('description')
+  })
+
+  it('falls back to a placeholder when the message is empty or brace-only', () => {
+    expect(summarizeError(new Error(''))).toBe('error (no message)')
+    expect(summarizeError(new Error('{ raw: true }'))).toBe('error (no message)')
   })
 })
 
