@@ -96,6 +96,7 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
 
               const count = countsByAbbr.get(abbr) ?? 0
               const active = activeSet.has(abbr)
+              const isMaxCount = count > 0 && count === maxCount
               const fill = fillFor(count, maxCount)
 
               return (
@@ -108,6 +109,7 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
                   aria-label={`${name}: ${countLabel(count)}${active ? ', selected' : ''}`}
                   className={styles.state}
                   data-active={active}
+                  data-max-count={isMaxCount}
                   style={{ default: { fill }, hover: { fill }, pressed: { fill } }}
                   onClick={() => onToggle(abbr)}
                   onKeyDown={handleKeyDown(abbr)}

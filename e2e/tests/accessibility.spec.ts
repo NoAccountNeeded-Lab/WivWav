@@ -134,6 +134,44 @@ test.describe('accessibility smoke (axe)', () => {
     await assertTabOrderHasVisibleFocus(page)
   })
 
+  test('state heat map focus distinguishes the maximum fill without weakening other states', async ({
+    page,
+  }) => {
+    await page.goto('/en/results')
+    await expect(page.getByText(/vehicle found|vehicles found/i)).toBeVisible()
+
+    const map = page.locator('[role="group"][aria-label*="Map of the United States"]')
+    const states = map.locator('[role="button"]')
+    await expect(states.first()).toBeAttached()
+
+    const maxState = map.locator('[role="button"][data-max-count="true"]').first()
+    const otherState = map.locator('[role="button"][data-max-count="false"]').first()
+
+    const baselineWidths = await Promise.all([
+      maxState.evaluate(function getStrokeWidth(state) {
+        return parseFloat(window.getComputedStyle(state).strokeWidth)
+      }),
+      otherState.evaluate(function getStrokeWidth(state) {
+        return parseFloat(window.getComputedStyle(state).strokeWidth)
+      }),
+    ])
+
+    await maxState.focus()
+    const maxFocusStyle = await maxState.evaluate(function getFocusStyle(state) {
+      const style = window.getComputedStyle(state)
+      return { fill: style.fill, stroke: style.stroke, strokeWidth: parseFloat(style.strokeWidth) }
+    })
+
+    await otherState.focus()
+    const otherFocusWidth = await otherState.evaluate(function getStrokeWidth(state) {
+      return parseFloat(window.getComputedStyle(state).strokeWidth)
+    })
+
+    expect(maxFocusStyle.stroke).not.toBe(maxFocusStyle.fill)
+    expect(maxFocusStyle.strokeWidth).toBeGreaterThan(baselineWidths[0])
+    expect(otherFocusWidth).toBeGreaterThan(baselineWidths[1])
+  })
+
   test('keyboard-only pass: listing detail has an in-order, visible focus sequence', async ({ page }) => {
     await page.goto(`/en/vehicle/${fixtureListingId}`)
     await expect(page.getByRole('heading', { name: /2024 Toyota Sienna XLE/i })).toBeVisible()
