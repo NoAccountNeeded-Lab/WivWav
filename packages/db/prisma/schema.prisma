@@ -962,12 +962,12 @@ model VehicleModelPricing {
 }
 
 // ── Paid API tiers ───────────────────────────────────────────────────────────
-// Minimal tier record needed to gate the historical-data endpoints added in
-// #454 (VIN history, dealer listing history, market trends). Full key
-// provisioning, per-key rate limiting, and the Stripe tier-upgrade webhook
-// are tracked separately in #453; this model is intentionally small so that
-// work can extend it (rateLimitRpm, provisioning endpoints, etc.) without a
-// breaking migration.
+// Key provisioning, authentication, and per-key rate limiting for the public
+// `/v1/` API (#453). `tier` gates access to historical-data endpoints added
+// in #454 (VIN history, dealer listing history, market trends); `rateLimitRpm`
+// independently governs request throughput and defaults from tier at
+// creation/upgrade time (see `defaultRateLimitForTier` in
+// `apps/api/src/services/api-key-tier.ts`) but may be overridden per key.
 enum ApiKeyTier {
   FREE
   PRO
@@ -975,13 +975,17 @@ enum ApiKeyTier {
 }
 
 model ApiKey {
-  id         String     @id @default(cuid())
+  id           String     @id @default(cuid())
   /// SHA-256 hex digest of the raw key. The raw key itself is never stored.
-  keyHash    String     @unique
-  ownerEmail String
-  tier       ApiKeyTier @default(FREE)
-  createdAt  DateTime   @default(now())
-  revokedAt  DateTime?
+  keyHash      String     @unique
+  ownerEmail   String
+  tier         ApiKeyTier @default(FREE)
+  /// Requests allowed per minute for this key (sliding window; see
+  /// `plugins/api-key-auth.ts`). Independent of `tier` so individual keys can
+  /// be tuned without a tier change.
+  rateLimitRpm Int        @default(60)
+  createdAt    DateTime   @default(now())
+  revokedAt    DateTime?
 
   @@map("api_key")
 }
