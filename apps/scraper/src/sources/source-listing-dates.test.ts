@@ -197,6 +197,39 @@ describe('evaluateSourceListingDates', () => {
     }
   })
 
+  it('fails a conflicting same-identity date field closed while preserving a non-conflicting field', async () => {
+    const page = await session.newPage()
+    try {
+      await page.setContent(`
+        <script type="application/ld+json">
+          {
+            "@context":"https://schema.org",
+            "@type":"Product",
+            "url":"https://dealer.example.com/inventory/current-van",
+            "datePublished":"2026-05-01T12:00:00Z",
+            "dateModified":"2026-05-03T12:00:00Z"
+          }
+        </script>
+        <main
+          itemscope
+          itemtype="https://schema.org/Vehicle"
+          itemid="https://dealer.example.com/inventory/current-van#vehicle"
+        >
+          <time itemprop="datePosted" datetime="2026-05-02T12:00:00Z"></time>
+        </main>
+      `)
+
+      await expect(evaluateSourceListingDates(page, {
+        expectedUrl: 'https://dealer.example.com/inventory/current-van',
+      })).resolves.toEqual({
+        sourceListedAt: null,
+        sourceUpdatedAt: new Date('2026-05-03T12:00:00Z'),
+      })
+    } finally {
+      await page.close()
+    }
+  })
+
   it('returns null for an ambiguous multi-listing page without a matching identity', async () => {
     const page = await session.newPage()
     try {
