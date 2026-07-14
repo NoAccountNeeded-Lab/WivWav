@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MockBrowserService } from '../browser/index.js'
-import type { MockPageRecord } from '../browser/index.js'
-
-// ── Module mocks ──────────────────────────────────────────────────────────────
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type {
+  DetailFetchHandlers,
+  DetailPageFetcher,
+  FetchedDetailPage,
+} from './detail-fetcher.js'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 
 import { getDb } from '@wivwav/db'
 import { runDetailCrawlJob } from './detail-crawl.js'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeDb(overrides: Record<string, unknown> = {}) {
   return {
@@ -25,11 +24,24 @@ function makeDb(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function makeBrowserService(pages: Map<string, MockPageRecord> = new Map()) {
-  return new MockBrowserService(pages)
+function makeFetchedPage(
+  sourceUrl: string,
+  overrides: Partial<FetchedDetailPage> = {},
+): FetchedDetailPage {
+  return {
+    sourceUrl,
+    finalUrl: sourceUrl,
+    statusCode: 200,
+    html: '<html>van</html>',
+    ...overrides,
+  }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+function makeFetcher(
+  run: (urls: string[], handlers: DetailFetchHandlers) => Promise<void>,
+): DetailPageFetcher {
+  return vi.fn(run)
+}
 
 describe('runDetailCrawlJob', () => {
   beforeEach(() => {
@@ -43,73 +55,124 @@ describe('runDetailCrawlJob', () => {
     expect(getDb).not.toHaveBeenCalled()
   })
 
-  it('marks a listing gone after a 404, without touching the search index directly', async () => {
+  it('passes the pending listing URLs to the fetching layer in database order', async () => {
     const db = makeDb({
       listing: {
         findMany: vi.fn().mockResolvedValue([
-          { id: 'listing-1', sourceUrl: 'https://example.com/listing/1', status: 'active' },
+          { sourceUrl: 'https://example.com/listing/1' },
+          { sourceUrl: 'https://example.com/listing/2' },
         ]),
+        updateMany: vi.fn(),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    const fetcher = makeFetcher(async () => {})
+
+    await runDetailCrawlJob('src-1', undefined, fetcher)
+
+    expect(fetcher).toHaveBeenCalledWith(
+      [
+        'https://example.com/listing/1',
+        'https://example.com/listing/2',
+      ],
+      expect.objectContaining({
+        onFetched: expect.any(Function),
+        onFailed: expect.any(Function),
+      }),
+    )
+  })
+
+  it('marks a listing gone after a 404', async () => {
+    const sourceUrl = 'https://example.com/listing/1'
+    const db = makeDb({
+      listing: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([{ sourceUrl }])
+          .mockResolvedValueOnce([{ id: 'listing-1' }]),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
+    const fetcher = makeFetcher(async (_urls, handlers) => {
+      await handlers.onFetched(makeFetchedPage(sourceUrl, { statusCode: 404 }))
+    })
 
-    const pages = new Map<string, MockPageRecord>([
-      ['https://example.com/listing/1', { url: 'https://example.com/listing/1', html: '', statusCode: 404 }],
-    ])
-    const browser = makeBrowserService(pages)
+    await runDetailCrawlJob('src-1', undefined, fetcher)
 
-    await runDetailCrawlJob('src-1', undefined, browser)
-
-    // Search-index sync is the single-owner indexer poller's concern (#669) —
-    // this job only needs to have committed the status change to Postgres.
     expect(db.listing.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['listing-1'] } },
       data: { status: 'gone', goneAt: expect.any(Date) },
     })
   })
 
-  it('upserts raw page HTML for a successful 200 crawl', async () => {
+  it('upserts equivalent raw page HTML for a successful crawl', async () => {
+    const sourceUrl = 'https://example.com/listing/2'
+    const db = makeDb({
+      listing: {
+        findMany: vi.fn().mockResolvedValue([{ sourceUrl }]),
+        updateMany: vi.fn(),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    const fetcher = makeFetcher(async (_urls, handlers) => {
+      await handlers.onFetched(makeFetchedPage(sourceUrl))
+    })
+
+    await runDetailCrawlJob('src-1', undefined, fetcher)
+
+    expect(db.rawPage.upsert).toHaveBeenCalledWith({
+      where: { url: sourceUrl },
+      update: {
+        html: '<html>van</html>',
+        scrapedAt: expect.any(Date),
+        processedAt: null,
+      },
+      create: { url: sourceUrl, sourceId: 'src-1', html: '<html>van</html>' },
+    })
+  })
+
+  it('reports a failed request and still persists later successful pages', async () => {
+    const failedUrl = 'https://example.com/listing/failed'
+    const successfulUrl = 'https://example.com/listing/success'
     const db = makeDb({
       listing: {
         findMany: vi.fn().mockResolvedValue([
-          { sourceUrl: 'https://example.com/listing/2', status: 'active' },
+          { sourceUrl: failedUrl },
+          { sourceUrl: successfulUrl },
+        ]),
+        updateMany: vi.fn(),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    const log = vi.fn().mockResolvedValue(undefined)
+    const fetcher = makeFetcher(async (_urls, handlers) => {
+      await handlers.onFailed({ sourceUrl: failedUrl, error: new Error('timeout') })
+      await handlers.onFetched(makeFetchedPage(successfulUrl))
+    })
+
+    await runDetailCrawlJob('src-1', { log, updateProgress: vi.fn() }, fetcher)
+
+    expect(log).toHaveBeenCalledWith(
+      `[detail-crawl] Failed ${failedUrl}: Error: timeout`,
+    )
+    expect(db.rawPage.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { url: successfulUrl } }),
+    )
+  })
+
+  it('disconnects the database after fetching completes', async () => {
+    const db = makeDb({
+      listing: {
+        findMany: vi.fn().mockResolvedValue([
+          { sourceUrl: 'https://example.com/listing/3' },
         ]),
         updateMany: vi.fn(),
       },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
 
-    const pages = new Map<string, MockPageRecord>([
-      ['https://example.com/listing/2', { url: 'https://example.com/listing/2', html: '<html>van</html>', statusCode: 200 }],
-    ])
-    const browser = makeBrowserService(pages)
+    await runDetailCrawlJob('src-1', undefined, makeFetcher(async () => {}))
 
-    await runDetailCrawlJob('src-1', undefined, browser)
-
-    expect(db.rawPage.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { url: 'https://example.com/listing/2' },
-        create: expect.objectContaining({ html: '<html>van</html>' }),
-      }),
-    )
-  })
-
-  it('closes the browser session when all pages are processed', async () => {
-    const db = makeDb({
-      listing: {
-        findMany: vi.fn().mockResolvedValue([
-          { sourceUrl: 'https://example.com/listing/3', status: 'active' },
-        ]),
-        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-      },
-    })
-    vi.mocked(getDb).mockReturnValue(db as never)
-
-    const browser = makeBrowserService()
-    await runDetailCrawlJob('src-1', undefined, browser)
-
-    const [session] = browser.sessions
-    expect(session?.closed).toBe(true)
+    expect(db.$disconnect).toHaveBeenCalledOnce()
   })
 })

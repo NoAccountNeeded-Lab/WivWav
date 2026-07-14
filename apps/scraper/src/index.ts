@@ -193,7 +193,7 @@ function registerWorkers(): void {
   queueFactory.createWorker<{ sourceId: string }>(
     QUEUES.DETAIL_CRAWL,
     withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, ({ sourceId }, context) =>
-      runDetailCrawlJob(sourceId, context, browserService),
+      runDetailCrawlJob(sourceId, context),
     ),
     { lockDuration: 120_000, logger },
   )
