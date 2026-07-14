@@ -12,6 +12,7 @@ import {
 import { DealerCard } from '@/components/listing/DealerCard'
 import { ProvenanceBadge } from '@/components/listing/ProvenanceBadge'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
+import { ReportListingForm } from './ReportListingForm'
 import {
   conditionLabel,
   daysListed,
@@ -30,9 +31,10 @@ import styles from './tabs.module.css'
 interface OverviewTabProps {
   listing: ListingDetail
   priceHistory: PricePoint[]
+  apiBaseUrl: string
 }
 
-export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
+export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabProps) {
   const days = daysListed(listing.listedAt)
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
@@ -68,6 +70,13 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
           </span>
         )}
       </div>
+
+      {listing.reportSummary?.flagged && (
+        <div className={styles.reportWarning} role="note" aria-label="Data accuracy warning">
+          <AlertTriangle size={14} aria-hidden />
+          <span>Data accuracy flagged by users</span>
+        </div>
+      )}
 
       {/* Price block */}
       <div className={styles.priceBlock}>
@@ -145,6 +154,8 @@ export function OverviewTab({ listing, priceHistory }: OverviewTabProps) {
           </Link>
         )}
       </div>
+
+      <ReportListingForm listingId={listing.id} apiBaseUrl={apiBaseUrl} />
 
       {/* Seller description snippet — capped at 300 chars by the API; source link directs to full copy */}
       {listing.description && (

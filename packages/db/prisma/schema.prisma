@@ -94,6 +94,18 @@ enum ListingPublicationStatus {
   quarantined
 }
 
+enum ListingReportType {
+  specs_incorrect
+  sold_or_stale
+  duplicate
+  other
+}
+
+enum ListingReportStatus {
+  unresolved
+  resolved
+}
+
 enum SaleStatus {
   active
   pending
@@ -337,6 +349,7 @@ model Listing {
   identityDecisionsAsB VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingB")
   listingImages     ListingImage[]
   fieldClaims       ListingFieldClaim[]
+  reports           ListingReport[]
 
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
@@ -364,6 +377,22 @@ model Listing {
   @@index([status, conversionTypeResolution])
   @@index([status, rampTypeResolution])
   @@map("listings")
+}
+
+model ListingReport {
+  id         String              @id @default(cuid())
+  listingId  String
+  listing    Listing             @relation(fields: [listingId], references: [id])
+  reportType ListingReportType
+  notes      String?
+  status     ListingReportStatus @default(unresolved)
+  reportedAt DateTime            @default(now())
+  resolvedAt DateTime?
+  resolvedBy String?
+
+  @@map("listing_reports")
+  @@index([listingId, status])
+  @@index([status, reportedAt])
 }
 
 /// One evidence-backed assertion about a single Listing field's value (#499),

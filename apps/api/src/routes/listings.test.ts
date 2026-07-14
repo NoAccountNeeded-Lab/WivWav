@@ -72,6 +72,15 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     findManyActive: vi.fn(async () => [] as unknown[]),
     countActive: vi.fn(async () => 0),
     findPriceHistory: vi.fn(async () => []),
+    createListingReport: vi.fn(async () => ({
+      id: 'report-1',
+      listingId: 'listing-1',
+      reportType: 'specs_incorrect',
+      notes: null,
+      status: 'unresolved',
+      reportedAt: new Date('2026-07-14T08:00:00Z'),
+    })),
+    countUnresolvedReports: vi.fn(async () => 0),
     ...overrides,
   }
 }
@@ -426,6 +435,20 @@ describe('GET /:id — provenance', () => {
     await app.close()
   })
 
+  it('includes unresolved report counts and flags listings at the user warning threshold', async () => {
+    const { app } = buildTestApp(undefined, {
+      findById: vi.fn(async () => defaultDbListing),
+      countUnresolvedReports: vi.fn(async () => 3),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.reportSummary).toEqual({ unresolvedCount: 3, flagged: true })
+
+    await app.close()
+  })
+
   it('returns null for optional provenance fields when absent', async () => {
     const listing = { ...defaultDbListing, qualityCheckedAt: null }
     const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
@@ -469,6 +492,79 @@ describe('GET /:id — provenance', () => {
     const body = res.json<{ data: Record<string, unknown> }>()
     expect(body.data.source).toBeUndefined()
     expect(body.data.sourceId).toBeUndefined()
+
+    await app.close()
+  })
+})
+
+describe('POST /:id/reports', () => {
+  it('records a valid listing report with optional notes', async () => {
+    const createListingReport = vi.fn(async () => ({
+      id: 'report-1',
+      listingId: 'listing-1',
+      reportType: 'sold_or_stale',
+      notes: 'Dealer says it sold.',
+      status: 'unresolved',
+      reportedAt: new Date('2026-07-14T08:00:00Z'),
+    }))
+    const { app } = buildTestApp(undefined, {
+      findByIdForSafety: vi.fn(async () => ({ id: 'listing-1', vehicleModelId: null })),
+      createListingReport,
+    })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/listing-1/reports',
+      payload: { reportType: 'sold_or_stale', notes: 'Dealer says it sold.' },
+    })
+
+    expect(res.statusCode).toBe(201)
+    expect(createListingReport).toHaveBeenCalledWith({
+      listingId: 'listing-1',
+      reportType: 'sold_or_stale',
+      notes: 'Dealer says it sold.',
+    })
+    expect(res.json().data).toMatchObject({
+      id: 'report-1',
+      listingId: 'listing-1',
+      reportType: 'sold_or_stale',
+      status: 'unresolved',
+    })
+
+    await app.close()
+  })
+
+  it('rejects unsupported report types before repository writes', async () => {
+    const createListingReport = vi.fn()
+    const { app } = buildTestApp(undefined, {
+      findByIdForSafety: vi.fn(async () => ({ id: 'listing-1', vehicleModelId: null })),
+      createListingReport,
+    })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/listing-1/reports',
+      payload: { reportType: 'wrong_color' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(createListingReport).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('returns 404 when the listing is not reportable', async () => {
+    const createListingReport = vi.fn()
+    const { app } = buildTestApp(undefined, { createListingReport })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/missing/reports',
+      payload: { reportType: 'duplicate' },
+    })
+
+    expect(res.statusCode).toBe(404)
+    expect(createListingReport).not.toHaveBeenCalled()
 
     await app.close()
   })

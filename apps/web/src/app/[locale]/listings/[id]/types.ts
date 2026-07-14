@@ -34,6 +34,10 @@ export interface ListingDetail {
   wav: WavFeatures
   /** #499 resolution status for wav.conversionType/wav.rampType. */
   fieldResolution?: WavFieldResolution
+  reportSummary?: {
+    unresolvedCount: number
+    flagged: boolean
+  }
   location: ListingLocation
   dealer: ListingDealer
   images: string[]
