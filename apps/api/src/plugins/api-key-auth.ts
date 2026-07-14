@@ -160,6 +160,8 @@ export const apiKeyAuthPlugin: FastifyPluginAsync<ApiKeyAuthPluginOptions> = fp(
     // Throws (statusCode 429) when the caller has exceeded their window;
     // left to propagate to app.ts's setErrorHandler, which reads
     // error.statusCode. Runs before the 401 decision below — see docstring.
+    // `.call(app, ...)` only satisfies @fastify/rate-limit's declared `this:
+    // FastifyInstance` type — its actual implementation doesn't read `this`.
     await checkRateLimit.call(app, req, reply)
 
     if (!resolved) {
