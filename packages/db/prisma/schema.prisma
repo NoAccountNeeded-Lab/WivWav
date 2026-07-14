@@ -37,6 +37,25 @@ enum ConversionStatus {
   unknown
 }
 
+/// Deterministic resolution status for a claim/evidence-backed field (#499:
+/// conversionType, rampType). Distinct from the field's own normalized value
+/// enum — `conflicting` and `unknown` here describe how trustworthy the
+/// stored value is, never a side/rear/ramp value itself. See
+/// docs/data/listing-field-ownership.md and apps/scraper/src/resolution/resolver.ts.
+enum FieldResolutionState {
+  /// Established by one authoritative vehicle-specific source, or by
+  /// agreement between 2+ independent credible vehicle-specific signals.
+  verified
+  /// Exactly one credible vehicle-specific signal; not yet corroborated.
+  source_reported
+  /// Two or more credible signals assert incompatible values. The Listing's
+  /// normalized value is forced to `unknown` while conflicting; competing
+  /// claims remain queryable on ListingFieldClaim for audit/operator triage.
+  conflicting
+  /// No credible claim exists for this field.
+  unknown
+}
+
 enum WavFeature {
   hand_controls
   transfer_seat
@@ -238,6 +257,15 @@ model Listing {
   wavFeatures            WavFeature[]   @default([])
   wheelchairCapacity     Int?
 
+  /// #499 deterministic resolution state for `conversionType`/`rampType`.
+  /// The scraper's resolution module is the sole writer — see
+  /// apps/scraper/src/resolution/claims-repository.ts::applyFieldResolution.
+  /// While `conflicting`, the corresponding value column above reads
+  /// `unknown`, so search/facets exclude the listing without a separate
+  /// filter rule.
+  conversionTypeResolution FieldResolutionState @default(unknown)
+  rampTypeResolution       FieldResolutionState @default(unknown)
+
   // Location
   zip   String?
   city  String?
@@ -308,6 +336,7 @@ model Listing {
   identityDecisionsAsA VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingA")
   identityDecisionsAsB VehicleIdentityDecision[] @relation("VehicleIdentityDecisionListingB")
   listingImages     ListingImage[]
+  fieldClaims       ListingFieldClaim[]
 
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
@@ -332,7 +361,65 @@ model Listing {
   @@index([dealerProfileId])
   @@index([dealerName, zip])
   @@index([sourceId, status, missingFromCompleteCount], map: "listings_possibly_gone_missing_count_idx")
+  @@index([status, conversionTypeResolution])
+  @@index([status, rampTypeResolution])
   @@map("listings")
+}
+
+/// One evidence-backed assertion about a single Listing field's value (#499),
+/// keyed by (listingId, field, evidenceKind, sourceRef). Rows are append-only:
+/// a changed observation for the same slot inserts a new row instead of
+/// overwriting, preserving an auditable claim history across resolution
+/// changes. `recordClaim()` (apps/scraper/src/resolution/claims-repository.ts)
+/// is the sole writer and skips the insert when the incoming claim matches
+/// the slot's latest row, so re-ingesting an unchanged observation is
+/// idempotent and never duplicates a claim.
+model ListingFieldClaim {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id])
+
+  /// Field this claim is about (e.g. "conversionType", "rampType"). String
+  /// rather than an enum so the #499 resolver can extend to another field
+  /// without a schema migration; validated by the scraper's ClaimField
+  /// union at the TypeScript layer.
+  field String
+
+  /// Value this evidence asserts, using the same string vocabulary as the
+  /// field's own normalized enum (e.g. "rear_entry", "in_floor", "unknown").
+  claimedValue String
+
+  /// Provenance category. Determines resolver precedence — see
+  /// apps/scraper/src/resolution/resolver.ts. One of: structured_source,
+  /// vehicle_text, authoritative_source, photo, generic_text.
+  evidenceKind String
+
+  /// Where this evidence came from: page URL for text/structured evidence,
+  /// image URL for photo evidence. Null when there is no natural single-URL
+  /// reference for this evidence kind.
+  sourceRef String?
+
+  observedAt DateTime @default(now())
+
+  /// Extractor/analysis version that produced this claim, so a later parser
+  /// change can be distinguished from a genuine source change.
+  extractorVersion String
+
+  /// 0..1 confidence for evidence kinds that produce one (chiefly `photo`).
+  /// Null for deterministic text/structured extraction.
+  confidence Float?
+
+  /// False when this claim is retained for audit but excluded from
+  /// resolution — e.g. a photo matched to a reused/stock image cluster, or
+  /// below the minimum photo confidence. See resolver.ts::isCredible.
+  eligible         Boolean @default(true)
+  ineligibleReason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId, field])
+  @@index([listingId, field, evidenceKind, sourceRef, observedAt])
+  @@map("listing_field_claim")
 }
 
 /// Versioned audit record for a source-card or detail-page observation.

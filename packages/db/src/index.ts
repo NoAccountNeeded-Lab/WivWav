@@ -10,8 +10,9 @@ export type {
   VehicleIdentityDecision,
   ListingImage,
   ImageCluster,
+  ListingFieldClaim,
 } from './generated/prisma/index.js'
-export { WavFeature, ConversionStatus, ListingPublicationStatus, ImageKind } from './generated/prisma/index.js'
+export { WavFeature, ConversionStatus, ListingPublicationStatus, ImageKind, FieldResolutionState } from './generated/prisma/index.js'
 export { normalizeVin, isValidVin, checkDigitValid } from './lib/vin.js'
 export { findOrCreateVehicle } from './lib/vehicle-upsert.js'
 export {

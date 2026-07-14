@@ -1,5 +1,5 @@
 import type { BrowserPage } from '../browser/index.js'
-import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
+import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { parseSaleStatus } from '../lib/sale-status.js'
 export type { SaleStatus } from '@wivwav/types'
 
@@ -46,6 +46,14 @@ export interface BlvdDetailFields {
   engine: string | null
   transmission: string | null
   rampType: RampType
+  /**
+   * Entry-direction claim parsed from the vehicle-specific detail
+   * description text. Independent of any card/category-derived value — the
+   * #499 resolver reconciles the two rather than one overwriting the other.
+   * `unknown` means the detail text made no identifiable entry-type claim,
+   * not that the vehicle has no conversion.
+   */
+  conversionType: ConversionType
   wavFeatures: WavFeature[]
   floorLoweringInches: number | null
   wheelchairCapacity: number | null
@@ -61,6 +69,20 @@ export function parseRampType(text: string): RampType {
   if (t.includes('in-floor') || t.includes('in floor')) return 'in_floor'
   if (t.includes('fold out') || t.includes('fold-out')) return 'fold_out'
   if (t.includes('fold in') || t.includes('fold-in')) return 'fold_in'
+  return 'unknown'
+}
+
+/**
+ * Parses an entry-direction claim from vehicle-specific detail description
+ * text. Mirrors the card-level `parseConversionType` in blvd.ts, applied to
+ * a different evidence source — the #499 resolver, not this parser, decides
+ * whether the two agree. Returns `unknown` when neither phrase appears,
+ * which the resolver treats as "no claim" rather than a positive assertion.
+ */
+export function parseDetailConversionType(text: string): ConversionType {
+  const t = text.toLowerCase()
+  if (t.includes('rear entry') || t.includes('rear-entry')) return 'rear_entry'
+  if (t.includes('side entry') || t.includes('side-entry')) return 'side_entry'
   return 'unknown'
 }
 
@@ -103,6 +125,7 @@ export function parseBlvdDetail(raw: RawDetail): BlvdDetailFields {
     engine: spec('Engine'),
     transmission: spec('Transmission'),
     rampType: parseRampType(desc),
+    conversionType: parseDetailConversionType(desc),
     wavFeatures,
     floorLoweringInches: parseFloorLowering(desc),
     wheelchairCapacity: null,

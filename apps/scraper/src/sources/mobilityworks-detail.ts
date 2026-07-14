@@ -1,5 +1,5 @@
 import type { BrowserPage } from '../browser/index.js'
-import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
+import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { parseSaleStatus } from '../lib/sale-status.js'
 
 const BASE_URL = 'https://www.mobilityworks.com'
@@ -40,6 +40,13 @@ export interface MwDetailFields {
   fuelType: string | null
   transmission: string | null
   rampType: RampType
+  /**
+   * Entry-direction claim parsed from the vehicle-specific detail
+   * description text. Independent of any card/category-derived value — the
+   * #499 resolver reconciles the two rather than one overwriting the other.
+   * `unknown` means the detail text made no identifiable entry-type claim.
+   */
+  conversionType: ConversionType
   wavFeatures: WavFeature[]
   floorLoweringInches: number | null
   wheelchairCapacity: number | null
@@ -55,6 +62,19 @@ export function parseMwRampType(text: string): RampType {
   if (t.includes('in-floor') || t.includes('in floor') || t.includes('infloor')) return 'in_floor'
   if (t.includes('fold out') || t.includes('fold-out')) return 'fold_out'
   if (t.includes('fold in') || t.includes('fold-in')) return 'fold_in'
+  return 'unknown'
+}
+
+/**
+ * Parses an entry-direction claim from vehicle-specific detail description
+ * text. Mirrors mobilityworks.ts's card-level `parseConversionType`, applied
+ * to a different evidence source — the #499 resolver decides whether the two
+ * agree. `unknown` means no identifiable claim, not a positive assertion.
+ */
+export function parseMwDetailConversionType(text: string): ConversionType {
+  const t = text.toLowerCase()
+  if (t.includes('rear entry') || t.includes('rear-entry')) return 'rear_entry'
+  if (t.includes('side entry') || t.includes('side-entry')) return 'side_entry'
   return 'unknown'
 }
 
@@ -98,6 +118,7 @@ export function parseMwDetail(raw: RawMwDetail): MwDetailFields {
     fuelType: spec('Fuel Type'),
     transmission: spec('Transmission'),
     rampType: parseMwRampType(desc),
+    conversionType: parseMwDetailConversionType(desc),
     wavFeatures,
     floorLoweringInches: parseMwFloorLowering(desc),
     wheelchairCapacity: null,
