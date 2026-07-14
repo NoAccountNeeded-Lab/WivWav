@@ -1,6 +1,17 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
+vi.mock('../sources/mobilityworks-detail.js', async () => {
+  const actual = await vi.importActual<typeof import('../sources/mobilityworks-detail.js')>(
+    '../sources/mobilityworks-detail.js',
+  )
+  // Only evaluateMwDetail touches the (unavailable, in this unit test) DOM;
+  // parseMwDetail is a pure function over its raw output and runs for real.
+  return {
+    ...actual,
+    evaluateMwDetail: vi.fn(),
+  }
+})
 
 import { getDb } from '@wivwav/db'
 import {
@@ -10,11 +21,105 @@ import {
   detailObservationReference,
   requiresListingResolution,
   resolveListingStatus,
+  summarizeError,
 } from './detail-extract.js'
 import { runDetailExtractJob } from './detail-extract.js'
 import type { RawDetail } from '../sources/blvd-detail.js'
+import { evaluateMwDetail } from '../sources/mobilityworks-detail.js'
+import type { RawMwDetail } from '../sources/mobilityworks-detail.js'
+import { MockBrowserService } from '../browser/index.js'
+import type { MockPageRecord } from '../browser/index.js'
 
 const NOW = new Date('2026-06-02T00:00:00Z')
+
+// ── Fixtures for runDetailExtractJob integration-style tests ────────────────
+
+function rawPage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'raw-1',
+    url: 'https://www.mobilityworks.com/listing/1',
+    html: '<html></html>',
+    scrapedAt: new Date('2026-06-01T00:00:00Z'),
+    ...overrides,
+  }
+}
+
+function baseListingRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'listing-1',
+    status: 'active',
+    soldAt: null,
+    vin: null,
+    missingFromCompleteCount: 0,
+    color: null,
+    fuelType: null,
+    engine: null,
+    transmission: null,
+    rampType: 'unknown',
+    wavFeatures: [],
+    floorLoweringInches: null,
+    wheelchairCapacity: null,
+    description: null,
+    images: [],
+    zip: null,
+    dealerPhone: null,
+    dealerWebsite: null,
+    buyerUrl: null,
+    saleStatus: 'active',
+    goneAt: null,
+    publicationStatus: 'pending',
+    qualityIssueCodes: [],
+    qualityCheckedAt: null,
+    detailScrapedAt: null,
+    updatedAt: new Date('2026-06-01T00:00:00Z'),
+    ...overrides,
+  }
+}
+
+function rawMwDetail(overrides: Partial<RawMwDetail> = {}): RawMwDetail {
+  return {
+    specs: { 'Exterior Color': 'Silver', 'Fuel Type': 'Gasoline', Transmission: 'Automatic' },
+    descriptionText: 'Clean, low-mileage conversion.',
+    descriptionFound: true,
+    imageUrls: ['https://www.mobilityworks.com/img1.jpg'],
+    galleryFound: true,
+    dealerPhone: '555-0100',
+    dealerAddressText: 'Columbus, OH 43085',
+    statusBannerText: '',
+    ...overrides,
+  }
+}
+
+function makeTx() {
+  return {
+    listing: { update: vi.fn().mockResolvedValue({}) },
+    listingObservation: { create: vi.fn().mockResolvedValue({}) },
+  }
+}
+
+function makeExtractDb(overrides: Record<string, unknown> = {}) {
+  const tx = makeTx()
+  return {
+    rawPage: {
+      findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    listing: {
+      findFirst: vi.fn().mockResolvedValue(baseListingRow()),
+    },
+    listingObservation: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    $transaction: vi.fn(async (fn: (tx: ReturnType<typeof makeTx>) => Promise<void>) => fn(tx)),
+    $disconnect: vi.fn().mockResolvedValue(undefined),
+    __tx: tx,
+    ...overrides,
+  }
+}
+
+function makeBrowser(pages: Map<string, MockPageRecord> = new Map()) {
+  return new MockBrowserService(pages)
+}
 
 describe('runDetailExtractJob', () => {
   beforeEach(() => {
@@ -26,6 +131,161 @@ describe('runDetailExtractJob', () => {
       '[detail-extract] sourceId must be a non-empty string',
     )
     expect(getDb).not.toHaveBeenCalled()
+  })
+
+  it('commits successful pages, leaves failed pages retryable, and fails the job on a mixed-success batch (refs #637)', async () => {
+    const pages = [rawPage({ id: 'raw-1', url: 'https://www.mobilityworks.com/listing/1' }), rawPage({ id: 'raw-2', url: 'https://www.mobilityworks.com/listing/2' })]
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue(pages),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail)
+      .mockResolvedValueOnce(rawMwDetail())
+      .mockRejectedValueOnce(new Error('parser failure: unexpected DOM shape'))
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).rejects.toThrow(
+      '[detail-extract] 1 of 2 raw page(s) failed extraction for source src-1 (1 succeeded)',
+    )
+
+    // Page 1 (success) is committed: listing update + observation + processedAt.
+    expect(db.__tx.listing.update).toHaveBeenCalledTimes(1)
+    expect(db.__tx.listingObservation.create).toHaveBeenCalledTimes(1)
+    expect(db.rawPage.update).toHaveBeenCalledTimes(1)
+    expect(db.rawPage.update).toHaveBeenCalledWith({
+      where: { id: 'raw-1' },
+      data: { processedAt: expect.any(Date) },
+    })
+    // Page 2 (failure) is left untouched — processedAt stays null, retryable.
+    expect(db.rawPage.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'raw-2' } }),
+    )
+    // Cleanup still runs before the job is reported failed.
+    expect(db.$disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fail the job when every page in the batch succeeds', async () => {
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue([rawPage()]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    expect(db.rawPage.update).toHaveBeenCalledWith({
+      where: { id: 'raw-1' },
+      data: { processedAt: expect.any(Date) },
+    })
+  })
+
+  it('counts a database failure as a failed page without touching processedAt, and fails the job', async () => {
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue([rawPage()]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      $transaction: vi.fn().mockRejectedValue(new Error('could not serialize access due to concurrent update')),
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).rejects.toThrow(
+      '[detail-extract] 1 of 1 raw page(s) failed extraction for source src-1 (0 succeeded)',
+    )
+    expect(db.rawPage.update).not.toHaveBeenCalled()
+  })
+
+  it('treats an already-applied detail observation as success without re-applying it (idempotent retry)', async () => {
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue([rawPage()]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      listingObservation: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'observation-1' }),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+
+    expect(db.$transaction).not.toHaveBeenCalled()
+    expect(db.rawPage.update).toHaveBeenCalledWith({
+      where: { id: 'raw-1' },
+      data: { processedAt: expect.any(Date) },
+    })
+  })
+
+  it('reports success and failure counts separately in job progress', async () => {
+    const pages = [rawPage({ id: 'raw-1' }), rawPage({ id: 'raw-2', url: 'https://www.mobilityworks.com/listing/2' })]
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue(pages),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail)
+      .mockResolvedValueOnce(rawMwDetail())
+      .mockRejectedValueOnce(new Error('boom'))
+
+    const updateProgress = vi.fn().mockResolvedValue(undefined)
+    const context = { log: vi.fn().mockResolvedValue(undefined), updateProgress }
+
+    await expect(runDetailExtractJob('src-1', context, makeBrowser())).rejects.toThrow()
+
+    const finalProgress = updateProgress.mock.calls.at(-1)?.[0]
+    expect(finalProgress).toMatchObject({ stage: 'complete', success: 1, failed: 1 })
+  })
+
+  it('truncates a caught error before logging it, so a validation error embedding full listing data never reaches the logs (refs #637)', async () => {
+    const leakySeller = 'Private seller notes: '.padEnd(50, 'x') + 'call John at 555-0100, address 123 Main St, prefers cash, will negotiate. '.repeat(10)
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue([rawPage()]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      $transaction: vi.fn().mockRejectedValue(new Error(`Invalid \`db.listing.update()\` invocation: { data: { description: "${leakySeller}" } }`)),
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
+
+    const log = vi.fn().mockResolvedValue(undefined)
+    const context = { log, updateProgress: vi.fn().mockResolvedValue(undefined) }
+
+    await expect(runDetailExtractJob('src-1', context, makeBrowser())).rejects.toThrow()
+
+    const failureLog = log.mock.calls.map((call) => call[0] as string).find((message) => message.includes('Failed'))
+    expect(failureLog).toBeDefined()
+    expect(failureLog!.length).toBeLessThan(leakySeller.length)
+    expect(failureLog).not.toContain('123 Main St')
+  })
+})
+
+describe('summarizeError', () => {
+  it('uses the Error message, not the full stack or object dump', () => {
+    expect(summarizeError(new Error('boom'))).toBe('boom')
+  })
+
+  it('collapses embedded whitespace and newlines', () => {
+    expect(summarizeError(new Error('line one\n  line two\n\tline three'))).toBe('line one line two line three')
+  })
+
+  it('truncates long messages with an ellipsis', () => {
+    const long = 'x'.repeat(500)
+    const result = summarizeError(new Error(long))
+    expect(result.length).toBeLessThan(long.length)
+    expect(result.endsWith('…')).toBe(true)
+  })
+
+  it('stringifies non-Error throwables', () => {
+    expect(summarizeError('plain string failure')).toBe('plain string failure')
   })
 })
 
