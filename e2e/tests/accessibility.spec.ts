@@ -159,7 +159,24 @@ test.describe('accessibility smoke (axe)', () => {
     await maxState.focus()
     const maxFocusStyle = await maxState.evaluate(function getFocusStyle(state) {
       const style = window.getComputedStyle(state)
-      return { fill: style.fill, stroke: style.stroke, strokeWidth: parseFloat(style.strokeWidth) }
+
+      function renderedRgba(color: string): number[] {
+        const canvas = document.createElement('canvas')
+        canvas.width = 1
+        canvas.height = 1
+        const context = canvas.getContext('2d')
+        if (!context) throw new Error('Canvas 2D context is unavailable')
+
+        context.fillStyle = color
+        context.fillRect(0, 0, 1, 1)
+        return Array.from(context.getImageData(0, 0, 1, 1).data)
+      }
+
+      return {
+        fillRgba: renderedRgba(style.fill),
+        strokeRgba: renderedRgba(style.stroke),
+        strokeWidth: parseFloat(style.strokeWidth),
+      }
     })
 
     await otherState.focus()
@@ -167,7 +184,7 @@ test.describe('accessibility smoke (axe)', () => {
       return parseFloat(window.getComputedStyle(state).strokeWidth)
     })
 
-    expect(maxFocusStyle.stroke).not.toBe(maxFocusStyle.fill)
+    expect(maxFocusStyle.strokeRgba).not.toEqual(maxFocusStyle.fillRgba)
     expect(maxFocusStyle.strokeWidth).toBeGreaterThan(baselineWidths[0])
     expect(otherFocusWidth).toBeGreaterThan(baselineWidths[1])
   })
