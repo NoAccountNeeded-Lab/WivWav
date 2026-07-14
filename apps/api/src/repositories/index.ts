@@ -7,7 +7,7 @@ export { PrismaMarketRepository } from './market-repository.js'
 export type { DealerRepository, DealerProfileRow, DealerListingRow, DealerReviewRow, DealerListingStatusFilter } from './dealer-repository.js'
 export { PrismaDealerRepository } from './dealer-repository.js'
 
-export type { ApiKeyRepository, ActiveApiKeyRow } from './api-key-repository.js'
+export type { ApiKeyRepository, ActiveApiKeyRow, ApiKeyRow, CreateApiKeyInput } from './api-key-repository.js'
 export { PrismaApiKeyRepository } from './api-key-repository.js'
 
 export type { VehicleRepository, VehicleModelRow, RecallRow, ComplaintRow, VehicleStatsRow, VehicleResearchRow } from './vehicle-repository.js'

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveApiKeyTier, tierAtLeast, hashApiKey } from './api-key-tier.js'
+import { resolveApiKeyTier, tierAtLeast, hashApiKey, defaultRateLimitForTier, extractRawKey } from './api-key-tier.js'
 import type { ApiKeyRepository } from '../repositories/index.js'
 
 describe('resolveApiKeyTier', () => {
@@ -11,21 +11,21 @@ describe('resolveApiKeyTier', () => {
   })
 
   it('reads the key from X-Api-Key and returns the repository tier', async () => {
-    const apiKeys: Partial<ApiKeyRepository> = { findActiveByHash: vi.fn(async () => ({ tier: 'PRO' as const })) }
+    const apiKeys: Partial<ApiKeyRepository> = { findActiveByHash: vi.fn(async () => ({ id: 'key-1', tier: 'PRO' as const, rateLimitRpm: 600 })) }
     const tier = await resolveApiKeyTier(apiKeys as ApiKeyRepository, { 'x-api-key': 'raw-key' })
     expect(tier).toBe('PRO')
     expect(apiKeys.findActiveByHash).toHaveBeenCalledWith(hashApiKey('raw-key'))
   })
 
   it('reads the key from an array-valued X-Api-Key header', async () => {
-    const apiKeys: Partial<ApiKeyRepository> = { findActiveByHash: vi.fn(async () => ({ tier: 'ENTERPRISE' as const })) }
+    const apiKeys: Partial<ApiKeyRepository> = { findActiveByHash: vi.fn(async () => ({ id: 'key-1', tier: 'ENTERPRISE' as const, rateLimitRpm: 6000 })) }
     const tier = await resolveApiKeyTier(apiKeys as ApiKeyRepository, { 'x-api-key': ['raw-key', 'ignored'] })
     expect(tier).toBe('ENTERPRISE')
     expect(apiKeys.findActiveByHash).toHaveBeenCalledWith(hashApiKey('raw-key'))
   })
 
   it('falls back to Authorization: Bearer when X-Api-Key is absent', async () => {
-    const apiKeys: Partial<ApiKeyRepository> = { findActiveByHash: vi.fn(async () => ({ tier: 'PRO' as const })) }
+    const apiKeys: Partial<ApiKeyRepository> = { findActiveByHash: vi.fn(async () => ({ id: 'key-1', tier: 'PRO' as const, rateLimitRpm: 600 })) }
     const tier = await resolveApiKeyTier(apiKeys as ApiKeyRepository, { authorization: 'Bearer raw-key' })
     expect(tier).toBe('PRO')
     expect(apiKeys.findActiveByHash).toHaveBeenCalledWith(hashApiKey('raw-key'))
@@ -61,5 +61,25 @@ describe('hashApiKey', () => {
     expect(hashApiKey('raw-key')).toBe(hashApiKey('raw-key'))
     expect(hashApiKey('raw-key')).toMatch(/^[0-9a-f]{64}$/)
     expect(hashApiKey('raw-key')).not.toBe(hashApiKey('other-key'))
+  })
+})
+
+describe('defaultRateLimitForTier', () => {
+  it('orders FREE < PRO < ENTERPRISE', () => {
+    expect(defaultRateLimitForTier('FREE')).toBe(60)
+    expect(defaultRateLimitForTier('PRO')).toBe(600)
+    expect(defaultRateLimitForTier('ENTERPRISE')).toBe(6000)
+    expect(defaultRateLimitForTier('FREE')).toBeLessThan(defaultRateLimitForTier('PRO'))
+    expect(defaultRateLimitForTier('PRO')).toBeLessThan(defaultRateLimitForTier('ENTERPRISE'))
+  })
+})
+
+describe('extractRawKey', () => {
+  it('prefers X-Api-Key over Authorization when both are present', () => {
+    expect(extractRawKey({ 'x-api-key': 'from-header', authorization: 'Bearer from-bearer' })).toBe('from-header')
+  })
+
+  it('returns null when neither header is present', () => {
+    expect(extractRawKey({})).toBeNull()
   })
 })
