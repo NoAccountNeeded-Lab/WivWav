@@ -3,6 +3,7 @@ import { normalizeVin } from '@wivwav/db'
 import type { VehicleRepository, ListingRepository, ApiKeyRepository } from '../repositories/index.js'
 import { decodeVin, isValidVin } from '../services/vin-decoder.js'
 import { resolveApiKeyTier, tierAtLeast } from '../services/api-key-tier.js'
+import { getResolvedApiKey } from '../plugins/api-key-auth.js'
 
 interface VinPluginOptions {
   vehicles: VehicleRepository
@@ -98,7 +99,11 @@ export const vinRoutes: FastifyPluginAsync<VinPluginOptions> = async (app, { veh
     const vin = normalizeVin(req.params.vin)
     if (!isValidVin(vin)) return reply.badRequest('VIN must be 17 characters and cannot contain I, O, or Q')
 
-    const tier = await resolveApiKeyTier(apiKeys, req.headers)
+    // Prefer the identity plugins/api-key-auth.ts already resolved for this
+    // request (correctly reflects the INTERNAL_API_SECRET bypass as
+    // ENTERPRISE) — falls back to re-resolving from headers only when this
+    // route is exercised without that app-level hook (e.g. isolated tests).
+    const tier = getResolvedApiKey(req)?.tier ?? (await resolveApiKeyTier(apiKeys, req.headers))
     if (!tierAtLeast(tier, 'PRO')) {
       return reply.code(403).send({
         error: { code: 'upgrade_required', message: 'GET /v1/vin/:vin/history requires a PRO or higher API key' },

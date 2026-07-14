@@ -58,4 +58,26 @@ describe('verifyStripeSignature', () => {
 
     expect(verifyStripeSignature(rawBody, header, SECRET, 300, now)).toBe(true)
   })
+
+  it('accepts when any of multiple v1 signatures matches (secret-rotation window)', () => {
+    const rawBody = '{"type":"checkout.session.completed"}'
+    const now = 1_700_000_000_000
+    const timestampSeconds = Math.floor(now / 1000)
+    const oldSecretSig = createHmac('sha256', 'previous-secret').update(`${timestampSeconds}.${rawBody}`).digest('hex')
+    const currentSecretSig = createHmac('sha256', SECRET).update(`${timestampSeconds}.${rawBody}`).digest('hex')
+    const header = `t=${timestampSeconds},v1=${oldSecretSig},v1=${currentSecretSig}`
+
+    expect(verifyStripeSignature(rawBody, header, SECRET, 300, now)).toBe(true)
+  })
+
+  it('rejects when none of multiple v1 signatures matches', () => {
+    const rawBody = '{"type":"checkout.session.completed"}'
+    const now = 1_700_000_000_000
+    const timestampSeconds = Math.floor(now / 1000)
+    const wrongSig1 = createHmac('sha256', 'wrong-secret-1').update(`${timestampSeconds}.${rawBody}`).digest('hex')
+    const wrongSig2 = createHmac('sha256', 'wrong-secret-2').update(`${timestampSeconds}.${rawBody}`).digest('hex')
+    const header = `t=${timestampSeconds},v1=${wrongSig1},v1=${wrongSig2}`
+
+    expect(verifyStripeSignature(rawBody, header, SECRET, 300, now)).toBe(false)
+  })
 })

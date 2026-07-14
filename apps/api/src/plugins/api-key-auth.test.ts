@@ -1,4 +1,5 @@
 import Fastify from 'fastify'
+import rateLimit from '@fastify/rate-limit'
 import { describe, expect, it, vi } from 'vitest'
 import { apiKeyAuthPlugin, getResolvedApiKey, INTERNAL_BYPASS_RATE_LIMIT_RPM } from './api-key-auth.js'
 import type { ApiKeyRepository } from '../repositories/index.js'
@@ -9,8 +10,12 @@ function buildTestApp(opts: {
   isTrustedOrigin?: (origin: string | undefined) => boolean
 }) {
   const app = Fastify()
+  // apiKeyAuthPlugin manually invokes app.rateLimit() (decorated by this
+  // plugin), so it must already be registered — matches app.ts's real
+  // registration order.
+  void app.register(rateLimit, { timeWindow: '1 minute' })
   void app.register(async (v1Scope) => {
-    await apiKeyAuthPlugin(v1Scope, {
+    await v1Scope.register(apiKeyAuthPlugin, {
       apiKeys: (opts.apiKeys ?? { findActiveByHash: vi.fn(async () => null) }) as ApiKeyRepository,
       internalApiSecret: opts.internalApiSecret,
       isTrustedOrigin: opts.isTrustedOrigin ?? (() => false),

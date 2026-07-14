@@ -530,6 +530,48 @@ describe('api key auth and per-key rate limiting (#453)', () => {
 
     await app.close()
   })
+
+  it('rate-limits repeated failed-auth requests by IP, so an unlimited stream of garbage keys is still throttled', async () => {
+    // Regression test: the auth-gate hook must not let 401s bypass the rate
+    // limiter (the limiter's keyGenerator/max are what enforce this — see
+    // app.ts's ordering comment above the rate-limit registration).
+    const { app: appPromise } = buildTestApp({
+      apiKey: { findFirst: vi.fn(async () => null) },
+      config: { RATE_LIMIT_MAX: 3 },
+    })
+    const app = await appPromise
+
+    for (let i = 0; i < 3; i++) {
+      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': `garbage-key-${i}` } })
+      expect(response.statusCode).toBe(401)
+    }
+
+    const limited = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'garbage-key-4' } })
+    expect(limited.statusCode).toBe(429)
+
+    await app.close()
+  })
+
+  it('resolves the internal bypass as ENTERPRISE for PRO+-gated sub-resources, not FREE', async () => {
+    // Regression test: vin.ts/market.ts/dealers.ts must read the identity
+    // apiKeyAuthPlugin already resolved (getResolvedApiKey) rather than
+    // re-deriving tier from headers, which would see the bypass's
+    // Authorization: Bearer header as a candidate raw API key, fail to find
+    // a matching row, and silently fall back to FREE — wrongly 403ing a
+    // fully-trusted internal caller.
+    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/vin/5TDYK3DC1FS123456/history',
+      headers: { authorization: 'Bearer shared-secret-value' },
+    })
+
+    expect(response.statusCode).toBe(200)
+
+    await app.close()
+  })
 })
 
 describe('x-request-id propagation (genReqId)', () => {
