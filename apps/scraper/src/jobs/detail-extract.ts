@@ -1,6 +1,6 @@
 import { getDb, type Prisma } from '@wivwav/db'
 import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
-import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
+import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
 import type { RawDetail as RawBlvdDetail } from '../sources/blvd-detail.js'
@@ -11,6 +11,7 @@ import {
   type BlvdDealerEnrichment,
 } from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
+import { recordDetailFieldClaims } from '../resolution/detail-claims.js'
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 100
@@ -112,6 +113,13 @@ export type DetailResult = {
   engine: string | null
   transmission: string | null
   rampType: RampType
+  /**
+   * Entry-direction claim parsed from the vehicle-specific detail
+   * description text (#499). Independent of any card/category-derived
+   * value — recordDetailFieldClaims below feeds it to the resolver rather
+   * than writing it straight to the Listing row.
+   */
+  conversionType: ConversionType
   wavFeatures: WavFeature[]
   floorLoweringInches: number | null
   wheelchairCapacity: number | null
@@ -396,6 +404,7 @@ export async function runDetailExtractJob(
           })
 
           const update = buildListingDetailUpdateData(detail, enrichment, statusUpdate, now)
+          const descriptionObserved = detail.evidence.description !== 'missing'
           const changedFields = changedDetailFields(
             listing as unknown as Record<string, unknown>,
             update as Record<string, unknown>,
@@ -432,6 +441,22 @@ export async function runDetailExtractJob(
             await resolutionQueue?.add(
               { listingId: listing.id, observationReference },
               CRITICAL_JOB_OPTIONS,
+            )
+          }
+
+          // #499: record an independent detail-page claim for whatever
+          // accessibility evidence this raw page actually observed, then
+          // re-resolve. Gated on descriptionObserved — a failed/absent
+          // extraction is not a claim of "no evidence" and must not
+          // downgrade an existing resolution. Its own transaction, after
+          // the main update commits — see detail-claims.ts's docstring.
+          if (descriptionObserved) {
+            await recordDetailFieldClaims(
+              db,
+              listing.id,
+              { conversionType: detail.conversionType, rampType: detail.rampType },
+              rawPage.url,
+              DETAIL_EXTRACTION_VERSION,
             )
           }
         } else {
