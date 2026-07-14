@@ -71,6 +71,8 @@ function makeDb(
     state: string | null
     dealerName: string | null
     cardImages: string[]
+    sourceListedAt: Date | null
+    sourceUpdatedAt: Date | null
     qualityIssueCodes: string[]
     status: string
   }> & { id: string; priceCents: number | null } | null = null,
@@ -104,6 +106,8 @@ function makeDb(
         state: fixture.location.state,
         dealerName: fixture.dealer.name,
         cardImages: fixture.images,
+        sourceListedAt: fixture.sourceListedAt ?? null,
+        sourceUpdatedAt: fixture.sourceUpdatedAt ?? null,
         qualityIssueCodes: [],
         ...existingListing,
       }
@@ -387,6 +391,37 @@ describe('ingestListing', () => {
       await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
 
       expect(db.listing.create).toHaveBeenCalled()
+    })
+
+    it('stores source-provided dates separately on create', async () => {
+      const db = makeDb(null)
+      const sourceListedAt = new Date('2026-05-01T00:00:00Z')
+      const sourceUpdatedAt = new Date('2026-05-03T00:00:00Z')
+
+      await ingestListing(db as never, makeListing({ sourceListedAt, sourceUpdatedAt }))
+
+      expect(db.listing.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ sourceListedAt, sourceUpdatedAt }),
+      }))
+    })
+
+    it('updates a source-provided date without replacing WAV Search listedAt', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        sourceListedAt: null,
+        sourceUpdatedAt: null,
+      })
+      const sourceListedAt = new Date('2026-05-01T00:00:00Z')
+
+      await ingestListing(db as never, makeListing({ sourceListedAt }))
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ sourceListedAt }),
+      }))
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.not.objectContaining({ listedAt: expect.anything() }),
+      }))
     })
 
     it('writes the DB when listing was possibly_gone and reappears (same price)', async () => {

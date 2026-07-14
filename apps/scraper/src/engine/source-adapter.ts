@@ -1,8 +1,8 @@
-import type { Listing } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
+import type { ListingUpsertData } from './repositories.js'
 
 export interface ScrapeResult {
-  listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[]
+  listings: ListingUpsertData[]
   fingerprintHash: string
   errorMessage?: string
 }

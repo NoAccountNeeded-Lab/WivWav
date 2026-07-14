@@ -11,6 +11,7 @@ import {
   type BlvdDealerEnrichment,
 } from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
+import { evaluateSourceListingDates } from '../sources/source-listing-dates.js'
 import { recordDetailFieldClaims } from '../resolution/detail-claims.js'
 import { report } from './job-progress.js'
 
@@ -128,6 +129,8 @@ export type DetailResult = {
   zip: string | null
   dealerPhone: string | null
   saleStatus: SaleStatus
+  sourceListedAt: Date | null
+  sourceUpdatedAt: Date | null
   evidence: {
     color: DetailEvidence
     fuelType: DetailEvidence
@@ -216,6 +219,8 @@ export function buildListingDetailUpdateData(
     ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
     ...(enrichment.dealerWebsite && { dealerWebsite: enrichment.dealerWebsite }),
     ...(enrichment.directVehicleUrl && { buyerUrl: enrichment.directVehicleUrl }),
+    ...(detail.sourceListedAt !== null ? { sourceListedAt: detail.sourceListedAt } : {}),
+    ...(detail.sourceUpdatedAt !== null ? { sourceUpdatedAt: detail.sourceUpdatedAt } : {}),
     saleStatus: detail.saleStatus,
     ...statusUpdate,
     detailScrapedAt: now,
@@ -251,6 +256,7 @@ export function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
 }
 
 async function extractDetail(page: BrowserPage, url: string): Promise<DetailResult> {
+  const sourceDates = await evaluateSourceListingDates(page)
   if (url.includes('mobilityworks.com')) {
     const raw = await evaluateMwDetail(page)
     const mw = parseMwDetail(raw)
@@ -258,6 +264,7 @@ async function extractDetail(page: BrowserPage, url: string): Promise<DetailResu
     return {
       ...mw,
       engine: null,
+      ...sourceDates,
       evidence: {
         color: Object.hasOwn(raw.specs, 'Exterior Color') || Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
         fuelType: Object.hasOwn(raw.specs, 'Fuel Type') ? 'value' : 'missing',
@@ -275,6 +282,7 @@ async function extractDetail(page: BrowserPage, url: string): Promise<DetailResu
   const raw = await evaluateBlvdDetail(page)
   return {
     ...parseBlvdDetail(raw),
+    ...sourceDates,
     evidence: blvdEvidence(raw),
   }
 }
@@ -354,6 +362,8 @@ export async function runDetailExtractJob(
             dealerWebsite: true,
             buyerUrl: true,
             saleStatus: true,
+            sourceListedAt: true,
+            sourceUpdatedAt: true,
             goneAt: true,
             publicationStatus: true,
             qualityIssueCodes: true,
