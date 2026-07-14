@@ -1,4 +1,5 @@
-import { DoorOpen, ExternalLink, ShieldCheck, Truck } from 'lucide-react'
+import { AlertTriangle, DoorOpen, ExternalLink, ShieldCheck, Truck } from 'lucide-react'
+import type { FieldResolutionState } from '@wivwav/types'
 import { abbreviate } from '@/app/[locale]/listings/[id]/utils'
 import type { ConversionBrandDetail, ConversionProduct } from './conversionBrand'
 import styles from './WavConversionInfo.module.css'
@@ -8,6 +9,16 @@ interface WavConversionInfoProps {
   conversionManufacturer?: string | null
   conversionBrand?: ConversionBrandDetail | null | undefined
   matchedProduct?: ConversionProduct | null | undefined
+  /**
+   * #499 field-resolution status for `conversionType`. When `'conflicting'`,
+   * the source disagrees with itself (e.g. category text vs. description
+   * text, or a credible photo claim) — `conversionType` itself already reads
+   * `'unknown'` in that case (the API forces it), so this is the only signal
+   * that distinguishes "no evidence" from "evidence disagrees" for the UI.
+   */
+  conversionTypeStatus?: FieldResolutionState | undefined
+  /** Outbound link shown in the "needs verification" state — never internal evidence/claim text. */
+  sourceUrl?: string | null | undefined
 }
 
 function conversionTypeLabel(value: string): string | null {
@@ -28,10 +39,13 @@ export function WavConversionInfo({
   conversionManufacturer,
   conversionBrand,
   matchedProduct,
+  conversionTypeStatus,
+  sourceUrl,
 }: WavConversionInfoProps) {
   const isSide = conversionType === 'side_entry'
   const isRear = conversionType === 'rear_entry'
   const hasType = isSide || isRear
+  const isConflicting = conversionTypeStatus === 'conflicting'
   const displayName = conversionBrand?.name ?? conversionManufacturer
   const productSpecs = [
     matchedProduct ? conversionTypeLabel(matchedProduct.conversionType) : null,
@@ -110,6 +124,32 @@ export function WavConversionInfo({
             </div>
             <div className={styles.entrySub}>
               {isSide ? 'Driver or passenger side access' : 'Rear ramp or lift access'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isConflicting && (
+        <div className={styles.needsVerificationBanner} role="note" aria-label="Entry type needs verification">
+          <span className={styles.needsVerificationIcon} aria-hidden>
+            <AlertTriangle size={20} />
+          </span>
+          <div>
+            <div className={styles.needsVerificationLabel}>Entry type needs verification</div>
+            <div className={styles.needsVerificationSub}>
+              The listing source has conflicting information about side vs. rear entry
+              {sourceUrl ? (
+                <>
+                  {' — '}
+                  <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.needsVerificationLink}>
+                    check the original listing
+                    <ExternalLink size={11} aria-hidden />
+                    <span className="sr-only"> (opens in new tab)</span>
+                  </a>
+                </>
+              ) : (
+                '. Confirm with the seller before purchase.'
+              )}
             </div>
           </div>
         </div>
