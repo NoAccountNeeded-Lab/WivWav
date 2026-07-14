@@ -1,6 +1,6 @@
-import type { ListingDealer, ListingLocation, WavFeatures } from '@wivwav/types'
+import type { ListingDealer, ListingLocation, WavFeatures, WavFieldResolution } from '@wivwav/types'
 
-export type { ListingDealer, ListingLocation, WavFeatures }
+export type { ListingDealer, ListingLocation, WavFeatures, WavFieldResolution }
 
 export interface ListingProvenance {
   sourceName: string
@@ -32,6 +32,8 @@ export interface ListingDetail {
   transmission: string | null
   stockNumber: string | null
   wav: WavFeatures
+  /** #499 resolution status for wav.conversionType/wav.rampType. */
+  fieldResolution?: WavFieldResolution
   location: ListingLocation
   dealer: ListingDealer
   images: string[]
