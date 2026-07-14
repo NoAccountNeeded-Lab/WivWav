@@ -108,7 +108,7 @@ describe('GET /:vin/history', () => {
         { listingId: 'l1', type: 'mileage' as const, value: 32000, recordedAt },
       ]),
     }
-    const apiKeys = { findActiveByHash: vi.fn(async () => ({ tier: 'PRO' as const })) }
+    const apiKeys = { findActiveByHash: vi.fn(async () => ({ id: 'key-1', tier: 'PRO' as const, rateLimitRpm: 600 })) }
     const app = buildTestApp({}, listings, apiKeys)
 
     const res = await app.inject({ method: 'GET', url: `/${VIN}/history`, headers: { 'x-api-key': 'a-pro-key' } })

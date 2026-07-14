@@ -79,7 +79,7 @@ describe('GET /:id/listings', () => {
       findListings: vi.fn(async () => [LISTING]),
       countListings: vi.fn(async () => 1),
     }
-    const apiKeys = { findActiveByHash: vi.fn(async () => ({ tier: 'PRO' as const })) }
+    const apiKeys = { findActiveByHash: vi.fn(async () => ({ id: 'key-1', tier: 'PRO' as const, rateLimitRpm: 600 })) }
     const app = buildTestApp(dealers, apiKeys)
 
     const res = await app.inject({ method: 'GET', url: '/dp1/listings?status=gone', headers: { 'x-api-key': 'a-pro-key' } })
