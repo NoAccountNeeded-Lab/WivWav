@@ -2,6 +2,7 @@ import {
   Configuration,
   PlaywrightCrawler,
   type PlaywrightCrawlerOptions,
+  type RequestOptions,
 } from '@crawlee/playwright'
 
 const RATE_LIMIT_SECONDS = 2
@@ -33,7 +34,7 @@ export interface DetailFetchHandlers {
 }
 
 interface DetailCrawlerRunner {
-  run(urls: string[]): Promise<unknown>
+  run(requests: RequestOptions[]): Promise<unknown>
 }
 
 export type DetailCrawlerFactory = (
@@ -132,5 +133,12 @@ export async function fetchDetailPagesWithCrawlee(
     purgeOnStart: false,
   })
   const crawler = createCrawler(createDetailCrawlerOptions(handlers), configuration)
-  await crawler.run(urls)
+  await crawler.run(
+    urls.map((url, index) => ({
+      url,
+      // RequestQueue deduplicates by URL by default. The former loop fetched
+      // every selected row, so keep repeated URLs behaviorally equivalent.
+      uniqueKey: `detail-crawl:${index}:${url}`,
+    })),
+  )
 }
