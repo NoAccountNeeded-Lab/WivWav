@@ -47,7 +47,9 @@ export async function evaluateSourceListingDates(page: BrowserPage): Promise<Sou
       const values = Array.isArray(value) ? value : [value]
       return values
         .filter(function (entry): entry is string { return typeof entry === 'string' })
-        .map(function (entry) { return entry.toLowerCase() })
+        .map(function (entry) {
+          return entry.toLowerCase().split(/[/#]/).at(-1) ?? ''
+        })
     }
 
     function listingRecords(value: unknown): Record<string, unknown>[] {
@@ -58,7 +60,7 @@ export async function evaluateSourceListingDates(page: BrowserPage): Promise<Sou
       const matchesListing = typeNames(record['@type']).some(function (type) {
         return LISTING_TYPES.has(type)
       })
-      const nested = [record['@graph'], record.mainEntity]
+      const nested = [record['@graph'], record.mainEntity, record.offers, record.itemOffered]
         .flatMap(function (entry) { return listingRecords(entry) })
       return matchesListing ? [record, ...nested] : nested
     }
@@ -72,13 +74,21 @@ export async function evaluateSourceListingDates(page: BrowserPage): Promise<Sou
     }
 
     function domDate(itemProps: string[]): string | null {
-      for (const itemProp of itemProps) {
-        const element = document.querySelector<HTMLElement>(`[itemprop="${itemProp}"]`)
-        if (element === null) continue
-        const value = element.getAttribute('datetime')
-          ?? element.getAttribute('content')
-          ?? element.textContent
-        if (value !== null && value.trim().length > 0) return value.trim()
+      const scopes = Array.from(document.querySelectorAll<HTMLElement>('[itemscope][itemtype]'))
+        .filter(function (scope) {
+          const type = scope.getAttribute('itemtype') ?? ''
+          const normalized = type.toLowerCase().split(/[/#]/).at(-1) ?? ''
+          return LISTING_TYPES.has(normalized)
+        })
+      for (const scope of scopes) {
+        for (const itemProp of itemProps) {
+          const element = scope.querySelector<HTMLElement>(`[itemprop="${itemProp}"]`)
+          if (element === null) continue
+          const value = element.getAttribute('datetime')
+            ?? element.getAttribute('content')
+            ?? element.textContent
+          if (value !== null && value.trim().length > 0) return value.trim()
+        }
       }
       return null
     }

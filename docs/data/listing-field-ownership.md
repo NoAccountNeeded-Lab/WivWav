@@ -67,10 +67,21 @@ untouched listings never write to `ListingFieldClaim`:
 | `vehicleId`, `vehicleModelId`, `vehicleModelMatchConfidence` | VIN enrichment | Updated from normalized VIN/model evidence without rewriting source observations. |
 | `isDuplicate`, `canonicalId` | resolution | Owned by deduplication/canonical resolution. |
 | `detailScrapedAt` | detail scrape | Time the most recent raw page was successfully interpreted, even when its values were unchanged. |
-| `listedAt` | list/card scrape | Set on create. Current adapters only have the scrape clock, so repeat scrapes do not treat a new clock value as a source correction. |
+| `listedAt` | list/card scrape | WAV Search first-seen timestamp, set once on create from the scrape clock. It is not a seller listing date. Search ordering, “New” badges, crawl ordering, and observed-inventory history intentionally use this internal discovery time. |
+| `sourceListedAt`, `sourceUpdatedAt` | detail scrape | Explicit seller/source dates from listing-scoped structured metadata. Valid values replace prior source values; missing or invalid metadata preserves them. Seller-age and time-to-gone metrics use `sourceListedAt` and exclude rows where it is unavailable. |
 | `scrapedAt` | list/card scrape | Time the most recent **changed** card observation was committed. Unchanged cards do not churn rows; source-level `lastObservedAt` records successful no-change checks. |
 | `processingLockedAt` | resolution | Ephemeral job lock only. |
 | `updatedAt` | database | Prisma-managed write timestamp. |
+
+### Listing date audit
+
+`listedAt` remains in public responses for compatibility, but its contract is
+WAV Search first observation. It must be labeled “WAV Search first saw” (or an
+equivalent internal-discovery label), never “seller listed.” `updatedAt` is a
+database write timestamp and is not a seller update date. Detail and legacy
+listing UIs prefer `sourceListedAt`/`sourceUpdatedAt` when present and otherwise
+label WAV Search timestamps explicitly. Search's `listedAt` sort and “New” badge
+remain accurate because they describe when WAV Search discovered the record.
 
 ## Evidence and idempotency
 

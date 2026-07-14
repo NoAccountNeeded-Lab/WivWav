@@ -91,7 +91,7 @@
   "SearchFilters": {
     "sortLabel": "Ordenar",
     "sortOptions": {
-      "newestListings": "Anuncios más recientes",
+      "newestListings": "Descubiertos recientemente por WAV Search",
       "priceLowToHigh": "Precio: de menor a mayor",
       "priceHighToLow": "Precio: de mayor a menor",
       "lowestMileage": "Menor kilometraje",
@@ -148,7 +148,7 @@
   "ListingDetail": {
     "backAriaLabel": "Volver a los anuncios",
     "viewOriginalListing": "Ver anuncio original ↗",
-    "listedDate": "Publicado {date}",
+    "listedDate": "WAV Search lo vio por primera vez el {date}",
     "callForPrice": "Llame para precio",
     "listingNotFound": "Anuncio no encontrado — WivWav",
     "notFoundMessage": "Anuncio no disponible.",

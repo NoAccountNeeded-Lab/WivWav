@@ -201,7 +201,10 @@ export interface ListingDocument {
   status: string
   publicationStatus: string
   saleStatus: string
+  /** WAV Search first observation; retained as the existing sort key. */
   listedAt: string
+  sourceListedAt: string | null
+  sourceUpdatedAt: string | null
 }
 
 export function priceBucket(priceCents: number | null, bucketSizeDollars = 5000): string | null {
@@ -278,6 +281,8 @@ export function toDocument(row: Listing): ListingDocument {
     publicationStatus: row.publicationStatus,
     saleStatus: row.saleStatus,
     listedAt: row.listedAt.toISOString(),
+    sourceListedAt: row.sourceListedAt?.toISOString() ?? null,
+    sourceUpdatedAt: row.sourceUpdatedAt?.toISOString() ?? null,
   }
 }
 

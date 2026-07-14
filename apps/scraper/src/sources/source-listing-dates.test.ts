@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { parseSourceListingDates } from './source-listing-dates.js'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { PlaywrightBrowserService } from '../browser/index.js'
+import type { BrowserSession } from '../browser/index.js'
+import { evaluateSourceListingDates, parseSourceListingDates } from './source-listing-dates.js'
 
 describe('parseSourceListingDates', () => {
   it('normalizes source-provided listing and update dates', () => {
@@ -17,5 +19,75 @@ describe('parseSourceListingDates', () => {
       sourceListedAt: null,
       sourceUpdatedAt: null,
     })
+  })
+})
+
+describe('evaluateSourceListingDates', () => {
+  let session: BrowserSession
+
+  beforeAll(async () => {
+    session = await new PlaywrightBrowserService().launch()
+  })
+
+  afterAll(async () => {
+    await session.close()
+  })
+
+  it('extracts dates from listing-scoped JSON-LD', async () => {
+    const page = await session.newPage()
+    try {
+      await page.setContent(`
+        <script type="application/ld+json">
+          {"@context":"https://schema.org","@type":"Product","datePublished":"2026-05-01T12:00:00Z","dateModified":"2026-05-03T12:00:00Z"}
+        </script>
+      `)
+
+      await expect(evaluateSourceListingDates(page)).resolves.toEqual({
+        sourceListedAt: new Date('2026-05-01T12:00:00Z'),
+        sourceUpdatedAt: new Date('2026-05-03T12:00:00Z'),
+      })
+    } finally {
+      await page.close()
+    }
+  })
+
+  it('extracts dates from listing-scoped microdata', async () => {
+    const page = await session.newPage()
+    try {
+      await page.setContent(`
+        <main itemscope itemtype="https://schema.org/Vehicle">
+          <time itemprop="datePosted" datetime="2026-04-10T08:00:00Z"></time>
+          <meta itemprop="dateModified" content="2026-04-12T09:00:00Z">
+        </main>
+      `)
+
+      await expect(evaluateSourceListingDates(page)).resolves.toEqual({
+        sourceListedAt: new Date('2026-04-10T08:00:00Z'),
+        sourceUpdatedAt: new Date('2026-04-12T09:00:00Z'),
+      })
+    } finally {
+      await page.close()
+    }
+  })
+
+  it('ignores dates scoped to editorial articles', async () => {
+    const page = await session.newPage()
+    try {
+      await page.setContent(`
+        <article itemscope itemtype="https://schema.org/Article">
+          <time itemprop="datePublished" datetime="2026-04-10T08:00:00Z"></time>
+        </article>
+        <script type="application/ld+json">
+          {"@context":"https://schema.org","@type":"Article","datePublished":"2026-04-10T08:00:00Z"}
+        </script>
+      `)
+
+      await expect(evaluateSourceListingDates(page)).resolves.toEqual({
+        sourceListedAt: null,
+        sourceUpdatedAt: null,
+      })
+    } finally {
+      await page.close()
+    }
   })
 })

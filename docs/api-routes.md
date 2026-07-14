@@ -9,9 +9,9 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 | GET    | /health                        | Health check                         |
 | GET    | /openapi.json                  | Generated OpenAPI 3 document (TypeBox schema-first routes) |
 | GET    | /docs                          | Swagger UI for the generated OpenAPI document |
-| GET    | /v1/listings                   | Search listings with filters. Schema-first (TypeBox); see `/openapi.json`. Returns `503 { error: { code: SEARCH_UNAVAILABLE, message } }` when Meilisearch is unavailable — never falls back to an unfiltered database query (#669). |
+| GET    | /v1/listings                   | Search listings with filters. `listedAt` is WAV Search first-seen; nullable `sourceListedAt`/`sourceUpdatedAt` are seller/source-provided. Schema-first (TypeBox); see `/openapi.json`. Returns `503 { error: { code: SEARCH_UNAVAILABLE, message } }` when Meilisearch is unavailable — never falls back to an unfiltered database query (#669). |
 | GET    | /v1/listings/facets            | Facet aggregations (cached 60s). Schema-first (TypeBox); see `/openapi.json`. |
-| GET    | /v1/listings/:id               | Single listing detail                |
+| GET    | /v1/listings/:id               | Single listing detail. `listedAt` is WAV Search first-seen; nullable `sourceListedAt`/`sourceUpdatedAt` are seller/source-provided. |
 | POST   | /v1/listings/:id/reports       | Create an unresolved listing data report (`reportType`: `specs_incorrect`\|`sold_or_stale`\|`duplicate`\|`other`, optional `notes`). Returns `{ data: { id, listingId, reportType, notes, status, reportedAt } }`. |
 | GET    | /v1/listings/:id/price-history | Listing price history                |
 | GET    | /v1/listings/:id/safety        | Safety summary (recalls with `status: open|remedied|unknown`, complaints, ratings, investigations, manufacturerCommunications, `safetyFreshnessDate`) for a listing |
@@ -23,9 +23,9 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 | GET    | /v1/dealers/:id                | Dealer profile: name, zip, rating, reviewCount, hours. FREE. 404 if the dealer does not exist. |
 | GET    | /v1/dealers/:id/listings        | Paginated listings for a dealer (`?status=active\|gone\|all`, `?skip=`, `?take=`). `status=active` (default) is FREE; `status=gone`/`all` are PRO+ (403 `upgrade_required` for FREE-tier callers). |
 | GET    | /v1/dealers/:id/reviews        | Paginated dealer reviews, newest first (`?skip=`, `?take=`). FREE. |
-| GET    | /v1/market/pricing                     | Price stats (percentiles, days listed, drop rate) for a make/model spec |
+| GET    | /v1/market/pricing                     | Price stats (percentiles, source-date listing age when available, drop rate) for a make/model spec |
 | GET    | /v1/market/popular                     | Top 10 makes, models, and conversion brands by active listing count |
-| GET    | /v1/market/trends              | Time-bucketed median price, active inventory count, and avg days-to-gone for a make/model (`?interval=week\|month`, `?from=`, `?to=`). PRO+; 403 `upgrade_required` for FREE-tier callers. |
+| GET    | /v1/market/trends              | Time-bucketed median price, observed active inventory count, and source-date avg days-to-gone for a make/model (`?interval=week\|month`, `?from=`, `?to=`). Rows without a source listing date are excluded from days-to-gone. PRO+; 403 `upgrade_required` for FREE-tier callers. |
 | GET    | /v1/vehicles/:make/:model/stats            | Lifespan and reliability stats; returns `methodology` string and `sources: [{name, url}]` array (empty array when no source is recorded); optional `?year` falls back to aggregate row when no year-specific record exists |
 | GET    | /v1/vehicles/:make/:model/:year/recalls        | Open recalls for a vehicle           |
 | GET    | /v1/vehicles/:make/:model/:year/complaints     | Complaints for a vehicle             |

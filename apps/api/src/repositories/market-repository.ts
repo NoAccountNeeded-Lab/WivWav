@@ -10,6 +10,7 @@ export type PricingStats = {
   p75: number | null
   p90: number | null
   medianMileage: number | null
+  /** Median age of listings with an explicit seller/source listing date. */
   medianDaysListed: number | null
   dropTotal: number
   dropCount: number
@@ -28,6 +29,7 @@ export type MarketTrendPoint = {
   bucketStart: Date
   medianPriceCents: number | null
   activeInventoryCount: number
+  /** Source-listed-to-gone duration; null when no source dates are available. */
   avgDaysToGone: number | null
 }
 
@@ -37,8 +39,8 @@ export interface MarketRepository {
   getPricingStats(make: string, model: string, year: number | null, conversionType: string | null): Promise<PricingStats>
   getPopular(): Promise<PopularStats>
   /**
-   * Time-bucketed median price, active inventory count, and average
-   * days-to-gone for a make/model, bucketed by `interval` between `from`
+   * Time-bucketed median price, observed active inventory count, and average
+   * source-listed-to-gone duration for a make/model, bucketed by `interval` between `from`
    * and `to` (inclusive). Uses a single CTE per query rather than N+1 calls
    * per bucket.
    */
@@ -105,7 +107,9 @@ export class PrismaMarketRepository implements MarketRepository {
           PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY "priceCents")                                     AS p75,
           PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY "priceCents")                                     AS p90,
           PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY mileage)                                          AS "medianMileage",
-          PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM NOW() - "listedAt") / 86400)   AS "medianDaysListed"
+          PERCENTILE_CONT(0.50) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM NOW() - "sourceListedAt") / 86400
+          ) FILTER (WHERE "sourceListedAt" IS NOT NULL)                                                AS "medianDaysListed"
         FROM representative_listings
       `,
       this.db.$queryRaw<PriceDropRow[]>`
@@ -229,7 +233,8 @@ export class PrismaMarketRepository implements MarketRepository {
         SELECT CASE WHEN ${interval} = 'week' THEN interval '1 week' ELSE interval '1 month' END AS len
       ),
       representative_listings AS (
-        SELECT DISTINCT ON (COALESCE("vehicleId", id)) id, "listedAt", "goneAt"
+        SELECT DISTINCT ON (COALESCE("vehicleId", id))
+          id, "listedAt", "sourceListedAt", "goneAt"
         FROM listings
         WHERE make = ${make}
           AND model = ${model}
@@ -259,7 +264,7 @@ export class PrismaMarketRepository implements MarketRepository {
       ),
       gone_durations AS (
         SELECT b.bucket_start,
-          AVG(EXTRACT(EPOCH FROM (r."goneAt" - r."listedAt")) / 86400) AS avg_days_to_gone
+          AVG(EXTRACT(EPOCH FROM (r."goneAt" - r."sourceListedAt")) / 86400) AS avg_days_to_gone
         FROM buckets b
         CROSS JOIN step
         LEFT JOIN representative_listings r
