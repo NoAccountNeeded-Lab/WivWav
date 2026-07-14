@@ -26,9 +26,11 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     engine: null,
     transmission: null,
     conversionType: 'rear_entry',
+    conversionTypeResolution: 'verified',
     conversionManufacturer: null,
     floorLoweringInches: null,
     rampType: 'in_floor',
+    rampTypeResolution: 'verified',
     conversionStatus: 'unknown',
     wavFeatures: [],
     wheelchairCapacity: null,
@@ -62,6 +64,29 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     ...overrides,
   } as Listing
 }
+
+// ---------------------------------------------------------------------------
+// toDocument — #499 field resolution
+// ---------------------------------------------------------------------------
+
+describe('toDocument — #499 field resolution', () => {
+  it('indexes the resolution state alongside the normalized value', () => {
+    const doc = toDocument(makeListing({ conversionTypeResolution: 'source_reported', rampTypeResolution: 'conflicting' }))
+    expect(doc.conversionTypeResolution).toBe('source_reported')
+    expect(doc.rampTypeResolution).toBe('conflicting')
+  })
+
+  it('indexes conversionType/rampType as unknown while conflicting, which is what excludes the listing from side/rear and ramp filters', () => {
+    const doc = toDocument(makeListing({
+      conversionType: 'unknown',
+      conversionTypeResolution: 'conflicting',
+      rampType: 'unknown',
+      rampTypeResolution: 'conflicting',
+    }))
+    expect(doc.conversionType).toBe('unknown')
+    expect(doc.rampType).toBe('unknown')
+  })
+})
 
 // ---------------------------------------------------------------------------
 // toDocument — private-seller field normalization
