@@ -14,6 +14,15 @@ import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail
 import { report } from './job-progress.js'
 
 const BATCH_SIZE = 100
+/**
+ * Bounds per-page error text logged/reported for a failed extraction.
+ * A raw Prisma validation error embeds its full call arguments — including
+ * the update payload's `description` field, which can carry unredacted
+ * private-seller copy — in `.message`. Collapsing whitespace and truncating
+ * keeps the failure diagnosable (source + error class) without dumping that
+ * payload into logs (#637).
+ */
+const ERROR_LOG_MAX_LENGTH = 300
 const DETAIL_EXTRACTION_VERSION = 'detail-v2-evidence'
 const DETAIL_METADATA_FIELDS = new Set([
   'detailScrapedAt',
@@ -151,6 +160,19 @@ export function changedDetailFields(
 
 function auditValue(value: unknown): unknown {
   return value instanceof Date ? value.toISOString() : value
+}
+
+/**
+ * Formats a caught error for logging: message-only (no stack, no thrown
+ * non-Error payload dump), whitespace-collapsed, and length-bounded. See
+ * `ERROR_LOG_MAX_LENGTH` for why this matters for private-seller data.
+ */
+export function summarizeError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  const collapsed = raw.replace(/\s+/g, ' ').trim()
+  return collapsed.length > ERROR_LOG_MAX_LENGTH
+    ? `${collapsed.slice(0, ERROR_LOG_MAX_LENGTH)}…`
+    : collapsed
 }
 
 export function buildListingDetailUpdateData(
@@ -415,7 +437,10 @@ export async function runDetailExtractJob(
 
         success++
       } catch (err) {
-        await report(context, `[detail-extract] Failed ${rawPage.url}: ${err}`)
+        // The raw page is deliberately left with `processedAt: null` here —
+        // it stays eligible for the next scheduled run to retry. Whatever
+        // was already committed for other pages in this batch is unaffected.
+        await report(context, `[detail-extract] Failed ${rawPage.url}: ${summarizeError(err)}`)
         failed++
       } finally {
         await page.close()
@@ -425,6 +450,8 @@ export async function runDetailExtractJob(
         stage: 'extracting',
         current: i + 1,
         total: rawPages.length,
+        success,
+        failed,
       })
     }
   } finally {
@@ -436,5 +463,22 @@ export async function runDetailExtractJob(
     stage: 'complete',
     current: rawPages.length,
     total: rawPages.length,
+    success,
+    failed,
   })
+
+  if (failed > 0) {
+    // Pages that succeeded are already committed (rawPage.processedAt set,
+    // listing + observation written); failed pages remain retryable
+    // (processedAt: null) for the next scheduled run. Throwing here — after
+    // that work is safely persisted — is what makes BullMQ record the job
+    // itself as failed instead of silently completing, so queue/API/Ops
+    // health (which reads `failedReason`) surfaces the partial outage (#637).
+    const reason = `${failed} of ${rawPages.length} raw page(s) failed extraction for source ${sourceId} (${success} succeeded)`
+    context?.logger?.error(
+      { event: 'detail-extract.partial-failure', sourceId, success, failed, total: rawPages.length },
+      `[detail-extract] ${reason}`,
+    )
+    throw new Error(`[detail-extract] ${reason}`)
+  }
 }

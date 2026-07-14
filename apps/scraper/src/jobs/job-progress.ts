@@ -6,6 +6,10 @@ export interface CountProgress {
   current: number
   total: number
   message?: string
+  /** Successfully processed item count, reported separately from `failed` so partial-failure batches are distinguishable from full success. */
+  success?: number
+  /** Failed item count, reported separately from `success`. A non-zero value signals a partial or terminal batch failure to queue/API/Ops health. */
+  failed?: number
 }
 
 const fallbackLogger = createFallbackLogger()
