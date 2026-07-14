@@ -20,6 +20,8 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     findQuarantined: vi.fn(async () => []),
     countQuarantined: vi.fn(async () => 0),
     reprocessQuarantined: vi.fn(async () => true),
+    findFieldConflicts: vi.fn(async () => []),
+    countFieldConflicts: vi.fn(async () => 0),
     getSourcePipelineStages: vi.fn(async () => []),
     ...overrides,
   }
@@ -916,6 +918,82 @@ describe('POST /quarantine/:id/reprocess', () => {
     const res = await app.inject({ method: 'POST', url: '/quarantine/missing/reprocess' })
 
     expect(res.statusCode).toBe(404)
+
+    await app.close()
+  })
+})
+
+function makeFieldConflictRow(overrides: Record<string, unknown> = {}) {
+  return {
+    listingId: 'listing-1',
+    sourceUrl: 'https://dealer.example.com/listing/1',
+    make: 'Toyota',
+    model: 'Sienna',
+    year: 2022,
+    field: 'conversionType',
+    competingValues: ['side_entry', 'rear_entry'],
+    evidenceKinds: ['structured_source', 'vehicle_text'],
+    sourceRefs: ['https://dealer.example.com/listing/1', 'https://dealer.example.com/listing/1/detail'],
+    observedAts: [new Date('2026-01-01'), new Date('2026-01-02')],
+    detectedAt: new Date('2026-01-02'),
+    ...overrides,
+  }
+}
+
+describe('GET /field-conflicts', () => {
+  it('returns unresolved field conflicts with competing claims', async () => {
+    const factory = new MockQueueFactory()
+    const row = makeFieldConflictRow()
+    const { app, listings } = buildTestApp({}, {}, factory, {
+      findFieldConflicts: vi.fn(async () => [row]),
+      countFieldConflicts: vi.fn(async () => 1),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/field-conflicts' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0]).toMatchObject({
+      listingId: 'listing-1',
+      field: 'conversionType',
+      competingValues: ['side_entry', 'rear_entry'],
+      evidenceKinds: ['structured_source', 'vehicle_text'],
+    })
+    expect(body.meta).toMatchObject({ total: 1 })
+    expect(listings.findFieldConflicts).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 50 }))
+
+    await app.close()
+  })
+
+  it('passes sourceId and field filters through to the repository', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, {
+      findFieldConflicts: vi.fn(async () => []),
+      countFieldConflicts: vi.fn(async () => 0),
+    })
+
+    await app.inject({ method: 'GET', url: '/field-conflicts?sourceId=src-1&field=rampType' })
+
+    expect(listings.findFieldConflicts).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'src-1', field: 'rampType' }),
+    )
+    expect(listings.countFieldConflicts).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'src-1', field: 'rampType' }),
+    )
+
+    await app.close()
+  })
+
+  it('caps take at the maximum page size', async () => {
+    const factory = new MockQueueFactory()
+    const { app, listings } = buildTestApp({}, {}, factory, {
+      findFieldConflicts: vi.fn(async () => []),
+      countFieldConflicts: vi.fn(async () => 0),
+    })
+
+    await app.inject({ method: 'GET', url: '/field-conflicts?take=10000' })
+
+    expect(listings.findFieldConflicts).toHaveBeenCalledWith(expect.objectContaining({ take: 200 }))
 
     await app.close()
   })

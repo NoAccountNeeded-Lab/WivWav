@@ -211,6 +211,40 @@ export type QuarantineFilter = {
   take?: number
 }
 
+/**
+ * One #499 field currently at `conflicting` resolution for one listing, with
+ * the competing claims that caused it — for the operator triage surface
+ * (`GET /admin/field-conflicts`). Deliberately excludes free-text evidence
+ * (e.g. a description snippet) — only the normalized claimed values, their
+ * provenance category, and observation times are exposed, so no
+ * private-seller description text or model reasoning leaks into ops
+ * tooling. `competingValues`/`evidenceKinds`/`sourceRefs`/`observedAts` are
+ * parallel arrays, one entry per competing claim (already deduped to the
+ * latest claim per evidence slot, mirroring the resolver).
+ */
+export type FieldConflictRow = {
+  listingId: string
+  sourceUrl: string
+  make: string
+  model: string
+  year: number
+  field: string
+  competingValues: string[]
+  evidenceKinds: string[]
+  sourceRefs: (string | null)[]
+  observedAts: Date[]
+  /** Most recent Listing write that could have changed this resolution. */
+  detectedAt: Date
+}
+
+export type FieldConflictFilter = {
+  sourceId?: string
+  /** Restricts to one field ("conversionType" | "rampType"); omit for both. */
+  field?: string
+  skip?: number
+  take?: number
+}
+
 type CountRow = {
   count: number | bigint
 }
@@ -271,6 +305,13 @@ export interface ListingRepository {
    * source fix ships). Returns false if the listing was not quarantined.
    */
   reprocessQuarantined(id: string): Promise<boolean>
+  /**
+   * #499 operator triage surface: active listings whose conversionType or
+   * rampType resolution is `conflicting`, with the competing claims that
+   * caused it.
+   */
+  findFieldConflicts(filter: FieldConflictFilter): Promise<FieldConflictRow[]>
+  countFieldConflicts(filter: Omit<FieldConflictFilter, 'skip' | 'take'>): Promise<number>
   /**
    * Per-stage pending/last-completed state for a single source, covering the
    * DB-derivable pipeline stages (detail-crawl, detail-extract, geocode,
@@ -618,6 +659,97 @@ export class PrismaListingRepository implements ListingRepository {
       },
     })
     return result.count > 0
+  }
+
+  private fieldConflictWhere(filter: Omit<FieldConflictFilter, 'skip' | 'take'>): Prisma.ListingWhereInput {
+    const wantsConversion = !filter.field || filter.field === 'conversionType'
+    const wantsRamp = !filter.field || filter.field === 'rampType'
+    return {
+      status: 'active',
+      ...(filter.sourceId ? { sourceId: filter.sourceId } : {}),
+      OR: [
+        ...(wantsConversion ? [{ conversionTypeResolution: 'conflicting' as const }] : []),
+        ...(wantsRamp ? [{ rampTypeResolution: 'conflicting' as const }] : []),
+      ],
+    }
+  }
+
+  async findFieldConflicts(filter: FieldConflictFilter): Promise<FieldConflictRow[]> {
+    const listingRows = await this.db.listing.findMany({
+      where: this.fieldConflictWhere(filter),
+      orderBy: { updatedAt: 'desc' },
+      skip: filter.skip ?? 0,
+      take: filter.take ?? 50,
+      select: {
+        id: true,
+        sourceUrl: true,
+        make: true,
+        model: true,
+        year: true,
+        conversionTypeResolution: true,
+        rampTypeResolution: true,
+        updatedAt: true,
+      },
+    })
+    if (listingRows.length === 0) return []
+
+    const claims = await this.db.listingFieldClaim.findMany({
+      where: { listingId: { in: listingRows.map((l) => l.id) }, eligible: true },
+      orderBy: { observedAt: 'desc' },
+    })
+    const claimsByListingField = new Map<string, typeof claims>()
+    for (const claim of claims) {
+      const key = `${claim.listingId}:${claim.field}`
+      const group = claimsByListingField.get(key)
+      if (group) group.push(claim)
+      else claimsByListingField.set(key, [claim])
+    }
+
+    const rows: FieldConflictRow[] = []
+    for (const listing of listingRows) {
+      const fields: Array<['conversionType' | 'rampType', 'conflicting' | string]> = [
+        ['conversionType', listing.conversionTypeResolution],
+        ['rampType', listing.rampTypeResolution],
+      ]
+      for (const [field, resolution] of fields) {
+        if (resolution !== 'conflicting') continue
+        if (filter.field && filter.field !== field) continue
+
+        // Latest claim per (evidenceKind, sourceRef) slot — mirrors the
+        // resolver's own dedup (apps/scraper/src/resolution/resolver.ts) so
+        // this shows exactly the claims currently driving the conflict, not
+        // every superseded historical row.
+        const latestBySlot = new Map<string, (typeof claims)[number]>()
+        for (const claim of claimsByListingField.get(`${listing.id}:${field}`) ?? []) {
+          const slotKey = `${claim.evidenceKind} ${claim.sourceRef ?? ''}`
+          if (!latestBySlot.has(slotKey)) latestBySlot.set(slotKey, claim)
+        }
+        const competing = [...latestBySlot.values()]
+
+        rows.push({
+          listingId: listing.id,
+          sourceUrl: listing.sourceUrl,
+          make: listing.make,
+          model: listing.model,
+          year: listing.year,
+          field,
+          competingValues: competing.map((c) => c.claimedValue),
+          evidenceKinds: competing.map((c) => c.evidenceKind),
+          sourceRefs: competing.map((c) => c.sourceRef),
+          observedAts: competing.map((c) => c.observedAt),
+          detectedAt: listing.updatedAt,
+        })
+      }
+    }
+    return rows
+  }
+
+  countFieldConflicts(filter: Omit<FieldConflictFilter, 'skip' | 'take'>): Promise<number> {
+    // Approximates row count as listing count — a listing conflicting on
+    // both fields simultaneously is rare and the operator page's pagination
+    // is a soft affordance, not an exact-total requirement. findFieldConflicts
+    // is the source of truth for what actually renders.
+    return this.db.listing.count({ where: this.fieldConflictWhere(filter) })
   }
 
   async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {
