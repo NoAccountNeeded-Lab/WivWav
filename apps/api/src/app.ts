@@ -4,6 +4,7 @@ import Fastify, { type FastifyError, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import rateLimit from '@fastify/rate-limit'
+import type { Redis } from 'ioredis'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox'
@@ -43,8 +44,11 @@ import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
+import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
 import { metricsRoutes, createMetricsRegistry } from './routes/metrics.js'
 import { conversionBrandRoutes } from './routes/conversion-brands.js'
+import { internalApiKeysRoutes } from './routes/internal-api-keys.js'
+import { webhooksRoutes } from './routes/webhooks.js'
 
 export function isAllowedCorsOrigin(origin: string | undefined, config: Config): boolean {
   if (!origin) return true
@@ -64,6 +68,20 @@ export function isAllowedCorsOrigin(origin: string | undefined, config: Config):
   }
 }
 
+/**
+ * Stricter sibling of `isAllowedCorsOrigin` for the `/v1/` auth bypass
+ * (plugins/api-key-auth.ts): an absent `Origin` header must NOT be trusted
+ * here. `isAllowedCorsOrigin` treats "no Origin header" as allowed because
+ * that's how the CORS plugin decides which responses need ACAO headers at
+ * all (non-browser callers never send one) — but for authentication, "no
+ * Origin" is exactly the case that must fall through to requiring a real key
+ * (curl, third-party API clients, and this issue's own acceptance tests).
+ */
+export function isTrustedBrowserOrigin(origin: string | undefined, config: Config): boolean {
+  if (!origin) return false
+  return isAllowedCorsOrigin(origin, config)
+}
+
 export async function buildApp(
   config: Config,
   db: PrismaClient,
@@ -72,6 +90,7 @@ export async function buildApp(
   search: ListingSearchService,
   facets: ListingFacetsService,
   queueFactory: BullMQQueueFactory,
+  redis: Redis | undefined,
 ) {
   const app = Fastify({
     logger:
@@ -90,7 +109,16 @@ export async function buildApp(
 
   const { registry, httpRequests, httpDuration } = createMetricsRegistry()
 
-  await app.register(rateLimit, { max: config.RATE_LIMIT_MAX, timeWindow: '1 minute' })
+  const listingRepo = new PrismaListingRepository(db)
+  const vehicleRepo = new PrismaVehicleRepository(db)
+  const sourceRepo = new PrismaSourceRepository(db)
+  const scraperRunRepo = new PrismaScraperRunRepository(db)
+  const marketRepo = new PrismaMarketRepository(db)
+  const conversionBrandRepo = new PrismaConversionBrandRepository(db)
+  const vehicleIdentityDecisionRepo = new PrismaVehicleIdentityDecisionRepository(db)
+  const dealerRepo = new PrismaDealerRepository(db)
+  const apiKeyRepo = new PrismaApiKeyRepository(db)
+
   await app.register(cors, {
     origin: (origin, cb) => {
       cb(null, isAllowedCorsOrigin(origin, config))
@@ -98,6 +126,43 @@ export async function buildApp(
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
   })
   await app.register(sensible)
+
+  // Fail-closed guard for /v1/ (#453): requires a valid API key, the internal
+  // server-to-server bypass secret, or a trusted first-party browser Origin.
+  // Registered after cors (so OPTIONS preflight short-circuits before this
+  // hook runs) and before @fastify/rate-limit below, whose keyGenerator/max
+  // read the identity this hook resolves. See plugins/api-key-auth.ts.
+  await apiKeyAuthPlugin(app, {
+    apiKeys: apiKeyRepo,
+    internalApiSecret: config.INTERNAL_API_SECRET,
+    isTrustedOrigin: (origin) => isTrustedBrowserOrigin(origin, config),
+  })
+
+  // Per-key, tier-based limit for authenticated /v1/ callers — this *is* the
+  // "replace the global limit on /v1" behaviour from #453, expressed as a
+  // dynamic max/keyGenerator on the same single limiter rather than a second
+  // stacked one (a second registration would double-enforce: FREE's 60/min
+  // would still work under either, but a PRO/ENTERPRISE key's higher limit
+  // would stay capped by whatever coarse default a second limiter used).
+  // Non-/v1 routes and the trusted-origin/no-key /v1 path keep the original
+  // IP-keyed config.RATE_LIMIT_MAX behaviour this plugin has always had.
+  await app.register(rateLimit, {
+    timeWindow: '1 minute',
+    // The shared cache Redis client is `lazyConnect`/`enableOfflineQueue:
+    // false` (services/cache is designed to fail soft on a disconnected
+    // store). `skipOnError` gives the rate limiter the same fail-soft
+    // behaviour instead of turning a Redis hiccup into a 500 on every request.
+    skipOnError: true,
+    ...(redis ? { redis } : {}),
+    keyGenerator: (req) => {
+      const resolved = getResolvedApiKey(req)
+      return resolved?.id ? `key:${resolved.id}` : req.ip
+    },
+    max: (req) => {
+      const resolved = getResolvedApiKey(req)
+      return resolved?.rateLimitRpm ?? config.RATE_LIMIT_MAX
+    },
+  })
 
   // Schema-first route contracts (TypeBox) are converted route group by route
   // group — see docs/api-routes.md. The generated OpenAPI 3 document reflects
@@ -148,16 +213,6 @@ export async function buildApp(
     }
     void reply.code(statusCode).send(error)
   })
-
-  const listingRepo = new PrismaListingRepository(db)
-  const vehicleRepo = new PrismaVehicleRepository(db)
-  const sourceRepo = new PrismaSourceRepository(db)
-  const scraperRunRepo = new PrismaScraperRunRepository(db)
-  const marketRepo = new PrismaMarketRepository(db)
-  const conversionBrandRepo = new PrismaConversionBrandRepository(db)
-  const vehicleIdentityDecisionRepo = new PrismaVehicleIdentityDecisionRepository(db)
-  const dealerRepo = new PrismaDealerRepository(db)
-  const apiKeyRepo = new PrismaApiKeyRepository(db)
 
   await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
   await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets, queueFactory })
@@ -210,6 +265,31 @@ export async function buildApp(
     },
     { prefix: '/admin' },
   )
+
+  // Key provisioning (#453) — same fail-closed Authorization: Bearer
+  // {INTERNAL_API_SECRET} boundary as /admin, reusing adminAuthPlugin
+  // directly for the same encapsulation reason documented above. An
+  // operator/billing-system surface, never called from a browser.
+  await app.register(
+    async (internalScope) => {
+      await adminAuthPlugin(internalScope, {
+        internalApiSecret: config.INTERNAL_API_SECRET,
+        nodeEnv: config.NODE_ENV,
+      })
+
+      await internalScope.register(internalApiKeysRoutes, { prefix: '/api-keys', apiKeys: apiKeyRepo })
+    },
+    { prefix: '/internal/v1' },
+  )
+
+  // Stripe calls this directly and authenticates via the signed payload
+  // (Stripe-Signature header), not an API key or the INTERNAL_API_SECRET
+  // bearer boundary — see routes/webhooks.ts.
+  await app.register(webhooksRoutes, {
+    prefix: '/webhooks',
+    apiKeys: apiKeyRepo,
+    stripeWebhookSecret: config.STRIPE_WEBHOOK_SECRET,
+  })
 
   // Intentionally unauthenticated and outside /admin — this endpoint accepts only
   // pre-validated structured browser error events and is rate-limited per-route.

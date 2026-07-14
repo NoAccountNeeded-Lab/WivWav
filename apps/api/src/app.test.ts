@@ -62,7 +62,7 @@ describe('isAllowedCorsOrigin', () => {
   })
 })
 
-function buildTestApp() {
+function buildTestApp(overrides?: { apiKey?: { findFirst?: ReturnType<typeof vi.fn> }; config?: Partial<Config> }) {
   const search = {
     search: vi.fn(async () => ({ hits: [], total: 0, facets: {} })),
   }
@@ -88,7 +88,7 @@ function buildTestApp() {
   return {
     search,
     app: buildApp(
-      { ...baseConfig, NODE_ENV: 'test' },
+      { ...baseConfig, NODE_ENV: 'test', ...overrides?.config },
       {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
         listing: {
@@ -117,15 +117,31 @@ function buildTestApp() {
           findMany: vi.fn(async () => []),
           findFirst: vi.fn(async () => null),
         },
+        apiKey: {
+          findFirst: overrides?.apiKey?.findFirst ?? vi.fn(async () => null),
+          create: vi.fn(async (args: { data: { ownerEmail: string; tier: string; rateLimitRpm: number } }) => ({
+            id: 'key-created',
+            ownerEmail: args.data.ownerEmail,
+            tier: args.data.tier,
+            rateLimitRpm: args.data.rateLimitRpm,
+            createdAt: new Date('2026-07-14T00:00:00.000Z'),
+            revokedAt: null,
+          })),
+          updateMany: vi.fn(async () => ({ count: 0 })),
+        },
       } as never,
       {} as never,
       {} as never,
       search as never,
       facets as never,
       queueFactory as never,
+      undefined,
     ),
   }
 }
+
+/** The web app's own browser origin — matches baseConfig.CORS_ORIGIN so /v1/ requests pass the trusted-origin bypass without needing a provisioned API key. */
+const TRUSTED_ORIGIN = 'http://localhost:3000'
 
 describe('CORS methods', () => {
   it('allows PUT, PATCH, and DELETE via CORS preflight', async () => {
@@ -240,7 +256,7 @@ describe('onResponse hook', () => {
     const { app } = buildTestApp()
     const built = await app
 
-    const response = await built.inject({ method: 'GET', url: '/v1/listings' })
+    const response = await built.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
     expect(response.statusCode).toBe(200)
 
     await built.close()
@@ -290,7 +306,7 @@ describe('setErrorHandler', () => {
     const app = await appPromise
 
     // The listings/:id route returns 404 when the listing is not found
-    const response = await app.inject({ method: 'GET', url: '/v1/listings/nonexistent-id' })
+    const response = await app.inject({ method: 'GET', url: '/v1/listings/nonexistent-id', headers: { origin: TRUSTED_ORIGIN } })
     expect(response.statusCode).toBe(404)
 
     await app.close()
@@ -354,11 +370,11 @@ describe('rate limiting', () => {
     const app = await appPromise
 
     for (let i = 0; i < 100; i++) {
-      const response = await app.inject({ method: 'GET', url: '/v1/listings' })
+      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
       expect(response.statusCode).toBe(200)
     }
 
-    const limited = await app.inject({ method: 'GET', url: '/v1/listings' })
+    const limited = await app.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
     expect(limited.statusCode).toBe(429)
 
     await app.close()
@@ -380,6 +396,142 @@ describe('rate limiting', () => {
   })
 })
 
+describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
+  it('mounts key provisioning under the same fail-closed boundary as /admin', async () => {
+    const { app: appPromise } = buildTestApp()
+    const app = await appPromise
+
+    // No INTERNAL_API_SECRET is configured and NODE_ENV is 'test', so
+    // adminAuthPlugin's non-production permissive fallback applies here too
+    // — this confirms the route is reachable at the documented path and
+    // reuses that same plugin, not that it's unauthenticated in production.
+    const response = await app.inject({
+      method: 'POST',
+      url: '/internal/v1/api-keys',
+      payload: { ownerEmail: 'buyer@example.com' },
+    })
+    expect(response.statusCode).toBe(201)
+
+    await app.close()
+  })
+
+  it('refuses key provisioning without the bearer secret once one is configured', async () => {
+    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/internal/v1/api-keys',
+      payload: { ownerEmail: 'buyer@example.com' },
+    })
+    expect(response.statusCode).toBe(401)
+
+    await app.close()
+  })
+
+  it('mounts the Stripe webhook and fails closed when STRIPE_WEBHOOK_SECRET is unset', async () => {
+    const { app: appPromise } = buildTestApp()
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/webhooks/stripe',
+      payload: JSON.stringify({ type: 'checkout.session.completed' }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(response.statusCode).toBe(503)
+
+    await app.close()
+  })
+})
+
+describe('api key auth and per-key rate limiting (#453)', () => {
+  it('returns 401 for /v1/listings with no key and no trusted origin', async () => {
+    const { app: appPromise } = buildTestApp()
+    const app = await appPromise
+
+    const response = await app.inject({ method: 'GET', url: '/v1/listings' })
+    expect(response.statusCode).toBe(401)
+    expect(JSON.parse(response.body).error.code).toBe('UNAUTHORIZED')
+
+    await app.close()
+  })
+
+  it('returns 401 for an unknown or revoked API key', async () => {
+    const { app: appPromise } = buildTestApp({ apiKey: { findFirst: vi.fn(async () => null) } })
+    const app = await appPromise
+
+    const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'revoked-key' } })
+    expect(response.statusCode).toBe(401)
+
+    await app.close()
+  })
+
+  it('accepts a valid API key and enforces its own rateLimitRpm rather than the global default', async () => {
+    // A tiny per-key limit (well below RATE_LIMIT_MAX) proves the dynamic
+    // max() function is reading the resolved key's rateLimitRpm, not falling
+    // back to the coarse IP-based default.
+    const findFirst = vi.fn(async () => ({ id: 'key-1', tier: 'FREE', rateLimitRpm: 2 }))
+    const { app: appPromise } = buildTestApp({ apiKey: { findFirst } })
+    const app = await appPromise
+
+    for (let i = 0; i < 2; i++) {
+      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'valid-key' } })
+      expect(response.statusCode).toBe(200)
+    }
+
+    const limited = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'valid-key' } })
+    expect(limited.statusCode).toBe(429)
+
+    await app.close()
+  })
+
+  it('gives a higher-tier key a higher limit that a lower-tier key would already have tripped', async () => {
+    const findFirst = vi.fn(async () => ({ id: 'key-pro', tier: 'PRO', rateLimitRpm: 3 }))
+    const { app: appPromise } = buildTestApp({ apiKey: { findFirst } })
+    const app = await appPromise
+
+    // 3 requests exceeds what a rateLimitRpm: 2 FREE key (tested above) would
+    // allow, but this PRO key's own higher limit lets all of them through.
+    for (let i = 0; i < 3; i++) {
+      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'pro-key' } })
+      expect(response.statusCode).toBe(200)
+    }
+
+    await app.close()
+  })
+
+  it('accepts the internal bypass secret without requiring a provisioned key', async () => {
+    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { authorization: 'Bearer shared-secret-value' },
+    })
+
+    expect(response.statusCode).toBe(200)
+
+    await app.close()
+  })
+
+  it('rejects the wrong bearer token even when a bypass secret is configured', async () => {
+    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { authorization: 'Bearer wrong-value' },
+    })
+
+    expect(response.statusCode).toBe(401)
+
+    await app.close()
+  })
+})
+
 describe('x-request-id propagation (genReqId)', () => {
   it('uses x-request-id header as the request ID when present', async () => {
     const { app: appPromise } = buildTestApp()
@@ -388,7 +540,7 @@ describe('x-request-id propagation (genReqId)', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/v1/listings',
-      headers: { 'x-request-id': 'web-trace-abc123' },
+      headers: { 'x-request-id': 'web-trace-abc123', origin: TRUSTED_ORIGIN },
     })
     // Fastify echoes the request ID it assigned in a response header when
     // request-id is present in the reply serializer or via reply.id — check
@@ -411,7 +563,7 @@ describe('x-request-id propagation (genReqId)', () => {
     const { app: appPromise } = buildTestApp()
     const app = await appPromise
 
-    const response = await app.inject({ method: 'GET', url: '/v1/listings' })
+    const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
     expect(response.statusCode).toBe(200)
     // No crash — UUID fallback path is exercised without throwing
 
@@ -464,7 +616,7 @@ describe('setErrorHandler — Sentry capture', () => {
     const app = await appPromise
 
     // The listings/:id route returns 404 when not found
-    const response = await app.inject({ method: 'GET', url: '/v1/listings/nonexistent-id' })
+    const response = await app.inject({ method: 'GET', url: '/v1/listings/nonexistent-id', headers: { origin: TRUSTED_ORIGIN } })
     expect(response.statusCode).toBe(404)
     expect(mockCaptureException).not.toHaveBeenCalled()
 

@@ -21,10 +21,16 @@ const schema = z.object({
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, 'CONFIG_ENCRYPTION_SECRET must be a 64-character hex string (32 bytes)')
     .optional(),
-  // Shared secret for server-to-server calls to /admin/config/:key/decrypt.
-  // Set the same value in every service (web, CLI) that calls this endpoint.
-  // When unset, the decrypt endpoint is unauthenticated — only acceptable in local dev.
+  // Shared secret for server-to-server calls to /admin, /internal, and the
+  // apps/web SSR bypass on /v1 (#453). Set the same value in every service
+  // (web, CLI) that calls these endpoints. When unset, /admin is
+  // unauthenticated in non-production and the /v1 bypass simply never
+  // matches — only acceptable in local dev.
   INTERNAL_API_SECRET: z.string().min(16).optional(),
+  // Signing secret for the Stripe webhook (`POST /webhooks/stripe`), from the
+  // Stripe Dashboard's webhook endpoint config. When unset, the webhook
+  // endpoint refuses all requests with 503 rather than accepting unverifiable payloads.
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 })
 
 export type Config = z.infer<typeof schema>
