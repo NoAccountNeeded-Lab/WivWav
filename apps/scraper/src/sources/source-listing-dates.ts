@@ -55,6 +55,11 @@ export async function evaluateSourceListingDates(
       identifiers: string[]
     }
 
+    interface ClassifiedCandidate {
+      candidate: DateCandidate
+      confidence: 'proven' | 'anonymous' | 'unmatched'
+    }
+
     function asRecord(value: unknown): Record<string, unknown> | null {
       return typeof value === 'object' && value !== null && !Array.isArray(value)
         ? value as Record<string, unknown>
@@ -240,17 +245,26 @@ export async function evaluateSourceListingDates(
       })
     }
 
-    function selectCandidate(candidates: DateCandidate[]): DateCandidate | null {
-      const matches = candidates.filter(function (candidate) { return candidateMatches(candidate) })
-      if (matches.length === 1) return matches[0] ?? null
-      if (matches.length > 1) return null
-      if (candidates.length !== 1) return null
+    function classifyCandidate(candidate: DateCandidate): ClassifiedCandidate {
+      if (candidateMatches(candidate)) return { candidate, confidence: 'proven' }
+      if (candidate.urls.length === 0 && candidate.identifiers.length === 0) {
+        return { candidate, confidence: 'anonymous' }
+      }
+      return { candidate, confidence: 'unmatched' }
+    }
 
-      const candidate = candidates[0]
-      if (candidate === undefined) return null
-      const hasComparableIdentity = candidate.urls.length > 0
-        || (expectedIdentifiers.length > 0 && candidate.identifiers.length > 0)
-      return hasComparableIdentity ? null : candidate
+    function mergeDateValues(candidates: DateCandidate[], key: 'listedAt' | 'updatedAt'): string | null {
+      const values = Array.from(new Set(candidates
+        .map(function (candidate) { return candidate[key] })
+        .filter(function (value): value is string { return value !== null })))
+      return values.length === 1 ? values[0] ?? null : null
+    }
+
+    function mergeCandidates(candidates: DateCandidate[]): RawSourceListingDates {
+      return {
+        listedAt: mergeDateValues(candidates, 'listedAt'),
+        updatedAt: mergeDateValues(candidates, 'updatedAt'),
+      }
     }
 
     const structuredCandidates: DateCandidate[] = []
@@ -262,17 +276,24 @@ export async function evaluateSourceListingDates(
       }
     })
 
-    const microdataListingCandidates = microdataCandidates()
-    const structured = selectCandidate(structuredCandidates)
-    const microdata = selectCandidate(microdataListingCandidates)
-    const structuredAmbiguous = structuredCandidates.length > 0 && structured === null
-    const microdataAmbiguous = microdataListingCandidates.length > 0 && microdata === null
-    if (structuredAmbiguous || microdataAmbiguous) return { listedAt: null, updatedAt: null }
+    const candidates = [...structuredCandidates, ...microdataCandidates()]
+      .map(function (candidate) { return classifyCandidate(candidate) })
+    const proven = candidates
+      .filter(function (candidate) { return candidate.confidence === 'proven' })
+      .map(function (candidate) { return candidate.candidate })
 
-    return {
-      listedAt: structured?.listedAt ?? microdata?.listedAt ?? null,
-      updatedAt: structured?.updatedAt ?? microdata?.updatedAt ?? null,
-    }
+    // Every proven candidate is tied to the same expected URL/VIN/source
+    // identity, so duplicate JSON-LD and microdata descriptions may safely
+    // contribute complementary dates. Anonymous metadata is never merged
+    // into a proven match because it may describe another vehicle.
+    if (proven.length > 0) return mergeCandidates(proven)
+
+    // Identity-free fallback remains useful for simple detail pages, but only
+    // when there is exactly one listing candidate across every encoding.
+    const soleCandidate = candidates.length === 1 ? candidates[0] : undefined
+    if (soleCandidate?.confidence === 'anonymous') return mergeCandidates([soleCandidate.candidate])
+
+    return { listedAt: null, updatedAt: null }
   }, identity)
 
   return parseSourceListingDates(raw)
