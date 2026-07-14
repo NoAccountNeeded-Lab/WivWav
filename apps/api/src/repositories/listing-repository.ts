@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { PrismaClient, Listing, Prisma } from '@wivwav/db'
 
 // Mirrors STALE_DETAIL_DAYS in apps/scraper/src/jobs/detail-crawl.ts — a
@@ -245,6 +246,40 @@ export type FieldConflictFilter = {
   take?: number
 }
 
+export type ListingReportType = 'specs_incorrect' | 'sold_or_stale' | 'duplicate' | 'other'
+
+export type CreateListingReportInput = {
+  listingId: string
+  reportType: ListingReportType
+  notes?: string | null
+}
+
+export type ListingReportRow = {
+  id: string
+  listingId: string
+  reportType: ListingReportType
+  notes: string | null
+  status: 'unresolved' | 'resolved'
+  reportedAt: Date
+}
+
+export type ListingReportTriageRow = {
+  listingId: string
+  sourceUrl: string
+  make: string
+  model: string
+  year: number
+  unresolvedCount: number
+  latestReportedAt: Date
+  reportTypes: ListingReportType[]
+}
+
+export type ListingReportTriageFilter = {
+  minReports?: number
+  skip?: number
+  take?: number
+}
+
 type CountRow = {
   count: number | bigint
 }
@@ -312,6 +347,10 @@ export interface ListingRepository {
    */
   findFieldConflicts(filter: FieldConflictFilter): Promise<FieldConflictRow[]>
   countFieldConflicts(filter: Omit<FieldConflictFilter, 'skip' | 'take'>): Promise<number>
+  createListingReport(input: CreateListingReportInput): Promise<ListingReportRow>
+  countUnresolvedReports(listingId: string): Promise<number>
+  findListingReportTriage(filter: ListingReportTriageFilter): Promise<ListingReportTriageRow[]>
+  countListingReportTriage(filter: Omit<ListingReportTriageFilter, 'skip' | 'take'>): Promise<number>
   /**
    * Per-stage pending/last-completed state for a single source, covering the
    * DB-derivable pipeline stages (detail-crawl, detail-extract, geocode,
@@ -764,6 +803,66 @@ export class PrismaListingRepository implements ListingRepository {
         : Promise.resolve(0),
     ])
     return conversionCount + rampCount
+  }
+
+  async createListingReport(input: CreateListingReportInput): Promise<ListingReportRow> {
+    const reportId = randomUUID()
+    const notes = input.notes?.trim() || null
+    const rows = await this.db.$queryRaw<ListingReportRow[]>`
+      INSERT INTO listing_reports (id, "listingId", "reportType", notes)
+      VALUES (${reportId}, ${input.listingId}, ${input.reportType}::"ListingReportType", ${notes})
+      RETURNING id, "listingId", "reportType", notes, status, "reportedAt"
+    `
+    return rows[0]!
+  }
+
+  async countUnresolvedReports(listingId: string): Promise<number> {
+    const rows = await this.db.$queryRaw<CountRow[]>`
+      SELECT COUNT(*)::int AS count
+      FROM listing_reports
+      WHERE "listingId" = ${listingId}
+        AND status = 'unresolved'::"ListingReportStatus"
+    `
+    return Number(rows[0]?.count ?? 0)
+  }
+
+  async findListingReportTriage(filter: ListingReportTriageFilter): Promise<ListingReportTriageRow[]> {
+    const minReports = filter.minReports ?? 1
+    const rows = await this.db.$queryRaw<Array<ListingReportTriageRow & { unresolvedCount: number | bigint }>>`
+      SELECT
+        l.id AS "listingId",
+        l."sourceUrl",
+        l.make,
+        l.model,
+        l.year,
+        COUNT(r.id)::int AS "unresolvedCount",
+        MAX(r."reportedAt") AS "latestReportedAt",
+        ARRAY_AGG(DISTINCT r."reportType") AS "reportTypes"
+      FROM listings l
+      JOIN listing_reports r ON r."listingId" = l.id
+      WHERE r.status = 'unresolved'::"ListingReportStatus"
+      GROUP BY l.id, l."sourceUrl", l.make, l.model, l.year
+      HAVING COUNT(r.id) >= ${minReports}
+      ORDER BY COUNT(r.id) DESC, MAX(r."reportedAt") DESC, l.id ASC
+      LIMIT ${filter.take ?? 50}
+      OFFSET ${filter.skip ?? 0}
+    `
+    return rows.map((row) => ({ ...row, unresolvedCount: Number(row.unresolvedCount) }))
+  }
+
+  async countListingReportTriage(filter: Omit<ListingReportTriageFilter, 'skip' | 'take'>): Promise<number> {
+    const minReports = filter.minReports ?? 1
+    const rows = await this.db.$queryRaw<CountRow[]>`
+      SELECT COUNT(*)::int AS count
+      FROM (
+        SELECT r."listingId"
+        FROM listing_reports r
+        WHERE r.status = 'unresolved'::"ListingReportStatus"
+        GROUP BY r."listingId"
+        HAVING COUNT(r.id) >= ${minReports}
+      ) grouped_reports
+    `
+    return Number(rows[0]?.count ?? 0)
   }
 
   async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {

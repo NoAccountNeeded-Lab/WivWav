@@ -30,8 +30,16 @@ interface FieldConflictListQuery {
   take?: string
 }
 
+interface ListingReportListQuery {
+  minReports?: string
+  skip?: string
+  take?: string
+}
+
 const MAX_FIELD_CONFLICT_PAGE_SIZE = 200
 const DEFAULT_FIELD_CONFLICT_PAGE_SIZE = 50
+const MAX_LISTING_REPORT_PAGE_SIZE = 200
+const DEFAULT_LISTING_REPORT_PAGE_SIZE = 50
 
 function quarantineRowToResponse(row: QuarantinedListingRow) {
   return {
@@ -423,6 +431,27 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     const [rows, total] = await Promise.all([
       listings.findFieldConflicts({ ...filter, skip: parsedSkip, take: parsedTake }),
       listings.countFieldConflicts(filter),
+    ])
+
+    return reply.send({ data: rows, meta: { total, skip: parsedSkip, take: parsedTake } })
+  })
+
+  // GET /admin/listing-reports — operator triage for listings with unresolved
+  // user reports, sorted by highest unresolved count then latest report.
+  app.get<{ Querystring: ListingReportListQuery }>('/listing-reports', async (req, reply) => {
+    const { minReports, skip, take } = req.query
+
+    const parsedTake = Math.min(
+      take ? Number.parseInt(take, 10) || DEFAULT_LISTING_REPORT_PAGE_SIZE : DEFAULT_LISTING_REPORT_PAGE_SIZE,
+      MAX_LISTING_REPORT_PAGE_SIZE,
+    )
+    const parsedSkip = skip ? Math.max(Number.parseInt(skip, 10) || 0, 0) : 0
+    const parsedMinReports = Math.max(minReports ? Number.parseInt(minReports, 10) || 1 : 1, 1)
+
+    const filter = { minReports: parsedMinReports }
+    const [rows, total] = await Promise.all([
+      listings.findListingReportTriage({ ...filter, skip: parsedSkip, take: parsedTake }),
+      listings.countListingReportTriage(filter),
     ])
 
     return reply.send({ data: rows, meta: { total, skip: parsedSkip, take: parsedTake } })
