@@ -127,16 +127,11 @@ export async function buildApp(
   })
   await app.register(sensible)
 
-  // Fail-closed guard for /v1/ (#453): requires a valid API key, the internal
-  // server-to-server bypass secret, or a trusted first-party browser Origin.
-  // Registered after cors (so OPTIONS preflight short-circuits before this
-  // hook runs) and before @fastify/rate-limit below, whose keyGenerator/max
-  // read the identity this hook resolves. See plugins/api-key-auth.ts.
-  await apiKeyAuthPlugin(app, {
+  const apiKeyAuthDeps = {
     apiKeys: apiKeyRepo,
     internalApiSecret: config.INTERNAL_API_SECRET,
-    isTrustedOrigin: (origin) => isTrustedBrowserOrigin(origin, config),
-  })
+    isTrustedOrigin: (origin: string | undefined) => isTrustedBrowserOrigin(origin, config),
+  }
 
   // Per-key, tier-based limit for authenticated /v1/ callers — this *is* the
   // "replace the global limit on /v1" behaviour from #453, expressed as a
@@ -146,6 +141,12 @@ export async function buildApp(
   // would stay capped by whatever coarse default a second limiter used).
   // Non-/v1 routes and the trusted-origin/no-key /v1 path keep the original
   // IP-keyed config.RATE_LIMIT_MAX behaviour this plugin has always had.
+  // keyGenerator/max only ever read getResolvedApiKey (never resolve it
+  // themselves) — apiKeyAuthPlugin below resolves+caches identity, then
+  // manually invokes this same check (see its docstring for why: registering
+  // this before apiKeyAuthPlugin is necessary so `app.rateLimit` exists when
+  // that plugin's setup runs, but does NOT by itself make this check run
+  // before apiKeyAuthPlugin's 401 decision for a given request).
   await app.register(rateLimit, {
     timeWindow: '1 minute',
     // The shared cache Redis client is `lazyConnect`/`enableOfflineQueue:
@@ -163,6 +164,15 @@ export async function buildApp(
       return resolved?.rateLimitRpm ?? config.RATE_LIMIT_MAX
     },
   })
+
+  // Fail-closed guard for /v1/ (#453): requires a valid API key, the internal
+  // server-to-server bypass secret, or a trusted first-party browser Origin.
+  // Also manually invokes the rate-limit check above before its 401
+  // decision, so failed-auth attempts are still throttled — see the
+  // extended comment in plugins/api-key-auth.ts for why that's necessary
+  // (registration order alone does not make it happen automatically) and
+  // why this must be registered after @fastify/rate-limit and after cors.
+  await app.register(apiKeyAuthPlugin, apiKeyAuthDeps)
 
   // Schema-first route contracts (TypeBox) are converted route group by route
   // group — see docs/api-routes.md. The generated OpenAPI 3 document reflects
