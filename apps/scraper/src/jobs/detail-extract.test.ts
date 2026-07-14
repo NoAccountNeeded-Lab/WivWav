@@ -59,6 +59,9 @@ function rawPage(overrides: Record<string, unknown> = {}) {
 function baseListingRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'listing-1',
+    sourceRecordKey: 'listing-1',
+    externalId: null,
+    stockNumber: null,
     status: 'active',
     soldAt: null,
     vin: null,
@@ -190,6 +193,14 @@ describe('runDetailExtractJob', () => {
         findMany: vi.fn().mockResolvedValue([rawPage()]),
         update: vi.fn().mockResolvedValue({}),
       },
+      listing: {
+        findFirst: vi.fn().mockResolvedValue(baseListingRow({
+          sourceRecordKey: 'source-record-1',
+          externalId: 'external-1',
+          stockNumber: 'stock-1',
+          vin: '5TDYRKEC8RS205440',
+        })),
+      },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
     vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
@@ -198,6 +209,11 @@ describe('runDetailExtractJob', () => {
     expect(db.rawPage.update).toHaveBeenCalledWith({
       where: { id: 'raw-1' },
       data: { processedAt: expect.any(Date) },
+    })
+    expect(evaluateSourceListingDates).toHaveBeenCalledWith(expect.anything(), {
+      expectedUrl: 'https://www.mobilityworks.com/listing/1',
+      expectedVin: '5TDYRKEC8RS205440',
+      expectedSourceIdentifiers: ['source-record-1', 'external-1', 'stock-1'],
     })
   })
 
