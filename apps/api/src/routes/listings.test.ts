@@ -29,6 +29,8 @@ const defaultDbListing = {
   conversionStatus: 'unknown',
   wavFeatures: [],
   wheelchairCapacity: null,
+  conversionTypeResolution: 'verified',
+  rampTypeResolution: 'verified',
   zip: null,
   city: null,
   state: 'CO',
@@ -630,6 +632,40 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
       wavFeatures: [],
       wheelchairCapacity: null,
     })
+
+    await app.close()
+  })
+
+  it('includes a concise fieldResolution status alongside wav', async () => {
+    const listing = { ...defaultDbListing, conversionTypeResolution: 'source_reported', rampTypeResolution: 'verified' }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: Record<string, unknown> }>()
+    expect(body.data.fieldResolution).toEqual({ conversionType: 'source_reported', rampType: 'verified' })
+
+    await app.close()
+  })
+
+  it('never presents a conflicting field as its normalized value, even defensively at the response boundary (#499)', async () => {
+    const listing = {
+      ...defaultDbListing,
+      conversionType: 'side_entry',
+      conversionTypeResolution: 'conflicting',
+      rampType: 'fold_out',
+      rampTypeResolution: 'conflicting',
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: { wav: Record<string, unknown>; fieldResolution: Record<string, unknown> } }>()
+    expect(body.data.wav.conversionType).toBe('unknown')
+    expect(body.data.wav.rampType).toBe('unknown')
+    expect(body.data.fieldResolution).toEqual({ conversionType: 'conflicting', rampType: 'conflicting' })
 
     await app.close()
   })
