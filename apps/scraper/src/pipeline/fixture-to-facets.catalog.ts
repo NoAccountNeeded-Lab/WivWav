@@ -28,7 +28,12 @@ import type { Listing } from '@wivwav/types'
  * (re-declared here rather than imported so this catalog has zero dependency
  * on scraper internals beyond the shared @wivwav/types Listing shape).
  */
-export type ListingUpsertData = Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> & {
+export type ListingUpsertData = Omit<
+  Listing,
+  'id' | 'scrapedAt' | 'updatedAt' | 'sourceListedAt' | 'sourceUpdatedAt'
+> & {
+  sourceListedAt?: Date | null
+  sourceUpdatedAt?: Date | null
   publicationStatus?: 'pending' | 'eligible' | 'quarantined'
   qualityCheckedAt?: Date | null
 }

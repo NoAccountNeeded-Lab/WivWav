@@ -48,7 +48,12 @@ export interface SourceRepository {
  * to set them. Optional: callers that do not validate before upsert (tests,
  * older adapters) fall back to the repository's default of 'pending'.
  */
-export type ListingUpsertData = Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> & {
+export type ListingUpsertData = Omit<
+  Listing,
+  'id' | 'scrapedAt' | 'updatedAt' | 'sourceListedAt' | 'sourceUpdatedAt'
+> & {
+  sourceListedAt?: Date | null
+  sourceUpdatedAt?: Date | null
   publicationStatus?: 'pending' | 'eligible' | 'quarantined'
   qualityCheckedAt?: Date | null
 }

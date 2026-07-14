@@ -335,7 +335,12 @@ model Listing {
   /// Timestamp of the most recent complete crawl that included this listing.
   lastSeenInCompleteCrawlAt  DateTime?
 
+  /// WAV Search first observation of this source listing; not seller-provided.
   listedAt           DateTime
+  /// Publication timestamp explicitly provided by the seller/source.
+  sourceListedAt     DateTime?
+  /// Modification timestamp explicitly provided by the seller/source.
+  sourceUpdatedAt    DateTime?
   updatedAt          DateTime  @updatedAt
   scrapedAt          DateTime  @default(now())
   detailScrapedAt    DateTime?
