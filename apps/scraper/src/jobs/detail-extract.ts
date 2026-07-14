@@ -11,7 +11,10 @@ import {
   type BlvdDealerEnrichment,
 } from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
-import { evaluateSourceListingDates } from '../sources/source-listing-dates.js'
+import {
+  evaluateSourceListingDates,
+  type SourceListingIdentity,
+} from '../sources/source-listing-dates.js'
 import { recordDetailFieldClaims } from '../resolution/detail-claims.js'
 import { report } from './job-progress.js'
 
@@ -255,9 +258,12 @@ export function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
   }
 }
 
-async function extractDetail(page: BrowserPage, url: string): Promise<DetailResult> {
-  const sourceDates = await evaluateSourceListingDates(page)
-  if (url.includes('mobilityworks.com')) {
+async function extractDetail(
+  page: BrowserPage,
+  identity: SourceListingIdentity,
+): Promise<DetailResult> {
+  const sourceDates = await evaluateSourceListingDates(page, identity)
+  if (identity.expectedUrl.includes('mobilityworks.com')) {
     const raw = await evaluateMwDetail(page)
     const mw = parseMwDetail(raw)
     // MobilityWorks exposes an explicit "Fuel Type" spec key; no engine description field.
@@ -336,13 +342,13 @@ export async function runDetailExtractJob(
       const page = await browser.newPage()
 
       try {
-        await page.setContent(rawPage.html, { waitUntil: 'domcontentloaded' })
-        const detail = await extractDetail(page, rawPage.url)
-
         const listing = await db.listing.findFirst({
           where: { sourceUrl: rawPage.url },
           select: {
             id: true,
+            sourceRecordKey: true,
+            externalId: true,
+            stockNumber: true,
             status: true,
             soldAt: true,
             vin: true,
@@ -371,6 +377,15 @@ export async function runDetailExtractJob(
             detailScrapedAt: true,
             updatedAt: true,
           },
+        })
+
+        await page.setContent(rawPage.html, { waitUntil: 'domcontentloaded' })
+        const sourceIdentifiers = [listing?.sourceRecordKey, listing?.externalId, listing?.stockNumber]
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        const detail = await extractDetail(page, {
+          expectedUrl: rawPage.url,
+          expectedVin: listing?.vin ?? null,
+          expectedSourceIdentifiers: sourceIdentifiers,
         })
 
         if (listing) {

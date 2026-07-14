@@ -42,7 +42,9 @@ describe('evaluateSourceListingDates', () => {
         </script>
       `)
 
-      await expect(evaluateSourceListingDates(page)).resolves.toEqual({
+      await expect(evaluateSourceListingDates(page, {
+        expectedUrl: 'https://dealer.example.com/inventory/current-van',
+      })).resolves.toEqual({
         sourceListedAt: new Date('2026-05-01T12:00:00Z'),
         sourceUpdatedAt: new Date('2026-05-03T12:00:00Z'),
       })
@@ -61,7 +63,9 @@ describe('evaluateSourceListingDates', () => {
         </main>
       `)
 
-      await expect(evaluateSourceListingDates(page)).resolves.toEqual({
+      await expect(evaluateSourceListingDates(page, {
+        expectedUrl: 'https://dealer.example.com/inventory/current-van',
+      })).resolves.toEqual({
         sourceListedAt: new Date('2026-04-10T08:00:00Z'),
         sourceUpdatedAt: new Date('2026-04-12T09:00:00Z'),
       })
@@ -82,7 +86,72 @@ describe('evaluateSourceListingDates', () => {
         </script>
       `)
 
-      await expect(evaluateSourceListingDates(page)).resolves.toEqual({
+      await expect(evaluateSourceListingDates(page, {
+        expectedUrl: 'https://dealer.example.com/inventory/current-van',
+      })).resolves.toEqual({
+        sourceListedAt: null,
+        sourceUpdatedAt: null,
+      })
+    } finally {
+      await page.close()
+    }
+  })
+
+  it('selects the current main-entity listing when an unrelated Product appears first', async () => {
+    const page = await session.newPage()
+    try {
+      await page.setContent(`
+        <script type="application/ld+json">
+          [
+            {
+              "@context":"https://schema.org",
+              "@type":"Product",
+              "url":"https://dealer.example.com/inventory/unrelated-van",
+              "datePublished":"2025-01-01T00:00:00Z"
+            },
+            {
+              "@context":"https://schema.org",
+              "@type":"WebPage",
+              "@id":"https://dealer.example.com/inventory/current-van#page",
+              "mainEntity":{
+                "@type":"Vehicle",
+                "@id":"https://dealer.example.com/inventory/current-van#vehicle",
+                "vehicleIdentificationNumber":"5TDYRKEC8RS205440",
+                "datePublished":"2026-05-01T12:00:00Z",
+                "dateModified":"2026-05-03T12:00:00Z"
+              }
+            }
+          ]
+        </script>
+      `)
+
+      await expect(evaluateSourceListingDates(page, {
+        expectedUrl: 'https://dealer.example.com/inventory/current-van',
+        expectedVin: '5TDYRKEC8RS205440',
+      })).resolves.toEqual({
+        sourceListedAt: new Date('2026-05-01T12:00:00Z'),
+        sourceUpdatedAt: new Date('2026-05-03T12:00:00Z'),
+      })
+    } finally {
+      await page.close()
+    }
+  })
+
+  it('returns null for an ambiguous multi-listing page without a matching identity', async () => {
+    const page = await session.newPage()
+    try {
+      await page.setContent(`
+        <script type="application/ld+json">
+          [
+            {"@type":"Product","datePublished":"2025-01-01T00:00:00Z"},
+            {"@type":"Vehicle","datePublished":"2026-05-01T12:00:00Z"}
+          ]
+        </script>
+      `)
+
+      await expect(evaluateSourceListingDates(page, {
+        expectedUrl: 'https://dealer.example.com/inventory/current-van',
+      })).resolves.toEqual({
         sourceListedAt: null,
         sourceUpdatedAt: null,
       })

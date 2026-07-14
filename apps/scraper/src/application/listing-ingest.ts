@@ -27,6 +27,12 @@ function sameStringSet(left: string[], right: string[]): boolean {
   return normalizedLeft.every((value, index) => value === normalizedRight[index])
 }
 
+function sameObservedValue(left: unknown, right: unknown): boolean {
+  if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime()
+  if (Array.isArray(left) && Array.isArray(right)) return sameStringSet(left, right)
+  return left === right
+}
+
 function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) {
   return {
     sourceUrl: listing.sourceUrl,
@@ -248,8 +254,7 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
   const changedFields = Object.keys(after).filter((field) => {
     const previous = before[field as keyof typeof before]
     const next = after[field as keyof typeof after]
-    if (Array.isArray(previous) && Array.isArray(next)) return !sameStringSet(previous, next)
-    return previous !== next
+    return !sameObservedValue(previous, next)
   })
   const cameBack = existing.status === 'gone' || existing.status === 'possibly_gone'
 

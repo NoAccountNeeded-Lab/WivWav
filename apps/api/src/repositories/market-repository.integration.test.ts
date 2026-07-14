@@ -72,6 +72,39 @@ describe('PrismaMarketRepository (integration)', () => {
       expect(stats.dropTotal).toBe(2)
       expect(stats.dropCount).toBe(1)
     })
+
+    it('computes median source listing age and excludes listings without a source date', async () => {
+      const source = await createSource(db)
+      const now = Date.now()
+      const day = 24 * 60 * 60 * 1000
+      const internalListedAt = new Date(now - 120 * day)
+      await createListing(db, source.id, {
+        make: 'Toyota',
+        model: 'Sienna',
+        priceCents: 10_000_00,
+        listedAt: internalListedAt,
+        sourceListedAt: new Date(now - 10 * day),
+      })
+      await createListing(db, source.id, {
+        make: 'Toyota',
+        model: 'Sienna',
+        priceCents: 20_000_00,
+        listedAt: internalListedAt,
+        sourceListedAt: new Date(now - 30 * day),
+      })
+      await createListing(db, source.id, {
+        make: 'Toyota',
+        model: 'Sienna',
+        priceCents: 30_000_00,
+        listedAt: internalListedAt,
+        sourceListedAt: null,
+      })
+
+      const stats = await repo.getPricingStats('Toyota', 'Sienna', null, null)
+
+      expect(stats.count).toBe(3)
+      expect(stats.medianDaysListed).toBeCloseTo(20, 2)
+    })
   })
 
   describe('getPopular', () => {
@@ -86,6 +119,49 @@ describe('PrismaMarketRepository (integration)', () => {
       expect(popular.makes[0]).toEqual({ make: 'Toyota', count: 2 })
       expect(popular.models[0]).toEqual({ make: 'Toyota', model: 'Sienna', count: 2 })
       expect(popular.conversionBrands[0]).toEqual({ conversionManufacturer: 'BraunAbility', count: 2 })
+    })
+  })
+
+  describe('getTrends', () => {
+    it('averages source-listed-to-gone durations and excludes missing source dates', async () => {
+      const source = await createSource(db)
+      const goneAt = new Date('2026-05-11T00:00:00Z')
+      const internalListedAt = new Date('2026-01-01T00:00:00Z')
+      await createListing(db, source.id, {
+        make: 'Honda',
+        model: 'Odyssey',
+        status: 'gone',
+        listedAt: internalListedAt,
+        sourceListedAt: new Date('2026-05-01T00:00:00Z'),
+        goneAt,
+      })
+      await createListing(db, source.id, {
+        make: 'Honda',
+        model: 'Odyssey',
+        status: 'gone',
+        listedAt: internalListedAt,
+        sourceListedAt: new Date('2026-04-11T00:00:00Z'),
+        goneAt,
+      })
+      await createListing(db, source.id, {
+        make: 'Honda',
+        model: 'Odyssey',
+        status: 'gone',
+        listedAt: internalListedAt,
+        sourceListedAt: null,
+        goneAt,
+      })
+
+      const trends = await repo.getTrends(
+        'Honda',
+        'Odyssey',
+        'month',
+        new Date('2026-05-01T00:00:00Z'),
+        new Date('2026-05-31T23:59:59Z'),
+      )
+
+      expect(trends).toHaveLength(1)
+      expect(trends[0]?.avgDaysToGone).toBeCloseTo(20, 6)
     })
   })
 })
