@@ -12,6 +12,7 @@ import { apiFetch } from './api-fetch'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   mockHeadersMap.clear()
 })
 
@@ -85,5 +86,39 @@ describe('apiFetch', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
     // The request-scoped id wins because it's spread after init.headers
     expect((init.headers as Record<string, string>)['x-request-id']).toBe('canonical-id')
+  })
+
+  it('attaches the INTERNAL_API_SECRET bypass when configured and no Authorization header is set', async () => {
+    vi.stubEnv('INTERNAL_API_SECRET', 'shared-secret-value')
+    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'))
+    vi.stubGlobal('fetch', mockFetch)
+
+    await apiFetch('http://api/v1/listings')
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer shared-secret-value')
+  })
+
+  it('does not attach the bypass when INTERNAL_API_SECRET is unset', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'))
+    vi.stubGlobal('fetch', mockFetch)
+
+    await apiFetch('http://api/v1/listings')
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['authorization']).toBeUndefined()
+  })
+
+  it('does not override a caller-supplied Authorization header with the bypass secret', async () => {
+    vi.stubEnv('INTERNAL_API_SECRET', 'shared-secret-value')
+    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'))
+    vi.stubGlobal('fetch', mockFetch)
+
+    await apiFetch('http://api/v1/listings', { headers: { Authorization: 'Bearer caller-token' } })
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const h = init.headers as Record<string, string>
+    expect(h['Authorization']).toBe('Bearer caller-token')
+    expect(h['authorization']).toBeUndefined()
   })
 })
