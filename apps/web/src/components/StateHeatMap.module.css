@@ -34,6 +34,14 @@
   stroke-width: 2.5;
 }
 
+/* A maximum-count state is filled with --clr-primary, the same color behind
+   --clr-focus. Use the contrasting surface token for that path so keyboard
+   focus differs by color as well as by the existing stroke-width increase. */
+.state[data-max-count='true']:focus-visible {
+  stroke: var(--clr-surface);
+  stroke-width: 2.5;
+}
+
 .state[data-active='true'] {
   stroke: var(--clr-primary-dark);
   stroke-width: 2;

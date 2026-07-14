@@ -143,14 +143,39 @@ describe('StateHeatMap', () => {
   it('treats a state with no matching listings as zero, not missing', async () => {
     await act(async () => {
       render(
+        <StateHeatMap data={[{ value: 'CA', count: 12 }]} activeStates={[]} onToggle={vi.fn()} />,
+      )
+    })
+
+    expect(screen.getByRole('button', { name: 'Texas: 0 listings' })).toBeDefined()
+  })
+
+  it('marks each positive maximum-count state for contrasting focus styling', async () => {
+    await act(async () => {
+      render(
         <StateHeatMap
-          data={[{ value: 'CA', count: 12 }]}
+          data={[
+            { value: 'CA', count: 12 },
+            { value: 'TX', count: 12 },
+          ]}
           activeStates={[]}
           onToggle={vi.fn()}
         />,
       )
     })
 
-    expect(screen.getByRole('button', { name: 'Texas: 0 listings' })).toBeDefined()
+    expect(
+      screen.getAllByRole('button').map((state) => state.getAttribute('data-max-count')),
+    ).toEqual(['true', 'true'])
+  })
+
+  it('does not mark zero-count states as maximum-count states', async () => {
+    await act(async () => {
+      render(<StateHeatMap data={[]} activeStates={[]} onToggle={vi.fn()} />)
+    })
+
+    expect(
+      screen.getAllByRole('button').map((state) => state.getAttribute('data-max-count')),
+    ).toEqual(['false', 'false'])
   })
 })
