@@ -36,6 +36,9 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 | GET    | /v1/conversion-brands          | List conversion brands with product counts and NMEDA certification status |
 | GET    | /v1/conversion-brands/:slug    | Brand detail with full product catalog (conversionType, rampType, floorLoweringInches, msrpCents) |
 | GET    | /v1/sources                    | List configured scraper sources      |
+| POST   | /internal/v1/api-keys          | Provision an API key (`ownerEmail` required; `tier` defaults `FREE`; `rateLimitRpm` defaults from tier). Returns `{ data: { id, ownerEmail, tier, rateLimitRpm, createdAt, rawKey } }` — `rawKey` only appears in this response; only its SHA-256 hash is stored. Same fail-closed `Authorization: Bearer {INTERNAL_API_SECRET}` boundary as `/admin` (see below). |
+| DELETE | /internal/v1/api-keys/:id      | Revoke an API key (sets `revokedAt`); subsequent `/v1/` requests with that key get `401`. 404 if the key doesn't exist or is already revoked. Same auth boundary as above. |
+| POST   | /webhooks/stripe                | Stripe tier-upgrade webhook. Verifies `Stripe-Signature` (HMAC-SHA256, 5-minute replay tolerance) against `STRIPE_WEBHOOK_SECRET`; `503` if that secret isn't configured, `400` on a missing/invalid signature. On `checkout.session.completed`/`customer.subscription.updated`, updates every active key for the matching owner email (`metadata.ownerEmail`, falling back to `customer_details.email`/`customer_email`) to the event's `metadata.tier` (default `PRO`). Not an API-key or bearer-secret route — authenticates via the signed payload only. Returns `204`. |
 | GET    | /admin/queues                  | All queue names with stats           |
 | GET    | /admin/queues/:name            | Single queue stats + recent jobs     |
 | POST   | /admin/queues/:name/jobs       | Enqueue a job                        |
@@ -71,6 +74,16 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 
 Most responses use `{ data: T }` for success and `{ error: { code, message } }` for errors. Exceptions: `GET /v1/listings` returns `{ data, facets, pagination }`; `GET /v1/sources` returns `{ sources: [] }`.
 
+## Public API auth boundary (`/v1/`)
+
+Every route under `/v1/` requires one of the following (`apps/api/src/plugins/api-key-auth.ts`), checked in order, or the request gets `401 UNAUTHORIZED`:
+
+1. **`Authorization: Bearer {INTERNAL_API_SECRET}`** — the internal server-to-server bypass. `apps/web`'s `apiFetch()` helper attaches this automatically on every server-side (SSR) request when the env var is configured, so page renders keep working without a provisioned key. Resolves to an ENTERPRISE-tier identity with a 6000 req/min limit — a shared bucket for the whole web container's SSR traffic, not a per-visitor limit.
+2. **A valid, non-revoked API key** — `X-Api-Key: <key>` or `Authorization: Bearer <key>`. Unknown, malformed, or revoked keys are rejected outright; they never fall through to a lower trust level. Provisioned via `POST /internal/v1/api-keys`.
+3. **A trusted first-party browser `Origin`** — any origin allowed by `CORS_ORIGIN` (same check the CORS plugin uses, minus its "no Origin header" allowance — an absent Origin never counts as trusted here). Resolves to FREE tier with no explicit per-key limit, falling back to the original IP-keyed `RATE_LIMIT_MAX` behaviour this API always had. This is what keeps the site's own client-side fetches (facets, histograms — see `CategoryBarChart.tsx` and friends) working unauthenticated; it does not apply to non-browser callers, which never send an `Origin` header.
+
+**Rate limiting**: a single `@fastify/rate-limit` registration (Redis-backed, keyed by `api_key.id` when authenticated, by IP otherwise) computes the limit dynamically per request — an authenticated key's own `rateLimitRpm` (FREE 60, PRO 600, ENTERPRISE 6000 by default; overridable per key) replaces `RATE_LIMIT_MAX` for that caller rather than stacking on top of it.
+
 ## Admin auth boundary (fail-closed)
 
 Every route under `/admin` — including `/admin/board` — is guarded by a single `onRequest` hook (`apps/api/src/plugins/admin-auth.ts`) applied via Fastify plugin encapsulation:
@@ -80,6 +93,8 @@ Every route under `/admin` — including `/admin/board` — is guarded by a sing
 - **Non-production, no secret configured:** requests pass through unauthenticated. This permissive mode only exists for local dev/CI and is unreachable when `NODE_ENV=production`.
 
 `apps/ops` never calls `/admin/*` from the browser. It authenticates operators with its own session (login page + signed cookie) and proxies admin calls server-side through its BFF routes (`apps/ops/src/app/api/bff/*` and `apps/ops/src/app/admin/board/*`), injecting `INTERNAL_API_SECRET` there. See `apps/ops/src/lib/session.ts` and `apps/ops/src/middleware.ts`.
+
+`/internal/v1/api-keys` (key provisioning, #453) reuses this exact same `adminAuthPlugin` boundary for a separate `/internal/v1` scope — same fail-closed rules as above, just a different route prefix for a conceptually different (billing/operator) surface than `/admin`.
 
 ### Public exceptions to the admin boundary
 
