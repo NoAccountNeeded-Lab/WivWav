@@ -3,6 +3,7 @@ import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwa
 import type { RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
+import type { RawDetail as RawBlvdDetail } from '../sources/blvd-detail.js'
 import {
   createRateLimitedFetcher,
   enrichBlvdDealerListing,
@@ -188,6 +189,29 @@ export function buildListingDetailUpdateData(
   }
 }
 
+/**
+ * Builds the BLVD-branch evidence record from raw extraction output.
+ *
+ * `images` uses `raw.galleryFound` — set by `evaluateBlvdDetail` when either
+ * the default template's "_large.jpg" anchors or a reseller template's
+ * bounded gallery/carousel container was located — to distinguish "gallery
+ * container not found" ('missing', preserves the prior DB value) from
+ * "verified empty gallery" ('authoritative_empty', clears it). Mirrors the
+ * MobilityWorks branch below (refs #513/#576, fixes #632).
+ */
+export function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
+  return {
+    color: Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
+    fuelType: 'missing',
+    engine: Object.hasOwn(raw.specs, 'Engine') ? 'value' : 'missing',
+    transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
+    description: raw.descriptionText.trim().length > 0 ? 'value' : 'missing',
+    images: raw.galleryFound
+      ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
+      : 'missing',
+  }
+}
+
 async function extractDetail(page: BrowserPage, url: string): Promise<DetailResult> {
   if (url.includes('mobilityworks.com')) {
     const raw = await evaluateMwDetail(page)
@@ -213,14 +237,7 @@ async function extractDetail(page: BrowserPage, url: string): Promise<DetailResu
   const raw = await evaluateBlvdDetail(page)
   return {
     ...parseBlvdDetail(raw),
-    evidence: {
-      color: Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
-      fuelType: 'missing',
-      engine: Object.hasOwn(raw.specs, 'Engine') ? 'value' : 'missing',
-      transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
-      description: raw.descriptionText.trim().length > 0 ? 'value' : 'missing',
-      images: raw.imageUrls.length > 0 ? 'value' : 'missing',
-    },
+    evidence: blvdEvidence(raw),
   }
 }
 

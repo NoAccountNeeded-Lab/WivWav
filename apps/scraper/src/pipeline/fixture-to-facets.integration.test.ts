@@ -69,7 +69,7 @@ import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
 import { evaluateMobilityWorksCards, parseCard as parseMwCard } from '../sources/mobilityworks.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
 import { ingestListing } from '../application/listing-ingest.js'
-import { buildListingDetailUpdateData, changedDetailFields, type DetailResult } from '../jobs/detail-extract.js'
+import { buildListingDetailUpdateData, changedDetailFields, blvdEvidence, type DetailResult } from '../jobs/detail-extract.js'
 import { runDeduplicateJob } from '../jobs/deduplicate.js'
 import { runListingResolveJob } from '../jobs/listing-resolve.js'
 import { runMeilisearchSyncJob } from '../jobs/meilisearch-sync.js'
@@ -176,14 +176,7 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
       const blvdDetailFields = parseBlvdDetail(blvdRawDetail)
       const blvdDetail: DetailResult = {
         ...blvdDetailFields,
-        evidence: {
-          color: Object.hasOwn(blvdRawDetail.specs, 'Color') ? 'value' : 'missing',
-          fuelType: 'missing',
-          engine: Object.hasOwn(blvdRawDetail.specs, 'Engine') ? 'value' : 'missing',
-          transmission: Object.hasOwn(blvdRawDetail.specs, 'Transmission') ? 'value' : 'missing',
-          description: blvdRawDetail.descriptionText.trim().length > 0 ? 'value' : 'missing',
-          images: blvdRawDetail.imageUrls.length > 0 ? 'value' : 'missing',
-        },
+        evidence: blvdEvidence(blvdRawDetail),
       }
 
       const mwCards = await evaluateMobilityWorksCards(mwListPage)

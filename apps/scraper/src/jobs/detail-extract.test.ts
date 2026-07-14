@@ -5,12 +5,14 @@ vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 import { getDb } from '@wivwav/db'
 import {
   buildListingDetailUpdateData,
+  blvdEvidence,
   changedDetailFields,
   detailObservationReference,
   requiresListingResolution,
   resolveListingStatus,
 } from './detail-extract.js'
 import { runDetailExtractJob } from './detail-extract.js'
+import type { RawDetail } from '../sources/blvd-detail.js'
 
 const NOW = new Date('2026-06-02T00:00:00Z')
 
@@ -24,6 +26,72 @@ describe('runDetailExtractJob', () => {
       '[detail-extract] sourceId must be a non-empty string',
     )
     expect(getDb).not.toHaveBeenCalled()
+  })
+})
+
+describe('blvdEvidence', () => {
+  const baseRaw: RawDetail = {
+    specs: { Color: 'Grey', Engine: '2.5L Hybrid I4', Transmission: 'automatic' },
+    descriptionText: 'Rear Entry, Manual, Fold Out ramp.',
+    imageUrls: [],
+    dealerPhone: '',
+    dealerAddressText: '',
+    statusBannerText: '',
+  }
+
+  // refs #632: galleryFound distinguishes "gallery container not found" from
+  // "verified empty gallery" so a missing selector never overwrites a
+  // previously observed image set.
+
+  it('reports images as missing when the gallery container was never located', () => {
+    const raw: RawDetail = { ...baseRaw, galleryFound: false, imageUrls: [] }
+    expect(blvdEvidence(raw).images).toBe('missing')
+  })
+
+  it('reports images as missing when galleryFound is absent (legacy raw shape)', () => {
+    const raw: RawDetail = { ...baseRaw, imageUrls: [] }
+    expect(blvdEvidence(raw).images).toBe('missing')
+  })
+
+  it('reports images as authoritative_empty when a gallery container was found but held no images', () => {
+    const raw: RawDetail = { ...baseRaw, galleryFound: true, imageUrls: [] }
+    expect(blvdEvidence(raw).images).toBe('authoritative_empty')
+  })
+
+  it('reports images as value when a gallery container was found with images', () => {
+    const raw: RawDetail = {
+      ...baseRaw,
+      galleryFound: true,
+      imageUrls: ['https://www.blvd.com/van_1_large.jpg'],
+    }
+    expect(blvdEvidence(raw).images).toBe('value')
+  })
+
+  it('derives color/engine/transmission/description evidence from specs and description text', () => {
+    const raw: RawDetail = { ...baseRaw, galleryFound: true, imageUrls: [] }
+    const evidence = blvdEvidence(raw)
+    expect(evidence.color).toBe('value')
+    expect(evidence.engine).toBe('value')
+    expect(evidence.transmission).toBe('value')
+    expect(evidence.description).toBe('value')
+    expect(evidence.fuelType).toBe('missing')
+  })
+
+  it('reports description and spec evidence as missing when absent', () => {
+    const raw: RawDetail = {
+      specs: {},
+      descriptionText: '',
+      imageUrls: [],
+      galleryFound: false,
+      dealerPhone: '',
+      dealerAddressText: '',
+      statusBannerText: '',
+    }
+    const evidence = blvdEvidence(raw)
+    expect(evidence.color).toBe('missing')
+    expect(evidence.engine).toBe('missing')
+    expect(evidence.transmission).toBe('missing')
+    expect(evidence.description).toBe('missing')
   })
 })
 
