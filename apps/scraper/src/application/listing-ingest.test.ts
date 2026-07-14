@@ -626,6 +626,29 @@ describe('ingestListing', () => {
       expect(db.listingMileageHistory.create).not.toHaveBeenCalled()
       expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
     })
+
+    it('does not churn a listing or observation for equal source dates in distinct Date instances', async () => {
+      const listedTimestamp = '2026-05-01T00:00:00Z'
+      const updatedTimestamp = '2026-05-03T00:00:00Z'
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        sourceListedAt: new Date(listedTimestamp),
+        sourceUpdatedAt: new Date(updatedTimestamp),
+      })
+
+      await expect(ingestListing(db as never, makeListing({
+        sourceListedAt: new Date(listedTimestamp),
+        sourceUpdatedAt: new Date(updatedTimestamp),
+      }))).resolves.toEqual({
+        listingId: 'list-1',
+        outcome: 'unchanged',
+        changedFields: [],
+      })
+
+      expect(db.listing.update).not.toHaveBeenCalled()
+      expect(db.listingObservation.create).not.toHaveBeenCalled()
+    })
   })
 
   describe('idempotent re-ingest', () => {
