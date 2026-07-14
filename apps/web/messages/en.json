@@ -114,7 +114,7 @@
       "state": "State",
       "seller": "Seller type",
       "features": "Features",
-      "conversionBrand": "Conversion Brand"
+      "conversionBrand": "Conversion brand"
     },
     "features": {
       "hasLift": "Has lift",
