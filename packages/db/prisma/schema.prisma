@@ -10,6 +10,7 @@ datasource db {
 
 enum SourceStatus {
   active
+  disabled
   paused
   error
   needs_remapping

@@ -2,6 +2,12 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
 import { QUALITY_RULE_SEVERITY, SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
+import {
+  appendScheduleIntent,
+  appendSourceControlAuditEntry,
+  readCurrentScheduleIntents,
+  type PrismaClient,
+} from '@wivwav/db'
 import type {
   ListingPublicationCountRow,
   ListingRepository,
@@ -52,6 +58,7 @@ function quarantineRowToResponse(row: QuarantinedListingRow) {
 }
 
 interface AdminPluginOptions {
+  db: PrismaClient
   listings: ListingRepository
   sources: SourceRepository
   scraperRuns: ScraperRunRepository
@@ -133,7 +140,7 @@ const queueJobBodySchema = {
 
 export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app,
-  { listings, sources, scraperRuns, queueFactory },
+  { db, listings, sources, scraperRuns, queueFactory },
 ) => {
   const queues = new Map<string, QueueAdapter>()
   for (const name of Object.values(QUEUES)) {
@@ -240,10 +247,56 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app.post<{ Params: { id: string } }>('/sources/:id/run', async (req, reply) => {
     const source = await sources.findById(req.params.id)
     if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
+    if (source.status === 'disabled' || source.status === 'paused') {
+      return reply.code(409).send({
+        error: {
+          code: 'SOURCE_DISABLED',
+          message: `Source "${source.name}" is ${source.status} and cannot be run`,
+        },
+      })
+    }
     const q = queues.get(QUEUES.SOURCE_SCRAPE)!
     const id = await q.add({ sourceId: source.id, traceId: req.id })
     return reply.code(201).send({ data: { id } })
   })
+
+  app.post<{ Params: { id: string }; Body: { reason?: string; createdBy?: string } }>(
+    '/sources/:id/disable',
+    async (req, reply) => {
+      const source = await sources.findById(req.params.id)
+      if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
+      const reason = req.body?.reason?.trim() || 'Disabled by authenticated operator action'
+      const createdBy = req.body?.createdBy?.trim() || null
+      const updated = await sources.disable(source.id, reason)
+      if (!updated) return reply.notFound(`Source "${req.params.id}" not found`)
+      await appendSourceControlAuditEntry(db, source.id, {
+        action: 'disable',
+        status: 'disabled',
+        reason,
+        updatedBy: createdBy,
+      })
+      await queues.get(QUEUES.LISTING_SYNC)?.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
+      return reply.send({ data: { id: source.id, status: 'disabled', reason } })
+    },
+  )
+
+  app.post<{ Params: { id: string }; Body: { createdBy?: string } }>(
+    '/sources/:id/enable',
+    async (req, reply) => {
+      const source = await sources.findById(req.params.id)
+      if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
+      const createdBy = req.body?.createdBy?.trim() || null
+      const updated = await sources.enable(source.id)
+      if (!updated) return reply.notFound(`Source "${req.params.id}" not found`)
+      await appendSourceControlAuditEntry(db, source.id, {
+        action: 'enable',
+        status: 'active',
+        updatedBy: createdBy,
+      })
+      await queues.get(QUEUES.LISTING_SYNC)?.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
+      return reply.send({ data: { id: source.id, status: 'active' } })
+    },
+  )
 
   // GET /admin/sources/:id/pipeline — per-stage pending/failed/stall state for one source
   app.get<{ Params: { id: string } }>('/sources/:id/pipeline', async (req, reply) => {
@@ -559,6 +612,19 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     sourceScoped?: boolean
   }
 
+  function applyScheduleIntentToDefinition(
+    def: CanonicalDef,
+    intent: { enabled: boolean; pattern?: string | null; tz?: string | null } | undefined,
+  ): CanonicalDef & { hasIntent: boolean; enabled: boolean; intendedPattern: string; intendedTz: string } {
+    return {
+      ...def,
+      hasIntent: intent !== undefined,
+      enabled: intent?.enabled ?? true,
+      intendedPattern: intent?.pattern ?? def.defaultPattern,
+      intendedTz: intent?.tz ?? def.tz,
+    }
+  }
+
   function isMatchingJob(job: JobRecord, def: CanonicalDef): boolean {
     if (job.name !== def.name && job.name !== def.queue) return false
     if (!def.sourceScoped) return true
@@ -636,7 +702,11 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
   // GET /admin/repeatables — merged canonical + live BullMQ state
   app.get('/repeatables', async (_req, reply) => {
-    const defs = await getCanonicalDefs()
+    const [defs, scheduleIntents] = await Promise.all([
+      getCanonicalDefs(),
+      readCurrentScheduleIntents(db),
+    ])
+    const effectiveDefs = defs.map((def) => applyScheduleIntentToDefinition(def, scheduleIntents.get(def.id)))
 
     // Collect current repeatables from all relevant queues
     const liveByQueue = new Map<string, Awaited<ReturnType<QueueAdapter['getRepeatableJobs']>>>()
@@ -650,23 +720,23 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       jobsByQueue.set(q.name, jobs)
     }
 
-    const data = defs.map((def) => {
+    const data = effectiveDefs.map((def) => {
       const live = liveByQueue.get(def.queue) ?? []
       const exactMatch = def.jobId
         ? live.find((repeatable) => repeatable.id === def.jobId)
         : undefined
-      const signatureIsAmbiguous = defs.some((candidate) =>
+      const signatureIsAmbiguous = effectiveDefs.some((candidate) =>
         candidate.id !== def.id &&
         candidate.queue === def.queue &&
         candidate.name === def.name &&
-        candidate.defaultPattern === def.defaultPattern,
+        candidate.intendedPattern === def.intendedPattern,
       )
       const match = exactMatch ?? (
         signatureIsAmbiguous
           ? undefined
           : live.find((repeatable) =>
               repeatable.name === def.name &&
-              (!def.jobId || repeatable.pattern === def.defaultPattern),
+              (!def.jobId || repeatable.pattern === def.intendedPattern),
             )
       )
       const jobs = (jobsByQueue.get(def.queue) ?? []).filter((job) => isMatchingJob(job, def))
@@ -682,10 +752,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
         name: def.name,
         data: def.data,
         defaultPattern: def.defaultPattern,
-        tz: def.tz,
-        enabled: !!match,
+        tz: def.intendedTz,
+        enabled: def.hasIntent ? def.enabled : !!match,
         key: match?.key ?? null,
-        pattern: match?.pattern ?? def.defaultPattern,
+        pattern: match?.pattern ?? def.intendedPattern,
         next: match?.next ?? null,
         lastRunAt: latestJob?.createdAt ?? null,
         lastStatus: latestJob?.status ?? null,
@@ -703,6 +773,11 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     async (req, reply) => {
       const q = queues.get(req.params.queue)
       if (!q) return reply.notFound(`Queue "${req.params.queue}" not found`)
+      const defs = await getCanonicalDefs()
+      const def = defs.find((candidate) => candidate.queue === req.params.queue && candidate.jobId === req.body.key)
+      if (def) {
+        await appendScheduleIntent(db, def.id, { enabled: false })
+      }
       await q.removeRepeatableByKey(req.body.key)
       return reply.send({ data: { removed: true } })
     },
@@ -716,6 +791,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     const q = queues.get(req.params.queue)
     if (!q) return reply.notFound(`Queue "${req.params.queue}" not found`)
     const { name, data, pattern, tz, jobId } = req.body
+    const defs = await getCanonicalDefs()
+    const def = defs.find((candidate) => candidate.queue === req.params.queue && candidate.jobId === jobId)
+    if (def) {
+      await appendScheduleIntent(db, def.id, { enabled: true, pattern, tz: tz ?? def.tz })
+      if (req.params.queue === QUEUES.SOURCE_SCRAPE && typeof data['sourceId'] === 'string') {
+        await sources.updateCronExpression(data['sourceId'], pattern)
+      }
+    }
     await q.addRepeatable(name, data, pattern, tz, jobId)
     return reply.code(201).send({ data: { added: true } })
   })
@@ -728,6 +811,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     const q = queues.get(req.params.queue)
     if (!q) return reply.notFound(`Queue "${req.params.queue}" not found`)
     const { key, name, data, pattern, tz, jobId } = req.body
+    const defs = await getCanonicalDefs()
+    const def = defs.find((candidate) => candidate.queue === req.params.queue && candidate.jobId === jobId)
+    if (def) {
+      await appendScheduleIntent(db, def.id, { enabled: true, pattern, tz: tz ?? def.tz })
+      if (req.params.queue === QUEUES.SOURCE_SCRAPE && typeof data['sourceId'] === 'string') {
+        await sources.updateCronExpression(data['sourceId'], pattern)
+      }
+    }
     await q.removeRepeatableByKey(key)
     await q.addRepeatable(name, data, pattern, tz, jobId)
     return reply.send({ data: { updated: true } })

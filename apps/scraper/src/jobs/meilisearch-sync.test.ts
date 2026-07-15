@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as WivwavDbModule from '@wivwav/db'
 
-vi.mock('@wivwav/db', () => ({
-  getDb: vi.fn(),
-  // `fetchOrderedIdPage` composes its cursor clause with `Prisma.sql`/`Prisma.empty`;
-  // `$queryRaw` itself is mocked per-test, so these just need to not throw.
-  Prisma: {
-    sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
-    empty: { strings: [''], values: [] },
-  },
-}))
+vi.mock('@wivwav/db', async (importActual) => {
+  const actual = await importActual<typeof WivwavDbModule>()
+  return {
+    ...actual,
+    getDb: vi.fn(),
+    // `fetchOrderedIdPage` composes its cursor clause with `Prisma.sql`/`Prisma.empty`;
+    // `$queryRaw` itself is mocked per-test, so these just need to not throw.
+    Prisma: {
+      ...actual.Prisma,
+      sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+      empty: { strings: [''], values: [] },
+    },
+  }
+})
 vi.mock('@wivwav/search', () => ({
   INDEX_NAME: 'listings',
   toDocument: vi.fn((row: { id: string }) => ({ id: row.id })),

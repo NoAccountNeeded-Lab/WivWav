@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@wivwav/db'
+import { SourceStatus, type PrismaClient } from '@wivwav/db'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -45,6 +45,9 @@ export interface SourceRepository {
   findManyByIds(ids: string[]): Promise<SourceNameRow[]>
   findScheduledSources(names: string[]): Promise<SourceScheduleRow[]>
   findNeedingRemapping(): Promise<SourceRemappingRow[]>
+  disable(id: string, reason: string): Promise<boolean>
+  enable(id: string): Promise<boolean>
+  updateCronExpression(id: string, cronExpression: string): Promise<boolean>
 }
 
 // ── Prisma implementation ────────────────────────────────────────────────────
@@ -103,5 +106,29 @@ export class PrismaSourceRepository implements SourceRepository {
       select: { id: true, name: true, errorMessage: true, lastScrapedAt: true },
       orderBy: { name: 'asc' },
     })
+  }
+
+  async disable(id: string, reason: string): Promise<boolean> {
+    const result = await this.db.source.updateMany({
+      where: { id },
+      data: { status: SourceStatus.disabled, errorMessage: reason },
+    })
+    return result.count > 0
+  }
+
+  async enable(id: string): Promise<boolean> {
+    const result = await this.db.source.updateMany({
+      where: { id },
+      data: { status: SourceStatus.active, errorMessage: null },
+    })
+    return result.count > 0
+  }
+
+  async updateCronExpression(id: string, cronExpression: string): Promise<boolean> {
+    const result = await this.db.source.updateMany({
+      where: { id },
+      data: { cronExpression },
+    })
+    return result.count > 0
   }
 }

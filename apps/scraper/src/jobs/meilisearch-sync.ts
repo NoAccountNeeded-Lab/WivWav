@@ -1,4 +1,4 @@
-import { getDb, Prisma } from '@wivwav/db'
+import { SourceStatus, getDb, Prisma } from '@wivwav/db'
 import type { Listing, PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { Meilisearch } from 'meilisearch'
@@ -44,8 +44,10 @@ async function fetchOrderedIdPage(
   return db.$queryRaw<GroupKeyPosition[]>`
     SELECT id, COALESCE("vehicleId", id) AS "groupKey"
     FROM listings
+    INNER JOIN sources ON sources.id = listings."sourceId"
     WHERE status = 'active'
       AND "publicationStatus" = 'eligible'
+      AND sources.status != 'disabled'
       ${cursorClause}
     ORDER BY COALESCE("vehicleId", id), id
     LIMIT ${BATCH_SIZE}
@@ -154,8 +156,10 @@ async function runFullRebuild(
   const activeCountRows = await db.$queryRaw<VehicleAwareCountRow[]>`
     SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
     FROM listings
+    INNER JOIN sources ON sources.id = listings."sourceId"
     WHERE status = 'active'
       AND "publicationStatus" = 'eligible'
+      AND sources.status != 'disabled'
   `
   const activeCount = Number(activeCountRows[0]?.count ?? 0)
 
@@ -183,7 +187,12 @@ async function runFullRebuild(
       // gap between this fetch and the id scan above, and this fetch must
       // not silently include it just because it was eligible a moment ago.
       const fullRows = await db.listing.findMany({
-        where: { id: { in: idsInOrder }, status: 'active', publicationStatus: 'eligible' },
+        where: {
+          id: { in: idsInOrder },
+          status: 'active',
+          publicationStatus: 'eligible',
+          source: { is: { status: { not: SourceStatus.disabled } } },
+        },
       })
       const byId = new Map(fullRows.map((row) => [row.id, row]))
       // Re-apply the (groupKey, id) order: `findMany({ id: { in } })` does not

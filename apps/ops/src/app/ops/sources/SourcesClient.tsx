@@ -92,6 +92,22 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
     }
   }
 
+  async function setSourceEnabled(sourceId: string, enabled: boolean) {
+    setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, jobId: null, isError: false } }))
+    try {
+      const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/${enabled ? 'enable' : 'disable'}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: enabled ? JSON.stringify({}) : JSON.stringify({ reason: 'Disabled from ops source health' }),
+      })
+      if (!res.ok) throw new Error(`Failed (${res.status})`)
+      setRunStates(prev => ({ ...prev, [sourceId]: { loading: false, feedback: enabled ? 'Source enabled' : 'Source disabled', jobId: null, isError: false } }))
+      await refresh()
+    } catch (err) {
+      setRunStates(prev => ({ ...prev, [sourceId]: { loading: false, feedback: err instanceof Error ? err.message : 'Error', jobId: null, isError: true } }))
+    }
+  }
+
   return (
     <main id="main-content" className={styles.main}>
       <div className={styles.container}>
@@ -206,11 +222,20 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                           <button
                             className={`${styles.btn} ${styles.btnPrimary}`}
                             type="button"
-                            disabled={rs?.loading}
+                            disabled={rs?.loading || s.status === 'disabled' || s.status === 'paused'}
                             onClick={() => void runNow(s.id)}
                             aria-label={`Run ${s.name} scrape now`}
                           >
                             {rs?.loading ? 'Enqueueing…' : 'Run Now'}
+                          </button>
+                          <button
+                            className={`${styles.btn} ${styles.btnGhost}`}
+                            type="button"
+                            disabled={rs?.loading}
+                            onClick={() => void setSourceEnabled(s.id, s.status === 'disabled')}
+                            aria-label={`${s.status === 'disabled' ? 'Enable' : 'Disable'} ${s.name}`}
+                          >
+                            {s.status === 'disabled' ? 'Enable' : 'Disable'}
                           </button>
                           {rs?.feedback && (
                             <span

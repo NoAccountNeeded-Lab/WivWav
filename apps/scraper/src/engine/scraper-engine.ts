@@ -39,6 +39,12 @@ function formatConfidence(value: unknown): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '?.??'
 }
 
+function sourceExecutionBlockReason(status: string, errorMessage: string | null): string | null {
+  if (status === 'disabled') return errorMessage ?? 'Source is disabled by operator policy'
+  if (status === 'paused') return errorMessage ?? 'Source is paused'
+  return null
+}
+
 interface EngineOptions {
   runs: ScraperRunRepository
   sources: SourceRepository
@@ -78,6 +84,18 @@ export class ScraperEngine {
   async runSource(sourceId: string, context?: JobContext, perRunDetector?: StructureDetector | null): Promise<boolean> {
     const adapter = this.adapters.get(sourceId)
     if (!adapter) throw new Error(`No adapter registered for source: ${sourceId}`)
+
+    const initialState = await this.sources.getExecutionState(sourceId)
+    const initialBlockReason = initialState ? sourceExecutionBlockReason(initialState.status, initialState.errorMessage) : null
+    if (initialBlockReason !== null) {
+      await report(context, `[source-scrape] Skipped ${adapter.name} (${sourceId}): ${initialBlockReason}`, {
+        stage: 'blocked',
+        reason: 'source_disabled',
+        current: 0,
+        total: 0,
+      })
+      return false
+    }
 
     const run = await this.runs.start(sourceId)
     await report(context, `[source-scrape] Started ${adapter.name} (${sourceId})`, {
@@ -301,6 +319,19 @@ export class ScraperEngine {
           await this.sources.markPaused(sourceId, drift.reason ?? 'Source quality drifted abruptly')
           return false
         }
+      }
+
+      const preCommitState = await this.sources.getExecutionState(sourceId)
+      const preCommitBlockReason = preCommitState ? sourceExecutionBlockReason(preCommitState.status, preCommitState.errorMessage) : null
+      if (preCommitBlockReason !== null) {
+        await report(context, `[source-scrape] Aborted before commit for ${adapter.name}: ${preCommitBlockReason}`, {
+          stage: 'blocked',
+          reason: 'source_disabled_mid_run',
+          current: 0,
+          total: 0,
+        })
+        await this.runs.fail(run.id, preCommitBlockReason)
+        return false
       }
 
       let listingsNew = 0

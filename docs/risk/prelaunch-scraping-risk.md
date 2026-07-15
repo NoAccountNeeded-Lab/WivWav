@@ -83,4 +83,4 @@ Questions for counsel:
 - Product decision on disabling scraper sources vs. replacing them with a paid/licensed provider.
 - Completion or explicit legal/product deferral of #335.
 - Completion or explicit legal/product deferral of #336.
-- PR/release notes stating which sources are enabled for beta and what rollback switch disables each scraper source.
+- PR/release notes stating which sources are enabled for beta and which authenticated `/ops/sources` disable action is the rollback switch for each scraper source.

@@ -1,10 +1,11 @@
-import type { PrismaClient, Prisma } from '@wivwav/db'
+import { SourceStatus, type PrismaClient, type Prisma } from '@wivwav/db'
 import type { WivWavLogger } from '@wivwav/logger'
 import type { FieldMapping } from '@wivwav/types'
 import type {
   ScraperRunRepository,
   ScraperRunRecord,
   SourceRepository,
+  SourceExecutionState,
   ListingRepository,
   ListingUpsertData,
   ListingUpsertResult,
@@ -109,22 +110,39 @@ export class PrismaSourceRepository implements SourceRepository {
     }
   }
 
+  async getExecutionState(id: string): Promise<SourceExecutionState | null> {
+    const source = await this.db.source.findUnique({
+      where: { id },
+      select: { status: true, errorMessage: true },
+    })
+    return source
+  }
+
   async markNeedsRemapping(id: string, errorMessage = 'Structure changed — awaiting AI remap'): Promise<void> {
     await this.updateSource(id, { status: 'needs_remapping', errorMessage })
   }
 
   async markActive(id: string, data: { listingCount: number; fingerprintHash: string; page1Hash?: string; isCompleteCrawl: boolean }): Promise<void> {
     const now = new Date()
-    await this.updateSource(id, {
-      lastScrapedAt: now,
-      lastObservedAt: now,
-      listingCount: data.listingCount,
-      fingerprintHash: data.fingerprintHash,
-      ...(data.page1Hash !== undefined ? { page1Hash: data.page1Hash } : {}),
-      ...(data.isCompleteCrawl ? { lastFullCrawlAt: now } : {}),
-      status: 'active',
-      errorMessage: null,
+    const result = await this.db.source.updateMany({
+      where: {
+        id,
+        status: { notIn: [SourceStatus.paused, SourceStatus.disabled] },
+      },
+      data: {
+        lastScrapedAt: now,
+        lastObservedAt: now,
+        listingCount: data.listingCount,
+        fingerprintHash: data.fingerprintHash,
+        ...(data.page1Hash !== undefined ? { page1Hash: data.page1Hash } : {}),
+        ...(data.isCompleteCrawl ? { lastFullCrawlAt: now } : {}),
+        status: 'active',
+        errorMessage: null,
+      },
     })
+    if (result.count === 0) {
+      this.logger?.warn({ sourceId: id }, 'Skipped source activation because the source is paused or disabled')
+    }
   }
 
   async markChecked(id: string): Promise<void> {
