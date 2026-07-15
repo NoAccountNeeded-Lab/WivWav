@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { PrismaClient, Listing, Prisma } from '@wivwav/db'
+import { SourceStatus, type PrismaClient, type Listing, type Prisma } from '@wivwav/db'
 
 // Mirrors STALE_DETAIL_DAYS in apps/scraper/src/jobs/detail-crawl.ts — a
 // listing whose detail page was last crawled longer ago than this is treated
@@ -372,9 +372,10 @@ export class PrismaListingRepository implements ListingRepository {
         id,
         status: 'active',
         publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
       },
       include: { source: { select: { name: true, baseUrl: true } } },
-    })
+    }) as Promise<ListingWithSource | null>
   }
 
   findCrossListingsByVehicleId(vehicleId: string, excludeListingId: string): Promise<CrossListingRow[]> {
@@ -384,6 +385,7 @@ export class PrismaListingRepository implements ListingRepository {
         status: 'active',
         publicationStatus: 'eligible',
         id: { not: excludeListingId },
+        source: { is: { status: { not: SourceStatus.disabled } } },
       },
       orderBy: [
         { listedAt: 'desc' },
@@ -411,6 +413,7 @@ export class PrismaListingRepository implements ListingRepository {
         id,
         status: 'active',
         publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, vehicleModelId: true },
     })
@@ -422,6 +425,7 @@ export class PrismaListingRepository implements ListingRepository {
         id,
         status: 'active',
         publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, dealerProfileId: true },
     })
@@ -461,6 +465,7 @@ export class PrismaListingRepository implements ListingRepository {
         vin,
         status: 'active',
         publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, conversionManufacturer: true },
     })
@@ -471,6 +476,7 @@ export class PrismaListingRepository implements ListingRepository {
       where: {
         vin,
         publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
         ...(activeOnly ? { status: 'active' } : {}),
       },
       orderBy: { listedAt: 'desc' },
@@ -490,7 +496,7 @@ export class PrismaListingRepository implements ListingRepository {
 
   async findHistoryByVin(vin: string): Promise<VinHistoryRow[]> {
     const matching = await this.db.listing.findMany({
-      where: { vin, publicationStatus: 'eligible' },
+      where: { vin, publicationStatus: 'eligible', source: { is: { status: { not: SourceStatus.disabled } } } },
       select: { id: true },
     })
     const listingIds = matching.map((l) => l.id)
@@ -537,8 +543,10 @@ export class PrismaListingRepository implements ListingRepository {
       WITH representative_listings AS (
         SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
         FROM listings
+        INNER JOIN sources ON sources.id = listings."sourceId"
         WHERE status = 'active'
           AND "publicationStatus" = 'eligible'
+          AND sources.status != 'disabled'
         ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
       )
       SELECT *
@@ -557,8 +565,10 @@ export class PrismaListingRepository implements ListingRepository {
     const rows = await this.db.$queryRaw<CountRow[]>`
       SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
       FROM listings
+      INNER JOIN sources ON sources.id = listings."sourceId"
       WHERE status = 'active'
         AND "publicationStatus" = 'eligible'
+        AND sources.status != 'disabled'
     `
     return Number(rows[0]?.count ?? 0)
   }

@@ -12,7 +12,7 @@ process.on('uncaughtException', (err) => {
   void Sentry.flush(2000).finally(() => process.exit(1))
 })
 
-import { getDb } from '@wivwav/db'
+import { getDb, readCurrentScheduleIntents } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
 import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
@@ -28,6 +28,7 @@ import {
 import { runDetailCrawlJob } from './jobs/detail-crawl.js'
 import { runDetailExtractJob } from './jobs/detail-extract.js'
 import {
+  applyScheduleIntents,
   buildDetailScheduleDefinitions,
   reconcileSchedules,
   type ScheduleDefinition,
@@ -430,7 +431,8 @@ const SCHEDULE_DEFS: ScheduleDefinition[] = [
 ]
 
 if (shouldRegisterSchedules(runtimeMode)) {
-  await reconcileSchedules(SCHEDULE_DEFS, logger)
+  const scheduleIntents = await readCurrentScheduleIntents(db)
+  await reconcileSchedules(applyScheduleIntents(SCHEDULE_DEFS, scheduleIntents), logger)
 }
 
 const deprecatedProvider = await readConfigValue('ai.scraper.structure.provider')

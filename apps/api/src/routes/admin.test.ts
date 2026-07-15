@@ -37,6 +37,10 @@ function buildDefaultSourceRepo(overrides: Record<string, unknown> = {}) {
     findById: vi.fn(async () => null),
     findManyByIds: vi.fn(async () => []),
     findScheduledSources: vi.fn(async () => []),
+    findNeedingRemapping: vi.fn(async () => []),
+    disable: vi.fn(async () => true),
+    enable: vi.fn(async () => true),
+    updateCronExpression: vi.fn(async () => true),
     ...overrides,
   }
 }
@@ -60,8 +64,14 @@ function buildTestApp(
   const listings = buildDefaultListingRepo(listingRepoOverrides)
   const sources = buildDefaultSourceRepo(sourceRepoOverrides)
   const scraperRuns = buildDefaultScraperRunRepo(scraperRunRepoOverrides)
-  void app.register(adminRoutes, { listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, queueFactory: factory as never })
-  return { app, listings, sources, scraperRuns }
+  const db = {
+    configEntry: {
+      create: vi.fn(async ({ data }) => ({ id: 'cfg-1', ...data })),
+      findMany: vi.fn(async () => []),
+    },
+  }
+  void app.register(adminRoutes, { db: db as never, listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, queueFactory: factory as never })
+  return { app, listings, sources, scraperRuns, db }
 }
 
 describe('GET /queues', () => {
@@ -343,6 +353,61 @@ describe('POST /sources/:id/run', () => {
     const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'POST', url: '/sources/nonexistent/run' })
     expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+
+  it('returns 409 when the source is disabled', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'Test Source', status: 'disabled', lastScrapedAt: null })) },
+      {},
+      factory,
+    )
+
+    const res = await app.inject({ method: 'POST', url: '/sources/src-1/run' })
+    expect(res.statusCode).toBe(409)
+    expect(factory.getQueue(QUEUES.SOURCE_SCRAPE)?.getEnqueued()).toHaveLength(0)
+
+    await app.close()
+  })
+})
+
+describe('POST /sources/:id/disable and /enable', () => {
+  it('persists audit state and enqueues a search rebuild when disabling a source', async () => {
+    const factory = new MockQueueFactory()
+    const { app, sources, db } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'Test Source', status: 'active', lastScrapedAt: null })) },
+      {},
+      factory,
+    )
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/sources/src-1/disable',
+      payload: { reason: 'Rollback' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(sources.disable).toHaveBeenCalledWith('src-1', 'Rollback')
+    expect(db.configEntry.create).toHaveBeenCalled()
+    expect(factory.getQueue(QUEUES.LISTING_SYNC)?.getEnqueued()).toHaveLength(1)
+    await app.close()
+  })
+
+  it('persists audit state and enqueues a search rebuild when enabling a source', async () => {
+    const factory = new MockQueueFactory()
+    const { app, sources, db } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'Test Source', status: 'disabled', lastScrapedAt: null })) },
+      {},
+      factory,
+    )
+
+    const res = await app.inject({ method: 'POST', url: '/sources/src-1/enable' })
+
+    expect(res.statusCode).toBe(200)
+    expect(sources.enable).toHaveBeenCalledWith('src-1')
+    expect(db.configEntry.create).toHaveBeenCalled()
+    expect(factory.getQueue(QUEUES.LISTING_SYNC)?.getEnqueued()).toHaveLength(1)
     await app.close()
   })
 })

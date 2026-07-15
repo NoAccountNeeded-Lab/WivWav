@@ -1,4 +1,4 @@
-import { getDb } from '@wivwav/db'
+import { SourceStatus, getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from './job-progress.js'
@@ -8,6 +8,17 @@ const BATCH_SIZE = 50
 const RATE_LIMIT_MS = 2000
 const STALE_DETAIL_DAYS = 30
 
+async function getSourceExecutionBlockReason(sourceId: string): Promise<string | null> {
+  const db = getDb()
+  const source = await db.source.findUnique({
+    where: { id: sourceId },
+    select: { status: true, errorMessage: true },
+  })
+  if (!source) return `Source ${sourceId} no longer exists`
+  if (source.status === SourceStatus.disabled) return source.errorMessage ?? 'Source is disabled by operator policy'
+  if (source.status === SourceStatus.paused) return source.errorMessage ?? 'Source is paused'
+  return null
+}
 
 export async function runDetailCrawlJob(
   sourceId: string,
@@ -18,6 +29,18 @@ export async function runDetailCrawlJob(
     throw new Error('[detail-crawl] sourceId must be a non-empty string')
   }
   const db = getDb()
+
+  const initialBlockReason = await getSourceExecutionBlockReason(sourceId)
+  if (initialBlockReason !== null) {
+    await report(context, `[detail-crawl] Skipped source ${sourceId}: ${initialBlockReason}`, {
+      stage: 'blocked',
+      reason: 'source_disabled',
+      current: 0,
+      total: 0,
+    })
+    await db.$disconnect()
+    return
+  }
 
   const staleThreshold = new Date(Date.now() - STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000)
   const listings = await db.listing.findMany({
@@ -60,6 +83,17 @@ export async function runDetailCrawlJob(
 
   try {
     for (let i = 0; i < listings.length; i++) {
+      const midRunBlockReason = await getSourceExecutionBlockReason(sourceId)
+      if (midRunBlockReason !== null) {
+        await report(context, `[detail-crawl] Stopped source ${sourceId}: ${midRunBlockReason}`, {
+          stage: 'blocked',
+          reason: 'source_disabled_mid_run',
+          current: i,
+          total: listings.length,
+        })
+        break
+      }
+
       const { sourceUrl, status } = listings[i]!
       const page = await browser.newPage()
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CRITICAL_JOB_OPTIONS, MockQueueAdapter, QUEUES } from '@wivwav/queue'
 import {
+  applyScheduleIntents,
   buildDetailScheduleDefinitions,
   reconcileSchedules,
   type ScheduleDefinition,
@@ -220,6 +221,25 @@ describe('detail schedule registration', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'ghost-crawl', sourceId: 'long-gone-id' }),
       'Stale schedule removed: referenced source id no longer exists',
+    )
+  })
+
+  it('honors durable disabled intent by removing an existing schedule and not re-adding it', async () => {
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    await reconcileSchedules(detailDefinitions(crawl, extract), logger)
+
+    const disabledDefinitions = applyScheduleIntents(
+      detailDefinitions(crawl, extract),
+      new Map([['blvd-crawl', { enabled: false, updatedAt: new Date().toISOString() }]]),
+    )
+
+    await reconcileSchedules(disabledDefinitions, logger)
+
+    expect((await crawl.getRepeatableJobs()).map((job) => job.key).sort()).toEqual(['mw-crawl'])
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: 'blvd-crawl' }),
+      'Schedule removed to honor durable disabled intent',
     )
   })
 })

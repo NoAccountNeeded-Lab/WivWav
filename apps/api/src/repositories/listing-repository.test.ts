@@ -65,6 +65,7 @@ describe('PrismaListingRepository public eligibility', () => {
         id: 'listing-1',
         status: 'active',
         publicationStatus: 'eligible',
+        source: { is: { status: { not: 'disabled' } } },
       },
       include: { source: { select: { name: true, baseUrl: true } } },
     })
@@ -82,6 +83,7 @@ describe('PrismaListingRepository public eligibility', () => {
         status: 'active',
         publicationStatus: 'eligible',
         id: { not: 'listing-1' },
+        source: { is: { status: { not: 'disabled' } } },
       },
     }))
   })

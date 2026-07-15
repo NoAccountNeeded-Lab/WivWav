@@ -1,6 +1,7 @@
 import type { WivWavLogger } from '@wivwav/logger'
 import type { JobOptions, QueueAdapter, RepeatableJob } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
+import type { ScheduleIntent } from '@wivwav/db'
 
 export interface ScheduleDefinition {
   queue: QueueAdapter
@@ -8,6 +9,7 @@ export interface ScheduleDefinition {
   data: Record<string, unknown>
   pattern: string
   tz: string
+  enabled?: boolean
   jobId?: string
   options?: JobOptions
 }
@@ -100,6 +102,19 @@ export async function reconcileSchedules(
         existing,
         signatureDefinitions.length > 1,
       )
+
+      if (definition.enabled === false) {
+        if (match) {
+          const removed = await queue.removeRepeatableByKey(match.key)
+          if (removed) {
+            logger.info(
+              { queue: definition.name, jobId: definition.jobId, key: match.key },
+              'Schedule removed to honor durable disabled intent',
+            )
+          }
+        }
+        continue
+      }
 
       if (match) {
         if (payloadsMatch(match.data, definition.data)) {
@@ -207,6 +222,24 @@ export async function reconcileSchedules(
       }
     }
   }
+}
+
+export function applyScheduleIntents(
+  definitions: readonly ScheduleDefinition[],
+  intents: ReadonlyMap<string, ScheduleIntent>,
+): ScheduleDefinition[] {
+  return definitions.map((definition) => {
+    const scheduleId = definition.jobId ?? definition.name
+    const intent = intents.get(scheduleId)
+    if (!intent) return definition
+
+    return {
+      ...definition,
+      enabled: intent.enabled,
+      pattern: intent.pattern ?? definition.pattern,
+      tz: intent.tz ?? definition.tz,
+    }
+  })
 }
 
 /** Collects every sourceId referenced by the current schedule definitions, across all queues. */
