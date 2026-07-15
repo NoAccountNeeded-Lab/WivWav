@@ -33,6 +33,9 @@ function buildHealthDeps(sourceCountVal: number, lastRun: { finishedAt: Date | n
       findManyByIds: vi.fn(async () => []),
       findScheduledSources: vi.fn(async () => []),
       findNeedingRemapping: vi.fn(async () => []),
+      disable: vi.fn(async () => true),
+      enable: vi.fn(async () => true),
+      updateCronExpression: vi.fn(async () => true),
     },
     scraperRuns: {
       findRecent: vi.fn(async () => []),

@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MockBrowserService } from '../browser/index.js'
 import type { MockPageRecord } from '../browser/index.js'
+import type * as WivwavDbModule from '@wivwav/db'
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
-vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
+vi.mock('@wivwav/db', async () => {
+  const actual = await vi.importActual<typeof WivwavDbModule>('@wivwav/db')
+  return { ...actual, getDb: vi.fn() }
+})
 
 import { getDb } from '@wivwav/db'
 import { runDetailCrawlJob } from './detail-crawl.js'
@@ -13,6 +17,9 @@ import { runDetailCrawlJob } from './detail-crawl.js'
 
 function makeDb(overrides: Record<string, unknown> = {}) {
   return {
+    source: {
+      findUnique: vi.fn().mockResolvedValue({ status: 'active', errorMessage: null }),
+    },
     listing: {
       findMany: vi.fn().mockResolvedValue([]),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -111,5 +118,23 @@ describe('runDetailCrawlJob', () => {
 
     const [session] = browser.sessions
     expect(session?.closed).toBe(true)
+  })
+
+  it('skips stale queued work when the source is disabled', async () => {
+    const db = makeDb({
+      source: {
+        findUnique: vi.fn().mockResolvedValue({ status: 'disabled', errorMessage: 'Operator rollback' }),
+      },
+      listing: {
+        findMany: vi.fn(),
+        updateMany: vi.fn(),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    await runDetailCrawlJob('src-1')
+
+    expect(db.listing.findMany).not.toHaveBeenCalled()
+    expect(db.$disconnect).toHaveBeenCalledOnce()
   })
 })

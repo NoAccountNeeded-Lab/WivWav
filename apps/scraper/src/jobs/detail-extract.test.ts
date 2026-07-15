@@ -1,8 +1,12 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
+import type * as WivwavDbModule from '@wivwav/db'
 import type * as MobilityworksDetailModule from '../sources/mobilityworks-detail.js'
 import type * as SourceListingDatesModule from '../sources/source-listing-dates.js'
 
-vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
+vi.mock('@wivwav/db', async () => {
+  const actual = await vi.importActual<typeof WivwavDbModule>('@wivwav/db')
+  return { ...actual, getDb: vi.fn() }
+})
 vi.mock('../sources/mobilityworks-detail.js', async () => {
   const actual = await vi.importActual<typeof MobilityworksDetailModule>(
     '../sources/mobilityworks-detail.js',
@@ -117,6 +121,9 @@ function makeTx() {
 function makeExtractDb(overrides: Record<string, unknown> = {}) {
   const tx = makeTx()
   return {
+    source: {
+      findUnique: vi.fn().mockResolvedValue({ status: 'active', errorMessage: null }),
+    },
     rawPage: {
       findMany: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue({}),
@@ -152,6 +159,24 @@ describe('runDetailExtractJob', () => {
       '[detail-extract] sourceId must be a non-empty string',
     )
     expect(getDb).not.toHaveBeenCalled()
+  })
+
+  it('skips stale queued work when the source is disabled', async () => {
+    const db = makeExtractDb({
+      source: {
+        findUnique: vi.fn().mockResolvedValue({ status: 'disabled', errorMessage: 'Operator rollback' }),
+      },
+      rawPage: {
+        findMany: vi.fn(),
+        update: vi.fn(),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+
+    expect(db.rawPage.findMany).not.toHaveBeenCalled()
+    expect(db.$disconnect).toHaveBeenCalledOnce()
   })
 
   it('commits successful pages, leaves failed pages retryable, and fails the job on a mixed-success batch (refs #637)', async () => {

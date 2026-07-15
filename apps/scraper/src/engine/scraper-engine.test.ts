@@ -20,6 +20,7 @@ function makeRuns(): ScraperRunRepository {
 
 function makeSources(lastFullCrawlAt: Date | null = null): SourceRepository {
   return {
+    getExecutionState: vi.fn().mockResolvedValue({ status: 'active', errorMessage: null }),
     markNeedsRemapping: vi.fn().mockResolvedValue(undefined),
     markActive: vi.fn().mockResolvedValue(undefined),
     markChecked: vi.fn().mockResolvedValue(undefined),
@@ -112,6 +113,33 @@ describe('ScraperEngine', () => {
   it('throws when no adapter is registered for the source', async () => {
     const engine = build()
     await expect(engine.runSource('unknown')).rejects.toThrow('No adapter registered for source: unknown')
+  })
+
+  it('skips a disabled source before starting a run', async () => {
+    vi.mocked(sources.getExecutionState).mockResolvedValue({ status: 'disabled', errorMessage: 'Operator rollback' })
+    const engine = build()
+    const adapter = makeAdapter('src-1')
+    engine.register(adapter, adapter.sourceId)
+
+    await expect(engine.runSource('src-1')).resolves.toBe(false)
+
+    expect(runs.start).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when a source is disabled mid-run and does not reactivate it', async () => {
+    vi.mocked(sources.getExecutionState)
+      .mockResolvedValueOnce({ status: 'active', errorMessage: null })
+      .mockResolvedValueOnce({ status: 'disabled', errorMessage: 'Operator rollback' })
+    const engine = build()
+    const adapter = makeAdapter('src-1', {
+      scrape: vi.fn().mockResolvedValue({ listings: [LISTING_FIXTURE], fingerprintHash: 'abc' }),
+    })
+    engine.register(adapter, adapter.sourceId)
+
+    await expect(engine.runSource('src-1')).resolves.toBe(false)
+
+    expect(runs.fail).toHaveBeenCalledWith('run-1', 'Operator rollback')
+    expect(sources.markActive).not.toHaveBeenCalled()
   })
 
   it('completes a successful scrape with no listings', async () => {

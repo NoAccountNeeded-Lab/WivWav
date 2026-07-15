@@ -1,4 +1,4 @@
-import { getDb, type Prisma } from '@wivwav/db'
+import { SourceStatus, getDb, type Prisma } from '@wivwav/db'
 import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
 import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
@@ -44,6 +44,18 @@ const ACCESSIBILITY_FIELDS = new Set([
   'floorLoweringInches',
   'wheelchairCapacity',
 ])
+
+async function getSourceExecutionBlockReason(sourceId: string): Promise<string | null> {
+  const db = getDb()
+  const source = await db.source.findUnique({
+    where: { id: sourceId },
+    select: { status: true, errorMessage: true },
+  })
+  if (!source) return `Source ${sourceId} no longer exists`
+  if (source.status === SourceStatus.disabled) return source.errorMessage ?? 'Source is disabled by operator policy'
+  if (source.status === SourceStatus.paused) return source.errorMessage ?? 'Source is paused'
+  return null
+}
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
 
@@ -304,6 +316,18 @@ export async function runDetailExtractJob(
   }
   const db = getDb()
 
+  const initialBlockReason = await getSourceExecutionBlockReason(sourceId)
+  if (initialBlockReason !== null) {
+    await report(context, `[detail-extract] Skipped source ${sourceId}: ${initialBlockReason}`, {
+      stage: 'blocked',
+      reason: 'source_disabled',
+      current: 0,
+      total: 0,
+    })
+    await db.$disconnect()
+    return
+  }
+
   const rawPages = await db.rawPage.findMany({
     where: { sourceId, processedAt: null },
     select: { id: true, url: true, html: true, scrapedAt: true },
@@ -337,6 +361,17 @@ export async function runDetailExtractJob(
 
   try {
     for (let i = 0; i < rawPages.length; i++) {
+      const midRunBlockReason = await getSourceExecutionBlockReason(sourceId)
+      if (midRunBlockReason !== null) {
+        await report(context, `[detail-extract] Stopped source ${sourceId}: ${midRunBlockReason}`, {
+          stage: 'blocked',
+          reason: 'source_disabled_mid_run',
+          current: i,
+          total: rawPages.length,
+        })
+        break
+      }
+
       const rawPage = rawPages[i]!
       const observationReference = detailObservationReference(rawPage)
       const page = await browser.newPage()

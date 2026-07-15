@@ -5,6 +5,11 @@ export interface ScraperRunRecord {
   id: string
 }
 
+export interface SourceExecutionState {
+  status: 'active' | 'disabled' | 'paused' | 'error' | 'needs_remapping'
+  errorMessage: string | null
+}
+
 export interface ScraperRunRepository {
   start(sourceId: string): Promise<ScraperRunRecord>
   complete(
@@ -16,6 +21,7 @@ export interface ScraperRunRepository {
 }
 
 export interface SourceRepository {
+  getExecutionState(id: string): Promise<SourceExecutionState | null>
   markNeedsRemapping(id: string, errorMessage?: string): Promise<void>
   markActive(
     id: string,

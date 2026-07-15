@@ -1,4 +1,4 @@
-import type { PrismaClient, Prisma } from '@wivwav/db'
+import { SourceStatus, type PrismaClient, type Prisma } from '@wivwav/db'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -64,7 +64,12 @@ export class PrismaDealerRepository implements DealerRepository {
 
   findListings(id: string, status: DealerListingStatusFilter, skip: number, take: number): Promise<DealerListingRow[]> {
     return this.db.listing.findMany({
-      where: { dealerProfileId: id, publicationStatus: 'eligible', ...statusWhere(status) },
+      where: {
+        dealerProfileId: id,
+        publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
+        ...statusWhere(status),
+      },
       orderBy: { listedAt: 'desc' },
       skip,
       take,
@@ -84,7 +89,14 @@ export class PrismaDealerRepository implements DealerRepository {
   }
 
   countListings(id: string, status: DealerListingStatusFilter): Promise<number> {
-    return this.db.listing.count({ where: { dealerProfileId: id, publicationStatus: 'eligible', ...statusWhere(status) } })
+    return this.db.listing.count({
+      where: {
+        dealerProfileId: id,
+        publicationStatus: 'eligible',
+        source: { is: { status: { not: SourceStatus.disabled } } },
+        ...statusWhere(status),
+      },
+    })
   }
 
   findReviews(id: string, skip: number, take: number): Promise<DealerReviewRow[]> {

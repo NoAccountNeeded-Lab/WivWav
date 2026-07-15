@@ -39,9 +39,13 @@ manual full sync only when the containment runbook allows publication.
 
 ## Enable, disable, or edit a schedule
 
-`/ops/schedules` — lists all repeatable jobs with their current cron pattern, next run time, and enable/disable status. Toggle or edit any schedule without restarting the scraper. Changes take effect immediately in BullMQ/Valkey.
+`/ops/schedules` — lists all repeatable jobs with their current cron pattern, next run time, and enable/disable status. Toggle or edit any schedule without restarting the scraper. Changes take effect immediately in BullMQ and are also persisted in PostgreSQL as the authoritative operator intent.
 
-Schedules are stored in **Valkey** by BullMQ, not in node-cron or any config file. The scraper registers defaults on first boot only — subsequent restarts do not override user changes. Disabling a schedule removes it from BullMQ; it stays disabled across scraper restarts.
+BullMQ still executes the schedules from **Valkey**, but the operator's
+enable/disable/reschedule intent now lives in PostgreSQL. On scraper startup
+or after total Valkey loss, reconciliation re-applies that durable intent
+before work resumes. Missing override state is treated fail-closed: a
+schedule only comes back if PostgreSQL still says it is enabled.
 
 BLVD.com and MobilityWorks have independent `detail-crawl` and
 `detail-extract` rows. Disable or edit the row labeled for the affected source;
@@ -50,6 +54,15 @@ startup after upgrading from legacy BullMQ repeatables, the scraper replaces a
 collided detail schedule with both source-specific schedulers. No direct Valkey
 edit is required. To roll back an individual source, disable only its crawl and
 extract rows before reverting the deployment.
+
+## Disable or re-enable a source
+
+`/ops/sources` — use **Disable** to put one source into a durable rollback
+state. This sets the source row to `disabled`, records an authenticated audit
+entry, prevents source-scrape, detail-crawl, and detail-extract jobs from
+starting for that source (including stale queued jobs), and removes the
+source's listings from public search on the next rebuild. **Enable** is the
+only supported way to restore the source to active status.
 
 ## Background job schedule (defaults)
 

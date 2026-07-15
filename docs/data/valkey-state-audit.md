@@ -32,7 +32,7 @@ neither touches Valkey.
 | --- | --- | --- | --- |
 | **BullMQ job data** (waiting/active/completed/failed/delayed job payloads across all `QUEUES.*`) | In-flight and recent work items — e.g. a pending detail-crawl job's `sourceId` | No, but disposable: a lost in-flight job is simply not retried; the next scheduled run re-enqueues equivalent work from source/listing state in PostgreSQL | **Ephemeral / disposable.** Losing this on a Valkey restart degrades one cycle of throughput, not correctness. |
 | **BullMQ repeatable job definitions registered by the scraper's declarative source registry** (`buildDetailScheduleDefinitions` in `apps/scraper/src/schedule-registration.ts`) | Cron pattern, timezone, and `jobId` for the default per-source detail-crawl/detail-extract schedules | Yes — `reconcileSchedules()` re-derives and re-registers every one of these from `Source` rows in PostgreSQL on scraper startup | **Ephemeral / self-healing.** Already effectively backed by PostgreSQL; a wiped Valkey is repaired automatically the next time the scraper boots. |
-| **Operator-authored repeatable-schedule mutations** (`POST`/`PUT`/`DELETE /admin/repeatables/:queue` in `apps/api/src/routes/admin.ts`, exercised from `apps/ops/src/app/ops/schedules/SchedulesClient.tsx`) | A human operator disabling a schedule, changing its cron pattern, or adding one outside the default per-source set | **No.** This is exactly the gap #666 flagged: `docs/ops/workflows.md` says a disable "will not [be] re-add[ed]" by a scraper restart, because nothing in PostgreSQL records operator intent — only the default registry-derived schedule is reconstructable | **Operator intent — currently Valkey-only. See decision below.** |
+| **Operator-authored repeatable-schedule mutations** (`POST`/`PUT`/`DELETE /admin/repeatables/:queue` in `apps/api/src/routes/admin.ts`, exercised from `apps/ops/src/app/ops/schedules/SchedulesClient.tsx`) | A human operator disabling a schedule, changing its cron pattern, or adding one outside the default per-source set | **Yes.** Current intent is mirrored into append-only `config_entry` rows and replayed during scraper reconciliation; Valkey only holds the live BullMQ copy | **Authoritative in PostgreSQL; runtime copy in Valkey.** |
 | **`ConfigEntry` read-through cache** (`apps/api/src/services/config-service.ts`, key `config:<key>`, 60s TTL) | Cached copy of the latest `config_entry` row per key | Yes — `ConfigService.get()` falls back to PostgreSQL on a cache miss, and the TTL guarantees eventual consistency even on stale reads | **Ephemeral / disposable.** Pure cache; PostgreSQL (`config_entry`, already covered by the backup in `docs/data/backup-restore.md`) is authoritative. |
 | **Listing facets cache** (`apps/api/src/services/listing-facets.ts`) | Cached facet-count aggregation for listing search filters | Yes — recomputed from `listings` in PostgreSQL on a cache miss | **Ephemeral / disposable.** Pure cache. |
 
@@ -69,9 +69,7 @@ default schedules from a cold start), not as a durability guarantee — losing
 the volume is expected to be recoverable by scraper restart plus the
 self-healing repeatable-schedule registration.
 
-**Follow-up:** A separate issue should implement PostgreSQL-backed
-schedule-override storage and update `/admin/repeatables` and
-`reconcileSchedules()` to read/write it instead of relying on BullMQ's
-Job Scheduler state as the source of truth for operator intent. Until that
-lands, an operator-disabled or operator-rescheduled repeatable job does not
-survive a Valkey data loss — this is a known, accepted gap, not an oversight.
+**Implemented in #813:** `/admin/repeatables` now appends operator intent to
+`config_entry`, and scraper startup loads that intent before reconciling
+BullMQ schedules. Valkey remains disposable; a wiped volume is repaired from
+PostgreSQL-backed intent instead of from registry defaults alone.

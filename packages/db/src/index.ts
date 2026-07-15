@@ -13,7 +13,7 @@ export type {
   ListingFieldClaim,
   ListingReport,
 } from './generated/prisma/index.js'
-export { WavFeature, ConversionStatus, ListingPublicationStatus, ListingReportType, ListingReportStatus, ImageKind, FieldResolutionState } from './generated/prisma/index.js'
+export { SourceStatus, WavFeature, ConversionStatus, ListingPublicationStatus, ListingReportType, ListingReportStatus, ImageKind, FieldResolutionState } from './generated/prisma/index.js'
 export { normalizeVin, isValidVin, checkDigitValid } from './lib/vin.js'
 export { findOrCreateVehicle } from './lib/vehicle-upsert.js'
 export {
@@ -33,3 +33,11 @@ export {
   findCrossVehicleClusters,
 } from './lib/listing-image.js'
 export type { ListingImageInput, ImageClusterInput } from './lib/listing-image.js'
+export {
+  appendScheduleIntent,
+  appendSourceControlAuditEntry,
+  readCurrentScheduleIntents,
+  SCHEDULE_INTENT_KEY_PREFIX,
+  SOURCE_CONTROL_AUDIT_KEY_PREFIX,
+} from './lib/operator-intent.js'
+export type { ScheduleIntent, SourceControlAuditEntry } from './lib/operator-intent.js'
