@@ -191,7 +191,9 @@ export async function waitForSyncJobToComplete(jobId: string, timeoutMs = 90_000
 
 export async function waitForFixtureInSearch(): Promise<void> {
   await poll(async () => {
-    const response = await fetch(`${apiBaseUrl()}/v1/listings?q=Sienna`)
+    const response = await fetch(`${apiBaseUrl()}/v1/listings?q=Sienna`, {
+      headers: { authorization: `Bearer ${e2eEnv.internalApiSecret}` },
+    })
     if (!response.ok) return false
     const body = (await response.json()) as { data?: Array<{ id?: string }> }
     return body.data?.some((listing) => listing.id === fixtureListingId) ?? false
