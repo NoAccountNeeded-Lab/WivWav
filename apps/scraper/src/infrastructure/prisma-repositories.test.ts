@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { PrismaListingRepository } from './prisma-repositories.js'
+import { PrismaListingRepository, PrismaSourceRepository } from './prisma-repositories.js'
 import type { ListingUpsertData } from '../engine/repositories.js'
 
 // Persistence-layer behavior only (Prisma transaction/retry wiring). The
@@ -188,5 +188,50 @@ describe('PrismaListingRepository', () => {
       // ingest diffing logic — that stays covered in listing-ingest.test.ts.
       expect(db.listingObservation.create).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+// A Source row can be deleted (or a stale scheduler/adapter can outlive a DB
+// reseed) while a run is in flight — see #807. These tests guard against that
+// crashing the run or masking whatever error actually caused it to fail.
+describe('PrismaSourceRepository record-not-found tolerance (#807)', () => {
+  function makeSourceDb() {
+    return {
+      source: {
+        update: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    }
+  }
+
+  it('swallows P2025 on markError instead of throwing', async () => {
+    const p2025 = Object.assign(new Error('An operation failed because it depends on one or more records that were required but not found.'), { code: 'P2025' })
+    const db = makeSourceDb()
+    db.source.update.mockRejectedValueOnce(p2025)
+    const warn = vi.fn()
+    const repo = new PrismaSourceRepository(db as never, { warn } as never)
+
+    await expect(repo.markError('gone-id', 'boom')).resolves.toBeUndefined()
+    expect(warn).toHaveBeenCalledWith({ sourceId: 'gone-id' }, expect.any(String))
+  })
+
+  it('swallows P2025 on markActive instead of throwing', async () => {
+    const p2025 = Object.assign(new Error('record not found'), { code: 'P2025' })
+    const db = makeSourceDb()
+    db.source.update.mockRejectedValueOnce(p2025)
+    const repo = new PrismaSourceRepository(db as never)
+
+    await expect(
+      repo.markActive('gone-id', { listingCount: 1, fingerprintHash: 'h', isCompleteCrawl: true }),
+    ).resolves.toBeUndefined()
+  })
+
+  it('still throws for non-P2025 errors', async () => {
+    const connectionError = Object.assign(new Error('connection closed'), { code: 'P1001' })
+    const db = makeSourceDb()
+    db.source.update.mockRejectedValueOnce(connectionError)
+    const repo = new PrismaSourceRepository(db as never)
+
+    await expect(repo.markError('some-id', 'boom')).rejects.toMatchObject({ code: 'P1001' })
   })
 })
