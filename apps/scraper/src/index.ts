@@ -70,7 +70,7 @@ const logger = createLogger({
 // eager per-mutation search sync.
 const engine = new ScraperEngine({
   runs: new PrismaScraperRunRepository(db),
-  sources: new PrismaSourceRepository(db),
+  sources: new PrismaSourceRepository(db, logger),
   listings: new PrismaListingRepository(db),
 })
 

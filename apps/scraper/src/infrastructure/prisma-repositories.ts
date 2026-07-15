@@ -1,4 +1,5 @@
-import type { PrismaClient } from '@wivwav/db'
+import type { PrismaClient, Prisma } from '@wivwav/db'
+import type { WivWavLogger } from '@wivwav/logger'
 import type { FieldMapping } from '@wivwav/types'
 import type {
   ScraperRunRepository,
@@ -16,6 +17,17 @@ import { recordCardFieldClaims } from '../resolution/card-claims.js'
 
 const TRANSIENT_PRISMA_CODES = new Set(['P2002', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017'])
 const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
+
+/**
+ * True for Prisma's "record not found" error (P2025). A Source row can be deleted
+ * (or a stale scheduler/adapter can outlive a DB reseed) while a run is in flight —
+ * treating this as a no-op instead of throwing keeps that case from crashing the
+ * run or masking whatever error actually caused it to fail.
+ */
+function isRecordNotFoundError(err: unknown): boolean {
+  if (err === null || typeof err !== 'object') return false
+  return (err as Record<string, unknown>)['code'] === 'P2025'
+}
 
 /**
  * Returns true for Prisma errors that represent transient connection or transaction
@@ -82,51 +94,52 @@ export class PrismaScraperRunRepository implements ScraperRunRepository {
 }
 
 export class PrismaSourceRepository implements SourceRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: PrismaClient, private readonly logger?: WivWavLogger) {}
+
+  /**
+   * Wraps `source.update`, swallowing "record not found" (P2025) as a no-op
+   * instead of throwing — see isRecordNotFoundError. Any other error still throws.
+   */
+  private async updateSource(id: string, data: Prisma.SourceUpdateInput): Promise<void> {
+    try {
+      await this.db.source.update({ where: { id }, data })
+    } catch (err) {
+      if (!isRecordNotFoundError(err)) throw err
+      this.logger?.warn({ sourceId: id }, 'Skipped source update: source no longer exists')
+    }
+  }
 
   async markNeedsRemapping(id: string, errorMessage = 'Structure changed — awaiting AI remap'): Promise<void> {
-    await this.db.source.update({
-      where: { id },
-      data: { status: 'needs_remapping', errorMessage },
-    })
+    await this.updateSource(id, { status: 'needs_remapping', errorMessage })
   }
 
   async markActive(id: string, data: { listingCount: number; fingerprintHash: string; page1Hash?: string; isCompleteCrawl: boolean }): Promise<void> {
     const now = new Date()
-    await this.db.source.update({
-      where: { id },
-      data: {
-        lastScrapedAt: now,
-        lastObservedAt: now,
-        listingCount: data.listingCount,
-        fingerprintHash: data.fingerprintHash,
-        ...(data.page1Hash !== undefined ? { page1Hash: data.page1Hash } : {}),
-        ...(data.isCompleteCrawl ? { lastFullCrawlAt: now } : {}),
-        status: 'active',
-        errorMessage: null,
-      },
+    await this.updateSource(id, {
+      lastScrapedAt: now,
+      lastObservedAt: now,
+      listingCount: data.listingCount,
+      fingerprintHash: data.fingerprintHash,
+      ...(data.page1Hash !== undefined ? { page1Hash: data.page1Hash } : {}),
+      ...(data.isCompleteCrawl ? { lastFullCrawlAt: now } : {}),
+      status: 'active',
+      errorMessage: null,
     })
   }
 
   async markChecked(id: string): Promise<void> {
     const now = new Date()
-    await this.db.source.update({ where: { id }, data: { lastCheckedAt: now, lastObservedAt: now } })
+    await this.updateSource(id, { lastCheckedAt: now, lastObservedAt: now })
     // Reset error status when a no-change check succeeds — the source is reachable
     await this.db.source.updateMany({ where: { id, status: 'error' }, data: { status: 'active', errorMessage: null } })
   }
 
   async markError(id: string, errorMessage: string): Promise<void> {
-    await this.db.source.update({
-      where: { id },
-      data: { status: 'error', errorMessage },
-    })
+    await this.updateSource(id, { status: 'error', errorMessage })
   }
 
   async markPaused(id: string, reason: string): Promise<void> {
-    await this.db.source.update({
-      where: { id },
-      data: { status: 'paused', errorMessage: reason },
-    })
+    await this.updateSource(id, { status: 'paused', errorMessage: reason })
   }
 
   async getDriftBaseline(id: string): Promise<SourceDriftBaseline | null> {
@@ -142,12 +155,9 @@ export class PrismaSourceRepository implements SourceRepository {
   }
 
   async setDriftBaseline(id: string, baseline: SourceDriftBaseline): Promise<void> {
-    await this.db.source.update({
-      where: { id },
-      data: {
-        baselineErrorRate: baseline.baselineErrorRate,
-        baselineMissingRate: baseline.baselineMissingRate,
-      },
+    await this.updateSource(id, {
+      baselineErrorRate: baseline.baselineErrorRate,
+      baselineMissingRate: baseline.baselineMissingRate,
     })
   }
 
@@ -159,7 +169,7 @@ export class PrismaSourceRepository implements SourceRepository {
   async setMappings(id: string, mappings: FieldMapping[]): Promise<void> {
     // Prisma's Json type needs the double cast via unknown
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.db.source.update({ where: { id }, data: { mappings: mappings as unknown as any } })
+    await this.updateSource(id, { mappings: mappings as unknown as any })
   }
 
   async getLastFullCrawlAt(id: string): Promise<Date | null> {
