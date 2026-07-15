@@ -2,7 +2,7 @@ import type { Prisma, WavFeature } from '@wivwav/db'
 import { PrismaClient } from '@wivwav/db'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
-import { apiBaseUrl, databaseUrl } from './compose.js'
+import { apiBaseUrl, databaseUrl, e2eEnv } from './compose.js'
 import { poll } from './fixture.js'
 
 /**
@@ -291,7 +291,9 @@ export async function removeFacetsCatalog(): Promise<void> {
 async function waitForSearchTotal(expectedTotal: number): Promise<void> {
   await poll(
     async () => {
-      const res = await fetch(`${apiBaseUrl()}/v1/listings`)
+      const res = await fetch(`${apiBaseUrl()}/v1/listings`, {
+        headers: { authorization: `Bearer ${e2eEnv.internalApiSecret}` },
+      })
       if (!res.ok) return false
       const body = (await res.json()) as { pagination?: { total?: number } }
       return body.pagination?.total === expectedTotal
@@ -308,7 +310,9 @@ async function waitForSearchTotal(expectedTotal: number): Promise<void> {
 async function waitForFacetsTotal(expectedTotal: number): Promise<void> {
   await poll(
     async () => {
-      const res = await fetch(`${apiBaseUrl()}/v1/listings/facets`)
+      const res = await fetch(`${apiBaseUrl()}/v1/listings/facets`, {
+        headers: { authorization: `Bearer ${e2eEnv.internalApiSecret}` },
+      })
       if (!res.ok) return false
       const body = (await res.json()) as { data?: { total?: number } }
       return body.data?.total === expectedTotal
