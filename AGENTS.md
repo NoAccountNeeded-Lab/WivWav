@@ -16,6 +16,7 @@ Never implement directly on `main`.
 Search first with `rg`; state likely files, types, and risks; read the smallest relevant ranges.
 Keep changes and commits issue-scoped; do not mix unrelated work.
 Code-changing workers must make coherent, functional commits. Do not collapse an issue into one large commit when behavior, tests, docs, or review fixes can stand separately. Avoid WIP commits and unrelated churn.
+Fully qualify SQL column references in worker-authored queries, especially in joins, CTEs, and raw SQL. Do not rely on unqualified `id`, `status`, or similarly reused column names. Ambiguous SQL must fail review.
 Never commit `.env` files, secrets, generated caches, or unrelated formatting churn.
 Never commit with failing relevant checks.
 Update `docs/api-routes.md` when adding, removing, or renaming API routes.
@@ -132,6 +133,7 @@ At SDLC handoffs, state status and give 2–4 concrete next steps; mark the safe
 `pnpm wivwav run-sprint` owns issue selection, labels, branches, worktrees, and worker context.
 Workers receive issue number and execution metadata; do not include the full issue body in spawn prompts.
 Workers verify the prepared worktree and branch; read `.agents/worker-context.md` and `.agents/issue-context.md`; plan before source reads.
+Workers must fully qualify SQL column references in joins, CTEs, and raw SQL; ambiguous names such as `id` and `status` are review failures.
 Implement code and tests; commit after each coherent functional slice.
 Preserve those commits through PR creation; do not squash unless explicitly instructed.
 Run one foreground/blocking reviewer with `.claude/roles/reviewer.md` and `.claude/roles/qa.md`.
