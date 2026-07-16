@@ -2,10 +2,143 @@ import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 
+const RAW_SQL_TAGS = new Set([
+  '$queryRaw',
+  '$executeRaw',
+  '$queryRawUnsafe',
+  '$executeRawUnsafe',
+])
+
+const AMBIGUOUS_SQL_COLUMNS = [
+  'id',
+  'status',
+  'createdAt',
+  'updatedAt',
+  'sourceId',
+  'vehicleId',
+  'listingId',
+  'make',
+  'model',
+  'year',
+  'publicationStatus',
+  'priceCents',
+  'conversionType',
+  'listedAt',
+  'goneAt',
+  'sourceListedAt',
+]
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function getSqlSource(node) {
+  if (node.type === 'TaggedTemplateExpression') {
+    const { tag, quasi } = node
+    if (
+      tag.type === 'MemberExpression'
+      && !tag.computed
+      && tag.property.type === 'Identifier'
+      && RAW_SQL_TAGS.has(tag.property.name)
+    ) {
+      return quasi.quasis.map((part) => part.value.raw).join('?')
+    }
+    if (
+      tag.type === 'MemberExpression'
+      && !tag.computed
+      && tag.object.type === 'Identifier'
+      && tag.object.name === 'Prisma'
+      && tag.property.type === 'Identifier'
+      && tag.property.name === 'sql'
+    ) {
+      return quasi.quasis.map((part) => part.value.raw).join('?')
+    }
+    return null
+  }
+
+  if (
+    node.type === 'CallExpression'
+    && node.callee.type === 'MemberExpression'
+    && !node.callee.computed
+    && node.callee.property.type === 'Identifier'
+    && RAW_SQL_TAGS.has(node.callee.property.name)
+  ) {
+    const firstArg = node.arguments[0]
+    if (!firstArg) return null
+    if (firstArg.type === 'Literal' && typeof firstArg.value === 'string') return firstArg.value
+    if (firstArg.type === 'TemplateLiteral') {
+      return firstArg.quasis.map((part) => part.value.raw).join('?')
+    }
+  }
+
+  return null
+}
+
+function stripAliasedColumnNames(sql) {
+  return sql.replace(/\bAS\s+(?:"[A-Za-z_][\w]*"|[A-Za-z_][\w]*)/gi, '')
+}
+
+const sqlQualificationPlugin = {
+  rules: {
+    'require-qualified-sql-columns': {
+      meta: {
+        type: 'problem',
+        docs: {
+          description: 'Require fully qualified ambiguous column references in raw SQL joins',
+        },
+        schema: [],
+        messages: {
+          unqualified: 'Fully qualify SQL column "{{column}}" in raw SQL that joins multiple relations.',
+        },
+      },
+      create(context) {
+        return {
+          TaggedTemplateExpression(node) {
+            const sql = getSqlSource(node)
+            if (!sql || !/\bjoin\b/i.test(sql)) return
+            const sqlToCheck = stripAliasedColumnNames(sql)
+
+            for (const column of AMBIGUOUS_SQL_COLUMNS) {
+              const pattern = new RegExp(`(?<![\\w.])(?:"${escapeRegex(column)}"|${escapeRegex(column)})(?![\\w"])`, 'i')
+              if (pattern.test(sqlToCheck)) {
+                context.report({
+                  node,
+                  messageId: 'unqualified',
+                  data: { column },
+                })
+              }
+            }
+          },
+          CallExpression(node) {
+            const sql = getSqlSource(node)
+            if (!sql || !/\bjoin\b/i.test(sql)) return
+            const sqlToCheck = stripAliasedColumnNames(sql)
+
+            for (const column of AMBIGUOUS_SQL_COLUMNS) {
+              const pattern = new RegExp(`(?<![\\w.])(?:"${escapeRegex(column)}"|${escapeRegex(column)})(?![\\w"])`, 'i')
+              if (pattern.test(sqlToCheck)) {
+                context.report({
+                  node,
+                  messageId: 'unqualified',
+                  data: { column },
+                })
+              }
+            }
+          },
+        }
+      },
+    },
+  },
+}
+
 export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, {
+  plugins: {
+    wivwav: sqlQualificationPlugin,
+  },
   rules: {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+    'wivwav/require-qualified-sql-columns': 'error',
   },
 }, {
   // WCAG 2.1 AA is mandated repo-wide (see .claude/core.md); only .tsx files
