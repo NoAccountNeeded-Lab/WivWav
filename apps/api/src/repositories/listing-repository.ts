@@ -541,13 +541,13 @@ export class PrismaListingRepository implements ListingRepository {
   findManyActive(skip: number, take: number): Promise<Listing[]> {
     return this.db.$queryRaw<Listing[]>`
       WITH representative_listings AS (
-        SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
+        SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id)) listings.*
         FROM listings
         INNER JOIN sources ON sources.id = listings."sourceId"
-        WHERE status = 'active'
-          AND "publicationStatus" = 'eligible'
+        WHERE listings.status = 'active'
+          AND listings."publicationStatus" = 'eligible'
           AND sources.status != 'disabled'
-        ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
       )
       SELECT *
       FROM representative_listings
@@ -563,11 +563,11 @@ export class PrismaListingRepository implements ListingRepository {
 
   async countActive(): Promise<number> {
     const rows = await this.db.$queryRaw<CountRow[]>`
-      SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
+      SELECT COUNT(DISTINCT COALESCE(listings."vehicleId", listings.id))::int AS count
       FROM listings
       INNER JOIN sources ON sources.id = listings."sourceId"
-      WHERE status = 'active'
-        AND "publicationStatus" = 'eligible'
+      WHERE listings.status = 'active'
+        AND listings."publicationStatus" = 'eligible'
         AND sources.status != 'disabled'
     `
     return Number(rows[0]?.count ?? 0)
