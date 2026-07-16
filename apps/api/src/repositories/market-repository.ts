@@ -103,15 +103,15 @@ export class PrismaMarketRepository implements MarketRepository {
         )
         SELECT
           COUNT(*)::int                                                                                    AS count,
-          PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY "priceCents")                                     AS p10,
-          PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY "priceCents")                                     AS p25,
-          PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY "priceCents")                                     AS p50,
-          PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY "priceCents")                                     AS p75,
-          PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY "priceCents")                                     AS p90,
-          PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY mileage)                                          AS "medianMileage",
+          PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY representative_listings."priceCents")             AS p10,
+          PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY representative_listings."priceCents")             AS p25,
+          PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY representative_listings."priceCents")             AS p50,
+          PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY representative_listings."priceCents")             AS p75,
+          PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY representative_listings."priceCents")             AS p90,
+          PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY representative_listings.mileage)                  AS "medianMileage",
           PERCENTILE_CONT(0.50) WITHIN GROUP (
-            ORDER BY EXTRACT(EPOCH FROM NOW() - "sourceListedAt") / 86400
-          ) FILTER (WHERE "sourceListedAt" IS NOT NULL)                                                AS "medianDaysListed"
+            ORDER BY EXTRACT(EPOCH FROM NOW() - representative_listings."sourceListedAt") / 86400
+          ) FILTER (WHERE representative_listings."sourceListedAt" IS NOT NULL)                          AS "medianDaysListed"
         FROM representative_listings
       `,
       this.db.$queryRaw<PriceDropRow[]>`
@@ -138,14 +138,18 @@ export class PrismaMarketRepository implements MarketRepository {
           COUNT(DISTINCT CASE WHEN fp."priceCents" > lp."priceCents" THEN l.id END)::int                 AS dropped
         FROM representative_listings l
         INNER JOIN (
-          SELECT DISTINCT ON ("listingId") "listingId", "priceCents"
+          SELECT DISTINCT ON (listing_price_history."listingId")
+            listing_price_history."listingId",
+            listing_price_history."priceCents"
           FROM listing_price_history
-          ORDER BY "listingId", "recordedAt" ASC
+          ORDER BY listing_price_history."listingId", listing_price_history."recordedAt" ASC
         ) fp ON fp."listingId" = l.id
         INNER JOIN (
-          SELECT DISTINCT ON ("listingId") "listingId", "priceCents"
+          SELECT DISTINCT ON (listing_price_history."listingId")
+            listing_price_history."listingId",
+            listing_price_history."priceCents"
           FROM listing_price_history
-          ORDER BY "listingId", "recordedAt" DESC
+          ORDER BY listing_price_history."listingId", listing_price_history."recordedAt" DESC
         ) lp ON lp."listingId" = l.id
       `,
     ])
@@ -179,10 +183,10 @@ export class PrismaMarketRepository implements MarketRepository {
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
-        SELECT make, COUNT(*)::int AS count
+        SELECT representative_listings.make, COUNT(*)::int AS count
         FROM representative_listings
-        GROUP BY make
-        ORDER BY count DESC, make ASC
+        GROUP BY representative_listings.make
+        ORDER BY count DESC, representative_listings.make ASC
         LIMIT 10
       `,
       this.db.$queryRaw<PopularRow[]>`
@@ -195,10 +199,10 @@ export class PrismaMarketRepository implements MarketRepository {
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
-        SELECT make, model, COUNT(*)::int AS count
+        SELECT representative_listings.make, representative_listings.model, COUNT(*)::int AS count
         FROM representative_listings
-        GROUP BY make, model
-        ORDER BY count DESC, make ASC, model ASC
+        GROUP BY representative_listings.make, representative_listings.model
+        ORDER BY count DESC, representative_listings.make ASC, representative_listings.model ASC
         LIMIT 10
       `,
       this.db.$queryRaw<PopularRow[]>`

@@ -549,9 +549,9 @@ export class PrismaListingRepository implements ListingRepository {
           AND sources.status != 'disabled'
         ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
       )
-      SELECT *
+      SELECT representative_listings.*
       FROM representative_listings
-      ORDER BY "listedAt" DESC, id ASC
+      ORDER BY representative_listings."listedAt" DESC, representative_listings.id ASC
       LIMIT ${take}
       OFFSET ${skip}
     `
