@@ -40,8 +40,9 @@ describe('FilterGroup', () => {
     renderWithIntl(
       <FilterGroup title="Make" labelId="make" items={makeItems(12)} onToggle={vi.fn()} maxVisible={8} />,
     )
-    const buttons = await screen.findAllByRole('button', { name: /^Item \d+/ })
-    expect(buttons).toHaveLength(8)
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /^Item \d+/ })).toHaveLength(8)
+    }, { timeout: 5000 })
   })
 
   it('should show a "Show N more" button when items exceed maxVisible', async () => {
