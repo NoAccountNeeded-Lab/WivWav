@@ -130,8 +130,8 @@ describe('runMeilisearchSyncJob', () => {
 
     const idPageCall = db.$queryRaw.mock.calls[1]!
     const sql = (idPageCall[0] as unknown as string[]).join('')
-    expect(sql).toContain('ORDER BY COALESCE("vehicleId", id), id')
-    expect(sql).toContain('COALESCE("vehicleId", id) AS "groupKey"')
+    expect(sql).toContain('ORDER BY COALESCE(listings."vehicleId", listings.id), listings.id')
+    expect(sql).toContain('COALESCE(listings."vehicleId", listings.id) AS "groupKey"')
   })
 
   it('builds into a freshly created versioned index and swaps it into service atomically', async () => {

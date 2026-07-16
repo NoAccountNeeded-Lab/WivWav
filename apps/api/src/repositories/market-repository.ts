@@ -88,18 +88,18 @@ export class PrismaMarketRepository implements MarketRepository {
     const [pricingRows, dropRows] = await Promise.all([
       this.db.$queryRaw<PricingRow[]>`
         WITH representative_listings AS (
-          SELECT DISTINCT ON (COALESCE("vehicleId", id)) *
+          SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id)) listings.*
           FROM listings
           INNER JOIN sources ON sources.id = listings."sourceId"
-          WHERE status = 'active'
-            AND "publicationStatus" = 'eligible'
+          WHERE listings.status = 'active'
+            AND listings."publicationStatus" = 'eligible'
             AND sources.status != 'disabled'
-            AND "priceCents" IS NOT NULL
-            AND make = ${make}
-            AND model = ${model}
-            AND (${year}::int IS NULL OR year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
-            AND (${conversionType}::text IS NULL OR "conversionType"::text = ${conversionType}::text)
-          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+            AND listings."priceCents" IS NOT NULL
+            AND listings.make = ${make}
+            AND listings.model = ${model}
+            AND (${year}::int IS NULL OR listings.year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
+            AND (${conversionType}::text IS NULL OR listings."conversionType"::text = ${conversionType}::text)
+          ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
         SELECT
           COUNT(*)::int                                                                                    AS count,
@@ -116,17 +116,22 @@ export class PrismaMarketRepository implements MarketRepository {
       `,
       this.db.$queryRaw<PriceDropRow[]>`
         WITH representative_listings AS (
-          SELECT DISTINCT ON (COALESCE("vehicleId", id)) id, make, model, year, "conversionType"
+          SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id))
+            listings.id,
+            listings.make,
+            listings.model,
+            listings.year,
+            listings."conversionType"
           FROM listings
           INNER JOIN sources ON sources.id = listings."sourceId"
-          WHERE status = 'active'
-            AND "publicationStatus" = 'eligible'
+          WHERE listings.status = 'active'
+            AND listings."publicationStatus" = 'eligible'
             AND sources.status != 'disabled'
-            AND make = ${make}
-            AND model = ${model}
-            AND (${year}::int IS NULL OR year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
-            AND (${conversionType}::text IS NULL OR "conversionType"::text = ${conversionType}::text)
-          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+            AND listings.make = ${make}
+            AND listings.model = ${model}
+            AND (${year}::int IS NULL OR listings.year BETWEEN ${year}::int - 2 AND ${year}::int + 2)
+            AND (${conversionType}::text IS NULL OR listings."conversionType"::text = ${conversionType}::text)
+          ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
         SELECT
           COUNT(DISTINCT l.id)::int                                                                       AS total,
@@ -166,13 +171,13 @@ export class PrismaMarketRepository implements MarketRepository {
     const [makes, models, brands] = await Promise.all([
       this.db.$queryRaw<PopularRow[]>`
         WITH representative_listings AS (
-          SELECT DISTINCT ON (COALESCE("vehicleId", id)) make
+          SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id)) listings.make
           FROM listings
           INNER JOIN sources ON sources.id = listings."sourceId"
-          WHERE status = 'active'
-            AND "publicationStatus" = 'eligible'
+          WHERE listings.status = 'active'
+            AND listings."publicationStatus" = 'eligible'
             AND sources.status != 'disabled'
-          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+          ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
         SELECT make, COUNT(*)::int AS count
         FROM representative_listings
@@ -182,13 +187,13 @@ export class PrismaMarketRepository implements MarketRepository {
       `,
       this.db.$queryRaw<PopularRow[]>`
         WITH representative_listings AS (
-          SELECT DISTINCT ON (COALESCE("vehicleId", id)) make, model
+          SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id)) listings.make, listings.model
           FROM listings
           INNER JOIN sources ON sources.id = listings."sourceId"
-          WHERE status = 'active'
-            AND "publicationStatus" = 'eligible'
+          WHERE listings.status = 'active'
+            AND listings."publicationStatus" = 'eligible'
             AND sources.status != 'disabled'
-          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+          ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
         SELECT make, model, COUNT(*)::int AS count
         FROM representative_listings
@@ -198,13 +203,13 @@ export class PrismaMarketRepository implements MarketRepository {
       `,
       this.db.$queryRaw<PopularRow[]>`
         WITH representative_listings AS (
-          SELECT DISTINCT ON (COALESCE("vehicleId", id)) "conversionManufacturer"
+          SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id)) listings."conversionManufacturer"
           FROM listings
           INNER JOIN sources ON sources.id = listings."sourceId"
-          WHERE status = 'active'
-            AND "publicationStatus" = 'eligible'
+          WHERE listings.status = 'active'
+            AND listings."publicationStatus" = 'eligible'
             AND sources.status != 'disabled'
-          ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+          ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
         SELECT "conversionManufacturer", COUNT(*)::int AS count
         FROM representative_listings
@@ -243,15 +248,15 @@ export class PrismaMarketRepository implements MarketRepository {
         SELECT CASE WHEN ${interval} = 'week' THEN interval '1 week' ELSE interval '1 month' END AS len
       ),
       representative_listings AS (
-        SELECT DISTINCT ON (COALESCE("vehicleId", id))
-          id, "listedAt", "sourceListedAt", "goneAt"
+        SELECT DISTINCT ON (COALESCE(listings."vehicleId", listings.id))
+          listings.id, listings."listedAt", listings."sourceListedAt", listings."goneAt"
         FROM listings
         INNER JOIN sources ON sources.id = listings."sourceId"
-        WHERE make = ${make}
-          AND model = ${model}
-          AND "publicationStatus" = 'eligible'
+        WHERE listings.make = ${make}
+          AND listings.model = ${model}
+          AND listings."publicationStatus" = 'eligible'
           AND sources.status != 'disabled'
-        ORDER BY COALESCE("vehicleId", id), "listedAt" DESC, id ASC
+        ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
       ),
       inventory AS (
         SELECT b.bucket_start, COUNT(DISTINCT r.id)::int AS active_inventory_count
