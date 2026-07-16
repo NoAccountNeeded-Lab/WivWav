@@ -39,17 +39,17 @@ async function fetchOrderedIdPage(
   after: GroupKeyPosition | undefined,
 ): Promise<GroupKeyPosition[]> {
   const cursorClause = after
-    ? Prisma.sql`AND (COALESCE("vehicleId", id), id) > (${after.groupKey}, ${after.id})`
+    ? Prisma.sql`AND (COALESCE(listings."vehicleId", listings.id), listings.id) > (${after.groupKey}, ${after.id})`
     : Prisma.empty
   return db.$queryRaw<GroupKeyPosition[]>`
-    SELECT id, COALESCE("vehicleId", id) AS "groupKey"
+    SELECT listings.id, COALESCE(listings."vehicleId", listings.id) AS "groupKey"
     FROM listings
     INNER JOIN sources ON sources.id = listings."sourceId"
-    WHERE status = 'active'
-      AND "publicationStatus" = 'eligible'
+    WHERE listings.status = 'active'
+      AND listings."publicationStatus" = 'eligible'
       AND sources.status != 'disabled'
       ${cursorClause}
-    ORDER BY COALESCE("vehicleId", id), id
+    ORDER BY COALESCE(listings."vehicleId", listings.id), listings.id
     LIMIT ${BATCH_SIZE}
   `
 }
@@ -154,11 +154,11 @@ async function runFullRebuild(
   index: ReturnType<Meilisearch['index']>,
 ): Promise<void> {
   const activeCountRows = await db.$queryRaw<VehicleAwareCountRow[]>`
-    SELECT COUNT(DISTINCT COALESCE("vehicleId", id))::int AS count
+    SELECT COUNT(DISTINCT COALESCE(listings."vehicleId", listings.id))::int AS count
     FROM listings
     INNER JOIN sources ON sources.id = listings."sourceId"
-    WHERE status = 'active'
-      AND "publicationStatus" = 'eligible'
+    WHERE listings.status = 'active'
+      AND listings."publicationStatus" = 'eligible'
       AND sources.status != 'disabled'
   `
   const activeCount = Number(activeCountRows[0]?.count ?? 0)

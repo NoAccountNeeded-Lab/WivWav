@@ -29,8 +29,8 @@ describe('PrismaMarketRepository.getPricingStats', () => {
     expect(result.count).toBe(2)
     const pricingSql = sqlFromCall(db.$queryRaw.mock.calls[0]!)
     const dropSql = sqlFromCall(db.$queryRaw.mock.calls[1]!)
-    expect(pricingSql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
-    expect(dropSql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+    expect(pricingSql).toContain('DISTINCT ON (COALESCE(listings."vehicleId", listings.id))')
+    expect(dropSql).toContain('DISTINCT ON (COALESCE(listings."vehicleId", listings.id))')
     expect(pricingSql).toContain('"publicationStatus" = \'eligible\'')
     expect(dropSql).toContain('"publicationStatus" = \'eligible\'')
     expect(pricingSql).not.toContain('"isDuplicate"')
@@ -55,7 +55,7 @@ describe('PrismaMarketRepository.getTrends', () => {
     const sql = sqlFromCall(db.$queryRaw.mock.calls[0]!)
     expect(sql).toContain('generate_series')
     expect(sql).toContain('"publicationStatus" = \'eligible\'')
-    expect(sql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+    expect(sql).toContain('DISTINCT ON (COALESCE(listings."vehicleId", listings.id))')
 
     expect(result).toEqual([
       { bucketStart: new Date('2026-04-01T00:00:00.000Z'), medianPriceCents: null, activeInventoryCount: 1, avgDaysToGone: null },
@@ -83,7 +83,7 @@ describe('PrismaMarketRepository.getPopular', () => {
     })
     for (const call of db.$queryRaw.mock.calls) {
       const sql = sqlFromCall(call)
-      expect(sql).toContain('DISTINCT ON (COALESCE("vehicleId", id))')
+      expect(sql).toContain('DISTINCT ON (COALESCE(listings."vehicleId", listings.id))')
       expect(sql).toContain('"publicationStatus" = \'eligible\'')
       expect(sql).not.toContain('"isDuplicate"')
     }
