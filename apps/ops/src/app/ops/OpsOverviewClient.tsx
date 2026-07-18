@@ -28,7 +28,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import type { HealthResponse } from '@wivwav/types'
+import type { AttentionResourceInput, AttentionSnapshot, AttentionSnapshotRequest, HealthResponse } from '@wivwav/types'
 import styles from './page.module.css'
 import {
   buildOpsOverview,
@@ -122,11 +122,24 @@ const CARD_COL_SPAN: Record<string, number> = {
 
 /** Attention item ids that mean "this resource's endpoint failed" — see overview-helpers.ts */
 const UNAVAILABLE_ATTENTION_ID: Record<string, OverviewResourceKey> = {
-  'health-unavailable':    'health',
-  'queues-unavailable':    'queues',
-  'sources-unavailable':   'sources',
-  'runs-unavailable':      'runs',
-  'schedules-unavailable': 'schedules',
+  'health-unavailable':      'health',
+  'queues-unavailable':      'queues',
+  'sources-unavailable':     'sources',
+  'runs-unavailable':        'runs',
+  'schedules-unavailable':   'schedules',
+  'attention-unavailable':   'attention',
+}
+
+/** Reports a polled resource's already-known state in the shape the shared
+ *  domain computation expects (issue #774) — `unavailable` mirrors the same
+ *  "settled with no data and no explicit error" rule overview-helpers.ts
+ *  otherwise applies per-resource, so the two never disagree about whether a
+ *  resource has genuinely failed vs. simply not loaded yet. */
+function toAttentionResourceInput<T>(resource: PolledResourceState<T>): AttentionResourceInput<T> {
+  return {
+    data: resource.data,
+    unavailable: Boolean(resource.error) || (resource.data === null && !resource.isLoading),
+  }
 }
 
 export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
@@ -158,10 +171,6 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     useCallback(() => fetchJson<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`), [apiBaseUrl]),
     REFRESH_MS,
   )
-
-  // Not memoized: usePolledResource returns a new object every render
-  // regardless, so a useMemo here would never actually skip recomputation.
-  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules }
 
   // Ring buffer — accumulate samples across 30-second polling cycles
   // We track the run IDs we've already added to the scrape run chart to avoid duplicates
@@ -197,18 +206,50 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   // primitive `latestUpdatedAtMs`), not on every render.
   const now = useMemo(() => (latestUpdatedAtMs > 0 ? new Date(latestUpdatedAtMs) : new Date()), [latestUpdatedAtMs])
 
+  // Runs the shared domain-level attention computation (issue #774) over the
+  // resource state already fetched/polled above, rather than recomputing
+  // "what is currently wrong" client-side. Posting the already-known state —
+  // instead of this endpoint re-fetching it server-side — preserves each
+  // resource's independent per-section loading/error/retry UX (E5) without
+  // racing a second, server-side fetch of the same data.
+  const attention = usePolledResource<AttentionSnapshot>(
+    'ops-overview:attention',
+    useCallback(() => {
+      const body: AttentionSnapshotRequest = {
+        now: now.toISOString(),
+        health: toAttentionResourceInput(health),
+        queues: toAttentionResourceInput(queues),
+        sources: toAttentionResourceInput(sources),
+        runs: toAttentionResourceInput(runs),
+        schedules: toAttentionResourceInput(schedules),
+      }
+      return fetchJson<AttentionSnapshot>(`${apiBaseUrl}/admin/attention-snapshot`, 10_000, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }, [apiBaseUrl, now, health, queues, sources, runs, schedules]),
+    REFRESH_MS,
+  )
+
+  // Not memoized: usePolledResource returns a new object every render
+  // regardless, so a useMemo here would never actually skip recomputation.
+  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules, attention }
+
   const overview = useMemo<OverviewModel>(() => buildOpsOverview({
     health: health.data,
     queues: queues.data,
     sources: sources.data,
     runs: runs.data,
     schedules: schedules.data,
+    attention: attention.data,
     errors: {
-      ...(health.error    ? { health:    health.error }    : {}),
-      ...(queues.error    ? { queues:    queues.error }    : {}),
-      ...(sources.error   ? { sources:   sources.error }   : {}),
-      ...(runs.error      ? { runs:      runs.error }      : {}),
-      ...(schedules.error ? { schedules: schedules.error } : {}),
+      ...(health.error     ? { health:     health.error }     : {}),
+      ...(queues.error     ? { queues:     queues.error }     : {}),
+      ...(sources.error    ? { sources:    sources.error }    : {}),
+      ...(runs.error       ? { runs:       runs.error }       : {}),
+      ...(schedules.error  ? { schedules:  schedules.error }  : {}),
+      ...(attention.error  ? { attention:  attention.error }  : {}),
     },
     pending: {
       health: health.isLoading,
@@ -216,11 +257,12 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       sources: sources.isLoading,
       runs: runs.isLoading,
       schedules: schedules.isLoading,
+      attention: attention.isLoading,
     },
     now,
-  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, now])
+  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, attention.data, attention.error, attention.isLoading, now])
 
-  const isRefreshing = health.isRefreshing || queues.isRefreshing || sources.isRefreshing || runs.isRefreshing || schedules.isRefreshing
+  const isRefreshing = health.isRefreshing || queues.isRefreshing || sources.isRefreshing || runs.isRefreshing || schedules.isRefreshing || attention.isRefreshing
 
   const refreshAll = useCallback(() => {
     void health.retry()
@@ -228,7 +270,8 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     void sources.retry()
     void runs.retry()
     void schedules.retry()
-  }, [health, queues, sources, runs, schedules])
+    void attention.retry()
+  }, [health, queues, sources, runs, schedules, attention])
 
   return (
     <main id="main-content" className={styles.main}>

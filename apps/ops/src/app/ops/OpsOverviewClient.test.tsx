@@ -32,6 +32,16 @@ const SCHEDULES_BODY = {
     lastRunAt: new Date().toISOString(), lastStatus: 'completed', recentFailureCount: 0, recentFailureReason: null,
   }],
 }
+// The Attention panel now renders from the shared attention-snapshot
+// computation (issue #774) rather than recomputing conditions client-side,
+// so every fetch mock below must also answer this endpoint.
+const ATTENTION_BODY = {
+  data: {
+    conditions: [],
+    signalAvailability: { health: 'available', bullmq: 'available', db: 'available', loki: 'available' },
+  },
+}
+
 function mockFetchWithFailingRuns() {
   return vi.fn(async (url: string) => {
     if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
@@ -39,6 +49,7 @@ function mockFetchWithFailingRuns() {
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return { ok: false, status: 503, json: async () => ({}) } as Response
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/admin/attention-snapshot')) return jsonResponse(ATTENTION_BODY)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
 }
@@ -131,6 +142,7 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
       if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
       if (url.endsWith('/admin/runs')) return jsonResponse(runsBody)
       if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+      if (url.endsWith('/admin/attention-snapshot')) return jsonResponse(ATTENTION_BODY)
       throw new Error(`Unexpected URL in test: ${url}`)
     }))
 
