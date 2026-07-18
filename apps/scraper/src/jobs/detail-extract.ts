@@ -68,6 +68,12 @@ async function getSourceExecutionBlockReason(sourceId: string): Promise<string |
  * cached across runs — so a `setMappings` write (an operator edit, or the
  * AI structure-remap loop in scraper-engine.ts) takes effect on the very
  * next detail-extract run with no code change or redeploy (#822).
+ *
+ * Mirrors `PrismaSourceRepository.getMappings` (infrastructure/prisma-
+ * repositories.ts) rather than importing it: this file talks to Prisma
+ * directly everywhere else too (see `getSourceExecutionBlockReason` above),
+ * so a repository-layer dependency here would be the odd one out, not less
+ * duplication overall.
  */
 async function getSourceMappings(sourceId: string): Promise<FieldMapping[]> {
   const db = getDb()

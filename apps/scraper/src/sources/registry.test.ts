@@ -1,12 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
+import { MockQueueAdapter, QUEUES, CRITICAL_JOB_OPTIONS } from '@wivwav/queue'
+import type { ScheduleIntent } from '@wivwav/db'
 import {
   registerSources,
   buildSourceScrapeScheduleSources,
   buildDetailScheduleSources,
   type RegisteredSource,
 } from './registry.js'
-import { buildDetailScheduleDefinitions } from '../schedule-registration.js'
+import { applyScheduleIntents, buildDetailScheduleDefinitions, reconcileSchedules } from '../schedule-registration.js'
 import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from './freedom-motors-detail-mappings.js'
 
 function makeRow(name: string, id: string) {
@@ -99,14 +101,39 @@ describe('detail-crawl/detail-extract jobIds never collide with card-scrape jobI
     expect(new Set(allJobIds).size).toBe(allJobIds.length)
   })
 
-  it('respects source disablement the same way as every other detail-pages source (shared reconcileSchedules gate)', () => {
+  it('respects source disablement the same way as every other detail-pages source (shared reconcileSchedules gate)', async () => {
     // Freedom Motors gets no bespoke scheduling code path — it flows through
     // the exact same buildDetailScheduleDefinitions()/reconcileSchedules()
-    // machinery as BLVD/MobilityWorks, whose `enabled: false` handling
-    // (schedule-registration.ts) already removes a source's schedules. No
-    // additional wiring is needed for Freedom Motors specifically; this
-    // assertion documents that reliance.
-    const freedomMotors = SCRAPER_SOURCE_REGISTRY.find((d) => d.key === 'freedom-motors')
-    expect(freedomMotors?.pipeline).toBe('detail-pages')
+    // machinery as BLVD/MobilityWorks. Exercise that machinery end-to-end
+    // (not just assert the pipeline flag) to prove an operator disabling
+    // Freedom Motors actually removes its detail-crawl/detail-extract
+    // repeatable jobs, the same as it would for any other source.
+    const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn() }
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.filter(
+      (definition) => definition.pipeline === 'detail-pages',
+    ).map((definition) => ({ definition, row: makeRow(definition.name, definition.key) }))
+    const detailSources = buildDetailScheduleSources(sources)
+
+    const definitions = buildDetailScheduleDefinitions(detailSources, { crawl, extract }, CRITICAL_JOB_OPTIONS)
+    await reconcileSchedules(definitions, logger)
+
+    const beforeDisable = await crawl.getRepeatableJobs()
+    expect(beforeDisable.map((j) => j.id)).toContain('freedom-motors-crawl')
+
+    const intents = new Map<string, ScheduleIntent>([
+      ['freedom-motors-crawl', { enabled: false, updatedAt: new Date().toISOString() }],
+      ['freedom-motors-extract', { enabled: false, updatedAt: new Date().toISOString() }],
+    ])
+    const intentDefinitions = applyScheduleIntents(definitions, intents)
+    await reconcileSchedules(intentDefinitions, logger)
+
+    const afterDisable = await crawl.getRepeatableJobs()
+    const afterDisableExtract = await extract.getRepeatableJobs()
+    expect(afterDisable.map((j) => j.id)).not.toContain('freedom-motors-crawl')
+    expect(afterDisableExtract.map((j) => j.id)).not.toContain('freedom-motors-extract')
+    // BLVD/MobilityWorks are untouched by disabling Freedom Motors specifically.
+    expect(afterDisable.map((j) => j.id)).toEqual(expect.arrayContaining(['blvd-crawl', 'mw-crawl']))
   })
 })
