@@ -1,0 +1,55 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.chip svg {
+  flex: 0 0 auto;
+}
+
+.chip[data-variant="success"] {
+  --chip-bg: color-mix(in srgb, var(--clr-success) 11%, transparent);
+  --chip-border: color-mix(in srgb, var(--clr-success) 35%, var(--clr-border));
+  --chip-text: var(--clr-success-text);
+}
+
+.chip[data-variant="warning"] {
+  --chip-bg: color-mix(in srgb, var(--clr-warning) 12%, transparent);
+  --chip-border: color-mix(in srgb, var(--clr-warning) 34%, var(--clr-border));
+  --chip-text: var(--clr-warning-text);
+}
+
+.chip[data-variant="danger"] {
+  --chip-bg: color-mix(in srgb, var(--clr-danger) 12%, transparent);
+  --chip-border: color-mix(in srgb, var(--clr-danger) 34%, var(--clr-border));
+  --chip-text: var(--clr-danger-text);
+}
+
+.chip[data-variant="neutral"] {
+  --chip-bg: color-mix(in srgb, var(--clr-primary) 9%, transparent);
+  --chip-border: color-mix(in srgb, var(--clr-primary) 20%, var(--clr-border));
+  --chip-text: var(--clr-text-secondary);
+}
+
+.chip[data-variant="paused"] {
+  --chip-bg: color-mix(in srgb, var(--clr-warning) 9%, transparent);
+  --chip-border: color-mix(in srgb, var(--clr-warning) 26%, var(--clr-border));
+  --chip-text: var(--clr-warning-text);
+}
+
+.chip[data-variant="muted"] {
+  --chip-bg: var(--clr-surface);
+  --chip-border: var(--clr-border);
+  --chip-text: var(--clr-text-muted);
+}

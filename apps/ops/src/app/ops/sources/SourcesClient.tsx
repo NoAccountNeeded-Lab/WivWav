@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Globe, Link2, PlayCircle, Power, RadioTower } from 'lucide-react'
+import { EntityList, EntityListRow, EntityMetaItem } from '@/components/EntityListRow'
+import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsRunbooks } from '../OpsRunbooks'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
@@ -33,12 +36,16 @@ interface SourcesClientProps {
 
 const REFRESH_MS = 30_000
 
-function statusVariant(status: string): string {
+function statusVariant(status: string): OpsStatusVariant {
   if (status === 'active') return 'success'
   if (status === 'paused') return 'paused'
   if (status === 'disabled') return 'neutral'
   if (status === 'error' || status === 'needs_remapping') return 'danger'
   return 'neutral'
+}
+
+function statusLabel(status: string): string {
+  return status.replaceAll('_', ' ')
 }
 
 function fmtTime(date: Date): string {
@@ -47,6 +54,10 @@ function fmtTime(date: Date): string {
     minute: '2-digit',
     second: '2-digit',
   }).format(date)
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString()
 }
 
 export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
@@ -139,122 +150,67 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
         ) : !sources.length ? (
           <p className={styles.empty}>No sources found. Add or seed sources before running listing imports.</p>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>
-                    Status
-                    {/* Not a control (no click/keydown handler): tabIndex makes it
-                      focusable so :focus CSS reveals the tooltip for keyboard users
-                      the same way :hover does for pointer users. aria-label already
-                      exposes the description to assistive tech. */}
-                    <span
-                      className={styles.tip}
-                      data-tip="active = scraping normally · error = last run failed (retried automatically next cycle) · needs_remapping = HTML structure changed but AI could not remap (no sample HTML or AI unavailable); operator intervention required · paused = manually paused"
-                      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-                      tabIndex={0}
-                      aria-label="Status field explanation"
-                    >?</span>
-                  </th>
-                  <th>
-                    Cron
-                    <span
-                      className={styles.tip}
-                      data-tip="Standard 5-field cron expression (minute hour day month weekday). Example: '0 */6 * * *' = every 6 hours. Drives the automatic scrape schedule."
-                      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- see rationale above
-                      tabIndex={0}
-                      aria-label="Cron expression explanation"
-                    >?</span>
-                  </th>
-                  <th className={styles.num}>Last scrape</th>
-                  <th className={styles.num}>Observed active</th>
-                  <th className={styles.num}>Eligible</th>
-                  <th>Last Scraped</th>
-                  <th>Error</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map(s => {
-                  const rs = runStates[s.id]
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <Link
-                            href={`/ops/sources/${encodeURIComponent(s.id)}`}
-                            style={{ color: 'var(--clr-primary)', textDecoration: 'none', fontWeight: 600 }}
-                          >
-                            {s.name}
-                          </Link>
-                          <a
-                            href={s.baseUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Open ${s.name} website`}
-                            style={{ color: 'var(--clr-text-muted)', textDecoration: 'none' }}
-                          >
-                            ↗
-                          </a>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={styles.badge} data-variant={statusVariant(s.status)}>
-                          {s.status}
-                        </span>
-                      </td>
-                      <td>
-                        <code style={{ fontSize: '0.8125rem' }}>{s.cronExpression}</code>
-                      </td>
-                      <td className={styles.num}>{s.listingCount.toLocaleString()}</td>
-                      <td className={styles.num}>{s.observedActiveCount.toLocaleString()}</td>
-                      <td className={styles.num}>{s.eligibleActiveCount.toLocaleString()}</td>
-                      <td className={styles.muted}><RelativeTimestamp value={s.lastScrapedAt} /></td>
-                      <td>
-                        {s.errorMessage
-                          ? <span className={styles.errorMsg}>{s.errorMessage}</span>
-                          : <span className={styles.muted}>—</span>}
-                      </td>
-                      <td>
-                        <div className={styles.actions}>
-                          <button
-                            className={`${styles.btn} ${styles.btnPrimary}`}
-                            type="button"
-                            disabled={rs?.loading || s.status === 'disabled' || s.status === 'paused'}
-                            onClick={() => void runNow(s.id)}
-                            aria-label={`Run ${s.name} scrape now`}
-                          >
-                            {rs?.loading ? 'Enqueueing…' : 'Run Now'}
-                          </button>
-                          <button
-                            className={`${styles.btn} ${styles.btnGhost}`}
-                            type="button"
-                            disabled={rs?.loading}
-                            onClick={() => void setSourceEnabled(s.id, s.status === 'disabled')}
-                            aria-label={`${s.status === 'disabled' ? 'Enable' : 'Disable'} ${s.name}`}
-                          >
-                            {s.status === 'disabled' ? 'Enable' : 'Disable'}
-                          </button>
-                          {rs?.feedback && (
-                            <span
-                              className={rs.isError ? styles.errorMsg : styles.muted}
-                              style={{ fontSize: '0.75rem' }}
-                            >
-                              {rs.jobId
-                                ? <>{rs.feedback} — Job ID: <Link href={`/ops/logs?search=${encodeURIComponent(rs.jobId)}`}>{rs.jobId}</Link></>
-                                : rs.feedback}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <EntityList ariaLabel="Source health rows">
+            {sources.map((s) => {
+              const rs = runStates[s.id]
+              return (
+                <EntityListRow
+                  key={s.id}
+                  icon={<RadioTower size={18} />}
+                  title={s.name}
+                  href={`/ops/sources/${encodeURIComponent(s.id)}`}
+                  ariaLabel={`${s.name}, status ${statusLabel(s.status)}, ${formatCount(s.listingCount)} total listings, ${formatCount(s.observedActiveCount)} observed active, ${formatCount(s.eligibleActiveCount)} eligible active`}
+                  status={<OpsStatusChip label={statusLabel(s.status)} variant={statusVariant(s.status)} />}
+                  secondary={(
+                    <>
+                      <a href={s.baseUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${s.name} website`}>
+                        {s.baseUrl}
+                      </a>
+                    </>
+                  )}
+                  meta={(
+                    <>
+                      <EntityMetaItem><Link2 size={12} aria-hidden="true" /> <code>{s.cronExpression}</code></EntityMetaItem>
+                      <EntityMetaItem emphasis><Globe size={12} aria-hidden="true" /> {formatCount(s.listingCount)} listed</EntityMetaItem>
+                      <EntityMetaItem emphasis>{formatCount(s.observedActiveCount)} observed active</EntityMetaItem>
+                      <EntityMetaItem emphasis>{formatCount(s.eligibleActiveCount)} eligible</EntityMetaItem>
+                      <EntityMetaItem><RelativeTimestamp value={s.lastScrapedAt} fallback="No recent scrape" /></EntityMetaItem>
+                    </>
+                  )}
+                  actions={(
+                    <>
+                      <button
+                        className={`${styles.btn} ${styles.btnPrimary}`}
+                        type="button"
+                        disabled={rs?.loading || s.status === 'disabled' || s.status === 'paused'}
+                        onClick={() => void runNow(s.id)}
+                        aria-label={`Run ${s.name} scrape now`}
+                      >
+                        <PlayCircle size={14} aria-hidden="true" />
+                        {rs?.loading ? 'Enqueueing…' : 'Run Now'}
+                      </button>
+                      <button
+                        className={`${styles.btn} ${styles.btnGhost}`}
+                        type="button"
+                        disabled={rs?.loading}
+                        onClick={() => void setSourceEnabled(s.id, s.status === 'disabled')}
+                        aria-label={`${s.status === 'disabled' ? 'Enable' : 'Disable'} ${s.name}`}
+                      >
+                        <Power size={14} aria-hidden="true" />
+                        {s.status === 'disabled' ? 'Enable' : 'Disable'}
+                      </button>
+                    </>
+                  )}
+                  feedback={rs?.feedback ? (
+                    rs.jobId
+                      ? <>{rs.feedback} - Job ID: <Link href={`/ops/logs?search=${encodeURIComponent(rs.jobId)}`}>{rs.jobId}</Link></>
+                      : rs.feedback
+                  ) : s.errorMessage ? <span className={styles.errorMsg}>{s.errorMessage}</span> : undefined}
+                  feedbackIsError={Boolean(rs?.isError || s.errorMessage)}
+                />
+              )
+            })}
+          </EntityList>
         )}
 
         <details className={styles.helpPanel}>

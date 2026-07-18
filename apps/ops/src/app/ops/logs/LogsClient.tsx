@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CopyButton } from '@/components/CopyButton'
+import { DataTable, dataTableStyles } from '@/components/DataTable'
+import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { LOG_RUNBOOK_IDS } from '../runbooks'
@@ -43,7 +45,15 @@ const LEVEL_PRIORITY: Record<string, number> = {
   trace: 5,
 }
 
-function levelVariant(level: string | null): string {
+const LOG_COLUMNS = [
+  { key: 'time', label: 'Time' },
+  { key: 'level', label: 'Level' },
+  { key: 'service', label: 'Service' },
+  { key: 'message', label: 'Message' },
+  { key: 'details', label: <span className={dataTableStyles.srOnly}>Details</span> },
+]
+
+function levelVariant(level: string | null): OpsStatusVariant {
   switch (level) {
     case 'fatal':
     case 'error':
@@ -58,6 +68,10 @@ function levelVariant(level: string | null): string {
     default:
       return 'neutral'
   }
+}
+
+function levelLabel(level: string | null): string {
+  return level ? level.toUpperCase() : 'Unknown'
 }
 
 function fmtTs(ts: string): string {
@@ -198,22 +212,17 @@ function EntryRow({ entry, rowId }: EntryRowProps) {
   return (
     <>
       <tr
-        className={expandable ? logsStyles.expandableRow : undefined}
+        className={[dataTableStyles.row, expandable ? logsStyles.expandableRow : ''].filter(Boolean).join(' ')}
       >
-        <td className={`${styles.muted} ${logsStyles.tsCell}`}>{fmtTs(entry.ts)}</td>
+        <td className={`${dataTableStyles.muted} ${logsStyles.tsCell}`}>{fmtTs(entry.ts)}</td>
         <td>
-          <span
-            className={styles.badge}
-            data-variant={levelVariant(entry.level)}
-          >
-            {entry.level ?? '—'}
-          </span>
+          <OpsStatusChip label={levelLabel(entry.level)} variant={levelVariant(entry.level)} />
         </td>
         <td className={logsStyles.serviceCell}>
           {entry.service ? (
-            <code className={logsStyles.mono}>{entry.service}</code>
+            <code className={`${logsStyles.mono} ${dataTableStyles.primary}`}>{entry.service}</code>
           ) : (
-            <span className={styles.muted}>—</span>
+            <span className={dataTableStyles.muted}>—</span>
           )}
         </td>
         <td className={logsStyles.msgCell}>
@@ -442,28 +451,16 @@ export function LogsClient({ apiBaseUrl, initialSearch = '' }: LogsClientProps) 
             {'.'} Clear filters or widen the search to inspect more events.
           </p>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table} aria-label="Application log entries">
-              <caption className={styles.srOnly}>
-                {filtered.length} log {filtered.length === 1 ? 'entry' : 'entries'}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Time</th>
-                  <th scope="col">Level</th>
-                  <th scope="col">Service</th>
-                  <th scope="col">Message</th>
-                  <th scope="col"><span className={styles.srOnly}>Details</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((entry, i) => (
-                  // Entries don't have a stable unique id, use ts+index
-                  <EntryRow key={`${entry.ts}-${i}`} entry={entry} rowId={`log-detail-${i}`} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            ariaLabel="Application log entries"
+            caption={`${filtered.length} log ${filtered.length === 1 ? 'entry' : 'entries'}`}
+            columns={LOG_COLUMNS}
+          >
+            {filtered.map((entry, i) => (
+              // Entries don't have a stable unique id, use ts+index
+              <EntryRow key={`${entry.ts}-${i}`} entry={entry} rowId={`log-detail-${i}`} />
+            ))}
+          </DataTable>
         )}
 
         <details className={styles.helpPanel}>
