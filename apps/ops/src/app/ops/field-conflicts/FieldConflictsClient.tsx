@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
+import { ACTION_ICONS } from '../action-icons'
 
 /**
  * One #499 field-resolution conflict: a listing whose conversionType or
@@ -112,6 +113,7 @@ export function FieldConflictsClient({ apiBaseUrl }: FieldConflictsClientProps) 
               </select>
             </label>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>

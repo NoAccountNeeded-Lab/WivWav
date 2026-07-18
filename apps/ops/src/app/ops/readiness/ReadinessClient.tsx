@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { HealthResponse } from '@wivwav/types'
 import styles from '../ops.module.css'
+import { ACTION_ICONS } from '../action-icons'
 import {
   buildReadinessReport,
   type ListingSearchSnapshot,
@@ -79,6 +80,7 @@ export function ReadinessClient({ apiBaseUrl }: ReadinessClientProps) {
           </span>
           <div className={styles.controlsBarRight}>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>

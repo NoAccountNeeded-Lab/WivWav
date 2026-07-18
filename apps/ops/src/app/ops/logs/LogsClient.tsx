@@ -8,6 +8,7 @@ import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { LOG_RUNBOOK_IDS } from '../runbooks'
+import { ACTION_ICONS } from '../action-icons'
 import logsStyles from './logs.module.css'
 import {
   ansiToPlainText,
@@ -424,6 +425,7 @@ export function LogsClient({ apiBaseUrl, initialSearch = '' }: LogsClientProps) 
               onClick={() => void load()}
               disabled={isLoading}
             >
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isLoading ? 'Loading…' : 'Refresh'}
             </button>
           </div>

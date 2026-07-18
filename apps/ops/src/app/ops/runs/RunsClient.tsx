@@ -8,6 +8,7 @@ import { ScrapeRunChart, type ScrapeRunPoint } from '@wivwav/charts'
 import { DataTable, dataTableStyles } from '@/components/DataTable'
 import { OpsStatusChip } from '@/components/OpsStatusChip'
 import styles from '../ops.module.css'
+import { ACTION_ICONS } from '../action-icons'
 
 interface RunRow {
   id: string
@@ -158,6 +159,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
               {updatedAt ? `Updated ${fmtTime(updatedAt)}` : 'Loading…'}
             </span>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>

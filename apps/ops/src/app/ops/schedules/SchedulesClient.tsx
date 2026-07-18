@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CalendarClock, Clock3, Pencil, PlayCircle, Power, RotateCcw } from 'lucide-react'
+import { CalendarClock, Clock3, RotateCcw } from 'lucide-react'
 import { EntityList, EntityListRow, EntityMetaItem } from '@/components/EntityListRow'
 import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { SCHEDULE_RUNBOOK_IDS } from '../runbooks'
+import { ACTION_ICONS } from '../action-icons'
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { ScheduleTimeline } from './ScheduleTimeline'
@@ -194,6 +195,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
           </span>
           <div className={styles.controlsBarRight}>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
@@ -249,7 +251,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                           disabled={act?.loading}
                           onClick={() => void disable(entry)}
                         >
-                          <Power size={14} aria-hidden="true" />
+                          <ACTION_ICONS.disable size={14} aria-hidden="true" />
                           {act?.loading ? '…' : 'Disable'}
                         </button>
                       ) : (
@@ -259,7 +261,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                           disabled={act?.loading}
                           onClick={() => void enable(entry)}
                         >
-                          <PlayCircle size={14} aria-hidden="true" />
+                          <ACTION_ICONS.enable size={14} aria-hidden="true" />
                           {act?.loading ? '…' : 'Enable'}
                         </button>
                       )}
@@ -270,7 +272,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                           disabled={act?.loading}
                           onClick={() => setEditState({ id: entry.id, pattern: entry.pattern })}
                         >
-                          <Pencil size={14} aria-hidden="true" />
+                          <ACTION_ICONS.edit size={14} aria-hidden="true" />
                           Edit
                         </button>
                       )}
