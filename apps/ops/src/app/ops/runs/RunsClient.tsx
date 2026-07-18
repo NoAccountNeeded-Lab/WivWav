@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
-import { Activity } from 'lucide-react'
 import { ScrapeRunChart, type ScrapeRunPoint } from '@wivwav/charts'
 import { DataTable, dataTableStyles } from '@/components/DataTable'
 import { OpsStatusChip } from '@/components/OpsStatusChip'
@@ -168,7 +167,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
         {filtered && filtered.length > 0 && (
           <div className={styles.chartCard}>
             <div className={styles.chartCardHeader}>
-              <Activity size={12} />
+              <ACTION_ICONS.activity size={12} aria-hidden="true" />
               <span>Scrape Run History</span>
               <span className={styles.chartHint}>
                 Last {Math.min(scrapeRunPoints.length, 20)} {filter !== 'all' ? `${filter} ` : ''}runs · success/failure per run · height = listings found
