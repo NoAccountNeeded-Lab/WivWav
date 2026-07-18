@@ -67,9 +67,13 @@
 
       <!-- Related-vehicles carousel further down the page — uses a
            DIFFERENT, similarly-named "attribute" li/span/b markup for OTHER
-           vehicles. Must not be picked up by this vehicle's field mappings;
-           the declarative selectors below are scoped to ul.product_attributes,
-           which the carousel below does not use. -->
+           vehicles. Must not be picked up by this vehicle's field mappings.
+           The XPath selectors in freedom-motors-detail-mappings.ts search
+           the whole document (not scoped to any ancestor container) — what
+           actually excludes the carousel is that its rows use class
+           "attribute" while the real spec block above uses the distinct
+           "product_attribute-row" class the selectors require via
+           contains(@class,"product_attribute-row"). -->
       <div class="related-products">
         <div class="product-card">
           <ul class="products-list">

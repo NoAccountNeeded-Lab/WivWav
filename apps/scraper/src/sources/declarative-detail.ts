@@ -153,6 +153,16 @@ export function parseDeclarativeDetail(
   const saleStatusRaw = textField('saleStatus')
   const saleStatus: SaleStatus = saleStatusRaw ? parseSaleStatus(saleStatusRaw) : 'active'
 
+  // Unlike BLVD/MobilityWorks' bespoke parsers (whose `galleryFound` flag
+  // distinguishes "gallery container not found" from "container found but
+  // verified empty," refs #632), a single-selector declarative mapping has
+  // no separate "container" concept to check — zero matched elements always
+  // means 'missing' (preserve the prior value) here, never
+  // 'authoritative_empty' (clear it). This is a strictly safer default for
+  // the "must not fabricate values" requirement, at the cost of never
+  // auto-clearing a gallery that's genuinely gone to zero photos; that
+  // narrower distinction can be added later via a two-mapping (container +
+  // items) convention if a source needs it.
   const images = mappingByField.has('images') ? (raw['images']?.values ?? []) : []
 
   return {
