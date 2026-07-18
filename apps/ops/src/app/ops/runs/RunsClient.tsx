@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { Activity } from 'lucide-react'
 import { ScrapeRunChart, type ScrapeRunPoint } from '@wivwav/charts'
+import { DataTable, dataTableStyles } from '@/components/DataTable'
+import { OpsStatusChip } from '@/components/OpsStatusChip'
 import styles from '../ops.module.css'
 
 interface RunRow {
@@ -27,6 +29,16 @@ interface RunsClientProps {
 }
 
 const REFRESH_MS = 15_000
+const RUN_COLUMNS = [
+  { key: 'started', label: 'Started' },
+  { key: 'source', label: 'Source' },
+  { key: 'result', label: 'Result' },
+  { key: 'duration', label: 'Duration' },
+  { key: 'found', label: 'Found', align: 'end' as const },
+  { key: 'new', label: 'New', align: 'end' as const },
+  { key: 'updated', label: 'Updated', align: 'end' as const },
+  { key: 'error', label: 'Error' },
+]
 
 function duration(start: string, end: string | null): string {
   if (!end) return 'running…'
@@ -42,6 +54,16 @@ function fmtTime(date: Date): string {
     minute: '2-digit',
     second: '2-digit',
   }).format(date)
+}
+
+function formatCount(value: number | null): string {
+  return value == null ? '—' : value.toLocaleString()
+}
+
+function resultChip(success: boolean | null) {
+  if (success == null) return <OpsStatusChip label="In progress" variant="neutral" />
+  if (success) return <OpsStatusChip label="Success" variant="success" />
+  return <OpsStatusChip label="Failed" variant="danger" />
 }
 
 export function RunsClient({ apiBaseUrl }: RunsClientProps) {
@@ -168,50 +190,39 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
             No {filter !== 'all' ? `${filter} ` : ''}runs found. Run a source from Source health or choose a different filter.
           </p>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Source</th>
-                  <th>Result</th>
-                  <th>Duration</th>
-                  <th className={styles.num}>Found</th>
-                  <th className={styles.num}>New</th>
-                  <th className={styles.num}>Updated</th>
-                  <th>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(r => (
-                  <tr key={r.id}>
-                    <td className={styles.muted}><RelativeTimestamp value={r.startedAt} /></td>
-                    <td>
-                      {r.sourceName
-                        ? <span style={{ fontWeight: 600 }}>{r.sourceName}</span>
-                        : <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'var(--clr-text-muted)' }}>{r.sourceId.slice(0, 8)}…</span>}
-                    </td>
-                    <td>
-                      {r.success == null
-                        ? <span className={styles.badge} data-variant="neutral">In progress</span>
-                        : r.success
-                          ? <span className={styles.badge} data-variant="success">Success</span>
-                          : <span className={styles.badge} data-variant="danger">Failed</span>}
-                    </td>
-                    <td className={styles.muted}>{duration(r.startedAt, r.finishedAt)}</td>
-                    <td className={styles.num}>{r.listingsFound ?? '—'}</td>
-                    <td className={styles.num}>{r.listingsNew ?? '—'}</td>
-                    <td className={styles.num}>{r.listingsUpdated ?? '—'}</td>
-                    <td>
-                      {r.errorMessage
-                        ? <span className={styles.errorMsg}>{r.errorMessage}</span>
-                        : <span className={styles.muted}>—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            ariaLabel="Listing import activity runs"
+            caption={`${filtered.length} ${filtered.length === 1 ? 'run' : 'runs'} in the current filter`}
+            columns={RUN_COLUMNS}
+          >
+            {filtered.map(r => (
+              <tr key={r.id} className={dataTableStyles.row}>
+                <td className={dataTableStyles.muted}><RelativeTimestamp value={r.startedAt} /></td>
+                <td>
+                  {r.sourceName ? (
+                    <>
+                      <span className={dataTableStyles.primary}>{r.sourceName}</span>
+                      <span className={`${dataTableStyles.secondary} ${dataTableStyles.mono}`}>{r.sourceId}</span>
+                    </>
+                  ) : (
+                    <span className={`${dataTableStyles.primary} ${dataTableStyles.mono}`}>{r.sourceId}</span>
+                  )}
+                </td>
+                <td className={dataTableStyles.statusCell}>{resultChip(r.success)}</td>
+                <td className={dataTableStyles.muted}>{duration(r.startedAt, r.finishedAt)}</td>
+                <td className={dataTableStyles.numeric}>{formatCount(r.listingsFound)}</td>
+                <td className={dataTableStyles.numeric}>{formatCount(r.listingsNew)}</td>
+                <td className={dataTableStyles.numeric}>{formatCount(r.listingsUpdated)}</td>
+                <td>
+                  {r.errorMessage ? (
+                    <span className={styles.errorMsg}>{r.errorMessage}</span>
+                  ) : (
+                    <span className={dataTableStyles.muted}>—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </DataTable>
         )}
 
         <details className={styles.helpPanel}>
