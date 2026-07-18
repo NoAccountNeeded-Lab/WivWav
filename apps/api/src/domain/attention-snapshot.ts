@@ -34,13 +34,25 @@ const VERY_STALE_SCRAPE_MS = 48 * 60 * 60 * 1000
 const POSSIBLY_GONE_WARNING_RATIO = 0.2
 
 export function computeAttentionSnapshot(request: AttentionSnapshotRequest): AttentionSnapshot {
+  // A resource marked `unavailable` contributes no conditions even if it
+  // still carries a stale `data` value (e.g. `usePolledResource` keeps the
+  // last-known-good value across a failed poll) — otherwise this would
+  // surface conditions computed from data the caller has explicitly told us
+  // not to trust, while `signalAvailability` simultaneously reports that
+  // same backend as unreachable.
+  const health = request.health.unavailable ? null : request.health.data
+  const sources = request.sources.unavailable ? null : request.sources.data
+  const queues = request.queues.unavailable ? null : request.queues.data
+  const schedules = request.schedules.unavailable ? null : request.schedules.data
+  const runs = request.runs.unavailable ? null : request.runs.data
+
   const conditions: AttentionCondition[] = [
-    ...healthConditions(request.health.data),
-    ...sourceConditions(request.sources.data),
-    ...queueConditions(request.queues.data),
-    ...scheduleConditions(request.schedules.data),
-    ...freshnessConditions(request.runs.data, request.now),
-    ...geocodeConditions(request.queues.data),
+    ...healthConditions(health),
+    ...sourceConditions(sources),
+    ...queueConditions(queues),
+    ...scheduleConditions(schedules),
+    ...freshnessConditions(runs, request.now),
+    ...geocodeConditions(queues),
   ]
 
   return {
