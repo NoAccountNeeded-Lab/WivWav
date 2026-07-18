@@ -45,6 +45,7 @@ import { CopyButton } from '@/components/CopyButton'
 import { SkeletonChartBox } from '@/components/Skeleton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
+import { ACTION_ICONS } from './action-icons'
 import type { ScrapeRunPoint } from '@wivwav/charts'
 import { fetchJson } from '@/lib/fetch-json'
 import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
@@ -252,7 +253,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
             onClick={refreshAll}
             disabled={isRefreshing}
           >
-            <RefreshCw size={13} className={isRefreshing ? styles.spinning : undefined} />
+            <ACTION_ICONS.refresh size={13} aria-hidden="true" className={isRefreshing ? styles.spinning : undefined} />
             {isRefreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
@@ -287,7 +288,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
                       onClick={() => void retryResource.retry()}
                       disabled={retryResource.isRefreshing}
                     >
-                      <RefreshCw size={11} className={retryResource.isRefreshing ? styles.spinning : undefined} />
+                      <ACTION_ICONS.refresh size={11} aria-hidden="true" className={retryResource.isRefreshing ? styles.spinning : undefined} />
                       {retryResource.isRefreshing ? 'Retrying…' : 'Retry'}
                     </button>
                   )}

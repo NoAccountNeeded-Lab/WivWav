@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Activity, PauseCircle, PlayCircle, Workflow, Zap } from 'lucide-react'
+import { Workflow } from 'lucide-react'
 import { EntityList, EntityListRow, EntityMetaItem } from '@/components/EntityListRow'
 import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsProgressDeterminate, OpsProgressIndeterminate } from '@/components/OpsProgress'
@@ -11,6 +11,7 @@ import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { buildJobProgressModel, buildQueueSnapshotProgress } from './progress'
 import { QUEUE_RUNBOOK_IDS } from '../runbooks'
+import { ACTION_ICONS } from '../action-icons'
 
 interface QueueStats {
   waiting: number
@@ -302,6 +303,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
           </span>
           <div className={styles.controlsBarRight}>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
             <a href="/admin/board" target="_blank" rel="noopener noreferrer" className={`${styles.btn} ${styles.btnGhost}`}>
@@ -372,7 +374,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                           disabled={act?.loading}
                           onClick={() => void resumeQueue(q.name)}
                         >
-                          <PlayCircle size={14} aria-hidden="true" />
+                          <ACTION_ICONS.resume size={14} aria-hidden="true" />
                           Resume
                         </button>
                       ) : (
@@ -382,7 +384,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                           disabled={act?.loading}
                           onClick={() => void pauseQueue(q.name)}
                         >
-                          <PauseCircle size={14} aria-hidden="true" />
+                          <ACTION_ICONS.pause size={14} aria-hidden="true" />
                           Pause
                         </button>
                       )}
@@ -393,7 +395,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                           disabled={act?.loading}
                           onClick={() => void triggerQueue(q.name)}
                         >
-                          <Zap size={14} aria-hidden="true" />
+                          <ACTION_ICONS.trigger size={14} aria-hidden="true" />
                           Trigger
                         </button>
                       )}
@@ -402,7 +404,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                         type="button"
                         onClick={() => setSelectedQueue(prev => prev === q.name ? null : q.name)}
                       >
-                        <Activity size={14} aria-hidden="true" />
+                        <ACTION_ICONS.activity size={14} aria-hidden="true" />
                         Activity
                       </button>
                     </>
@@ -435,6 +437,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                               <p className={styles.activityMeta}>Auto-refreshes every 3 s</p>
                             </div>
                             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refreshQueueDetail(q.name)}>
+                              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
                               Refresh
                             </button>
                           </div>

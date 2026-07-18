@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { AI_RUNBOOK_IDS } from '../runbooks'
+import { ACTION_ICONS } from '../action-icons'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { MODEL_CATALOG, JOB_RECOMMENDATIONS } from './model-catalog'
 import { JobTestPanel } from './JobTestPanels'
@@ -379,6 +380,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
               onClick={() => void refresh()}
               disabled={isRefreshing}
             >
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
@@ -513,6 +515,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                                   onClick={() => void remapNow(s.id)}
                                   aria-label={`Enqueue scrape-and-remap job for ${s.name}`}
                                 >
+                                  <ACTION_ICONS.trigger size={13} aria-hidden="true" />
                                   {rs?.loading ? 'Enqueueing…' : 'Remap Now'}
                                 </button>
                                 {rs?.feedback && (
