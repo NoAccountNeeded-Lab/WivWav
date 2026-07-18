@@ -40,3 +40,59 @@ describe('QueuesClient progress', () => {
     expect(fills.some(fill => fill.style.width === '60%')).toBe(true)
   })
 })
+
+describe('QueuesClient action icons (#764)', () => {
+  it('renders a leading icon on the Pause, Trigger, Activity, and Refresh buttons', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/admin/queues')) {
+        return jsonResponse({
+          data: [{
+            name: 'detail-crawl',
+            paused: false,
+            stats: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
+            policy: { concurrency: 1, retention: { completed: 25, failed: 25 } },
+          }],
+        })
+      }
+
+      throw new Error(`Unexpected URL in test: ${url}`)
+    }))
+
+    render(<QueuesClient apiBaseUrl="" />)
+
+    const pauseBtn = await screen.findByRole('button', { name: 'Pause' })
+    expect(pauseBtn.querySelector('svg.lucide-pause')).not.toBeNull()
+
+    const triggerBtn = screen.getByRole('button', { name: 'Trigger' })
+    expect(triggerBtn.querySelector('svg.lucide-zap')).not.toBeNull()
+
+    const activityBtn = screen.getByRole('button', { name: 'Activity' })
+    expect(activityBtn.querySelector('svg.lucide-activity')).not.toBeNull()
+
+    const refreshBtn = screen.getByRole('button', { name: 'Refresh' })
+    expect(refreshBtn.querySelector('svg.lucide-refresh-cw')).not.toBeNull()
+  })
+
+  it('renders a distinct Resume icon from Pause on a paused queue', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/admin/queues')) {
+        return jsonResponse({
+          data: [{
+            name: 'detail-crawl',
+            paused: true,
+            stats: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
+            policy: { concurrency: 1, retention: { completed: 25, failed: 25 } },
+          }],
+        })
+      }
+
+      throw new Error(`Unexpected URL in test: ${url}`)
+    }))
+
+    render(<QueuesClient apiBaseUrl="" />)
+
+    const resumeBtn = await screen.findByRole('button', { name: 'Resume' })
+    expect(resumeBtn.querySelector('svg.lucide-play')).not.toBeNull()
+    expect(resumeBtn.querySelector('svg.lucide-pause')).toBeNull()
+  })
+})

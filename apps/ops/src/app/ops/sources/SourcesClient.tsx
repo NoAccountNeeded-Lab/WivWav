@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Globe, Link2, PlayCircle, Power, RadioTower } from 'lucide-react'
+import { Globe, Link2, RadioTower } from 'lucide-react'
 import { EntityList, EntityListRow, EntityMetaItem } from '@/components/EntityListRow'
 import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsRunbooks } from '../OpsRunbooks'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
 import { SOURCE_RUNBOOK_IDS } from '../runbooks'
+import { ACTION_ICONS } from '../action-icons'
 
 interface SourceRow {
   id: string
@@ -136,6 +137,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
           </span>
           <div className={styles.controlsBarRight}>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
@@ -186,7 +188,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                         onClick={() => void runNow(s.id)}
                         aria-label={`Run ${s.name} scrape now`}
                       >
-                        <PlayCircle size={14} aria-hidden="true" />
+                        <ACTION_ICONS.trigger size={14} aria-hidden="true" />
                         {rs?.loading ? 'Enqueueing…' : 'Run Now'}
                       </button>
                       <button
@@ -196,7 +198,9 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                         onClick={() => void setSourceEnabled(s.id, s.status === 'disabled')}
                         aria-label={`${s.status === 'disabled' ? 'Enable' : 'Disable'} ${s.name}`}
                       >
-                        <Power size={14} aria-hidden="true" />
+                        {s.status === 'disabled'
+                          ? <ACTION_ICONS.enable size={14} aria-hidden="true" />
+                          : <ACTION_ICONS.disable size={14} aria-hidden="true" />}
                         {s.status === 'disabled' ? 'Enable' : 'Disable'}
                       </button>
                     </>

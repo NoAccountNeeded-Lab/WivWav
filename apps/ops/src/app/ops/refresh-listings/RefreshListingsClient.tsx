@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { OpsProgressDeterminate } from '@/components/OpsProgress'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
+import { ACTION_ICONS } from '../action-icons'
 import {
   buildListingRefreshSteps,
   buildWorkflowProgressSummary,
@@ -126,6 +127,7 @@ export function RefreshListingsClient({ apiBaseUrl }: RefreshListingsClientProps
           <div className={styles.controlsBarRight}>
             <Link href="/ops/queues" className={`${styles.btn} ${styles.btnGhost}`}>Advanced queues</Link>
             <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refresh()} disabled={isRefreshing}>
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>

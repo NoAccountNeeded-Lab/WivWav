@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import styles from '../ops.module.css'
+import { ACTION_ICONS } from '../action-icons'
 import { buildSecretRequest } from './config-helpers'
 
 interface ConfigEntry {
@@ -288,6 +289,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
               onClick={() => void refreshConfig()}
               disabled={loading}
             >
+              <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {loading ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
@@ -395,6 +397,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
                           onClick={() => void saveJob(job)}
                           disabled={!dirty || saveState?.loading}
                         >
+                          <ACTION_ICONS.save size={13} aria-hidden="true" />
                           {saveState?.loading ? 'Saving...' : 'Save'}
                         </button>
                       </td>
@@ -454,6 +457,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
                             onClick={() => void deleteSecret(secret.key)}
                             disabled={saveState?.loading}
                           >
+                            <ACTION_ICONS.delete size={13} aria-hidden="true" />
                             {saveState?.loading ? 'Deleting...' : 'Delete'}
                           </button>
                         </td>
@@ -507,6 +511,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
                 onClick={() => void saveSecret()}
                 disabled={saveStates.secret?.loading}
               >
+                <ACTION_ICONS.save size={13} aria-hidden="true" />
                 {saveStates.secret?.loading ? 'Storing...' : 'Store key'}
               </button>
               <span
