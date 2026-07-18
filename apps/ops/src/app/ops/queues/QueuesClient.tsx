@@ -1,7 +1,10 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Activity, PauseCircle, PlayCircle, Workflow, Zap } from 'lucide-react'
+import { EntityList, EntityListRow, EntityMetaItem } from '@/components/EntityListRow'
+import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsProgressDeterminate, OpsProgressIndeterminate } from '@/components/OpsProgress'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { OpsRunbooks } from '../OpsRunbooks'
@@ -165,6 +168,16 @@ interface QueuesClientProps {
 
 const REFRESH_MS = 15_000
 
+function formatCount(value: number): string {
+  return value.toLocaleString()
+}
+
+function queueStatus(paused: boolean, active: number): { label: string; variant: OpsStatusVariant } {
+  if (paused) return { label: 'Paused', variant: 'paused' }
+  if (active > 0) return { label: 'Active', variant: 'success' }
+  return { label: 'Idle', variant: 'neutral' }
+}
+
 export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   const [queues, setQueues] = useState<QueueRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -321,230 +334,190 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
         ) : queues.length === 0 ? (
           <p className={styles.empty}>No background job queues were returned. Start the worker stack, then refresh diagnostics.</p>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Queue</th>
-                  <th>Status</th>
-                  <th className={styles.num}>Waiting</th>
-                  <th className={styles.num}>Active</th>
-                  <th className={styles.num}>Delayed</th>
-                  <th className={styles.num}>Completed</th>
-                  <th className={styles.num}>Failed</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {queues.map(q => {
-                  const meta = QUEUE_META[q.name]
-                  const act = actionStates[q.name]
-                  const isImpl = !!meta
-                  const isExpanded = selectedQueue === q.name
-                  return (
-                    <Fragment key={q.name}>
-                      <tr className={isImpl ? undefined : styles.dimRow}>
-                        <td>
-                          <div className={styles.queueNameWrap}>
-                            <div className={styles.queueName}>
-                              <code style={{ fontSize: '0.8125rem' }}>{q.name}</code>
-                              {meta && (
-                                // Not a control (no click/keydown handler): tabIndex makes it
-                                // focusable so :focus CSS reveals the tooltip for keyboard
-                                // users the same way :hover does for pointer users. aria-label
-                                // already exposes the short description to assistive tech.
-                                <span
-                                  className={styles.tip}
-                                  data-tip={`${meta.short}\n\n${meta.detail}`}
-                                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-                                  tabIndex={0}
-                                  aria-label={`Info: ${meta.short}`}
-                                >?</span>
-                              )}
+          <EntityList ariaLabel="Queue diagnostics rows">
+            {queues.map((q) => {
+              const meta = QUEUE_META[q.name]
+              const act = actionStates[q.name]
+              const isImpl = !!meta
+              const isExpanded = selectedQueue === q.name
+              const status = queueStatus(q.paused, q.stats.active)
+              const progress = buildQueueSnapshotProgress(q.stats)
+
+              return (
+                <EntityListRow
+                  key={q.name}
+                  icon={<Workflow size={18} />}
+                  title={q.name}
+                  ariaLabel={`${q.name}, ${status.label}, waiting ${formatCount(q.stats.waiting)}, active ${formatCount(q.stats.active)}, delayed ${formatCount(q.stats.delayed)}, completed ${formatCount(q.stats.completed)}, failed ${formatCount(q.stats.failed)}`}
+                  dimmed={!isImpl}
+                  status={<OpsStatusChip label={status.label} variant={status.variant} />}
+                  secondary={meta ? meta.short : 'Not yet implemented'}
+                  meta={(
+                    <>
+                      <EntityMetaItem emphasis>{formatCount(q.stats.waiting)} waiting</EntityMetaItem>
+                      <EntityMetaItem emphasis>{formatCount(q.stats.active)} active</EntityMetaItem>
+                      <EntityMetaItem emphasis>{formatCount(q.stats.delayed)} delayed</EntityMetaItem>
+                      <EntityMetaItem emphasis>{formatCount(q.stats.completed)} completed</EntityMetaItem>
+                      <EntityMetaItem emphasis>{formatCount(q.stats.failed)} failed</EntityMetaItem>
+                      <EntityMetaItem>concurrency {q.policy.concurrency}</EntityMetaItem>
+                      <EntityMetaItem>keep {q.policy.retention.completed} completed / {q.policy.retention.failed} failed</EntityMetaItem>
+                    </>
+                  )}
+                  actions={isImpl ? (
+                    <>
+                      {q.paused ? (
+                        <button
+                          className={`${styles.btn} ${styles.btnPrimary}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => void resumeQueue(q.name)}
+                        >
+                          <PlayCircle size={14} aria-hidden="true" />
+                          Resume
+                        </button>
+                      ) : (
+                        <button
+                          className={`${styles.btn} ${styles.btnGhost}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => void pauseQueue(q.name)}
+                        >
+                          <PauseCircle size={14} aria-hidden="true" />
+                          Pause
+                        </button>
+                      )}
+                      {meta.canTrigger && (
+                        <button
+                          className={`${styles.btn} ${styles.btnGhost}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => void triggerQueue(q.name)}
+                        >
+                          <Zap size={14} aria-hidden="true" />
+                          Trigger
+                        </button>
+                      )}
+                      <button
+                        className={`${styles.btn} ${isExpanded ? styles.btnPrimary : styles.btnGhost}`}
+                        type="button"
+                        onClick={() => setSelectedQueue(prev => prev === q.name ? null : q.name)}
+                      >
+                        <Activity size={14} aria-hidden="true" />
+                        Activity
+                      </button>
+                    </>
+                  ) : undefined}
+                  feedback={act?.feedback}
+                  feedbackIsError={Boolean(act?.isError)}
+                  expandedContent={(
+                    <>
+                      {progress ? (
+                        <div className={styles.queueProgress} style={{ marginTop: 0, marginBottom: '1rem' }}>
+                          <OpsProgressDeterminate
+                            value={progress.value}
+                            min={0}
+                            max={progress.max}
+                            label={`${q.name} queue snapshot progress`}
+                            caption={progress.caption}
+                          />
+                          <span className={styles.queueProgressMeta}>{progress.statusText}</span>
+                        </div>
+                      ) : (
+                        <p className={styles.queueProgressMeta} style={{ marginTop: 0, marginBottom: '1rem' }}>
+                          No visible jobs in this snapshot yet.
+                        </p>
+                      )}
+                      {isExpanded ? (
+                        <>
+                          <div className={styles.activityHeader}>
+                            <div>
+                              <h2 className={styles.activityTitle}>{q.name} activity</h2>
+                              <p className={styles.activityMeta}>Auto-refreshes every 3 s</p>
                             </div>
-                            {meta && <div className={styles.queueDesc}>{meta.short}</div>}
-                            <div className={styles.queueDesc}>
-                              concurrency {q.policy.concurrency} · keep {q.policy.retention.completed} completed / {q.policy.retention.failed} failed
-                            </div>
-                            {(() => {
-                              const progress = buildQueueSnapshotProgress(q.stats)
-                              return progress ? (
-                                <div className={styles.queueProgress}>
-                                  <OpsProgressDeterminate
-                                    value={progress.value}
-                                    min={0}
-                                    max={progress.max}
-                                    label={`${q.name} queue snapshot progress`}
-                                    caption={progress.caption}
-                                  />
-                                  <span className={styles.queueProgressMeta}>{progress.statusText}</span>
-                                </div>
-                              ) : (
-                                <div className={styles.queueProgress}>
-                                  <span className={styles.queueProgressMeta}>No visible jobs in this snapshot yet.</span>
-                                </div>
-                              )
-                            })()}
-                            {!meta && <div className={styles.queueDesc}>Not yet implemented</div>}
+                            <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refreshQueueDetail(q.name)}>
+                              Refresh
+                            </button>
                           </div>
-                        </td>
-                        <td>
-                          <span
-                            className={styles.badge}
-                            data-variant={q.paused ? 'paused' : q.stats.active > 0 ? 'success' : 'neutral'}
-                          >
-                            {q.paused ? 'Paused' : q.stats.active > 0 ? 'Active' : 'Idle'}
-                          </span>
-                        </td>
-                        <td className={styles.num}>{q.stats.waiting}</td>
-                        <td className={styles.num}>{q.stats.active}</td>
-                        <td className={styles.num}>{q.stats.delayed}</td>
-                        <td className={styles.num}>{q.stats.completed}</td>
-                        <td className={styles.num}>
-                          {q.stats.failed > 0
-                            ? <span style={{ color: 'var(--clr-danger-text)', fontWeight: 600 }}>{q.stats.failed}</span>
-                            : 0}
-                        </td>
-                        <td>
-                          {isImpl && (
-                            <div className={styles.actions}>
-                              {q.paused ? (
-                                <button
-                                  className={`${styles.btn} ${styles.btnPrimary}`}
-                                  type="button"
-                                  disabled={act?.loading}
-                                  onClick={() => void resumeQueue(q.name)}
-                                >
-                                  Resume
-                                </button>
-                              ) : (
-                                <button
-                                  className={`${styles.btn} ${styles.btnGhost}`}
-                                  type="button"
-                                  disabled={act?.loading}
-                                  onClick={() => void pauseQueue(q.name)}
-                                >
-                                  Pause
-                                </button>
-                              )}
-                              {meta.canTrigger && (
-                                <button
-                                  className={`${styles.btn} ${styles.btnGhost}`}
-                                  type="button"
-                                  disabled={act?.loading}
-                                  onClick={() => void triggerQueue(q.name)}
-                                >
-                                  Trigger
-                                </button>
-                              )}
-                              <button
-                                className={`${styles.btn} ${isExpanded ? styles.btnPrimary : styles.btnGhost}`}
-                                type="button"
-                                onClick={() => setSelectedQueue(prev => prev === q.name ? null : q.name)}
-                              >
-                                Activity
-                              </button>
-                              {act?.feedback && (
-                                <span className={act.isError ? styles.errorMsg : styles.muted} style={{ fontSize: '0.75rem' }}>
-                                  {act.feedback}
-                                </span>
-                              )}
+                          {detailError ? (
+                            <p className={styles.error}>
+                              Activity could not load: {detailError}. Retry with Refresh or open Bull Board diagnostics for raw job details.
+                            </p>
+                          ) : !queueDetail || queueDetail.name !== q.name ? (
+                            <p className={styles.empty}>Loading recent activity for this queue.</p>
+                          ) : queueDetail.jobs.length === 0 ? (
+                            <p className={styles.empty}>No recent jobs. Trigger a supported job or wait for the next schedule, then refresh activity.</p>
+                          ) : (
+                            <div className={styles.jobList}>
+                              {queueDetail.jobs.map((job) => (
+                                <article key={job.id} className={styles.jobItem}>
+                                  <div className={styles.jobTopline}>
+                                    <code className={styles.jobId}>#{job.id}</code>
+                                    <OpsStatusChip
+                                      label={job.status}
+                                      variant={job.status === 'failed' ? 'danger' : job.status === 'active' ? 'success' : 'neutral'}
+                                    />
+                                    <span className={styles.muted}>attempts {job.attemptsMade}</span>
+                                    <span className={styles.muted}><RelativeTimestamp value={job.createdAt} /></span>
+                                  </div>
+                                  <div className={styles.jobGrid}>
+                                    <div>
+                                      <h3 className={styles.jobSubhead}>Progress</h3>
+                                      {(() => {
+                                        const jobProgress = buildJobProgressModel(job)
+                                        if (jobProgress.kind === 'determinate') {
+                                          return (
+                                            <div className={styles.jobProgress}>
+                                              <OpsProgressDeterminate
+                                                value={jobProgress.value}
+                                                min={0}
+                                                max={jobProgress.max}
+                                                label={jobProgress.label}
+                                                caption={jobProgress.caption}
+                                              />
+                                            </div>
+                                          )
+                                        }
+
+                                        if (jobProgress.kind === 'indeterminate') {
+                                          return (
+                                            <div className={styles.jobProgress}>
+                                              <OpsProgressIndeterminate statusText={jobProgress.statusText} />
+                                            </div>
+                                          )
+                                        }
+
+                                        return null
+                                      })()}
+                                      <pre className={styles.miniCode}>{formatUnknown(job.progress)}</pre>
+                                    </div>
+                                    <div>
+                                      <h3 className={styles.jobSubhead}>Payload</h3>
+                                      <pre className={styles.miniCode}>{formatUnknown(job.data)}</pre>
+                                    </div>
+                                  </div>
+                                  {job.failedReason && <p className={styles.errorMsg}>{job.failedReason}</p>}
+                                  <div>
+                                    <h3 className={styles.jobSubhead}>Logs</h3>
+                                    {job.logs.length === 0 ? (
+                                      <p className={styles.muted}>No logs yet.</p>
+                                    ) : (
+                                      <ol className={styles.logList}>
+                                        {job.logs.map((line, i) => <li key={`${job.id}-${i}`}>{line}</li>)}
+                                      </ol>
+                                    )}
+                                  </div>
+                                </article>
+                              ))}
                             </div>
                           )}
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr className={styles.expandedRow}>
-                          <td colSpan={8}>
-                            <div className={styles.activityHeader}>
-                              <div>
-                                <h2 className={styles.activityTitle}>{q.name} activity</h2>
-                                <p className={styles.activityMeta}>Auto-refreshes every 3 s</p>
-                              </div>
-                              <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refreshQueueDetail(q.name)}>
-                                Refresh
-                              </button>
-                            </div>
-                            {detailError ? (
-                              <p className={`${styles.error}`} style={{ margin: '1rem' }}>
-                                Activity could not load: {detailError}. Retry with Refresh or open Bull Board diagnostics for raw job details.
-                              </p>
-                            ) : !queueDetail || queueDetail.name !== q.name ? (
-                              <p className={styles.empty} style={{ padding: '1rem' }}>Loading recent activity for this queue.</p>
-                            ) : queueDetail.jobs.length === 0 ? (
-                              <p className={styles.empty} style={{ padding: '1rem' }}>No recent jobs. Trigger a supported job or wait for the next schedule, then refresh activity.</p>
-                            ) : (
-                              <div className={styles.jobList}>
-                                {queueDetail.jobs.map(job => (
-                                  <article key={job.id} className={styles.jobItem}>
-                                    <div className={styles.jobTopline}>
-                                      <code className={styles.jobId}>#{job.id}</code>
-                                      <span className={styles.badge} data-variant={job.status === 'failed' ? 'danger' : job.status === 'active' ? 'success' : 'neutral'}>
-                                        {job.status}
-                                      </span>
-                                      <span className={styles.muted}>attempts {job.attemptsMade}</span>
-                                      <span className={styles.muted}><RelativeTimestamp value={job.createdAt} /></span>
-                                    </div>
-                                    <div className={styles.jobGrid}>
-                                      <div>
-                                        <h3 className={styles.jobSubhead}>Progress</h3>
-                                        {(() => {
-                                          const progress = buildJobProgressModel(job)
-                                          if (progress.kind === 'determinate') {
-                                            return (
-                                              <div className={styles.jobProgress}>
-                                                <OpsProgressDeterminate
-                                                  value={progress.value}
-                                                  min={0}
-                                                  max={progress.max}
-                                                  label={progress.label}
-                                                  caption={progress.caption}
-                                                />
-                                              </div>
-                                            )
-                                          }
-
-                                          if (progress.kind === 'indeterminate') {
-                                            return (
-                                              <div className={styles.jobProgress}>
-                                                <OpsProgressIndeterminate statusText={progress.statusText} />
-                                              </div>
-                                            )
-                                          }
-
-                                          return null
-                                        })()}
-                                        <pre className={styles.miniCode}>{formatUnknown(job.progress)}</pre>
-                                      </div>
-                                      <div>
-                                        <h3 className={styles.jobSubhead}>Payload</h3>
-                                        <pre className={styles.miniCode}>{formatUnknown(job.data)}</pre>
-                                      </div>
-                                    </div>
-                                    {job.failedReason && <p className={styles.errorMsg}>{job.failedReason}</p>}
-                                    <div>
-                                      <h3 className={styles.jobSubhead}>Logs</h3>
-                                      {job.logs.length === 0 ? (
-                                        <p className={styles.muted}>No logs yet.</p>
-                                      ) : (
-                                        <ol className={styles.logList}>
-                                          {job.logs.map((line, i) => <li key={`${job.id}-${i}`}>{line}</li>)}
-                                        </ol>
-                                      )}
-                                    </div>
-                                  </article>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </>
+                      ) : progress ? <span className={styles.queueProgressMeta}>Open Activity for recent jobs and raw payload details.</span> : undefined}
+                    </>
+                  )}
+                />
+              )
+            })}
+          </EntityList>
         )}
 
         <details className={styles.helpPanel}>

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { CalendarClock, Clock3, Pencil, PlayCircle, Power, RotateCcw } from 'lucide-react'
+import { EntityList, EntityListRow, EntityMetaItem } from '@/components/EntityListRow'
+import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { OpsRunbooks } from '../OpsRunbooks'
 import styles from '../ops.module.css'
 import { SCHEDULE_RUNBOOK_IDS } from '../runbooks'
@@ -44,6 +47,19 @@ interface ActionState {
 }
 
 const REFRESH_MS = 30_000
+
+function enabledStatus(enabled: boolean): { label: string; variant: OpsStatusVariant } {
+  return enabled
+    ? { label: 'Enabled', variant: 'success' }
+    : { label: 'Disabled', variant: 'neutral' }
+}
+
+function lastRunVariant(status: ScheduleEntry['lastStatus']): OpsStatusVariant {
+  if (status === 'failed') return 'danger'
+  if (status === 'active') return 'warning'
+  if (status === 'completed') return 'success'
+  return 'muted'
+}
 
 export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
   const [schedules, setSchedules] = useState<ScheduleEntry[] | null>(null)
@@ -194,161 +210,117 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
         ) : (
           <>
           <ScheduleTimeline schedules={schedules} />
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Job</th>
-                  <th>Queue</th>
-                  <th>Pattern</th>
-                  <th>Timezone</th>
-                  <th>Next run</th>
-                  <th>Last run</th>
-                  <th>Recent failures</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedules.map((entry) => {
-                  const act = actionStates[entry.id]
-                  const isEditing = editState?.id === entry.id
+          <EntityList ariaLabel="Recurring job rows">
+            {schedules.map((entry) => {
+              const act = actionStates[entry.id]
+              const isEditing = editState?.id === entry.id
+              const enabled = enabledStatus(entry.enabled)
 
-                  return (
-                    <tr key={entry.id}>
-                      <td>
-                        <div className={styles.queueName} style={{ fontWeight: 500 }}>{entry.label}</div>
-                        <div className={styles.queueDesc} style={{ fontSize: '0.75rem' }}>
-                          {entry.name}{entry.jobId ? ` · ${entry.jobId}` : ''}
-                        </div>
-                      </td>
-                      <td><code style={{ fontSize: '0.8125rem' }}>{entry.queue}</code></td>
-                      <td>
-                        {isEditing ? (
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <input
-                              className={styles.input}
-                              value={editState.pattern}
-                              onChange={(e) => setEditState({ id: entry.id, pattern: e.target.value })}
-                              style={{ fontFamily: 'monospace', fontSize: '0.8125rem', width: '10rem' }}
-                              aria-label="Cron pattern"
-                            />
-                            <button
-                              className={`${styles.btn} ${styles.btnPrimary}`}
-                              style={{ padding: '0.25rem 0.625rem', fontSize: '0.8125rem' }}
-                              type="button"
-                              disabled={act?.loading}
-                              onClick={() => void updatePattern(entry, editState.pattern)}
-                            >
-                              Save
-                            </button>
-                            <button
-                              className={`${styles.btn} ${styles.btnGhost}`}
-                              style={{ padding: '0.25rem 0.625rem', fontSize: '0.8125rem' }}
-                              type="button"
-                              onClick={() => setEditState(null)}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <code style={{ fontSize: '0.8125rem' }}>{entry.pattern}</code>
-                        )}
-                      </td>
-                      <td className={styles.muted} style={{ fontSize: '0.8125rem' }}>{entry.tz}</td>
-                      <td className={styles.muted} style={{ fontSize: '0.8125rem' }}>
-                        <RelativeTimestamp value={entry.next} fallback="—" />
-                      </td>
-                      <td>
-                        <div className={styles.queueNameWrap}>
-                          <span className={styles.muted} style={{ fontSize: '0.8125rem' }}>
-                            <RelativeTimestamp value={entry.lastRunAt} fallback="No recent run" />
-                          </span>
-                          {entry.lastStatus && (
-                            <span
-                              className={styles.badge}
-                              data-variant={entry.lastStatus === 'failed' ? 'danger' : entry.lastStatus === 'active' ? 'success' : 'neutral'}
-                            >
-                              {entry.lastStatus}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        {entry.recentFailureCount > 0 ? (
-                          <div className={styles.queueNameWrap}>
-                            <span className={styles.errorMsg}>
-                              {entry.recentFailureCount} failed
-                            </span>
-                            {entry.recentFailureReason && (
-                              <span className={styles.queueDesc}>{entry.recentFailureReason}</span>
-                            )}
-                            <button
-                              className={`${styles.btn} ${styles.btnGhost}`}
-                              style={{ padding: '0.125rem 0.5rem', fontSize: '0.75rem' }}
-                              type="button"
-                              disabled={act?.loading}
-                              onClick={() => void clearFailed(entry)}
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        ) : (
-                          <span className={styles.muted} style={{ fontSize: '0.8125rem' }}>0</span>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={styles.badge}
-                          data-variant={entry.enabled ? 'success' : 'neutral'}
+              return (
+                <EntityListRow
+                  key={entry.id}
+                  icon={<CalendarClock size={18} />}
+                  title={entry.label}
+                  ariaLabel={`${entry.label}, ${enabled.label}, queue ${entry.queue}, pattern ${entry.pattern}, ${entry.recentFailureCount} recent failures`}
+                  status={<OpsStatusChip label={enabled.label} variant={enabled.variant} />}
+                  secondary={`${entry.name}${entry.jobId ? ` · ${entry.jobId}` : ''}`}
+                  meta={(
+                    <>
+                      <EntityMetaItem><code>{entry.queue}</code></EntityMetaItem>
+                      <EntityMetaItem><Clock3 size={12} aria-hidden="true" /> <code>{entry.pattern}</code></EntityMetaItem>
+                      <EntityMetaItem>{entry.tz}</EntityMetaItem>
+                      <EntityMetaItem>Next <RelativeTimestamp value={entry.next} fallback="—" /></EntityMetaItem>
+                      <EntityMetaItem>Last <RelativeTimestamp value={entry.lastRunAt} fallback="No recent run" /></EntityMetaItem>
+                      <EntityMetaItem>
+                        <OpsStatusChip
+                          label={entry.lastStatus ?? 'No result'}
+                          variant={lastRunVariant(entry.lastStatus)}
+                        />
+                      </EntityMetaItem>
+                      <EntityMetaItem emphasis>{entry.recentFailureCount.toLocaleString()} recent failures</EntityMetaItem>
+                    </>
+                  )}
+                  actions={(
+                    <>
+                      {entry.enabled ? (
+                        <button
+                          className={`${styles.btn} ${styles.btnGhost}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => void disable(entry)}
                         >
-                          {entry.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                          {entry.enabled ? (
-                            <button
-                              className={`${styles.btn} ${styles.btnGhost}`}
-                              type="button"
-                              disabled={act?.loading}
-                              onClick={() => void disable(entry)}
-                            >
-                              {act?.loading ? '…' : 'Disable'}
-                            </button>
-                          ) : (
-                            <button
-                              className={`${styles.btn} ${styles.btnPrimary}`}
-                              type="button"
-                              disabled={act?.loading}
-                              onClick={() => void enable(entry)}
-                            >
-                              {act?.loading ? '…' : 'Enable'}
-                            </button>
-                          )}
-                          {!isEditing && (
-                            <button
-                              className={`${styles.btn} ${styles.btnGhost}`}
-                              type="button"
-                              disabled={act?.loading}
-                              onClick={() => setEditState({ id: entry.id, pattern: entry.pattern })}
-                            >
-                              Edit
-                            </button>
-                          )}
-                          {act?.feedback && (
-                            <span className={act.isError ? styles.errorMsg : styles.muted} style={{ fontSize: '0.75rem' }}>
-                              {act.feedback}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                          <Power size={14} aria-hidden="true" />
+                          {act?.loading ? '…' : 'Disable'}
+                        </button>
+                      ) : (
+                        <button
+                          className={`${styles.btn} ${styles.btnPrimary}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => void enable(entry)}
+                        >
+                          <PlayCircle size={14} aria-hidden="true" />
+                          {act?.loading ? '…' : 'Enable'}
+                        </button>
+                      )}
+                      {!isEditing && (
+                        <button
+                          className={`${styles.btn} ${styles.btnGhost}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => setEditState({ id: entry.id, pattern: entry.pattern })}
+                        >
+                          <Pencil size={14} aria-hidden="true" />
+                          Edit
+                        </button>
+                      )}
+                      {entry.recentFailureCount > 0 && (
+                        <button
+                          className={`${styles.btn} ${styles.btnGhost}`}
+                          type="button"
+                          disabled={act?.loading}
+                          onClick={() => void clearFailed(entry)}
+                        >
+                          <RotateCcw size={14} aria-hidden="true" />
+                          Clear
+                        </button>
+                      )}
+                    </>
+                  )}
+                  feedback={act?.feedback ?? entry.recentFailureReason ?? undefined}
+                  feedbackIsError={Boolean(act?.isError || entry.recentFailureReason)}
+                  expandedContent={isEditing ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        className={styles.input}
+                        value={editState.pattern}
+                        onChange={(e) => setEditState({ id: entry.id, pattern: e.target.value })}
+                        style={{ fontFamily: 'monospace', fontSize: '0.8125rem', width: '10rem' }}
+                        aria-label="Cron pattern"
+                      />
+                      <button
+                        className={`${styles.btn} ${styles.btnPrimary}`}
+                        style={{ padding: '0.25rem 0.625rem', fontSize: '0.8125rem' }}
+                        type="button"
+                        disabled={act?.loading}
+                        onClick={() => void updatePattern(entry, editState.pattern)}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className={`${styles.btn} ${styles.btnGhost}`}
+                        style={{ padding: '0.25rem 0.625rem', fontSize: '0.8125rem' }}
+                        type="button"
+                        onClick={() => setEditState(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : undefined}
+                />
+              )
+            })}
+          </EntityList>
           </>
         )}
 
