@@ -17,12 +17,17 @@ const LISTINGS_PATH = '/handicap-vehicles-for-sale/'
 const NAVIGATION_TIMEOUT_MS = 30_000
 const CARD_SEL = 'li.product'
 
-// Robots.txt review (2026-07-03): https://www.freedommotors.com/robots.txt disallows
-// only /wp-admin/ (admin-ajax.php is explicitly re-allowed). Neither the listing grid
-// path (/handicap-vehicles-for-sale/) nor individual product pages (/product/…) are
-// restricted, and no crawl-delay directive is set. This adapter still paginates one
-// page at a time on a single reused Page (see scrape()) rather than fetching pages
-// concurrently, matching the conservative pacing used by the other sources here.
+// Robots.txt review (2026-07-03, re-confirmed 2026-07-17 ahead of #822's
+// detail-pages pipeline activation): https://www.freedommotors.com/robots.txt
+// disallows only /wp-admin/ (admin-ajax.php is explicitly re-allowed). Neither
+// the listing grid path (/handicap-vehicles-for-sale/) nor individual product
+// detail pages (/product/…, e.g. /product/wheelchair-suv/2025-kia-telluride-ex-6/)
+// are restricted, and no crawl-delay directive is set — this covers the
+// detail-crawl job's fetches, not just the card-scrape listing grid. This
+// adapter still paginates one page at a time on a single reused Page (see
+// scrape()) rather than fetching pages concurrently, matching the
+// conservative pacing used by the other sources here; detail-crawl.ts applies
+// its own separate rate limit (RATE_LIMIT_MS) between /product/ page fetches.
 
 // Freedom Motors is a single-location manufacturer/dealer (740 Watkins Rd, Battle
 // Creek, MI 49015 — confirmed via /contact/), so dealer identity and location are
