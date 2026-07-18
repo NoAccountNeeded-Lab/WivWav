@@ -42,6 +42,7 @@ import { adminVehicleIdentityRoutes } from './routes/admin-vehicle-identity.js'
 import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
+import { adminAttentionRoutes } from './routes/admin-attention.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
@@ -267,6 +268,7 @@ export async function buildApp(
         prefix: '/logs',
         lokiUrl: config.LOKI_URL,
       })
+      await adminScope.register(adminAttentionRoutes, { prefix: '/attention-snapshot' })
 
       const boardAdapter = new FastifyAdapter()
       boardAdapter.setBasePath('/admin/board')
