@@ -1,5 +1,5 @@
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from '@/lib/relative-time'
-import type { HealthResponse, ServiceHealth } from '@wivwav/types'
+import type { AttentionCondition, AttentionSnapshot, HealthResponse, ServiceHealth } from '@wivwav/types'
 
 export interface QueueStats {
   waiting: number
@@ -86,7 +86,7 @@ export interface OverviewModel {
   telemetry: OverviewCard[]
 }
 
-export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules'
+export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules' | 'attention'
 
 export interface OverviewInput {
   health: HealthResponse | null
@@ -94,6 +94,13 @@ export interface OverviewInput {
   sources: SourceRow[] | null
   runs: RunRow[] | null
   schedules: ScheduleEntry[] | null
+  /**
+   * The shared domain-level "what is currently wrong" computation (issue
+   * #774), fetched from `POST /admin/attention-snapshot`. This module maps
+   * its typed condition codes + evidence IDs onto the presentation-level
+   * `AttentionItem`s below — it does not recompute conditions itself.
+   */
+  attention: AttentionSnapshot | null
   errors: Partial<Record<OverviewResourceKey, string>>
   /**
    * Marks a resource as still awaiting its first response (E5: independent
@@ -113,10 +120,7 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const activeListingCount = input.sources?.reduce((sum, source) => sum + source.listingCount, 0) ?? null
   const failedQueueJobs = input.queues?.reduce((sum, queue) => sum + queue.stats.failed, 0) ?? null
   const pausedQueues = input.queues?.filter(queue => queue.paused) ?? []
-  const failedSchedules = input.schedules?.filter(schedule => schedule.recentFailureCount > 0) ?? []
-  const disabledSchedules = input.schedules?.filter(schedule => !schedule.enabled) ?? []
   const sourcesNeedingRemap = input.sources?.filter(source => source.status === 'needs_remapping') ?? []
-  const erroredSources = input.sources?.filter(source => source.status === 'error') ?? []
   const lastSuccessfulRun = findLastSuccessfulRun(input.runs)
   const lastScrapeAgeMs = lastSuccessfulRun?.finishedAt ? input.now.getTime() - new Date(lastSuccessfulRun.finishedAt).getTime() : null
   const lastSuccessfulRunRelative = lastSuccessfulRun?.finishedAt ? formatRelativeTimestamp(lastSuccessfulRun.finishedAt, { now: input.now }) : null
@@ -129,15 +133,21 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const sourceError = input.errors.sources ?? (input.sources === null && !input.pending?.sources ? 'Source telemetry unavailable' : undefined)
   const runError = input.errors.runs ?? (input.runs === null && !input.pending?.runs ? 'Scraper run telemetry unavailable' : undefined)
   const scheduleError = input.errors.schedules ?? (input.schedules === null && !input.pending?.schedules ? 'Schedule telemetry unavailable' : undefined)
+  // Unlike the resources above, a null `attention` snapshot is not defaulted
+  // to an error here — it commonly just means the computation hasn't
+  // resolved yet, which is already surfaced via each dependency's own
+  // "-unavailable" item below. Only a genuine fetch failure of the
+  // attention-snapshot endpoint itself sets this.
+  const attentionError = input.errors.attention
 
   const attention: AttentionItem[] = [
-    ...serviceAttention(input.health, healthError),
-    ...sourceAttention(sourcesNeedingRemap, erroredSources, sourceError),
-    ...queueAttention(failedQueueJobs, pausedQueues, queueError),
-    ...scheduleAttention(disabledSchedules, failedSchedules, scheduleError),
-    ...freshnessAttention(lastSuccessfulRun, lastScrapeAgeMs, runError, input.now),
-    ...geocodeAttention(geocodeQueue, queueError),
-    ...inventoryDiscrepancyAttention(input.sources, sourceError),
+    ...healthUnavailableAttention(input.health, healthError),
+    ...unavailableAttention('sources-unavailable', 'Source telemetry unavailable', '/ops/sources', sourceError),
+    ...unavailableAttention('queues-unavailable', 'Queue telemetry unavailable', '/ops/queues', queueError),
+    ...unavailableAttention('schedules-unavailable', 'Schedule telemetry unavailable', '/ops/schedules', scheduleError),
+    ...unavailableAttention('runs-unavailable', 'Scraper run telemetry unavailable', '/ops/runs', runError),
+    ...unavailableAttention('attention-unavailable', 'Attention computation unavailable', '/status', attentionError),
+    ...(input.attention ? mapAttentionConditions(input.attention.conditions, input) : []),
   ]
 
   const healthCards: OverviewCard[] = [
@@ -331,120 +341,110 @@ function queueReadinessSeverity(queue: QueueRow): OverviewSeverity {
   return 'good'
 }
 
-function serviceAttention(health: HealthResponse | null, error: string | undefined): AttentionItem[] {
+function healthUnavailableAttention(health: HealthResponse | null, error: string | undefined): AttentionItem[] {
   if (error) {
     return [{ id: 'health-unavailable', title: 'Service health unavailable', detail: error, href: '/status', severity: 'unknown' }]
   }
   if (!health) {
     return [{ id: 'health-loading', title: 'Service health not loaded', detail: 'Waiting for the health endpoint to respond.', href: '/status', severity: 'unknown' }]
   }
-
-  return Object.entries(health.services)
-    .filter(([, service]) => service.status !== 'up')
-    .map(([name, service]) => ({
-      id: `service-${name}`,
-      title: `${serviceName(name)} is ${serviceLabel(service).toLowerCase()}`,
-      detail: serviceDetail(service),
-      href: name === 'valkey' ? '/ops/queues' : '/status',
-      severity: service.status === 'down' ? 'critical' : 'warning',
-    }))
+  return []
 }
 
-function sourceAttention(remapSources: SourceRow[], erroredSources: SourceRow[], error: string | undefined): AttentionItem[] {
-  if (error) return [{ id: 'sources-unavailable', title: 'Source telemetry unavailable', detail: error, href: '/ops/sources', severity: 'unknown' }]
-  return [
-    ...remapSources.map(source => ({
-      id: `source-remap-${source.id}`,
-      title: `${source.name} needs remapping`,
-      detail: source.errorMessage ?? 'Source HTML changed and selector remapping needs operator review.',
-      href: '/ops/sources',
-      severity: 'critical' as const,
-    })),
-    ...erroredSources.map(source => ({
-      id: `source-error-${source.id}`,
-      title: `${source.name} source is in error`,
-      detail: source.errorMessage ?? 'Latest source scrape reported an error.',
-      href: '/ops/sources',
-      severity: 'critical' as const,
-    })),
-  ]
-}
-
-function queueAttention(failedJobs: number | null, pausedQueues: QueueRow[], error: string | undefined): AttentionItem[] {
-  if (error) return [{ id: 'queues-unavailable', title: 'Queue telemetry unavailable', detail: error, href: '/ops/queues', severity: 'unknown' }]
-  const items: AttentionItem[] = []
-  if (failedJobs && failedJobs > 0) {
-    items.push({ id: 'failed-jobs', title: 'Failed jobs need review', detail: `${failedJobs} failed jobs are present across queues.`, href: '/ops/queues', severity: 'critical' })
-  }
-  if (pausedQueues.length > 0) {
-    items.push({ id: 'paused-queues', title: 'Queues are paused', detail: pausedQueues.map(queue => queue.name).join(', '), href: '/ops/queues', severity: 'warning' })
-  }
-  return items
-}
-
-function scheduleAttention(disabledSchedules: ScheduleEntry[], failedSchedules: ScheduleEntry[], error: string | undefined): AttentionItem[] {
-  if (error) return [{ id: 'schedules-unavailable', title: 'Schedule telemetry unavailable', detail: error, href: '/ops/schedules', severity: 'unknown' }]
-  const items: AttentionItem[] = []
-  if (disabledSchedules.length > 0) {
-    items.push({ id: 'disabled-schedules', title: 'Schedules are disabled', detail: disabledSchedules.map(schedule => schedule.label).join(', '), href: '/ops/schedules', severity: 'warning' })
-  }
-  if (failedSchedules.length > 0) {
-    items.push({ id: 'failed-schedules', title: 'Scheduled jobs have recent failures', detail: failedSchedules.map(schedule => schedule.label).join(', '), href: '/ops/schedules', severity: 'critical' })
-  }
-  return items
-}
-
-function freshnessAttention(run: RunRow | null, ageMs: number | null, error: string | undefined, now: Date): AttentionItem[] {
-  if (error) return [{ id: 'runs-unavailable', title: 'Scraper run telemetry unavailable', detail: error, href: '/ops/runs', severity: 'unknown' }]
-  const severity = staleSeverity(ageMs)
-  if (severity === 'good') return []
-  if (!run) {
-    return [{ id: 'no-successful-run', title: 'No successful scraper run found', detail: 'Recent run history does not include a completed successful scrape.', href: '/ops/runs', severity: 'warning' }]
-  }
-  return [{
-    id: 'stale-scraper-run',
-    title: 'Listings may be stale',
-    detail: `Last successful scrape finished ${formatRelativeTimestamp(run.finishedAt, { now }) ?? 'unknown time'}.`,
-    href: '/ops/runs',
-    severity: severity === 'critical' ? 'critical' : 'warning',
-  }]
+function unavailableAttention(id: string, title: string, href: string, error: string | undefined): AttentionItem[] {
+  return error ? [{ id, title, detail: error, href, severity: 'unknown' }] : []
 }
 
 /**
- * Raises a warning when a source's possibly_gone count is suspiciously large
- * relative to its active listing count. This surface the MobilityWorks / BLVD
- * discrepancy scenario described in issue #514 where source reports 59 active
- * rows while Postgres has 63 active + 219 possibly_gone.
- *
- * Threshold: possibly_gone count exceeds 20% of active listings.
+ * Maps the shared domain computation's typed conditions (issue #774) onto
+ * this app's presentation-level attention items. The domain intentionally
+ * carries no display copy — `href`, human titles, and entity names (looked
+ * up here from data this module already holds) all live in this mapper, not
+ * in `computeAttentionSnapshot`.
  */
-function inventoryDiscrepancyAttention(sources: SourceRow[] | null, error: string | undefined): AttentionItem[] {
-  if (error || !sources) return []
-  const POSSIBLY_GONE_WARNING_RATIO = 0.2
-  return sources
-    .filter(source =>
-      source.possiblyGoneCount > 0 &&
-      source.listingCount > 0 &&
-      source.possiblyGoneCount / source.listingCount >= POSSIBLY_GONE_WARNING_RATIO,
-    )
-    .map(source => ({
-      id: `inventory-discrepancy-${source.id}`,
-      title: `${source.name} has a high possibly-gone count`,
-      detail: `${source.possiblyGoneCount} possibly-gone listing(s) vs ${source.listingCount} active. This may indicate listings removed from the source index but not yet confirmed gone. Run a full crawl to reconcile.`,
-      href: '/ops/sources',
-      severity: 'warning' as const,
-    }))
+function mapAttentionConditions(conditions: AttentionCondition[], input: OverviewInput): AttentionItem[] {
+  return conditions
+    .map(condition => mapAttentionCondition(condition, input))
+    .filter((item): item is AttentionItem => item !== null)
 }
 
-function geocodeAttention(queue: QueueRow | null, error: string | undefined): AttentionItem[] {
-  if (error || !queue) return []
-  if (queue.stats.failed > 0) {
-    return [{ id: 'geocode-failed', title: 'Geocode jobs failed', detail: `${queue.stats.failed} geocode jobs failed; map pins may be incomplete.`, href: '/ops/queues', severity: 'critical' }]
+function mapAttentionCondition(condition: AttentionCondition, input: OverviewInput): AttentionItem | null {
+  const severity = condition.severity as OverviewSeverity
+
+  switch (condition.code) {
+    case 'service_unhealthy': {
+      const name = stripEvidencePrefix(condition.evidenceId, 'service')
+      return {
+        id: `service-${name}`,
+        title: `${serviceName(name)} needs attention`,
+        detail: condition.detail,
+        href: name === 'valkey' ? '/ops/queues' : '/status',
+        severity,
+      }
+    }
+    case 'source_needs_remap': {
+      const id = stripEvidencePrefix(condition.evidenceId, 'source')
+      return {
+        id: `source-remap-${id}`,
+        title: `${findSourceName(input.sources, id)} needs remapping`,
+        detail: condition.detail,
+        href: '/ops/sources',
+        severity,
+      }
+    }
+    case 'source_error': {
+      const id = stripEvidencePrefix(condition.evidenceId, 'source')
+      return {
+        id: `source-error-${id}`,
+        title: `${findSourceName(input.sources, id)} source is in error`,
+        detail: condition.detail,
+        href: '/ops/sources',
+        severity,
+      }
+    }
+    case 'source_inventory_discrepancy': {
+      const id = stripEvidencePrefix(condition.evidenceId, 'source')
+      return {
+        id: `inventory-discrepancy-${id}`,
+        title: `${findSourceName(input.sources, id)} has a high possibly-gone count`,
+        detail: condition.detail,
+        href: '/ops/sources',
+        severity,
+      }
+    }
+    case 'queue_failed_jobs':
+      return { id: 'failed-jobs', title: 'Failed jobs need review', detail: condition.detail, href: '/ops/queues', severity }
+    case 'queue_paused':
+      return { id: 'paused-queues', title: 'Queues are paused', detail: condition.detail, href: '/ops/queues', severity }
+    case 'schedule_disabled':
+      return { id: 'disabled-schedules', title: 'Schedules are disabled', detail: condition.detail, href: '/ops/schedules', severity }
+    case 'schedule_failed':
+      return { id: 'failed-schedules', title: 'Scheduled jobs have recent failures', detail: condition.detail, href: '/ops/schedules', severity }
+    case 'scraper_no_successful_run':
+      return { id: 'no-successful-run', title: 'No successful scraper run found', detail: condition.detail, href: '/ops/runs', severity }
+    case 'scraper_stale_run': {
+      const runId = stripEvidencePrefix(condition.evidenceId, 'run')
+      const run = input.runs?.find(r => r.id === runId) ?? null
+      const detail = run?.finishedAt
+        ? `Last successful scrape finished ${formatRelativeTimestamp(run.finishedAt, { now: input.now }) ?? 'unknown time'}.`
+        : condition.detail
+      return { id: 'stale-scraper-run', title: 'Listings may be stale', detail, href: '/ops/runs', severity }
+    }
+    case 'geocode_failed':
+      return { id: 'geocode-failed', title: 'Geocode jobs failed', detail: condition.detail, href: '/ops/queues', severity }
+    case 'geocode_paused':
+      return { id: 'geocode-paused', title: 'Geocode queue is paused', detail: condition.detail, href: '/ops/queues', severity }
+    default:
+      return null
   }
-  if (queue.paused) {
-    return [{ id: 'geocode-paused', title: 'Geocode queue is paused', detail: 'New listings may not receive map coordinates until this queue resumes.', href: '/ops/queues', severity: 'warning' }]
-  }
-  return []
+}
+
+function stripEvidencePrefix(evidenceId: string, prefix: string): string {
+  return evidenceId.startsWith(`${prefix}:`) ? evidenceId.slice(prefix.length + 1) : evidenceId
+}
+
+function findSourceName(sources: SourceRow[] | null, id: string): string {
+  return sources?.find(source => source.id === id)?.name ?? `Source ${id}`
 }
 
 function overallLabel(severity: OverviewSeverity): string {

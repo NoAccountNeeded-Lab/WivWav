@@ -57,7 +57,8 @@ describe('POST /', () => {
 
   it('rejects a body missing the now timestamp', async () => {
     const app = buildTestApp()
-    const { now: _now, ...rest } = validBody()
+    const rest: Record<string, unknown> = validBody()
+    delete rest.now
     const res = await app.inject({ method: 'POST', url: '/', payload: rest })
 
     expect(res.statusCode).toBe(400)
@@ -65,7 +66,8 @@ describe('POST /', () => {
 
   it('rejects a body missing a resource input', async () => {
     const app = buildTestApp()
-    const { queues: _queues, ...rest } = validBody()
+    const rest: Record<string, unknown> = validBody()
+    delete rest.queues
     const res = await app.inject({ method: 'POST', url: '/', payload: rest })
 
     expect(res.statusCode).toBe(400)
