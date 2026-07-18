@@ -1,6 +1,6 @@
 import { SourceStatus, getDb, type Prisma } from '@wivwav/db'
 import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
-import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
+import type { ConversionType, FieldMapping, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
 import type { RawDetail as RawBlvdDetail } from '../sources/blvd-detail.js'
@@ -11,12 +11,18 @@ import {
   type BlvdDealerEnrichment,
 } from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
+import { evaluateDeclarativeDetail, parseDeclarativeDetail } from '../sources/declarative-detail.js'
 import {
   evaluateSourceListingDates,
   type SourceListingIdentity,
 } from '../sources/source-listing-dates.js'
 import { recordDetailFieldClaims } from '../resolution/detail-claims.js'
 import { report } from './job-progress.js'
+
+/** Bespoke-parser BLVD listing pages are always served from this domain. */
+const BLVD_DETAIL_DOMAIN = 'blvd.com'
+/** Bespoke-parser MobilityWorks listing pages are always served from this domain. */
+const MOBILITYWORKS_DETAIL_DOMAIN = 'mobilityworks.com'
 
 const BATCH_SIZE = 100
 /**
@@ -55,6 +61,18 @@ async function getSourceExecutionBlockReason(sourceId: string): Promise<string |
   if (source.status === SourceStatus.disabled) return source.errorMessage ?? 'Source is disabled by operator policy'
   if (source.status === SourceStatus.paused) return source.errorMessage ?? 'Source is paused'
   return null
+}
+
+/**
+ * Reads `Source.mappings` fresh at the start of every job run — never
+ * cached across runs — so a `setMappings` write (an operator edit, or the
+ * AI structure-remap loop in scraper-engine.ts) takes effect on the very
+ * next detail-extract run with no code change or redeploy (#822).
+ */
+async function getSourceMappings(sourceId: string): Promise<FieldMapping[]> {
+  const db = getDb()
+  const source = await db.source.findUnique({ where: { id: sourceId }, select: { mappings: true } })
+  return (source?.mappings ?? []) as unknown as FieldMapping[]
 }
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
@@ -153,6 +171,16 @@ export type DetailResult = {
     transmission: DetailEvidence
     description: DetailEvidence
     images: DetailEvidence
+    /**
+     * Whether this run observed evidence for the #499 entry/ramp claims
+     * (conversionType/rampType) specifically. For BLVD/MobilityWorks this
+     * always mirrors `description` — their claims are parsed from the same
+     * narrative description block. Kept as its own field because the
+     * declarative extractor (#822) derives claims from a structured spec
+     * field with no narrative description block at all, so the two evidence
+     * signals are independent for that source.
+     */
+    accessibilityClaims: DetailEvidence
   }
 }
 
@@ -258,26 +286,68 @@ export function buildListingDetailUpdateData(
  * MobilityWorks branch below (refs #513/#576, fixes #632).
  */
 export function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
+  const description = raw.descriptionText.trim().length > 0 ? 'value' : 'missing'
   return {
     color: Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
     fuelType: 'missing',
     engine: Object.hasOwn(raw.specs, 'Engine') ? 'value' : 'missing',
     transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
-    description: raw.descriptionText.trim().length > 0 ? 'value' : 'missing',
+    description,
     images: raw.galleryFound
       ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
       : 'missing',
+    // BLVD's entry/ramp claims are parsed from this same description text.
+    accessibilityClaims: description,
+  }
+}
+
+/**
+ * Fallback DetailResult for a raw page whose URL matches neither a
+ * bespoke-parser domain nor a source with configured `Source.mappings` —
+ * nothing to extract, so every field stays 'missing'/unpopulated rather
+ * than fabricating a value (#822).
+ */
+function emptyDetailResult(sourceDates: { sourceListedAt: Date | null; sourceUpdatedAt: Date | null }): DetailResult {
+  return {
+    color: null,
+    fuelType: null,
+    engine: null,
+    transmission: null,
+    rampType: 'unknown',
+    conversionType: 'unknown',
+    wavFeatures: [],
+    floorLoweringInches: null,
+    wheelchairCapacity: null,
+    description: null,
+    images: [],
+    zip: null,
+    dealerPhone: null,
+    saleStatus: 'active',
+    ...sourceDates,
+    evidence: {
+      color: 'missing',
+      fuelType: 'missing',
+      engine: 'missing',
+      transmission: 'missing',
+      description: 'missing',
+      images: 'missing',
+      accessibilityClaims: 'missing',
+    },
   }
 }
 
 async function extractDetail(
   page: BrowserPage,
   identity: SourceListingIdentity,
+  mappings: FieldMapping[],
 ): Promise<DetailResult> {
   const sourceDates = await evaluateSourceListingDates(page, identity)
-  if (identity.expectedUrl.includes('mobilityworks.com')) {
+  if (identity.expectedUrl.includes(MOBILITYWORKS_DETAIL_DOMAIN)) {
     const raw = await evaluateMwDetail(page)
     const mw = parseMwDetail(raw)
+    const description = raw.descriptionFound
+      ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
+      : 'missing'
     // MobilityWorks exposes an explicit "Fuel Type" spec key; no engine description field.
     return {
       ...mw,
@@ -288,21 +358,33 @@ async function extractDetail(
         fuelType: Object.hasOwn(raw.specs, 'Fuel Type') ? 'value' : 'missing',
         engine: 'missing',
         transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
-        description: raw.descriptionFound
-          ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
-          : 'missing',
+        description,
         images: raw.galleryFound
           ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
           : 'missing',
+        // MobilityWorks' entry/ramp claims are parsed from this same description text.
+        accessibilityClaims: description === 'missing' ? 'missing' : 'value',
       },
     }
   }
-  const raw = await evaluateBlvdDetail(page)
-  return {
-    ...parseBlvdDetail(raw),
-    ...sourceDates,
-    evidence: blvdEvidence(raw),
+  if (identity.expectedUrl.includes(BLVD_DETAIL_DOMAIN)) {
+    const raw = await evaluateBlvdDetail(page)
+    return {
+      ...parseBlvdDetail(raw),
+      ...sourceDates,
+      evidence: blvdEvidence(raw),
+    }
   }
+  if (mappings.length > 0) {
+    const raw = await evaluateDeclarativeDetail(page, mappings)
+    return {
+      ...parseDeclarativeDetail(raw, mappings),
+      ...sourceDates,
+    }
+  }
+  // No bespoke parser for this domain and no Source.mappings configured —
+  // nothing this job knows how to extract from the page.
+  return emptyDetailResult(sourceDates)
 }
 
 export async function runDetailExtractJob(
@@ -349,6 +431,9 @@ export async function runDetailExtractJob(
     current: 0,
     total: rawPages.length,
   })
+
+  // Read once per run (not cached across runs) — see getSourceMappings's docstring.
+  const mappings = await getSourceMappings(sourceId)
 
   // Lazy import so callers that inject MockBrowserService never trigger a
   // real Playwright import at all.
@@ -421,7 +506,7 @@ export async function runDetailExtractJob(
           expectedUrl: rawPage.url,
           expectedVin: listing?.vin ?? null,
           expectedSourceIdentifiers: sourceIdentifiers,
-        })
+        }, mappings)
 
         if (listing) {
           // Retry idempotency: if this observation reference was already recorded
@@ -464,7 +549,7 @@ export async function runDetailExtractJob(
           })
 
           const update = buildListingDetailUpdateData(detail, enrichment, statusUpdate, now)
-          const descriptionObserved = detail.evidence.description !== 'missing'
+          const claimsObserved = detail.evidence.accessibilityClaims !== 'missing'
           const changedFields = changedDetailFields(
             listing as unknown as Record<string, unknown>,
             update as Record<string, unknown>,
@@ -506,11 +591,11 @@ export async function runDetailExtractJob(
 
           // #499: record an independent detail-page claim for whatever
           // accessibility evidence this raw page actually observed, then
-          // re-resolve. Gated on descriptionObserved — a failed/absent
+          // re-resolve. Gated on claimsObserved — a failed/absent
           // extraction is not a claim of "no evidence" and must not
           // downgrade an existing resolution. Its own transaction, after
           // the main update commits — see detail-claims.ts's docstring.
-          if (descriptionObserved) {
+          if (claimsObserved) {
             await recordDetailFieldClaims(
               db,
               listing.id,

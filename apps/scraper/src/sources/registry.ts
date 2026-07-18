@@ -1,9 +1,10 @@
-import type { PrismaClient } from '@wivwav/db'
-import { SCRAPER_SOURCE_REGISTRY, type ScraperSourceRegistryEntry } from '@wivwav/types'
+import type { PrismaClient, Prisma } from '@wivwav/db'
+import { SCRAPER_SOURCE_REGISTRY, type FieldMapping, type ScraperSourceRegistryEntry } from '@wivwav/types'
 import type { PlaywrightBrowserService } from '../browser/index.js'
 import type { ScraperEngine } from '../engine/scraper-engine.js'
 import type { DetailScheduleSource } from '../schedule-registration.js'
 import type { SourceAdapterModule } from './factory.js'
+import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from './freedom-motors-detail-mappings.js'
 
 interface SourceRow {
   id: string
@@ -19,6 +20,19 @@ export interface RegisteredSource {
   row: SourceRow
 }
 
+/**
+ * Initial `Source.mappings` seeded for a source's row the first time it's
+ * created — only meaningful for `pipeline: 'detail-pages'` sources whose
+ * detail extraction is declarative (#822) rather than a bespoke per-source
+ * parser (BLVD, MobilityWorks have no use for this). This only covers a
+ * brand-new install; an already-existing row is backfilled once by the
+ * seed_freedom_motors_detail_mappings migration instead, since `update: {}`
+ * below intentionally never overwrites a live (possibly AI-remapped) row.
+ */
+const DEFAULT_MAPPINGS_BY_KEY: Partial<Record<string, FieldMapping[]>> = {
+  'freedom-motors': FREEDOM_MOTORS_DETAIL_MAPPINGS,
+}
+
 export async function registerSources(
   db: PrismaClient,
   engine: ScraperEngine,
@@ -27,6 +41,7 @@ export async function registerSources(
   const registered: RegisteredSource[] = []
 
   for (const definition of SCRAPER_SOURCE_REGISTRY) {
+    const defaultMappings = DEFAULT_MAPPINGS_BY_KEY[definition.key]
     const row = await db.source.upsert({
       where: { name: definition.name },
       update: {},
@@ -35,6 +50,7 @@ export async function registerSources(
         baseUrl: definition.baseUrl,
         cronExpression: definition.cronExpression,
         timezone: definition.timezone,
+        ...(defaultMappings ? { mappings: defaultMappings as unknown as Prisma.InputJsonValue } : {}),
       },
     })
 

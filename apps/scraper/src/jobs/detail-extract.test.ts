@@ -1,7 +1,9 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
+import type { FieldMapping } from '@wivwav/types'
 import type * as WivwavDbModule from '@wivwav/db'
 import type * as MobilityworksDetailModule from '../sources/mobilityworks-detail.js'
 import type * as SourceListingDatesModule from '../sources/source-listing-dates.js'
+import type * as DeclarativeDetailModule from '../sources/declarative-detail.js'
 
 vi.mock('@wivwav/db', async () => {
   const actual = await vi.importActual<typeof WivwavDbModule>('@wivwav/db')
@@ -16,6 +18,18 @@ vi.mock('../sources/mobilityworks-detail.js', async () => {
   return {
     ...actual,
     evaluateMwDetail: vi.fn(),
+  }
+})
+vi.mock('../sources/declarative-detail.js', async () => {
+  const actual = await vi.importActual<typeof DeclarativeDetailModule>(
+    '../sources/declarative-detail.js',
+  )
+  // Only evaluateDeclarativeDetail touches the (unavailable, in this unit
+  // test) DOM/XPath evaluation; parseDeclarativeDetail is a pure function
+  // over its raw output and runs for real.
+  return {
+    ...actual,
+    evaluateDeclarativeDetail: vi.fn(),
   }
 })
 vi.mock('../sources/source-listing-dates.js', async () => {
@@ -41,6 +55,8 @@ import {
 import { runDetailExtractJob } from './detail-extract.js'
 import type { RawDetail } from '../sources/blvd-detail.js'
 import { evaluateMwDetail } from '../sources/mobilityworks-detail.js'
+import { evaluateDeclarativeDetail } from '../sources/declarative-detail.js'
+import type { RawDeclarativeDetail } from '../sources/declarative-detail.js'
 import { evaluateSourceListingDates } from '../sources/source-listing-dates.js'
 import type { RawMwDetail } from '../sources/mobilityworks-detail.js'
 import { MockBrowserService } from '../browser/index.js'
@@ -327,6 +343,116 @@ describe('runDetailExtractJob', () => {
   })
 })
 
+// ── Declarative extraction routing (#822) ────────────────────────────────────
+
+describe('runDetailExtractJob — declarative extraction (#822)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(evaluateSourceListingDates).mockResolvedValue({
+      sourceListedAt: null,
+      sourceUpdatedAt: null,
+    })
+  })
+
+  const colorMapping: FieldMapping = { targetField: 'color', selector: '.color', attribute: null, transform: 'trimText' }
+
+  function makeDeclarativeDb(mappings: FieldMapping[], overrides: Record<string, unknown> = {}) {
+    return makeExtractDb({
+      source: {
+        findUnique: vi.fn().mockResolvedValue({ status: 'active', errorMessage: null, mappings }),
+      },
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue([rawPage({ url: 'https://www.freedommotors.com/product/1' })]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      ...overrides,
+    })
+  }
+
+  it('routes a Freedom Motors URL through the declarative extractor when Source.mappings is configured', async () => {
+    const db = makeDeclarativeDb([colorMapping])
+    vi.mocked(getDb).mockReturnValue(db as never)
+    const raw: RawDeclarativeDetail = { color: { values: ['Ebony Black'] } }
+    vi.mocked(evaluateDeclarativeDetail).mockResolvedValue(raw)
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+
+    expect(evaluateDeclarativeDetail).toHaveBeenCalledWith(expect.anything(), [colorMapping])
+    expect(db.__tx.listing.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ color: 'Ebony Black' }) }),
+    )
+  })
+
+  it('reads Source.mappings fresh every run, so a setMappings write takes effect on the very next run with no code change (#822)', async () => {
+    // Run 1: the source has an initial mapping targeting `.color`.
+    const dbRun1 = makeDeclarativeDb([colorMapping])
+    vi.mocked(getDb).mockReturnValue(dbRun1 as never)
+    vi.mocked(evaluateDeclarativeDetail).mockResolvedValue({ color: { values: ['Ebony Black'] } })
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    expect(dbRun1.__tx.listing.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ color: 'Ebony Black' }) }),
+    )
+
+    // Simulates the AI structure-remap loop calling setMappings (scraper-engine.ts)
+    // between runs: a new, unrelated selector/transform for the very same
+    // targetField, with zero changes to detail-extract.ts or declarative-detail.ts.
+    const remappedMapping: FieldMapping = {
+      targetField: 'color',
+      selector: '.exterior-color-v2',
+      attribute: null,
+      transform: 'trimText',
+    }
+    vi.clearAllMocks()
+    vi.mocked(evaluateSourceListingDates).mockResolvedValue({ sourceListedAt: null, sourceUpdatedAt: null })
+
+    // Run 2: fresh job invocation reads the now-updated Source.mappings row.
+    const dbRun2 = makeDeclarativeDb([remappedMapping])
+    vi.mocked(getDb).mockReturnValue(dbRun2 as never)
+    vi.mocked(evaluateDeclarativeDetail).mockResolvedValue({ color: { values: ['Snow White Pearl'] } })
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+
+    expect(evaluateDeclarativeDetail).toHaveBeenCalledWith(expect.anything(), [remappedMapping])
+    expect(dbRun2.__tx.listing.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ color: 'Snow White Pearl' }) }),
+    )
+  })
+
+  it('does not fabricate a value and preserves the existing listing field when the declarative selector matches nothing', async () => {
+    const db = makeDeclarativeDb([colorMapping], {
+      listing: {
+        findFirst: vi.fn().mockResolvedValue(baseListingRow({ color: 'Previously Observed Silver' })),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateDeclarativeDetail).mockResolvedValue({ color: { values: [] } })
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+
+    const updateCall = db.__tx.listing.update.mock.calls.at(0)?.[0] as { data: Record<string, unknown> } | undefined
+    expect(updateCall?.data.color).toBeUndefined()
+  })
+
+  it('falls back to no extraction (no fabricated values) for a URL with no bespoke parser and no configured mappings', async () => {
+    const db = makeExtractDb({
+      source: {
+        findUnique: vi.fn().mockResolvedValue({ status: 'active', errorMessage: null, mappings: [] }),
+      },
+      rawPage: {
+        findMany: vi.fn().mockResolvedValue([rawPage({ url: 'https://www.example-unmapped-source.com/listing/1' })]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+
+    expect(evaluateDeclarativeDetail).not.toHaveBeenCalled()
+    expect(evaluateMwDetail).not.toHaveBeenCalled()
+  })
+})
+
 describe('summarizeError', () => {
   it('uses the Error message, not the full stack or object dump', () => {
     expect(summarizeError(new Error('boom'))).toBe('boom')
@@ -564,6 +690,7 @@ describe('buildListingDetailUpdateData', () => {
       transmission: 'value' as const,
       description: 'value' as const,
       images: 'value' as const,
+      accessibilityClaims: 'value' as const,
     },
   }
 
