@@ -32,6 +32,7 @@ import type { AttentionResourceInput, AttentionSnapshot, AttentionSnapshotReques
 import styles from './page.module.css'
 import {
   buildOpsOverview,
+  isSettledEmpty,
   type OverviewCard,
   type OverviewModel,
   type OverviewResourceKey,
@@ -138,7 +139,7 @@ const UNAVAILABLE_ATTENTION_ID: Record<string, OverviewResourceKey> = {
 function toAttentionResourceInput<T>(resource: PolledResourceState<T>): AttentionResourceInput<T> {
   return {
     data: resource.data,
-    unavailable: Boolean(resource.error) || (resource.data === null && !resource.isLoading),
+    unavailable: Boolean(resource.error) || isSettledEmpty(resource.data, resource.isLoading),
   }
 }
 

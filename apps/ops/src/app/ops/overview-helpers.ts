@@ -128,11 +128,11 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const geocodeQueue = input.queues?.find(queue => queue.name === 'geocode') ?? null
   const healthServices = input.health?.services
 
-  const healthError = input.errors.health ?? (input.health === null && !input.pending?.health ? 'Service health telemetry unavailable' : undefined)
-  const queueError = input.errors.queues ?? (input.queues === null && !input.pending?.queues ? 'Queue telemetry unavailable' : undefined)
-  const sourceError = input.errors.sources ?? (input.sources === null && !input.pending?.sources ? 'Source telemetry unavailable' : undefined)
-  const runError = input.errors.runs ?? (input.runs === null && !input.pending?.runs ? 'Scraper run telemetry unavailable' : undefined)
-  const scheduleError = input.errors.schedules ?? (input.schedules === null && !input.pending?.schedules ? 'Schedule telemetry unavailable' : undefined)
+  const healthError = input.errors.health ?? (isSettledEmpty(input.health, input.pending?.health) ? 'Service health telemetry unavailable' : undefined)
+  const queueError = input.errors.queues ?? (isSettledEmpty(input.queues, input.pending?.queues) ? 'Queue telemetry unavailable' : undefined)
+  const sourceError = input.errors.sources ?? (isSettledEmpty(input.sources, input.pending?.sources) ? 'Source telemetry unavailable' : undefined)
+  const runError = input.errors.runs ?? (isSettledEmpty(input.runs, input.pending?.runs) ? 'Scraper run telemetry unavailable' : undefined)
+  const scheduleError = input.errors.schedules ?? (isSettledEmpty(input.schedules, input.pending?.schedules) ? 'Schedule telemetry unavailable' : undefined)
   // Unlike the resources above, a null `attention` snapshot is not defaulted
   // to an error here — it commonly just means the computation hasn't
   // resolved yet, which is already surfaced via each dependency's own
@@ -341,6 +341,18 @@ function queueReadinessSeverity(queue: QueueRow): OverviewSeverity {
   return 'good'
 }
 
+/**
+ * True once a resource has settled with no data and no explicit error —
+ * i.e. it is neither still loading nor holding a real value. Shared between
+ * the per-resource error defaulting below and `OpsOverviewClient`'s
+ * `toAttentionResourceInput` (which reports the same "unavailable" concept
+ * to the attention-snapshot endpoint) so the two can't drift apart into
+ * disagreeing about whether a resource has genuinely failed.
+ */
+export function isSettledEmpty(data: unknown, pending: boolean | undefined): boolean {
+  return data === null && !pending
+}
+
 function healthUnavailableAttention(health: HealthResponse | null, error: string | undefined): AttentionItem[] {
   if (error) {
     return [{ id: 'health-unavailable', title: 'Service health unavailable', detail: error, href: '/status', severity: 'unknown' }]
@@ -368,47 +380,44 @@ function mapAttentionConditions(conditions: AttentionCondition[], input: Overvie
     .filter((item): item is AttentionItem => item !== null)
 }
 
+/** `{ idPrefix, titleSuffix }` for the three source-scoped condition codes —
+ *  they differ only in these two strings, so one branch below builds all
+ *  three instead of three near-identical copies. */
+const SOURCE_CONDITION_META: Partial<Record<AttentionCondition['code'], { idPrefix: string; titleSuffix: string }>> = {
+  source_needs_remap: { idPrefix: 'source-remap', titleSuffix: 'needs remapping' },
+  source_error: { idPrefix: 'source-error', titleSuffix: 'source is in error' },
+  source_inventory_discrepancy: { idPrefix: 'inventory-discrepancy', titleSuffix: 'has a high possibly-gone count' },
+}
+
 function mapAttentionCondition(condition: AttentionCondition, input: OverviewInput): AttentionItem | null {
   const severity = condition.severity as OverviewSeverity
+
+  const sourceMeta = SOURCE_CONDITION_META[condition.code]
+  if (sourceMeta) {
+    const id = stripEvidencePrefix(condition.evidenceId, 'source')
+    return {
+      id: `${sourceMeta.idPrefix}-${id}`,
+      title: `${findSourceName(input.sources, id)} ${sourceMeta.titleSuffix}`,
+      detail: condition.detail,
+      href: '/ops/sources',
+      severity,
+    }
+  }
 
   switch (condition.code) {
     case 'service_unhealthy': {
       const name = stripEvidencePrefix(condition.evidenceId, 'service')
+      // Look up the raw service health ops already holds (rather than
+      // reformatting `condition.detail`) so the title/detail keep their
+      // exact pre-#774 wording — e.g. "Database is down", not a generic
+      // "needs attention" that loses the down/degraded/optional-offline
+      // distinction the operator relied on.
+      const service = (input.health?.services as Record<string, ServiceHealth> | undefined)?.[name] ?? null
       return {
         id: `service-${name}`,
-        title: `${serviceName(name)} needs attention`,
-        detail: condition.detail,
+        title: `${serviceName(name)} is ${serviceLabel(service).toLowerCase()}`,
+        detail: service ? serviceDetail(service) : condition.detail,
         href: name === 'valkey' ? '/ops/queues' : '/status',
-        severity,
-      }
-    }
-    case 'source_needs_remap': {
-      const id = stripEvidencePrefix(condition.evidenceId, 'source')
-      return {
-        id: `source-remap-${id}`,
-        title: `${findSourceName(input.sources, id)} needs remapping`,
-        detail: condition.detail,
-        href: '/ops/sources',
-        severity,
-      }
-    }
-    case 'source_error': {
-      const id = stripEvidencePrefix(condition.evidenceId, 'source')
-      return {
-        id: `source-error-${id}`,
-        title: `${findSourceName(input.sources, id)} source is in error`,
-        detail: condition.detail,
-        href: '/ops/sources',
-        severity,
-      }
-    }
-    case 'source_inventory_discrepancy': {
-      const id = stripEvidencePrefix(condition.evidenceId, 'source')
-      return {
-        id: `inventory-discrepancy-${id}`,
-        title: `${findSourceName(input.sources, id)} has a high possibly-gone count`,
-        detail: condition.detail,
-        href: '/ops/sources',
         severity,
       }
     }
