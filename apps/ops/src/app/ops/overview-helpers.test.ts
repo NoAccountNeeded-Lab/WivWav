@@ -107,6 +107,11 @@ describe('buildOpsOverview', () => {
     // Titles are resolved here from data this module already holds (the
     // domain condition itself carries no source name) — issue #774.
     expect(overview.attention.find(item => item.id === 'source-remap-src-1')?.title).toBe('BLVD.com needs remapping')
+    // Service title/detail are looked up from the raw health data ops
+    // already holds, not reformatted from `condition.detail` — this keeps
+    // the exact pre-#774 wording (down/degraded/optional-offline) instead
+    // of a generic "needs attention".
+    expect(overview.attention.find(item => item.id === 'service-postgres')?.title).toBe('Database is down')
     expect(overview.freshnessCards.find(card => card.id === 'sources-needing-remap')?.value).toBe('1')
     expect(overview.freshnessCards.find(card => card.id === 'geocode-readiness')?.severity).toBe('critical')
   })

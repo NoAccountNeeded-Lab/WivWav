@@ -178,4 +178,21 @@ describe('computeAttentionSnapshot', () => {
     expect(snapshot.signalAvailability.db).toBe('available')
     expect(snapshot.conditions.some(c => c.code.startsWith('source_'))).toBe(false)
   })
+
+  it('ignores stale data on a resource the caller has marked unavailable', () => {
+    // A caller (e.g. usePolledResource) may keep the last-known-good `data`
+    // across a failed poll and report it alongside `unavailable: true`. The
+    // computation must not derive conditions from that stale data — doing so
+    // would contradict `signalAvailability` reporting the same backend
+    // unreachable in the same response.
+    const staleSources = [
+      { id: 'src-1', name: 'BLVD.com', status: 'needs_remapping', errorMessage: 'stale error', listingCount: 0, possiblyGoneCount: 0 },
+    ]
+    const snapshot = computeAttentionSnapshot(baseRequest({
+      sources: { data: staleSources, unavailable: true },
+    }))
+
+    expect(snapshot.signalAvailability.db).toBe('unavailable')
+    expect(snapshot.conditions).toEqual([])
+  })
 })
