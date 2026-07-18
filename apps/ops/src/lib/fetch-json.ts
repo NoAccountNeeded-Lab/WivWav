@@ -10,10 +10,14 @@ export interface FetchJsonResult<T> {
  * envelope when present. Never throws — network errors, non-2xx responses,
  * and timeouts are all reported via `error` so callers can render an inline
  * failure state instead of crashing the render tree.
+ *
+ * `init` lets callers POST a body (e.g. the attention-snapshot computation,
+ * which takes already-fetched resource state rather than being a GET) while
+ * still going through the same envelope-unwrapping and timeout handling.
  */
-export async function fetchJson<T>(url: string, timeoutMs = 10_000): Promise<FetchJsonResult<T>> {
+export async function fetchJson<T>(url: string, timeoutMs = 10_000, init: RequestInit = {}): Promise<FetchJsonResult<T>> {
   try {
-    const res = await fetchWithTimeout(url, { cache: 'no-store' }, timeoutMs)
+    const res = await fetchWithTimeout(url, { cache: 'no-store', ...init }, timeoutMs)
     if (!res.ok) return { data: null, error: `API returned ${res.status}` }
     const body = (await res.json()) as T | { data: T }
     if (isDataEnvelope<T>(body)) return { data: body.data }
