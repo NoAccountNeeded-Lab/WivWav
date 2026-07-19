@@ -21,7 +21,7 @@ export function SimilarListings({ listings, make, model, pathPrefix = '' }: Simi
           const simDays = daysSince(s.sourceListedAt ?? s.listedAt)
           const ageLabel = s.sourceListedAt != null
             ? simDays > 0 ? `${simDays}d on source` : 'On source today'
-            : simDays > 0 ? `WAV Search found ${simDays}d ago` : 'WAV Search found today'
+            : simDays > 0 ? `Found ${simDays}d ago` : 'Found today'
           const metaParts = [
             s.rampType !== 'none' && s.rampType !== 'unknown' ? rampLabel(s.rampType) : null,
             s.conversionManufacturer ?? null,

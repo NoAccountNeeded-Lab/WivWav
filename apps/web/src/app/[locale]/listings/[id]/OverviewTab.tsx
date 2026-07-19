@@ -1,16 +1,14 @@
-import Link from 'next/link'
 import {
   AlertTriangle,
+  Cog,
   ExternalLink,
   Gauge,
   MapPin,
   Settings2,
-  ShieldCheck,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
 import { DealerCard } from '@/components/listing/DealerCard'
-import { ProvenanceBadge } from '@/components/listing/ProvenanceBadge'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { ReportListingForm } from './ReportListingForm'
 import {
@@ -39,7 +37,7 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
   const days = daysSince(ageTimestamp)
   const ageLabel = listing.sourceListedAt != null
     ? days === 0 ? 'On source today' : `${days} day${days === 1 ? '' : 's'} on source`
-    : days === 0 ? 'Found today by WAV Search' : `Found ${days} day${days === 1 ? '' : 's'} ago by WAV Search`
+    : days === 0 ? 'Found today' : `Found ${days} day${days === 1 ? '' : 's'} ago`
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
@@ -112,6 +110,12 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
             {listing.mileage.toLocaleString()} mi
           </span>
         )}
+        {listing.engine && (
+          <span className={styles.chip}>
+            <Cog size={11} aria-hidden />
+            {listing.engine}
+          </span>
+        )}
         {listing.transmission && (
           <span className={styles.chip}>
             <Settings2 size={11} aria-hidden />
@@ -138,7 +142,23 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
         )}
       </div>
 
-      {/* CTAs */}
+      {/* Dealer info — who's selling it, shown before the CTAs so the seller
+          identity is visible up front. Location and a listing link are left
+          off: location is already in the spec chips above, and the CTAs
+          right below cover viewing/contacting the seller. */}
+      {hasDealerInfo && (
+        <div className={styles.section}>
+          <DealerCard
+            dealer={listing.dealer}
+            location={listing.location}
+            sellerType={listing.sellerType}
+            showLocation={false}
+          />
+        </div>
+      )}
+
+      {/* CTA — contact seller / view seller listing. The safety report link
+          lives on the Safety tab now, next to the data it links out from. */}
       <div className={styles.ctaWrap}>
         <a
           href={sourceLink}
@@ -149,12 +169,6 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
           <ExternalLink size={16} aria-hidden />
           {listing.sellerType === 'private' ? 'Contact seller' : 'View seller listing'}
         </a>
-        {listing.vin && (
-          <Link href={`/vin/${encodeURIComponent(listing.vin)}`} className={styles.ctaSecondary}>
-            <ShieldCheck size={16} aria-hidden />
-            View safety report
-          </Link>
-        )}
       </div>
 
       <ReportListingForm listingId={listing.id} apiBaseUrl={apiBaseUrl} />
@@ -177,18 +191,6 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
         </div>
       )}
 
-      {/* Dealer info */}
-      {hasDealerInfo && (
-        <div className={styles.section}>
-          <DealerCard
-            dealer={listing.dealer}
-            location={listing.location}
-            sellerType={listing.sellerType}
-            listingUrl={sourceLink}
-          />
-        </div>
-      )}
-
       {crossListings.length > 0 && (
         <section className={styles.section} aria-labelledby="also-available-at">
           <h3 id="also-available-at" className={styles.sectionLabel}>Also available at</h3>
@@ -207,9 +209,8 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
         </section>
       )}
 
-      {/* Provenance + disclaimer — near decision-impacting data */}
+      {/* Disclaimer — near decision-impacting data */}
       <div className={styles.section}>
-        <ProvenanceBadge provenance={listing.provenance} />
         <ListingDisclaimer />
       </div>
 
@@ -220,10 +221,7 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
         {listing.sourceUpdatedAt != null && (
           <>Source updated {formatDate(listing.sourceUpdatedAt)} · </>
         )}
-        WAV Search first saw {formatDate(listing.listedAt)}
-        {verificationTimestamp !== null && (
-          <> · Last checked {formatDate(verificationTimestamp)}</>
-        )}
+        First saw {formatDate(listing.listedAt)}
       </p>
     </div>
   )

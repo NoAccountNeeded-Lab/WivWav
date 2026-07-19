@@ -329,7 +329,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       <p className={styles.meta}>
         {listing.sourceListedAt != null
           ? `Source listed ${formatDate(listing.sourceListedAt)}`
-          : `WAV Search first saw ${formatDate(listing.listedAt)}`}
+          : `First saw ${formatDate(listing.listedAt)}`}
         {listing.sourceUpdatedAt != null
           ? ` · Source updated ${formatDate(listing.sourceUpdatedAt)}`
           : ''}

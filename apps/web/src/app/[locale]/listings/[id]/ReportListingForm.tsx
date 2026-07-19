@@ -60,17 +60,20 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
   }
 
   return (
-    <section className={styles.reportSection} aria-labelledby={`${formId}-heading`}>
-      <button
-        type="button"
-        className={styles.reportToggle}
-        aria-expanded={isOpen}
-        aria-controls={`${formId}-form`}
-        onClick={() => setIsOpen((open) => !open)}
-      >
-        <Flag size={16} aria-hidden />
-        <span id={`${formId}-heading`}>Report an issue</span>
-      </button>
+    <section className={styles.reportSection} aria-label="Report an issue">
+      <div className={styles.reportButtonWrap}>
+        <button
+          type="button"
+          className={styles.reportToggle}
+          aria-expanded={isOpen}
+          aria-controls={`${formId}-form`}
+          aria-label="Report an issue"
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <Flag size={18} aria-hidden />
+        </button>
+        <span className={styles.reportTooltip} aria-hidden="true">Report an issue</span>
+      </div>
 
       {isOpen && (
         <form id={`${formId}-form`} className={styles.reportForm} onSubmit={submitReport}>

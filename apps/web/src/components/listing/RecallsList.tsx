@@ -11,13 +11,17 @@ interface RecallsListProps {
 
 /** NHTSA recall detail URL for a given campaign ID. */
 function nhtsaRecallUrl(nhtsaCampaignId: string): string {
-  return `https://www.nhtsa.gov/vehicle/recalls#${nhtsaCampaignId}`
+  return `https://www.nhtsa.gov/recalls?nhtsaId=${nhtsaCampaignId}`
 }
 
 export function RecallsList({ vin, safety }: RecallsListProps) {
   const allRecalls = safety?.recalls ?? []
   const openRecalls = allRecalls.filter((r) => r.status === 'open')
   const historicalRecalls = allRecalls.filter((r) => r.status !== 'open')
+  // Only reassure "nothing to do" when every closed recall has a confirmed
+  // fix — a recall whose remedy is still 'unknown' isn't actually resolved,
+  // so it must not be folded into a blanket "no action needed" claim.
+  const allHistoricalRemedied = historicalRecalls.every((r) => r.status === 'remedied')
 
   return (
     <div>
@@ -72,12 +76,12 @@ export function RecallsList({ vin, safety }: RecallsListProps) {
           {historicalRecalls.length > 0 && (
             <>
               <div className={styles.recallGroupLabel}>
-                Historical recalls
-                {openRecalls.length === 0 && (
-                  <span className={styles.recallGroupNote}> — no open remedies</span>
+                Closed recalls
+                {openRecalls.length === 0 && allHistoricalRemedied && (
+                  <span className={styles.recallGroupNote}> — no action needed</span>
                 )}
               </div>
-              <ul className={styles.list} aria-label="Historical recall campaigns">
+              <ul className={styles.list} aria-label="Closed recall campaigns">
                 {historicalRecalls.map((recall) => (
                   <RecallItem key={recall.id} recall={recall} />
                 ))}
@@ -102,8 +106,8 @@ function RecallItem({ recall }: { recall: Recall }) {
   const isOpen = status === 'open'
   const isUnknown = status === 'unknown'
 
-  const statusClass = isOpen ? styles.statusOpen : isUnknown ? styles.statusUnknown : styles.statusDone
-  const iconClass = isOpen ? styles.iconWarn : isUnknown ? styles.iconUnknown : styles.iconOk
+  const statusClass = isOpen ? styles.statusOpen : isUnknown ? styles.statusCaution : styles.statusDone
+  const iconClass = isOpen ? styles.iconWarn : isUnknown ? styles.iconCaution : styles.iconOk
   const Icon = isOpen ? AlertTriangle : isUnknown ? HelpCircle : Check
 
   return (
@@ -113,7 +117,16 @@ function RecallItem({ recall }: { recall: Recall }) {
       </div>
       <div>
         <div className={styles.title}>
-          NHTSA #{recall.nhtsaCampaignId} · {recall.component}
+          <a
+            href={nhtsaRecallUrl(recall.nhtsaCampaignId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.titleLink}
+          >
+            NHTSA #{recall.nhtsaCampaignId}
+            <span className="sr-only"> (opens in new tab)</span>
+          </a>
+          {' '}· {recall.component}
         </div>
         <div className={styles.sub}>Issued {formatDate(recall.reportedAt)}</div>
         {recall.summary && <div className={styles.sub}>{recall.summary}</div>}
@@ -124,15 +137,6 @@ function RecallItem({ recall }: { recall: Recall }) {
           <span className={statusClass}>
             {recallStatusLabel(status)}
           </span>
-          <a
-            href={nhtsaRecallUrl(recall.nhtsaCampaignId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.sourceLink}
-          >
-            NHTSA source
-            <span className="sr-only"> (opens in new tab)</span>
-          </a>
         </div>
       </div>
     </li>

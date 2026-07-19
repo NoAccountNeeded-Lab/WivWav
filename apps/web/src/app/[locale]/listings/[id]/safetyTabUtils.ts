@@ -32,6 +32,6 @@ export function formatFreshnessDate(freshnessDate: string | null): string | null
  */
 export function recallStatusLabel(status: 'open' | 'remedied' | 'unknown'): string {
   if (status === 'open') return 'Remedy open — schedule service'
-  if (status === 'remedied') return 'Remedy available — completed'
-  return 'Status unknown'
+  if (status === 'remedied') return 'Fix procedure published'
+  return 'Fix not yet available'
 }

@@ -91,7 +91,7 @@ describe('toDocument — #499 field resolution', () => {
 })
 
 describe('toDocument — listing date provenance', () => {
-  it('indexes source dates separately from the WAV Search first-seen date', () => {
+  it('indexes source dates separately from the WivWav first-seen date', () => {
     const doc = toDocument(makeListing({
       listedAt: new Date('2026-05-05T00:00:00Z'),
       sourceListedAt: new Date('2026-05-01T00:00:00Z'),
