@@ -17,6 +17,7 @@ import {
   type SourceListingIdentity,
 } from '../sources/source-listing-dates.js'
 import { recordDetailFieldClaims } from '../resolution/detail-claims.js'
+import { withTransientRetry } from '../lib/db-retry.js'
 import { report } from './job-progress.js'
 
 /** Bespoke-parser BLVD listing pages are always served from this domain. */
@@ -567,7 +568,10 @@ export async function runDetailExtractJob(
             changedFields.map((field) => [field, auditValue((update as Record<string, unknown>)[field])]),
           )
 
-          await db.$transaction(async (tx) => {
+          // Serializable, like PrismaListingRepository.upsert's ingestListing
+          // transaction — same pool-contention/transient-close hazard under
+          // the scraper's concurrent workers, so it gets the same retry.
+          await withTransientRetry(() => db.$transaction(async (tx) => {
             await tx.listing.update({
               where: { id: listing.id, updatedAt: listing.updatedAt },
               data: changedFields.length > 0 ? update : { detailScrapedAt: now },
@@ -584,7 +588,7 @@ export async function runDetailExtractJob(
                 observedAt: now,
               },
             })
-          }, { isolationLevel: 'Serializable' })
+          }, { isolationLevel: 'Serializable' }))
           // Search-index sync is no longer this job's concern — the
           // single-owner indexer poller (#669) picks up the change (via
           // `updatedAt`, bumped by the transaction above) on its next tick.

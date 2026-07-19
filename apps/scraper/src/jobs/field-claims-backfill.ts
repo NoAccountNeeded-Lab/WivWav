@@ -60,6 +60,7 @@ import { getDb } from '@wivwav/db'
 import { applyFieldResolution, recordClaim } from '../resolution/claims-repository.js'
 import { NoopPhotoClaimProvider } from '../resolution/photo-claim-provider.js'
 import type { ClaimField, FieldResolutionState } from '../resolution/types.js'
+import { withTransientRetry } from '../lib/db-retry.js'
 
 const BATCH_SIZE = 500
 const BACKFILL_EXTRACTOR_VERSION = 'backfill-v1'
@@ -136,7 +137,9 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
 
         report.seeded++
         if (opts.apply) {
-          await db.$transaction(async (tx) => {
+          // See card-claims.ts's recordCardFieldClaims for why this needs both a
+          // wider timeout and transient-error retry.
+          await withTransientRetry(() => db.$transaction(async (tx) => {
             await recordClaim(tx, {
               listingId: row.id,
               field,
@@ -149,7 +152,7 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
             })
             const { result } = await applyFieldResolution(tx, row.id, field, photoClaimProvider)
             report.byField[field][result.state]++
-          })
+          }, { timeout: 10000 }))
         } else {
           // --report: a single seeded structured_source claim always
           // resolves to source_reported (one credible signal, no conflict
