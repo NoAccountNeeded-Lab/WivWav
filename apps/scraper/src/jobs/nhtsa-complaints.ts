@@ -80,6 +80,7 @@ export async function runNhtsaComplaintsJob(context?: JobContext, data?: NhtsaCo
           mileage: c.mileage ?? null,
           crashInvolved: c.crash ?? false,
           reportedAt: parseYMD(c.dateOfIncident),
+          refreshedAt: new Date(),
         },
         create: {
           nhtsaId,
@@ -89,6 +90,7 @@ export async function runNhtsaComplaintsJob(context?: JobContext, data?: NhtsaCo
           mileage: c.mileage ?? null,
           crashInvolved: c.crash ?? false,
           reportedAt: parseYMD(c.dateOfIncident),
+          refreshedAt: new Date(),
         },
       })
       upserted++

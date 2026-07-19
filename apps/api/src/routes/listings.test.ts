@@ -379,7 +379,7 @@ describe('GET /:id — provenance', () => {
     await app.close()
   })
 
-  it('returns source dates separately from WAV Search timestamps', async () => {
+  it('returns source dates separately from WivWav timestamps', async () => {
     const listing = {
       ...defaultDbListing,
       sourceListedAt: new Date('2024-01-01T12:00:00Z'),
@@ -948,6 +948,105 @@ describe('GET /:id/safety', () => {
     expect(data.investigations).toEqual([])
     expect(data.manufacturerCommunications).toEqual([])
     await app.close()
+  })
+
+  describe('safetyFreshnessDate', () => {
+    it('derives freshness from a recall refresh when no safety ratings exist', async () => {
+      // Regression: most WAV conversions have no NHTSA 5-star rating, so a
+      // vehicle model can be freshly synced (recalls just refreshed) while
+      // safetyRatings stays permanently empty. Freshness must not depend on
+      // ratings alone, or the banner shows "unknown" forever for those models.
+      const listing = { id: 'listing-1', vehicleModelId: 'vm-1' }
+      const vehicleModel = {
+        id: 'vm-1',
+        make: 'Ford',
+        model: 'Transit',
+        year: 2021,
+        trim: null,
+        bodyType: null,
+        recalls: [
+          {
+            id: 'recall-1',
+            nhtsaCampaignId: '24V001',
+            component: 'AIR BAGS',
+            summary: 'Air bag issue',
+            remedy: 'Dealer remedy',
+            reportedAt: new Date('2024-01-02T00:00:00.000Z'),
+            refreshedAt: new Date('2024-06-01T00:00:00.000Z'),
+          },
+        ],
+        complaints: [],
+        safetyRatings: [],
+        investigations: [],
+        manufacturerCommunications: [],
+      }
+      const { app } = buildTestApp(undefined, {
+        findByIdForSafety: vi.fn(async () => listing),
+        findVehicleModelWithSafetyData: vi.fn(async () => vehicleModel),
+      })
+      const res = await app.inject({ method: 'GET', url: '/listing-1/safety' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.safetyFreshnessDate).toBe('2024-06-01T00:00:00.000Z')
+      await app.close()
+    })
+
+    it('takes the latest refreshedAt across recalls, complaints, ratings, investigations, and TSBs', async () => {
+      const listing = { id: 'listing-1', vehicleModelId: 'vm-1' }
+      const reportedAt = new Date('2024-01-02T00:00:00.000Z')
+      const vehicleModel = {
+        id: 'vm-1',
+        make: 'Ford',
+        model: 'Transit',
+        year: 2021,
+        trim: null,
+        bodyType: null,
+        recalls: [
+          { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer remedy', reportedAt, refreshedAt: new Date('2024-03-01T00:00:00.000Z') },
+        ],
+        complaints: [
+          { id: 'complaint-1', nhtsaId: '1001', component: 'ELECTRICAL SYSTEM', summary: 'Battery drain', mileage: 50000, crashInvolved: false, reportedAt, refreshedAt: new Date('2024-07-01T00:00:00.000Z') },
+        ],
+        safetyRatings: [
+          { id: 'rating-1', nhtsaVehicleId: '12345', description: null, overallRating: '5', frontCrashRating: '4', sideCrashRating: '5', rolloverRating: '4', rolloverRatingText: '4-star', refreshedAt: new Date('2024-05-01T00:00:00.000Z') },
+        ],
+        investigations: [],
+        manufacturerCommunications: [],
+      }
+      const { app } = buildTestApp(undefined, {
+        findByIdForSafety: vi.fn(async () => listing),
+        findVehicleModelWithSafetyData: vi.fn(async () => vehicleModel),
+      })
+      const res = await app.inject({ method: 'GET', url: '/listing-1/safety' })
+      expect(res.statusCode).toBe(200)
+      // Complaints' refreshedAt (July) is the latest of the three
+      expect(res.json().data.safetyFreshnessDate).toBe('2024-07-01T00:00:00.000Z')
+      await app.close()
+    })
+
+    it('returns null when no safety record has ever been refreshed', async () => {
+      const listing = { id: 'listing-1', vehicleModelId: 'vm-1' }
+      const vehicleModel = {
+        id: 'vm-1',
+        make: 'Ford',
+        model: 'Transit',
+        year: 2021,
+        trim: null,
+        bodyType: null,
+        recalls: [],
+        complaints: [],
+        safetyRatings: [],
+        investigations: [],
+        manufacturerCommunications: [],
+      }
+      const { app } = buildTestApp(undefined, {
+        findByIdForSafety: vi.fn(async () => listing),
+        findVehicleModelWithSafetyData: vi.fn(async () => vehicleModel),
+      })
+      const res = await app.inject({ method: 'GET', url: '/listing-1/safety' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.safetyFreshnessDate).toBeNull()
+      await app.close()
+    })
   })
 })
 

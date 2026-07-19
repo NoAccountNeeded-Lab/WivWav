@@ -623,6 +623,7 @@ model Recall {
   summary         String
   remedy          String?
   reportedAt      DateTime
+  refreshedAt     DateTime     @default(now())
   createdAt       DateTime     @default(now())
 
   @@unique([nhtsaCampaignId, vehicleModelId])
@@ -640,6 +641,7 @@ model Complaint {
   mileage        Int?
   crashInvolved  Boolean      @default(false)
   reportedAt     DateTime
+  refreshedAt    DateTime     @default(now())
   createdAt      DateTime     @default(now())
 
   @@index([vehicleModelId])
