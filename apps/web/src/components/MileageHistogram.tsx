@@ -90,7 +90,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
   const hasFilter = urlMax > 0
 
   const fetchUrl = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
     const url = new URL(`${base}/v1/listings/facets`)
     for (const key of FORWARD_PARAMS) {
       const val = searchParams.get(key)
