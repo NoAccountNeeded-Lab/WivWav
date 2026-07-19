@@ -15,9 +15,7 @@ import { GONE_AFTER_CONSECUTIVE_MISSING } from '../engine/repositories.js'
 import type { SourceDriftBaseline } from '../engine/listing-validator.js'
 import { ingestListing } from '../application/listing-ingest.js'
 import { recordCardFieldClaims } from '../resolution/card-claims.js'
-
-const TRANSIENT_PRISMA_CODES = new Set(['P2002', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017'])
-const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transaction already closed']
+import { withTransientRetry } from '../lib/db-retry.js'
 
 /**
  * True for Prisma's "record not found" error (P2025). A Source row can be deleted
@@ -28,44 +26,6 @@ const TRANSIENT_DB_MESSAGES = ['connection closed', 'connection reset', 'transac
 function isRecordNotFoundError(err: unknown): boolean {
   if (err === null || typeof err !== 'object') return false
   return (err as Record<string, unknown>)['code'] === 'P2025'
-}
-
-/**
- * Returns true for Prisma errors that represent transient connection or transaction
- * failures that are safe to retry: concurrent create/write conflicts P2002/P2034,
- * P2028 (transaction already closed), and connection errors P1001/P1002/P1008/P1017.
- */
-function isTransientPrismaError(err: unknown): boolean {
-  if (err === null || typeof err !== 'object') return false
-  const code = (err as Record<string, unknown>)['code']
-  if (typeof code === 'string' && TRANSIENT_PRISMA_CODES.has(code)) return true
-  const message = (err as Record<string, unknown>)['message']
-  if (typeof message === 'string') {
-    const lower = message.toLowerCase()
-    return TRANSIENT_DB_MESSAGES.some((fragment) => lower.includes(fragment))
-  }
-  return false
-}
-
-/**
- * Runs `fn` up to `maxAttempts` times, retrying only on transient Prisma errors.
- * Uses exponential backoff starting at `baseDelayMs`.
- */
-async function withTransientRetry<T>(
-  fn: () => Promise<T>,
-  maxAttempts = 3,
-  baseDelayMs = 100,
-): Promise<T> {
-  let attempt = 0
-  for (;;) {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      attempt++
-      if (!isTransientPrismaError(err) || attempt >= maxAttempts) throw err
-      await new Promise<void>((resolve) => setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1)))
-    }
-  }
 }
 
 export class PrismaScraperRunRepository implements ScraperRunRepository {

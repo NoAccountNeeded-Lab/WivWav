@@ -5,6 +5,7 @@ import { applyFieldResolution, recordClaim } from './claims-repository.js'
 import { NoopPhotoClaimProvider } from './photo-claim-provider.js'
 import { logFieldResolutionEvent } from './metrics.js'
 import type { ClaimField } from './types.js'
+import { withTransientRetry } from '../lib/db-retry.js'
 
 export const CARD_CLAIM_EXTRACTOR_VERSION = 'source-card-v1'
 
@@ -43,7 +44,14 @@ export async function recordCardFieldClaims(
 
   const observedAt = new Date()
 
-  const logEvents = await db.$transaction(async (tx) => {
+  // A wider timeout than Prisma's 5s default: recordClaim's pg_advisory_xact_lock
+  // can legitimately block while a peer transaction on the same slot holds the
+  // lock, and a lock wait that outlasts the default gets the interactive
+  // transaction force-closed, surfacing as "Transaction not found" on the next
+  // query inside it. withTransientRetry catches that (and other transient
+  // failures) and retries the whole transaction, which recordClaim's dedup
+  // check makes safe to redo.
+  const logEvents = await withTransientRetry(() => db.$transaction(async (tx) => {
     for (const field of observedFields) {
       await recordClaim(tx, {
         listingId,
@@ -63,7 +71,7 @@ export async function recordCardFieldClaims(
       if (logEvent) events.push(logEvent)
     }
     return events
-  })
+  }, { timeout: 10000 }))
 
   for (const event of logEvents) logFieldResolutionEvent(event, logger)
 }

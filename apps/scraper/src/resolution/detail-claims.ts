@@ -5,6 +5,7 @@ import { applyFieldResolution, recordClaim } from './claims-repository.js'
 import { NoopPhotoClaimProvider } from './photo-claim-provider.js'
 import { logFieldResolutionEvent } from './metrics.js'
 import type { ClaimField } from './types.js'
+import { withTransientRetry } from '../lib/db-retry.js'
 
 const defaultPhotoClaimProvider = new NoopPhotoClaimProvider()
 
@@ -41,7 +42,10 @@ export async function recordDetailFieldClaims(
 
   const observedAt = new Date()
 
-  const logEvents = await db.$transaction(async (tx) => {
+  // See card-claims.ts's recordCardFieldClaims for why this needs both a wider
+  // timeout and transient-error retry: recordClaim's pg_advisory_xact_lock can
+  // block past Prisma's 5s default under concurrent writers to the same slot.
+  const logEvents = await withTransientRetry(() => db.$transaction(async (tx) => {
     for (const field of observedFields) {
       await recordClaim(tx, {
         listingId,
@@ -61,7 +65,7 @@ export async function recordDetailFieldClaims(
       if (logEvent) events.push(logEvent)
     }
     return events
-  })
+  }, { timeout: 10000 }))
 
   for (const event of logEvents) logFieldResolutionEvent(event, logger)
 }
