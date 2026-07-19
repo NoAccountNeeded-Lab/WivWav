@@ -201,7 +201,7 @@ export interface ListingDocument {
   status: string
   publicationStatus: string
   saleStatus: string
-  /** WAV Search first observation; retained as the existing sort key. */
+  /** WivWav first observation; retained as the existing sort key. */
   listedAt: string
   sourceListedAt: string | null
   sourceUpdatedAt: string | null

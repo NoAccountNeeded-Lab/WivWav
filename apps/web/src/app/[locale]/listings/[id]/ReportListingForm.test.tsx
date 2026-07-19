@@ -132,7 +132,7 @@ describe('OverviewTab report warning badge', () => {
 })
 
 describe('OverviewTab listing date provenance', () => {
-  it('labels seller/source dates separately from WAV Search dates', () => {
+  it('labels seller/source dates separately from the discovery date', () => {
     render(
       <OverviewTab
         listing={makeListing({
@@ -157,12 +157,14 @@ describe('OverviewTab listing date provenance', () => {
     expect(screen.getByText(/Source listed May 1, 2026/).textContent).toContain(
       'Source updated May 3, 2026',
     )
-    expect(screen.getByText(/WAV Search first saw May 5, 2026/).textContent).toContain(
-      'Last checked May 6, 2026',
-    )
+    // "Last checked"/detailScrapedAt is not repeated here — it's already
+    // shown once, up top, as "Last verified" (see the verification banner).
+    const footerText = screen.getByText(/First saw/).textContent
+    expect(footerText).toContain('First saw May 5, 2026')
+    expect(footerText).not.toContain('Last checked')
   })
 
-  it('labels listedAt as WAV Search first-seen when source dates are unavailable', () => {
+  it('labels listedAt as the first-seen date when source dates are unavailable', () => {
     render(
       <OverviewTab
         listing={makeListing({ listedAt: '2026-05-05T12:00:00.000Z' })}
@@ -171,7 +173,7 @@ describe('OverviewTab listing date provenance', () => {
       />,
     )
 
-    expect(screen.getByText('WAV Search first saw May 5, 2026')).toBeTruthy()
+    expect(screen.getByText('First saw May 5, 2026')).toBeTruthy()
     expect(screen.queryByText(/Source listed/)).toBeNull()
   })
 })

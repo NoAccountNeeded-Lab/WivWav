@@ -405,7 +405,7 @@ describe('ingestListing', () => {
       }))
     })
 
-    it('updates a source-provided date without replacing WAV Search listedAt', async () => {
+    it('updates a source-provided date without replacing WivWav listedAt', async () => {
       const db = makeDb({
         id: 'list-1',
         priceCents: 3000000,

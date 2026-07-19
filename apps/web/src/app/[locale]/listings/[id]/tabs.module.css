@@ -4,6 +4,15 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  /* On the wide-screen two-column layout (page.module.css, ≥768px) this panel
+     fills whatever's left of the row after the gallery — on very wide
+     viewports that's 1000px+, which stretched the price/CTA/button to
+     ridiculous, half-empty-looking widths. Capping and centering keeps it at
+     a normal reading width; a no-op on mobile, since the viewport is already
+     narrower than the cap. */
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .section {
@@ -130,7 +139,7 @@
 
 .ctaWrap {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
@@ -140,7 +149,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 0.8125rem;
   background: var(--clr-primary);
   color: #fff;
@@ -165,7 +175,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 0.75rem;
   background: transparent;
   color: var(--clr-primary);
@@ -200,41 +211,78 @@
   font-weight: 600;
 }
 
+/* Small icon-only button, in normal document flow (not fixed/floating) —
+   just right-aligned within the tab content so it doesn't compete for width
+   with the CTAs, without hovering fixed over the page while scrolling. */
 .reportSection {
-  padding: 0.25rem 0 1rem;
-  border-bottom: 1px solid var(--clr-border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.reportButtonWrap {
+  position: relative;
+  display: inline-flex;
 }
 
 .reportToggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.375rem;
-  min-height: 2.75rem;
-  width: 100%;
-  padding: 0.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
   border: 1.5px solid var(--clr-border-strong);
-  border-radius: 0.5rem;
+  border-radius: 50%;
   background: var(--clr-bg);
   color: var(--clr-text);
-  font-family: var(--font);
-  font-size: 0.875rem;
-  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   cursor: pointer;
 }
 .reportToggle:hover {
   border-color: var(--clr-primary);
+  color: var(--clr-primary);
 }
 .reportToggle:focus-visible {
   outline: 3px solid var(--clr-focus);
   outline-offset: 2px;
 }
 
+.reportTooltip {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  right: 0;
+  white-space: nowrap;
+  padding: 0.3125rem 0.5625rem;
+  background: var(--clr-text);
+  color: var(--clr-bg);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.reportButtonWrap:hover .reportTooltip,
+.reportButtonWrap:focus-within .reportTooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .reportForm {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding-top: 0.75rem;
+  width: 17.5rem;
+  max-width: 100%;
+  padding: 0.875rem;
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border-strong);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .reportField {
