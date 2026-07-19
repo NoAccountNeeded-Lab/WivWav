@@ -178,12 +178,12 @@ describe('GET /:vin/safety', () => {
       findByVin: vi.fn(async () => ({ id: 'listing-1', conversionManufacturer: 'BraunAbility' })),
       findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
         recalls: [
-          { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer remedy', reportedAt },
+          { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer remedy', reportedAt, refreshedAt },
         ],
         complaints: [
-          { id: 'complaint-1', nhtsaId: '1001', component: 'ELECTRICAL SYSTEM', summary: 'Battery drain', mileage: 50000, crashInvolved: false, reportedAt },
-          { id: 'complaint-2', nhtsaId: '1002', component: 'ELECTRICAL SYSTEM', summary: 'Door power failure', mileage: null, crashInvolved: false, reportedAt },
-          { id: 'complaint-3', nhtsaId: '1003', component: 'STRUCTURE', summary: 'Ramp door complaint', mileage: 75000, crashInvolved: false, reportedAt },
+          { id: 'complaint-1', nhtsaId: '1001', component: 'ELECTRICAL SYSTEM', summary: 'Battery drain', mileage: 50000, crashInvolved: false, reportedAt, refreshedAt },
+          { id: 'complaint-2', nhtsaId: '1002', component: 'ELECTRICAL SYSTEM', summary: 'Door power failure', mileage: null, crashInvolved: false, reportedAt, refreshedAt },
+          { id: 'complaint-3', nhtsaId: '1003', component: 'STRUCTURE', summary: 'Ramp door complaint', mileage: 75000, crashInvolved: false, reportedAt, refreshedAt },
         ],
         safetyRatings: [
           { id: 'rating-1', nhtsaVehicleId: '12345', description: '2015 Toyota Sienna', overallRating: '5', frontCrashRating: '4', sideCrashRating: '5', rolloverRating: '4', rolloverRatingText: '4-star', refreshedAt },
@@ -305,7 +305,7 @@ describe('GET /:vin/safety', () => {
         findByVin: vi.fn(async () => null),
         findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
           recalls: [
-            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer will replace inflator', reportedAt },
+            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Dealer will replace inflator', reportedAt, refreshedAt: reportedAt },
           ],
         })),
       }
@@ -332,7 +332,7 @@ describe('GET /:vin/safety', () => {
         findByVin: vi.fn(async () => null),
         findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
           recalls: [
-            { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt },
+            { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt, refreshedAt: reportedAt },
           ],
         })),
       }
@@ -359,7 +359,7 @@ describe('GET /:vin/safety', () => {
         findByVin: vi.fn(async () => null),
         findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
           recalls: [
-            { id: 'recall-3', nhtsaCampaignId: '24V003', component: 'BRAKES', summary: 'Brake failure', remedy: '', reportedAt },
+            { id: 'recall-3', nhtsaCampaignId: '24V003', component: 'BRAKES', summary: 'Brake failure', remedy: '', reportedAt, refreshedAt: reportedAt },
           ],
         })),
       }
@@ -386,8 +386,8 @@ describe('GET /:vin/safety', () => {
         findByVin: vi.fn(async () => null),
         findVehicleModelWithSafetyData: vi.fn(async () => makeVehicleModelWithSafety({
           recalls: [
-            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Replace inflator at dealer', reportedAt },
-            { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt },
+            { id: 'recall-1', nhtsaCampaignId: '24V001', component: 'AIR BAGS', summary: 'Air bag issue', remedy: 'Replace inflator at dealer', reportedAt, refreshedAt: reportedAt },
+            { id: 'recall-2', nhtsaCampaignId: '24V002', component: 'FUEL SYSTEM', summary: 'Fuel leak risk', remedy: null, reportedAt, refreshedAt: reportedAt },
           ],
         })),
       }
