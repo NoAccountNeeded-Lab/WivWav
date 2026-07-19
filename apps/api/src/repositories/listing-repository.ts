@@ -39,6 +39,7 @@ export type SafetyRecallRow = {
   summary: string
   remedy: string | null
   reportedAt: Date
+  refreshedAt: Date
 }
 
 export type SafetyComplaintRow = {
@@ -49,6 +50,7 @@ export type SafetyComplaintRow = {
   mileage: number | null
   crashInvolved: boolean
   reportedAt: Date
+  refreshedAt: Date
 }
 
 export type SafetyRatingRow = {
@@ -529,8 +531,8 @@ export class PrismaListingRepository implements ListingRepository {
     return this.db.vehicleModel.findUnique({
       where: { id: vehicleModelId },
       include: {
-        recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true } },
-        complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true } },
+        recalls: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaCampaignId: true, component: true, summary: true, remedy: true, reportedAt: true, refreshedAt: true } },
+        complaints: { orderBy: { reportedAt: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, mileage: true, crashInvolved: true, reportedAt: true, refreshedAt: true } },
         safetyRatings: { select: { id: true, nhtsaVehicleId: true, description: true, overallRating: true, frontCrashRating: true, sideCrashRating: true, rolloverRating: true, rolloverRatingText: true, refreshedAt: true } },
         investigations: { orderBy: { openedDate: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, openedDate: true, closedDate: true, outcome: true, sourceUrl: true, refreshedAt: true } },
         manufacturerCommunications: { orderBy: { issuedDate: 'desc' }, select: { id: true, nhtsaId: true, component: true, summary: true, issuedDate: true, sourceUrl: true, refreshedAt: true } },
