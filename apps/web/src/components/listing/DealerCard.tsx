@@ -8,9 +8,17 @@ interface DealerCardProps {
   sellerType: string
   listingUrl?: string | null
   priceLabel?: string | null
+  /**
+   * Show the location row. Defaults to true. The primary dealer card on the
+   * Overview tab hides it — the location already appears in the spec chips
+   * above, and the CTAs below already cover "view the listing" — so it
+   * would just be a duplicate. Cross-listing cards (a different dealer per
+   * entry) still need it, since it's the only place that location shows up.
+   */
+  showLocation?: boolean
 }
 
-export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabel }: DealerCardProps) {
+export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabel, showLocation = true }: DealerCardProps) {
   const locationStr = [location.city, location.state].filter(Boolean).join(', ')
 
   return (
@@ -23,7 +31,7 @@ export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabe
       </div>
 
       <ul className={styles.contactList}>
-        {locationStr && (
+        {showLocation && locationStr && (
           <li className={styles.contactRow}>
             <MapPin size={16} className={styles.contactIcon} aria-hidden />
             <span className="sr-only">Location: </span>

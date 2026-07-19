@@ -1,6 +1,7 @@
 import { MarketComparison } from '@/components/listing/MarketComparison'
 import { PriceHistoryChart } from '@/components/listing/PriceHistoryChart'
 import { SimilarListings } from '@/components/listing/SimilarListings'
+import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import type { ListingDetail, MarketPricing, ModelMsrp, PricePoint, SimilarListing } from './types'
 import styles from './tabs.module.css'
 
@@ -25,6 +26,8 @@ export function MarketTab({
 
   return (
     <div className={styles.tabContent}>
+      <ListingDisclaimer categories={['market']} />
+
       {priceHistory.length >= 2 && (
         <div className={styles.section}>
           <div className={styles.sectionLabel}>Price history</div>

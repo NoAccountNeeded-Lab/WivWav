@@ -151,7 +151,7 @@ export interface Listing {
   soldAt: Date | null
 
   /**
-   * When WAV Search first observed this source listing. This is an internal
+   * When WivWav first observed this source listing. This is an internal
    * discovery timestamp, not a seller-provided publication date.
    */
   listedAt: Date

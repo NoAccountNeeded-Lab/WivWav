@@ -80,23 +80,14 @@
   margin-top: 0.25rem;
 }
 
-.sourceLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem; /* 44px WCAG 2.5.5 touch target */
-  font-size: 0.6875rem;
-  font-weight: 500;
+.titleLink {
   color: var(--clr-primary);
   text-decoration: none;
-  border: 1px solid var(--clr-border);
-  border-radius: 0.25rem;
-  padding: 0 0.5rem;
-  white-space: nowrap;
 }
-.sourceLink:hover {
+.titleLink:hover {
   text-decoration: underline;
 }
-.sourceLink:focus-visible {
+.titleLink:focus-visible {
   outline: 3px solid var(--clr-focus);
   outline-offset: 2px;
 }
@@ -187,25 +178,29 @@
   color: #14532d;
 }
 
-.iconUnknown {
+/* Recall has no confirmed fix yet — same amber "needs attention" tone as
+   .iconWarn/.statusOpen, kept as its own class (rather than reused) so the
+   distinct meaning — no fix available yet, vs. an open recall needing
+   service — stays legible in the markup. */
+.iconCaution {
   width: 28px;
   height: 28px;
   border-radius: 0.4375rem;
-  background: var(--clr-border);
-  color: var(--clr-text-muted);
+  background: var(--clr-primary-light);
+  color: #8f4500;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.statusUnknown {
+.statusCaution {
   display: inline-block;
   font-size: 0.625rem;
   font-weight: 500;
   padding: 0.125rem 0.4375rem;
   border-radius: 0.5rem;
   margin-top: 0.1875rem;
-  background: var(--clr-border);
-  color: var(--clr-text-secondary);
+  background: var(--clr-primary-light);
+  color: #8f4500;
 }

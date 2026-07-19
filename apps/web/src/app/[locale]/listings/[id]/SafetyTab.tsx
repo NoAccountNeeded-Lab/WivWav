@@ -1,8 +1,10 @@
-import { AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { RecallsList } from '@/components/listing/RecallsList'
 import { SafetyRatings } from '@/components/listing/SafetyRatings'
 import { formatFreshnessDate, isSafetyDataStale } from './safetyTabUtils'
 import { SafetyRefreshButton } from '@/components/listing/SafetyRefreshButton'
+import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { formatDate } from './utils'
 import type { Investigation, ListingDetail, ManufacturerCommunication, SafetyData } from './types'
 import styles from './tabs.module.css'
@@ -51,6 +53,17 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
           )}
         </div>
       )}
+
+      {listing.vin && (
+        <div className={styles.ctaWrap}>
+          <Link href={`/vin/${encodeURIComponent(listing.vin)}`} className={styles.ctaSecondary}>
+            <ShieldCheck size={16} aria-hidden />
+            View safety report
+          </Link>
+        </div>
+      )}
+
+      <ListingDisclaimer categories={['safety']} />
 
       <div className={styles.section}>
         <div className={styles.sectionLabelRow}>

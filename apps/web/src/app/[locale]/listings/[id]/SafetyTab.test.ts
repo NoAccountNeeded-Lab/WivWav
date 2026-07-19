@@ -72,10 +72,10 @@ describe('recallStatusLabel', () => {
   })
 
   it('returns remedied label for remedied status', () => {
-    expect(recallStatusLabel('remedied')).toBe('Remedy available — completed')
+    expect(recallStatusLabel('remedied')).toBe('Fix procedure published')
   })
 
   it('returns status unknown label when status is unknown', () => {
-    expect(recallStatusLabel('unknown')).toBe('Status unknown')
+    expect(recallStatusLabel('unknown')).toBe('Fix not yet available')
   })
 })
