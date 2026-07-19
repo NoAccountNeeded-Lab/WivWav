@@ -44,7 +44,7 @@ function buildFacetsUrl(
   searchParams: { get: (key: string) => string | null },
   omitParam: string | null,
 ): string {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
   const url = new URL(`${base}/v1/listings/facets`)
   for (const key of ALL_FILTER_PARAMS) {
     if (key === omitParam) continue
@@ -70,7 +70,7 @@ async function fetchFacets(url: string): Promise<FacetsData> {
 }
 
 async function fetchConversionBrands(): Promise<ConversionBrandSummary[]> {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
   try {
     const res = await fetch(`${base}/v1/conversion-brands`)
     if (!res.ok) return []
