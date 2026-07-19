@@ -392,23 +392,33 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
     const vehicleModel = await listings.findVehicleModelWithSafetyData(listing.vehicleModelId)
 
     const rawRecalls = vehicleModel?.recalls ?? []
-    const recalls = rawRecalls.map((r) => ({ ...r, status: normalizeRecallStatus(r.remedy) }))
-
-    // Freshness date: the most recent refreshedAt from safety ratings, or null when unavailable
+    const rawComplaints = vehicleModel?.complaints ?? []
     const rawRatings = vehicleModel?.safetyRatings ?? []
-    const safetyFreshnessDate = rawRatings.reduce<string | null>((latest, r) => {
-      if (!r.refreshedAt) return latest
-      const iso = r.refreshedAt.toISOString()
-      return latest === null || iso > latest ? iso : latest
-    }, null)
-    // Strip refreshedAt from each rating — it is already aggregated into safetyFreshnessDate
-    const safetyRatings = rawRatings.map(({ refreshedAt: _unused, ...rest }) => rest)
-
-    // Investigations: source URL is stored per record — expose as-is
     const investigations = vehicleModel?.investigations ?? []
-
-    // Manufacturer communications (TSBs): source URL stored per record
     const manufacturerCommunications = vehicleModel?.manufacturerCommunications ?? []
+
+    // Freshness date: the most recent refreshedAt across every NHTSA record
+    // type we sync (recalls, complaints, ratings, investigations, TSBs), or
+    // null when none of them have ever been synced. Using only safety-rating
+    // freshness left the banner permanently stuck on "unknown" for any
+    // vehicle model NHTSA has no 5-star rating for (most WAV conversions) —
+    // recalls/complaints/investigations/TSBs can be freshly synced while
+    // ratings stay empty.
+    const allRefreshedAt: Date[] = [
+      ...rawRecalls.map((r) => r.refreshedAt),
+      ...rawComplaints.map((c) => c.refreshedAt),
+      ...rawRatings.map((r) => r.refreshedAt).filter((d): d is Date => d !== null),
+      ...investigations.map((i) => i.refreshedAt),
+      ...manufacturerCommunications.map((c) => c.refreshedAt),
+    ]
+    const safetyFreshnessDate = allRefreshedAt.length === 0
+      ? null
+      : new Date(Math.max(...allRefreshedAt.map((d) => d.getTime()))).toISOString()
+
+    // Strip refreshedAt from each record — it is already aggregated into safetyFreshnessDate
+    const recalls = rawRecalls.map(({ refreshedAt: _unused, ...r }) => ({ ...r, status: normalizeRecallStatus(r.remedy) }))
+    const complaints = rawComplaints.map(({ refreshedAt: _unused, ...rest }) => rest)
+    const safetyRatings = rawRatings.map(({ refreshedAt: _unused, ...rest }) => rest)
 
     return reply.send({
       data: {
@@ -416,7 +426,7 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
           ? { id: vehicleModel.id, make: vehicleModel.make, model: vehicleModel.model, year: vehicleModel.year, trim: vehicleModel.trim, bodyType: vehicleModel.bodyType }
           : null,
         recalls,
-        complaints: vehicleModel?.complaints ?? [],
+        complaints,
         safetyRatings,
         safetyFreshnessDate,
         investigations,

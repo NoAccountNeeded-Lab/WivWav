@@ -3,6 +3,7 @@ import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
 import { jitteredSleep } from '../util/jitter-sleep.js'
 import { fetchWithRetry } from '../util/fetch-with-retry.js'
+import { parseNhtsaDMY } from './nhtsa-date-utils.js'
 
 const RECALLS_URL = 'https://api.nhtsa.gov/recalls/recallsByVehicle'
 const RATE_LIMIT_MS = 300
@@ -18,13 +19,6 @@ interface NhtsaRecall {
 interface RecallsResponse {
   results?: NhtsaRecall[]
 }
-
-function parseMicrosoftDate(val: string | null | undefined): Date {
-  if (!val) return new Date(0)
-  const m = /\/Date\((\d+)\)\//.exec(val)
-  return m && m[1] ? new Date(Number(m[1])) : new Date(0)
-}
-
 
 async function fetchRecalls(make: string, model: string, year: number): Promise<NhtsaRecall[]> {
   const params = new URLSearchParams({ make, model, modelYear: String(year) })
@@ -78,7 +72,8 @@ export async function runNhtsaRecallsJob(context?: JobContext, data?: NhtsaRecal
           component: recall.Component,
           summary: recall.Summary,
           remedy: recall.Remedy ?? null,
-          reportedAt: parseMicrosoftDate(recall.ReportReceivedDate),
+          reportedAt: parseNhtsaDMY(recall.ReportReceivedDate),
+          refreshedAt: new Date(),
         },
         create: {
           nhtsaCampaignId: recall.NHTSACampaignNumber,
@@ -86,7 +81,8 @@ export async function runNhtsaRecallsJob(context?: JobContext, data?: NhtsaRecal
           component: recall.Component,
           summary: recall.Summary,
           remedy: recall.Remedy ?? null,
-          reportedAt: parseMicrosoftDate(recall.ReportReceivedDate),
+          reportedAt: parseNhtsaDMY(recall.ReportReceivedDate),
+          refreshedAt: new Date(),
         },
       })
       upserted++

@@ -1,9 +1,12 @@
 /**
  * Shared NHTSA date parsing utilities.
  *
- * NHTSA APIs return dates in two formats depending on the endpoint:
+ * NHTSA APIs return dates in different formats depending on the endpoint:
  *   - YYYYMMDD integer (complaints, investigations, TSBs)
- *   - "/Date(ms)/" Microsoft JSON serialisation (recalls)
+ *   - "DD/MM/YYYY" string (recallsByVehicle's ReportReceivedDate — confirmed
+ *     against the live API: e.g. "14/03/2024" is March 14, 2024, not
+ *     Jan-something. Easy to get backwards given the US-agency source, but
+ *     the field is day-first.)
  *   - ISO-8601 string (some newer endpoints)
  *
  * Each helper guards against the known bad input patterns from the live API.
@@ -21,10 +24,15 @@ export function parseNhtsaYMD(val: number | string | null | undefined): Date {
   return isNaN(d.getTime()) ? new Date(0) : d
 }
 
-/** Parse a Microsoft "/Date(ms)/" serialised date string (used in the recalls API).
+/** Parse a "DD/MM/YYYY" date string, as returned by recallsByVehicle's
+ * ReportReceivedDate (NOT the legacy Microsoft "/Date(ms)/" format its field
+ * name suggests — the live API returns a plain slash-delimited, day-first
+ * date string).
  * Returns new Date(0) for null, undefined, or unrecognised input. */
-export function parseMicrosoftDate(val: string | null | undefined): Date {
+export function parseNhtsaDMY(val: string | null | undefined): Date {
   if (!val) return new Date(0)
-  const m = /\/Date\((\d+)\)\//.exec(val)
-  return m && m[1] ? new Date(Number(m[1])) : new Date(0)
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(val.trim())
+  if (!m) return new Date(0)
+  const [, day, month, year] = m
+  return new Date(Number(year), Number(month) - 1, Number(day))
 }
