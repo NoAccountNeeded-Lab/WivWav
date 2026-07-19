@@ -81,7 +81,19 @@ export class PrismaVehicleRepository implements VehicleRepository {
   constructor(private readonly db: PrismaClient) {}
 
   findModel(make: string, model: string, year: number): Promise<VehicleModelRow | null> {
-    return this.db.vehicleModel.findFirst({ where: { make, model, year } })
+    // Case-insensitive: VehicleModel rows are stored lowercased (the scraper's
+    // vin-enrich job normalizes via normalizeVehicleField before writing), but
+    // callers here pass through raw casing — vPIC's VIN decode returns
+    // "TOYOTA"/"Sienna", and URL path params can be anything a caller sends.
+    // An exact-case match against the lowercased column silently returned
+    // null for essentially every real lookup.
+    return this.db.vehicleModel.findFirst({
+      where: {
+        make: { equals: make, mode: 'insensitive' },
+        model: { equals: model, mode: 'insensitive' },
+        year,
+      },
+    })
   }
 
   findRecalls(vehicleModelId: string): Promise<RecallRow[]> {
