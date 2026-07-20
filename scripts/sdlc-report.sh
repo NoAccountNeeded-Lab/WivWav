@@ -170,7 +170,7 @@ FAILED_RUNS_RAW=$(gh run list \
   --repo "$REPO" \
   --workflow ci.yml \
   --limit 100 \
-  --json databaseId,conclusion,displayTitle,headBranch,createdAt \
+  --json databaseId,conclusion,displayTitle,headBranch,createdAt,url \
   2>/dev/null || echo "[]")
 FAILED_RUNS=$(echo "$FAILED_RUNS_RAW" | jq --arg since "$SINCE" \
   '[.[] | select((.createdAt | fromdateiso8601) >= ($since | fromdateiso8601) and .conclusion == "failure")] | .[0:10]')
@@ -185,9 +185,11 @@ else
     created=$(echo "$run" | jq -r '.createdAt[:10]')
     branch=$(echo "$run" | jq -r '.headBranch')
     title=$(echo "$run" | jq -r '.displayTitle')
+    run_url=$(echo "$run" | jq -r '.url')
     cause=$(failed_job_summary "$run_id")
     echo "  - [${created}] branch=${branch}  ${title}"
     echo "    cause: ${cause}"
+    echo "    url: ${run_url}"
   done < <(echo "$FAILED_RUNS" | jq -c '.[]')
 fi
 echo ""
