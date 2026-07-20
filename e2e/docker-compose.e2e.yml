@@ -32,6 +32,15 @@ services:
 
   web:
     image: ${WIVWAV_E2E_WEB_IMAGE:-wivwav-e2e-web:local}
+    build:
+      args:
+        # Only takes effect on the local (non-CI) build path — CI builds
+        # this image itself in the "E2E smoke" job with an equivalent
+        # --build-arg and skips this compose build via WIVWAV_E2E_WEB_IMAGE.
+        # Must match the NEXT_PUBLIC_API_URL override below: it's a
+        # build-time value for the client bundle vs. a runtime value for
+        # the server process, but both need to resolve to the same place.
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:${WIVWAV_E2E_API_PORT:-53001}
     ports:
       - "127.0.0.1:${WIVWAV_E2E_WEB_PORT:-53000}:3000"
     environment:

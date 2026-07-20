@@ -180,6 +180,11 @@ services:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
+      args:
+        # NEXT_PUBLIC_API_URL is inlined into the client bundle at `next
+        # build` time; the `environment:` entry below only reaches the
+        # server process. Keep the two in sync.
+        NEXT_PUBLIC_API_URL: http://localhost:3001
     restart: unless-stopped
     ports:
       - "3000:3000"

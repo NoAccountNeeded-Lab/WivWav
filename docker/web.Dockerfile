@@ -6,12 +6,19 @@ RUN npm install -g corepack@latest && corepack enable
 
 FROM base AS builder
 WORKDIR /app
+# NEXT_PUBLIC_* vars are inlined into the client bundle at `next build` time,
+# not read from the container's runtime environment. docker-compose.yml's
+# `environment:` entry for NEXT_PUBLIC_API_URL only affects the server
+# process — the browser bundle needs it baked in here, or it silently falls
+# back to apps/web/src/lib/api-url.ts's DEFAULT_PUBLIC_API_URL.
+ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENABLED
 ARG SENTRY_ENABLED
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV SENTRY_DSN=$SENTRY_DSN
 ENV NEXT_PUBLIC_SENTRY_ENABLED=$NEXT_PUBLIC_SENTRY_ENABLED
