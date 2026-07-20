@@ -147,6 +147,15 @@ test.describe('accessibility smoke (axe)', () => {
     const maxState = map.locator('[role="button"][data-max-count="true"]').first()
     const otherState = map.locator('[role="button"][data-max-count="false"]').first()
 
+    // `states.first()` above only proves the map shell rendered — every state
+    // button exists regardless of data. `data-max-count` is derived from the
+    // stats fetch StateHeatMap loads independently (see comment above), so
+    // wait for it explicitly here too; otherwise a slow-loading fetch fails
+    // the unguarded `.evaluate()` calls below only after burning the entire
+    // test timeout, with no indication of what was actually still missing.
+    await expect(maxState).toBeAttached()
+    await expect(otherState).toBeAttached()
+
     const baselineWidths = await Promise.all([
       maxState.evaluate(function getStrokeWidth(state) {
         return parseFloat(window.getComputedStyle(state).strokeWidth)
