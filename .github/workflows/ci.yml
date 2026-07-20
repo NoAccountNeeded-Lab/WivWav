@@ -233,6 +233,13 @@ jobs:
           push: false
           load: true
           tags: wivwav-ci-web:${{ github.sha }}
+          # NEXT_PUBLIC_API_URL is inlined into the client bundle at build
+          # time, so it has to match the API port this same job's compose
+          # stack maps below (WIVWAV_E2E_API_PORT default: 53001) — a
+          # runtime-only override cannot fix a value already baked into the
+          # served JS. See #815.
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://127.0.0.1:53001
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
