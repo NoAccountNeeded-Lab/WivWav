@@ -857,9 +857,20 @@ model ListingImage {
   /// Monotonically-increasing version so re-analysis can detect stale rows.
   analysisVersion Int       @default(1)
 
+  /// Taxonomy/prompt schema version (#796/#797's semantic image analysis —
+  /// distinct concern from `analysisVersion` above, which only covers the
+  /// hash/clustering pipeline). Null means "not yet semantically analyzed";
+  /// a set value is the version that produced the latest stored
+  /// `ListingImageSemanticAnalysis` result, so a taxonomy/prompt change can
+  /// force re-analysis of stale rows independent of the hash pipeline
+  /// version. Set only on a successful analysis attempt.
+  semanticAnalysisVersion Int?
+
   /// Cluster this image belongs to (set after clustering analysis).
   clusterId      String?
   cluster        ImageCluster? @relation(fields: [clusterId], references: [id])
+
+  semanticAnalyses ListingImageSemanticAnalysis[]
 
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -871,6 +882,65 @@ model ListingImage {
   @@index([clusterId])
   @@index([normalizedUrl])
   @@map("listing_image")
+}
+
+/// Append-only record of one semantic-image-analysis attempt (#796/#797).
+/// Distinct from the #503 integrity pipeline (`ListingImage`/`ImageCluster`)
+/// — this table never feeds `Listing`'s ramp-type or other WAV fields
+/// directly; it is evidence only, keyed by the analyzed image's content hash
+/// so re-running analysis for unchanged image bytes at the same
+/// `semanticAnalysisVersion` is a no-op rather than a duplicate row.
+model ListingImageSemanticAnalysis {
+  id             String       @id @default(cuid())
+  listingImageId String
+  listingImage   ListingImage @relation(fields: [listingImageId], references: [id])
+
+  /// SHA-256 of the analyzed image bytes (matches `ListingImage.exactHash`
+  /// at analysis time). Part of the idempotency key.
+  contentHash String
+
+  /// Taxonomy/prompt schema version that produced this row. Part of the
+  /// idempotency key — distinct from `ListingImage.analysisVersion`.
+  semanticAnalysisVersion Int
+
+  /// `ImageAnalysisProvider.name` — the adapter that produced this result.
+  provider String
+  /// Model identifier reported by the provider (e.g. "claude-sonnet-4"),
+  /// null for providers that don't expose one (e.g. the local-dev noop).
+  model    String?
+
+  /// Provider/schema version echoed back in `ImageAnalysisResult.schemaVersion`.
+  schemaVersion String
+
+  /// `success` | `error`. `error` covers both a thrown/failed provider call
+  /// and a successfully-returned but malformed/schema-invalid response —
+  /// either way this row exists for audit, never fabricating a label or
+  /// confidence.
+  status       String
+  errorCode    String?
+  errorMessage String?
+
+  /// Zero or more controlled-taxonomy labels with confidence, JSON array of
+  /// `{ label: ImageLabel; confidence: number }`. Empty on `error`.
+  labels Json @default("[]")
+
+  /// Resolver-governed field claims derived from `labels` (e.g. ramp/lift →
+  /// rampType), JSON array of `{ field; claimedValue; confidence }`. Recorded
+  /// for future evidence use only — this table's writer never itself calls
+  /// the #499 resolver or touches `Listing.rampType`. Empty on `error`.
+  fieldClaims Json @default("[]")
+
+  /// Free-text model commentary, unconstrained prose — accessibility/UI use
+  /// only, never used for claim resolution. Null on `error`.
+  altText String?
+  summary String?
+
+  observedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([listingImageId, contentHash, semanticAnalysisVersion])
+  @@index([listingImageId])
+  @@map("listing_image_semantic_analysis")
 }
 
 /// A group of images that share the same exact hash (byte-identical) or whose
