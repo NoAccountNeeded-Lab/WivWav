@@ -2,6 +2,9 @@ packages:
   - 'apps/*'
   - 'e2e'
   - 'packages/*'
+  # Throwaway packages for issue spikes (e.g. #852's MUI evaluation). Never
+  # depended on by apps/* or packages/*; removed once the spike concludes.
+  - 'spikes/*/*'
 
 allowBuilds:
   '@parcel/watcher': true
@@ -27,3 +30,10 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-64@2.9.17'
   - '@turbo/windows-arm64@2.9.17'
   - turbo@2.9.17
+  - '@storybook/addon-a11y@10.5.3'
+  - '@storybook/builder-vite@10.5.3'
+  - '@storybook/csf-plugin@10.5.3'
+  - '@storybook/react-dom-shim@10.5.3'
+  - '@storybook/react-vite@10.5.3'
+  - '@storybook/react@10.5.3'
+  - storybook@10.5.3

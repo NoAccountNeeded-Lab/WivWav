@@ -1,0 +1,25 @@
+{
+  "name": "@wivwav/spike-852-design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SPIKE PROTOTYPE for issue #852. Not the final @wivwav/design-tokens foundation package (that is built in #853). Platform-neutral semantic tokens as plain data, no React/DOM.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@wivwav/config": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}
