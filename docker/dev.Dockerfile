@@ -12,6 +12,7 @@ WORKDIR /workspace
 # Copy package manifests only — source code is bind-mounted at runtime.
 # Changing any of these files invalidates this layer and triggers a reinstall.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY scripts/check-node-version.mjs scripts/
 COPY apps/api/package.json apps/api/
 COPY apps/scraper/package.json apps/scraper/
 COPY apps/web/package.json apps/web/
