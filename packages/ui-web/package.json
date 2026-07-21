@@ -1,0 +1,54 @@
+{
+  "name": "@wivwav/ui-web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The sole browser component-vendor boundary for apps/web and apps/ops. Wraps MUI Core + MUI X Community (accepted in #852) behind a narrow, policy-bearing primitive surface — see docs/design/ui-boundary-and-ops-workspace.md section 1. apps/web and apps/ops must consume this package rather than importing @mui/* or @emotion/* directly (enforced by packages/config/eslint.config.js).",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist storybook-static",
+    "storybook": "storybook dev -p 6853",
+    "build-storybook": "storybook build"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.2.0",
+    "@mui/system": "^9.2.0",
+    "@mui/x-data-grid": "^9.10.0",
+    "@wivwav/design-tokens": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "^10.5.3",
+    "@storybook/addon-vitest": "^10.5.3",
+    "@storybook/react-vite": "^10.5.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/browser": "^4.1.10",
+    "@vitest/browser-playwright": "^4.1.10",
+    "@wivwav/config": "workspace:*",
+    "playwright": "^1.61.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "storybook": "^10.5.3",
+    "typescript": "^6.0.3",
+    "vite": "7.3.5",
+    "vitest": "^4.1.10"
+  }
+}
