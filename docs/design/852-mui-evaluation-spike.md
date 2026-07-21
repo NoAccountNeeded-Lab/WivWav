@@ -149,6 +149,25 @@ output was used as the target for the accessibility probe in section 6 and
 is not committed (`storybook-static/` is build output, regenerable via
 `pnpm --filter @wivwav/spike-852-ui-web build-storybook`).
 
+**Unrelated fix required along the way:** adding Storybook's `vite`
+devDependency initially caused a full-workspace regression, unrelated to
+MUI itself. `vitest@4.1.10` (used by every package's test suite) declares
+an optional peer on `@vitest/mocker`, whose own `vite` peer range
+(`^6.0.0 || ^7.0.0 || ^8.0.0`) is broad enough that a from-scratch `pnpm
+install` re-resolves it against the newest matching registry version —
+which is now vite 8, released after this repo's lockfile was last
+regenerated — rather than continuing to reuse the workspace's existing
+vite 7.3.5. Vite 8 bundles a stricter rolldown-based transform that broke
+8 of `apps/web`'s existing `.test.tsx` files with `Unexpected JSX
+expression` parse errors, despite no `package.json` in the repo asking for
+vite 8 directly. Fixed by adding a `vite: 7.3.5` entry under `overrides:`
+in the repo-root `pnpm-workspace.yaml`, pinning every consumer — including
+`vitest`'s optional peer and this spike's own Storybook packages — to the
+one version already in use. Confirmed after the fix: `pnpm why vite`
+shows a single resolved version workspace-wide, no `rolldown` package
+anywhere in `pnpm-lock.yaml`, and the full `pnpm test` run (all 19
+workspace test tasks) passes, matching the pre-spike baseline.
+
 ## 5. Bundle delta
 
 **Method:** Next.js 16's Turbopack production build no longer prints the

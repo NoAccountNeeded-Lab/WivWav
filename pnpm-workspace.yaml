@@ -6,6 +6,21 @@ packages:
   # depended on by apps/* or packages/*; removed once the spike concludes.
   - 'spikes/*/*'
 
+overrides:
+  # Pin every consumer of vite — including vitest@4.1.10's own optional
+  # `@vitest/mocker` peer dependency, and this spike's Storybook packages —
+  # to the single version already used workspace-wide. Without this, a
+  # from-scratch `pnpm install` re-resolves vitest's `vite: ^6.0.0 ||
+  # ^7.0.0 || ^8.0.0` peer against the newest registry match (vite 8, which
+  # bundles the rolldown-based transform) instead of reusing 7.3.5, and
+  # vite 8's stricter parser breaks apps/web's existing vitest suite
+  # (`Unexpected JSX expression` in several .test.tsx files) even though no
+  # package.json in the repo asks for vite 8 directly. Discovered while
+  # adding spikes/852-mui-evaluation/ui-web's Storybook devDependencies for
+  # issue #852; unrelated to this issue's actual scope, so pinned rather
+  # than investigated further.
+  vite: 7.3.5
+
 allowBuilds:
   '@parcel/watcher': true
   '@prisma/client': true
