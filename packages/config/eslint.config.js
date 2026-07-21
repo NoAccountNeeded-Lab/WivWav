@@ -152,4 +152,32 @@ export default tseslint.config(js.configs.recommended, ...tseslint.configs.recom
     // actually redundant for us and shouldn't be flagged.
     'jsx-a11y/no-redundant-roles': ['error', { ul: ['list'], ol: ['list'] }],
   },
+}, {
+  // Per docs/design/ui-boundary-and-ops-workspace.md section 1, @wivwav/ui-web
+  // is the only package permitted to import the underlying component vendor
+  // (MUI Core / MUI X Community, accepted in #852) or its `@emotion/*`
+  // styling engine directly. apps/web and apps/ops must consume the narrow
+  // surface @wivwav/ui-web re-exports instead.
+  //
+  // This is applied unconditionally to every consumer of this shared config
+  // rather than scoped by a `files` glob, because flat-config `files`
+  // patterns are resolved relative to each package's own working directory
+  // (every workspace here runs its own `eslint src` from within that
+  // package), so a glob like `apps/web/**` would never match when lint runs
+  // from inside apps/web itself. The scoping instead comes from which
+  // packages opt into this shared config at all: @wivwav/ui-web
+  // intentionally has no eslint.config.js of its own (matching the existing
+  // @wivwav/charts convention of a build/typecheck-only package with no
+  // lint script), so it never evaluates this rule against its own vendor
+  // imports.
+  rules: {
+    'no-restricted-imports': ['error', {
+      patterns: [
+        {
+          group: ['@mui/*', '@emotion/*'],
+          message: 'Import UI primitives from @wivwav/ui-web instead of the underlying component vendor directly (see docs/design/ui-boundary-and-ops-workspace.md section 1).',
+        },
+      ],
+    }],
+  },
 })
