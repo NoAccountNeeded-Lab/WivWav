@@ -54,6 +54,7 @@ import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
 import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
 import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fueleconomy-msrp.js'
+import { runSemanticImageAnalyzeJob, type SemanticImageAnalyzeJobData } from './jobs/semantic-image-analyze.js'
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
@@ -168,6 +169,10 @@ const listingResolveQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
+// No local binding: nothing in this process enqueues onto this queue — only
+// the #798 backfill script (a separate process/factory) does. Registering it
+// here still makes the BullMQ Queue instance visible to shutdown()'s close().
+queueFactory.createQueue(QUEUES.IMAGE_SEMANTIC_ANALYZE)
 
 function registerWorkers(): void {
   // Workers — each processor is wrapped with withSentryCapture so that job
@@ -326,6 +331,13 @@ function registerWorkers(): void {
       runFuelEconomyMsrpJob(context, data),
     ),
     { lockDuration: 600_000, logger },
+  )
+  queueFactory.createWorker(
+    QUEUES.IMAGE_SEMANTIC_ANALYZE,
+    withSentryCapture(QUEUES.IMAGE_SEMANTIC_ANALYZE, (data: SemanticImageAnalyzeJobData, context) =>
+      runSemanticImageAnalyzeJob(data, context),
+    ),
+    { lockDuration: 60_000, logger },
   )
 }
 

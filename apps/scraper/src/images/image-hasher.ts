@@ -46,6 +46,8 @@ export interface ImageHashResult {
   contentType: string
   /** Response body size in bytes. */
   byteSize: number
+  /** Downloaded response body. Only populated when `keepBytes` is set. */
+  bytes?: Buffer
 }
 
 export type ImageHashError =
@@ -66,6 +68,8 @@ export interface ImageHasherOptions {
   timeoutMs?: number
   /** fetch-with-retry retries. Defaults to 2. */
   retries?: number
+  /** Retain the downloaded body on the returned result (as `bytes`). Defaults to false — callers that only need hashes should leave this unset so bytes aren't held longer than necessary. */
+  keepBytes?: boolean
 }
 
 /**
@@ -166,6 +170,7 @@ export async function hashImage(
     pHash,
     contentType,
     byteSize: totalBytes,
+    ...(options.keepBytes ? { bytes: bodyBuffer } : {}),
   }
 }
 
