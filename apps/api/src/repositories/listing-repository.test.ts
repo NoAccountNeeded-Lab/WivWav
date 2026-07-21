@@ -14,6 +14,9 @@ function buildDb(overrides: Record<string, unknown> = {}) {
     listingPriceHistory: {
       findMany: vi.fn(async () => []),
     },
+    listingImage: {
+      findMany: vi.fn(async () => []),
+    },
     vehicleModel: {
       findUnique: vi.fn(async () => null),
     },
@@ -73,17 +76,62 @@ describe('PrismaListingRepository public eligibility', () => {
           orderBy: { position: 'asc' },
           select: {
             id: true,
+            listingId: true,
             originalUrl: true,
             normalizedUrl: true,
             position: true,
+            kind: true,
             exactHash: true,
             semanticAnalysisVersion: true,
+            cluster: {
+              select: {
+                crossVehicle: true,
+                isPlaceholder: true,
+              },
+            },
             semanticAnalyses: {
               orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
             },
           },
         },
       },
+    })
+  })
+
+  it('loads only integrity-eligible analyzed images for card hero selection', async () => {
+    const db = buildDb()
+    const repo = new PrismaListingRepository(db as never)
+
+    await repo.findImagesForHeroSelection(['listing-1', 'listing-2'])
+
+    expect(db.listingImage.findMany).toHaveBeenCalledWith({
+      where: {
+        listingId: { in: ['listing-1', 'listing-2'] },
+        kind: 'vehicle_photo',
+        semanticAnalysisVersion: { not: null },
+        OR: [{ clusterId: null }, { cluster: { isPlaceholder: false, crossVehicle: false } }],
+      },
+      select: {
+        id: true,
+        listingId: true,
+        originalUrl: true,
+        normalizedUrl: true,
+        position: true,
+        kind: true,
+        exactHash: true,
+        semanticAnalysisVersion: true,
+        cluster: {
+          select: {
+            crossVehicle: true,
+            isPlaceholder: true,
+          },
+        },
+        semanticAnalyses: {
+          where: { status: 'success' },
+          orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+      orderBy: [{ listingId: 'asc' }, { position: 'asc' }],
     })
   })
 

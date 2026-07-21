@@ -1,7 +1,9 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { listingRoutes, snippetDescription } from './listings.js'
+
+afterEach(() => vi.unstubAllEnvs())
 
 const defaultDbListing = {
   id: 'listing-1',
@@ -65,6 +67,28 @@ const defaultDbListing = {
   },
 }
 
+function heroCandidate(id: string, listingId: string, originalUrl: string, position: number, confidence: number) {
+  const exactHash = `hash-${id}`
+  return {
+    id,
+    listingId,
+    originalUrl,
+    normalizedUrl: originalUrl,
+    position,
+    kind: 'vehicle_photo',
+    exactHash,
+    semanticAnalysisVersion: 1,
+    cluster: null,
+    semanticAnalyses: [{
+      status: 'success',
+      contentHash: exactHash,
+      semanticAnalysisVersion: 1,
+      labels: [{ label: 'exterior', confidence }],
+      fieldClaims: [],
+    }],
+  }
+}
+
 function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
   return {
     findById: vi.fn(async () => null),
@@ -83,6 +107,7 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
       reportedAt: new Date('2026-07-14T08:00:00Z'),
     })),
     countUnresolvedReports: vi.fn(async () => 0),
+    findImagesForHeroSelection: vi.fn(async () => []),
     ...overrides,
   }
 }
@@ -209,6 +234,75 @@ describe('GET /', () => {
     const body = res.json<{ pagination: Record<string, unknown>; facets: unknown }>()
     expect(body.pagination).toEqual({ page: 3, perPage: 10, total: 42, totalPages: 5 })
     expect(body.facets).toEqual({ make: { Toyota: 5 } })
+
+    await app.close()
+  })
+
+  it('promotes the highest-scored eligible image for listing cards', async () => {
+    const images = ['https://dealer.example.com/first.jpg', 'https://dealer.example.com/second.jpg']
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [{ id: 'listing-1', images }],
+        total: 1,
+        facets: {},
+      })),
+    }
+    const { app, listings } = buildTestApp(search, {
+      findImagesForHeroSelection: vi.fn(async () => [
+        heroCandidate('image-1', 'listing-1', images[0]!, 0, 0.9),
+        heroCandidate('image-2', 'listing-1', images[1]!, 1, 0.98),
+      ]),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data[0].images).toEqual([images[1], images[0]])
+    expect(listings.findImagesForHeroSelection).toHaveBeenCalledWith(['listing-1'])
+
+    await app.close()
+  })
+
+  it('uses the configured public confidence threshold for listing card heroes', async () => {
+    vi.stubEnv('WIVWAV_SEMANTIC_EVIDENCE_MIN_CONFIDENCE', '0.95')
+    const images = ['https://dealer.example.com/first.jpg', 'https://dealer.example.com/second.jpg']
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [{ id: 'listing-1', images }],
+        total: 1,
+        facets: {},
+      })),
+    }
+    const { app } = buildTestApp(search, {
+      findImagesForHeroSelection: vi.fn(async () => [
+        heroCandidate('image-2', 'listing-1', images[1]!, 1, 0.94),
+      ]),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/' })
+
+    expect(res.json().data[0].images).toEqual(images)
+
+    await app.close()
+  })
+
+  it('preserves scraped card image order when hero candidate lookup fails', async () => {
+    const images = ['https://dealer.example.com/first.jpg', 'https://dealer.example.com/second.jpg']
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [{ id: 'listing-1', images }],
+        total: 1,
+        facets: {},
+      })),
+    }
+    const { app } = buildTestApp(search, {
+      findImagesForHeroSelection: vi.fn(async () => { throw new Error('database unavailable') }),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data[0].images).toEqual(images)
 
     await app.close()
   })
@@ -512,6 +606,26 @@ describe('GET /:id — provenance', () => {
     const body = res.json<{ data: Record<string, unknown> }>()
     expect(body.data.source).toBeUndefined()
     expect(body.data.sourceId).toBeUndefined()
+
+    await app.close()
+  })
+
+  it('promotes the highest-scored eligible image for the detail gallery', async () => {
+    const images = ['https://dealer.example.com/first.jpg', 'https://dealer.example.com/second.jpg']
+    const listing = {
+      ...defaultDbListing,
+      images,
+      listingImages: [
+        heroCandidate('image-1', 'listing-1', images[0]!, 0, 0.9),
+        heroCandidate('image-2', 'listing-1', images[1]!, 1, 0.98),
+      ],
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.images).toEqual([images[1], images[0]])
 
     await app.close()
   })

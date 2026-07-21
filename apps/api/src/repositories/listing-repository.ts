@@ -15,11 +15,17 @@ export type ListingWithSource = Listing & {
 
 export type ListingImageWithSemanticAnalyses = {
   id: string
+  listingId: string
   originalUrl: string
   normalizedUrl: string
   position: number
+  kind: string
   exactHash: string | null
   semanticAnalysisVersion: number | null
+  cluster: {
+    crossVehicle: boolean
+    isPlaceholder: boolean
+  } | null
   semanticAnalyses: ListingImageSemanticAnalysis[]
 }
 
@@ -375,6 +381,7 @@ export interface ListingRepository {
   findListingReportTriage(filter: ListingReportTriageFilter): Promise<ListingReportTriageRow[]>
   countListingReportTriage(filter: Omit<ListingReportTriageFilter, 'skip' | 'take'>): Promise<number>
   findSemanticAnalysesForImage(imageId: string): Promise<ListingImageSemanticAnalysisRow[]>
+  findImagesForHeroSelection(listingIds: string[]): Promise<ListingImageWithSemanticAnalyses[]>
   /**
    * Per-stage pending/last-completed state for a single source, covering the
    * DB-derivable pipeline stages (detail-crawl, detail-extract, geocode,
@@ -404,11 +411,19 @@ export class PrismaListingRepository implements ListingRepository {
           orderBy: { position: 'asc' },
           select: {
             id: true,
+            listingId: true,
             originalUrl: true,
             normalizedUrl: true,
             position: true,
+            kind: true,
             exactHash: true,
             semanticAnalysisVersion: true,
+            cluster: {
+              select: {
+                crossVehicle: true,
+                isPlaceholder: true,
+              },
+            },
             semanticAnalyses: {
               orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
             },
@@ -931,6 +946,40 @@ export class PrismaListingRepository implements ListingRepository {
         },
       },
     }) as Promise<ListingImageSemanticAnalysisRow[]>
+  }
+
+  findImagesForHeroSelection(listingIds: string[]): Promise<ListingImageWithSemanticAnalyses[]> {
+    if (listingIds.length === 0) return Promise.resolve([])
+
+    return this.db.listingImage.findMany({
+      where: {
+        listingId: { in: listingIds },
+        kind: 'vehicle_photo',
+        semanticAnalysisVersion: { not: null },
+        OR: [{ clusterId: null }, { cluster: { isPlaceholder: false, crossVehicle: false } }],
+      },
+      select: {
+        id: true,
+        listingId: true,
+        originalUrl: true,
+        normalizedUrl: true,
+        position: true,
+        kind: true,
+        exactHash: true,
+        semanticAnalysisVersion: true,
+        cluster: {
+          select: {
+            crossVehicle: true,
+            isPlaceholder: true,
+          },
+        },
+        semanticAnalyses: {
+          where: { status: 'success' },
+          orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+      orderBy: [{ listingId: 'asc' }, { position: 'asc' }],
+    }) as Promise<ListingImageWithSemanticAnalyses[]>
   }
 
   async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {
