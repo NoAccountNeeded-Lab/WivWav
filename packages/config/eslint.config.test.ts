@@ -99,3 +99,27 @@ describe('shared eslint config: fully qualified SQL gate', () => {
     expect(ruleIds).toEqual([])
   })
 })
+
+function restrictedImportRuleIds(code: string): (string | null)[] {
+  const messages = linter.verify(code, sharedConfig, { filename: 'virtual.ts' })
+  return messages.filter((message) => message.ruleId === 'no-restricted-imports').map((message) => message.ruleId)
+}
+
+// Machine-enforced version of #853's acceptance criterion: apps/web and
+// apps/ops must not import the MUI/emotion vendor directly, only through
+// @wivwav/ui-web. See the scoping note on this rule in eslint.config.js for
+// why this is asserted against the shared config directly rather than
+// against a real apps/web/apps/ops file.
+describe('shared eslint config: component-vendor import restriction', () => {
+  it('should flag a direct @mui/* import', () => {
+    expect(restrictedImportRuleIds("import Button from '@mui/material/Button'")).toContain('no-restricted-imports')
+  })
+
+  it('should flag a direct @emotion/* import', () => {
+    expect(restrictedImportRuleIds("import { css } from '@emotion/react'")).toContain('no-restricted-imports')
+  })
+
+  it('should allow importing from @wivwav/ui-web', () => {
+    expect(restrictedImportRuleIds("import { Button } from '@wivwav/ui-web'")).toEqual([])
+  })
+})
