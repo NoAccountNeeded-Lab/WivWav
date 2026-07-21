@@ -18,6 +18,7 @@ export type ListingImageWithSemanticAnalyses = {
   originalUrl: string
   normalizedUrl: string
   position: number
+  exactHash: string | null
   semanticAnalysisVersion: number | null
   semanticAnalyses: ListingImageSemanticAnalysis[]
 }
@@ -406,6 +407,7 @@ export class PrismaListingRepository implements ListingRepository {
             originalUrl: true,
             normalizedUrl: true,
             position: true,
+            exactHash: true,
             semanticAnalysisVersion: true,
             semanticAnalyses: {
               orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],

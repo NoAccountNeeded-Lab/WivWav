@@ -524,9 +524,11 @@ describe('GET /:id — provenance', () => {
         originalUrl: 'https://dealer.example.com/ramp.jpg',
         normalizedUrl: 'https://dealer.example.com/ramp.jpg',
         position: 0,
+        exactHash: 'sha256-current',
         semanticAnalysisVersion: 1,
         semanticAnalyses: [{
           status: 'success',
+          contentHash: 'sha256-current',
           semanticAnalysisVersion: 1,
           fieldClaims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.92 }],
         }],
@@ -556,9 +558,11 @@ describe('GET /:id — provenance', () => {
         originalUrl: 'https://dealer.example.com/ramp.jpg',
         normalizedUrl: 'https://dealer.example.com/ramp.jpg',
         position: 0,
+        exactHash: 'sha256-current',
         semanticAnalysisVersion: 1,
         semanticAnalyses: [{
           status: 'success',
+          contentHash: 'sha256-current',
           semanticAnalysisVersion: 1,
           fieldClaims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.84 }],
         }],
@@ -582,11 +586,41 @@ describe('GET /:id — provenance', () => {
         originalUrl: 'https://dealer.example.com/side.jpg',
         normalizedUrl: 'https://dealer.example.com/side.jpg',
         position: 0,
+        exactHash: 'sha256-current',
         semanticAnalysisVersion: 1,
         semanticAnalyses: [{
           status: 'success',
+          contentHash: 'sha256-current',
           semanticAnalysisVersion: 1,
           fieldClaims: [{ field: 'conversionType', claimedValue: 'side_entry', confidence: 0.99 }],
+        }],
+      }],
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.semanticEvidence).toBeUndefined()
+
+    await app.close()
+  })
+
+  it('does not return semantic evidence from stale image content hashes', async () => {
+    const listing = {
+      ...defaultDbListing,
+      listingImages: [{
+        id: 'image-1',
+        originalUrl: 'https://dealer.example.com/ramp.jpg',
+        normalizedUrl: 'https://dealer.example.com/ramp.jpg',
+        position: 0,
+        exactHash: 'sha256-current',
+        semanticAnalysisVersion: 1,
+        semanticAnalyses: [{
+          status: 'success',
+          contentHash: 'sha256-old',
+          semanticAnalysisVersion: 1,
+          fieldClaims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.99 }],
         }],
       }],
     }

@@ -76,6 +76,7 @@ describe('PrismaListingRepository public eligibility', () => {
             originalUrl: true,
             normalizedUrl: true,
             position: true,
+            exactHash: true,
             semanticAnalysisVersion: true,
             semanticAnalyses: {
               orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
