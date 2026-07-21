@@ -28,7 +28,7 @@
     "meilisearch": "^0.59.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^24.13.3",
     "@wivwav/config": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
