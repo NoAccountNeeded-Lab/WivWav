@@ -1,7 +1,8 @@
 # Shared web UI boundary and Ops workspace: decision record
 
-Status: decision issue #851 closed for discussion; implementation split into child
-issues (below). This document is the durable record of what was decided, what
+Status: architecture-review discussion on #851 is complete and implementation
+is split into child issues (below), pending final review sign-off on #851
+itself. This document is the durable record of what was decided, what
 remains a maintainer call, and how existing UI issues are dispositioned. It
 supersedes the issue-comment discussion as the source of truth going forward.
 
@@ -43,6 +44,19 @@ covers them.
   Radix, MUI are all DOM-dependent). A future `@wivwav/ui-native` would
   translate `@wivwav/design-tokens` into native primitives; it is not created
   until a native app is actually scheduled.
+
+### Mobile seam (decision area 7)
+
+What is genuinely portable to a future native app, and therefore must stay
+free of DOM/Next.js/browser-only APIs: `@wivwav/types`, validation logic,
+formatters (currency, distance, date/time), domain logic, the API client and
+its query/caching semantics, and `@wivwav/design-tokens`' semantic data.
+What stays platform-specific and is never pulled into a "shared" package:
+DOM rendering, Next.js routing, browser storage-backed auth/session state,
+`@wivwav/charts` (Recharts/Radix), and native navigation. This list is the
+answer to decision area 7; no further escalation is needed unless a native
+app is actually scheduled, at which point `@wivwav/ui-native` is created per
+the diagram above rather than retrofitted onto `@wivwav/ui-web`.
 
 ### Import rules (enforced via lint, not convention)
 
@@ -113,12 +127,17 @@ replaced outright, per the disposition in section 5.
   resizable split, via one focused split/resize dependency rather than a
   general drag-and-drop framework.
 - **Maximize/restore**: maximize is a workspace layout mode (the panel
-  occupies the full workspace viewport), not a modal dialog. The contract
-  must specify: background content is not made `inert` and is not removed
-  from the tab order in a way that traps focus like a dialog would; Escape
-  restores the previous layout; the maximized state is part of URL state so
-  it survives reload/share; focus stays on (or returns to) the panel's
-  primary heading on both maximize and restore.
+  occupies the full workspace viewport), not a modal dialog, so it must not
+  reuse dialog focus-trapping. Concretely: other panels are removed from
+  layout (e.g. `display: none` or unmounted, not merely occluded underneath
+  the maximized panel) while maximized, so they are simultaneously invisible
+  and out of the tab order — never visually hidden but still keyboard-
+  reachable, and never present-but-untabbable either. Escape restores the
+  previous layout, restoring the other panels to the DOM/tab order at the
+  same time they become visible again; the maximized state is part of URL
+  state so it survives reload/share; focus moves to the panel's primary
+  heading on maximize and returns to that panel's trigger (or the heading, if
+  the trigger no longer exists) on restore.
 - **Scroll ownership**: each panel owns its own internal scroll region; the
   workspace shell itself does not scroll horizontally, matching the existing
   no-horizontal-scroll rule already applied elsewhere in the product.
