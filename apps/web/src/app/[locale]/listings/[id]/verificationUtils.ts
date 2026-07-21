@@ -36,14 +36,20 @@ export function isVerificationStale(
 }
 
 /**
- * Formats a verification timestamp for display.
+ * Formats a verification timestamp as a compact relative age.
  * Returns null when timestamp is null (caller must show a fallback).
  */
 export function formatVerificationDate(timestamp: string | null): string | null {
   if (timestamp === null) return null
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+
+  const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 1000))
+  const ageMinutes = Math.round(ageSeconds / 60)
+  const ageHours = Math.round(ageMinutes / 60)
+  const ageDays = Math.round(ageHours / 24)
+
+  const formatter = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
+  if (ageSeconds < 60) return formatter.format(-ageSeconds, 'second')
+  if (ageMinutes < 60) return formatter.format(-ageMinutes, 'minute')
+  if (ageHours < 48) return formatter.format(-ageHours, 'hour')
+  return formatter.format(-ageDays, 'day')
 }

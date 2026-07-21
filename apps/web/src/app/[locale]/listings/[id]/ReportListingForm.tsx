@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
-import { AlertTriangle, Flag } from 'lucide-react'
+import { AlertTriangle, Flag, MessageCircleQuestion } from 'lucide-react'
 import styles from './tabs.module.css'
 
 type ReportType = 'specs_incorrect' | 'sold_or_stale' | 'duplicate' | 'other'
@@ -25,11 +25,41 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
   const [reportType, setReportType] = useState<ReportType | ''>('')
   const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAvailabilitySubmitting, setIsAvailabilitySubmitting] = useState(false)
   const [status, setStatus] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+
+  async function createReport(input: { reportType: ReportType; notes?: string }) {
+    const response = await fetch(`${apiBaseUrl}/v1/listings/${encodeURIComponent(listingId)}/reports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (!response.ok) {
+      throw new Error('Report submission failed')
+    }
+  }
+
+  async function submitAvailabilityReport() {
+    if (isAvailabilitySubmitting || isSubmitting) return
+
+    setIsAvailabilitySubmitting(true)
+    setStatus(null)
+    try {
+      await createReport({
+        reportType: 'sold_or_stale',
+        notes: 'Buyer asked whether this listing is still available.',
+      })
+      setStatus({ kind: 'success', message: 'Thanks. We flagged this listing for availability review.' })
+    } catch {
+      setStatus({ kind: 'error', message: 'We could not flag availability. Try again in a moment.' })
+    } finally {
+      setIsAvailabilitySubmitting(false)
+    }
+  }
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (isSubmitting) return
+    if (isSubmitting || isAvailabilitySubmitting) return
     if (!reportType) {
       setStatus({ kind: 'error', message: 'Choose what looks wrong before submitting.' })
       return
@@ -38,17 +68,10 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
     setIsSubmitting(true)
     setStatus(null)
     try {
-      const response = await fetch(`${apiBaseUrl}/v1/listings/${encodeURIComponent(listingId)}/reports`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reportType,
-          notes: notes.trim() || undefined,
-        }),
+      await createReport({
+        reportType,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
       })
-      if (!response.ok) {
-        throw new Error('Report submission failed')
-      }
       setStatus({ kind: 'success', message: 'Thanks. We recorded this report for review.' })
       setNotes('')
       setReportType('')
@@ -61,6 +84,16 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
 
   return (
     <section className={styles.reportSection} aria-label="Report an issue">
+      <button
+        type="button"
+        className={styles.availabilityReportButton}
+        disabled={isAvailabilitySubmitting || isSubmitting}
+        onClick={submitAvailabilityReport}
+      >
+        <MessageCircleQuestion size={16} aria-hidden />
+        {isAvailabilitySubmitting ? 'Checking availability...' : 'Is this listing still available?'}
+      </button>
+
       <div className={styles.reportButtonWrap}>
         <button
           type="button"
@@ -106,20 +139,20 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
             />
           </div>
 
-          {status && (
-            <p
-              className={status.kind === 'success' ? styles.reportSuccess : styles.reportError}
-              role={status.kind === 'error' ? 'alert' : 'status'}
-            >
-              {status.kind === 'error' && <AlertTriangle size={14} aria-hidden />}
-              {status.message}
-            </p>
-          )}
-
-          <button type="submit" className={styles.reportSubmit} disabled={isSubmitting}>
+          <button type="submit" className={styles.reportSubmit} disabled={isSubmitting || isAvailabilitySubmitting}>
             {isSubmitting ? 'Submitting...' : 'Submit report'}
           </button>
         </form>
+      )}
+
+      {status && (
+        <p
+          className={status.kind === 'success' ? styles.reportSuccess : styles.reportError}
+          role={status.kind === 'error' ? 'alert' : 'status'}
+        >
+          {status.kind === 'error' && <AlertTriangle size={14} aria-hidden />}
+          {status.message}
+        </p>
       )}
     </section>
   )
