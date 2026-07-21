@@ -25,13 +25,17 @@ builds, and production runtime.
 
 Node 26 remains the Current release until it enters LTS in October 2026.
 Adopting it before LTS is deliberate: Dependabot proposed the image update
-across every tracked Docker directory, the repository's direct dependencies
-accept Node 26, and Playwright 1.61 lists Node 26 as a supported runtime.
+across every tracked Docker directory, dependency engine ranges permit Node
+26, and Playwright 1.61 lists Node 26 as a supported runtime.
 
 The tradeoff is a shorter production support history and a greater chance of
-ecosystem regressions before the LTS transition. Container builds, native
-dependencies, browser launch, and the full repository suite therefore remain
-merge gates for this upgrade.
+ecosystem regressions before the LTS transition. Prisma 7.8 makes that risk
+visible by warning during installation that its officially supported releases
+are Node 20, 22, and 24, even though its engine range permits Node 26. Prisma
+generation and runtime loading pass on Node 26, but this warning remains a
+known pre-LTS support gap. Container builds, native dependencies, browser
+launch, and the full repository suite therefore remain merge gates for this
+upgrade.
 
 ## Fail-fast behavior
 
@@ -45,12 +49,20 @@ merge gates for this upgrade.
   preinstall script is a package-manager-independent guard that also fires on
   a bare `node scripts/check-node-version.mjs`.
 
-## Validation contract
+## Verification performed
 
-Before merge, run installation, typecheck, lint, build, and unit tests on Node 26. Build the API and scraper images to exercise Alpine and Debian variants,
-native dependencies such as Sharp, Prisma generation, and Playwright browser
-installation. Run the existing scraper smoke test with the repository's
-Chromium seccomp profile to verify a real sandboxed browser launch.
+- Node 24 is rejected by the preinstall guard with Node 26 remediation; Node
+  26.5.0 passes the same guard and a frozen pnpm installation.
+- `pnpm typecheck`, `pnpm lint`, and `pnpm build` pass on Node 26.5.0. The lint
+  run retains the repository's existing localization warnings and reports no
+  errors.
+- The full non-browser test run passes on Node 26. The three scraper suites
+  that require a real browser also pass (23 tests) inside the production
+  scraper image with the repository's Chromium seccomp profile.
+- The API and scraper production images build successfully. The API image
+  reports Node 26.5.0 and loads the generated Prisma runtime; the scraper image
+  reports Node 26.5.0, loads Sharp 0.35.3, and launches sandboxed Chromium as
+  the non-root scraper user.
 
 ## Rollback
 
