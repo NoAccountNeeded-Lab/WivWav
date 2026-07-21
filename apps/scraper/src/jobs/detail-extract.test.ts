@@ -4,6 +4,7 @@ import type * as WivwavDbModule from '@wivwav/db'
 import type * as MobilityworksDetailModule from '../sources/mobilityworks-detail.js'
 import type * as SourceListingDatesModule from '../sources/source-listing-dates.js'
 import type * as DeclarativeDetailModule from '../sources/declarative-detail.js'
+import type * as DetailClaimsModule from '../resolution/detail-claims.js'
 
 vi.mock('@wivwav/db', async () => {
   const actual = await vi.importActual<typeof WivwavDbModule>('@wivwav/db')
@@ -39,6 +40,15 @@ vi.mock('../sources/source-listing-dates.js', async () => {
   return {
     ...actual,
     evaluateSourceListingDates: vi.fn(),
+  }
+})
+vi.mock('../resolution/detail-claims.js', async () => {
+  const actual = await vi.importActual<typeof DetailClaimsModule>(
+    '../resolution/detail-claims.js',
+  )
+  return {
+    ...actual,
+    recordDetailFieldClaims: vi.fn().mockResolvedValue(undefined),
   }
 })
 
@@ -136,6 +146,7 @@ function makeTx() {
 
 function makeExtractDb(overrides: Record<string, unknown> = {}) {
   const tx = makeTx()
+  const listingObservationFindUnique = vi.fn().mockResolvedValue(null)
   return {
     source: {
       findUnique: vi.fn().mockResolvedValue({ status: 'active', errorMessage: null }),
@@ -148,11 +159,13 @@ function makeExtractDb(overrides: Record<string, unknown> = {}) {
       findFirst: vi.fn().mockResolvedValue(baseListingRow()),
     },
     listingObservation: {
-      findUnique: vi.fn().mockResolvedValue(null),
+      findUnique: listingObservationFindUnique,
+      upsert: vi.fn().mockResolvedValue({}),
     },
     $transaction: vi.fn(async (fn: (tx: ReturnType<typeof makeTx>) => Promise<void>) => fn(tx)),
     $disconnect: vi.fn().mockResolvedValue(undefined),
     __tx: tx,
+    __listingObservationFindUnique: listingObservationFindUnique,
     ...overrides,
   }
 }
@@ -282,7 +295,12 @@ describe('runDetailExtractJob', () => {
         update: vi.fn().mockResolvedValue({}),
       },
       listingObservation: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'observation-1' }),
+        findUnique: vi.fn().mockImplementation(({ where }: { where: { stage_reference: { stage: string } } }) => {
+          return where.stage_reference.stage === 'detail'
+            ? Promise.resolve({ id: 'observation-1', changedFields: [] })
+            : Promise.resolve(null)
+        }),
+        upsert: vi.fn().mockResolvedValue({}),
       },
     })
     vi.mocked(getDb).mockReturnValue(db as never)
@@ -295,6 +313,113 @@ describe('runDetailExtractJob', () => {
       where: { id: 'raw-1' },
       data: { processedAt: expect.any(Date) },
     })
+  })
+
+  it('re-attempts resolution enqueue on retry when the detail observation was committed but the prior enqueue failed', async () => {
+    const page = rawPage()
+    const listing = baseListingRow({
+      rampType: 'fold_out',
+      description: 'Previously scraped copy.',
+      detailScrapedAt: NOW,
+    })
+    const observations = new Map<string, { id: string; changedFields: string[] }>([
+      ['detail', { id: 'detail-observation-1', changedFields: ['rampType'] }],
+    ])
+    const listingObservationFindUnique = vi.fn().mockImplementation(
+      ({ where }: { where: { stage_reference: { stage: string; reference: string } } }) =>
+        Promise.resolve(observations.get(where.stage_reference.stage) ?? null),
+    )
+    const listingObservationUpsert = vi.fn().mockImplementation(
+      ({ create }: { create: { stage: string; changedFields: string[] } }) => {
+        observations.set(create.stage, { id: `${create.stage}-1`, changedFields: create.changedFields })
+        return Promise.resolve({})
+      },
+    )
+    const resolutionQueue = {
+      add: vi.fn()
+        .mockRejectedValueOnce(new Error('valkey unavailable'))
+        .mockResolvedValueOnce('job-2'),
+    }
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([page])
+          .mockResolvedValueOnce([page]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      listing: {
+        findFirst: vi.fn().mockResolvedValue(listing),
+      },
+      listingObservation: {
+        findUnique: listingObservationFindUnique,
+        upsert: listingObservationUpsert,
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).rejects.toThrow(
+      '[detail-extract] 1 of 1 raw page(s) failed extraction for source src-1 (0 succeeded)',
+    )
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).resolves.toBeUndefined()
+
+    expect(resolutionQueue.add).toHaveBeenCalledTimes(2)
+    expect(resolutionQueue.add).toHaveBeenNthCalledWith(
+      1,
+      { listingId: 'listing-1', observationReference: detailObservationReference(page) },
+      expect.objectContaining({ jobId: `detail-resolution:${detailObservationReference(page)}` }),
+    )
+    expect(resolutionQueue.add).toHaveBeenNthCalledWith(
+      2,
+      { listingId: 'listing-1', observationReference: detailObservationReference(page) },
+      expect.objectContaining({ jobId: `detail-resolution:${detailObservationReference(page)}` }),
+    )
+    expect(listingObservationUpsert).toHaveBeenCalledTimes(1)
+    expect(db.rawPage.update).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not re-enqueue resolution work on retry after the enqueue already succeeded', async () => {
+    const page = rawPage()
+    const observations = new Map<string, { id: string; changedFields: string[] }>([
+      ['detail', { id: 'detail-observation-1', changedFields: ['rampType'] }],
+    ])
+    const listingObservationFindUnique = vi.fn().mockImplementation(
+      ({ where }: { where: { stage_reference: { stage: string; reference: string } } }) =>
+        Promise.resolve(observations.get(where.stage_reference.stage) ?? null),
+    )
+    const listingObservationUpsert = vi.fn().mockImplementation(
+      ({ create }: { create: { stage: string; changedFields: string[] } }) => {
+        observations.set(create.stage, { id: `${create.stage}-1`, changedFields: create.changedFields })
+        return Promise.resolve({})
+      },
+    )
+    const rawPageUpdate = vi.fn()
+      .mockRejectedValueOnce(new Error('could not mark raw page processed'))
+      .mockResolvedValueOnce({})
+    const resolutionQueue = { add: vi.fn().mockResolvedValue('job-1') }
+    const db = makeExtractDb({
+      rawPage: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([page])
+          .mockResolvedValueOnce([page]),
+        update: rawPageUpdate,
+      },
+      listingObservation: {
+        findUnique: listingObservationFindUnique,
+        upsert: listingObservationUpsert,
+      },
+    })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
+
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).rejects.toThrow(
+      '[detail-extract] 1 of 1 raw page(s) failed extraction for source src-1 (0 succeeded)',
+    )
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).resolves.toBeUndefined()
+
+    expect(resolutionQueue.add).toHaveBeenCalledTimes(1)
+    expect(listingObservationUpsert).toHaveBeenCalledTimes(1)
+    expect(rawPageUpdate).toHaveBeenCalledTimes(2)
   })
 
   it('reports success and failure counts separately in job progress', async () => {

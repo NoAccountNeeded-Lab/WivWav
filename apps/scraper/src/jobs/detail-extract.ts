@@ -36,6 +36,7 @@ const BATCH_SIZE = 100
  */
 const ERROR_LOG_MAX_LENGTH = 300
 const DETAIL_EXTRACTION_VERSION = 'detail-v2-evidence'
+const DETAIL_RESOLUTION_ENQUEUE_STAGE = 'detail-resolution-enqueue'
 const DETAIL_METADATA_FIELDS = new Set([
   'detailScrapedAt',
   'publicationStatus',
@@ -199,6 +200,55 @@ export function detailObservationReference(rawPage: { id: string; scrapedAt: Dat
 
 export function requiresListingResolution(changedFields: string[]): boolean {
   return changedFields.some((field) => ACCESSIBILITY_FIELDS.has(field))
+}
+
+function detailResolutionJobId(observationReference: string): string {
+  return `detail-resolution:${observationReference}`
+}
+
+async function enqueueRequiredListingResolution(
+  db: ReturnType<typeof getDb>,
+  resolutionQueue: QueueAdapter | undefined,
+  listingId: string,
+  observationReference: string,
+  changedFields: string[],
+): Promise<void> {
+  if (!requiresListingResolution(changedFields)) return
+
+  const alreadyEnqueued = await db.listingObservation.findUnique({
+    where: {
+      stage_reference: {
+        stage: DETAIL_RESOLUTION_ENQUEUE_STAGE,
+        reference: observationReference,
+      },
+    },
+    select: { id: true },
+  })
+  if (alreadyEnqueued || !resolutionQueue) return
+
+  await resolutionQueue.add(
+    { listingId, observationReference },
+    { ...CRITICAL_JOB_OPTIONS, jobId: detailResolutionJobId(observationReference) },
+  )
+  await db.listingObservation.upsert({
+    where: {
+      stage_reference: {
+        stage: DETAIL_RESOLUTION_ENQUEUE_STAGE,
+        reference: observationReference,
+      },
+    },
+    update: {},
+    create: {
+      listingId,
+      stage: DETAIL_RESOLUTION_ENQUEUE_STAGE,
+      reference: observationReference,
+      extractionVersion: DETAIL_EXTRACTION_VERSION,
+      changedFields: [],
+      before: {} as Prisma.InputJsonObject,
+      after: {} as Prisma.InputJsonObject,
+      observedAt: new Date(),
+    },
+  })
 }
 
 function sameDetailValue(left: unknown, right: unknown): boolean {
@@ -529,9 +579,16 @@ export async function runDetailExtractJob(
                 reference: observationReference,
               },
             },
-            select: { id: true },
+            select: { id: true, changedFields: true },
           })
           if (alreadyApplied) {
+            await enqueueRequiredListingResolution(
+              db,
+              resolutionQueue,
+              listing.id,
+              observationReference,
+              alreadyApplied.changedFields,
+            )
             await db.rawPage.update({
               where: { id: rawPage.id },
               data: { processedAt: new Date() },
@@ -592,12 +649,13 @@ export async function runDetailExtractJob(
           // Search-index sync is no longer this job's concern — the
           // single-owner indexer poller (#669) picks up the change (via
           // `updatedAt`, bumped by the transaction above) on its next tick.
-          if (requiresListingResolution(changedFields)) {
-            await resolutionQueue?.add(
-              { listingId: listing.id, observationReference },
-              CRITICAL_JOB_OPTIONS,
-            )
-          }
+          await enqueueRequiredListingResolution(
+            db,
+            resolutionQueue,
+            listing.id,
+            observationReference,
+            changedFields,
+          )
 
           // #499: record an independent detail-page claim for whatever
           // accessibility evidence this raw page actually observed, then
