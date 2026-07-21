@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
-vi.mock('@wivwav/search', () => ({ syncListings: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@wivwav/search', () => ({
+  INDEX_NAME: 'listings',
+  syncListings: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn(() => ({})) }))
+vi.mock('./meilisearch-sync.js', () => ({ rebuildMeilisearchIndex: vi.fn().mockResolvedValue(undefined) }))
 
 import { getDb } from '@wivwav/db'
 import { syncListings } from '@wivwav/search'
+import { getMeiliClient } from '../lib/meili.js'
+import { rebuildMeilisearchIndex } from './meilisearch-sync.js'
 import { runSearchIndexerPollJob } from './search-indexer-poll.js'
 
 interface Row {
@@ -17,6 +23,9 @@ function makeDb() {
   const checkpoints = new Map<string, { id: string; lastUpdatedAt: Date; lastId: string }>()
   return {
     $queryRaw: vi.fn<(...args: unknown[]) => Promise<Row[]>>().mockResolvedValue([]),
+    listing: {
+      count: vi.fn(async () => 1),
+    },
     searchIndexerCheckpoint: {
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => checkpoints.get(where.id) ?? null),
       upsert: vi.fn(async ({ where, create, update }: { where: { id: string }; create: { id: string; lastUpdatedAt: Date; lastId: string }; update: { lastUpdatedAt: Date; lastId: string } }) => {
@@ -33,11 +42,34 @@ function makeDb() {
 
 describe('runSearchIndexerPollJob', () => {
   let db: ReturnType<typeof makeDb>
+  let getStats: ReturnType<typeof vi.fn>
+  let meili: { index: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     vi.clearAllMocks()
     db = makeDb()
+    getStats = vi.fn(async () => ({ numberOfDocuments: 0 }))
+    meili = { index: vi.fn(() => ({ getStats })) }
     vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(getMeiliClient).mockReturnValue(meili as never)
+  })
+
+  it('atomically rebuilds an orphaned persisted index when PostgreSQL has no public listings', async () => {
+    db.listing.count.mockResolvedValueOnce(0)
+    getStats.mockResolvedValueOnce({ numberOfDocuments: 4814 })
+
+    await runSearchIndexerPollJob()
+
+    expect(rebuildMeilisearchIndex).toHaveBeenCalledWith(undefined, db, meili)
+    expect(db.$disconnect).toHaveBeenCalled()
+  })
+
+  it('does not rebuild an empty index when PostgreSQL also has no public listings', async () => {
+    db.listing.count.mockResolvedValueOnce(0)
+
+    await runSearchIndexerPollJob()
+
+    expect(rebuildMeilisearchIndex).not.toHaveBeenCalled()
   })
 
   it('does nothing and does not advance the checkpoint when no rows changed', async () => {
