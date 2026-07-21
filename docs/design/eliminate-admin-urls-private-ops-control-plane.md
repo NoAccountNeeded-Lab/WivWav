@@ -33,6 +33,17 @@ corrections to #843's original evidence:
   `GET /admin/config/:key` — a keyed config *read*, not
   `/admin/config/:key/decrypt`. #843's current-evidence section overstated
   this as a decrypt call.
+- **Gap found in review:** `apps/ops` has its own, separate
+  `apps/ops/src/lib/resolve-ollama-config.ts`, independent of the
+  `apps/web` file above. It calls the identical `GET /admin/config/:key`
+  route through `apps/ops/src/lib/api-fetch.ts`, which forwards
+  `INTERNAL_API_SECRET` — not through the ops BFF proxy, and not using any
+  ops-only credential. It fails soft to `OLLAMA_DEFAULT_MODEL` on error, so a
+  missed migration would silently degrade rather than crash, but it is a
+  distinct config-read call site that both #843's original evidence and this
+  document's first draft omitted. It must migrate alongside the `apps/web`
+  file (Section 7) and is why `apps/ops` already holds `INTERNAL_API_SECRET`
+  today, not only the future `OPS_API_SECRET` (Section 4).
 - `apps/ops` never calls `/admin/*` from the browser; it proxies server-side
   through its BFF (`apps/ops/src/app/api/bff/[...path]/route.ts` and
   `apps/ops/src/app/admin/board/[[...path]]/route.ts`), injecting
@@ -116,7 +127,7 @@ coarse service identities (Section 4).
 
 | Decision | Recommendation | Ratification |
 | --- | --- | --- |
-| **D1** — Namespace ownership | `/internal/ops/*` for the privileged operator API; `/internal/config/*` as a distinct read-only scope. No generic internal RBAC. | ☐ Accepted ☐ Revised ☐ Rejected |
+| **D1** — Namespace ownership | `/internal/ops/*` for the privileged operator API (`OPS_API_SECRET` only); `/internal/config/*` as a distinct read-only scope accepting either `INTERNAL_API_SECRET` (`web`'s caller) or `OPS_API_SECRET` (`ops`'s caller — Section 4). No generic internal RBAC. | ☐ Accepted ☐ Revised ☐ Rejected |
 | **D2** — Public vs. private API | `/v1/*` is the only intentionally public product API. Explicit public exceptions: `/health`, `/metrics` (network-scoped), `/telemetry/client-events` (rate-limited), `/webhooks/*` (signed), `/docs`, `/openapi.json` — production exposure of the last two decided at ratification. Everything else refuses the public edge. | ☐ Accepted ☐ Revised ☐ Rejected |
 | **D3** — Bull Board proxy contract | Exact path parity at `/ops/queues/board/*` on both the ops origin and the private API upstream; `setBasePath('/ops/queues/board')`; no rewriting; `/admin/board` proxy deleted. | ☐ Accepted ☐ Revised ☐ Rejected |
 | **D4** — Deployment/ingress enforcement | Private-networked API, no host-published production port, explicit edge allowlist; fail-closed bearer auth remains mandatory; two-listener/process split only as a conditional, evidence-justified fallback. | ☐ Accepted ☐ Revised ☐ Rejected |
@@ -131,8 +142,9 @@ any implementation child issue is created or marked `status:ready`.**
 Three coarse service identities replace the single `INTERNAL_API_SECRET`
 that today unlocks every privileged surface:
 
-- **`OPS_API_SECRET`** — held by `api` and `ops` only. Accepted on
-  `/internal/ops/*` and Bull Board's private upstream.
+- **`OPS_API_SECRET`** — held by `api` and `ops`. Accepted on
+  `/internal/ops/*`, Bull Board's private upstream, and (see reconciliation
+  below) `/internal/config/*`.
 - **`INTERNAL_API_SECRET`** — held by `api` and `web`. Accepted on the
   existing server-to-server `/v1` bypass and on read-only
   `/internal/config/*`. **Never** accepted on `/internal/ops/*` — this is
@@ -145,6 +157,31 @@ that today unlocks every privileged surface:
 
 This is three coarse identities, not a general RBAC system; that ceiling is
 intentional (Q8).
+
+**Reconciling the `apps/ops` config-read caller.** Section 1 identified a
+gap: `apps/ops/src/lib/resolve-ollama-config.ts` reads `/admin/config/:key`
+today using `INTERNAL_API_SECRET` (via `apps/ops/src/lib/api-fetch.ts`),
+independently of `apps/web`'s equivalent file and of the ops BFF proxy. Two
+options were considered; this document recommends the first:
+
+1. **(Recommended) `ops` uses `OPS_API_SECRET` for its config read, not
+   `INTERNAL_API_SECRET`.** `ops` already holds `OPS_API_SECRET` for
+   `/internal/ops/*` and Bull Board, so this adds no new secret to the `ops`
+   container — it only stops issuing `INTERNAL_API_SECRET` from `ops`.
+   `/internal/config/*` must then accept **either** `INTERNAL_API_SECRET`
+   (from `web`) **or** `OPS_API_SECRET` (from `ops`) — both are read-only
+   grants against that scope, so accepting both credentials there does not
+   widen `/internal/config/*`'s privilege, and `ops` no longer needs to hold
+   `INTERNAL_API_SECRET` at all once its BFF and this call site both use
+   `OPS_API_SECRET`.
+2. **(Rejected as messier) `ops` keeps `INTERNAL_API_SECRET` for this one
+   call site.** Leaves `ops` holding two overlapping secrets for no
+   functional gain and contradicts the "web and ops each hold exactly one
+   privileged secret" simplicity goal of the three-identity model.
+
+Migration must update this call site alongside `apps/web`'s (Section 7);
+until it lands, `ops` legitimately holds `INTERNAL_API_SECRET` as it does
+today.
 
 ## 5. Bull Board base-path design and test matrix
 
@@ -216,31 +253,39 @@ coherent commits inside one PR are fine; no released state of `main` may
 carry both `/admin/*` and the new namespace):
 
 1. Split `admin-auth.ts` into two auth plugins: an ops-auth plugin keyed on
-   `OPS_API_SECRET` and an internal-config-auth plugin keyed on
-   `INTERNAL_API_SECRET`.
-2. Mount `/internal/ops/*` (ops-auth) and `/internal/config/*`
-   (internal-config-auth) in `apps/api/src/app.ts`, replacing the `/admin`
-   mounts in the same change.
+   `OPS_API_SECRET` and an internal-config-auth plugin that accepts
+   **either** `INTERNAL_API_SECRET` **or** `OPS_API_SECRET` (Section 4 — both
+   are read-only-scoped grants against config, so accepting either does not
+   widen the scope).
+2. Mount `/internal/ops/*` (ops-auth, `OPS_API_SECRET` only) and
+   `/internal/config/*` (internal-config-auth, either secret) in
+   `apps/api/src/app.ts`, replacing the `/admin` mounts in the same change.
 3. Migrate every `apps/ops` BFF client string off `/admin/*` (overview,
    readiness, queues, runs, sources, schedules, refresh, logs, config, AI,
    field-conflicts, source-pipeline) to `/internal/ops/*` via the renamed
    `/ops/api/*` BFF prefix; update `apps/ops/src/middleware.ts`'s matcher.
 4. Update `apps/web/src/lib/resolve-ollama-config.ts` to call
-   `/internal/config/:key`; give `web` an `INTERNAL_API_SECRET` scoped to
-   that route only (no `OPS_API_SECRET` in `web`, ever).
-5. Bull Board: `setBasePath('/ops/queues/board')` upstream; add
+   `/internal/config/:key` using `INTERNAL_API_SECRET` (no `OPS_API_SECRET`
+   in `web`, ever).
+5. Update `apps/ops/src/lib/resolve-ollama-config.ts` (a separate file from
+   step 4's `apps/web` one, found during review — Section 1) to call
+   `/internal/config/:key` and switch `apps/ops/src/lib/api-fetch.ts` to
+   forward `OPS_API_SECRET` instead of `INTERNAL_API_SECRET`. After this
+   step, `ops` no longer needs `INTERNAL_API_SECRET` at all — it holds only
+   `OPS_API_SECRET`, satisfying the one-secret-per-service-identity goal.
+6. Bull Board: `setBasePath('/ops/queues/board')` upstream; add
    `apps/ops/src/app/ops/queues/board/[[...path]]/route.ts`; delete
    `apps/ops/src/app/admin/board/[[...path]]/route.ts`.
-6. Remove all `/admin/*` mounts and the old `admin-auth.ts` from
+7. Remove all `/admin/*` mounts and the old `admin-auth.ts` from
    `apps/api/src/app.ts` in the same release — final state returns 404 with
    no redirect or alias.
-7. `docker-compose.prod.yml`: drop the API's host port publication; wire
-   `OPS_API_SECRET` into `api`/`ops`; keep `INTERNAL_API_SECRET` in
-   `api`/`web`.
-8. Update `docs/api-routes.md`'s route table and admin-auth-boundary section
+8. `docker-compose.prod.yml`: drop the API's host port publication; wire
+   `OPS_API_SECRET` into `api`/`ops` and remove `ops`'s
+   `INTERNAL_API_SECRET` entry; keep `INTERNAL_API_SECRET` in `api`/`web`.
+9. Update `docs/api-routes.md`'s route table and admin-auth-boundary section
    to the new namespace and credential model.
-9. Land the regression guards from Section 6 in the same release so the new
-   boundary is enforced mechanically from day one, not just documented.
+10. Land the regression guards from Section 6 in the same release so the new
+    boundary is enforced mechanically from day one, not just documented.
 
 **Rollback:** revert the coordinated release. There is no data migration and
 no on-disk state change, so revert is safe at any point up to the release.
