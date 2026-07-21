@@ -1,0 +1,27 @@
+{
+  "name": "@wivwav/design-tokens",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Platform-neutral semantic design tokens (color roles, spacing, type, motion) as plain data. No React, DOM, or CSS — see docs/design/ui-boundary-and-ops-workspace.md section 1.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@wivwav/config": "workspace:*",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}
