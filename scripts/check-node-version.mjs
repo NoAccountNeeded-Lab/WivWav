@@ -19,9 +19,9 @@ if (!requiredRange) {
   throw new Error('package.json engines.node is missing; cannot verify the Node.js runtime.')
 }
 
-// Only understands a leading lower bound (e.g. ">=24 <25"). If engines.node
-// is ever rewritten to a form without a leading ">=NN" (e.g. "24.x" or
-// "^24.0.0"), update this extraction to match — otherwise the guard fails
+// Only understands a leading lower bound (e.g. ">=26 <27"). If engines.node
+// is ever rewritten to a form without a leading ">=NN" (e.g. "26.x" or
+// "^26.0.0"), update this extraction to match — otherwise the guard fails
 // closed with an unhelpful "major ?" message even on a correct install.
 const supportedMajor = requiredRange.match(/>=(\d+)/)?.[1]
 const currentMajor = process.versions.node.split('.')[0]
@@ -30,7 +30,7 @@ if (!supportedMajor || currentMajor !== supportedMajor) {
   console.error(
     `\nUnsupported Node.js version: this project requires Node ${requiredRange} ` +
       `(major ${supportedMajor ?? '?'}), but the active runtime is Node ${process.version}.\n` +
-      'Install the supported major (e.g. via nvm: `nvm install 24 && nvm use 24`) and re-run install.\n',
+      `Install the supported major (e.g. via nvm: \`nvm install ${supportedMajor ?? '26'} && nvm use ${supportedMajor ?? '26'}\`) and re-run install.\n`,
   )
   process.exit(1)
 }
