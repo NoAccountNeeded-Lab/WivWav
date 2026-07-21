@@ -24,21 +24,21 @@ jobs:
       matrix:
         include:
           - service: api
-            file: docker/api.Dockerfile
+            file: docker/api/Dockerfile
             target: runner
             # 25% below the 685 MB baseline measured pre-#658, ARM64.
             max-size-mb: 514
           - service: scraper
-            file: docker/scraper.Dockerfile
+            file: docker/scraper/Dockerfile
             target: runner
           - service: web
-            file: docker/web.Dockerfile
+            file: docker/web/Dockerfile
             target: runner
           - service: ops
-            file: docker/ops.Dockerfile
+            file: docker/ops/Dockerfile
             target: runner
           - service: migrate
-            file: docker/migrate.Dockerfile
+            file: docker/migrate/Dockerfile
             # 50% below the 1.52 GB baseline measured pre-#658, ARM64.
             max-size-mb: 760
     steps:
@@ -103,7 +103,7 @@ jobs:
           # Only the API image must be free of build/test-only tooling — the
           # migration runner intentionally keeps @wivwav/db's devDependencies
           # so the Prisma CLI (itself a devDependency) is retained; see the
-          # comment above the `deploy` stage in docker/migrate.Dockerfile.
+          # comment above the `deploy` stage in docker/migrate/Dockerfile.
           if [ "${{ matrix.service }}" = "api" ]; then
             echo "== Checking for build/test-only tools =="
             forbidden_tools="typescript vitest eslint prettier turbo tsx"
@@ -205,7 +205,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/migrate.Dockerfile
+          file: docker/migrate/Dockerfile
           push: false
           load: true
           tags: wivwav-ci-migrate:${{ github.sha }}
@@ -216,7 +216,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/api.Dockerfile
+          file: docker/api/Dockerfile
           target: runner
           push: false
           load: true
@@ -228,7 +228,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/web.Dockerfile
+          file: docker/web/Dockerfile
           target: runner
           push: false
           load: true
@@ -247,7 +247,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/scraper.Dockerfile
+          file: docker/scraper/Dockerfile
           target: runner
           push: false
           load: true

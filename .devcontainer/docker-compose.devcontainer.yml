@@ -2,7 +2,7 @@ services:
   devcontainer:
     build:
       context: ..
-      dockerfile: docker/dev.Dockerfile
+      dockerfile: docker/dev/Dockerfile
     working_dir: /workspace
     volumes:
       - ..:/workspace:cached

@@ -125,7 +125,7 @@ Docker Compose applies the seccomp profile, `--init`, and host IPC settings to
 the scraper service. To build and verify the image directly:
 
 ```bash
-docker build -f docker/scraper.Dockerfile -t wivwav-scraper:local .
+docker build -f docker/scraper/Dockerfile -t wivwav-scraper:local .
 docker run --rm --init --ipc=host \
   --security-opt seccomp=./docker/chromium-seccomp.json \
   wivwav-scraper:local node smoke.mjs

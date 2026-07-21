@@ -31,7 +31,7 @@ function isRateLimited(key: string): boolean {
  * Whether the session cookie should get the `Secure` attribute.
  *
  * Deliberately not based on `NODE_ENV`: the Next.js standalone build always
- * hardcodes `NODE_ENV=production` at runtime (see `docker/ops.Dockerfile`),
+ * hardcodes `NODE_ENV=production` at runtime (see `docker/ops/Dockerfile`),
  * even for a plain-HTTP local `docker compose` deployment — so it can't tell
  * us anything about the actual transport. Trusts `X-Forwarded-Proto` from the
  * reverse proxy that terminates TLS in real deployments (same trust model as
