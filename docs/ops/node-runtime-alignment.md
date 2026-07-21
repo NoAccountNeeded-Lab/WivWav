@@ -20,7 +20,8 @@ local development, CI, Docker builds, and production runtime.
 | `.devcontainer/Dockerfile` | `node:24-alpine` | `node:24-alpine` (unchanged) |
 | `docker/api.Dockerfile`, `docker/web.Dockerfile`, `docker/ops.Dockerfile`, `docker/migrate.Dockerfile`, `docker/dev.Dockerfile` | `node:26-alpine` | `node:24-alpine` |
 | `docker/scraper.Dockerfile` | `node:26-bookworm-slim` | `node:24-bookworm-slim` |
-| `@types/node` (all workspace packages) | `^26.1.0` | `^24.13.3` |
+| `@types/node` (11 workspace packages that already declared it directly) | `^26.1.0` | `^24.13.3` |
+| `@types/node` (root `package.json`, `packages/config`) | undeclared (transitively resolved via `vitest`, floated to whatever was newest — `26.1.0`) | `^24.13.3` (now declared directly) |
 
 Node 26 was still a "Current" (pre-LTS) release when the production
 Dockerfiles pinned it; running unreleased-LTS Node in production was the root
@@ -34,7 +35,8 @@ files did not need to change.
   satisfy `engines.node`, because `.npmrc` now sets `engine-strict=true` and
   the root `preinstall` script (`scripts/check-node-version.mjs`) independently
   checks `process.versions.node` and exits non-zero with an actionable message
-  (e.g. `nvm install 24 && nvm use 24`) before any dependency resolution runs.
+  (e.g. `nvm install 24 && nvm use 24`) before pnpm links or builds any
+  package (pnpm still fetches the lockfile graph first).
 - This is defense in depth: `engine-strict` is pnpm's own check; the
   preinstall script is a package-manager-independent guard that also fires on
   a bare `node scripts/check-node-version.mjs`.
