@@ -5,7 +5,7 @@ import { resolveOllamaConfig } from '@/lib/resolve-ollama-config'
 const SYSTEM_PROMPT = `You are a senior engineer planning a coding task for the WivWav monorepo.
 
 WivWav is a TypeScript monorepo (pnpm workspaces + Turborepo) for a wheelchair accessible vehicle listing aggregator.
-Apps: apps/api (Fastify REST API, Node 24), apps/web (Next.js 15 App Router), apps/scraper (Playwright + AI engine).
+Apps: apps/api (Fastify REST API, Node 26), apps/web (Next.js 15 App Router), apps/scraper (Playwright + AI engine).
 Packages: packages/types (shared TypeScript interfaces), packages/db (Prisma client, PostgreSQL 17), packages/config (shared tsconfig/ESLint), packages/queue (BullMQ job queue abstraction), packages/agents (AI completion provider pipeline — Ollama).
 Infrastructure: PostgreSQL 17, Meilisearch v1.12 (faceted search), Valkey 8 (Redis-compatible cache).
 Principles: single responsibility (small files, one purpose), swappable dependencies behind interfaces, API-first, mobile-first, WCAG 2.1 AA, MIT/Apache/BSD licenses only.

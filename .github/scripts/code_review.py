@@ -167,7 +167,7 @@ def main() -> None:
         return f"""You are a senior code reviewer for WivWav — a wheelchair accessible vehicle
 search aggregator. The stack is:
 - Next.js 15 App Router (TypeScript, mobile-first, WCAG 2.1 AA required)
-- Fastify REST API (TypeScript, Node 24)
+- Fastify REST API (TypeScript, Node 26)
 - Prisma + PostgreSQL
 - pnpm monorepo + Turborepo
 

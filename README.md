@@ -16,7 +16,7 @@ WivWav scrapes, normalizes, and indexes WAV listings so buyers can filter by wha
 
 ## Running it
 
-**Prerequisites:** Docker, Node 24, pnpm 11
+**Prerequisites:** Docker, Node 26, pnpm 11
 
 Pick one of the two paths below — both start api, web, and scraper, so don't run both.
 
@@ -104,7 +104,7 @@ If neither provider is reachable, scraping continues without AI remapping — la
 
 ```
 apps/
-  api/       Fastify REST API (TypeScript, Node 24)
+  api/       Fastify REST API (TypeScript, Node 26)
   web/       Next.js 16 frontend (App Router)
   scraper/   Playwright + AI scraper engine
 packages/
