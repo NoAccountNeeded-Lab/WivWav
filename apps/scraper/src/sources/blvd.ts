@@ -299,16 +299,24 @@ export class BlvdAdapter implements SourceAdapter {
               })
             }
           } catch (err) {
-            if (pageNum > 1 && isNavigationTimeout(err)) {
+            if (pageNum > 1) {
+              // Any nav failure this deep in pagination (timeout, net::ERR_ABORTED,
+              // a stealth-plugin evasion racing page teardown, etc.) should stop
+              // pagination gracefully rather than rethrow — rethrowing here aborts
+              // the whole run and discards every listing already collected across
+              // potentially dozens of prior pages. Page 1 stays strict (via
+              // withNavigationRetry, which only retries timeouts) since a page 1
+              // failure means zero listings for this path regardless.
+              const message = err instanceof Error ? err.message : String(err)
               await report(
                 context,
-                `[blvd] Stopping pagination after timeout loading page ${pageNum}: ${url}`,
+                `[blvd] Stopping pagination after error loading page ${pageNum}: ${url} (${message})`,
                 {
                   stage: 'scraping',
                   source: SOURCE_ID,
                   page: pageNum,
                   listings: listings.length,
-                  reason: 'page_timeout',
+                  reason: isNavigationTimeout(err) ? 'page_timeout' : 'page_error',
                 },
               )
               break

@@ -516,6 +516,70 @@ describe('BlvdAdapter.scrape page 1 timeout retry', () => {
   })
 })
 
+// ─── BlvdAdapter.scrape page 2+ error handling (#849) ───────────────────────
+
+describe('BlvdAdapter.scrape page 2+ error handling', () => {
+  it('stops pagination and keeps already-scraped listings on a non-timeout error past page 1', async () => {
+    const robotsCache = {
+      async isAllowed(): Promise<boolean> { return true },
+      clear(): void {},
+    } as unknown as RobotsCache
+    const reportedMessages: string[] = []
+
+    const service: BrowserService = {
+      async launch(): Promise<BrowserSession> {
+        return {
+          async newPage(): Promise<BrowserPage> {
+            return {
+              async goto(url: string): Promise<BrowserResponse | null> {
+                // Page 1 of each listing path (no `?page=` query) succeeds;
+                // any page 2+ (both paths reach it, since hasNext is always
+                // true below) throws a non-timeout error — e.g. the
+                // stealth-plugin evasion race behind #849. Keying off the
+                // URL (rather than a call counter) keeps this bounded
+                // regardless of how many listing paths reach page 2.
+                if (url.includes('?page=')) {
+                  throw new Error("Cannot read properties of null (reading 'id')")
+                }
+                return { status: () => 200 }
+              },
+              async setContent(): Promise<void> {},
+              async content(): Promise<string> { return '<html></html>' },
+              url(): string { return '' },
+              // Card-scrape calls pass an arg ({ sel, baseUrl }); the hasNext
+              // check calls evaluate with no arg. Distinguish on that to return
+              // one valid card on page 1 and signal a next page exists.
+              evaluate<T, A>(_fn: unknown, arg?: A): Promise<T> {
+                if (arg !== undefined) return Promise.resolve([validCard] as unknown as T)
+                return Promise.resolve(true as unknown as T)
+              },
+              async waitForSelector(): Promise<void> {},
+              async close(): Promise<void> {},
+            }
+          },
+          async close(): Promise<void> {},
+        }
+      },
+    }
+
+    const adapter = new BlvdAdapter(null, { browserService: service, robotsCache })
+    const context = {
+      log: async (msg: string) => { reportedMessages.push(msg) },
+      updateProgress: async () => {},
+      logger: { info: () => {} },
+    } as unknown as Parameters<typeof adapter.scrape>[0]
+
+    // Should not throw — the page-2 error stops pagination gracefully and the
+    // page-1 listing already scraped is still returned.
+    const result = await adapter.scrape(context)
+    expect(result.listings.length).toBeGreaterThan(0)
+
+    const stopLog = reportedMessages.find(m => m.includes('Stopping pagination after error loading page'))
+    expect(stopLog).toBeDefined()
+    expect(stopLog).toContain("Cannot read properties of null (reading 'id')")
+  })
+})
+
 // ─── BlvdAdapter.scrape robots.txt skip ─────────────────────────────────────
 
 describe('BlvdAdapter.scrape robots.txt skip', () => {
