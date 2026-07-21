@@ -5,6 +5,7 @@ import { getTranslations, getLocale } from 'next-intl/server'
 import { getServerApiBaseUrl, getPublicApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { PhotoGallery } from '@/components/PhotoGallery'
+import { buildPhotoEvidence } from '@/components/photo-evidence'
 import {
   conversionBrandSlug,
   matchConversionProduct,
@@ -262,6 +263,7 @@ export default async function VehicleDetailPage({
     ])
 
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
+  const photoEvidence = buildPhotoEvidence(listing.images, listing.semanticEvidence)
   const location = [listing.location.city, listing.location.state].filter(Boolean).join(', ')
   const matchedConversionProduct = conversionBrand
     ? matchConversionProduct(conversionBrand.products, {
@@ -359,6 +361,9 @@ export default async function VehicleDetailPage({
           imageClassName={styles.galleryImage}
           dotsClassName={styles.galleryDots}
           showExpand={false}
+          imageAlts={photoEvidence.imageAlts}
+          imageCategories={photoEvidence.imageCategories}
+          categoryLabels={photoEvidence.categoryLabels}
         />
       </div>
 

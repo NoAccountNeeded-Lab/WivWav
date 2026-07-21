@@ -1,8 +1,13 @@
 'use client'
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageOff, Maximize2, X } from 'lucide-react'
 import styles from './PhotoGallery.module.css'
+
+export interface PhotoCategory {
+  id: string
+  label: string
+}
 
 interface PhotoGalleryProps {
   images: string[]
@@ -15,6 +20,19 @@ interface PhotoGalleryProps {
   showExpand?: boolean | undefined
   topOverlay?: ReactNode
   bottomOverlay?: ReactNode
+  /**
+   * Optional AI-derived alt text, parallel to `images` by index. An index
+   * that is `null`/`undefined` (or an absent array) falls back to `alt`.
+   */
+  imageAlts?: (string | null | undefined)[] | undefined
+  /**
+   * Optional filter category ids per image, parallel to `images` by index.
+   * When every entry is empty/absent, no filter chips render and gallery
+   * behavior is unchanged from before this prop existed.
+   */
+  imageCategories?: (string[] | null | undefined)[] | undefined
+  /** Category id → display label, used to render filter chip text. */
+  categoryLabels?: Record<string, string> | undefined
 }
 
 interface SwipePoint {
@@ -90,14 +108,67 @@ export function PhotoGallery({
   showExpand = true,
   topOverlay,
   bottomOverlay,
+  imageAlts,
+  imageCategories,
+  categoryLabels,
 }: PhotoGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const expandedCloseRef = useRef<HTMLButtonElement | null>(null)
-  const imageCount = images.length
+
+  const categories = useMemo<PhotoCategory[]>(() => {
+    if (!imageCategories) return []
+    const seen = new Map<string, PhotoCategory>()
+    for (const ids of imageCategories) {
+      for (const id of ids ?? []) {
+        if (seen.has(id)) continue
+        seen.set(id, { id, label: categoryLabels?.[id] ?? id })
+      }
+    }
+    return [...seen.values()]
+  }, [imageCategories, categoryLabels])
+  const hasCategories = categories.length > 0
+
+  // Each entry keeps the original `images` index alongside the source, so
+  // filtering never loses track of which `imageAlts`/`imageCategories`
+  // entry belongs to which visible slide.
+  const entries = useMemo(
+    () =>
+      images
+        .map((src, index) => ({ src, index }))
+        .filter(
+          ({ index }) =>
+            activeCategory === null || (imageCategories?.[index] ?? []).includes(activeCategory),
+        ),
+    [images, imageCategories, activeCategory],
+  )
+
+  const altForOriginalIndex = useCallback(
+    (originalIndex: number | undefined) => {
+      if (originalIndex === undefined) return alt
+      return imageAlts?.[originalIndex] ?? alt
+    },
+    [alt, imageAlts],
+  )
+
+  // Selecting a different filter chip resets to its first matching photo —
+  // the previous activeIndex may not exist in the newly filtered set.
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [activeCategory])
+
+  const imageCount = entries.length
+  // `activeIndex` state updates asynchronously (the reset-on-filter effect
+  // above), but `entries` shrinks synchronously in the same render as a
+  // category change. Clamping here guarantees every render reads/writes a
+  // valid slide — no one-frame render of an out-of-range index (which would
+  // blank the active slide's alt text and misposition the track) while the
+  // effect catches up.
+  const displayIndex = imageCount === 0 ? 0 : Math.min(activeIndex, imageCount - 1)
   const hasMultipleImages = imageCount > 1
   const hasImages = imageCount > 0
-  const visibleDotIndices = getVisibleDotIndices(activeIndex, imageCount)
+  const visibleDotIndices = getVisibleDotIndices(displayIndex, imageCount)
 
   const goTo = useCallback(
     (index: number) => {
@@ -107,8 +178,8 @@ export function PhotoGallery({
     [imageCount],
   )
 
-  const goToPrevious = useCallback(() => goTo(activeIndex - 1), [activeIndex, goTo])
-  const goToNext = useCallback(() => goTo(activeIndex + 1), [activeIndex, goTo])
+  const goToPrevious = useCallback(() => goTo(displayIndex - 1), [displayIndex, goTo])
+  const goToNext = useCallback(() => goTo(displayIndex + 1), [displayIndex, goTo])
 
   const closeExpanded = useCallback(() => setIsExpanded(false), [])
 
@@ -164,6 +235,36 @@ export function PhotoGallery({
       aria-roledescription="carousel"
       aria-label={`${alt} photos`}
     >
+      {hasCategories && (
+        <div className={styles.filterChips} role="group" aria-label="Filter photos by category">
+          <button
+            type="button"
+            className={`${styles.filterChip} ${activeCategory === null ? styles.filterChipActive : ''}`}
+            aria-pressed={activeCategory === null}
+            onClick={() => setActiveCategory(null)}
+          >
+            All
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              className={`${styles.filterChip} ${activeCategory === category.id ? styles.filterChipActive : ''}`}
+              aria-pressed={activeCategory === category.id}
+              onClick={() => setActiveCategory(category.id)}
+            >
+              {category.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {hasCategories && (
+        <div className={styles.srOnly} aria-live="polite">
+          Showing {imageCount} of {images.length} photos
+        </div>
+      )}
+
       {/* Click-to-advance on the viewport is a pointer-only convenience: the
         ArrowLeft/ArrowRight keydown handler above and the dedicated
         previous/next buttons below already give keyboard users full,
@@ -176,16 +277,16 @@ export function PhotoGallery({
         onTouchEnd={handleViewportTouchEnd}
       >
         {hasImages ? (
-          <div className={styles.track} style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
-            {images.map((src, index) => (
+          <div className={styles.track} style={{ transform: `translateX(-${displayIndex * 100}%)` }}>
+            {entries.map(({ src, index: originalIndex }, index) => (
               <div
-                key={`${src}-${index}`}
+                key={`${originalIndex}-${src}`}
                 className={styles.slide}
-                aria-hidden={index !== activeIndex}
+                aria-hidden={index !== displayIndex}
               >
                 <img
                   src={src}
-                  alt={index === activeIndex ? alt : ''}
+                  alt={index === displayIndex ? altForOriginalIndex(originalIndex) : ''}
                   className={[styles.image, imageClassName].filter(Boolean).join(' ')}
                   loading={index === 0 ? 'eager' : 'lazy'}
                   draggable={false}
@@ -244,10 +345,10 @@ export function PhotoGallery({
             <button
               key={index}
               type="button"
-              className={`${styles.dot} ${index === activeIndex ? styles.dotActive : ''}`}
-              data-distance={Math.min(Math.abs(index - activeIndex), 3)}
+              className={`${styles.dot} ${index === displayIndex ? styles.dotActive : ''}`}
+              data-distance={Math.min(Math.abs(index - displayIndex), 3)}
               aria-label={`Photo ${index + 1} of ${imageCount}`}
-              aria-current={index === activeIndex ? 'true' : undefined}
+              aria-current={index === displayIndex ? 'true' : undefined}
               onClick={() => goTo(index)}
             />
           ))}
@@ -286,13 +387,13 @@ export function PhotoGallery({
 
           <div className={styles.lightboxStage}>
             <img
-              src={images[activeIndex]}
-              alt={alt}
+              src={entries[displayIndex]?.src}
+              alt={altForOriginalIndex(entries[displayIndex]?.index)}
               className={styles.lightboxImage}
               draggable={false}
             />
             <div className={styles.lightboxCount}>
-              Photo {activeIndex + 1} of {imageCount}
+              Photo {displayIndex + 1} of {imageCount}
             </div>
           </div>
 
@@ -309,13 +410,13 @@ export function PhotoGallery({
 
           {hasMultipleImages && (
             <div className={styles.lightboxDots} aria-label="Expanded photo navigation">
-              {images.map((_, index) => (
+              {entries.map(({ index: originalIndex }, index) => (
                 <button
-                  key={index}
+                  key={originalIndex}
                   type="button"
-                  className={`${styles.lightboxDot} ${index === activeIndex ? styles.lightboxDotActive : ''}`}
+                  className={`${styles.lightboxDot} ${index === displayIndex ? styles.lightboxDotActive : ''}`}
                   aria-label={`Photo ${index + 1} of ${imageCount}`}
-                  aria-current={index === activeIndex ? 'true' : undefined}
+                  aria-current={index === displayIndex ? 'true' : undefined}
                   onClick={() => goTo(index)}
                 />
               ))}
