@@ -24,6 +24,7 @@ function buildDefaultListingRepo(overrides: Record<string, unknown> = {}) {
     countFieldConflicts: vi.fn(async () => 0),
     findListingReportTriage: vi.fn(async () => []),
     countListingReportTriage: vi.fn(async () => 0),
+    findSemanticAnalysesForImage: vi.fn(async () => []),
     getSourcePipelineStages: vi.fn(async () => []),
     ...overrides,
   }
@@ -1107,6 +1108,80 @@ describe('GET /listing-reports', () => {
     await app.inject({ method: 'GET', url: '/listing-reports?take=10000&minReports=0' })
 
     expect(listings.findListingReportTriage).toHaveBeenCalledWith({ minReports: 1, skip: 0, take: 200 })
+
+    await app.close()
+  })
+})
+
+describe('GET /images/:imageId/semantic-analyses', () => {
+  it('returns full semantic image analysis attempts including low-confidence and failures', async () => {
+    const factory = new MockQueueFactory()
+    const rows = [
+      {
+        id: 'attempt-1',
+        listingImageId: 'image-1',
+        contentHash: 'sha256-ok',
+        semanticAnalysisVersion: 1,
+        provider: 'provider',
+        model: 'model',
+        schemaVersion: '1',
+        status: 'success',
+        errorCode: null,
+        errorMessage: null,
+        labels: [{ label: 'ramp', confidence: 0.4 }],
+        fieldClaims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.4 }],
+        altText: null,
+        summary: 'low confidence ramp candidate',
+        observedAt: new Date('2026-07-20T01:00:00Z'),
+        createdAt: new Date('2026-07-20T01:00:00Z'),
+        listingImage: {
+          id: 'image-1',
+          listingId: 'listing-1',
+          originalUrl: 'https://dealer.example.com/ramp.jpg',
+          normalizedUrl: 'https://dealer.example.com/ramp.jpg',
+          position: 0,
+        },
+      },
+      {
+        id: 'attempt-2',
+        listingImageId: 'image-1',
+        contentHash: 'sha256-failed',
+        semanticAnalysisVersion: 1,
+        provider: 'provider',
+        model: 'model',
+        schemaVersion: '1',
+        status: 'error',
+        errorCode: 'provider_error',
+        errorMessage: 'timeout',
+        labels: [],
+        fieldClaims: [],
+        altText: null,
+        summary: null,
+        observedAt: new Date('2026-07-20T02:00:00Z'),
+        createdAt: new Date('2026-07-20T02:00:00Z'),
+        listingImage: {
+          id: 'image-1',
+          listingId: 'listing-1',
+          originalUrl: 'https://dealer.example.com/ramp.jpg',
+          normalizedUrl: 'https://dealer.example.com/ramp.jpg',
+          position: 0,
+        },
+      },
+    ]
+    const { app, listings } = buildTestApp({}, {}, factory, {
+      findSemanticAnalysesForImage: vi.fn(async () => rows),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/images/image-1/semantic-analyses' })
+
+    expect(res.statusCode).toBe(200)
+    expect(listings.findSemanticAnalysesForImage).toHaveBeenCalledWith('image-1')
+    expect(res.json()).toMatchObject({
+      data: [
+        { id: 'attempt-1', status: 'success', fieldClaims: [{ confidence: 0.4 }] },
+        { id: 'attempt-2', status: 'error', errorCode: 'provider_error', errorMessage: 'timeout' },
+      ],
+    })
 
     await app.close()
   })
