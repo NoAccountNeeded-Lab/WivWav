@@ -15,6 +15,7 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends openssl \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY scripts/check-node-version.mjs ./scripts/
 COPY packages/config/package.json ./packages/config/
 COPY packages/types/package.json ./packages/types/
 COPY packages/observability/package.json ./packages/observability/

@@ -11,6 +11,7 @@ RUN npm install -g corepack@latest && corepack enable
 FROM base AS builder
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY scripts/check-node-version.mjs ./scripts/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
 COPY packages/db/prisma.config.ts ./packages/db/

@@ -26,6 +26,7 @@ ENV SENTRY_ENABLED=$SENTRY_ENABLED
 ENV SENTRY_ORG=$SENTRY_ORG
 ENV SENTRY_PROJECT=$SENTRY_PROJECT
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY scripts/check-node-version.mjs ./scripts/
 COPY packages/config/package.json ./packages/config/
 COPY packages/types/package.json ./packages/types/
 COPY packages/observability/package.json ./packages/observability/
