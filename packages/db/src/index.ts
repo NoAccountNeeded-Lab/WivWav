@@ -11,6 +11,7 @@ export type {
   ListingImage,
   ImageCluster,
   ListingFieldClaim,
+  ListingImageSemanticAnalysis,
   ListingReport,
 } from './generated/prisma/index.js'
 export { SourceStatus, WavFeature, ConversionStatus, ListingPublicationStatus, ListingReportType, ListingReportStatus, ImageKind, FieldResolutionState } from './generated/prisma/index.js'
