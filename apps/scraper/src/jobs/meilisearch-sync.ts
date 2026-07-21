@@ -110,6 +110,25 @@ async function cleanupOrphanedIndexes(client: Meilisearch, keepIndexName: string
 export async function runMeilisearchSyncJob(context?: JobContext): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
+  try {
+    await rebuildMeilisearchIndex(context, db, client)
+  } finally {
+    await db.$disconnect()
+  }
+}
+
+/**
+ * Rebuilds the live search projection from the authoritative PostgreSQL
+ * catalog without taking the live index offline.
+ *
+ * Exported so the incremental indexer can repair an orphaned persisted index
+ * without opening a second Prisma client or disconnecting the caller's one.
+ */
+export async function rebuildMeilisearchIndex(
+  context: JobContext | undefined,
+  db: PrismaClient,
+  client: Meilisearch,
+): Promise<void> {
   // Build into a freshly created, uniquely named index and swap it into
   // service atomically once fully populated and validated (#669) — the live
   // index (`INDEX_NAME`) is never cleared, so in-flight queries never
@@ -142,8 +161,6 @@ export async function runMeilisearchSyncJob(context?: JobContext): Promise<void>
     // half-built index for the next run's orphan cleanup to find.
     await client.deleteIndexIfExists(versionedIndexName).catch(() => {})
     throw err
-  } finally {
-    await db.$disconnect()
   }
 }
 

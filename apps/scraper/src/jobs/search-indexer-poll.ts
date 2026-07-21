@@ -2,9 +2,10 @@ import { getDb } from '@wivwav/db'
 import type { PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { Meilisearch } from 'meilisearch'
-import { syncListings } from '@wivwav/search'
+import { INDEX_NAME, syncListings } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
+import { rebuildMeilisearchIndex } from './meilisearch-sync.js'
 
 /**
  * Single-owner incremental search indexer (#669, D3).
@@ -67,6 +68,50 @@ async function advanceCheckpoint(db: PrismaClient, checkpoint: Checkpoint): Prom
 }
 
 /**
+ * Repairs the all-or-nothing divergence produced when a persisted
+ * Meilisearch volume outlives the authoritative listing catalog. The
+ * checkpoint poller cannot observe hard-deleted rows, so without this guard
+ * it would leave orphaned search cards pointing at permanent detail 404s
+ * until the next scheduled full rebuild.
+ *
+ * Restricting the repair to an empty public catalog avoids turning ordinary
+ * bounded incremental lag into repeated full rebuilds. Partial divergence is
+ * still repaired by the scheduled full rebuild and reconciliation audit.
+ */
+async function repairOrphanedSearchCatalog(
+  context: JobContext | undefined,
+  db: PrismaClient,
+  client: Meilisearch,
+): Promise<void> {
+  const publicListingCount = await db.listing.count({
+    where: {
+      status: 'active',
+      publicationStatus: 'eligible',
+      source: { is: { status: { not: 'disabled' } } },
+    },
+  })
+  if (publicListingCount > 0) return
+
+  let indexedDocumentCount: number
+  try {
+    const stats = await client.index(INDEX_NAME).getStats()
+    indexedDocumentCount = stats.numberOfDocuments
+  } catch {
+    // A missing/unavailable index is handled by the existing incremental and
+    // scheduled rebuild paths; there is no stale catalog to clear here.
+    return
+  }
+  if (indexedDocumentCount === 0) return
+
+  await report(
+    context,
+    `[search-indexer] Repairing ${indexedDocumentCount} orphaned search document(s); PostgreSQL has no public listings`,
+    { stage: 'syncing', current: 0, total: indexedDocumentCount },
+  )
+  await rebuildMeilisearchIndex(context, db, client)
+}
+
+/**
  * Fetches one page of listings touched since `after`, ordered by
  * `(updatedAt, id)` so pagination stays stable even when many rows share the
  * same millisecond timestamp (a common outcome of batched updates).
@@ -85,6 +130,7 @@ export async function runSearchIndexerPollJob(context?: JobContext): Promise<voi
   const db = getDb()
   const client = getMeiliClient()
   try {
+    await repairOrphanedSearchCatalog(context, db, client)
     await pollOnce(context, db, client)
   } finally {
     await db.$disconnect()
