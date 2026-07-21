@@ -64,6 +64,7 @@ function toPublicSemanticEvidence(images: ListingImageWithSemanticAnalyses[] | u
     const claims = image.semanticAnalyses
       .filter((analysis) => analysis.status === 'success')
       .filter((analysis) => image.semanticAnalysisVersion === null || analysis.semanticAnalysisVersion === image.semanticAnalysisVersion)
+      .filter((analysis) => image.exactHash === null || analysis.contentHash === image.exactHash)
       .flatMap((analysis) => Array.isArray(analysis.fieldClaims) ? analysis.fieldClaims : [])
       .filter(isFieldClaim)
       .filter((claim) => claim.confidence >= threshold)
