@@ -114,14 +114,23 @@ describe('formatVerificationDate', () => {
   })
 
   it('returns a human-readable date string for a valid ISO timestamp', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-18T13:30:00.000Z'))
+
     const result = formatVerificationDate('2026-06-18T10:30:00.000Z')
-    expect(result).toMatch(/2026/)
-    expect(typeof result).toBe('string')
+    expect(result).toBe('3 hours ago')
+
+    vi.useRealTimers()
   })
 
   it('returns a non-empty string for any valid date', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-16T12:00:00.000Z'))
+
     const result = formatVerificationDate('2024-01-15T12:00:00.000Z')
     expect(result).not.toBeNull()
     expect((result as string).length).toBeGreaterThan(0)
+
+    vi.useRealTimers()
   })
 })

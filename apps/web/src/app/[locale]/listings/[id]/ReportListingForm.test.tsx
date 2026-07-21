@@ -7,6 +7,7 @@ import type { ListingDetail } from './types'
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -59,6 +60,27 @@ function makeListing(overrides: Partial<ListingDetail> = {}): ListingDetail {
 }
 
 describe('ReportListingForm', () => {
+  it('submits a one-click availability report', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Is this listing still available?' }))
+
+    await screen.findByRole('status')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/v1/listings/listing-1/reports',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          reportType: 'sold_or_stale',
+          notes: 'Buyer asked whether this listing is still available.',
+        }),
+      }),
+    )
+    expect(screen.getByText('Thanks. We flagged this listing for availability review.')).toBeTruthy()
+  })
+
   it('submits a valid report and shows a success state', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true }))
     renderOpenForm(fetchMock)
@@ -132,6 +154,38 @@ describe('OverviewTab report warning badge', () => {
 })
 
 describe('OverviewTab listing date provenance', () => {
+  it('shows relative verification age and stale dealer warning', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-01T15:00:00.000Z'))
+
+    render(
+      <OverviewTab
+        listing={makeListing({
+          provenance: {
+            sourceName: 'Example Dealer',
+            sourceBaseUrl: 'https://dealer.example',
+            sourceUrl: 'https://dealer.example/listing-1',
+            buyerUrl: null,
+            scrapedAt: '2026-07-01T00:00:00.000Z',
+            detailScrapedAt: null,
+            vehicleModelMatchConfidence: null,
+          },
+        })}
+        priceHistory={[]}
+        apiBaseUrl="https://api.example.com"
+      />,
+    )
+
+    expect(screen.getByRole('note', { name: 'Listing verification status' }).textContent).toContain(
+      'Last verified 15 hours ago',
+    )
+    expect(screen.getByText(/This listing may no longer be available/).textContent).toContain(
+      'verify with the dealer',
+    )
+
+    vi.useRealTimers()
+  })
+
   it('labels seller/source dates separately from the discovery date', () => {
     render(
       <OverviewTab

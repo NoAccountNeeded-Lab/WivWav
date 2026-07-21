@@ -61,7 +61,7 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
             {isStale && (
               <span className={styles.verificationStaleWarning}>
                 <AlertTriangle size={12} aria-hidden />
-                {' '}Listing may be outdated — verify with the seller
+                {' '}This listing may no longer be available — verify with the dealer
               </span>
             )}
           </>
