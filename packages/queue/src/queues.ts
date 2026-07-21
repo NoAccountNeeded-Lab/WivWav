@@ -25,6 +25,7 @@ export const QUEUES = {
   CONVERSION_BRANDS_SEED:               'conversion-brands-seed',
   NMEDA_DEALERS_SEED:                   'nmeda-dealers-seed',
   FUELECONOMY_MSRP:                      'fueleconomy-msrp',
+  IMAGE_SEMANTIC_ANALYZE:               'image-semantic-analyze',
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]

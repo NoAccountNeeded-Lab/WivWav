@@ -50,6 +50,7 @@ export const QUEUE_POLICIES: Record<QueueName, QueuePolicy> = {
   [QUEUES.CONVERSION_BRANDS_SEED]: policy(1, { completed: 20, failed: 100 }),
   [QUEUES.NMEDA_DEALERS_SEED]: policy(1, { completed: 20, failed: 100 }),
   [QUEUES.FUELECONOMY_MSRP]: policy(1),
+  [QUEUES.IMAGE_SEMANTIC_ANALYZE]: policy(1),
 }
 
 export function getQueuePolicy(name: string): QueuePolicy {
