@@ -32,7 +32,7 @@
     "bullmq": "^5.79.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^24.13.3",
     "@wivwav/config": "workspace:*",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",
