@@ -3,7 +3,7 @@
 ## Structure
 
 ```text
-apps/api               Fastify REST API; Node 24
+apps/api               Fastify REST API; Node 26
 apps/web               Next.js 16 App Router
 apps/ops               Next.js 16 operations UI
 apps/scraper           Playwright scraper and Ollama remapping

@@ -1,6 +1,6 @@
 # Quick Start — Development Environment
 
-**Prerequisites:** Docker, Node 24, pnpm 11
+**Prerequisites:** Docker, Node 26, pnpm 11
 
 Pick one of the two paths below — both start api, web, ops, and scraper, so don't run both.
 
