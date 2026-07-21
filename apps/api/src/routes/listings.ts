@@ -5,6 +5,7 @@ import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
 import type { CrossListingRow, ListingImageWithSemanticAnalyses, ListingReportType, ListingRepository } from '../repositories/index.js'
+import { promoteHeroImage } from './listing-hero-image.js'
 
 const REFRESH_RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour per vehicle model
 const refreshedAt = new Map<string, number>()
@@ -130,10 +131,12 @@ function toListingDetailResponse(
   // violated upstream.
   const publicConversionType = conversionTypeResolution === 'conflicting' ? 'unknown' : conversionType
   const publicRampType = rampTypeResolution === 'conflicting' ? 'unknown' : rampType
+  const confidenceThreshold = semanticEvidenceConfidenceThreshold()
   const semanticEvidence = toPublicSemanticEvidence(listingImages)
 
   const response = {
     ...rest,
+    images: promoteHeroImage(rest.images, listingImages, confidenceThreshold),
     sourceUrl,
     buyerUrl,
     description: snippetDescription(description),
@@ -373,8 +376,33 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         sort: q.sort,
       })
 
+      const listingIds = result.hits.map((listing) => listing.id)
+      let heroCandidates: ListingImageWithSemanticAnalyses[] = []
+      if (listingIds.length > 0) {
+        try {
+          heroCandidates = await listings.findImagesForHeroSelection(listingIds)
+        } catch (err) {
+          req.log.warn(err, '[listings] hero selection unavailable, preserving scraped image order')
+        }
+      }
+      const candidatesByListingId = new Map<string, ListingImageWithSemanticAnalyses[]>()
+      for (const candidate of heroCandidates) {
+        const candidates = candidatesByListingId.get(candidate.listingId) ?? []
+        candidates.push(candidate)
+        candidatesByListingId.set(candidate.listingId, candidates)
+      }
+      const confidenceThreshold = semanticEvidenceConfidenceThreshold()
+      const hits = result.hits.map((listing) => ({
+        ...listing,
+        images: promoteHeroImage(
+          listing.images,
+          candidatesByListingId.get(listing.id),
+          confidenceThreshold,
+        ),
+      }))
+
       return reply.send({
-        data: result.hits,
+        data: hits,
         facets: result.facets,
         pagination: {
           page,
