@@ -67,7 +67,22 @@ describe('PrismaListingRepository public eligibility', () => {
         publicationStatus: 'eligible',
         source: { is: { status: { not: 'disabled' } } },
       },
-      include: { source: { select: { name: true, baseUrl: true } } },
+      include: {
+        source: { select: { name: true, baseUrl: true } },
+        listingImages: {
+          orderBy: { position: 'asc' },
+          select: {
+            id: true,
+            originalUrl: true,
+            normalizedUrl: true,
+            position: true,
+            semanticAnalysisVersion: true,
+            semanticAnalyses: {
+              orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        },
+      },
     })
   })
 

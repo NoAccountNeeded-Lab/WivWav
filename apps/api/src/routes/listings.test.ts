@@ -515,6 +515,90 @@ describe('GET /:id — provenance', () => {
 
     await app.close()
   })
+
+  it('returns semantic evidence for allowlisted high-confidence image claims', async () => {
+    const listing = {
+      ...defaultDbListing,
+      listingImages: [{
+        id: 'image-1',
+        originalUrl: 'https://dealer.example.com/ramp.jpg',
+        normalizedUrl: 'https://dealer.example.com/ramp.jpg',
+        position: 0,
+        semanticAnalysisVersion: 1,
+        semanticAnalyses: [{
+          status: 'success',
+          semanticAnalysisVersion: 1,
+          fieldClaims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.92 }],
+        }],
+      }],
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.semanticEvidence).toEqual([{
+      imageId: 'image-1',
+      originalUrl: 'https://dealer.example.com/ramp.jpg',
+      normalizedUrl: 'https://dealer.example.com/ramp.jpg',
+      position: 0,
+      claims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.92 }],
+    }])
+
+    await app.close()
+  })
+
+  it('does not return semantic evidence for low-confidence image claims', async () => {
+    const listing = {
+      ...defaultDbListing,
+      listingImages: [{
+        id: 'image-1',
+        originalUrl: 'https://dealer.example.com/ramp.jpg',
+        normalizedUrl: 'https://dealer.example.com/ramp.jpg',
+        position: 0,
+        semanticAnalysisVersion: 1,
+        semanticAnalyses: [{
+          status: 'success',
+          semanticAnalysisVersion: 1,
+          fieldClaims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.84 }],
+        }],
+      }],
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.semanticEvidence).toBeUndefined()
+
+    await app.close()
+  })
+
+  it('does not return semantic evidence for non-allowlisted image claims', async () => {
+    const listing = {
+      ...defaultDbListing,
+      listingImages: [{
+        id: 'image-1',
+        originalUrl: 'https://dealer.example.com/side.jpg',
+        normalizedUrl: 'https://dealer.example.com/side.jpg',
+        position: 0,
+        semanticAnalysisVersion: 1,
+        semanticAnalyses: [{
+          status: 'success',
+          semanticAnalysisVersion: 1,
+          fieldClaims: [{ field: 'conversionType', claimedValue: 'side_entry', confidence: 0.99 }],
+        }],
+      }],
+    }
+    const { app } = buildTestApp(undefined, { findById: vi.fn(async () => listing) })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.semanticEvidence).toBeUndefined()
+
+    await app.close()
+  })
 })
 
 describe('POST /:id/reports', () => {
