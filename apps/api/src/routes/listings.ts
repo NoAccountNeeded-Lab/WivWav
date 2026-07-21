@@ -4,12 +4,15 @@ import type { BullMQQueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
-import type { CrossListingRow, ListingReportType, ListingRepository } from '../repositories/index.js'
+import type { CrossListingRow, ListingImageWithSemanticAnalyses, ListingReportType, ListingRepository } from '../repositories/index.js'
 
 const REFRESH_RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour per vehicle model
 const refreshedAt = new Map<string, number>()
 
-type ListingWithRequiredSource = Listing & { source: { name: string; baseUrl: string } }
+type ListingWithRequiredSource = Listing & {
+  source: { name: string; baseUrl: string }
+  listingImages?: ListingImageWithSemanticAnalyses[]
+}
 type CrossListingResponse = ReturnType<typeof toCrossListingResponse>
 type ListingReportSummary = { unresolvedCount: number; flagged: boolean }
 
@@ -21,12 +24,67 @@ type ListingReportSummary = { unresolvedCount: number; flagged: boolean }
  * Source attribution and an outbound link are always included in provenance.
  */
 const DESCRIPTION_SNIPPET_LENGTH = 300
+const DEFAULT_SEMANTIC_EVIDENCE_CONFIDENCE_THRESHOLD = 0.85
+const ALLOWLISTED_SEMANTIC_EVIDENCE = new Set([
+  'rampType:in_floor',
+  'rampType:fold_out',
+  'rampType:fold_in',
+])
 
 export function snippetDescription(description: string | null): string | null {
   if (description === null) return null
   const trimmed = description.trim()
   if (trimmed.length <= DESCRIPTION_SNIPPET_LENGTH) return trimmed
   return trimmed.slice(0, DESCRIPTION_SNIPPET_LENGTH).trimEnd() + '…'
+}
+
+function semanticEvidenceConfidenceThreshold(): number {
+  const configured = process.env['WIVWAV_SEMANTIC_EVIDENCE_MIN_CONFIDENCE']
+  if (!configured) return DEFAULT_SEMANTIC_EVIDENCE_CONFIDENCE_THRESHOLD
+  const parsed = Number(configured)
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
+    ? parsed
+    : DEFAULT_SEMANTIC_EVIDENCE_CONFIDENCE_THRESHOLD
+}
+
+function isFieldClaim(value: unknown): value is { field: string; claimedValue: string; confidence: number } {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return typeof record['field'] === 'string'
+    && typeof record['claimedValue'] === 'string'
+    && typeof record['confidence'] === 'number'
+    && Number.isFinite(record['confidence'])
+}
+
+function toPublicSemanticEvidence(images: ListingImageWithSemanticAnalyses[] | undefined) {
+  const threshold = semanticEvidenceConfidenceThreshold()
+  const evidence = []
+
+  for (const image of images ?? []) {
+    const claims = image.semanticAnalyses
+      .filter((analysis) => analysis.status === 'success')
+      .filter((analysis) => image.semanticAnalysisVersion === null || analysis.semanticAnalysisVersion === image.semanticAnalysisVersion)
+      .flatMap((analysis) => Array.isArray(analysis.fieldClaims) ? analysis.fieldClaims : [])
+      .filter(isFieldClaim)
+      .filter((claim) => claim.confidence >= threshold)
+      .filter((claim) => ALLOWLISTED_SEMANTIC_EVIDENCE.has(`${claim.field}:${claim.claimedValue}`))
+      .map((claim) => ({
+        field: claim.field,
+        claimedValue: claim.claimedValue,
+        confidence: claim.confidence,
+      }))
+
+    if (claims.length === 0) continue
+    evidence.push({
+      imageId: image.id,
+      originalUrl: image.originalUrl,
+      normalizedUrl: image.normalizedUrl,
+      position: image.position,
+      claims,
+    })
+  }
+
+  return evidence
 }
 
 function toListingDetailResponse(
@@ -45,6 +103,7 @@ function toListingDetailResponse(
     publicationStatus,
     qualityIssueCodes,
     qualityCheckedAt,
+    listingImages,
     dealerName, dealerPhone, dealerWebsite,
     lat, lng, zip, city, state,
     conversionType, conversionManufacturer, floorLoweringInches,
@@ -70,8 +129,9 @@ function toListingDetailResponse(
   // violated upstream.
   const publicConversionType = conversionTypeResolution === 'conflicting' ? 'unknown' : conversionType
   const publicRampType = rampTypeResolution === 'conflicting' ? 'unknown' : rampType
+  const semanticEvidence = toPublicSemanticEvidence(listingImages)
 
-  return {
+  const response = {
     ...rest,
     sourceUrl,
     buyerUrl,
@@ -101,6 +161,9 @@ function toListingDetailResponse(
       qualityCheckedAt,
     },
   }
+  return semanticEvidence.length > 0
+    ? { ...response, semanticEvidence }
+    : response
 }
 
 function toCrossListingResponse(listing: CrossListingRow) {

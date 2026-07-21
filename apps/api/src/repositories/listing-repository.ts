@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { SourceStatus, type PrismaClient, type Listing, type Prisma } from '@wivwav/db'
+import { SourceStatus, type PrismaClient, type Listing, type ListingImageSemanticAnalysis, type Prisma } from '@wivwav/db'
 
 // Mirrors STALE_DETAIL_DAYS in apps/scraper/src/jobs/detail-crawl.ts — a
 // listing whose detail page was last crawled longer ago than this is treated
@@ -10,6 +10,26 @@ const STALE_DETAIL_CRAWL_DAYS = 30
 
 export type ListingWithSource = Listing & {
   source: { name: string; baseUrl: string } | null
+  listingImages: ListingImageWithSemanticAnalyses[]
+}
+
+export type ListingImageWithSemanticAnalyses = {
+  id: string
+  originalUrl: string
+  normalizedUrl: string
+  position: number
+  semanticAnalysisVersion: number | null
+  semanticAnalyses: ListingImageSemanticAnalysis[]
+}
+
+export type ListingImageSemanticAnalysisRow = ListingImageSemanticAnalysis & {
+  listingImage: {
+    id: string
+    listingId: string
+    originalUrl: string
+    normalizedUrl: string
+    position: number
+  }
 }
 
 export type CrossListingRow = Pick<
@@ -353,6 +373,7 @@ export interface ListingRepository {
   countUnresolvedReports(listingId: string): Promise<number>
   findListingReportTriage(filter: ListingReportTriageFilter): Promise<ListingReportTriageRow[]>
   countListingReportTriage(filter: Omit<ListingReportTriageFilter, 'skip' | 'take'>): Promise<number>
+  findSemanticAnalysesForImage(imageId: string): Promise<ListingImageSemanticAnalysisRow[]>
   /**
    * Per-stage pending/last-completed state for a single source, covering the
    * DB-derivable pipeline stages (detail-crawl, detail-extract, geocode,
@@ -376,7 +397,22 @@ export class PrismaListingRepository implements ListingRepository {
         publicationStatus: 'eligible',
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
-      include: { source: { select: { name: true, baseUrl: true } } },
+      include: {
+        source: { select: { name: true, baseUrl: true } },
+        listingImages: {
+          orderBy: { position: 'asc' },
+          select: {
+            id: true,
+            originalUrl: true,
+            normalizedUrl: true,
+            position: true,
+            semanticAnalysisVersion: true,
+            semanticAnalyses: {
+              orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        },
+      },
     }) as Promise<ListingWithSource | null>
   }
 
@@ -875,6 +911,24 @@ export class PrismaListingRepository implements ListingRepository {
       ) grouped_reports
     `
     return Number(rows[0]?.count ?? 0)
+  }
+
+  findSemanticAnalysesForImage(imageId: string): Promise<ListingImageSemanticAnalysisRow[]> {
+    return this.db.listingImageSemanticAnalysis.findMany({
+      where: { listingImageId: imageId },
+      orderBy: [{ semanticAnalysisVersion: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        listingImage: {
+          select: {
+            id: true,
+            listingId: true,
+            originalUrl: true,
+            normalizedUrl: true,
+            position: true,
+          },
+        },
+      },
+    }) as Promise<ListingImageSemanticAnalysisRow[]>
   }
 
   async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {

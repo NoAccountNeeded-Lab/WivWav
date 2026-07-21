@@ -510,6 +510,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     return reply.send({ data: rows, meta: { total, skip: parsedSkip, take: parsedTake } })
   })
 
+  // GET /admin/images/:imageId/semantic-analyses — full operator-only audit
+  // history for one image. Unlike the public listing read model, this exposes
+  // low-confidence and failed attempts for calibration/review.
+  app.get<{ Params: { imageId: string } }>('/images/:imageId/semantic-analyses', async (req, reply) => {
+    const rows = await listings.findSemanticAnalysesForImage(req.params.imageId)
+    return reply.send({ data: rows })
+  })
+
   // GET /admin/listing-refresh/status — aggregate status for the guided refresh workflow
   app.get('/listing-refresh/status', async (_req, reply) => {
     try {
