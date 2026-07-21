@@ -2,6 +2,22 @@ import type { ListingDealer, ListingLocation, WavFeatures, WavFieldResolution } 
 
 export type { ListingDealer, ListingLocation, WavFeatures, WavFieldResolution }
 
+/** One #799-sourced calibrated claim about an image's content (e.g. ramp type). */
+export interface ListingImageSemanticClaim {
+  field: string
+  claimedValue: string
+  confidence: number
+}
+
+/** #799 allowlisted, threshold-passing semantic evidence for a single listing image. */
+export interface ListingImageEvidence {
+  imageId: string
+  originalUrl: string
+  normalizedUrl: string
+  position: number
+  claims: ListingImageSemanticClaim[]
+}
+
 export interface ListingProvenance {
   sourceName: string
   sourceBaseUrl: string
@@ -41,6 +57,8 @@ export interface ListingDetail {
   location: ListingLocation
   dealer: ListingDealer
   images: string[]
+  /** #799 calibrated per-image evidence, present only for images with at least one allowlisted claim. */
+  semanticEvidence?: ListingImageEvidence[]
   description: string | null
   listedAt: string
   sourceListedAt: string | null
