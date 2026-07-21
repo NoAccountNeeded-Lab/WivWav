@@ -30,9 +30,9 @@ Pinned versions resolved by `pnpm install` against this spike's
 | `@mui/x-data-grid` | 9.10.0 | MIT (Community edition; confirmed via `pnpm view @mui/x-data-grid@9.10.0 license`) |
 
 Full transitive **production** dependency license list captured via
-`pnpm --filter @wivwav/spike-852-ui-web licenses list --prod` — 90 packages,
+`pnpm --filter @wivwav/spike-852-ui-web licenses list --prod` — 89 packages,
 raw output archived at `spikes/852-mui-evaluation/licenses-prod.txt`.
-Distinct licenses across all 90:
+Distinct licenses across all 89:
 
 - **MIT** — the overwhelming majority, including all 5 named packages.
 - **BSD-3-Clause** — `hoist-non-react-statics`, `react-transition-group`
@@ -249,7 +249,17 @@ Raw JSON output archived at `spikes/852-mui-evaluation/a11y-results.json`.
   `Escape` closes the menu and returns focus to the trigger.
 - **DataGrid**: cell-level roving-tabindex keyboard navigation confirmed —
   clicking a cell then pressing `ArrowRight` moves `aria-colindex` from `1`
-  to `2` on the focused cell.
+  to `2` on the focused cell. One anomaly in the raw probe output
+  (`spikes/852-mui-evaluation/a11y-results.json`, `datagrid-keyboard`):
+  `gridRole` was captured as `null`. This is a probe-selector issue, not a
+  confirmed MUI defect — the probe read `role` directly off the
+  `.MuiDataGrid-root` element, and `DataGrid` may place `role="grid"` on a
+  different internal element than the one that class targets. The
+  cell/row-level `aria-colindex`/`aria-rowindex` navigation above still
+  passed, which is stronger evidence than the root role check would have
+  been, but this should be re-verified with a corrected selector (or a real
+  screen-reader pass, see the follow-up below) before treating DataGrid's
+  grid-level ARIA role as confirmed.
 - **Not performed: a live screen-reader walkthrough** (VoiceOver/NVDA).
   This spike ran in a headless CLI environment with no GUI/audio session
   available. The ARIA contract exercised above (`role="dialog"`,
