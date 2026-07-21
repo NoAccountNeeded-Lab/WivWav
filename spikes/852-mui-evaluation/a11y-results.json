@@ -1,0 +1,55 @@
+{
+  "apps-web-listing-detail-similar-listings--loaded": {
+    "axeViolations": [
+      {
+        "id": "landmark-one-main",
+        "impact": "moderate",
+        "help": "Document should have one main landmark",
+        "nodes": 1
+      },
+      {
+        "id": "page-has-heading-one",
+        "impact": "moderate",
+        "help": "Page should contain a level-one heading",
+        "nodes": 1
+      }
+    ]
+  },
+  "apps-ops-run-detail-panel--running": {
+    "axeViolations": [
+      {
+        "id": "landmark-one-main",
+        "impact": "moderate",
+        "help": "Document should have one main landmark",
+        "nodes": 1
+      },
+      {
+        "id": "page-has-heading-one",
+        "impact": "moderate",
+        "help": "Page should contain a level-one heading",
+        "nodes": 1
+      }
+    ]
+  },
+  "dialog-keyboard": {
+    "dialogHasFocusOnOpen": true,
+    "focusTrapped": true,
+    "focusReturnedToTrigger": true
+  },
+  "menu-keyboard": {
+    "firstItemFocusedOnArrowDown": true,
+    "focusReturnedToTrigger": true
+  },
+  "datagrid-keyboard": {
+    "gridRole": null,
+    "focusMovedOnArrowRight": true,
+    "before": {
+      "col": "1",
+      "row": "2"
+    },
+    "after": {
+      "col": "2",
+      "row": "2"
+    }
+  }
+}
