@@ -54,7 +54,7 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: docker/migrate.Dockerfile
+      dockerfile: docker/migrate/Dockerfile
     environment:
       DATABASE_URL: postgresql://wav:wav@postgres:5432/wivwav
     depends_on:
@@ -65,7 +65,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: docker/api/Dockerfile
     restart: unless-stopped
     ports:
       - "3001:3001"
@@ -111,7 +111,7 @@ services:
   scraper:
     build:
       context: .
-      dockerfile: docker/scraper.Dockerfile
+      dockerfile: docker/scraper/Dockerfile
     init: true
     ipc: host
     security_opt:
@@ -179,7 +179,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: docker/web.Dockerfile
+      dockerfile: docker/web/Dockerfile
       args:
         # NEXT_PUBLIC_API_URL is inlined into the client bundle at `next
         # build` time; the `environment:` entry below only reaches the
@@ -213,7 +213,7 @@ services:
   ops:
     build:
       context: .
-      dockerfile: docker/ops.Dockerfile
+      dockerfile: docker/ops/Dockerfile
     restart: unless-stopped
     ports:
       - "3002:3002"

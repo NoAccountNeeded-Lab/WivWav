@@ -11,14 +11,78 @@ updates:
           - "patch"
     open-pull-requests-limit: 10
 
-  # NOTE: Dependabot's docker ecosystem only scans files literally named
-  # "Dockerfile" in the given directory; it does not detect this repo's
-  # `<service>.Dockerfile` naming convention (api.Dockerfile, web.Dockerfile,
-  # etc.). This entry is a forward-compatible placeholder until the
-  # Dockerfiles are restructured into per-service subdirectories
-  # (e.g. docker/api/Dockerfile) — tracked in #690.
+  # Dependabot's docker ecosystem only scans files literally named
+  # "Dockerfile" in the given directory, so each service Dockerfile lives in
+  # its own subdirectory (docker/<service>/Dockerfile) with one entry below.
+  # See #690.
   - package-ecosystem: "docker"
-    directory: "/docker"
+    directory: "/docker/api"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/docker/web"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/docker/ops"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/docker/scraper"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/docker/migrate"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/docker/dev"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "docker"
+    directory: "/.devcontainer"
     schedule:
       interval: "weekly"
     groups:

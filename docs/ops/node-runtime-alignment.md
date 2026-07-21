@@ -18,8 +18,8 @@ local development, CI, Docker builds, and production runtime.
 | Preinstall guard (`scripts/check-node-version.mjs`) | none | fails fast with a clear message when `process.versions.node` major does not match `engines.node` |
 | Host CI (`.github/workflows/ci.yml`, `actions/setup-node`) | 24 | 24 (unchanged) |
 | `.devcontainer/Dockerfile` | `node:24-alpine` | `node:24-alpine` (unchanged) |
-| `docker/api.Dockerfile`, `docker/web.Dockerfile`, `docker/ops.Dockerfile`, `docker/migrate.Dockerfile`, `docker/dev.Dockerfile` | `node:26-alpine` | `node:24-alpine` |
-| `docker/scraper.Dockerfile` | `node:26-bookworm-slim` | `node:24-bookworm-slim` |
+| `docker/api/Dockerfile`, `docker/web/Dockerfile`, `docker/ops/Dockerfile`, `docker/migrate/Dockerfile`, `docker/dev/Dockerfile` | `node:26-alpine` | `node:24-alpine` |
+| `docker/scraper/Dockerfile` | `node:26-bookworm-slim` | `node:24-bookworm-slim` |
 | `@types/node` (11 workspace packages that already declared it directly) | `^26.1.0` | `^24.13.3` |
 | `@types/node` (root `package.json`, `packages/config`) | undeclared (transitively resolved via `vitest`, floated to whatever was newest — `26.1.0`) | `^24.13.3` (now declared directly) |
 
@@ -45,12 +45,12 @@ files did not need to change.
 
 - `pnpm typecheck`, `pnpm lint`, `pnpm build`, and `pnpm test` all pass on
   Node 24.15.0.
-- `docker build -f docker/scraper.Dockerfile .` succeeds on Node 24; `sharp`
+- `docker build -f docker/scraper/Dockerfile .` succeeds on Node 24; `sharp`
   rebuilds natively for the image's glibc/arch, and Playwright's Chromium
   headless shell installs and launches (verified with the existing
   `docker/scraper-smoke.mjs` smoke script under the same sandboxed
   `--security-opt seccomp=./docker/chromium-seccomp.json` invocation CI uses).
-- `docker build -f docker/api.Dockerfile .` succeeds and reports
+- `docker build -f docker/api/Dockerfile .` succeeds and reports
   `node v24.18.0` (the Debian-slim/Alpine base's patch version) at runtime.
 
 ## Rollback
