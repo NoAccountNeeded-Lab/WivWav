@@ -1,0 +1,11 @@
+{
+  "extends": "@wivwav/config/tsconfig-nextjs",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "./dist",
+    "jsx": "react-jsx",
+    "noEmit": false
+  },
+  "include": ["src"],
+  "exclude": ["src/stories", "src/**/*.test.ts", "src/**/*.test.tsx"]
+}
