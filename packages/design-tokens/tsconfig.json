@@ -1,0 +1,8 @@
+{
+  "extends": "@wivwav/config/tsconfig-node",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "./dist"
+  },
+  "include": ["src"]
+}
