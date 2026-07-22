@@ -8,13 +8,11 @@ import {
   AlertCircle,
   AlertTriangle,
   Bot,
-  Calendar,
   CheckCircle2,
   Clock,
   Cpu,
   Database,
   FileText,
-  Globe,
   HelpCircle,
   Layers,
   List,
@@ -22,9 +20,6 @@ import {
   RefreshCw,
   Search,
   Server,
-  Settings2,
-  ShieldCheck,
-  Terminal,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
@@ -50,7 +45,6 @@ import { ACTION_ICONS } from './action-icons'
 import type { ScrapeRunPoint } from '@wivwav/charts'
 import { fetchJson } from '@/lib/fetch-json'
 import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
-import { getOpsOverviewLinks } from './ops-nav'
 
 /** Subset of resource state the attention-panel retry buttons need — avoids
  *  variance issues from mixing differently-typed resources in one map. */
@@ -71,20 +65,6 @@ interface OpsOverviewClientProps {
 const REFRESH_MS = 30_000
 /** Maximum number of polling-cycle samples to retain in the ring buffers */
 const RING_BUFFER_SIZE = 20
-
-const OPS_LINK_ICONS: Record<string, LucideIcon> = {
-  '/ops/refresh-listings': RefreshCw,
-  '/ops/queues': Layers,
-  '/ops/sources': Globe,
-  '/ops/runs': Activity,
-  '/ops/schedules': Calendar,
-  '/ops/logs': Terminal,
-  '/ops/ai': Bot,
-  '/ops/config': Settings2,
-  '/status': ShieldCheck,
-}
-
-const OPS_LINKS = getOpsOverviewLinks()
 
 const CARD_ICONS: Record<string, LucideIcon> = {
   api:                        Zap,
@@ -432,21 +412,6 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
         ))}
 
       </div>
-
-      {/* ── Nav grid ──────────────────────────────────────────────────────── */}
-      <nav className={styles.linkGrid} aria-label="Operations areas">
-        {OPS_LINKS.map(link => {
-          const Icon = OPS_LINK_ICONS[link.href] ?? Activity
-
-          return (
-            <Link key={link.href} href={link.href} className={styles.areaLink}>
-              <span className={styles.areaIcon}><Icon size={18} /></span>
-              <strong className={styles.areaLabel}>{link.shell?.overviewQuickLink?.label ?? link.title}</strong>
-              <span className={styles.areaDetail}>{link.desc}</span>
-            </Link>
-          )
-        })}
-      </nav>
 
       <OpsRunbooks ids={OPS_RUNBOOK_IDS} />
     </main>

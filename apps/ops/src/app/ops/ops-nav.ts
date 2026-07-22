@@ -1,11 +1,10 @@
+/**
+ * `primary` renders as a single flat list with no group heading. `advanced`
+ * is the only group whose heading renders — it's the sole titled section
+ * left after flattening (#759).
+ */
 export type OpsNavGroupId =
-  | 'overview'
-  | 'inventory'
-  | 'sources'
-  | 'workflows'
-  | 'failures'
-  | 'schedules'
-  | 'logs'
+  | 'primary'
   | 'advanced'
 
 export interface OpsNavItem {
@@ -28,24 +27,13 @@ export interface OpsNavItem {
       label: string
       order: number
     }
-    overviewQuickLink?: {
-      label: string
-      order: number
-    }
   }
 }
 
 export interface OpsNavGroup {
   id: OpsNavGroupId
   title: string
-  intro: string
   items: OpsNavItem[]
-}
-
-type OpsNavOverviewLinkItem = OpsNavItem & {
-  shell: NonNullable<OpsNavItem['shell']> & {
-    overviewQuickLink: NonNullable<NonNullable<OpsNavItem['shell']>['overviewQuickLink']>
-  }
 }
 
 type OpsNavMobileTabItem = OpsNavItem & {
@@ -54,19 +42,14 @@ type OpsNavMobileTabItem = OpsNavItem & {
   }
 }
 
-function hasOverviewQuickLink(item: OpsNavItem): item is OpsNavOverviewLinkItem {
-  return item.shell?.overviewQuickLink !== undefined
-}
-
 function hasMobileTab(item: OpsNavItem): item is OpsNavMobileTabItem {
   return item.shell?.mobileTab !== undefined
 }
 
 export const OPS_NAV_GROUPS: OpsNavGroup[] = [
   {
-    id: 'overview',
-    title: 'Overview',
-    intro: 'Start with service health and the most common operator checks.',
+    id: 'primary',
+    title: '',
     items: [
       {
         href: '/ops',
@@ -94,19 +77,8 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         desc: 'Check whether the API, database, search index, cache, and background services are reachable.',
         shell: {
           placement: 'primary',
-          overviewQuickLink: {
-            label: 'System Status',
-            order: 8,
-          },
         },
       },
-    ],
-  },
-  {
-    id: 'inventory',
-    title: 'Inventory',
-    intro: 'Keep listings searchable and visible to shoppers.',
-    items: [
       {
         href: '/ops/refresh-listings',
         title: 'Listing refresh workflow',
@@ -117,19 +89,8 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
             label: 'Refresh',
             order: 1,
           },
-          overviewQuickLink: {
-            label: 'Refresh Listings',
-            order: 0,
-          },
         },
       },
-    ],
-  },
-  {
-    id: 'sources',
-    title: 'Sources',
-    intro: 'Manage the websites WivWav imports listings from.',
-    items: [
       {
         href: '/ops/sources',
         title: 'Source health',
@@ -140,48 +101,38 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
             label: 'Sources',
             order: 2,
           },
-          overviewQuickLink: {
-            label: 'Sources',
-            order: 2,
-          },
         },
       },
-    ],
-  },
-  {
-    id: 'workflows',
-    title: 'Workflows',
-    intro: 'Follow recent work and confirm that listing updates are moving.',
-    items: [
       {
         href: '/ops/runs',
         title: 'Listing import activity',
         desc: 'Review recent source runs, new listing counts, updates, failures, and long-running imports.',
         shell: {
           placement: 'primary',
-          overviewQuickLink: {
-            label: 'Runs',
-            order: 3,
-          },
         },
       },
-    ],
-  },
-  {
-    id: 'failures',
-    title: 'Failures',
-    intro: 'Find repair work that needs operator attention.',
-    items: [
+      {
+        href: '/ops/schedules',
+        title: 'Recurring jobs',
+        desc: 'Enable, disable, or edit automatic listing refresh, geocoding, and safety-data schedules.',
+        shell: {
+          placement: 'primary',
+        },
+      },
+      {
+        href: '/ops/logs',
+        title: 'Application logs',
+        desc: 'Search recent API, listing import, background job, and browser error logs by service and severity.',
+        shell: {
+          placement: 'primary',
+        },
+      },
       {
         href: '/ops/ai',
         title: 'Source repair',
         desc: 'Check AI service health and sources whose page layout changed enough to need remapping.',
         shell: {
           placement: 'primary',
-          overviewQuickLink: {
-            label: 'AI',
-            order: 6,
-          },
         },
       },
       {
@@ -190,48 +141,6 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         desc: 'Review listings whose entry type or ramp type has conflicting evidence (#499) and is excluded from side/rear and ramp-type search filters until resolved.',
         shell: {
           placement: 'primary',
-          overviewQuickLink: {
-            label: 'Field Conflicts',
-            order: 9,
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: 'schedules',
-    title: 'Schedules',
-    intro: 'Control when recurring operational jobs run.',
-    items: [
-      {
-        href: '/ops/schedules',
-        title: 'Recurring jobs',
-        desc: 'Enable, disable, or edit automatic listing refresh, geocoding, and safety-data schedules.',
-        shell: {
-          placement: 'primary',
-          overviewQuickLink: {
-            label: 'Schedules',
-            order: 4,
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: 'logs',
-    title: 'Logs',
-    intro: 'Inspect recent application events without leaving the operator console.',
-    items: [
-      {
-        href: '/ops/logs',
-        title: 'Application logs',
-        desc: 'Search recent API, listing import, background job, and browser error logs by service and severity.',
-        shell: {
-          placement: 'primary',
-          overviewQuickLink: {
-            label: 'Logs',
-            order: 5,
-          },
         },
       },
     ],
@@ -239,7 +148,6 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
   {
     id: 'advanced',
     title: 'Advanced',
-    intro: 'Diagnostics for maintainers who need raw job internals or provider configuration.',
     items: [
       {
         href: '/ops/queues',
@@ -251,10 +159,6 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
             label: 'Queues',
             order: 3,
           },
-          overviewQuickLink: {
-            label: 'Queues',
-            order: 1,
-          },
         },
       },
       {
@@ -263,10 +167,6 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         desc: 'Edit AI providers, model names, API key config IDs, and encrypted provider secrets.',
         shell: {
           placement: 'advanced',
-          overviewQuickLink: {
-            label: 'AI Config',
-            order: 7,
-          },
         },
       },
       {
@@ -282,13 +182,6 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
     ],
   },
 ]
-
-export function getOpsOverviewLinks(groups: OpsNavGroup[] = OPS_NAV_GROUPS): OpsNavItem[] {
-  return groups
-    .flatMap(group => group.items)
-    .filter(hasOverviewQuickLink)
-    .sort((a, b) => a.shell.overviewQuickLink.order - b.shell.overviewQuickLink.order)
-}
 
 export function getOpsMobileTabs(groups: OpsNavGroup[] = OPS_NAV_GROUPS): Array<{
   href: string
