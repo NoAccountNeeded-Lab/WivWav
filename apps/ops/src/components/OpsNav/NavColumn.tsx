@@ -17,8 +17,8 @@ export function NavColumn() {
   return (
     <nav aria-label="Ops navigation" className={styles.column}>
       {OPS_NAV_GROUPS.map(group => (
-        <section key={group.id} className={styles.group} aria-labelledby={`nav-column-group-${group.id}`}>
-          <h2 id={`nav-column-group-${group.id}`} className={styles.groupTitle}>{group.title}</h2>
+        <section key={group.id} className={styles.group} aria-label={group.title || undefined}>
+          {group.title && <h2 className={styles.groupTitle}>{group.title}</h2>}
           <div className={styles.groupItems}>
             {group.items.map(item => (
               <NavLinkItem key={item.href} item={item} isActive={isNavItemActive(pathname, item.href)} />

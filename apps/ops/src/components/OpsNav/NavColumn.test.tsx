@@ -19,11 +19,11 @@ afterEach(() => {
 })
 
 describe('NavColumn', () => {
-  it('renders every group heading from the registry', () => {
+  it('renders only the Advanced group heading — the primary list has no heading', () => {
     usePathnameMock.mockReturnValue('/ops')
     render(<NavColumn />)
 
-    expect(screen.getByRole('heading', { name: 'Overview' })).toBeDefined()
+    expect(screen.getAllByRole('heading')).toHaveLength(1)
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeDefined()
   })
 

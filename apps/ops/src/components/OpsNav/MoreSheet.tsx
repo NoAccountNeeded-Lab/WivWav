@@ -133,8 +133,8 @@ export function MoreSheet({ isOpen, onClose, triggerRef }: MoreSheetProps) {
         </div>
         <div className={styles.body}>
           {OPS_NAV_GROUPS.map(group => (
-            <section key={group.id} className={styles.group} aria-labelledby={`more-group-${group.id}`}>
-              <h2 id={`more-group-${group.id}`} className={styles.groupTitle}>{group.title}</h2>
+            <section key={group.id} className={styles.group} aria-label={group.title || undefined}>
+              {group.title && <h2 className={styles.groupTitle}>{group.title}</h2>}
               <div className={styles.groupItems}>
                 {group.items.map(item => (
                   <NavLinkItem
