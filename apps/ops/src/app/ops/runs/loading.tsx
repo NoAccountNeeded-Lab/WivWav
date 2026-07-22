@@ -9,7 +9,7 @@ export default function RunsLoading() {
       backHref="/ops"
       backLabel="← Operations"
     >
-      <OpsTableSkeleton columns={8} />
+      <OpsTableSkeleton columns={9} />
     </OpsRouteLoading>
   )
 }

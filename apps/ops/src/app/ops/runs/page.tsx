@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 import { opsPageTitle } from '@/lib/ops-title'
 import { RunsClient } from './RunsClient'
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 }
 
 export default function RunsPage() {
-  return <RunsClient apiBaseUrl={getPublicApiBaseUrl()} />
+  return (
+    <Suspense>
+      <RunsClient apiBaseUrl={getPublicApiBaseUrl()} />
+    </Suspense>
+  )
 }
