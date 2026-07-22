@@ -14,23 +14,23 @@
     "clean": "rm -rf .next out"
   },
   "dependencies": {
-    "@radix-ui/react-slider": "^1.4.3",
-    "@sentry/nextjs": "^10.64.0",
-    "@tailwindcss/postcss": "^4.3.2",
+    "@radix-ui/react-slider": "^1.4.4",
+    "@sentry/nextjs": "^10.67.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "@wivwav/observability": "workspace:*",
     "@wivwav/search": "workspace:*",
     "@wivwav/types": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.23.0",
-    "next": "^16.2.10",
-    "next-intl": "^4.13.1",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "lucide-react": "^1.25.0",
+    "next": "^16.2.11",
+    "next-intl": "^4.13.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-simple-maps": "^3.0.0",
-    "recharts": "^3.9.2",
+    "recharts": "^3.10.0",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4.3.2"
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
