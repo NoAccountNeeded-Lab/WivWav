@@ -33,6 +33,13 @@ interface LogEntry {
 interface LogsClientProps {
   apiBaseUrl: string
   initialSearch?: string
+  /** Pre-selects the service filter from an inbound deep link (e.g. a run's "Logs for
+   *  this run" link). Falls back to "All services" when absent or unrecognized. */
+  initialService?: string
+  /** Time-window bounds (ISO or ns epoch, per `/admin/logs`) from an inbound deep link.
+   *  Not exposed as editable controls yet — they scope the initial query only. */
+  initialStart?: string
+  initialEnd?: string
 }
 
 type LevelFilter = 'all' | 'error' | 'warn' | 'info' | 'debug'
@@ -274,15 +281,17 @@ function EntryRow({ entry, rowId }: EntryRowProps) {
   )
 }
 
-export function LogsClient({ apiBaseUrl, initialSearch = '' }: LogsClientProps) {
+export function LogsClient({ apiBaseUrl, initialSearch = '', initialService, initialStart, initialEnd }: LogsClientProps) {
   const [entries, setEntries] = useState<LogEntry[] | null>(null)
-  const [services, setServices] = useState<string[]>([])
+  // Seed with the deep-linked service (if any) so the select shows it immediately,
+  // even before `/admin/logs` returns the full known-services list to merge into.
+  const [services, setServices] = useState<string[]>(initialService ? [initialService] : [])
   const [error, setError] = useState<string | null>(null)
   const [unavailable, setUnavailable] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [liveStatus, setLiveStatus] = useState('')
 
-  const [serviceFilter, setServiceFilter] = useState<string>('all')
+  const [serviceFilter, setServiceFilter] = useState<string>(initialService ?? 'all')
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all')
   const [search, setSearch] = useState(initialSearch)
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
@@ -308,6 +317,8 @@ export function LogsClient({ apiBaseUrl, initialSearch = '' }: LogsClientProps) 
     const params = new URLSearchParams({ limit: '200' })
     if (serviceFilter !== 'all') params.set('service', serviceFilter)
     if (debouncedSearch) params.set('search', debouncedSearch)
+    if (initialStart) params.set('start', initialStart)
+    if (initialEnd) params.set('end', initialEnd)
 
     try {
       const res = await fetch(`${apiBaseUrl}/admin/logs?${params.toString()}`, { cache: 'no-store' })
@@ -333,7 +344,7 @@ export function LogsClient({ apiBaseUrl, initialSearch = '' }: LogsClientProps) 
     } finally {
       setIsLoading(false)
     }
-  }, [apiBaseUrl, serviceFilter, debouncedSearch])
+  }, [apiBaseUrl, serviceFilter, debouncedSearch, initialStart, initialEnd])
 
   useEffect(() => {
     void load()

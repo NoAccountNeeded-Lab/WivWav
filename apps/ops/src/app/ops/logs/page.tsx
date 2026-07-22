@@ -10,8 +10,16 @@ export const metadata: Metadata = {
 export default async function LogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{ search?: string; service?: string; start?: string; end?: string }>
 }) {
-  const { search } = await searchParams
-  return <LogsClient apiBaseUrl={getPublicApiBaseUrl()} {...(search ? { initialSearch: search } : {})} />
+  const { search, service, start, end } = await searchParams
+  return (
+    <LogsClient
+      apiBaseUrl={getPublicApiBaseUrl()}
+      {...(search ? { initialSearch: search } : {})}
+      {...(service ? { initialService: service } : {})}
+      {...(start ? { initialStart: start } : {})}
+      {...(end ? { initialEnd: end } : {})}
+    />
+  )
 }

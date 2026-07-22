@@ -209,7 +209,15 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                     rs.jobId
                       ? <>{rs.feedback} - Job ID: <Link href={`/ops/logs?search=${encodeURIComponent(rs.jobId)}`}>{rs.jobId}</Link></>
                       : rs.feedback
-                  ) : s.errorMessage ? <span className={styles.errorMsg}>{s.errorMessage}</span> : undefined}
+                  ) : s.errorMessage ? (
+                    <>
+                      <span className={styles.errorMsg}>{s.errorMessage}</span>
+                      {' · '}
+                      <Link href={`/ops/runs?sourceId=${encodeURIComponent(s.id)}&filter=failed`}>View run</Link>
+                      {' · '}
+                      <Link href={`/ops/logs?service=scraper&search=${encodeURIComponent(s.id)}`}>View logs</Link>
+                    </>
+                  ) : undefined}
                   feedbackIsError={Boolean(rs?.isError || s.errorMessage)}
                 />
               )

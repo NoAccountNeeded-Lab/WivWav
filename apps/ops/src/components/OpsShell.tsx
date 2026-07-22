@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { OpsHeader } from './OpsHeader'
+import { OPS_INSPECTOR_SLOT_ID } from './Inspector/inspector-slot'
 import styles from './OpsShell.module.css'
 
 interface OpsShellProps {
@@ -19,7 +20,7 @@ export function OpsShell({ children, sectionTitle, nav, inspector }: OpsShellPro
         {nav ?? <div aria-hidden="true" className={styles.placeholder} />}
       </div>
       <div className={styles.mainSlot}>{children}</div>
-      <div className={styles.inspectorSlot}>
+      <div id={OPS_INSPECTOR_SLOT_ID} className={styles.inspectorSlot}>
         {inspector ?? <div aria-hidden="true" className={styles.placeholder} />}
       </div>
     </div>
