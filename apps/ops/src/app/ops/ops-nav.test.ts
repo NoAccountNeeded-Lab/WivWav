@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getOpsMobileTabs, getOpsOverviewLinks, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
+import { getOpsMobileTabs, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
 
 /**
  * All known Next.js page routes under apps/web/src/app.
@@ -29,19 +29,20 @@ const KNOWN_NEXT_ROUTES = new Set([
 ])
 
 describe('OPS_NAV_GROUPS', () => {
-  it('should cover the operator intent groups required by the ops navigation', () => {
-    const required: OpsNavGroupId[] = [
-      'overview',
-      'inventory',
-      'sources',
-      'workflows',
-      'failures',
-      'schedules',
-      'logs',
-      'advanced',
-    ]
+  it('should render a flat primary list plus a single titled advanced section', () => {
+    const required: OpsNavGroupId[] = ['primary', 'advanced']
 
     expect(OPS_NAV_GROUPS.map(group => group.id)).toEqual(required)
+  })
+
+  it('should never introduce a single-item group heading (a future group of one fails here)', () => {
+    for (const group of OPS_NAV_GROUPS) {
+      if (group.id === 'advanced') continue
+      expect(group.title, `group "${group.id}" must have no heading (only "advanced" is titled)`).toBe('')
+    }
+
+    const advanced = OPS_NAV_GROUPS.find(group => group.id === 'advanced')
+    expect(advanced?.title).toBe('Advanced')
   })
 
   it('should preserve all existing operational destinations', () => {
@@ -73,24 +74,6 @@ describe('OPS_NAV_GROUPS', () => {
     ])
   })
 
-  it('should derive overview quick links from the navigation registry metadata', () => {
-    expect(getOpsOverviewLinks().map(item => ({
-      href: item.href,
-      label: item.shell?.overviewQuickLink?.label,
-    }))).toEqual([
-      { href: '/ops/refresh-listings', label: 'Refresh Listings' },
-      { href: '/ops/queues', label: 'Queues' },
-      { href: '/ops/sources', label: 'Sources' },
-      { href: '/ops/runs', label: 'Runs' },
-      { href: '/ops/schedules', label: 'Schedules' },
-      { href: '/ops/logs', label: 'Logs' },
-      { href: '/ops/ai', label: 'AI' },
-      { href: '/ops/config', label: 'AI Config' },
-      { href: '/status', label: 'System Status' },
-      { href: '/ops/field-conflicts', label: 'Field Conflicts' },
-    ])
-  })
-
   it('should keep raw queue tools under advanced diagnostics', () => {
     const advanced = OPS_NAV_GROUPS.find(group => group.id === 'advanced')
 
@@ -117,10 +100,10 @@ describe('OPS_NAV_GROUPS', () => {
   })
 
   it('should send inventory operators to the guided refresh-listings workflow, not raw queues', () => {
-    const inventory = OPS_NAV_GROUPS.find(group => group.id === 'inventory')
+    const primary = OPS_NAV_GROUPS.find(group => group.id === 'primary')
 
-    expect(inventory?.items.map(item => item.href)).toContain('/ops/refresh-listings')
-    expect(inventory?.items.map(item => item.href)).not.toContain('/ops/queues')
+    expect(primary?.items.map(item => item.href)).toContain('/ops/refresh-listings')
+    expect(primary?.items.map(item => item.href)).not.toContain('/ops/queues')
   })
 
   it('should map every internal (non-apiOrigin) href to a known Next.js app route', () => {
