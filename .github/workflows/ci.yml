@@ -255,8 +255,22 @@ jobs:
           cache-from: type=gha,scope=scraper
           cache-to: type=gha,mode=max,scope=scraper
 
-      - name: Install Chromium for E2E
-        run: pnpm --filter @wivwav/e2e exec playwright install --with-deps chromium
+      - name: Cache Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # The apt-installed OS deps aren't part of the cached path above and
+      # must be reinstalled every run on these ephemeral runners regardless
+      # of cache hit; only the browser binary download itself is skippable.
+      - name: Install Chromium OS dependencies for E2E
+        run: pnpm --filter @wivwav/e2e exec playwright install-deps chromium
+
+      - name: Install Chromium browser for E2E
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @wivwav/e2e exec playwright install chromium
 
       - name: Run built-container Playwright smoke suite
         run: pnpm test:e2e
@@ -412,8 +426,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install Chromium for scraper fixture contracts
-        run: pnpm --filter @wivwav/scraper exec playwright install --with-deps chromium
+      - name: Cache Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # The apt-installed OS deps aren't part of the cached path above and
+      # must be reinstalled every run on these ephemeral runners regardless
+      # of cache hit; only the browser binary download itself is skippable.
+      - name: Install Chromium OS dependencies for scraper fixture contracts
+        run: pnpm --filter @wivwav/scraper exec playwright install-deps chromium
+
+      - name: Install Chromium browser for scraper fixture contracts
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @wivwav/scraper exec playwright install chromium
 
       - name: Generate Prisma client
         run: pnpm db:generate
