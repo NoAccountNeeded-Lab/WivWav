@@ -13,21 +13,10 @@
     "informational": "****** *** ****"
   },
   "DiscoverPage": {
-    "sectionTitle": "********"
-  },
-  "DiscoverChat": {
+    "sectionTitle": "********",
     "heading": "**** *** ***** ********** *******",
-    "avatarOnlineLabel": "******",
-    "conversationLabel": "************",
-    "openingMessage": "******** **** *** **** *** *** ******* **** ** **** ****** *** **** ** ***** *** *** *** *** *******",
-    "replyLabel": "**** **** *****",
-    "replyPlaceholder": "**** **** ******",
-    "sendLabel": "****",
-    "sendingLabel": "********",
-    "thinkingLabel": "****** ** *******",
     "seeMatches": "*** ******* ***",
-    "browseOnMyOwn": "****** ** ** ****",
-    "errorRequired": "****** ******** **** *** ****"
+    "browseAll": "****** *** ********"
   },
   "IntakeForm": {
     "aiMessage": "******** **** *** **** ** ***** ******** * ********** ***** **** ** ***** ******* ******** * *** **** *** *** ******* *** ****",

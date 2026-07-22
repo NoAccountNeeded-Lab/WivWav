@@ -13,21 +13,10 @@
     "informational": "Solo para fines informativos."
   },
   "DiscoverPage": {
-    "sectionTitle": "Descubrir"
-  },
-  "DiscoverChat": {
+    "sectionTitle": "Descubrir",
     "heading": "Encuentre el vehículo accesible adecuado",
-    "avatarOnlineLabel": "En línea",
-    "conversationLabel": "Conversación",
-    "openingMessage": "Describa lo que necesita — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
-    "replyLabel": "Escriba su respuesta",
-    "replyPlaceholder": "Escriba su respuesta…",
-    "sendLabel": "Enviar",
-    "sendingLabel": "Enviando…",
-    "thinkingLabel": "WivWav está pensando",
     "seeMatches": "Ver coincidencias →",
-    "browseOnMyOwn": "Explorar por mi cuenta",
-    "errorRequired": "Por favor describa lo que necesita."
+    "browseAll": "Ver todos los vehículos"
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",

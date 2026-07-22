@@ -13,21 +13,10 @@
     "informational": "Informational use only."
   },
   "DiscoverPage": {
-    "sectionTitle": "Discover"
-  },
-  "DiscoverChat": {
+    "sectionTitle": "Discover",
     "heading": "Find the right accessible vehicle",
-    "avatarOnlineLabel": "Online",
-    "conversationLabel": "Conversation",
-    "openingMessage": "Describe what you need — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
-    "replyLabel": "Type your reply",
-    "replyPlaceholder": "Type your reply…",
-    "sendLabel": "Send",
-    "sendingLabel": "Sending…",
-    "thinkingLabel": "WivWav is thinking",
     "seeMatches": "See Matches →",
-    "browseOnMyOwn": "Browse on my own",
-    "errorRequired": "Please describe what you need."
+    "browseAll": "Browse all vehicles"
   },
   "IntakeForm": {
     "aiMessage": "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
