@@ -6,7 +6,7 @@ import { DiscoverPage } from './DiscoverPage'
 export const metadata = {
   title: 'Discover — WivWav',
   description:
-    "Tell us what you need in plain language and we'll find the right wheelchair accessible vehicle for you.",
+    'Explore wheelchair accessible vehicles by make, model, price, location, and accessibility features.',
 }
 
 interface DiscoverRouteProps {
