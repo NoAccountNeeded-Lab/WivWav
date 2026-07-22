@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { ScrapeRunChart, type ScrapeRunPoint } from '@wivwav/charts'
 import { DataTable, dataTableStyles } from '@/components/DataTable'
 import { OpsStatusChip } from '@/components/OpsStatusChip'
+import { InspectorPanel } from '@/components/Inspector/InspectorPanel'
+import { InspectorPortal } from '@/components/Inspector/InspectorPortal'
+import { useInspectorParam } from '@/components/Inspector/useInspectorParam'
+import type { PipelineStage } from '../sources/[id]/source-pipeline-helpers'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
 
@@ -38,7 +43,31 @@ const RUN_COLUMNS = [
   { key: 'new', label: 'New', align: 'end' as const },
   { key: 'updated', label: 'Updated', align: 'end' as const },
   { key: 'error', label: 'Error' },
+  { key: 'details', label: <span className={dataTableStyles.srOnly}>Details</span> },
 ]
+
+const VALID_FILTERS: Filter[] = ['all', 'success', 'failed', 'running']
+
+function isFilter(value: string | null): value is Filter {
+  return value !== null && (VALID_FILTERS as string[]).includes(value)
+}
+
+/** Deep link to `/ops/logs` scoped to this run's source and time window (E6/#761). Runs
+ *  have no `jobId` of their own (`scraper_runs` predates BullMQ job tracking), so the
+ *  source-scrape service + sourceId + [startedAt, finishedAt] window is the strongest
+ *  correlation available — the same allow-listed fields #757's `get_correlation` uses. */
+function runLogsHref(run: RunRow): string {
+  const params = new URLSearchParams()
+  params.set('service', 'scraper')
+  params.set('search', run.sourceId)
+  params.set('start', run.startedAt)
+  params.set('end', run.finishedAt ?? new Date().toISOString())
+  return `/ops/logs?${params.toString()}`
+}
+
+function runSourceHref(run: RunRow): string {
+  return `/ops/sources/${encodeURIComponent(run.sourceId)}`
+}
 
 function duration(start: string, end: string | null): string {
   if (!end) return 'running…'
@@ -67,11 +96,21 @@ function resultChip(success: boolean | null) {
 }
 
 export function RunsClient({ apiBaseUrl }: RunsClientProps) {
+  const searchParams = useSearchParams()
+  // Read once at mount: an inbound deep link (e.g. from a source's last-error) scopes
+  // the initial view, but subsequent in-page filter changes are client-owned state, same
+  // as LogsClient's `initialSearch` pattern.
+  const [initialFilterParam] = useState(() => searchParams.get('filter'))
+  const sourceIdFilter = searchParams.get('sourceId')
+
   const [runs, setRuns] = useState<RunRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<Filter>(isFilter(initialFilterParam) ? initialFilterParam : 'all')
+
+  const inspector = useInspectorParam('run')
+  const [pipelineStageBySource, setPipelineStageBySource] = useState<Record<string, PipelineStage | null>>({})
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
@@ -95,23 +134,62 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
     return () => window.clearInterval(interval)
   }, [refresh])
 
-  const filtered = useMemo(() => {
+  // `sourceId` (from a source's last-error deep link) scopes the whole page — filter
+  // pills, counts, and the chart — before the success/failed/running filter applies.
+  const scopedRuns = useMemo(() => {
     if (!runs) return null
-    if (filter === 'all') return runs
-    if (filter === 'success') return runs.filter(r => r.success === true)
-    if (filter === 'failed') return runs.filter(r => r.success === false)
-    if (filter === 'running') return runs.filter(r => r.success === null)
-    return runs
-  }, [runs, filter])
+    if (!sourceIdFilter) return runs
+    return runs.filter(r => r.sourceId === sourceIdFilter)
+  }, [runs, sourceIdFilter])
+
+  const filtered = useMemo(() => {
+    if (!scopedRuns) return null
+    if (filter === 'all') return scopedRuns
+    if (filter === 'success') return scopedRuns.filter(r => r.success === true)
+    if (filter === 'failed') return scopedRuns.filter(r => r.success === false)
+    if (filter === 'running') return scopedRuns.filter(r => r.success === null)
+    return scopedRuns
+  }, [scopedRuns, filter])
 
   const counts = useMemo(() => {
-    if (!runs) return { success: 0, failed: 0, running: 0 }
+    if (!scopedRuns) return { success: 0, failed: 0, running: 0 }
     return {
-      success: runs.filter(r => r.success === true).length,
-      failed: runs.filter(r => r.success === false).length,
-      running: runs.filter(r => r.success === null).length,
+      success: scopedRuns.filter(r => r.success === true).length,
+      failed: scopedRuns.filter(r => r.success === false).length,
+      running: scopedRuns.filter(r => r.success === null).length,
     }
-  }, [runs])
+  }, [scopedRuns])
+
+  const inspectedRun = useMemo(() => {
+    if (!inspector.value || !runs) return null
+    return runs.find(r => r.id === inspector.value) ?? null
+  }, [inspector.value, runs])
+
+  // Lazily fetch the source-scrape pipeline stage (for `latestFailedJobId`) only when
+  // the inspector opens on a failed run, per source — never eagerly for every row.
+  useEffect(() => {
+    if (!inspectedRun || inspectedRun.success !== false) return
+    const sourceId = inspectedRun.sourceId
+    if (sourceId in pipelineStageBySource) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/pipeline`, { cache: 'no-store' })
+        if (!res.ok) {
+          if (!cancelled) setPipelineStageBySource(prev => ({ ...prev, [sourceId]: null }))
+          return
+        }
+        const body = (await res.json()) as { data: { stages: PipelineStage[] } }
+        const stage = body.data.stages.find(s => s.stage === 'source-scrape') ?? null
+        if (!cancelled) setPipelineStageBySource(prev => ({ ...prev, [sourceId]: stage }))
+      } catch {
+        if (!cancelled) setPipelineStageBySource(prev => ({ ...prev, [sourceId]: null }))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [apiBaseUrl, inspectedRun, pipelineStageBySource])
 
   // `/admin/runs` returns newest-first; ScrapeRunChart expects oldest-first
   // (it renders left-to-right and keeps the most recent `maxBars` entries
@@ -136,6 +214,13 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
           <Link href="/ops" className={styles.backLink}>← Operations</Link>
         </div>
 
+        {sourceIdFilter && (
+          <p className={styles.muted} style={{ marginBottom: '0.75rem' }}>
+            Filtered to source <strong>{scopedRuns?.[0]?.sourceName ?? sourceIdFilter}</strong>.{' '}
+            <Link href="/ops/runs" style={{ color: 'var(--clr-primary)' }}>Clear filter</Link>
+          </p>
+        )}
+
         <div className={styles.controlsBar}>
           <div className={styles.filterGroup} role="group" aria-label="Filter runs">
             {(['all', 'running', 'success', 'failed'] as Filter[]).map(f => (
@@ -146,7 +231,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
                 data-active={filter === f ? 'true' : 'false'}
                 onClick={() => setFilter(f)}
               >
-                {f === 'all' ? `All (${runs?.length ?? 0})` : null}
+                {f === 'all' ? `All (${scopedRuns?.length ?? 0})` : null}
                 {f === 'running' ? `Running (${counts.running})` : null}
                 {f === 'success' ? `Success (${counts.success})` : null}
                 {f === 'failed' ? `Failed (${counts.failed})` : null}
@@ -221,6 +306,16 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
                     <span className={dataTableStyles.muted}>—</span>
                   )}
                 </td>
+                <td>
+                  <button
+                    className={`${styles.btn} ${styles.btnGhost}`}
+                    type="button"
+                    onClick={() => inspector.open(r.id)}
+                    aria-label={`View run details for ${r.sourceName ?? r.sourceId} started ${fmtTime(new Date(r.startedAt))}`}
+                  >
+                    Details
+                  </button>
+                </td>
               </tr>
             ))}
           </DataTable>
@@ -240,6 +335,51 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
           </div>
         </details>
       </div>
+
+      <InspectorPortal>
+        <InspectorPanel
+          isOpen={inspector.isOpen}
+          title={inspectedRun ? `Run · ${inspectedRun.sourceName ?? inspectedRun.sourceId}` : 'Run details'}
+          onClose={inspector.close}
+        >
+          {!inspectedRun ? (
+            <p className={styles.empty}>
+              {runs ? 'This run is no longer available. It may have aged out of the last 100 runs.' : 'Loading run details…'}
+            </p>
+          ) : (
+            <div className={styles.pipelineStrip} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <p>{resultChip(inspectedRun.success)}</p>
+              <p className={styles.muted}>
+                Started <RelativeTimestamp value={inspectedRun.startedAt} /> · duration {duration(inspectedRun.startedAt, inspectedRun.finishedAt)}
+              </p>
+              <p className={styles.muted}>
+                Found {formatCount(inspectedRun.listingsFound)} · New {formatCount(inspectedRun.listingsNew)} · Updated {formatCount(inspectedRun.listingsUpdated)}
+              </p>
+              {inspectedRun.errorMessage && (
+                <p className={styles.errorMsg}>{inspectedRun.errorMessage}</p>
+              )}
+              <div className={styles.actions}>
+                <Link href={runLogsHref(inspectedRun)} className={`${styles.btn} ${styles.btnGhost}`}>
+                  Logs for this run
+                </Link>
+                <Link href={runSourceHref(inspectedRun)} className={`${styles.btn} ${styles.btnGhost}`}>
+                  Source detail
+                </Link>
+              </div>
+              {inspectedRun.success === false && (() => {
+                const jobId = pipelineStageBySource[inspectedRun.sourceId]?.latestFailedJobId
+                if (!jobId) return null
+                return (
+                  <p className={styles.muted}>
+                    Latest source-scrape failure: job{' '}
+                    <Link href={`/ops/logs?search=${encodeURIComponent(jobId)}`}>{jobId}</Link>
+                  </p>
+                )
+              })()}
+            </div>
+          )}
+        </InspectorPanel>
+      </InspectorPortal>
     </main>
   )
 }
