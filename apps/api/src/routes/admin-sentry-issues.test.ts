@@ -85,4 +85,14 @@ describe('GET /', () => {
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ data: { issues: [], unavailable: true } })
   })
+
+  it('returns unavailable:true instead of throwing when Sentry returns a malformed (non-array) body', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ detail: 'not an array' })))
+
+    const app = buildTestApp({ sentryAuthToken: 'tok', sentryOrg: 'wivwav', sentryProject: 'api' })
+    const res = await app.inject({ method: 'GET', url: '/' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ data: { issues: [], unavailable: true } })
+  })
 })

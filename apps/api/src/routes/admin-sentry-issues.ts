@@ -59,14 +59,18 @@ export const adminSentryIssuesRoutes: FastifyPluginAsync<AdminSentryIssuesPlugin
       return reply.send({ data: { issues: [], unavailable: true } })
     }
 
-    let body: SentryApiIssue[]
+    let body: unknown
     try {
-      body = (await res.json()) as SentryApiIssue[]
+      body = await res.json()
     } catch {
       return reply.send({ data: { issues: [], unavailable: true } })
     }
 
-    const issues: SentryIssueSummary[] = body.map(toIssueSummary)
+    if (!Array.isArray(body)) {
+      return reply.send({ data: { issues: [], unavailable: true } })
+    }
+
+    const issues: SentryIssueSummary[] = (body as SentryApiIssue[]).map(toIssueSummary)
     return reply.send({ data: { issues, unavailable: false } })
   })
 }
