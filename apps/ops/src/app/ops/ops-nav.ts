@@ -92,6 +92,14 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         },
       },
       {
+        href: '/ops/problems',
+        title: 'Problems',
+        desc: 'Every active problem across services, sources, queues, schedules, Grafana alerts, and Sentry issues — with first-seen, last-seen, occurrence count, severity, and acknowledgement.',
+        shell: {
+          placement: 'primary',
+        },
+      },
+      {
         href: '/ops/sources',
         title: 'Source health',
         desc: 'Review source status, listing counts, last scrape time, errors, and run a source immediately.',

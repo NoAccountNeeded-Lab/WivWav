@@ -1,5 +1,6 @@
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from '@/lib/relative-time'
-import type { AttentionCondition, AttentionSnapshot, HealthResponse, ServiceHealth } from '@wivwav/types'
+import type { AttentionResourceInput, HealthResponse, ServiceHealth } from '@wivwav/types'
+import type { PolledResourceState } from '@/lib/use-polled-resource'
 
 export interface QueueStats {
   waiting: number
@@ -86,7 +87,7 @@ export interface OverviewModel {
   telemetry: OverviewCard[]
 }
 
-export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules' | 'attention'
+export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules'
 
 export interface OverviewInput {
   health: HealthResponse | null
@@ -95,12 +96,14 @@ export interface OverviewInput {
   runs: RunRow[] | null
   schedules: ScheduleEntry[] | null
   /**
-   * The shared domain-level "what is currently wrong" computation (issue
-   * #774), fetched from `POST /admin/attention-snapshot`. This module maps
-   * its typed condition codes + evidence IDs onto the presentation-level
-   * `AttentionItem`s below — it does not recompute conditions itself.
+   * Unacknowledged-problem counts by severity from the shared problem
+   * aggregate (issue #892, `useProblemAggregate`) — factored into
+   * `overall.severity` alongside the telemetry-unavailable items below so
+   * the header still reflects real active problems now that this module no
+   * longer recomputes domain conditions itself. `null` while the aggregate
+   * hasn't resolved yet.
    */
-  attention: AttentionSnapshot | null
+  problemCounts: { critical: number; warning: number } | null
   errors: Partial<Record<OverviewResourceKey, string>>
   /**
    * Marks a resource as still awaiting its first response (E5: independent
@@ -133,21 +136,19 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const sourceError = input.errors.sources ?? (isSettledEmpty(input.sources, input.pending?.sources) ? 'Source telemetry unavailable' : undefined)
   const runError = input.errors.runs ?? (isSettledEmpty(input.runs, input.pending?.runs) ? 'Scraper run telemetry unavailable' : undefined)
   const scheduleError = input.errors.schedules ?? (isSettledEmpty(input.schedules, input.pending?.schedules) ? 'Schedule telemetry unavailable' : undefined)
-  // Unlike the resources above, a null `attention` snapshot is not defaulted
-  // to an error here — it commonly just means the computation hasn't
-  // resolved yet, which is already surfaced via each dependency's own
-  // "-unavailable" item below. Only a genuine fetch failure of the
-  // attention-snapshot endpoint itself sets this.
-  const attentionError = input.errors.attention
 
+  // Telemetry-fetch-failure signals only — real domain/Grafana/Sentry
+  // problems are federated server-side by `computeProblemAggregate` (issue
+  // #890) and rendered from the shared `useProblemAggregate` hook (#892),
+  // not recomputed here. This keeps a single computation for "what is
+  // currently wrong" while this module keeps its narrower "is ops's own
+  // telemetry reachable" concern.
   const attention: AttentionItem[] = [
     ...healthUnavailableAttention(input.health, healthError),
     ...unavailableAttention('sources-unavailable', 'Source telemetry unavailable', '/ops/sources', sourceError),
     ...unavailableAttention('queues-unavailable', 'Queue telemetry unavailable', '/ops/queues', queueError),
     ...unavailableAttention('schedules-unavailable', 'Schedule telemetry unavailable', '/ops/schedules', scheduleError),
     ...unavailableAttention('runs-unavailable', 'Scraper run telemetry unavailable', '/ops/runs', runError),
-    ...unavailableAttention('attention-unavailable', 'Attention computation unavailable', '/status', attentionError),
-    ...(input.attention ? mapAttentionConditions(input.attention.conditions, input) : []),
   ]
 
   const healthCards: OverviewCard[] = [
@@ -237,16 +238,17 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
     },
   ]
 
-  const criticalCount = attention.filter(item => item.severity === 'critical').length
-  const warningCount = attention.filter(item => item.severity === 'warning').length
+  const criticalCount = attention.filter(item => item.severity === 'critical').length + (input.problemCounts?.critical ?? 0)
+  const warningCount = attention.filter(item => item.severity === 'warning').length + (input.problemCounts?.warning ?? 0)
   const unavailableCount = [...healthCards, ...freshnessCards].filter(card => card.severity === 'unknown').length
   const overallSeverity: OverviewSeverity = criticalCount > 0 ? 'critical' : warningCount > 0 ? 'warning' : unavailableCount > 0 ? 'unknown' : 'good'
+  const hasSignal = attention.length > 0 || criticalCount > 0 || warningCount > 0
 
   return {
     overall: {
       severity: overallSeverity,
       label: overallLabel(overallSeverity),
-      detail: attention.length > 0
+      detail: hasSignal
         ? `${criticalCount} critical, ${warningCount} warning, ${unavailableCount} unavailable signals`
         : 'No active failures in available telemetry',
     },
@@ -282,7 +284,7 @@ function serviceFromHealth(health: HealthResponse | null, service: keyof HealthR
   return health?.services[service] ?? null
 }
 
-function serviceLabel(health: ServiceHealth | null | undefined): string {
+export function serviceLabel(health: ServiceHealth | null | undefined): string {
   if (!health) return 'Unavailable'
   if (health.status === 'optional_offline') return 'Optional offline'
   return health.status === 'up' ? 'Up' : health.status === 'degraded' ? 'Degraded' : 'Down'
@@ -295,7 +297,7 @@ function serviceSeverity(health: ServiceHealth | null | undefined): OverviewSeve
   return 'good'
 }
 
-function serviceDetail(health: ServiceHealth | null | undefined): string {
+export function serviceDetail(health: ServiceHealth | null | undefined): string {
   if (!health) return 'Waiting for API data'
   if (health.message) return health.message
   if (health.lastRunAt) return `Last successful run ${formatRelativeTimestamp(health.lastRunAt) ?? 'unknown time'}`
@@ -353,6 +355,20 @@ export function isSettledEmpty(data: unknown, pending: boolean | undefined): boo
   return data === null && !pending
 }
 
+/** Reports a polled resource's already-known state in the shape the shared
+ *  domain computation expects (issue #774) — `unavailable` mirrors the same
+ *  "settled with no data and no explicit error" rule this module otherwise
+ *  applies per-resource, so callers never disagree about whether a resource
+ *  has genuinely failed vs. simply not loaded yet. Shared by
+ *  `use-problem-aggregate.ts` (issue #892) and any future caller of
+ *  `POST /admin/attention-snapshot`-shaped endpoints. */
+export function toAttentionResourceInput<T>(resource: PolledResourceState<T>): AttentionResourceInput<T> {
+  return {
+    data: resource.data,
+    unavailable: Boolean(resource.error) || isSettledEmpty(resource.data, resource.isLoading),
+  }
+}
+
 function healthUnavailableAttention(health: HealthResponse | null, error: string | undefined): AttentionItem[] {
   if (error) {
     return [{ id: 'health-unavailable', title: 'Service health unavailable', detail: error, href: '/status', severity: 'unknown' }]
@@ -367,95 +383,6 @@ function unavailableAttention(id: string, title: string, href: string, error: st
   return error ? [{ id, title, detail: error, href, severity: 'unknown' }] : []
 }
 
-/**
- * Maps the shared domain computation's typed conditions (issue #774) onto
- * this app's presentation-level attention items. The domain intentionally
- * carries no display copy — `href`, human titles, and entity names (looked
- * up here from data this module already holds) all live in this mapper, not
- * in `computeAttentionSnapshot`.
- */
-function mapAttentionConditions(conditions: AttentionCondition[], input: OverviewInput): AttentionItem[] {
-  return conditions
-    .map(condition => mapAttentionCondition(condition, input))
-    .filter((item): item is AttentionItem => item !== null)
-}
-
-/** `{ idPrefix, titleSuffix }` for the three source-scoped condition codes —
- *  they differ only in these two strings, so one branch below builds all
- *  three instead of three near-identical copies. */
-const SOURCE_CONDITION_META: Partial<Record<AttentionCondition['code'], { idPrefix: string; titleSuffix: string }>> = {
-  source_needs_remap: { idPrefix: 'source-remap', titleSuffix: 'needs remapping' },
-  source_error: { idPrefix: 'source-error', titleSuffix: 'source is in error' },
-  source_inventory_discrepancy: { idPrefix: 'inventory-discrepancy', titleSuffix: 'has a high possibly-gone count' },
-}
-
-function mapAttentionCondition(condition: AttentionCondition, input: OverviewInput): AttentionItem | null {
-  const severity = condition.severity as OverviewSeverity
-
-  const sourceMeta = SOURCE_CONDITION_META[condition.code]
-  if (sourceMeta) {
-    const id = stripEvidencePrefix(condition.evidenceId, 'source')
-    return {
-      id: `${sourceMeta.idPrefix}-${id}`,
-      title: `${findSourceName(input.sources, id)} ${sourceMeta.titleSuffix}`,
-      detail: condition.detail,
-      href: '/ops/sources',
-      severity,
-    }
-  }
-
-  switch (condition.code) {
-    case 'service_unhealthy': {
-      const name = stripEvidencePrefix(condition.evidenceId, 'service')
-      // Look up the raw service health ops already holds (rather than
-      // reformatting `condition.detail`) so the title/detail keep their
-      // exact pre-#774 wording — e.g. "Database is down", not a generic
-      // "needs attention" that loses the down/degraded/optional-offline
-      // distinction the operator relied on.
-      const service = (input.health?.services as Record<string, ServiceHealth> | undefined)?.[name] ?? null
-      return {
-        id: `service-${name}`,
-        title: `${serviceName(name)} is ${serviceLabel(service).toLowerCase()}`,
-        detail: service ? serviceDetail(service) : condition.detail,
-        href: name === 'valkey' ? '/ops/queues' : '/status',
-        severity,
-      }
-    }
-    case 'queue_failed_jobs':
-      return { id: 'failed-jobs', title: 'Failed jobs need review', detail: condition.detail, href: '/ops/queues', severity }
-    case 'queue_paused':
-      return { id: 'paused-queues', title: 'Queues are paused', detail: condition.detail, href: '/ops/queues', severity }
-    case 'schedule_disabled':
-      return { id: 'disabled-schedules', title: 'Schedules are disabled', detail: condition.detail, href: '/ops/schedules', severity }
-    case 'schedule_failed':
-      return { id: 'failed-schedules', title: 'Scheduled jobs have recent failures', detail: condition.detail, href: '/ops/schedules', severity }
-    case 'scraper_no_successful_run':
-      return { id: 'no-successful-run', title: 'No successful scraper run found', detail: condition.detail, href: '/ops/runs', severity }
-    case 'scraper_stale_run': {
-      const runId = stripEvidencePrefix(condition.evidenceId, 'run')
-      const run = input.runs?.find(r => r.id === runId) ?? null
-      const detail = run?.finishedAt
-        ? `Last successful scrape finished ${formatRelativeTimestamp(run.finishedAt, { now: input.now }) ?? 'unknown time'}.`
-        : condition.detail
-      return { id: 'stale-scraper-run', title: 'Listings may be stale', detail, href: '/ops/runs', severity }
-    }
-    case 'geocode_failed':
-      return { id: 'geocode-failed', title: 'Geocode jobs failed', detail: condition.detail, href: '/ops/queues', severity }
-    case 'geocode_paused':
-      return { id: 'geocode-paused', title: 'Geocode queue is paused', detail: condition.detail, href: '/ops/queues', severity }
-    default:
-      return null
-  }
-}
-
-function stripEvidencePrefix(evidenceId: string, prefix: string): string {
-  return evidenceId.startsWith(`${prefix}:`) ? evidenceId.slice(prefix.length + 1) : evidenceId
-}
-
-function findSourceName(sources: SourceRow[] | null, id: string): string {
-  return sources?.find(source => source.id === id)?.name ?? `Source ${id}`
-}
-
 function overallLabel(severity: OverviewSeverity): string {
   if (severity === 'critical') return 'Attention needed'
   if (severity === 'warning') return 'Watch closely'
@@ -463,7 +390,7 @@ function overallLabel(severity: OverviewSeverity): string {
   return 'Operations look healthy'
 }
 
-function serviceName(name: string): string {
+export function serviceName(name: string): string {
   if (name === 'postgres') return 'Database'
   if (name === 'meilisearch') return 'Meilisearch'
   if (name === 'valkey') return 'Valkey'

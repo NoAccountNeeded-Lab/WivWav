@@ -11,6 +11,7 @@ import * as aiPage from './ai/page'
 import * as fieldConflictsPage from './field-conflicts/page'
 import * as schedulesPage from './schedules/page'
 import * as logsPage from './logs/page'
+import * as problemsPage from './problems/page'
 import * as queuesPage from './queues/page'
 import * as configPage from './config/page'
 import * as statusPage from '../status/page'
@@ -30,6 +31,7 @@ const ROUTE_PAGES: ReadonlyArray<{ href: string; mod: { metadata?: { title?: unk
   { href: '/ops/field-conflicts', mod: fieldConflictsPage },
   { href: '/ops/schedules', mod: schedulesPage },
   { href: '/ops/logs', mod: logsPage },
+  { href: '/ops/problems', mod: problemsPage },
   { href: '/ops/queues', mod: queuesPage },
   { href: '/ops/config', mod: configPage },
   { href: '/status', mod: statusPage },

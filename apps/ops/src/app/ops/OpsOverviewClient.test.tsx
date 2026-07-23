@@ -32,13 +32,14 @@ const SCHEDULES_BODY = {
     lastRunAt: new Date().toISOString(), lastStatus: 'completed', recentFailureCount: 0, recentFailureReason: null,
   }],
 }
-// The Attention panel now renders from the shared attention-snapshot
-// computation (issue #774) rather than recomputing conditions client-side,
-// so every fetch mock below must also answer this endpoint.
-const ATTENTION_BODY = {
+// The Attention panel's Problems preview now renders from the shared
+// problem-aggregate computation (issue #892) rather than recomputing
+// conditions client-side, so every fetch mock below must also answer this
+// endpoint.
+const PROBLEM_AGGREGATE_BODY = {
   data: {
-    conditions: [],
-    signalAvailability: { health: 'available', bullmq: 'available', db: 'available', loki: 'available' },
+    problems: [],
+    availability: { health: 'available', bullmq: 'available', db: 'available', loki: 'available', grafana: 'available', sentry: 'available' },
   },
 }
 
@@ -49,7 +50,7 @@ function mockFetchWithFailingRuns() {
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return { ok: false, status: 503, json: async () => ({}) } as Response
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-    if (url.endsWith('/admin/attention-snapshot')) return jsonResponse(ATTENTION_BODY)
+    if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
 }
@@ -144,7 +145,7 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
       if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
       if (url.endsWith('/admin/runs')) return jsonResponse(runsBody)
       if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-      if (url.endsWith('/admin/attention-snapshot')) return jsonResponse(ATTENTION_BODY)
+      if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
       throw new Error(`Unexpected URL in test: ${url}`)
     }))
 
@@ -159,17 +160,17 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
   })
 })
 
-function mockFetchWith(overrides: { health?: unknown; queues?: unknown; attention?: unknown } = {}) {
+function mockFetchWith(overrides: { health?: unknown; queues?: unknown; problemAggregate?: unknown } = {}) {
   const health = overrides.health ?? HEALTH_BODY
   const queues = overrides.queues ?? QUEUES_BODY
-  const attention = overrides.attention ?? ATTENTION_BODY
+  const problemAggregate = overrides.problemAggregate ?? PROBLEM_AGGREGATE_BODY
   return vi.fn(async (url: string) => {
     if (url.endsWith('/health')) return jsonResponse(health)
     if (url.endsWith('/admin/queues')) return jsonResponse(queues)
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return jsonResponse({ data: [] })
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-    if (url.endsWith('/admin/attention-snapshot')) return jsonResponse(attention)
+    if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(problemAggregate)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
 }
@@ -249,5 +250,56 @@ describe('OpsOverviewClient — calm overview (#760)', () => {
     // Exactly one severity-colored signal (the status dot) — the icon
     // carries no severity attribute at all.
     expect(dbCard.querySelectorAll('[data-severity]').length).toBe(1)
+  })
+})
+
+describe('OpsOverviewClient — Problems preview (issue #892)', () => {
+  it('renders a top-N preview of unacknowledged problems from the shared problem-aggregate call and links to /ops/problems', async () => {
+    const problemAggregate = {
+      data: {
+        problems: [
+          {
+            fingerprint: 'domain:queue_failed_jobs:queue:*',
+            source: 'domain',
+            severity: 'critical',
+            detail: '3 failed jobs are present across queues.',
+            evidenceId: 'queue:*',
+            href: null,
+            firstSeen: new Date().toISOString(),
+            lastSeen: new Date().toISOString(),
+            occurrenceCount: 1,
+            acknowledgedAt: null,
+            acknowledgedBy: null,
+          },
+          {
+            fingerprint: 'sentry:sentry-1',
+            source: 'sentry',
+            severity: 'critical',
+            detail: 'TypeError: x is not a function',
+            evidenceId: 'sentry:sentry-1',
+            href: 'https://sentry.io/issues/sentry-1',
+            firstSeen: new Date().toISOString(),
+            lastSeen: new Date().toISOString(),
+            occurrenceCount: 4,
+            acknowledgedAt: new Date().toISOString(),
+            acknowledgedBy: 'ops@example.com',
+          },
+        ],
+        availability: { health: 'available', bullmq: 'available', db: 'available', loki: 'available', grafana: 'available', sentry: 'available' },
+      },
+    }
+    vi.stubGlobal('fetch', mockFetchWith({ problemAggregate }))
+
+    render(<OpsOverviewClient apiBaseUrl="" />)
+
+    // Only the unacknowledged problem renders in the preview.
+    expect(await screen.findByText('Failed jobs need review')).not.toBeNull()
+    expect(screen.queryByText('TypeError: x is not a function')).toBeNull()
+
+    const viewAll = screen.getByRole('link', { name: /view all problems/i })
+    expect(viewAll.getAttribute('href')).toBe('/ops/problems')
+
+    // Nothing needs attention no longer shows since a real problem is present.
+    expect(screen.queryByText('Nothing needs attention')).toBeNull()
   })
 })

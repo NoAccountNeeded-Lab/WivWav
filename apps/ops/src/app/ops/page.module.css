@@ -269,6 +269,23 @@
   pointer-events: auto;
 }
 
+/* "View all problems →" link under the Problems preview (issue #892) */
+.attentionViewAllLink {
+  display: block;
+  padding: 0.625rem 1rem;
+  color: var(--clr-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.attentionViewAllLink:hover {
+  opacity: 0.75;
+  text-decoration: none;
+}
+
 /* Retry action for an attention item backed by a failed endpoint (E5) */
 .attentionRetryBtn {
   display: inline-flex;

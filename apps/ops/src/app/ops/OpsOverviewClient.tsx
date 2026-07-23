@@ -23,19 +23,13 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import type { AttentionResourceInput, AttentionSnapshot, AttentionSnapshotRequest, HealthResponse } from '@wivwav/types'
 import styles from './page.module.css'
 import {
   buildOpsOverview,
-  isSettledEmpty,
   type OverviewCard,
   type OverviewModel,
   type OverviewResourceKey,
   type OverviewSeverity,
-  type QueueRow,
-  type RunRow,
-  type ScheduleEntry,
-  type SourceRow,
 } from './overview-helpers'
 import { CopyButton } from '@/components/CopyButton'
 import { SkeletonChartBox } from '@/components/Skeleton'
@@ -43,8 +37,10 @@ import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
 import { ACTION_ICONS } from './action-icons'
 import type { ScrapeRunPoint } from '@wivwav/charts'
-import { fetchJson } from '@/lib/fetch-json'
-import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
+import type { PolledResourceState } from '@/lib/use-polled-resource'
+import { useOverviewResources } from './use-overview-resources'
+import { useProblemAggregate } from './use-problem-aggregate'
+import { presentProblem, problemCountsBySeverity, sortProblems, unacknowledgedProblems } from './problem-presentation'
 
 /** Subset of resource state the attention-panel retry buttons need — avoids
  *  variance issues from mixing differently-typed resources in one map. */
@@ -62,7 +58,6 @@ interface OpsOverviewClientProps {
   apiBaseUrl: string
 }
 
-const REFRESH_MS = 30_000
 /** Maximum number of polling-cycle samples to retain in the ring buffers */
 const RING_BUFFER_SIZE = 20
 
@@ -108,50 +103,21 @@ const UNAVAILABLE_ATTENTION_ID: Record<string, OverviewResourceKey> = {
   'sources-unavailable':     'sources',
   'runs-unavailable':        'runs',
   'schedules-unavailable':   'schedules',
-  'attention-unavailable':   'attention',
 }
 
-/** Reports a polled resource's already-known state in the shape the shared
- *  domain computation expects (issue #774) — `unavailable` mirrors the same
- *  "settled with no data and no explicit error" rule overview-helpers.ts
- *  otherwise applies per-resource, so the two never disagree about whether a
- *  resource has genuinely failed vs. simply not loaded yet. */
-function toAttentionResourceInput<T>(resource: PolledResourceState<T>): AttentionResourceInput<T> {
-  return {
-    data: resource.data,
-    unavailable: Boolean(resource.error) || isSettledEmpty(resource.data, resource.isLoading),
-  }
-}
+const TOP_PROBLEMS_PREVIEW_LIMIT = 5
 
 export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   // Each endpoint is fetched, polled, cached, and retried independently so a
   // slow or failing endpoint never blocks the other sections from rendering
   // (E5: streaming overview + per-section inline retry).
-  const health = usePolledResource<HealthResponse>(
-    'ops-overview:health',
-    useCallback(() => fetchJson<HealthResponse>(`${apiBaseUrl}/health`), [apiBaseUrl]),
-    REFRESH_MS,
-  )
-  const queues = usePolledResource<QueueRow[]>(
-    'ops-overview:queues',
-    useCallback(() => fetchJson<QueueRow[]>(`${apiBaseUrl}/admin/queues`), [apiBaseUrl]),
-    REFRESH_MS,
-  )
-  const sources = usePolledResource<SourceRow[]>(
-    'ops-overview:sources',
-    useCallback(() => fetchJson<SourceRow[]>(`${apiBaseUrl}/admin/sources`), [apiBaseUrl]),
-    REFRESH_MS,
-  )
-  const runs = usePolledResource<RunRow[]>(
-    'ops-overview:runs',
-    useCallback(() => fetchJson<RunRow[]>(`${apiBaseUrl}/admin/runs`), [apiBaseUrl]),
-    REFRESH_MS,
-  )
-  const schedules = usePolledResource<ScheduleEntry[]>(
-    'ops-overview:schedules',
-    useCallback(() => fetchJson<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`), [apiBaseUrl]),
-    REFRESH_MS,
-  )
+  const overviewResources = useOverviewResources(apiBaseUrl)
+  const { health, queues, sources, runs, schedules, now, updatedAt } = overviewResources
+
+  // The single server-side call the Attention panel below and `/ops/problems`
+  // both render from (issue #892) — this component never recomputes "what is
+  // currently wrong" itself.
+  const problemAggregate = useProblemAggregate(apiBaseUrl, overviewResources)
 
   // Ring buffer — accumulate samples across 30-second polling cycles
   // We track the run IDs we've already added to the scrape run chart to avoid duplicates
@@ -175,47 +141,9 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     })
   }, [runs.data])
 
-  const latestUpdatedAtMs = Math.max(
-    health.updatedAt?.getTime() ?? 0,
-    queues.updatedAt?.getTime() ?? 0,
-    sources.updatedAt?.getTime() ?? 0,
-    runs.updatedAt?.getTime() ?? 0,
-    schedules.updatedAt?.getTime() ?? 0,
-  )
-  const updatedAt = latestUpdatedAtMs > 0 ? new Date(latestUpdatedAtMs) : null
-  // `now` only advances when a resource actually settles (tracked via the
-  // primitive `latestUpdatedAtMs`), not on every render.
-  const now = useMemo(() => (latestUpdatedAtMs > 0 ? new Date(latestUpdatedAtMs) : new Date()), [latestUpdatedAtMs])
-
-  // Runs the shared domain-level attention computation (issue #774) over the
-  // resource state already fetched/polled above, rather than recomputing
-  // "what is currently wrong" client-side. Posting the already-known state —
-  // instead of this endpoint re-fetching it server-side — preserves each
-  // resource's independent per-section loading/error/retry UX (E5) without
-  // racing a second, server-side fetch of the same data.
-  const attention = usePolledResource<AttentionSnapshot>(
-    'ops-overview:attention',
-    useCallback(() => {
-      const body: AttentionSnapshotRequest = {
-        now: now.toISOString(),
-        health: toAttentionResourceInput(health),
-        queues: toAttentionResourceInput(queues),
-        sources: toAttentionResourceInput(sources),
-        runs: toAttentionResourceInput(runs),
-        schedules: toAttentionResourceInput(schedules),
-      }
-      return fetchJson<AttentionSnapshot>(`${apiBaseUrl}/admin/attention-snapshot`, 10_000, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-    }, [apiBaseUrl, now, health, queues, sources, runs, schedules]),
-    REFRESH_MS,
-  )
-
   // Not memoized: usePolledResource returns a new object every render
   // regardless, so a useMemo here would never actually skip recomputation.
-  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules, attention }
+  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules }
 
   const overview = useMemo<OverviewModel>(() => buildOpsOverview({
     health: health.data,
@@ -223,14 +151,13 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     sources: sources.data,
     runs: runs.data,
     schedules: schedules.data,
-    attention: attention.data,
+    problemCounts: problemAggregate.data ? problemCountsBySeverity(unacknowledgedProblems(problemAggregate.data.problems)) : null,
     errors: {
       ...(health.error     ? { health:     health.error }     : {}),
       ...(queues.error     ? { queues:     queues.error }     : {}),
       ...(sources.error    ? { sources:    sources.error }    : {}),
       ...(runs.error       ? { runs:       runs.error }       : {}),
       ...(schedules.error  ? { schedules:  schedules.error }  : {}),
-      ...(attention.error  ? { attention:  attention.error }  : {}),
     },
     pending: {
       health: health.isLoading,
@@ -238,21 +165,22 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       sources: sources.isLoading,
       runs: runs.isLoading,
       schedules: schedules.isLoading,
-      attention: attention.isLoading,
     },
     now,
-  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, attention.data, attention.error, attention.isLoading, now])
+  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, problemAggregate.data, now])
 
-  const isRefreshing = health.isRefreshing || queues.isRefreshing || sources.isRefreshing || runs.isRefreshing || schedules.isRefreshing || attention.isRefreshing
+  const topProblems = useMemo(
+    () => (problemAggregate.data ? sortProblems(unacknowledgedProblems(problemAggregate.data.problems)).slice(0, TOP_PROBLEMS_PREVIEW_LIMIT) : []),
+    [problemAggregate.data],
+  )
+  const problemPresentationContext = useMemo(() => ({ health: health.data, sources: sources.data }), [health.data, sources.data])
+
+  const isRefreshing = overviewResources.isRefreshing || problemAggregate.isRefreshing
 
   const refreshAll = useCallback(() => {
-    void health.retry()
-    void queues.retry()
-    void sources.retry()
-    void runs.retry()
-    void schedules.retry()
-    void attention.retry()
-  }, [health, queues, sources, runs, schedules, attention])
+    overviewResources.refreshAll()
+    void problemAggregate.retry()
+  }, [overviewResources, problemAggregate])
 
   // Calm the overview (#760): healthy services collapse into a single quiet
   // summary row so only degraded services keep an individual card.
@@ -261,8 +189,12 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
 
   // The Attention panel gets a quiet empty state instead of rendering the
   // "nothing to report" filler item through the same alarm-styled list-item
-  // frame real attention items use (#760).
-  const isAttentionQuiet = overview.attention.length === 1 && overview.attention[0]?.id === 'no-attention-needed'
+  // frame real attention items use (#760). Requires both sub-sections to be
+  // clear: ops's own telemetry (the `overview.attention` fallback item) and
+  // the shared problem aggregate (issue #892) reporting no active,
+  // unacknowledged problems.
+  const isTelemetryQuiet = overview.attention.length === 1 && overview.attention[0]?.id === 'no-attention-needed'
+  const isAttentionQuiet = isTelemetryQuiet && problemAggregate.data !== null && topProblems.length === 0
 
   return (
     <main id="main-content" className={styles.main}>
@@ -308,37 +240,95 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
                 <CheckCircle2 size={14} className={styles.attentionEmptyIcon} aria-hidden="true" />
                 <span>Nothing needs attention</span>
               </div>
-            ) : overview.attention.map(item => {
-              const retryResourceKey = UNAVAILABLE_ATTENTION_ID[item.id]
-              const retryResource = retryResourceKey ? resources[retryResourceKey] : undefined
-              return (
-                <div key={item.id} className={styles.attentionItemWrap} data-has-retry={retryResource ? 'true' : 'false'}>
-                  <Link href={item.href} className={styles.attentionItem} data-severity={item.severity}>
-                    <SeverityIcon severity={item.severity} size={14} />
-                    <div>
-                      <strong className={styles.attentionTitle}>{item.title}</strong>
-                      <ExpandableDetail text={item.detail} />
+            ) : (
+              <>
+                {!isTelemetryQuiet && overview.attention.map(item => {
+                  const retryResourceKey = UNAVAILABLE_ATTENTION_ID[item.id]
+                  const retryResource = retryResourceKey ? resources[retryResourceKey] : undefined
+                  return (
+                    <div key={item.id} className={styles.attentionItemWrap} data-has-retry={retryResource ? 'true' : 'false'}>
+                      <Link href={item.href} className={styles.attentionItem} data-severity={item.severity}>
+                        <SeverityIcon severity={item.severity} size={14} />
+                        <div>
+                          <strong className={styles.attentionTitle}>{item.title}</strong>
+                          <ExpandableDetail text={item.detail} />
+                        </div>
+                      </Link>
+                      {retryResource && (
+                        <button
+                          type="button"
+                          className={styles.attentionRetryBtn}
+                          onClick={() => void retryResource.retry()}
+                          disabled={retryResource.isRefreshing}
+                        >
+                          <ACTION_ICONS.refresh size={11} aria-hidden="true" className={retryResource.isRefreshing ? styles.spinning : undefined} />
+                          {retryResource.isRefreshing ? 'Retrying…' : 'Retry'}
+                        </button>
+                      )}
+                      <CopyButton
+                        text={`${item.title}: ${item.detail}`}
+                        label={`Copy ${item.title}`}
+                        className={styles.attentionCopyBtn}
+                      />
                     </div>
-                  </Link>
-                  {retryResource && (
+                  )
+                })}
+
+                {/* ── Problems preview: count + top-N, backed by the shared
+                    problem-aggregate call (issue #892) — no domain
+                    recompute happens in this component. ──────────────── */}
+                {problemAggregate.error ? (
+                  <div className={styles.attentionItemWrap} data-has-retry="true">
+                    <div className={styles.attentionItem} data-severity="unknown">
+                      <SeverityIcon severity="unknown" size={14} />
+                      <div>
+                        <strong className={styles.attentionTitle}>Problem list unavailable</strong>
+                        <span className={styles.attentionDetail}>{problemAggregate.error}</span>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       className={styles.attentionRetryBtn}
-                      onClick={() => void retryResource.retry()}
-                      disabled={retryResource.isRefreshing}
+                      onClick={() => void problemAggregate.retry()}
+                      disabled={problemAggregate.isRefreshing}
                     >
-                      <ACTION_ICONS.refresh size={11} aria-hidden="true" className={retryResource.isRefreshing ? styles.spinning : undefined} />
-                      {retryResource.isRefreshing ? 'Retrying…' : 'Retry'}
+                      <ACTION_ICONS.refresh size={11} aria-hidden="true" className={problemAggregate.isRefreshing ? styles.spinning : undefined} />
+                      {problemAggregate.isRefreshing ? 'Retrying…' : 'Retry'}
                     </button>
-                  )}
-                  <CopyButton
-                    text={`${item.title}: ${item.detail}`}
-                    label={`Copy ${item.title}`}
-                    className={styles.attentionCopyBtn}
-                  />
-                </div>
-              )
-            })}
+                  </div>
+                ) : topProblems.length > 0 ? (
+                  <>
+                    {topProblems.map(problem => {
+                      const presentation = presentProblem(problem, problemPresentationContext)
+                      return (
+                        <div key={problem.fingerprint} className={styles.attentionItemWrap}>
+                          <Link
+                            href={presentation.href}
+                            className={styles.attentionItem}
+                            data-severity={problem.severity}
+                            {...(presentation.external ? { target: '_blank', rel: 'noreferrer' } : {})}
+                          >
+                            <SeverityIcon severity={problem.severity} size={14} />
+                            <div>
+                              <strong className={styles.attentionTitle}>{presentation.title}</strong>
+                              <ExpandableDetail text={presentation.detail} />
+                            </div>
+                          </Link>
+                          <CopyButton
+                            text={`${presentation.title}: ${presentation.detail}`}
+                            label={`Copy ${presentation.title}`}
+                            className={styles.attentionCopyBtn}
+                          />
+                        </div>
+                      )
+                    })}
+                    <Link href="/ops/problems" className={styles.attentionViewAllLink}>
+                      View all problems →
+                    </Link>
+                  </>
+                ) : null}
+              </>
+            )}
           </div>
         </aside>
 
