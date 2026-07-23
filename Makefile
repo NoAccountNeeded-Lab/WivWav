@@ -45,8 +45,11 @@ prune:
 ##        apply pending migrations, then run api, web, and scraper locally
 ##        with hot reload. Ctrl-C stops the apps; services keep running.
 ##        Run 'make down' to stop backing services when done.
+##        Inside the VS Code dev container, backing services are already
+##        started by the container's own depends_on, and there is no Docker
+##        CLI/socket in there to run this step anyway — so it's skipped.
 dev:
-	$(COMPOSE) up postgres valkey meilisearch -d
+	@[ -f /.dockerenv ] || $(COMPOSE) up postgres valkey meilisearch -d
 	@[ -f packages/db/.env ] || cp packages/db/.env.example packages/db/.env
 	@[ -f apps/scraper/.env ] || cp apps/scraper/.env.example apps/scraper/.env
 	pnpm db:migrate
