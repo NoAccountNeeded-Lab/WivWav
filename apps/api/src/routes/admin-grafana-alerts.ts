@@ -48,14 +48,18 @@ export const adminGrafanaAlertsRoutes: FastifyPluginAsync<AdminGrafanaAlertsPlug
       return reply.send({ data: { alerts: [], unavailable: true } })
     }
 
-    let body: GrafanaAlertmanagerAlert[]
+    let body: unknown
     try {
-      body = (await res.json()) as GrafanaAlertmanagerAlert[]
+      body = await res.json()
     } catch {
       return reply.send({ data: { alerts: [], unavailable: true } })
     }
 
-    const alerts: GrafanaAlertInstance[] = body.map(toAlertInstance)
+    if (!Array.isArray(body)) {
+      return reply.send({ data: { alerts: [], unavailable: true } })
+    }
+
+    const alerts: GrafanaAlertInstance[] = (body as GrafanaAlertmanagerAlert[]).map(toAlertInstance)
     return reply.send({ data: { alerts, unavailable: false } })
   })
 }
