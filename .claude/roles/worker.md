@@ -18,7 +18,7 @@ output_contract: "Success: commit SHA and PR URL; failure: reason and status:stu
 5. Locate with `rg` and `git diff --name-only`; read narrow ranges.
 6. Read `docs/BRAND.md` for `apps/web`; update `docs/api-routes.md` for route changes; use `function` declarations inside `page.evaluate`.
 7. Implement per `.claude/core.md`; read `.claude/roles/tester.md`; add tests with each behavior.
-8. Commit after each coherent functional slice; avoid WIP commits and unrelated churn; include required attribution trailers.
+8. Commit per layer the issue touches — schema/migration, then service/business logic, then API/route wiring, then UI, then any tests not already riding with their behavior — not one commit per issue; skip layers the issue doesn't touch; avoid WIP commits and unrelated churn; include required attribution trailers.
 9. After the first commit: push; open a draft PR; preserve commits unless explicitly told to squash.
 10. Run one foreground/blocking reviewer; never use `run_in_background: true` (the worker exits before the reviewer finishes, leaving findings unread and unresolved).
 11. Always include `reviewer.md` and `qa.md`; add `accessibility.md` for `apps/web`; add `performance.md` for API, scraper, DB, queue, or search; add `docs-accuracy.md` for routes or Markdown.
