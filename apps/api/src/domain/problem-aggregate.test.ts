@@ -59,10 +59,10 @@ describe('computeProblemAggregate', () => {
     }))
 
     expect(aggregate.problems).toEqual(expect.arrayContaining([
-      expect.objectContaining({ source: 'domain', fingerprint: 'domain:queue_failed_jobs:queue:*' }),
-      expect.objectContaining({ source: 'grafana', fingerprint: 'grafana:wivwav-api-down', severity: 'critical' }),
-      expect.objectContaining({ source: 'grafana', fingerprint: 'grafana:wivwav-queue-depth', severity: 'warning' }),
-      expect.objectContaining({ source: 'sentry', fingerprint: 'sentry:sentry-1', occurrenceCount: 42 }),
+      expect.objectContaining({ source: 'domain', fingerprint: 'domain:queue_failed_jobs:queue:*', href: null }),
+      expect.objectContaining({ source: 'grafana', fingerprint: 'grafana:wivwav-api-down', severity: 'critical', href: null }),
+      expect.objectContaining({ source: 'grafana', fingerprint: 'grafana:wivwav-queue-depth', severity: 'warning', href: null }),
+      expect.objectContaining({ source: 'sentry', fingerprint: 'sentry:sentry-1', occurrenceCount: 42, href: 'https://sentry.io/issues/sentry-1' }),
     ]))
     // A resolved ('normal') Grafana alert instance contributes no problem.
     expect(aggregate.problems.some(p => p.fingerprint === 'grafana:wivwav-db-down')).toBe(false)

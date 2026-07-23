@@ -28,6 +28,15 @@ export interface Problem {
   /** Stable reference to the evidence backing this problem; consumers
    *  resolve this to a human label/deep-link using data they already hold. */
   evidenceId: string
+  /**
+   * Direct link to the problem's own fix surface, where the source can
+   * provide one (issue #892's "working deep link" acceptance criterion) —
+   * currently only Sentry's `permalink`. `null` for domain and Grafana
+   * problems, whose consumers derive a link from `source`/`evidenceId`
+   * against surfaces they already know about (e.g. `/ops/sources`,
+   * `/ops/queues`) instead.
+   */
+  href: string | null
   /** ISO timestamp this problem was first observed, where the source tracks
    *  it (Grafana/Sentry); null for domain conditions, which are recomputed
    *  fresh on every call and carry no history in this issue's scope. */
@@ -47,6 +56,25 @@ export type ProblemSignalAvailability = AttentionSignalAvailability & {
 
 export interface ProblemAggregate {
   problems: Problem[]
+  availability: ProblemSignalAvailability
+}
+
+/**
+ * A `Problem` enriched with the persisted lifecycle/acknowledgement state
+ * `POST /admin/problem-aggregate` (issue #892) merges in from
+ * `ops_problem_state` after each aggregation pass: `firstSeen`/`lastSeen`/
+ * `occurrenceCount` are always populated here (never `null`, unlike the raw
+ * `Problem` a domain-only condition otherwise carries), and acknowledgement
+ * is added. This is the shape both the ops overview's Attention panel and
+ * `/ops/problems` render from — see `apps/ops/src/app/ops/use-problem-aggregate.ts`.
+ */
+export interface ProblemState extends Problem {
+  acknowledgedAt: string | null
+  acknowledgedBy: string | null
+}
+
+export interface ProblemAggregateResponse {
+  problems: ProblemState[]
   availability: ProblemSignalAvailability
 }
 

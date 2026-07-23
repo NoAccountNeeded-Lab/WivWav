@@ -29,6 +29,7 @@ export function computeProblemAggregate(request: ProblemAggregateRequest): Probl
     severity: condition.severity,
     detail: condition.detail,
     evidenceId: condition.evidenceId,
+    href: null,
     firstSeen: null,
     lastSeen: null,
     occurrenceCount: null,
@@ -63,6 +64,10 @@ function grafanaAlertProblems(alerts: GrafanaAlertInstance[]): Problem[] {
         severity: alert.severity === 'critical' ? 'critical' : 'warning',
         detail: alert.summary ?? `${alert.alertname} is ${alert.state}`,
         evidenceId,
+        // No per-alert URL available from Grafana's alertmanager-compatible
+        // API without also threading grafanaUrl through this pure function;
+        // consumers fall back to a generic infra surface (e.g. `/status`).
+        href: null,
         firstSeen: alert.activeAt,
         lastSeen: alert.activeAt,
         occurrenceCount: null,
@@ -79,6 +84,10 @@ function sentryIssueProblems(issues: SentryIssueSummary[]): Problem[] {
       severity: issue.level === 'fatal' || issue.level === 'error' ? 'critical' : 'warning',
       detail: issue.culprit ? `${issue.title} — ${issue.culprit}` : issue.title,
       evidenceId,
+      // Sentry's own issue page is the accurate "fix surface" deep link
+      // (issue #892's acceptance criterion) — already fetched, just wasn't
+      // previously carried through onto `Problem`.
+      href: issue.permalink,
       firstSeen: issue.firstSeen,
       lastSeen: issue.lastSeen,
       occurrenceCount: issue.count,
