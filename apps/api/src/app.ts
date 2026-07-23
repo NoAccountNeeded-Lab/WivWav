@@ -44,6 +44,7 @@ import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
+import { adminProblemAggregateRoutes } from './routes/admin-problem-aggregate.js'
 import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
@@ -274,6 +275,15 @@ export async function buildApp(
         lokiUrl: config.LOKI_URL,
       })
       await adminScope.register(adminAttentionRoutes, { prefix: '/attention-snapshot' })
+      await adminScope.register(adminProblemAggregateRoutes, {
+        prefix: '/problem-aggregate',
+        problemStates: problemStateRepo,
+        grafanaUrl: config.GRAFANA_URL,
+        grafanaApiToken: config.GRAFANA_API_TOKEN,
+        sentryAuthToken: config.SENTRY_ISSUES_AUTH_TOKEN,
+        sentryOrg: config.SENTRY_ISSUES_ORG,
+        sentryProject: config.SENTRY_ISSUES_PROJECT,
+      })
 
       const boardAdapter = new FastifyAdapter()
       boardAdapter.setBasePath('/admin/board')
