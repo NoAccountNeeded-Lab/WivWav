@@ -86,7 +86,9 @@ type Mode = (typeof VALID_MODES)[number]
 const THEME_KEY = 'ops-theme'
 const MODE_KEY  = 'ops-mode'
 
-const DEFAULT_DARK_FAMILY  = 'terminal'
+// Must match the SSR data-theme in app/layout.tsx so the first client render
+// doesn't flash from one theme to another before this correction runs.
+const DEFAULT_DARK_FAMILY  = 'grafana'
 const DEFAULT_LIGHT_FAMILY = 'classic-dark'
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */

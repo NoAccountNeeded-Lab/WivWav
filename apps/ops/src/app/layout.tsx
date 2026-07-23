@@ -55,15 +55,15 @@ export const metadata: Metadata = {
   robots: 'noindex, nofollow',
 }
 
-// Matches the SSR default data-theme="terminal" below; ThemePicker corrects
+// Matches the SSR default data-theme="grafana" below; ThemePicker corrects
 // this to the user's resolved theme once it mounts and reads localStorage.
 export const viewport: Viewport = {
-  themeColor: '#050d17',
+  themeColor: '#111217',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="terminal" className={allFonts}>
+    <html lang="en" data-theme="grafana" className={allFonts}>
       <body>
         <a href="#main-content" className="skip-link">
           Skip to main content

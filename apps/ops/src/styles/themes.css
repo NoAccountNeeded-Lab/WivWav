@@ -4,8 +4,8 @@
    Switched at runtime by ThemePicker (stored in localStorage).
 
    Available themes (dark variants):
-     terminal    — dark cinematic command-center (default)
-     grafana     — Grafana neutral dark
+     terminal    — dark cinematic command-center
+     grafana     — Grafana neutral dark (default — Inter UI, Source Code Pro data)
      midnight    — Vercel/Supabase deep black + indigo
      nord        — Arctic blue-gray
      dracula     — Dark charcoal + purple/pink
