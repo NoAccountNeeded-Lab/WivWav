@@ -21,19 +21,20 @@ order instead of its stale base, removing that window.
 
 `bypass_actors` is empty — no role or app can skip the ruleset, including admins.
 
-### E2E smoke is signal, not a required check
+### E2E smoke and the restore drill are signal, not required checks
 
-`ci.yml` also runs an `e2e` job (`E2E smoke`), but it is deliberately **not**
-in the ruleset's required status checks above and does not block the merge
-queue. The suite is slow, so it does **not** run on regular `pull_request`
-pushes — only on `merge_group` runs (once a PR actually enters the queue)
-and on the `push` to `main` that follows a merge, via the job's own
+`ci.yml` also runs an `e2e` job (`E2E smoke`) and a `restore-drill` job
+(`Restore drill`), but neither is in the ruleset's required status checks
+above and neither blocks the merge queue. Both are slow and rarely depend on
+a given PR's own diff, so neither runs on regular `pull_request` pushes —
+only on `merge_group` runs (once a PR actually enters the queue) and on the
+`push` to `main` that follows a merge, via each job's own
 `if: github.event_name == 'merge_group' || (github.event_name == 'push' &&
-github.ref == 'refs/heads/main')` condition. It still gates post-merge image
-publishing on that `main` push: `publish` in `ci.yml` needs `e2e` to succeed
-before it pushes anything to GHCR — see `docs/ops/deployment.md`. Promoting
-`E2E smoke` to a required merge-queue check is a deliberate future decision,
-not an oversight.
+github.ref == 'refs/heads/main')` condition. Both still gate post-merge image
+publishing on that `main` push: `publish` in `ci.yml` needs `e2e` and
+`restore-drill` to succeed before it pushes anything to GHCR — see
+`docs/ops/deployment.md`. Promoting either to a required merge-queue check is
+a deliberate future decision, not an oversight.
 
 ### Merge queue parameters
 
