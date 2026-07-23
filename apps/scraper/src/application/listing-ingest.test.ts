@@ -192,12 +192,14 @@ describe('ingestListing', () => {
       expect(db.listingPriceHistory.create).not.toHaveBeenCalled()
     })
 
-    it('does not write a history row for a new listing (create path)', async () => {
+    it('writes the initial history row after creating a new listing', async () => {
       const db = makeDb(null)
       await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
 
-      // priceHistory nested create handles the initial row via the upsert create branch
-      expect(db.listingPriceHistory.create).not.toHaveBeenCalled()
+      expect(db.listing.create).toHaveBeenCalled()
+      expect(db.listingPriceHistory.create).toHaveBeenCalledWith({
+        data: { listingId: 'list-created', priceCents: 3000000 },
+      })
     })
 
     it('does not write a history row when new price is null', async () => {
@@ -393,6 +395,29 @@ describe('ingestListing', () => {
       expect(db.listing.create).toHaveBeenCalled()
     })
 
+    it('creates initial history rows with the created listing id', async () => {
+      const db = makeDb(null)
+      await ingestListing(db as never, makeListing({ priceCents: 3000000, mileage: 42000 }))
+
+      const listingCreateOrder = db.listing.create.mock.invocationCallOrder[0]
+      expect(listingCreateOrder).toBeLessThan(db.listingPriceHistory.create.mock.invocationCallOrder[0]!)
+      expect(listingCreateOrder).toBeLessThan(db.listingMileageHistory.create.mock.invocationCallOrder[0]!)
+      expect(listingCreateOrder).toBeLessThan(db.listingConversionHistory.create.mock.invocationCallOrder[0]!)
+      expect(db.listingPriceHistory.create).toHaveBeenCalledWith({
+        data: { listingId: 'list-created', priceCents: 3000000 },
+      })
+      expect(db.listingMileageHistory.create).toHaveBeenCalledWith({
+        data: { listingId: 'list-created', mileage: 42000 },
+      })
+      expect(db.listingConversionHistory.create).toHaveBeenCalledWith({
+        data: {
+          listingId: 'list-created',
+          conversionStatus: 'unknown',
+          wavFeatures: [],
+        },
+      })
+    })
+
     it('stores source-provided dates separately on create', async () => {
       const db = makeDb(null)
       const sourceListedAt = new Date('2026-05-01T00:00:00Z')
@@ -523,7 +548,7 @@ describe('ingestListing', () => {
         detailScrapedAt,
       }))
       expect(db.listing.update).not.toHaveBeenCalled()
-      expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
+      expect(db.listingConversionHistory.create).toHaveBeenCalledTimes(1)
       expect(db.listingObservation.create).toHaveBeenCalledTimes(1)
     })
 
@@ -674,12 +699,9 @@ describe('ingestListing', () => {
       const second = await ingestListing(db as never, listing)
       expect(second).toEqual({ listingId: 'list-created', outcome: 'unchanged', changedFields: [] })
 
-      // The initial create writes price/mileage/conversion history as nested
-      // creates on tx.listing.create, not via the standalone history-model
-      // creates below — those must stay untouched on an unchanged re-ingest.
-      expect(db.listingPriceHistory.create).not.toHaveBeenCalled()
-      expect(db.listingMileageHistory.create).not.toHaveBeenCalled()
-      expect(db.listingConversionHistory.create).not.toHaveBeenCalled()
+      expect(db.listingPriceHistory.create).toHaveBeenCalledTimes(1)
+      expect(db.listingMileageHistory.create).toHaveBeenCalledTimes(1)
+      expect(db.listingConversionHistory.create).toHaveBeenCalledTimes(1)
       expect(db.listingObservation.create).toHaveBeenCalledTimes(1)
       expect(db.listing.update).not.toHaveBeenCalled()
       expect(getState()).toMatchObject({ id: 'list-created' })

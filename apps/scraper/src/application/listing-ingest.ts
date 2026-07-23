@@ -193,19 +193,24 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
       listedAt: listing.listedAt,
       sourceListedAt: listing.sourceListedAt ?? null,
       sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
-      ...(listing.priceCents != null
-        ? { priceHistory: { create: { priceCents: listing.priceCents } } }
-        : {}),
-      ...(listing.mileage != null
-        ? { mileageHistory: { create: { mileage: listing.mileage } } }
-        : {}),
-      conversionHistory: {
-        create: {
-          conversionStatus: listing.wav.conversionStatus,
-          wavFeatures: listing.wav.wavFeatures,
-        },
-      },
     } })
+    if (listing.priceCents != null) {
+      await tx.listingPriceHistory.create({
+        data: { listingId: created.id, priceCents: listing.priceCents },
+      })
+    }
+    if (listing.mileage != null) {
+      await tx.listingMileageHistory.create({
+        data: { listingId: created.id, mileage: listing.mileage },
+      })
+    }
+    await tx.listingConversionHistory.create({
+      data: {
+        listingId: created.id,
+        conversionStatus: listing.wav.conversionStatus,
+        wavFeatures: listing.wav.wavFeatures,
+      },
+    })
     await tx.listingObservation.create({
       data: {
         listingId: created.id,
