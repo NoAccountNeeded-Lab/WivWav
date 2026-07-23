@@ -254,6 +254,16 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     void attention.retry()
   }, [health, queues, sources, runs, schedules, attention])
 
+  // Calm the overview (#760): healthy services collapse into a single quiet
+  // summary row so only degraded services keep an individual card.
+  const degradedHealthCards = overview.healthCards.filter(card => card.severity !== 'good')
+  const healthyHealthCards = overview.healthCards.filter(card => card.severity === 'good')
+
+  // The Attention panel gets a quiet empty state instead of rendering the
+  // "nothing to report" filler item through the same alarm-styled list-item
+  // frame real attention items use (#760).
+  const isAttentionQuiet = overview.attention.length === 1 && overview.attention[0]?.id === 'no-attention-needed'
+
   return (
     <main id="main-content" className={styles.main}>
 
@@ -293,7 +303,12 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
             <Link href="/ops/logs" className={styles.cardHeaderLink}>Logs →</Link>
           </div>
           <div className={styles.attentionList}>
-            {overview.attention.map(item => {
+            {isAttentionQuiet ? (
+              <div className={styles.attentionEmpty}>
+                <CheckCircle2 size={14} className={styles.attentionEmptyIcon} aria-hidden="true" />
+                <span>Nothing needs attention</span>
+              </div>
+            ) : overview.attention.map(item => {
               const retryResourceKey = UNAVAILABLE_ATTENTION_ID[item.id]
               const retryResource = retryResourceKey ? resources[retryResourceKey] : undefined
               return (
@@ -336,9 +351,22 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           )}
           <Link href="/status" className={styles.labelLink}>Raw status →</Link>
         </div>
-        {overview.healthCards.map(card => (
+        {degradedHealthCards.map(card => (
           <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
         ))}
+        {healthyHealthCards.length > 0 && (
+          <Link href="/status" className={`${styles.healthySummaryRow} ${styles.span4}`}>
+            <CheckCircle2 size={14} className={styles.healthySummaryIcon} aria-hidden="true" />
+            <span className={styles.healthySummaryLabel}>
+              {degradedHealthCards.length === 0
+                ? 'All services healthy'
+                : `${healthyHealthCards.length} other service${healthyHealthCards.length === 1 ? '' : 's'} healthy`}
+            </span>
+            <span className={styles.healthySummaryTimestamp} aria-live="polite">
+              {updatedAt ? formatTime(updatedAt) : '—'}
+            </span>
+          </Link>
+        )}
 
         {/* ── Per-queue breakdown ─────────────────────────────────── */}
         {queues.data && queues.data.length > 0 && (
@@ -422,10 +450,14 @@ function MetricCard({ card, span }: { card: OverviewCard; span: number }) {
   const Icon = CARD_ICONS[card.id] ?? Activity
   const spanClass = span === 2 ? styles.span2 : span === 3 ? styles.span3 : undefined
 
+  // Reserve color for exceptions (#760): the status dot is the single
+  // severity-colored signal on a card — the icon stays neutral and the card
+  // frame carries no severity tint, so a healthy card renders with zero
+  // colored elements and a degraded card renders with exactly one.
   const content = (
     <>
       <div className={styles.metricTop}>
-        <span className={styles.metricIcon} data-severity={card.severity}>
+        <span className={styles.metricIcon}>
           <Icon size={15} />
         </span>
         <span className={styles.metricLabel}>{card.label}</span>
@@ -448,9 +480,9 @@ function MetricCard({ card, span }: { card: OverviewCard; span: number }) {
   return (
     <div className={wrapCls}>
       {card.href ? (
-        <Link href={card.href} className={cardCls} data-severity={card.severity}>{content}</Link>
+        <Link href={card.href} className={cardCls}>{content}</Link>
       ) : (
-        <article className={cardCls} data-severity={card.severity}>{content}</article>
+        <article className={cardCls}>{content}</article>
       )}
       <CopyButton text={copyText} label={`Copy ${card.label}`} className={styles.cardCopyBtn} />
     </div>
