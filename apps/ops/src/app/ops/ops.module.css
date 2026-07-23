@@ -854,6 +854,7 @@
   border-radius: var(--radius-sm);
   background: var(--clr-code-bg, #0f172a);
   color: var(--clr-code-text, #e2e8f0);
+  font-family: var(--font);
   font-size: 0.75rem;
   line-height: 1.45;
   white-space: pre-wrap;

@@ -9,6 +9,7 @@
   white-space: nowrap;
   font-size: 0.8125rem;
   min-width: 8rem;
+  font-family: var(--font);
 }
 
 /* Service column */
@@ -26,6 +27,7 @@
   display: block;
   line-height: 1.45;
   white-space: pre-wrap;
+  font-family: var(--font);
 }
 
 /* ANSI terminal styles are mapped onto the active Ops theme for readable web output. */
@@ -129,7 +131,7 @@
   border: 1px solid var(--clr-border);
   background: var(--clr-surface);
   font-size: 0.6875rem;
-  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-family: var(--font);
   color: var(--clr-text-secondary);
   white-space: nowrap;
 }
@@ -232,7 +234,7 @@ tr:hover .msgCopyBtn {
 
 /* Monospace utility */
 .mono {
-  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-family: var(--font);
   font-size: 0.8125rem;
 }
 
