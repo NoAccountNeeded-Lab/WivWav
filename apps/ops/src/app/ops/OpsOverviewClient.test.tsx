@@ -86,8 +86,10 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
 
     // Sibling sections built from the endpoints that succeeded still render
     // their real data — the one failure does not blank the rest of the page.
+    // All services are healthy here, so the health grid collapses into the
+    // quiet summary row (#760) instead of an individual "API" card.
     await waitFor(() => {
-      expect(screen.getByText('API')).not.toBeNull()
+      expect(screen.getByText('All services healthy')).not.toBeNull()
       // Active-listings card, built from the successful "sources" endpoint.
       expect(screen.getByText('42')).not.toBeNull()
     })
@@ -154,5 +156,98 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
 
     expect(relativeValue?.textContent).toMatch(/ago$/)
     expect(relativeValue?.getAttribute('title')).toBeTruthy()
+  })
+})
+
+function mockFetchWith(overrides: { health?: unknown; queues?: unknown; attention?: unknown } = {}) {
+  const health = overrides.health ?? HEALTH_BODY
+  const queues = overrides.queues ?? QUEUES_BODY
+  const attention = overrides.attention ?? ATTENTION_BODY
+  return vi.fn(async (url: string) => {
+    if (url.endsWith('/health')) return jsonResponse(health)
+    if (url.endsWith('/admin/queues')) return jsonResponse(queues)
+    if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
+    if (url.endsWith('/admin/runs')) return jsonResponse({ data: [] })
+    if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/admin/attention-snapshot')) return jsonResponse(attention)
+    throw new Error(`Unexpected URL in test: ${url}`)
+  })
+}
+
+describe('OpsOverviewClient — calm overview (#760)', () => {
+  it('renders zero warning/critical-colored elements and a compact healthy-summary row when everything is healthy', async () => {
+    vi.stubGlobal('fetch', mockFetchWith())
+
+    const { container } = render(<OpsOverviewClient apiBaseUrl="" />)
+
+    await screen.findByText('All services healthy')
+
+    // No individual service cards render — the grid collapsed into the
+    // single summary row.
+    expect(screen.queryByText('API')).toBeNull()
+    expect(screen.queryByText('Database')).toBeNull()
+
+    // Nothing on the page carries a warning/critical severity signal.
+    expect(container.querySelectorAll('[data-severity="warning"]').length).toBe(0)
+    expect(container.querySelectorAll('[data-severity="critical"]').length).toBe(0)
+  })
+
+  it('shows a degraded resource card with severity styling while unaffected resources stay in the quiet summary', async () => {
+    const degradedHealth = {
+      data: {
+        ...HEALTH_BODY.data,
+        services: { ...HEALTH_BODY.data.services, postgres: { status: 'down' } },
+      },
+    }
+    vi.stubGlobal('fetch', mockFetchWith({ health: degradedHealth }))
+
+    const { container } = render(<OpsOverviewClient apiBaseUrl="" />)
+
+    // The degraded service gets its own card with critical styling...
+    const dbLabel = await screen.findByText('Database')
+    const dbCard = dbLabel.closest('a, article') as HTMLElement
+    expect(within(dbCard).getAllByText(/^Down$/).length).toBeGreaterThan(0)
+    expect(dbCard.querySelectorAll('[data-severity="critical"]').length).toBe(1)
+
+    // ...while the remaining healthy services collapse into the quiet
+    // summary row rather than each rendering their own card.
+    expect(await screen.findByText(/other services? healthy/i)).not.toBeNull()
+    expect(screen.queryByText('API')).toBeNull()
+
+    // Only the one degraded service contributes a critical signal anywhere
+    // on the page.
+    expect(container.querySelectorAll('[data-severity="critical"]').length).toBe(1)
+  })
+
+  it('renders a quiet empty state in the Attention panel when nothing needs attention', async () => {
+    vi.stubGlobal('fetch', mockFetchWith())
+
+    render(<OpsOverviewClient apiBaseUrl="" />)
+
+    const empty = await screen.findByText('Nothing needs attention')
+    expect(empty).not.toBeNull()
+    // The empty state renders inside the Attention panel, not as an
+    // alarm-styled attention-item link.
+    const attentionList = empty.closest('[class*="attentionList"]') as HTMLElement
+    expect(within(attentionList).queryByRole('link')).toBeNull()
+  })
+
+  it('gives each metric card at most one severity-colored element in the DOM', async () => {
+    const degradedHealth = {
+      data: {
+        ...HEALTH_BODY.data,
+        services: { ...HEALTH_BODY.data.services, postgres: { status: 'down' } },
+      },
+    }
+    vi.stubGlobal('fetch', mockFetchWith({ health: degradedHealth }))
+
+    render(<OpsOverviewClient apiBaseUrl="" />)
+
+    const dbLabel = await screen.findByText('Database')
+    const dbCard = dbLabel.closest('a, article') as HTMLElement
+
+    // Exactly one severity-colored signal (the status dot) — the icon
+    // carries no severity attribute at all.
+    expect(dbCard.querySelectorAll('[data-severity]').length).toBe(1)
   })
 })
