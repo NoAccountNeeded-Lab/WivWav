@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { GrafanaAlertInstance } from '@wivwav/types'
 
-interface AdminGrafanaAlertsPluginOptions {
+interface InternalGrafanaAlertsPluginOptions {
   grafanaUrl: string
   /** Optional — local dev's Grafana runs with anonymous admin access
    *  (see docker-compose.yml), so this is only required against a
@@ -20,7 +20,7 @@ interface GrafanaAlertmanagerAlert {
 }
 
 /**
- * GET /admin/grafana/alerts
+ * GET /internal/v1/grafana/alerts
  *
  * Read-only proxy for current Grafana alert-instance state against the
  * rules provisioned in `docker/grafana/provisioning/alerting/wivwav-alert-rules.yaml`
@@ -29,7 +29,7 @@ interface GrafanaAlertmanagerAlert {
  * `{ data: { alerts: [], unavailable: true } }` rather than a non-2xx
  * response, mirroring `signalAvailability` in `attention-snapshot.ts`.
  */
-export const adminGrafanaAlertsRoutes: FastifyPluginAsync<AdminGrafanaAlertsPluginOptions> = async (
+export const internalGrafanaAlertsRoutes: FastifyPluginAsync<InternalGrafanaAlertsPluginOptions> = async (
   app,
   { grafanaUrl, grafanaApiToken },
 ) => {

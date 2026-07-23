@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { SentryIssueSummary } from '@wivwav/types'
 
-interface AdminSentryIssuesPluginOptions {
+interface InternalSentryIssuesPluginOptions {
   /** Read-only Sentry API auth token/org/project (`SENTRY_ISSUES_*` env
    *  vars). Deliberately distinct from apps/web's `SENTRY_AUTH_TOKEN` /
    *  `SENTRY_ORG` / `SENTRY_PROJECT`, which are build-time-only credentials
@@ -27,7 +27,7 @@ interface SentryApiIssue {
 }
 
 /**
- * GET /admin/sentry/issues
+ * GET /internal/v1/sentry/issues
  *
  * Read-only proxy for recent unresolved Sentry issue summaries (issue #890,
  * federated into the problem aggregate downstream). Never throws: missing
@@ -35,7 +35,7 @@ interface SentryApiIssue {
  * `{ data: { issues: [], unavailable: true } }` rather than a non-2xx
  * response, mirroring `signalAvailability` in `attention-snapshot.ts`.
  */
-export const adminSentryIssuesRoutes: FastifyPluginAsync<AdminSentryIssuesPluginOptions> = async (
+export const internalSentryIssuesRoutes: FastifyPluginAsync<InternalSentryIssuesPluginOptions> = async (
   app,
   { sentryAuthToken, sentryOrg, sentryProject },
 ) => {

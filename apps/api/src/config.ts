@@ -13,12 +13,12 @@ const schema = z.object({
   OLLAMA_REQUIRED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   // Loki log aggregation — used by the /admin/logs proxy endpoint
   LOKI_URL: z.url().default('http://localhost:3100'),
-  // Grafana — used by the /admin/grafana/alerts proxy endpoint (#890).
+  // Grafana — used by the /internal/v1/grafana/alerts proxy endpoint (#890).
   // GRAFANA_API_TOKEN is optional: local dev's Grafana runs with anonymous
   // admin access (see docker-compose.yml's `obs` profile).
   GRAFANA_URL: z.url().default('http://localhost:3003'),
   GRAFANA_API_TOKEN: z.string().optional(),
-  // Sentry issues API — used by the /admin/sentry/issues proxy endpoint
+  // Sentry issues API — used by the /internal/v1/sentry/issues proxy endpoint
   // (#890). Deliberately distinct from apps/web's SENTRY_AUTH_TOKEN/
   // SENTRY_ORG/SENTRY_PROJECT (build-time-only, source-map upload scope) —
   // this is a separate, narrower-scoped read token for apps/api. All three
