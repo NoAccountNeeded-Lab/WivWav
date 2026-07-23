@@ -1,0 +1,48 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  border: none;
+  padding: 0;
+  cursor: default;
+  background: transparent;
+}
+
+.menu {
+  position: fixed;
+  z-index: 960;
+  display: flex;
+  flex-direction: column;
+  min-width: 10rem;
+  padding: 0.25rem;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.menuItem {
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: var(--clr-surface-hover, rgba(255, 255, 255, 0.08));
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+}
+
+.menuItem:disabled {
+  color: var(--clr-text-secondary);
+  cursor: not-allowed;
+}

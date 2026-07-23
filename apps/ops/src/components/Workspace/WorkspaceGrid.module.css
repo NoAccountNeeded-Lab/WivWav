@@ -1,0 +1,58 @@
+/* CSS Grid workspace layout (#854, decision record section 3). Two columns
+   at and above --ops-breakpoint-lg (64rem/1024px, matching OpsNav's own
+   grouped-column breakpoint); below it every panel stacks to a single
+   column and grows to a full-screen-height view instead of a small tile
+   (mobile-first non-goal exemption: Ops is desktop-first, but the shell
+   still must not break down to zero usability on a narrow viewport).
+   The grid itself never scrolls horizontally — only a panel's own `.body`
+   (`WorkspacePanel.module.css`) scrolls. */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.gridItem {
+  grid-column: 1 / -1;
+  /* Full-screen-per-panel presentation below the stacking breakpoint: each
+     stacked panel is tall enough to read as its own screen rather than a
+     cramped tile; the operator scrolls the shell to move between panels. */
+  min-height: calc(100dvh - 6rem);
+}
+
+.maximizedWrap {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  padding: 1rem;
+  background: var(--clr-bg, var(--clr-surface));
+}
+
+@media (min-width: 64rem) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gridItem {
+    min-height: 24rem;
+  }
+
+  .gridItem[data-span='2'],
+  .gridItem[data-span='full'] {
+    grid-column: 1 / -1;
+  }
+
+  .gridItem[data-span='1'] {
+    grid-column: span 1;
+  }
+}
+
+.empty {
+  padding: 2rem;
+  color: var(--clr-text-secondary);
+  font-family: var(--font-ui);
+  text-align: center;
+}
