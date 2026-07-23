@@ -498,6 +498,10 @@ jobs:
   restore-drill:
     name: Restore drill
     runs-on: ubuntu-latest
+    # Not a required merge-queue check and rarely depends on a given PR's own
+    # diff — it only needs to gate `publish` below, so it skips regular
+    # pull_request pushes the same way `e2e` does (see docs/design/merge-queue.md).
+    if: github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v7
 
