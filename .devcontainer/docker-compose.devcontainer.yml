@@ -1,21 +1,34 @@
 services:
   devcontainer:
     build:
-      context: ..
+      context: .
       dockerfile: docker/dev/Dockerfile
     working_dir: /workspace
     volumes:
-      - ..:/workspace:cached
+      - .:/workspace:cached
       # Keep Linux dependency links and generated binaries out of the host checkout.
       - dev_root_node_modules:/workspace/node_modules
       - dev_api_node_modules:/workspace/apps/api/node_modules
+      - dev_ops_node_modules:/workspace/apps/ops/node_modules
+      - dev_ops_next:/workspace/apps/ops/.next
       - dev_scraper_node_modules:/workspace/apps/scraper/node_modules
       - dev_web_node_modules:/workspace/apps/web/node_modules
+      - dev_web_next:/workspace/apps/web/.next
+      - dev_e2e_node_modules:/workspace/e2e/node_modules
       - dev_agents_node_modules:/workspace/packages/agents/node_modules
       - dev_charts_node_modules:/workspace/packages/charts/node_modules
       - dev_config_node_modules:/workspace/packages/config/node_modules
       - dev_db_node_modules:/workspace/packages/db/node_modules
+      - dev_design_tokens_node_modules:/workspace/packages/design-tokens/node_modules
+      - dev_logger_node_modules:/workspace/packages/logger/node_modules
+      - dev_observability_node_modules:/workspace/packages/observability/node_modules
+      - dev_queue_node_modules:/workspace/packages/queue/node_modules
+      - dev_sdlc_cli_node_modules:/workspace/packages/sdlc-cli/node_modules
+      - dev_search_node_modules:/workspace/packages/search/node_modules
       - dev_types_node_modules:/workspace/packages/types/node_modules
+      - dev_ui_web_node_modules:/workspace/packages/ui-web/node_modules
+      - dev_spike_852_design_tokens_node_modules:/workspace/spikes/852-mui-evaluation/design-tokens/node_modules
+      - dev_spike_852_ui_web_node_modules:/workspace/spikes/852-mui-evaluation/ui-web/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,6 +40,8 @@ services:
   # Override: disable the built app services for VS Code Dev Containers.
   api:
     profiles: ["disabled"]
+  ops:
+    profiles: ["disabled"]
   web:
     profiles: ["disabled"]
   scraper:
@@ -35,10 +50,23 @@ services:
 volumes:
   dev_root_node_modules:
   dev_api_node_modules:
+  dev_ops_node_modules:
+  dev_ops_next:
   dev_scraper_node_modules:
   dev_web_node_modules:
+  dev_web_next:
+  dev_e2e_node_modules:
   dev_agents_node_modules:
   dev_charts_node_modules:
   dev_config_node_modules:
   dev_db_node_modules:
+  dev_design_tokens_node_modules:
+  dev_logger_node_modules:
+  dev_observability_node_modules:
+  dev_queue_node_modules:
+  dev_sdlc_cli_node_modules:
+  dev_search_node_modules:
   dev_types_node_modules:
+  dev_ui_web_node_modules:
+  dev_spike_852_design_tokens_node_modules:
+  dev_spike_852_ui_web_node_modules:
