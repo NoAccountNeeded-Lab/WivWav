@@ -175,6 +175,11 @@ jobs:
     name: E2E smoke
     runs-on: ubuntu-latest
     needs: docker-done
+    # PR pushes skip E2E entirely — the suite is slow and isn't a required
+    # merge-queue check (see docs/design/merge-queue.md), so it only needs to
+    # run once the PR actually enters the queue. It also reruns on the push
+    # to main so it keeps gating `publish` below exactly as before.
+    if: github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
