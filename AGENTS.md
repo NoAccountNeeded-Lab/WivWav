@@ -20,6 +20,7 @@ Fully qualify SQL column references in worker-authored queries, especially in jo
 Never commit `.env` files, secrets, generated caches, or unrelated formatting churn.
 Never commit with failing relevant checks.
 Update `docs/api-routes.md` when adding, removing, or renaming API routes.
+Do not add new WivWav-owned runtime URLs under `/admin/*`. Use `/internal/ops/*` for private operator APIs and `/ops/*` for the ops UI/BFF surface unless an existing issue explicitly authorizes a narrower exception.
 Before UI edits under `apps/web`, read `docs/BRAND.md`.
 
 Use the SDLC CLI:

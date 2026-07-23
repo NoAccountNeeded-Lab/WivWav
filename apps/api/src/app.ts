@@ -29,6 +29,7 @@ import {
   PrismaVehicleIdentityDecisionRepository,
   PrismaDealerRepository,
   PrismaApiKeyRepository,
+  PrismaOpsProblemStateRepository,
 } from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
@@ -43,6 +44,7 @@ import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
+import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
@@ -119,6 +121,7 @@ export async function buildApp(
   const vehicleIdentityDecisionRepo = new PrismaVehicleIdentityDecisionRepository(db)
   const dealerRepo = new PrismaDealerRepository(db)
   const apiKeyRepo = new PrismaApiKeyRepository(db)
+  const problemStateRepo = new PrismaOpsProblemStateRepository(db)
 
   await app.register(cors, {
     origin: (origin, cb) => {
@@ -292,6 +295,24 @@ export async function buildApp(
       await internalScope.register(internalApiKeysRoutes, { prefix: '/api-keys', apiKeys: apiKeyRepo })
     },
     { prefix: '/internal/v1' },
+  )
+
+  // New privileged operator APIs mount under /internal/ops/*, not /admin/*.
+  // This still uses the existing fail-closed bearer guard until the broader
+  // OPS_API_SECRET migration lands.
+  await app.register(
+    async (internalOpsScope) => {
+      await adminAuthPlugin(internalOpsScope, {
+        internalApiSecret: config.INTERNAL_API_SECRET,
+        nodeEnv: config.NODE_ENV,
+      })
+
+      await internalOpsScope.register(internalOpsProblemAckRoutes, {
+        prefix: '/problem-ack',
+        problemStates: problemStateRepo,
+      })
+    },
+    { prefix: '/internal/ops' },
   )
 
   // Stripe calls this directly and authenticates via the signed payload

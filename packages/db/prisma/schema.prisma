@@ -126,6 +126,12 @@ enum VehicleIdentityDecisionState {
   split
 }
 
+enum OpsProblemSource {
+  domain
+  grafana
+  sentry
+}
+
 // ── Vehicle identity ───────────────────────────────────────────────────────
 
 /// A specific physical vehicle, anchored by VIN when available.
@@ -230,6 +236,21 @@ model Source {
   listings Listing[]
 
   @@map("sources")
+}
+
+model OpsProblemState {
+  fingerprint     String           @id
+  source          OpsProblemSource
+  firstSeenAt     DateTime         @default(now()) @map("first_seen_at")
+  lastSeenAt      DateTime         @default(now()) @map("last_seen_at")
+  occurrenceCount Int              @default(0) @map("occurrence_count")
+  acknowledgedAt  DateTime?        @map("acknowledged_at")
+  acknowledgedBy  String?          @map("acknowledged_by")
+
+  @@index([source])
+  @@index([lastSeenAt])
+  @@index([acknowledgedAt])
+  @@map("ops_problem_state")
 }
 
 model Listing {
