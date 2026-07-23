@@ -96,7 +96,10 @@ body {
   background-image: var(--bg-texture);
   background-size: var(--bg-texture-size);
   color: var(--clr-text);
-  font-family: var(--font);
+  /* UI text (headings, labels, prose, nav) defaults to the sans face; data
+     values (IDs, timestamps, log lines, code, payloads) opt into --font
+     explicitly via the shared .mono utility or a component's own rule. */
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.5;
 }
