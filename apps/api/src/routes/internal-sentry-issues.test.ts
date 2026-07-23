@@ -1,10 +1,10 @@
 import Fastify from 'fastify'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { adminSentryIssuesRoutes } from './admin-sentry-issues.js'
+import { internalSentryIssuesRoutes } from './internal-sentry-issues.js'
 
 function buildTestApp(options: { sentryAuthToken?: string; sentryOrg?: string; sentryProject?: string } = {}) {
   const app = Fastify()
-  void app.register(adminSentryIssuesRoutes, {
+  void app.register(internalSentryIssuesRoutes, {
     sentryAuthToken: options.sentryAuthToken,
     sentryOrg: options.sentryOrg,
     sentryProject: options.sentryProject,

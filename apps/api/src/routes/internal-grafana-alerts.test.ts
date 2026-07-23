@@ -1,12 +1,12 @@
 import Fastify from 'fastify'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { adminGrafanaAlertsRoutes } from './admin-grafana-alerts.js'
+import { internalGrafanaAlertsRoutes } from './internal-grafana-alerts.js'
 
 const GRAFANA_URL = 'http://grafana.test'
 
 function buildTestApp() {
   const app = Fastify()
-  void app.register(adminGrafanaAlertsRoutes, { grafanaUrl: GRAFANA_URL, grafanaApiToken: undefined })
+  void app.register(internalGrafanaAlertsRoutes, { grafanaUrl: GRAFANA_URL, grafanaApiToken: undefined })
   return app
 }
 

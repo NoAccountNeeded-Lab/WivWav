@@ -45,14 +45,14 @@ import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
 import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.js'
-import { adminGrafanaAlertsRoutes } from './routes/admin-grafana-alerts.js'
-import { adminSentryIssuesRoutes } from './routes/admin-sentry-issues.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
 import { metricsRoutes, createMetricsRegistry } from './routes/metrics.js'
 import { conversionBrandRoutes } from './routes/conversion-brands.js'
 import { internalApiKeysRoutes } from './routes/internal-api-keys.js'
+import { internalGrafanaAlertsRoutes } from './routes/internal-grafana-alerts.js'
+import { internalSentryIssuesRoutes } from './routes/internal-sentry-issues.js'
 import { webhooksRoutes } from './routes/webhooks.js'
 
 export function isAllowedCorsOrigin(origin: string | undefined, config: Config): boolean {
@@ -274,17 +274,6 @@ export async function buildApp(
         lokiUrl: config.LOKI_URL,
       })
       await adminScope.register(adminAttentionRoutes, { prefix: '/attention-snapshot' })
-      await adminScope.register(adminGrafanaAlertsRoutes, {
-        prefix: '/grafana/alerts',
-        grafanaUrl: config.GRAFANA_URL,
-        grafanaApiToken: config.GRAFANA_API_TOKEN,
-      })
-      await adminScope.register(adminSentryIssuesRoutes, {
-        prefix: '/sentry/issues',
-        sentryAuthToken: config.SENTRY_ISSUES_AUTH_TOKEN,
-        sentryOrg: config.SENTRY_ISSUES_ORG,
-        sentryProject: config.SENTRY_ISSUES_PROJECT,
-      })
 
       const boardAdapter = new FastifyAdapter()
       boardAdapter.setBasePath('/admin/board')
@@ -294,10 +283,13 @@ export async function buildApp(
     { prefix: '/admin' },
   )
 
-  // Key provisioning (#453) — same fail-closed Authorization: Bearer
-  // {INTERNAL_API_SECRET} boundary as /admin, reusing adminAuthPlugin
-  // directly for the same encapsulation reason documented above. An
-  // operator/billing-system surface, never called from a browser.
+  // Key provisioning (#453) plus the Grafana/Sentry operator-dashboard proxies
+  // (#890) — same fail-closed Authorization: Bearer {INTERNAL_API_SECRET}
+  // boundary as /admin, reusing adminAuthPlugin directly for the same
+  // encapsulation reason documented above. Deliberately a sibling scope to
+  // /admin, not nested inside it: these are operator/server-to-server
+  // surfaces (billing provisioning, Grafana/Sentry reads for the ops
+  // dashboard), never called from a browser.
   await app.register(
     async (internalScope) => {
       await adminAuthPlugin(internalScope, {
@@ -306,6 +298,17 @@ export async function buildApp(
       })
 
       await internalScope.register(internalApiKeysRoutes, { prefix: '/api-keys', apiKeys: apiKeyRepo })
+      await internalScope.register(internalGrafanaAlertsRoutes, {
+        prefix: '/grafana/alerts',
+        grafanaUrl: config.GRAFANA_URL,
+        grafanaApiToken: config.GRAFANA_API_TOKEN,
+      })
+      await internalScope.register(internalSentryIssuesRoutes, {
+        prefix: '/sentry/issues',
+        sentryAuthToken: config.SENTRY_ISSUES_AUTH_TOKEN,
+        sentryOrg: config.SENTRY_ISSUES_ORG,
+        sentryProject: config.SENTRY_ISSUES_PROJECT,
+      })
     },
     { prefix: '/internal/v1' },
   )
