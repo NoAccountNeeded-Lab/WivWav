@@ -14,6 +14,7 @@ const baseConfig = {
   OLLAMA_BASE_URL: 'http://localhost:11434',
   OLLAMA_REQUIRED: false,
   LOKI_URL: 'http://localhost:3100',
+  GRAFANA_URL: 'http://localhost:3003',
   CORS_ORIGIN: 'http://localhost:3000',
 }
 

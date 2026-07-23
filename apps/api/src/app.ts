@@ -45,6 +45,8 @@ import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
 import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.js'
+import { adminGrafanaAlertsRoutes } from './routes/admin-grafana-alerts.js'
+import { adminSentryIssuesRoutes } from './routes/admin-sentry-issues.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
@@ -272,6 +274,17 @@ export async function buildApp(
         lokiUrl: config.LOKI_URL,
       })
       await adminScope.register(adminAttentionRoutes, { prefix: '/attention-snapshot' })
+      await adminScope.register(adminGrafanaAlertsRoutes, {
+        prefix: '/grafana/alerts',
+        grafanaUrl: config.GRAFANA_URL,
+        grafanaApiToken: config.GRAFANA_API_TOKEN,
+      })
+      await adminScope.register(adminSentryIssuesRoutes, {
+        prefix: '/sentry/issues',
+        sentryAuthToken: config.SENTRY_ISSUES_AUTH_TOKEN,
+        sentryOrg: config.SENTRY_ISSUES_ORG,
+        sentryProject: config.SENTRY_ISSUES_PROJECT,
+      })
 
       const boardAdapter = new FastifyAdapter()
       boardAdapter.setBasePath('/admin/board')
