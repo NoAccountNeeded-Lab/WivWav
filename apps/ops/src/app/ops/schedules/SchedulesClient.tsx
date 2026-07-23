@@ -297,7 +297,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
                         className={styles.input}
                         value={editState.pattern}
                         onChange={(e) => setEditState({ id: entry.id, pattern: e.target.value })}
-                        style={{ fontFamily: 'monospace', fontSize: '0.8125rem', width: '10rem' }}
+                        style={{ fontFamily: 'var(--font, monospace)', fontSize: '0.8125rem', width: '10rem' }}
                         aria-label="Cron pattern"
                       />
                       <button

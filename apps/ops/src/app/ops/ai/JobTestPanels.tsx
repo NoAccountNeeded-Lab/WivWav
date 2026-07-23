@@ -455,7 +455,7 @@ export function StructureTestPanel() {
             border: '1px solid var(--clr-border-strong)',
             borderRadius: 'var(--radius-sm)',
             background: 'var(--clr-bg)', color: 'var(--clr-text)',
-            fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8125rem', lineHeight: 1.45, resize: 'vertical',
+            fontFamily: 'var(--font, monospace)', fontSize: '0.8125rem', lineHeight: 1.45, resize: 'vertical',
           }}
         />
         <button
@@ -709,7 +709,7 @@ export function RemapTestPanel() {
               border: '1px solid var(--clr-border-strong)',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--clr-bg)', color: 'var(--clr-text)',
-              fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', lineHeight: 1.45, resize: 'vertical',
+              fontFamily: 'var(--font, monospace)', fontSize: '0.75rem', lineHeight: 1.45, resize: 'vertical',
             }}
           />
         </div>
@@ -727,7 +727,7 @@ export function RemapTestPanel() {
               border: '1px solid var(--clr-border-strong)',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--clr-bg)', color: 'var(--clr-text)',
-              fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', lineHeight: 1.45, resize: 'vertical',
+              fontFamily: 'var(--font, monospace)', fontSize: '0.75rem', lineHeight: 1.45, resize: 'vertical',
             }}
           />
         </div>
