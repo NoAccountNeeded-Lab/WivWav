@@ -4,23 +4,32 @@
   "service": "devcontainer",
   "workspaceFolder": "/workspace",
 
-  "forwardPorts": [3000, 3001, 5432, 6379, 7700],
+  "forwardPorts": [4000, 4001, 4002],
   "portsAttributes": {
-    "3000": { "label": "Web (Next.js)" },
-    "3001": { "label": "API (Fastify)" },
-    "5432": { "label": "PostgreSQL" },
-    "6379": { "label": "Valkey" },
-    "7700": { "label": "Meilisearch" }
+    "4000": { "label": "Web (Next.js)" },
+    "4001": { "label": "API (Fastify)" },
+    "4002": { "label": "Ops (Next.js)" }
   },
 
-  "postCreateCommand": "pnpm install && pnpm db:generate && cp -n apps/api/.env.example apps/api/.env && cp -n apps/scraper/.env.example apps/scraper/.env && cp -n apps/web/.env.example apps/web/.env.local && cp -n packages/db/.env.example packages/db/.env",
+  "postCreateCommand": "pnpm install && pnpm db:generate && cp -n apps/api/.env.example apps/api/.env && cp -n apps/ops/.env.example apps/ops/.env.local && cp -n apps/scraper/.env.example apps/scraper/.env && cp -n apps/web/.env.example apps/web/.env.local && cp -n packages/db/.env.example packages/db/.env",
 
   "remoteEnv": {
     "DATABASE_URL": "postgresql://wav:wav@postgres:5432/wivwav",
     "MEILISEARCH_HOST": "http://meilisearch:7700",
     "MEILISEARCH_API_KEY": "wav_master_key",
+    "MEILI_HOST": "http://meilisearch:7700",
+    "MEILI_API_KEY": "wav_master_key",
     "VALKEY_URL": "redis://valkey:6379",
-    "NEXT_PUBLIC_API_URL": "http://localhost:3001"
+    "QUEUE_REDIS_URL": "redis://valkey:6379",
+    "NEXT_PUBLIC_API_URL": "http://localhost:4001",
+    "API_INTERNAL_URL": "http://localhost:4001",
+    "CONFIG_API_URL": "http://localhost:4001",
+    "CONFIG_ENCRYPTION_SECRET": "0e1735cf48baa21c71a376a432ebd30b400a118feaecce8ea43f864cf27b2f61",
+    "INTERNAL_API_SECRET": "41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2",
+    "OPS_SESSION_SECRET": "41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2",
+    "OPS_ADMIN_USERNAME": "operator",
+    "OPS_ADMIN_PASSWORD": "changeme-local-dev-password",
+    "TURBO_ENV_MODE": "loose"
   },
 
   "customizations": {
