@@ -1,0 +1,233 @@
+.main {
+  padding: 1rem 0 2rem;
+  height: 100%;
+}
+
+.container {
+  max-width: 100rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.heading {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 800;
+  color: var(--clr-text);
+}
+
+.intro {
+  margin: 0;
+  color: var(--clr-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Status strip: live indicator + auto-refresh cadence, docked below the
+   grid (#913's "desktop-app feel" affordance). */
+.statusStrip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  color: var(--clr-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.statusDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--clr-success, #2ecc71);
+  flex: 0 0 auto;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.splitWrap {
+  min-height: 32rem;
+}
+
+.dock {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dockStack {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.paneSlot {
+  min-height: 16rem;
+  flex: 1 1 auto;
+}
+
+.dockEmpty {
+  padding: 1.5rem;
+  color: var(--clr-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+  border: 1px dashed var(--clr-border);
+  border-radius: var(--radius);
+}
+
+.minimizedStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.minimizedItem {
+  flex: 0 0 auto;
+  width: 16rem;
+  max-width: 100%;
+}
+
+.maximizedWrap {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  padding: 1rem;
+  background: var(--clr-bg, var(--clr-surface));
+}
+
+/* Panel content — shared by every panel-content component in this route. */
+.panelBody {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.panelMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--clr-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.refreshButton {
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.625rem;
+  background: transparent;
+  color: var(--clr-text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.muted {
+  margin: 0;
+  color: var(--clr-text-secondary);
+}
+
+.errorText {
+  margin: 0;
+  color: var(--clr-danger, #e05252);
+}
+
+.compactList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.375rem;
+}
+
+.compactRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+}
+
+.compactBadge {
+  flex: 0 0 auto;
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--clr-surface-alt, rgba(255, 255, 255, 0.08));
+}
+
+.compactBadge[data-variant='success'] { color: var(--clr-success, #2ecc71); }
+.compactBadge[data-variant='warning'] { color: var(--clr-warning, #e2a03f); }
+.compactBadge[data-variant='danger'] { color: var(--clr-danger, #e05252); }
+.compactBadge[data-variant='neutral'] { color: var(--clr-text-secondary); }
+
+.compactTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inlineLinkButton {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--clr-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.failedCountButton {
+  flex: 0 0 auto;
+  border: 1px solid var(--clr-danger, #e05252);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--clr-danger, #e05252);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.125rem 0.5rem;
+  cursor: pointer;
+}
+
+.queueDetailPane {
+  height: 100%;
+}
+
+.detailList {
+  margin: 0;
+  display: grid;
+  gap: 0.375rem;
+}
+
+.detailList > div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.detailList dt {
+  flex: 0 0 auto;
+  width: 7rem;
+  color: var(--clr-text-secondary);
+}
+
+.detailList dd {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
