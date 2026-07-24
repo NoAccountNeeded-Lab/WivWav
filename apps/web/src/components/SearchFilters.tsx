@@ -37,11 +37,14 @@ export function SortSelect() {
         value={sort}
         onChange={(e) => push({ sort: e.target.value })}
       >
-        <option value="listedAt:desc">{t('sortOptions.newestListings')}</option>
+        <option value="listedAt:desc">{t('sortOptions.dateFoundNewToOld')}</option>
+        <option value="listedAt:asc">{t('sortOptions.dateFoundOldToNew')}</option>
         <option value="priceCents:asc">{t('sortOptions.priceLowToHigh')}</option>
         <option value="priceCents:desc">{t('sortOptions.priceHighToLow')}</option>
-        <option value="mileage:asc">{t('sortOptions.lowestMileage')}</option>
-        <option value="year:desc">{t('sortOptions.yearNewestFirst')}</option>
+        <option value="mileage:asc">{t('sortOptions.mileageLowToHigh')}</option>
+        <option value="mileage:desc">{t('sortOptions.mileageHighToLow')}</option>
+        <option value="year:desc">{t('sortOptions.yearNewToOld')}</option>
+        <option value="year:asc">{t('sortOptions.yearOldToNew')}</option>
       </select>
     </div>
   )
