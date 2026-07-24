@@ -1,14 +1,12 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { MoreHorizontal } from 'lucide-react'
 import { OPS_NAV_GROUPS } from '@/app/ops/ops-nav'
-import { getOpsNavIcon } from './nav-icons'
 import { isNavItemActive } from './isActive'
 import { MoreSheet } from './MoreSheet'
+import { NavRailItem } from './NavRailItem'
 import { useNavSheet } from './useNavSheet'
-import { useViewTransitionNav } from './useViewTransitionNav'
 import styles from './NavRail.module.css'
 
 const RAIL_ITEMS = OPS_NAV_GROUPS
@@ -23,46 +21,13 @@ const RAIL_ITEMS = OPS_NAV_GROUPS
 export function NavRail() {
   const pathname = usePathname()
   const { isOpen, toggle, close, triggerRef } = useNavSheet<HTMLButtonElement>()
-  const viewTransitionNav = useViewTransitionNav()
 
   return (
     <>
       <nav aria-label="Primary" className={styles.rail}>
-        {RAIL_ITEMS.map(item => {
-          const Icon = getOpsNavIcon(item.href)
-          const active = isNavItemActive(pathname, item.href)
-
-          if (item.apiOrigin || item.external) {
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.item}
-                title={item.title}
-              >
-                {Icon && <Icon size={20} aria-hidden="true" />}
-                <span className="sr-only">{item.title} (opens in new tab)</span>
-              </a>
-            )
-          }
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              data-active={active || undefined}
-              className={styles.item}
-              title={item.title}
-              onClick={event => viewTransitionNav(event, item.href)}
-            >
-              {Icon && <Icon size={20} aria-hidden="true" />}
-              <span className="sr-only">{item.title}</span>
-            </Link>
-          )
-        })}
+        {RAIL_ITEMS.map(item => (
+          <NavRailItem key={item.href} item={item} isActive={isNavItemActive(pathname, item.href)} />
+        ))}
         <button
           type="button"
           ref={triggerRef}
