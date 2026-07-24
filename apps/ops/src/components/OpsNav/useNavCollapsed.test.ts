@@ -37,12 +37,16 @@ describe('useNavCollapsed', () => {
     expect(result.current[0]).toBe(false)
   })
 
-  it('reads the persisted collapsed state synchronously on mount — no flash after mount', () => {
+  it('applies the persisted collapsed state via a layout effect, before the caller sees a stale result', () => {
     window.localStorage.setItem(STORAGE_KEY, 'true')
 
+    // `renderHook` flushes layout effects synchronously (wrapped in `act`),
+    // so by the time it returns, the persisted value has already been
+    // applied — matching the "no flash" requirement without reading
+    // `localStorage` in the `useState` initializer (which would diverge
+    // from server-rendered markup and trip a hydration mismatch).
     const { result } = renderHook(() => useNavCollapsed())
 
-    // Correct on the very first render, not after a subsequent effect.
     expect(result.current[0]).toBe(true)
   })
 

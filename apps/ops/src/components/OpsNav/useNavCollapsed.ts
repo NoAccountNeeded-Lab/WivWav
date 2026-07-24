@@ -1,32 +1,46 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 
 const STORAGE_KEY = 'ops-nav-collapsed'
 
-function readStoredCollapsed(): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
+// `NavColumn` is server-rendered (no `dynamic(..., { ssr: false })` in its
+// tree), so `useLayoutEffect` must not run during SSR — React warns loudly
+// if it does. Falling back to `useEffect` on the server is a no-op there
+// either way, since server render never paints.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
+function readStoredCollapsed(): boolean {
   try {
     return window.localStorage.getItem(STORAGE_KEY) === 'true'
   } catch {
     // localStorage unavailable (private mode, disabled, storage quota) — fall
-    // back to expanded rather than throwing during render.
+    // back to expanded rather than throwing.
     return false
   }
 }
 
 /**
  * Persists the desktop `NavColumn`'s collapsed/expanded state (#911) in
- * `localStorage`. The stored value is read synchronously in the `useState`
- * initializer — not in an effect — so the very first client render already
- * reflects the persisted choice instead of rendering expanded and then
- * flashing to collapsed (or vice versa) once an effect runs after mount.
+ * `localStorage`. The initial state always matches the server-rendered
+ * default (expanded) — reading `localStorage` in the `useState` initializer
+ * would make the first client render diverge from the SSR markup and trip a
+ * React hydration mismatch (the same problem `ThemePicker.tsx` avoids by
+ * applying its stored preference after mount rather than during initial
+ * render). Instead, the stored value is applied in a layout effect, which
+ * commits and repaints before the browser has a chance to show a frame —
+ * so a returning user still sees the correct state immediately, without a
+ * hydration error.
  */
 export function useNavCollapsed(): [boolean, () => void] {
-  const [collapsed, setCollapsed] = useState(readStoredCollapsed)
+  const [collapsed, setCollapsed] = useState(false)
+
+  useIsomorphicLayoutEffect(() => {
+    const stored = readStoredCollapsed()
+    if (stored) {
+      setCollapsed(true)
+    }
+  }, [])
 
   const toggle = useCallback(() => {
     setCollapsed(previous => {
