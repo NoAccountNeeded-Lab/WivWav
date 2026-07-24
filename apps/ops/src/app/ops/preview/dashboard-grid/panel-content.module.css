@@ -1,0 +1,143 @@
+.empty {
+  margin: 0;
+  color: var(--clr-text-muted);
+  font-size: 0.8125rem;
+  font-family: var(--font-ui);
+}
+
+/* ── Generic label/detail/status row list (health, problems, runs, jobs) ──── */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+}
+
+.rowLabel {
+  grid-column: 1;
+  grid-row: 1;
+  color: var(--clr-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowDetail {
+  grid-column: 1;
+  grid-row: 2;
+  color: var(--clr-text-muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row > span[class*="chip"] {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+/* ── Queue depth table ────────────────────────────────────────────────────── */
+
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.5rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  font-size: 0.75rem;
+}
+
+.tableName {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 1;
+  min-width: 0;
+  color: var(--clr-text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablePausedBadge {
+  padding: 0.0625rem 0.3125rem;
+  border-radius: var(--radius);
+  background: var(--clr-border);
+  color: var(--clr-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.tableStat {
+  color: var(--clr-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tableStat[data-alert="true"] {
+  color: var(--clr-danger-text);
+  font-weight: 700;
+}
+
+/* ── Site readiness dense multi-column checklist ─────────────────────────── */
+/* Narrower rows than /ops/readiness's one-full-width-card-per-check list
+   (`.readinessItem` in ../../ops.module.css), packed multiple-per-row. */
+
+.checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.3125rem;
+}
+
+.checklistItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--clr-border);
+  border-left-width: 0.1875rem;
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+}
+
+.checklistItem[data-status="pass"] { border-left-color: var(--clr-success); }
+.checklistItem[data-status="warn"],
+.checklistItem[data-status="unavailable"] { border-left-color: var(--clr-warning); }
+.checklistItem[data-status="fail"] { border-left-color: var(--clr-danger); }
+
+.checklistTitle {
+  min-width: 0;
+  color: var(--clr-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
