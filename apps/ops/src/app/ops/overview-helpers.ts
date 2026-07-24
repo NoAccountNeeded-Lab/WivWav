@@ -297,6 +297,19 @@ function serviceSeverity(health: ServiceHealth | null | undefined): OverviewSeve
   return 'good'
 }
 
+/** Short status word for an `OverviewSeverity` (`good`/`warning`/
+ *  `critical`/`unknown`) — shared by any `/ops` surface that needs a plain
+ *  label for a card's severity, so callers don't each reimplement this
+ *  four-way mapping (e.g. the dashboard-grid comparison route's panels,
+ *  #912). Distinct from `overallLabel` below, which produces the longer
+ *  system-wide banner phrasing, not a per-card status word. */
+export function severityStatusLabel(severity: OverviewSeverity): string {
+  if (severity === 'good') return 'Healthy'
+  if (severity === 'warning') return 'Warning'
+  if (severity === 'critical') return 'Critical'
+  return 'Unknown'
+}
+
 export function serviceDetail(health: ServiceHealth | null | undefined): string {
   if (!health) return 'Waiting for API data'
   if (health.message) return health.message

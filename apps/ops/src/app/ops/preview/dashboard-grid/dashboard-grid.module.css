@@ -36,6 +36,15 @@
   line-height: 1.5;
 }
 
+/* Closing a panel programmatically focuses this heading (a stable landmark
+   that always remains) so keyboard/screen-reader focus never drops to
+   <body> — give that focus move a visible indicator. */
+.heading:focus {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .empty {
   margin: 0;
   color: var(--clr-text-muted);

@@ -3,7 +3,7 @@
 import type { ProblemState } from '@wivwav/types'
 import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import { formatRelativeTimestamp } from '@/lib/relative-time'
-import type { OverviewCard, OverviewSeverity, QueueRow, RunRow, ScheduleEntry } from '../../overview-helpers'
+import { severityStatusLabel, type OverviewCard, type OverviewSeverity, type QueueRow, type RunRow, type ScheduleEntry } from '../../overview-helpers'
 import { presentProblem, sortProblems, unacknowledgedProblems, type ProblemPresentationContext } from '../../problem-presentation'
 import type { ReadinessCheck, ReadinessReport } from '../../readiness/readiness-model'
 import styles from './panel-content.module.css'
@@ -13,13 +13,6 @@ function severityVariant(severity: OverviewSeverity): OpsStatusVariant {
   if (severity === 'warning') return 'warning'
   if (severity === 'critical') return 'danger'
   return 'neutral'
-}
-
-function severityLabel(severity: OverviewSeverity): string {
-  if (severity === 'good') return 'Healthy'
-  if (severity === 'warning') return 'Warning'
-  if (severity === 'critical') return 'Critical'
-  return 'Unknown'
 }
 
 /* ── Service health ───────────────────────────────────────────────────────── */
@@ -32,7 +25,7 @@ export function ServiceHealthPanelContent({ cards }: { cards: OverviewCard[] }) 
         <li key={card.id} className={styles.row}>
           <span className={styles.rowLabel}>{card.label}</span>
           <span className={styles.rowDetail}>{card.detail}</span>
-          <OpsStatusChip label={severityLabel(card.severity)} variant={severityVariant(card.severity)} />
+          <OpsStatusChip label={severityStatusLabel(card.severity)} variant={severityVariant(card.severity)} />
         </li>
       ))}
     </ul>
@@ -71,20 +64,24 @@ export function QueueDepthPanelContent({ queues }: { queues: QueueRow[] | null }
   if (queues.length === 0) return <p className={styles.empty}>No queues reported</p>
 
   return (
-    <div className={styles.table} role="table" aria-label="Queue depth">
+    <ul className={styles.table} aria-label="Queue depth">
       {queues.map(queue => (
-        <div key={queue.name} className={styles.tableRow} role="row">
-          <span className={styles.tableName} role="cell">
+        <li
+          key={queue.name}
+          className={styles.tableRow}
+          aria-label={`${queue.name}${queue.paused ? ', paused' : ''}, waiting ${queue.stats.waiting}, active ${queue.stats.active}, delayed ${queue.stats.delayed}, failed ${queue.stats.failed}`}
+        >
+          <span className={styles.tableName} aria-hidden="true">
             {queue.name}
             {queue.paused && <span className={styles.tablePausedBadge}>Paused</span>}
           </span>
-          <span className={styles.tableStat} role="cell">{queue.stats.waiting}w</span>
-          <span className={styles.tableStat} role="cell">{queue.stats.active}a</span>
-          <span className={styles.tableStat} role="cell">{queue.stats.delayed}d</span>
-          <span className={styles.tableStat} data-alert={queue.stats.failed > 0} role="cell">{queue.stats.failed}f</span>
-        </div>
+          <span className={styles.tableStat} aria-hidden="true">{queue.stats.waiting}w</span>
+          <span className={styles.tableStat} aria-hidden="true">{queue.stats.active}a</span>
+          <span className={styles.tableStat} aria-hidden="true">{queue.stats.delayed}d</span>
+          <span className={styles.tableStat} data-alert={queue.stats.failed > 0} aria-hidden="true">{queue.stats.failed}f</span>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }
 
