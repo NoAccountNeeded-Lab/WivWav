@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import type { HealthResponse, OverallHealthStatus } from '@wivwav/types'
 import { getPublicApiBaseUrl } from '../lib/api-url'
 import { useViewTransitionNav } from './OpsNav/useViewTransitionNav'
@@ -35,9 +35,11 @@ const SECTION_TITLES: ReadonlyArray<{ prefix: string, title: string }> = [
 
 export function OpsHeader({ sectionTitle }: OpsHeaderProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const viewTransitionNav = useViewTransitionNav()
   const [status, setStatus] = useState<HeaderStatus>('unknown')
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [announcement, setAnnouncement] = useState('Checking live operations status.')
   const lastAnnouncementAt = useRef(0)
@@ -111,6 +113,15 @@ export function OpsHeader({ sectionTitle }: OpsHeaderProps) {
     return () => window.clearInterval(intervalId)
   }, [queueAnnouncement])
 
+  const logout = useCallback(async () => {
+    setIsLoggingOut(true)
+    try {
+      await fetch('/api/logout', { method: 'POST' })
+    } finally {
+      router.push('/login')
+    }
+  }, [router])
+
   const title = sectionTitle ?? sectionTitleForPath(pathname)
   const statusLabel = formatStatus(status)
   const liveMeta = isRefreshing
@@ -163,6 +174,15 @@ export function OpsHeader({ sectionTitle }: OpsHeaderProps) {
           </div>
 
           <ThemePicker />
+
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={() => void logout()}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? 'Signing out…' : 'Log out'}
+          </button>
         </div>
       </div>
     </header>
