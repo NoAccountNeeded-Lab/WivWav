@@ -7,6 +7,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { OPS_NAV_GROUPS } from '@/app/ops/ops-nav'
 import { getOpsNavIcon } from './nav-icons'
 import { isNavItemActive } from './isActive'
+import { useNavItemInterceptor } from './nav-item-interceptor'
 import { useViewTransitionNav } from './useViewTransitionNav'
 import styles from './BottomTabs.module.css'
 
@@ -35,6 +36,7 @@ const MOBILE_TAB_ITEMS = OPS_NAV_GROUPS
 export function BottomTabs({ isMoreOpen, onMoreClick, moreButtonRef }: BottomTabsProps) {
   const pathname = usePathname()
   const viewTransitionNav = useViewTransitionNav()
+  const interceptNavItem = useNavItemInterceptor()
 
   return (
     <nav aria-label="Primary" className={styles.bar}>
@@ -62,7 +64,13 @@ export function BottomTabs({ isMoreOpen, onMoreClick, moreButtonRef }: BottomTab
             aria-current={active ? 'page' : undefined}
             data-active={active || undefined}
             className={styles.tab}
-            onClick={event => viewTransitionNav(event, item.href)}
+            onClick={event => {
+              if (interceptNavItem?.(item)) {
+                event.preventDefault()
+                return
+              }
+              viewTransitionNav(event, item.href)
+            }}
           >
             {Icon && <Icon size={20} aria-hidden="true" />}
             <span className={styles.label}>{label}</span>
