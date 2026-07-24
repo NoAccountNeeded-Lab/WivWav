@@ -12,6 +12,7 @@ import type { FilterItem, CategoricalRendererType } from './filters/types'
 import { formatFilterLabel } from './filters/types'
 import { normalizeFacetsData } from './category-facets'
 import type { BarDatum, FacetsData } from './category-facets'
+import { getClientApiBaseUrl } from '@/lib/api-url'
 import styles from './CategoryBarChart.module.css'
 
 const StateHeatMap = dynamic(() => import('./StateHeatMap'), { ssr: false })
@@ -44,7 +45,7 @@ function buildFacetsUrl(
   searchParams: { get: (key: string) => string | null },
   omitParam: string | null,
 ): string {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
+  const base = getClientApiBaseUrl()
   const url = new URL(`${base}/v1/listings/facets`)
   for (const key of ALL_FILTER_PARAMS) {
     if (key === omitParam) continue
@@ -70,7 +71,7 @@ async function fetchFacets(url: string): Promise<FacetsData> {
 }
 
 async function fetchConversionBrands(): Promise<ConversionBrandSummary[]> {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
+  const base = getClientApiBaseUrl()
   try {
     const res = await fetch(`${base}/v1/conversion-brands`)
     if (!res.ok) return []
