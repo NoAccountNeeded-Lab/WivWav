@@ -307,6 +307,39 @@ describe('DockedTerminalClient (#913)', () => {
     expect(await screen.findByRole('region', { name: 'Site readiness' })).toBeDefined()
   })
 
+  it('selecting a template (#915) fully replaces the open panel set rather than merging with it', async () => {
+    // Start with a panel no template lists (`source`), so a merge vs. a full
+    // swap are unambiguous.
+    currentSearch = new URLSearchParams('panels=source:blvd:1')
+    renderDockedTerminal({
+      sources: { data: [{ id: 'blvd', name: 'BLVD.com', status: 'error', lastScrapedAt: null, lastFullCrawlAt: null, lastObservedAt: null, listingCount: 0, errorMessage: 'timeout', possiblyGoneCount: 0 }] },
+    })
+    expect(await screen.findByRole('region', { name: 'Source · blvd' })).toBeDefined()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Templates' }), { target: { value: 'triage' } })
+
+    expect(await screen.findByRole('region', { name: 'Problems' })).toBeDefined()
+    expect(screen.getByRole('region', { name: 'Queue diagnostics' })).toBeDefined()
+    // The panel open before the template was selected is gone, not merged in.
+    expect(screen.queryByRole('region', { name: 'Source · blvd' })).toBeNull()
+  })
+
+  it('the URL after selecting a template matches the URL from manually opening the same panel set (#915)', async () => {
+    currentSearch = new URLSearchParams('panels=source:blvd:1')
+    renderDockedTerminal({
+      sources: { data: [{ id: 'blvd', name: 'BLVD.com', status: 'error', lastScrapedAt: null, lastFullCrawlAt: null, lastObservedAt: null, listingCount: 0, errorMessage: 'timeout', possiblyGoneCount: 0 }] },
+    })
+    await screen.findByRole('region', { name: 'Source · blvd' })
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Templates' }), { target: { value: 'triage' } })
+
+    await screen.findByRole('region', { name: 'Problems' })
+    // Same query string `openPanel`/`closePanel` would produce for this exact
+    // panel set — templates reuse the existing URL-state contract rather
+    // than introducing a parallel one.
+    expect(currentSearch.toString()).toBe('panels=problems%3Amain%3A2%2Cqueues%3Amain%3A2')
+  })
+
   it('reproduces the open panel set, order, span, minimized, and maximized state on reload from the URL alone', async () => {
     currentSearch = new URLSearchParams('panels=problems:main:2,queues:main:2&min=queues:main')
     renderDockedTerminal()
