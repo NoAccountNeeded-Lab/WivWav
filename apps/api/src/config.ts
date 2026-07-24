@@ -9,7 +9,7 @@ const schema = z.object({
   DATABASE_URL: z.url(),
   MEILISEARCH_HOST: z.url().default('http://localhost:7700'),
   MEILISEARCH_API_KEY: z.string(),
-  MEILISEARCH_INDEX_NAME: z.string().default(DEFAULT_INDEX_NAME).refine((value) => {
+  MEILISEARCH_INDEX_NAME: z.string().optional().transform(value => value ?? DEFAULT_INDEX_NAME).refine((value) => {
     try {
       validateIndexName(value)
       return true
