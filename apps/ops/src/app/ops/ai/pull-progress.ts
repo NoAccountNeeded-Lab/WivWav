@@ -72,6 +72,11 @@ export function applyPullLine(state: PullState, line: PullProgressLine): PullSta
       }
     : state.layers
 
+  // Ollama pulls layers sequentially and never reports the total layer count
+  // up front, so this sum only ever covers layers seen so far. When a new
+  // layer's first line adds its `total` to the denominator before any of its
+  // bytes have been `completed`, the percent can briefly dip before climbing
+  // again — that's an artifact of the protocol, not a bug in this reducer.
   const layerValues = Object.values(layers)
   const totalBytes = layerValues.reduce((s, l) => s + l.total, 0)
   const completedBytes = layerValues.reduce((s, l) => s + l.completed, 0)

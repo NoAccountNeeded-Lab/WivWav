@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
 import {
@@ -21,8 +21,17 @@ interface ModelPullButtonProps {
 export function ModelPullButton({ modelName, onInstalled }: ModelPullButtonProps) {
   const [pulling, setPulling] = useState(false)
   const [state, setState] = useState<PullState>(initialPullState())
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Cancel any in-flight pull if this row unmounts (e.g. the model list
+  // re-renders after `onInstalled` swaps the cell to the "Installed" badge)
+  // so the stream reader loop doesn't keep running against a gone component.
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   async function handlePull() {
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setPulling(true)
     setState(initialPullState())
 
@@ -31,6 +40,7 @@ export function ModelPullButton({ modelName, onInstalled }: ModelPullButtonProps
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: modelName }),
+        signal: controller.signal,
       })
 
       if (!res.ok || !res.body) {
@@ -74,6 +84,7 @@ export function ModelPullButton({ modelName, onInstalled }: ModelPullButtonProps
         if (parsed.status === 'success') onInstalled()
       }
     } catch (err) {
+      if (controller.signal.aborted) return
       setState(prev => ({
         ...prev,
         error: err instanceof Error ? err.message : 'Pull failed',
@@ -86,6 +97,7 @@ export function ModelPullButton({ modelName, onInstalled }: ModelPullButtonProps
 
   const showProgress = pulling || (state.status && !state.error)
   const succeeded = state.status === 'success' && !state.error
+  const percent = state.overallPercent ?? 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '12rem' }}>
@@ -100,26 +112,38 @@ export function ModelPullButton({ modelName, onInstalled }: ModelPullButtonProps
         {pulling ? 'Pulling…' : succeeded ? 'Pulled' : 'Pull'}
       </button>
 
-      <span role="status" aria-live="polite" aria-atomic="true">
-        {state.error ? (
-          <span className={styles.errorMsg} style={{ fontSize: '0.75rem' }}>{state.error}</span>
-        ) : showProgress ? (
-          <span style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-            <span className={styles.muted} style={{ fontSize: '0.75rem' }}>
-              {succeeded ? 'Installed ✓' : state.status || 'Starting…'}
-              {state.overallPercent != null && !succeeded && ` — ${state.overallPercent}%`}
-            </span>
-            {!succeeded && (
-              <span className={styles.pullProgressTrack} aria-hidden="true">
-                <span
-                  className={styles.pullProgressFill}
-                  style={{ width: `${state.overallPercent ?? 0}%` }}
-                />
-              </span>
-            )}
+      {state.error ? (
+        // Announced once when the pull fails — not on every progress tick.
+        <span role="status" aria-live="polite" aria-atomic="true" className={styles.errorMsg} style={{ fontSize: '0.75rem' }}>
+          {state.error}
+        </span>
+      ) : showProgress ? (
+        <span style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          {/*
+            The live region only carries the phase text ("pulling manifest",
+            "verifying sha256 digest", "success", …), which changes at most
+            once per layer/phase transition. The percentage is exposed via
+            the progressbar's aria-valuenow instead of being appended here,
+            so a screen reader isn't forced to re-announce a new number on
+            every NDJSON line (Ollama can emit several per second per layer).
+          */}
+          <span role="status" aria-live="polite" aria-atomic="true" className={styles.muted} style={{ fontSize: '0.75rem' }}>
+            {succeeded ? 'Installed ✓' : state.status || 'Starting…'}
           </span>
-        ) : null}
-      </span>
+          {!succeeded && (
+            <span
+              role="progressbar"
+              aria-label={`Download progress for ${modelName}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              className={styles.pullProgressTrack}
+            >
+              <span className={styles.pullProgressFill} style={{ width: `${percent}%` }} />
+            </span>
+          )}
+        </span>
+      ) : null}
     </div>
   )
 }
