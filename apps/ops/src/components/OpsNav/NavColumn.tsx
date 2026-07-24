@@ -37,7 +37,6 @@ export function NavColumn() {
         className={styles.toggle}
         onClick={toggleCollapsed}
         aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-        title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
       >
         {collapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
         {!collapsed && <span>Collapse</span>}
