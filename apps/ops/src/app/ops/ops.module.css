@@ -954,6 +954,28 @@
   font-size: 0.75rem;
 }
 
+/* ── Model pull progress (#250) ─────── */
+
+.pullProgressTrack {
+  display: block;
+  width: 100%;
+  min-width: 10rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  overflow: hidden;
+}
+
+.pullProgressFill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--clr-primary);
+  border-radius: 999px;
+  transition: width 0.2s ease-out;
+}
+
 .metricGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

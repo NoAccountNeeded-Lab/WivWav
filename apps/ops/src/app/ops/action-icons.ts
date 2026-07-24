@@ -1,6 +1,7 @@
 import {
   Activity,
   CheckCircle2,
+  Download,
   Pause,
   Pencil,
   Play,
@@ -33,4 +34,5 @@ export const ACTION_ICONS = {
   edit: Pencil,
   save: Save,
   delete: Trash2,
+  download: Download,
 } as const satisfies Record<string, LucideIcon>
