@@ -27,6 +27,13 @@ export interface WorkspaceApi {
   minimize: (id: PanelId) => void
   /** Restores `id` from its minimized strip back to its prior span/position. */
   restoreMinimized: (id: PanelId) => void
+  /** Replaces the entire open panel set with `panels` in one commit — a full
+   *  swap, not a merge with whatever is currently open (#915 "templates" /
+   *  perspectives). Also clears `maximizedId` and `minimizedId`, since a
+   *  panel from the previous set could no longer be either. Adds a history
+   *  entry, same as `openPanel`, since switching templates is a deliberate
+   *  navigation an operator would expect to back out of. */
+  replacePanels: (panels: Array<{ entityType: string; entityId: string; span?: PanelSpan }>) => void
   /** The panel that most recently became the interaction target — set by
    *  `openPanel` (new or already-open) and by `maximize`/`restore`. Not part
    *  of URL state (it's a one-shot instruction, not durable layout), unlike
@@ -142,6 +149,20 @@ export function useWorkspaceState(): WorkspaceApi {
     [commit, state.maximizedId, state.minimizedId, state.panels],
   )
 
+  const replacePanels = useCallback(
+    (nextPanels: Array<{ entityType: string; entityId: string; span?: PanelSpan }>) => {
+      const panels: WorkspacePanelState[] = nextPanels.map(({ entityType, entityId, span }) => ({
+        id: makePanelId(entityType, entityId),
+        entityType,
+        entityId,
+        span: span ?? DEFAULT_PANEL_SPAN,
+      }))
+      commit({ panels, maximizedId: null, minimizedId: null })
+      setFocusTarget(null)
+    },
+    [commit],
+  )
+
   const consumeFocusTarget = useCallback(() => setFocusTarget(null), [])
 
   return {
@@ -156,6 +177,7 @@ export function useWorkspaceState(): WorkspaceApi {
     restore,
     minimize,
     restoreMinimized,
+    replacePanels,
     focusTarget,
     consumeFocusTarget,
   }

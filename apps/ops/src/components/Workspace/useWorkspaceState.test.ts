@@ -179,6 +179,32 @@ describe('useWorkspaceState', () => {
     expect(mockPush).toHaveBeenCalledWith('/ops/runs?panels=run%3A1234%3A1&max=run%3A1234', { scroll: false })
   })
 
+  it('replacePanels fully swaps the panel set (not a merge) and clears maximized/minimized state', () => {
+    setUrl('/ops/runs', 'panels=run:1234:1,source:blvd:1&max=run:1234&min=source:blvd')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.replacePanels([
+        { entityType: 'problems', entityId: 'main', span: 2 },
+        { entityType: 'queues', entityId: 'main', span: 2 },
+      ])
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/ops/runs?panels=problems%3Amain%3A2%2Cqueues%3Amain%3A2', { scroll: false })
+    expect(mockReplace).not.toHaveBeenCalled()
+  })
+
+  it('replacePanels defaults a panel with no explicit span to the default span', () => {
+    setUrl('/ops/runs', '')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.replacePanels([{ entityType: 'readiness', entityId: 'main' }])
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/ops/runs?panels=readiness%3Amain%3A1', { scroll: false })
+  })
+
   it('openPanel un-minimizes an already-open, minimized panel and focuses it', () => {
     setUrl('/ops/runs', 'panels=run:1234:1&min=run:1234')
     const { result } = renderHook(() => useWorkspaceState())
