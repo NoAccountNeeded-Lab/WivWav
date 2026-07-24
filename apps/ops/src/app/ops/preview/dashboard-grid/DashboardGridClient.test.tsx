@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardGridClient } from './DashboardGridClient'
 import { clearWarmCache } from '@/lib/warm-data-cache'
@@ -94,6 +94,9 @@ describe('DashboardGridClient — renders live data per panel (#912)', () => {
     const queuesPanel = screen.getByRole('region', { name: 'Queue depth' })
     expect(within(queuesPanel).getByText('source-scrape')).not.toBeNull()
     expect(within(queuesPanel).getByText('3f')).not.toBeNull()
+    // The visible "3f" abbreviation is `aria-hidden`; screen readers get the
+    // full-word row-level label instead (accessibility fix, #912 review).
+    expect(within(queuesPanel).getByLabelText('source-scrape, waiting 2, active 1, delayed 0, failed 3')).not.toBeNull()
 
     const runsPanel = screen.getByRole('region', { name: 'Recent source runs' })
     expect(within(runsPanel).getByText('BLVD')).not.toBeNull()
@@ -124,6 +127,17 @@ describe('DashboardGridClient — renders live data per panel (#912)', () => {
     for (const item of items) {
       expect(item.hasAttribute('data-status')).toBe(true)
     }
+  })
+
+  it('closing a panel removes it from the grid and hands focus to the page heading, not <body>', async () => {
+    vi.stubGlobal('fetch', mockFetch())
+    render(<DashboardGridClient apiBaseUrl="" />)
+
+    await screen.findByRole('region', { name: 'Recurring jobs' })
+    fireEvent.click(screen.getByRole('button', { name: 'Close Recurring jobs' }))
+
+    expect(screen.queryByRole('region', { name: 'Recurring jobs' })).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Dashboard grid' }))
   })
 
   it('does not fetch any endpoint beyond the existing Overview/readiness data sources', async () => {

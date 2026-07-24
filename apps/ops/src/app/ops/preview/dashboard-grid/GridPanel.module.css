@@ -68,8 +68,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  /* WCAG 2.1 AA (2.5.5): >= 44x44px touch target, even though the visible
+     icon stays small. */
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius);

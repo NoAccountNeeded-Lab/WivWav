@@ -68,6 +68,31 @@ describe('GridPanel — size presets', () => {
   })
 })
 
+describe('GridPanel — menu focus management (WCAG 2.1 AA keyboard operability)', () => {
+  it('moves focus to the first preset option when the menu opens', () => {
+    render(<ControlledPanel />)
+    openMenu('Service health')
+    expect(document.activeElement).toBe(screen.getByRole('menuitemradio', { name: 'Small' }))
+  })
+
+  it('closes the menu and returns focus to the trigger button on Escape', () => {
+    render(<ControlledPanel />)
+    const trigger = screen.getByRole('button', { name: 'Service health size options' })
+    openMenu('Service health')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('returns focus to the trigger button after selecting a preset', () => {
+    render(<ControlledPanel />)
+    const trigger = screen.getByRole('button', { name: 'Service health size options' })
+    openMenu('Service health')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Large' }))
+    expect(document.activeElement).toBe(trigger)
+  })
+})
+
 describe('GridPanel — collapse/expand', () => {
   it('unmounts content and keeps the header when collapsed, then remounts it on expand', () => {
     render(<ControlledPanel />)

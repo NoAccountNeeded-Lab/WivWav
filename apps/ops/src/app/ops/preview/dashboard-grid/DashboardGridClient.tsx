@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildOpsOverview, type OverviewModel } from '../../overview-helpers'
 import { problemCountsBySeverity, unacknowledgedProblems, type ProblemPresentationContext } from '../../problem-presentation'
 import { useOverviewResources } from '../../use-overview-resources'
@@ -100,6 +100,11 @@ export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
   ])
 
   const [panels, setPanels] = useState<Record<PanelId, PanelState>>(PANEL_DEFAULTS)
+  // A panel's Close button is removed from the DOM along with the rest of
+  // the panel, which would otherwise drop keyboard/screen-reader focus to
+  // <body> with no indication of what happened. Closing instead hands focus
+  // to the page heading (a stable landmark that always remains).
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
   function setSize(id: PanelId, size: PanelSize) {
     setPanels(prev => ({ ...prev, [id]: { ...prev[id], size } }))
@@ -109,6 +114,7 @@ export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
   }
   function close(id: PanelId) {
     setPanels(prev => ({ ...prev, [id]: { ...prev[id], closed: true } }))
+    headingRef.current?.focus()
   }
 
   const problemContext: ProblemPresentationContext = useMemo(() => ({ health: health.data, sources: sources.data }), [health.data, sources.data])
@@ -128,7 +134,7 @@ export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
     <main id="main-content" className={styles.main}>
       <header className={styles.header}>
         <p className={styles.kicker}>Dev-only comparison route (#912)</p>
-        <h1 className={styles.heading}>Dashboard grid</h1>
+        <h1 className={styles.heading} tabIndex={-1} ref={headingRef}>Dashboard grid</h1>
         <p className={styles.intro}>
           The same data <code>/ops</code> renders, as independent widget panels — resize, collapse, or close each
           one to compare this layout against the current Overview.
