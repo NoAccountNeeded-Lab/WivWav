@@ -26,6 +26,7 @@ function buildWorkspace(overrides: Partial<WorkspaceApi> = {}): WorkspaceApi {
     restore: vi.fn(),
     minimize: vi.fn(),
     restoreMinimized: vi.fn(),
+    replacePanels: vi.fn(),
     focusTarget: null,
     consumeFocusTarget: vi.fn(),
     ...overrides,
