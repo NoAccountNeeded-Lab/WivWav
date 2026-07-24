@@ -1,5 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
-import { conversionBrandSlug, listingCompletenessScore, mileageBucket, selectRepresentative, syncListings, toDocument } from './index.js'
+import {
+  conversionBrandSlug,
+  listingCompletenessScore,
+  mileageBucket,
+  resolveIndexName,
+  selectRepresentative,
+  syncListings,
+  toDocument,
+  validateIndexName,
+} from './index.js'
 import type { Listing } from '@wivwav/db'
 
 // Minimal Listing row that satisfies the Prisma-generated type for toDocument.
@@ -66,6 +75,24 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     ...overrides,
   } as Listing
 }
+
+describe('search index name config', () => {
+  it('defaults to the existing listings index name', () => {
+    expect(resolveIndexName({})).toBe('listings')
+  })
+
+  it('uses MEILISEARCH_INDEX_NAME when configured', () => {
+    expect(resolveIndexName({ MEILISEARCH_INDEX_NAME: 'listings_prod' })).toBe('listings_prod')
+  })
+
+  it('supports the scraper MEILI_INDEX_NAME alias', () => {
+    expect(resolveIndexName({ MEILI_INDEX_NAME: 'listings_scraper' })).toBe('listings_scraper')
+  })
+
+  it('rejects values Meilisearch index operations cannot address clearly', () => {
+    expect(() => validateIndexName('bad index')).toThrow('MEILISEARCH_INDEX_NAME')
+  })
+})
 
 // ---------------------------------------------------------------------------
 // toDocument — #499 field resolution

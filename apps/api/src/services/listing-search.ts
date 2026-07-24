@@ -48,8 +48,8 @@ export interface SearchResult {
  * Idempotent — safe on every restart, including a fresh container. Never
  * clears or rebuilds the live index's documents.
  */
-export async function configureListingsIndex(client: Meilisearch): Promise<void> {
-  await configureIndexSettings(client, INDEX_NAME)
+export async function configureListingsIndex(client: Meilisearch, indexName = INDEX_NAME): Promise<void> {
+  await configureIndexSettings(client, indexName)
 }
 
 /**

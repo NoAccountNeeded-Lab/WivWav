@@ -81,8 +81,8 @@ process.once('SIGINT', () => void shutdown('SIGINT'))
 // Apply index settings before accepting traffic so filters/facets work on the
 // first request. Idempotent — safe on every restart, including a fresh container.
 try {
-  await configureListingsIndex(meili)
-  app.log.info('[search] Index settings applied')
+  await configureListingsIndex(meili, config.MEILISEARCH_INDEX_NAME)
+  app.log.info({ indexName: config.MEILISEARCH_INDEX_NAME }, '[search] Index settings applied')
 } catch (err) {
   const reason = err instanceof Error ? `: ${err.message}` : ''
   app.log.warn(`[search] Index config skipped; Meilisearch may not be available${reason}`)
