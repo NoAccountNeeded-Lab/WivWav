@@ -34,9 +34,15 @@ export interface WorkspaceState {
   panels: WorkspacePanelState[]
   /** The single maximized panel's id, or `null` when no panel is maximized. */
   maximizedId: PanelId | null
+  /** The single minimized panel's id, or `null` when no panel is minimized —
+   *  same singular-slot precedent as `maximizedId` (#913). A minimized panel
+   *  collapses to a title-bar-only strip docked along the bottom edge of the
+   *  workspace; its content stays mounted (unlike closing, which unmounts)
+   *  so restoring it loses neither in-memory state nor its span/position. */
+  minimizedId: PanelId | null
 }
 
-export const EMPTY_WORKSPACE_STATE: WorkspaceState = { panels: [], maximizedId: null }
+export const EMPTY_WORKSPACE_STATE: WorkspaceState = { panels: [], maximizedId: null, minimizedId: null }
 
 export function makePanelId(entityType: string, entityId: string): PanelId {
   return `${entityType}:${entityId}`

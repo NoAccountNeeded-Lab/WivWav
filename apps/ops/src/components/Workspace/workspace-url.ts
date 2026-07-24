@@ -12,6 +12,7 @@ import type { PanelId, PanelSpan, WorkspacePanelState, WorkspaceState } from './
 
 const PANELS_PARAM = 'panels'
 const MAXIMIZED_PARAM = 'max'
+const MINIMIZED_PARAM = 'min'
 const PANEL_SEPARATOR = ','
 const FIELD_SEPARATOR = ':'
 
@@ -64,7 +65,10 @@ export function decodeWorkspaceState(searchParams: URLSearchParams): WorkspaceSt
   const maximizedRaw = searchParams.get(MAXIMIZED_PARAM)
   const maximizedId = maximizedRaw && seen.has(maximizedRaw as PanelId) ? (maximizedRaw as PanelId) : null
 
-  return { panels, maximizedId }
+  const minimizedRaw = searchParams.get(MINIMIZED_PARAM)
+  const minimizedId = minimizedRaw && seen.has(minimizedRaw as PanelId) ? (minimizedRaw as PanelId) : null
+
+  return { panels, maximizedId, minimizedId }
 }
 
 /**
@@ -79,6 +83,7 @@ export function encodeWorkspaceState(state: WorkspaceState, base: URLSearchParam
   if (state.panels.length === 0) {
     next.delete(PANELS_PARAM)
     next.delete(MAXIMIZED_PARAM)
+    next.delete(MINIMIZED_PARAM)
     return next
   }
 
@@ -89,6 +94,13 @@ export function encodeWorkspaceState(state: WorkspaceState, base: URLSearchParam
     next.set(MAXIMIZED_PARAM, state.maximizedId)
   } else {
     next.delete(MAXIMIZED_PARAM)
+  }
+
+  const minimizedIsOpen = state.minimizedId !== null && state.panels.some(p => p.id === state.minimizedId)
+  if (minimizedIsOpen && state.minimizedId) {
+    next.set(MINIMIZED_PARAM, state.minimizedId)
+  } else {
+    next.delete(MINIMIZED_PARAM)
   }
 
   return next

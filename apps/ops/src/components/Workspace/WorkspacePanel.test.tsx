@@ -134,6 +134,59 @@ describe('WorkspacePanel', () => {
     expect(screen.getByRole('menu', { name: 'Run · blvd context menu' })).toBeDefined()
   })
 
+  it('does not render a minimize button when onMinimize is not supplied (existing callers keep today\'s header)', () => {
+    render(
+      <WorkspacePanel title="Run · blvd" isMaximized={false} onClose={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()}>
+        <p>Body</p>
+      </WorkspacePanel>,
+    )
+
+    expect(screen.queryByRole('button', { name: /minimize/i })).toBeNull()
+  })
+
+  it('shows a minimize button when onMinimize is supplied and calls it', () => {
+    const onMinimize = vi.fn()
+    render(
+      <WorkspacePanel title="Run · blvd" isMaximized={false} onClose={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onMinimize={onMinimize}>
+        <p>Body</p>
+      </WorkspacePanel>,
+    )
+
+    const button = screen.getByRole('button', { name: 'Minimize Run · blvd' })
+    expect(button.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(button)
+    expect(onMinimize).toHaveBeenCalledTimes(1)
+  })
+
+  it('when minimized, hides the body (without unmounting it) and the maximize/close/action buttons, keeping only the restore control', () => {
+    const onMinimize = vi.fn()
+    render(
+      <WorkspacePanel
+        title="Run · blvd"
+        isMaximized={false}
+        isMinimized
+        onClose={vi.fn()}
+        onMaximize={vi.fn()}
+        onRestore={vi.fn()}
+        onMinimize={onMinimize}
+        actions={[{ id: 'a', label: 'Only action', onSelect: vi.fn() }]}
+      >
+        <p>Body content</p>
+      </WorkspacePanel>,
+    )
+
+    // Content stays in the DOM (mounted) rather than being removed.
+    expect(screen.getByText('Body content').closest('[hidden]')).not.toBeNull()
+    expect(screen.queryByRole('button', { name: /maximize/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Close Run · blvd' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Only action' })).toBeNull()
+
+    const button = screen.getByRole('button', { name: 'Restore Run · blvd' })
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(button)
+    expect(onMinimize).toHaveBeenCalledTimes(1)
+  })
+
   it('exposes an imperative focusHeading() handle used to focus an already-open panel', () => {
     const ref = createRef<WorkspacePanelHandle>()
     render(

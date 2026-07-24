@@ -9,16 +9,24 @@ import type { PanelId, PanelSpan, WorkspacePanelState, WorkspaceState } from './
 export interface WorkspaceApi {
   panels: WorkspacePanelState[]
   maximizedId: PanelId | null
+  /** The single minimized panel's id, or `null` (#913 — see `workspace-types.ts`). */
+  minimizedId: PanelId | null
   isOpen: (id: PanelId) => boolean
   /** Opens `entityType`/`entityId`'s panel, or focuses it if already open —
-   *  never duplicates. Returns the panel's id so the caller can pass it to
-   *  `focusTarget` consumers. */
+   *  never duplicates. Un-minimizes it first if it was minimized, since
+   *  "open/focus" should always reveal the panel. Returns the panel's id so
+   *  the caller can pass it to `focusTarget` consumers. */
   openPanel: (entityType: string, entityId: string, options?: { span?: PanelSpan }) => PanelId
   closePanel: (id: PanelId) => void
   setSpan: (id: PanelId, span: PanelSpan) => void
   maximize: (id: PanelId) => void
   /** Restores the previous (non-maximized) layout. */
   restore: () => void
+  /** Minimizes `id` to a title-bar strip; clears `maximizedId` first if `id`
+   *  was the maximized panel (a panel is never both at once). */
+  minimize: (id: PanelId) => void
+  /** Restores `id` from its minimized strip back to its prior span/position. */
+  restoreMinimized: (id: PanelId) => void
   /** The panel that most recently became the interaction target — set by
    *  `openPanel` (new or already-open) and by `maximize`/`restore`. Not part
    *  of URL state (it's a one-shot instruction, not durable layout), unlike
@@ -63,61 +71,91 @@ export function useWorkspaceState(): WorkspaceApi {
     (entityType: string, entityId: string, options?: { span?: PanelSpan }) => {
       const id = makePanelId(entityType, entityId)
       const existing = state.panels.find(p => p.id === id)
+      // Un-minimize on open/focus — a caller asking to open or focus a panel
+      // always means "reveal it", even if it was collapsed to a strip.
+      const minimizedId = state.minimizedId === id ? null : state.minimizedId
       if (!existing) {
         const panel: WorkspacePanelState = { id, entityType, entityId, span: options?.span ?? DEFAULT_PANEL_SPAN }
-        commit({ panels: [...state.panels, panel], maximizedId: state.maximizedId })
+        commit({ panels: [...state.panels, panel], maximizedId: state.maximizedId, minimizedId })
+      } else if (minimizedId !== state.minimizedId) {
+        commit({ panels: state.panels, maximizedId: state.maximizedId, minimizedId }, { addHistoryEntry: false })
       }
       // Opening an already-open panel focuses it rather than duplicating it —
       // no URL change needed, just the focus signal below.
       setFocusTarget(id)
       return id
     },
-    [commit, state.maximizedId, state.panels],
+    [commit, state.maximizedId, state.minimizedId, state.panels],
   )
 
   const closePanel = useCallback(
     (id: PanelId) => {
       const panels = state.panels.filter(p => p.id !== id)
       const maximizedId = state.maximizedId === id ? null : state.maximizedId
-      commit({ panels, maximizedId }, { addHistoryEntry: false })
+      const minimizedId = state.minimizedId === id ? null : state.minimizedId
+      commit({ panels, maximizedId, minimizedId }, { addHistoryEntry: false })
     },
-    [commit, state.maximizedId, state.panels],
+    [commit, state.maximizedId, state.minimizedId, state.panels],
   )
 
   const setSpan = useCallback(
     (id: PanelId, span: PanelSpan) => {
       const panels = state.panels.map(p => (p.id === id ? { ...p, span } : p))
-      commit({ panels, maximizedId: state.maximizedId }, { addHistoryEntry: false })
+      commit({ panels, maximizedId: state.maximizedId, minimizedId: state.minimizedId }, { addHistoryEntry: false })
     },
-    [commit, state.maximizedId, state.panels],
+    [commit, state.maximizedId, state.minimizedId, state.panels],
   )
 
   const maximize = useCallback(
     (id: PanelId) => {
       if (!state.panels.some(p => p.id === id)) return
-      commit({ panels: state.panels, maximizedId: id })
+      // A panel is never both maximized and minimized at once.
+      const minimizedId = state.minimizedId === id ? null : state.minimizedId
+      commit({ panels: state.panels, maximizedId: id, minimizedId })
       setFocusTarget(id)
     },
-    [commit, state.panels],
+    [commit, state.minimizedId, state.panels],
   )
 
   const restore = useCallback(() => {
     const previousMaximizedId = state.maximizedId
-    commit({ panels: state.panels, maximizedId: null }, { addHistoryEntry: false })
+    commit({ panels: state.panels, maximizedId: null, minimizedId: state.minimizedId }, { addHistoryEntry: false })
     setFocusTarget(previousMaximizedId)
-  }, [commit, state.maximizedId, state.panels])
+  }, [commit, state.maximizedId, state.minimizedId, state.panels])
+
+  const minimize = useCallback(
+    (id: PanelId) => {
+      if (!state.panels.some(p => p.id === id)) return
+      // A panel is never both maximized and minimized at once.
+      const maximizedId = state.maximizedId === id ? null : state.maximizedId
+      commit({ panels: state.panels, maximizedId, minimizedId: id }, { addHistoryEntry: false })
+    },
+    [commit, state.maximizedId, state.panels],
+  )
+
+  const restoreMinimized = useCallback(
+    (id: PanelId) => {
+      if (state.minimizedId !== id) return
+      commit({ panels: state.panels, maximizedId: state.maximizedId, minimizedId: null }, { addHistoryEntry: false })
+      setFocusTarget(id)
+    },
+    [commit, state.maximizedId, state.minimizedId, state.panels],
+  )
 
   const consumeFocusTarget = useCallback(() => setFocusTarget(null), [])
 
   return {
     panels: state.panels,
     maximizedId: state.maximizedId,
+    minimizedId: state.minimizedId,
     isOpen,
     openPanel,
     closePanel,
     setSpan,
     maximize,
     restore,
+    minimize,
+    restoreMinimized,
     focusTarget,
     consumeFocusTarget,
   }

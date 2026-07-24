@@ -17,12 +17,15 @@ function buildWorkspace(overrides: Partial<WorkspaceApi> = {}): WorkspaceApi {
   return {
     panels: [RUN_PANEL],
     maximizedId: null,
+    minimizedId: null,
     isOpen: () => true,
     openPanel: vi.fn(() => 'run:1234' as const),
     closePanel: vi.fn(),
     setSpan: vi.fn(),
     maximize: vi.fn(),
     restore: vi.fn(),
+    minimize: vi.fn(),
+    restoreMinimized: vi.fn(),
     focusTarget: null,
     consumeFocusTarget: vi.fn(),
     ...overrides,
@@ -113,5 +116,45 @@ describe('WorkspaceGrid', () => {
 
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'source · blvd' }))
     expect(consumeFocusTarget).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls minimize with the clicked panel id from the normal grid', () => {
+    const minimize = vi.fn()
+    render(<WorkspaceGrid workspace={buildWorkspace({ panels: [RUN_PANEL], minimize })} renderPanel={renderPanel} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Minimize run · 1234' }))
+    expect(minimize).toHaveBeenCalledWith('run:1234')
+  })
+
+  it('docks a minimized panel to a title-bar strip, keeping its content mounted but hidden, and excludes it from the grid layout', () => {
+    render(
+      <WorkspaceGrid
+        workspace={buildWorkspace({ panels: [RUN_PANEL, SOURCE_PANEL], minimizedId: 'run:1234' })}
+        renderPanel={renderPanel}
+      />,
+    )
+
+    // The minimized panel's region still exists (content mounted)...
+    const minimizedRegion = screen.getByRole('region', { name: 'run · 1234' })
+    expect(minimizedRegion).toBeDefined()
+    // ...but its body content is hidden rather than removed.
+    expect(screen.getByText('Content for run:1234').closest('[hidden]')).not.toBeNull()
+    // It is not laid out as a normal grid item alongside the other open panel.
+    expect(minimizedRegion.closest('[data-span]')).toBeNull()
+    // The other, non-minimized panel renders normally in the grid.
+    expect(screen.getByText('Content for source:blvd').closest('[hidden]')).toBeNull()
+  })
+
+  it('restores a minimized panel when its strip control is activated', () => {
+    const restoreMinimized = vi.fn()
+    render(
+      <WorkspaceGrid
+        workspace={buildWorkspace({ panels: [RUN_PANEL], minimizedId: 'run:1234', restoreMinimized })}
+        renderPanel={renderPanel}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore run · 1234' }))
+    expect(restoreMinimized).toHaveBeenCalledWith('run:1234')
   })
 })

@@ -10,7 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react'
-import { MoreHorizontal, Maximize2, Minimize2, X } from 'lucide-react'
+import { MoreHorizontal, Maximize2, Minimize2, Minus, X } from 'lucide-react'
 import { WorkspaceActionMenu } from './WorkspaceActionMenu'
 import styles from './WorkspacePanel.module.css'
 
@@ -38,6 +38,12 @@ export interface WorkspacePanelProps {
   onClose: () => void
   onMaximize: () => void
   onRestore: () => void
+  /** Present only where minimizing makes sense (the normal grid layout, not
+   *  the maximized single-panel view or the minimized strip itself). Omitting
+   *  it hides the minimize button entirely — existing callers that don't pass
+   *  it keep today's maximize/close-only header. */
+  isMinimized?: boolean
+  onMinimize?: () => void
   children: ReactNode
 }
 
@@ -51,7 +57,7 @@ const VISIBLE_ACTION_LIMIT = 2
  * maximize is a layout mode, not a dialog).
  */
 export const WorkspacePanel = forwardRef<WorkspacePanelHandle, WorkspacePanelProps>(function WorkspacePanel(
-  { title, actions = [], isMaximized, onClose, onMaximize, onRestore, children },
+  { title, actions = [], isMaximized, onClose, onMaximize, onRestore, isMinimized = false, onMinimize, children },
   ref,
 ) {
   const sectionRef = useRef<HTMLElement>(null)
@@ -125,13 +131,14 @@ export const WorkspacePanel = forwardRef<WorkspacePanelHandle, WorkspacePanelPro
       aria-label={title}
       className={styles.panel}
       data-maximized={isMaximized ? 'true' : 'false'}
+      data-minimized={isMinimized ? 'true' : 'false'}
     >
       <div className={styles.header}>
         <h2 ref={headingRef} tabIndex={-1} className={styles.title}>
           {title}
         </h2>
         <div className={styles.headerActions}>
-          {visibleActions.map(action => (
+          {!isMinimized && visibleActions.map(action => (
             <button
               key={action.id}
               type="button"
@@ -142,7 +149,7 @@ export const WorkspacePanel = forwardRef<WorkspacePanelHandle, WorkspacePanelPro
               {action.label}
             </button>
           ))}
-          {actions.length > 0 && (
+          {!isMinimized && actions.length > 0 && (
             <button
               ref={overflowTriggerRef}
               type="button"
@@ -155,22 +162,41 @@ export const WorkspacePanel = forwardRef<WorkspacePanelHandle, WorkspacePanelPro
               <MoreHorizontal size={16} aria-hidden="true" />
             </button>
           )}
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label={isMaximized ? `Restore ${title}` : `Maximize ${title}`}
-            aria-pressed={isMaximized}
-            onClick={isMaximized ? onRestore : onMaximize}
-          >
-            {isMaximized ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
-          </button>
-          <button type="button" className={styles.iconButton} aria-label={`Close ${title}`} onClick={onClose}>
-            <X size={16} aria-hidden="true" />
-          </button>
+          {onMinimize && (
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label={isMinimized ? `Restore ${title}` : `Minimize ${title}`}
+              aria-pressed={isMinimized}
+              onClick={onMinimize}
+            >
+              <Minus size={16} aria-hidden="true" />
+            </button>
+          )}
+          {!isMinimized && (
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label={isMaximized ? `Restore ${title}` : `Maximize ${title}`}
+              aria-pressed={isMaximized}
+              onClick={isMaximized ? onRestore : onMaximize}
+            >
+              {isMaximized ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
+            </button>
+          )}
+          {!isMinimized && (
+            <button type="button" className={styles.iconButton} aria-label={`Close ${title}`} onClick={onClose}>
+              <X size={16} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className={styles.body}>{children}</div>
+      {/* Hidden (not unmounted) while minimized — a minimized panel keeps its
+          content alive (effects, scroll position, in-flight state) so
+          restoring it loses nothing, unlike closing which unmounts entirely
+          (`WorkspaceGrid` removes the panel from the tree on close). */}
+      <div className={styles.body} hidden={isMinimized}>{children}</div>
 
       <WorkspaceActionMenu
         label={`${title} actions`}
