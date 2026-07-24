@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import type { ChangeEvent } from 'react'
 import type { OpsNavItem } from '@/app/ops/ops-nav'
 import { useRegisterNavItemInterceptor } from '@/components/OpsNav/nav-item-interceptor'
 import { useWorkspaceState, WorkspacePanel, WorkspaceResizableSplit } from '@/components/Workspace'
@@ -12,6 +13,7 @@ import { ProblemsPanelContent } from './ProblemsPanelContent'
 import { QueuesPanelContent } from './QueuesPanelContent'
 import { ReadinessPanelContent } from './ReadinessPanelContent'
 import { SourcePanelContent } from './SourcePanelContent'
+import { WORKSPACE_TEMPLATES } from './templates'
 import styles from './docked-terminal.module.css'
 
 interface DockedTerminalClientProps {
@@ -41,7 +43,20 @@ const DEFAULT_PANELS: Array<{ entityType: string; entityId: string }> = [
  */
 export function DockedTerminalClient({ apiBaseUrl }: DockedTerminalClientProps) {
   const workspace = useWorkspaceState()
-  const { panels, maximizedId, minimizedId, focusTarget, consumeFocusTarget, closePanel, maximize, restore, minimize, restoreMinimized, openPanel } = workspace
+  const {
+    panels,
+    maximizedId,
+    minimizedId,
+    focusTarget,
+    consumeFocusTarget,
+    closePanel,
+    maximize,
+    restore,
+    minimize,
+    restoreMinimized,
+    openPanel,
+    replacePanels,
+  } = workspace
   const overviewResources = useOverviewResources(apiBaseUrl)
   const panelRefs = useRef(new Map<PanelId, WorkspacePanelHandle | null>())
   // Captured once from the very first render only (`useRef`'s initializer is
@@ -97,6 +112,22 @@ export function DockedTerminalClient({ apiBaseUrl }: DockedTerminalClientProps) 
   const openLogsForJob = useCallback((jobId: string) => {
     openPanel('logs', jobId)
   }, [openPanel])
+
+  // Selecting a template is a full swap (#915), not an addition — cancel the
+  // default-panel bootstrap outright so it can never race a template
+  // selection and re-add a default panel the template deliberately left out.
+  const handleTemplateChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const templateId = event.target.value
+      event.target.value = ''
+      const template = WORKSPACE_TEMPLATES.find(t => t.id === templateId)
+      if (!template) return
+      shouldBootstrapDefaults.current = false
+      defaultsBootstrapped.current = true
+      replacePanels(template.panels)
+    },
+    [replacePanels],
+  )
 
   const renderPanel = useCallback((panel: WorkspacePanelState): PanelContent => {
     switch (panel.entityType) {
@@ -175,9 +206,21 @@ export function DockedTerminalClient({ apiBaseUrl }: DockedTerminalClientProps) 
           </p>
         </div>
 
-        <div className={styles.statusStrip}>
-          <span className={styles.statusDot} aria-hidden="true" />
-          <span>Live — auto-refreshing every 15–30s per panel</span>
+        <div className={styles.headerControls}>
+          <div className={styles.statusStrip}>
+            <span className={styles.statusDot} aria-hidden="true" />
+            <span>Live — auto-refreshing every 15–30s per panel</span>
+          </div>
+
+          <div className={styles.templatesControl}>
+            <label htmlFor="docked-terminal-templates">Templates</label>
+            <select id="docked-terminal-templates" value="" onChange={handleTemplateChange}>
+              <option value="" disabled>Choose a template…</option>
+              {WORKSPACE_TEMPLATES.map(template => (
+                <option key={template.id} value={template.id}>{template.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {maximizedPanel ? (() => {

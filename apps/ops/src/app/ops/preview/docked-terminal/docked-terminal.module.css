@@ -24,6 +24,16 @@
   font-size: 0.875rem;
 }
 
+/* Wraps the status strip and the Templates control on one row, wrapping to
+   two on narrow viewports (mobile-first). */
+.headerControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 /* Status strip: live indicator + auto-refresh cadence, docked below the
    grid (#913's "desktop-app feel" affordance). */
 .statusStrip {
@@ -34,6 +44,25 @@
   border: 1px solid var(--clr-border);
   border-radius: var(--radius);
   color: var(--clr-text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* Templates control (#915): a "perspective switch" that fully replaces the
+   open panel set — see `templates.ts`. */
+.templatesControl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--clr-text-secondary);
+}
+
+.templatesControl select {
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius);
+  padding: 0.375rem 0.625rem;
+  background: var(--clr-surface);
+  color: var(--clr-text);
   font-size: 0.8125rem;
 }
 
