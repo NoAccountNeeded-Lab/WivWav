@@ -31,7 +31,18 @@ export interface WorkspaceGridProps {
  */
 export function WorkspaceGrid({ workspace, renderPanel, emptyState }: WorkspaceGridProps) {
   const panelRefs = useRef(new Map<PanelId, WorkspacePanelHandle | null>())
-  const { panels, maximizedId, focusTarget, consumeFocusTarget, closePanel, maximize, restore } = workspace
+  const {
+    panels,
+    maximizedId,
+    minimizedId,
+    focusTarget,
+    consumeFocusTarget,
+    closePanel,
+    maximize,
+    restore,
+    minimize,
+    restoreMinimized,
+  } = workspace
 
   useEffect(() => {
     if (!focusTarget) return
@@ -80,28 +91,65 @@ export function WorkspaceGrid({ workspace, renderPanel, emptyState }: WorkspaceG
     )
   }
 
+  // The minimized panel (if any) is pulled out of the normal grid flow and
+  // docked along the bottom edge instead — its own `WorkspacePanel` instance
+  // stays mounted throughout (its `.body` is merely `hidden`, not removed;
+  // see that component), so restoring it loses neither content nor its span
+  // in `gridPanels` below, which is recomputed fresh once it reappears.
+  const minimizedPanel = minimizedId ? panels.find(p => p.id === minimizedId) : undefined
+  const gridPanels = minimizedId ? panels.filter(p => p.id !== minimizedId) : panels
+
   return (
-    <div className={styles.grid}>
-      {panels.map(panel => {
-        const { title, actions, content } = renderPanel(panel)
+    <>
+      <div className={styles.grid}>
+        {gridPanels.map(panel => {
+          const { title, actions, content } = renderPanel(panel)
+          return (
+            <div key={panel.id} className={styles.gridItem} data-span={panel.span}>
+              <WorkspacePanel
+                ref={handle => {
+                  panelRefs.current.set(panel.id, handle)
+                }}
+                title={title}
+                actions={actions ?? []}
+                isMaximized={false}
+                onClose={() => closePanel(panel.id)}
+                onMaximize={() => maximize(panel.id)}
+                onRestore={restore}
+                isMinimized={false}
+                onMinimize={() => minimize(panel.id)}
+              >
+                {content}
+              </WorkspacePanel>
+            </div>
+          )
+        })}
+      </div>
+
+      {minimizedPanel && (() => {
+        const { title, actions, content } = renderPanel(minimizedPanel)
         return (
-          <div key={panel.id} className={styles.gridItem} data-span={panel.span}>
-            <WorkspacePanel
-              ref={handle => {
-                panelRefs.current.set(panel.id, handle)
-              }}
-              title={title}
-              actions={actions ?? []}
-              isMaximized={false}
-              onClose={() => closePanel(panel.id)}
-              onMaximize={() => maximize(panel.id)}
-              onRestore={restore}
-            >
-              {content}
-            </WorkspacePanel>
+          <div className={styles.minimizedStrip} aria-label="Minimized panels">
+            <div className={styles.minimizedItem}>
+              <WorkspacePanel
+                ref={handle => {
+                  panelRefs.current.set(minimizedPanel.id, handle)
+                }}
+                title={title}
+                actions={actions ?? []}
+                isMaximized={false}
+                onClose={() => closePanel(minimizedPanel.id)}
+                onMaximize={() => maximize(minimizedPanel.id)}
+                onRestore={restore}
+                isMinimized
+                onMinimize={() => restoreMinimized(minimizedPanel.id)}
+              >
+                {content}
+              </WorkspacePanel>
+            </div>
           </div>
         )
-      })}
-    </div>
+      })()}
+    </>
   )
 }

@@ -129,4 +129,65 @@ describe('useWorkspaceState', () => {
     })
     expect(result.current.focusTarget).toBeNull()
   })
+
+  it('minimize sets minimizedId without a new history entry; only for a panel that is open', () => {
+    setUrl('/ops/runs', 'panels=run:1234:1')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.minimize('source:blvd')
+    })
+    expect(mockReplace).not.toHaveBeenCalled()
+
+    act(() => {
+      result.current.minimize('run:1234')
+    })
+    expect(mockReplace).toHaveBeenCalledWith('/ops/runs?panels=run%3A1234%3A1&min=run%3A1234', { scroll: false })
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('minimize clears maximizedId when minimizing the currently maximized panel', () => {
+    setUrl('/ops/runs', 'panels=run:1234:1&max=run:1234')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.minimize('run:1234')
+    })
+    expect(mockReplace).toHaveBeenCalledWith('/ops/runs?panels=run%3A1234%3A1&min=run%3A1234', { scroll: false })
+  })
+
+  it('restoreMinimized clears minimizedId, sets the focus target, and does not add a history entry', () => {
+    setUrl('/ops/runs', 'panels=run:1234:1&min=run:1234')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.restoreMinimized('run:1234')
+    })
+
+    expect(mockReplace).toHaveBeenCalledWith('/ops/runs?panels=run%3A1234%3A1', { scroll: false })
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(result.current.focusTarget).toBe('run:1234')
+  })
+
+  it('maximize clears minimizedId when maximizing the currently minimized panel', () => {
+    setUrl('/ops/runs', 'panels=run:1234:1&min=run:1234')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.maximize('run:1234')
+    })
+    expect(mockPush).toHaveBeenCalledWith('/ops/runs?panels=run%3A1234%3A1&max=run%3A1234', { scroll: false })
+  })
+
+  it('openPanel un-minimizes an already-open, minimized panel and focuses it', () => {
+    setUrl('/ops/runs', 'panels=run:1234:1&min=run:1234')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.openPanel('run', '1234')
+    })
+
+    expect(mockReplace).toHaveBeenCalledWith('/ops/runs?panels=run%3A1234%3A1', { scroll: false })
+    expect(result.current.focusTarget).toBe('run:1234')
+  })
 })

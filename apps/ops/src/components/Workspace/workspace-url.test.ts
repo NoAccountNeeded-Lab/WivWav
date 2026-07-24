@@ -4,7 +4,7 @@ import type { WorkspaceState } from './workspace-types'
 
 describe('decodeWorkspaceState', () => {
   it('returns an empty workspace when the param is absent', () => {
-    expect(decodeWorkspaceState(new URLSearchParams(''))).toEqual({ panels: [], maximizedId: null })
+    expect(decodeWorkspaceState(new URLSearchParams(''))).toEqual({ panels: [], maximizedId: null, minimizedId: null })
   })
 
   it('decodes panel order, entity identity, and span', () => {
@@ -15,6 +15,14 @@ describe('decodeWorkspaceState', () => {
       { id: 'source:blvd', entityType: 'source', entityId: 'blvd', span: 1 },
     ])
     expect(state.maximizedId).toBeNull()
+  })
+
+  it('decodes minimizedId only when it names a currently-open panel', () => {
+    const withMatch = decodeWorkspaceState(new URLSearchParams('panels=run:1234:1&min=run:1234'))
+    expect(withMatch.minimizedId).toBe('run:1234')
+
+    const withoutMatch = decodeWorkspaceState(new URLSearchParams('panels=run:1234:1&min=source:blvd'))
+    expect(withoutMatch.minimizedId).toBeNull()
   })
 
   it('decodes "full" span', () => {
@@ -44,7 +52,7 @@ describe('decodeWorkspaceState', () => {
 
   it('round-trips entity ids that contain reserved separator characters', () => {
     const encoded = encodeWorkspaceState(
-      { panels: [{ id: 'source:a:b', entityType: 'source', entityId: 'a:b', span: 1 }], maximizedId: null },
+      { panels: [{ id: 'source:a:b', entityType: 'source', entityId: 'a:b', span: 1 }], maximizedId: null, minimizedId: null },
       new URLSearchParams(''),
     )
     const decoded = decodeWorkspaceState(encoded)
@@ -53,13 +61,16 @@ describe('decodeWorkspaceState', () => {
 })
 
 describe('encodeWorkspaceState', () => {
-  it('removes both params when the workspace has no open panels', () => {
-    const next = encodeWorkspaceState({ panels: [], maximizedId: null }, new URLSearchParams('panels=run:1&max=run:1&other=1'))
+  it('removes all params when the workspace has no open panels', () => {
+    const next = encodeWorkspaceState(
+      { panels: [], maximizedId: null, minimizedId: null },
+      new URLSearchParams('panels=run:1&max=run:1&min=run:1&other=1'),
+    )
     expect(next.toString()).toBe('other=1')
   })
 
   it('preserves unrelated existing params', () => {
-    const state: WorkspaceState = { panels: [{ id: 'run:1234', entityType: 'run', entityId: '1234', span: 1 }], maximizedId: null }
+    const state: WorkspaceState = { panels: [{ id: 'run:1234', entityType: 'run', entityId: '1234', span: 1 }], maximizedId: null, minimizedId: null }
     const next = encodeWorkspaceState(state, new URLSearchParams('status=failed'))
     expect(next.get('status')).toBe('failed')
     expect(next.get('panels')).toBe('run:1234:1')
@@ -69,18 +80,43 @@ describe('encodeWorkspaceState', () => {
     const state: WorkspaceState = {
       panels: [{ id: 'run:1234', entityType: 'run', entityId: '1234', span: 1 }],
       maximizedId: 'source:blvd',
+      minimizedId: null,
     }
     const next = encodeWorkspaceState(state, new URLSearchParams(''))
     expect(next.get('max')).toBeNull()
   })
 
-  it('round-trips through decode', () => {
+  it('drops the min param when minimizedId does not name an open panel', () => {
+    const state: WorkspaceState = {
+      panels: [{ id: 'run:1234', entityType: 'run', entityId: '1234', span: 1 }],
+      maximizedId: null,
+      minimizedId: 'source:blvd',
+    }
+    const next = encodeWorkspaceState(state, new URLSearchParams(''))
+    expect(next.get('min')).toBeNull()
+  })
+
+  it('round-trips through decode, including maximizedId', () => {
     const state: WorkspaceState = {
       panels: [
         { id: 'run:1234', entityType: 'run', entityId: '1234', span: 2 },
         { id: 'queue:scrape', entityType: 'queue', entityId: 'scrape', span: 'full' },
       ],
       maximizedId: 'queue:scrape',
+      minimizedId: null,
+    }
+    const roundTripped = decodeWorkspaceState(encodeWorkspaceState(state, new URLSearchParams('')))
+    expect(roundTripped).toEqual(state)
+  })
+
+  it('round-trips through decode, including minimizedId', () => {
+    const state: WorkspaceState = {
+      panels: [
+        { id: 'run:1234', entityType: 'run', entityId: '1234', span: 2 },
+        { id: 'source:blvd', entityType: 'source', entityId: 'blvd', span: 1 },
+      ],
+      maximizedId: null,
+      minimizedId: 'source:blvd',
     }
     const roundTripped = decodeWorkspaceState(encodeWorkspaceState(state, new URLSearchParams('')))
     expect(roundTripped).toEqual(state)

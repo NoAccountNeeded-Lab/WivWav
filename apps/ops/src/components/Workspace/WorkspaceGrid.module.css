@@ -56,3 +56,18 @@
   font-family: var(--font-ui);
   text-align: center;
 }
+
+/* Minimized panels dock along the bottom edge as title-bar-only strips
+   (#913) — a taskbar-like affordance distinct from the grid above. */
+.minimizedStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.minimizedItem {
+  flex: 0 0 auto;
+  width: 16rem;
+  max-width: 100%;
+}
