@@ -21,6 +21,14 @@
   .shell {
     grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) minmax(0, 0);
   }
+
+  /* Collapsible NavColumn (#911): when the nav marks itself
+     `data-collapsed="true"` (icon-only rail), narrow the grid column to
+     match instead of leaving the full 16rem reserved with empty space next
+     to the icons. Mirrors the inspector column's `:has()` pattern below. */
+  .shell:has(.navSlot [data-collapsed="true"]) {
+    grid-template-columns: minmax(0, 4rem) minmax(0, 1fr) minmax(0, 0);
+  }
 }
 
 /* Inspector docked width (E6/D4/R1). The third column stays 0 (reserved,
