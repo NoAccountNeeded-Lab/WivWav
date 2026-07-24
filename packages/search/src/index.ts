@@ -87,7 +87,21 @@ export {
 } from './canonicalize.js'
 export type { CanonicalFuelType } from './canonicalize.js'
 
-export const INDEX_NAME = 'listings'
+export const DEFAULT_INDEX_NAME = 'listings'
+const INDEX_NAME_PATTERN = /^[A-Za-z0-9_-]+$/
+
+export function validateIndexName(value: string): string {
+  if (!INDEX_NAME_PATTERN.test(value)) {
+    throw new Error('MEILISEARCH_INDEX_NAME must contain only letters, numbers, underscores, and hyphens')
+  }
+  return value
+}
+
+export function resolveIndexName(env: NodeJS.ProcessEnv = process.env): string {
+  return validateIndexName(env['MEILISEARCH_INDEX_NAME'] ?? env['MEILI_INDEX_NAME'] ?? DEFAULT_INDEX_NAME)
+}
+
+export const INDEX_NAME = resolveIndexName()
 
 /**
  * Configure a Meilisearch index with the listings-index settings.

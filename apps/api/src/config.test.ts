@@ -23,6 +23,24 @@ describe('loadConfig', () => {
     // NODE_ENV defaults to 'development' but the test runner sets it to 'test'
     expect(['development', 'test']).toContain(config.NODE_ENV)
     expect(config.PORT).toBe(4001)
+    expect(config.MEILISEARCH_INDEX_NAME).toBe('listings')
+  })
+
+  it('loads a configured MEILISEARCH_INDEX_NAME', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    vi.stubEnv('MEILISEARCH_INDEX_NAME', 'listings_prod')
+
+    const config = loadConfig()
+    expect(config.MEILISEARCH_INDEX_NAME).toBe('listings_prod')
+  })
+
+  it('throws when MEILISEARCH_INDEX_NAME contains unsupported characters', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    vi.stubEnv('MEILISEARCH_INDEX_NAME', 'bad index')
+
+    expect(() => loadConfig()).toThrow('Invalid environment configuration')
   })
 
   it('throws when DATABASE_URL is missing', () => {

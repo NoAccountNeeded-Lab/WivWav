@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DEFAULT_INDEX_NAME, validateIndexName } from '@wivwav/search'
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -8,6 +9,14 @@ const schema = z.object({
   DATABASE_URL: z.url(),
   MEILISEARCH_HOST: z.url().default('http://localhost:7700'),
   MEILISEARCH_API_KEY: z.string(),
+  MEILISEARCH_INDEX_NAME: z.string().default(DEFAULT_INDEX_NAME).refine((value) => {
+    try {
+      validateIndexName(value)
+      return true
+    } catch {
+      return false
+    }
+  }, 'MEILISEARCH_INDEX_NAME must contain only letters, numbers, underscores, and hyphens'),
   VALKEY_URL: z.string().default('redis://localhost:6379'),
   OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
   OLLAMA_REQUIRED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),

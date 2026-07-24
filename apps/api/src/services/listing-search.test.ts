@@ -110,6 +110,14 @@ describe('configureListingsIndex', () => {
     expect(waitForTask).toHaveBeenCalledWith(42, expect.objectContaining({ timeout: 15_000 }))
   })
 
+  it('configures the provided index name', async () => {
+    const { client } = makeClient()
+
+    await configureListingsIndex(client as never, 'listings_prod')
+
+    expect(client.index).toHaveBeenCalledWith('listings_prod')
+  })
+
   it('does NOT call client.waitForTask (old v0.47 API location)', async () => {
     const rootWaitForTask = vi.fn()
     const { client, waitForTask } = makeClient()
@@ -427,4 +435,3 @@ describe('ListingSearchService.search', () => {
     )
   })
 })
-
