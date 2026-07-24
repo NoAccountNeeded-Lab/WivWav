@@ -12,7 +12,7 @@ const config: NextConfig = {
     optimizePackageImports: ['@wivwav/charts'],
   },
   async headers() {
-    return getSecurityHeadersConfig()
+    return getSecurityHeadersConfig(process.env.NODE_ENV)
   },
 }
 

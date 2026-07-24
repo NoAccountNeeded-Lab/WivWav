@@ -33,8 +33,8 @@ make dev       # starts Postgres, Valkey, Meilisearch in Docker, applies
 | Service     | URL                   |
 | ----------- | --------------------- |
 | Web app     | http://localhost:4000 |
-| API         | http://localhost:3001 |
-| Ops app     | http://localhost:3002 |
+| API         | http://localhost:4001 |
+| Ops app     | http://localhost:4002 |
 | Meilisearch | http://localhost:7700 |
 
 ```bash
