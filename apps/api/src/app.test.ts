@@ -34,6 +34,7 @@ const baseConfig: Config = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/wivwav',
   MEILISEARCH_HOST: 'http://localhost:7700',
   MEILISEARCH_API_KEY: 'test',
+  MEILISEARCH_INDEX_NAME: 'listings',
   VALKEY_URL: 'redis://localhost:6379',
   OLLAMA_BASE_URL: 'http://localhost:11434',
   OLLAMA_REQUIRED: false,
