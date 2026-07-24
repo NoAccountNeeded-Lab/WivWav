@@ -83,6 +83,18 @@ export function presentProblem(problem: ProblemState, context: ProblemPresentati
 /** Recovers the domain condition code from `domain:{code}:{evidenceId}` —
  *  `evidenceId` is stripped from the end rather than split naively, since
  *  `evidenceId` itself may contain `:` (e.g. `service:valkey`). */
+/** The source id a problem is about, or `null` when the problem isn't one of
+ *  the three source-scoped domain conditions (#913 — the `docked-terminal`
+ *  preview route's "problems → source" entity relationship link needs the
+ *  concrete source id `presentProblem`'s `href: '/ops/sources'` deliberately
+ *  doesn't carry). */
+export function problemSourceId(problem: ProblemState): string | null {
+  if (problem.source !== 'domain') return null
+  const code = domainCode(problem)
+  if (!(code in SOURCE_CODE_TITLE_SUFFIX)) return null
+  return stripEvidencePrefix(problem.evidenceId, 'source')
+}
+
 function domainCode(problem: ProblemState): string {
   const withoutPrefix = problem.fingerprint.startsWith('domain:') ? problem.fingerprint.slice('domain:'.length) : problem.fingerprint
   const suffix = `:${problem.evidenceId}`

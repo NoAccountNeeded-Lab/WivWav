@@ -1,67 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { HealthResponse } from '@wivwav/types'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
-import {
-  buildReadinessReport,
-  type ListingSearchSnapshot,
-  type QueueSnapshot,
-  type ReadinessCheck,
-  type ReadinessReport,
-  type ReadinessStatus,
-  type ResourceState,
-  type RunSnapshot,
-  type ScheduleSnapshot,
-  type SourceSnapshot,
-} from './readiness-model'
+import type { ReadinessCheck, ReadinessReport, ReadinessStatus } from './readiness-model'
+import { useReadinessReport } from './use-readiness-report'
 
 interface ReadinessClientProps {
   apiBaseUrl: string
 }
 
-const REFRESH_MS = 30_000
-
 export function ReadinessClient({ apiBaseUrl }: ReadinessClientProps) {
-  const [inputs, setInputs] = useState<{
-    health: ResourceState<HealthResponse>
-    queues: ResourceState<QueueSnapshot[]>
-    sources: ResourceState<SourceSnapshot[]>
-    schedules: ResourceState<ScheduleSnapshot[]>
-    runs: ResourceState<RunSnapshot[]>
-    listingSearch: ResourceState<ListingSearchSnapshot>
-  } | null>(null)
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-
-  const refresh = useCallback(async () => {
-    setIsRefreshing(true)
-    const [health, queues, sources, schedules, runs, listingSearch] = await Promise.all([
-      fetchResource<HealthResponse>(`${apiBaseUrl}/health`),
-      fetchDataResource<QueueSnapshot[]>(`${apiBaseUrl}/admin/queues`),
-      fetchDataResource<SourceSnapshot[]>(`${apiBaseUrl}/admin/sources`),
-      fetchDataResource<ScheduleSnapshot[]>(`${apiBaseUrl}/admin/repeatables`),
-      fetchDataResource<RunSnapshot[]>(`${apiBaseUrl}/admin/runs`),
-      fetchResource<ListingSearchSnapshot>(`${apiBaseUrl}/v1/listings?perPage=1`),
-    ])
-
-    setInputs({ health, queues, sources, schedules, runs, listingSearch })
-    setUpdatedAt(new Date())
-    setIsRefreshing(false)
-  }, [apiBaseUrl])
-
-  useEffect(() => {
-    void refresh()
-    const interval = window.setInterval(() => void refresh(), REFRESH_MS)
-    return () => window.clearInterval(interval)
-  }, [refresh])
-
-  const report = useMemo<ReadinessReport | null>(() => {
-    if (!inputs) return null
-    return buildReadinessReport({ ...inputs, now: updatedAt ?? new Date() })
-  }, [inputs, updatedAt])
+  const { report, updatedAt, isRefreshing, refresh } = useReadinessReport(apiBaseUrl)
 
   return (
     <main id="main-content" className={styles.main}>
@@ -139,25 +89,6 @@ function ReadinessItem({ check }: { check: ReadinessCheck }) {
       </Link>
     </article>
   )
-}
-
-async function fetchDataResource<T>(url: string): Promise<ResourceState<T>> {
-  const response = await fetchResource<{ data: T }>(url)
-  if (response.status === 'unavailable') return response
-  return { status: 'loaded', data: response.data.data }
-}
-
-async function fetchResource<T>(url: string): Promise<ResourceState<T>> {
-  try {
-    const response = await fetch(url, { cache: 'no-store' })
-    if (!response.ok) throw new Error(`API returned ${response.status}`)
-    return { status: 'loaded', data: await response.json() as T }
-  } catch (err) {
-    return {
-      status: 'unavailable',
-      error: err instanceof Error ? err.message : 'Request failed',
-    }
-  }
 }
 
 function badgeVariant(status: ReadinessStatus): string {
