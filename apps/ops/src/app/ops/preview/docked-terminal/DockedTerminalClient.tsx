@@ -114,11 +114,24 @@ export function DockedTerminalClient({ apiBaseUrl }: DockedTerminalClientProps) 
   }, [openPanel])
 
   // Selecting a template is a full swap (#915), not an addition — cancel the
-  // default-panel bootstrap outright so it can never race a template
-  // selection and re-add a default panel the template deliberately left out.
+  // default-panel bootstrap outright so it can never re-add a default panel
+  // the template deliberately left out on a *later* render of this
+  // component. This does not guarantee ordering against a bootstrap
+  // `openPanel` call whose `router.push` was already in flight the instant
+  // a template is picked (i.e. mid-bootstrap, before all three defaults have
+  // opened) — that relies on Next's router applying pushed URLs in the order
+  // they were dispatched. Bootstrap completes within a few renders and a
+  // template pick is a deliberate, infrequent operator action, so this
+  // narrow window is accepted rather than engineered around.
   const handleTemplateChange = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
       const templateId = event.target.value
+      // Reset to the placeholder rather than tracking `templateId` as
+      // controlled state: this is a one-shot action menu ("apply this
+      // layout now"), not a persistent selection — the open panel set is
+      // still the single source of truth for what's on screen, matching how
+      // no other affordance on this route claims to show "the current
+      // template" either.
       event.target.value = ''
       const template = WORKSPACE_TEMPLATES.find(t => t.id === templateId)
       if (!template) return
