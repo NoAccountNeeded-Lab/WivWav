@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Slider } from '@/components/ui/slider'
+import { getClientApiBaseUrl } from '@/lib/api-url'
 import styles from './PriceHistogram.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -121,7 +122,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
 
   // Build facets fetch URL without price params (cross-filter behaviour)
   const fetchUrl = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
+    const base = getClientApiBaseUrl()
     const url = new URL(`${base}/v1/listings/facets`)
     for (const key of FORWARD_PARAMS) {
       const val = searchParams.get(key)

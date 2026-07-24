@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
+import { getClientApiBaseUrl } from '@/lib/api-url'
 import styles from './PriceHistogram.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
   const hasFilter = urlMax > 0
 
   const fetchUrl = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001'
+    const base = getClientApiBaseUrl()
     const url = new URL(`${base}/v1/listings/facets`)
     for (const key of FORWARD_PARAMS) {
       const val = searchParams.get(key)
