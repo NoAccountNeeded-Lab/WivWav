@@ -9,6 +9,7 @@ import { ACTION_ICONS } from '../action-icons'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { MODEL_CATALOG, JOB_RECOMMENDATIONS } from './model-catalog'
 import { JobTestPanel } from './JobTestPanels'
+import { ModelPullButton } from './ModelPullButton'
 
 interface OllamaStatus {
   available: boolean
@@ -472,6 +473,49 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                   </p>
                 )}
               </div>
+            </section>
+
+            {/* ── Model catalog / pull ──────────────────── */}
+            <section style={{ marginTop: '1.75rem' }} aria-labelledby="model-catalog-heading">
+              <h2 id="model-catalog-heading" className={styles.sectionHeading}>Model Catalog</h2>
+              <p className={styles.sectionIntro}>
+                Pull a catalog model directly onto the connected Ollama instance. Progress streams live below —
+                no page reload required.
+              </p>
+              {!ollamaAvailable ? (
+                <p className={styles.empty} style={{ padding: '0.75rem 0' }}>
+                  Ollama is unavailable, so models can&apos;t be pulled right now. Restore the connection and refresh.
+                </p>
+              ) : (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr><th>Model</th><th>Size</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {MODEL_CATALOG.map(m => {
+                        const installed = installedModels.includes(m.name)
+                        return (
+                          <tr key={m.name}>
+                            <td>
+                              <code className={styles.inlineCode}>{m.name}</code>
+                              <div className={styles.muted} style={{ fontSize: '0.75rem', marginTop: '0.2rem' }}>{m.label}</div>
+                            </td>
+                            <td className={styles.num}>{m.paramBillions}B · ~{m.sizeGB} GB</td>
+                            <td>
+                              {installed ? (
+                                <span className={styles.badge} data-variant="success">Installed</span>
+                              ) : (
+                                <ModelPullButton modelName={m.name} onInstalled={() => void refresh()} />
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             {/* ── Sources needing remapping ──────────────── */}
