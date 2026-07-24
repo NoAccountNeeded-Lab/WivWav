@@ -31,7 +31,7 @@ interface GrafanaAlertmanagerAlert {
  * `{ alerts: [], unavailable: true }` rather than rejecting.
  *
  * Shared by `routes/internal-grafana-alerts.ts` (the server-to-server proxy)
- * and `routes/admin-problem-aggregate.ts` (issue #892, which needs the same
+ * and `routes/internal-ops-problem-aggregate.ts` (issue #892, which needs the same
  * data server-side rather than round-tripping through that internal route)
  * so the two never fork the Grafana-to-`GrafanaAlertInstance` mapping.
  */

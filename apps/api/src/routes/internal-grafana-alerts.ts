@@ -8,7 +8,7 @@ type InternalGrafanaAlertsPluginOptions = GrafanaAlertsClientOptions
  *
  * Read-only proxy for current Grafana alert-instance state — see
  * `services/grafana-alerts-client.ts` for the fetch/normalisation logic this
- * route shares with `routes/admin-problem-aggregate.ts` (issue #892), so the
+ * route shares with `routes/internal-ops-problem-aggregate.ts` (issue #892), so the
  * two never fork the Grafana-to-`GrafanaAlertInstance` mapping.
  */
 export const internalGrafanaAlertsRoutes: FastifyPluginAsync<InternalGrafanaAlertsPluginOptions> = async (

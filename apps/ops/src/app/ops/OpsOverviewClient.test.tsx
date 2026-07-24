@@ -50,7 +50,7 @@ function mockFetchWithFailingRuns() {
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return { ok: false, status: 503, json: async () => ({}) } as Response
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-    if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
+    if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
 }
@@ -145,7 +145,7 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
       if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
       if (url.endsWith('/admin/runs')) return jsonResponse(runsBody)
       if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-      if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
+      if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
       throw new Error(`Unexpected URL in test: ${url}`)
     }))
 
@@ -170,7 +170,7 @@ function mockFetchWith(overrides: { health?: unknown; queues?: unknown; problemA
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return jsonResponse({ data: [] })
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-    if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(problemAggregate)
+    if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(problemAggregate)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
 }

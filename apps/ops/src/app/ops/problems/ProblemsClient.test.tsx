@@ -46,7 +46,7 @@ function mockFetch(problemAggregateBody: unknown) {
     if (url.endsWith('/admin/sources')) return jsonResponse(EMPTY_LIST)
     if (url.endsWith('/admin/runs')) return jsonResponse(EMPTY_LIST)
     if (url.endsWith('/admin/repeatables')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/problem-aggregate')) return jsonResponse(problemAggregateBody)
+    if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(problemAggregateBody)
     if (url.endsWith('/internal/ops/problem-ack')) {
       const body = JSON.parse(String(init?.body)) as { fingerprint: string; acknowledged: boolean }
       return jsonResponse({

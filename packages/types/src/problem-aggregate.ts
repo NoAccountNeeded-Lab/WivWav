@@ -61,7 +61,7 @@ export interface ProblemAggregate {
 
 /**
  * A `Problem` enriched with the persisted lifecycle/acknowledgement state
- * `POST /admin/problem-aggregate` (issue #892) merges in from
+ * `POST /internal/ops/problem-aggregate` (issue #892) merges in from
  * `ops_problem_state` after each aggregation pass: `firstSeen`/`lastSeen`/
  * `occurrenceCount` are always populated here (never `null`, unlike the raw
  * `Problem` a domain-only condition otherwise carries), and acknowledgement
