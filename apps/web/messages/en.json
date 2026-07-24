@@ -76,11 +76,14 @@
   "SearchFilters": {
     "sortLabel": "Sort",
     "sortOptions": {
-      "newestListings": "Recently found by WAV Search",
-      "priceLowToHigh": "Price: Low to high",
-      "priceHighToLow": "Price: High to low",
-      "lowestMileage": "Lowest mileage",
-      "yearNewestFirst": "Year: Newest first"
+      "dateFoundNewToOld": "Date Found: New to Old",
+      "dateFoundOldToNew": "Date Found: Old to New",
+      "priceLowToHigh": "Price: Low to High",
+      "priceHighToLow": "Price: High to Low",
+      "mileageLowToHigh": "Mileage: Low to High",
+      "mileageHighToLow": "Mileage: High to Low",
+      "yearNewToOld": "Year: New to Old",
+      "yearOldToNew": "Year: Old to New"
     }
   },
   "ActiveFilters": {

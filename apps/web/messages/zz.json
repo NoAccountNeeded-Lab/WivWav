@@ -76,11 +76,14 @@
   "SearchFilters": {
     "sortLabel": "****",
     "sortOptions": {
-      "newestListings": "****** ********",
+      "dateFoundNewToOld": "**** ****** *** ** ***",
+      "dateFoundOldToNew": "**** ****** *** ** ***",
       "priceLowToHigh": "****** *** ** ****",
       "priceHighToLow": "****** **** ** ***",
-      "lowestMileage": "****** *******",
-      "yearNewestFirst": "***** ****** *****"
+      "mileageLowToHigh": "******** *** ** ****",
+      "mileageHighToLow": "******** **** ** ***",
+      "yearNewToOld": "***** *** ** ***",
+      "yearOldToNew": "***** *** ** ***"
     }
   },
   "ActiveFilters": {

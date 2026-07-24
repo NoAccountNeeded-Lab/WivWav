@@ -80,11 +80,14 @@
   "SearchFilters": {
     "sortLabel": "Ordenar",
     "sortOptions": {
-      "newestListings": "Descubiertos recientemente por WAV Search",
+      "dateFoundNewToOld": "Fecha de hallazgo: de más reciente a más antiguo",
+      "dateFoundOldToNew": "Fecha de hallazgo: de más antiguo a más reciente",
       "priceLowToHigh": "Precio: de menor a mayor",
       "priceHighToLow": "Precio: de mayor a menor",
-      "lowestMileage": "Menor kilometraje",
-      "yearNewestFirst": "Año: más reciente primero"
+      "mileageLowToHigh": "Kilometraje: de menor a mayor",
+      "mileageHighToLow": "Kilometraje: de mayor a menor",
+      "yearNewToOld": "Año: de más reciente a más antiguo",
+      "yearOldToNew": "Año: de más antiguo a más reciente"
     }
   },
   "ActiveFilters": {
