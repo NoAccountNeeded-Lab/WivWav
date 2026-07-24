@@ -194,6 +194,20 @@ describe('useWorkspaceState', () => {
     expect(mockReplace).not.toHaveBeenCalled()
   })
 
+  it('replacePanels deduplicates entries that share an entityType/entityId pair, keeping the first', () => {
+    setUrl('/ops/runs', '')
+    const { result } = renderHook(() => useWorkspaceState())
+
+    act(() => {
+      result.current.replacePanels([
+        { entityType: 'problems', entityId: 'main', span: 2 },
+        { entityType: 'problems', entityId: 'main', span: 1 },
+      ])
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/ops/runs?panels=problems%3Amain%3A2', { scroll: false })
+  })
+
   it('replacePanels defaults a panel with no explicit span to the default span', () => {
     setUrl('/ops/runs', '')
     const { result } = renderHook(() => useWorkspaceState())

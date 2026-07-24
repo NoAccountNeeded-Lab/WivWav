@@ -151,12 +151,19 @@ export function useWorkspaceState(): WorkspaceApi {
 
   const replacePanels = useCallback(
     (nextPanels: Array<{ entityType: string; entityId: string; span?: PanelSpan }>) => {
-      const panels: WorkspacePanelState[] = nextPanels.map(({ entityType, entityId, span }) => ({
-        id: makePanelId(entityType, entityId),
-        entityType,
-        entityId,
-        span: span ?? DEFAULT_PANEL_SPAN,
-      }))
+      // Deduplicate by id (same rule `decodeWorkspaceState` applies to a
+      // hand-edited URL): a malformed caller — a typo'd template, or any
+      // future non-`templates.ts` caller — must not produce two panels
+      // sharing one id, which would collide on `key`/panel-ref lookups
+      // downstream. First occurrence wins; later duplicates are dropped.
+      const seen = new Set<PanelId>()
+      const panels: WorkspacePanelState[] = []
+      for (const { entityType, entityId, span } of nextPanels) {
+        const id = makePanelId(entityType, entityId)
+        if (seen.has(id)) continue
+        seen.add(id)
+        panels.push({ id, entityType, entityId, span: span ?? DEFAULT_PANEL_SPAN })
+      }
       commit({ panels, maximizedId: null, minimizedId: null })
       setFocusTarget(null)
     },
