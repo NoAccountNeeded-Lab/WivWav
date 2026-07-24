@@ -7,16 +7,18 @@ import type { OpsProblemStateRepository, OpsProblemStateRow } from '../repositor
 
 const RESOURCE_KEYS = ['health', 'queues', 'sources', 'runs', 'schedules'] as const
 
-interface AdminProblemAggregatePluginOptions extends GrafanaAlertsClientOptions, SentryIssuesClientOptions {
+interface InternalOpsProblemAggregatePluginOptions extends GrafanaAlertsClientOptions, SentryIssuesClientOptions {
   problemStates: OpsProblemStateRepository
 }
 
 /**
- * POST /admin/problem-aggregate
+ * POST /internal/ops/problem-aggregate
  *
  * The single server-side call the ops overview's Attention panel and
  * `/ops/problems` both render from (issue #892, child of #758) — neither
- * consumer may fork this computation into a second implementation.
+ * consumer may fork this computation into a second implementation. A new
+ * privileged operator API, so it mounts under `/internal/ops/*` alongside
+ * `internal-ops-problem-ack` (#891), not under `/admin/*` (see `app.ts`).
  *
  * Same "caller reports already-fetched domain resource state" pattern as
  * `POST /admin/attention-snapshot` (E5: independent per-section
@@ -35,7 +37,7 @@ interface AdminProblemAggregatePluginOptions extends GrafanaAlertsClientOptions,
  * `firstSeen`/`lastSeen`/`occurrenceCount` null since it recomputes them
  * fresh on every call with no history of its own.
  */
-export const adminProblemAggregateRoutes: FastifyPluginAsync<AdminProblemAggregatePluginOptions> = async (
+export const internalOpsProblemAggregateRoutes: FastifyPluginAsync<InternalOpsProblemAggregatePluginOptions> = async (
   app,
   { problemStates, grafanaUrl, grafanaApiToken, sentryAuthToken, sentryOrg, sentryProject },
 ) => {

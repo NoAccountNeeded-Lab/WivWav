@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { adminProblemAggregateRoutes } from './admin-problem-aggregate.js'
+import { internalOpsProblemAggregateRoutes } from './internal-ops-problem-aggregate.js'
 import type { OpsProblemStateRepository, OpsProblemStateRow } from '../repositories/index.js'
 
 const NOW = '2026-06-18T18:00:00.000Z'
@@ -24,7 +24,7 @@ function validBody(overrides: Record<string, unknown> = {}) {
 function buildTestApp(problemStates: OpsProblemStateRepository) {
   const app = Fastify()
   void app.register(sensible)
-  void app.register(adminProblemAggregateRoutes, {
+  void app.register(internalOpsProblemAggregateRoutes, {
     problemStates,
     grafanaUrl: 'http://grafana.test',
     grafanaApiToken: undefined,

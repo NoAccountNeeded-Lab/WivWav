@@ -8,7 +8,7 @@ type InternalSentryIssuesPluginOptions = SentryIssuesClientOptions
  *
  * Read-only proxy for recent unresolved Sentry issue summaries — see
  * `services/sentry-issues-client.ts` for the fetch/normalisation logic this
- * route shares with `routes/admin-problem-aggregate.ts` (issue #892), so the
+ * route shares with `routes/internal-ops-problem-aggregate.ts` (issue #892), so the
  * two never fork the Sentry-to-`SentryIssueSummary` mapping.
  */
 export const internalSentryIssuesRoutes: FastifyPluginAsync<InternalSentryIssuesPluginOptions> = async (

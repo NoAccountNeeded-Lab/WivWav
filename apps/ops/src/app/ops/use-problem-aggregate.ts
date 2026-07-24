@@ -11,8 +11,8 @@ const REFRESH_MS = 30_000
 
 /**
  * Posts the already-fetched domain resource state (`resources`, from
- * `useOverviewResources`) to `POST /admin/problem-aggregate` (issue #892)
- * and polls it on the same cadence as the resources feeding it.
+ * `useOverviewResources`) to `POST /internal/ops/problem-aggregate` (issue
+ * #892) and polls it on the same cadence as the resources feeding it.
  *
  * This is the single call the ops overview's Attention panel
  * (`OpsOverviewClient`) and `/ops/problems` (`ProblemsClient`) both render
@@ -37,7 +37,7 @@ export function useProblemAggregate(apiBaseUrl: string, resources: OverviewResou
         runs: toAttentionResourceInput(runs),
         schedules: toAttentionResourceInput(schedules),
       }
-      return fetchJson<ProblemAggregateResponse>(`${apiBaseUrl}/admin/problem-aggregate`, 10_000, {
+      return fetchJson<ProblemAggregateResponse>(`${apiBaseUrl}/internal/ops/problem-aggregate`, 10_000, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
