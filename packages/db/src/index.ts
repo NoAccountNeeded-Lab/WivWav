@@ -4,6 +4,7 @@ export type {
   Listing,
   Source,
   ScraperRun,
+  JobRun,
   ConfigEntry,
   ConfigEntryType,
   Vehicle,
@@ -15,7 +16,7 @@ export type {
   ListingReport,
   OpsProblemState,
 } from './generated/prisma/index.js'
-export { SourceStatus, WavFeature, ConversionStatus, ListingPublicationStatus, ListingReportType, ListingReportStatus, ImageKind, FieldResolutionState, OpsProblemSource } from './generated/prisma/index.js'
+export { SourceStatus, WavFeature, ConversionStatus, ListingPublicationStatus, ListingReportType, ListingReportStatus, ImageKind, FieldResolutionState, OpsProblemSource, JobRunStatus } from './generated/prisma/index.js'
 export { normalizeVin, isValidVin, checkDigitValid } from './lib/vin.js'
 export { findOrCreateVehicle } from './lib/vehicle-upsert.js'
 export {
