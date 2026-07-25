@@ -50,6 +50,17 @@ const schema = z.object({
   // unauthenticated in non-production and the /v1 bypass simply never
   // matches — only acceptable in local dev.
   INTERNAL_API_SECRET: z.string().min(16).optional(),
+  // Shared secret for the `/diagnostics/*` scope (#757/#773 AI diagnostic
+  // gateway) — deliberately distinct from INTERNAL_API_SECRET because
+  // diagnostic routes are designed for desktop AI clients (Claude/ChatGPT
+  // desktop apps), whose MCP config stores the bearer token in a plaintext
+  // file. INTERNAL_API_SECRET unlocks queue mutation, schedule changes, and
+  // secret-config decryption — unacceptable to hand to a desktop AI client.
+  // INTERNAL_API_SECRET is also accepted on /diagnostics/* (asymmetric
+  // compatibility, see plugins/diagnostic-auth.ts), but DIAGNOSTIC_API_SECRET
+  // is never accepted on /admin/*. When unset, /diagnostics is unauthenticated
+  // in non-production and fails closed (503) in production.
+  DIAGNOSTIC_API_SECRET: z.string().min(16).optional(),
   // Signing secret for the Stripe webhook (`POST /webhooks/stripe`), from the
   // Stripe Dashboard's webhook endpoint config. When unset, the webhook
   // endpoint refuses all requests with 503 rather than accepting unverifiable payloads.
