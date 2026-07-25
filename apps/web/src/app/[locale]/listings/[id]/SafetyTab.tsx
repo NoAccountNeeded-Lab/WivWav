@@ -77,12 +77,12 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
         <div className={styles.sectionLabelRow}>
           <AlertTriangle size={12} aria-hidden />
           Recalls &amp; VIN history
+          {/* role="status" lives on the SafetyStatusBadge above, which already
+              announces this same open-recall count as the page's single
+              at-a-glance summary — this in-section count stays a plain,
+              non-live-region label so screen readers don't hear it twice. */}
           {openRecallCount > 0 && (
-            <span
-              className={styles.recallBadge}
-              role="status"
-              aria-label={`${openRecallCount} open recall${openRecallCount > 1 ? 's' : ''}`}
-            >
+            <span className={styles.recallBadge}>
               {openRecallCount} open
             </span>
           )}
