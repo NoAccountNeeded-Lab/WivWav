@@ -1,7 +1,9 @@
+import type { VinHistoryEntry } from '@wivwav/types'
 import { MarketComparison } from '@/components/listing/MarketComparison'
 import { PriceHistoryChart } from '@/components/listing/PriceHistoryChart'
 import { SimilarListings } from '@/components/listing/SimilarListings'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
+import { hasMultiListingVinHistory, VinHistoryTimeline } from '@/components/listing/VinHistoryTimeline'
 import type { ListingDetail, MarketPricing, ModelMsrp, PricePoint, SimilarListing } from './types'
 import styles from './tabs.module.css'
 
@@ -9,6 +11,7 @@ interface MarketTabProps {
   listing: ListingDetail
   marketPricing: MarketPricing | null
   priceHistory: PricePoint[]
+  vinHistory: VinHistoryEntry[]
   similar: SimilarListing[]
   modelMsrp?: ModelMsrp | null
   vehiclePathPrefix?: string
@@ -18,15 +21,24 @@ export function MarketTab({
   listing,
   marketPricing,
   priceHistory,
+  vinHistory,
   similar,
   modelMsrp,
   vehiclePathPrefix,
 }: MarketTabProps) {
   const hasMarket = marketPricing && marketPricing.count >= 3 && marketPricing.priceCents
+  const hasVinHistory = hasMultiListingVinHistory(vinHistory)
 
   return (
     <div className={styles.tabContent}>
       <ListingDisclaimer categories={['market']} />
+
+      {hasVinHistory && (
+        <div className={styles.section}>
+          <div className={styles.sectionLabel}>VIN history across listings</div>
+          <VinHistoryTimeline history={vinHistory} currentListingId={listing.id} />
+        </div>
+      )}
 
       {priceHistory.length >= 2 && (
         <div className={styles.section}>
