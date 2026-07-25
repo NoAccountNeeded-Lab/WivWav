@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { SourceStatus, type PrismaClient, type Listing, type ListingImageSemanticAnalysis, type Prisma } from '@wivwav/db'
+import { SourceStatus, type PrismaClient, type Listing, type ListingImageSemanticAnalysis, type Prisma, type ConversionStatus, type WavFeature } from '@wivwav/db'
 
 // Mirrors STALE_DETAIL_DAYS in apps/scraper/src/jobs/detail-crawl.ts — a
 // listing whose detail page was last crawled longer ago than this is treated
@@ -131,6 +131,19 @@ export type VehicleModelWithSafetyData = {
 export type PriceHistoryRow = {
   id: string
   priceCents: number
+  recordedAt: Date
+}
+
+/**
+ * One `listing_conversion_history` snapshot. The scraper writes a row on
+ * every ingest pass regardless of whether the values changed (#921) — the
+ * consumer is responsible for collapsing consecutive identical snapshots
+ * into a changelog of actual changes.
+ */
+export type ConversionHistoryRow = {
+  id: string
+  conversionStatus: ConversionStatus
+  wavFeatures: WavFeature[]
   recordedAt: Date
 }
 
@@ -360,6 +373,12 @@ export interface ListingRepository {
   countActiveMissingCoordinates(): Promise<number>
   getPublicationCountsBySource(): Promise<ListingPublicationCountRow[]>
   findPriceHistory(listingId: string): Promise<PriceHistoryRow[]>
+  /**
+   * All `listing_conversion_history` snapshots for a listing, ordered by
+   * `recordedAt` ascending (#921). Includes duplicate consecutive snapshots
+   * — callers collapse those into a changelog of actual changes.
+   */
+  findConversionHistory(listingId: string): Promise<ConversionHistoryRow[]>
   /** Lists quarantined listings, optionally filtered by source, rule, and age. */
   findQuarantined(filter: QuarantineFilter): Promise<QuarantinedListingRow[]>
   countQuarantined(filter: Omit<QuarantineFilter, 'skip' | 'take'>): Promise<number>
@@ -679,6 +698,14 @@ export class PrismaListingRepository implements ListingRepository {
       where: { listingId },
       orderBy: { recordedAt: 'asc' },
       select: { id: true, priceCents: true, recordedAt: true },
+    })
+  }
+
+  findConversionHistory(listingId: string): Promise<ConversionHistoryRow[]> {
+    return this.db.listingConversionHistory.findMany({
+      where: { listingId },
+      orderBy: { recordedAt: 'asc' },
+      select: { id: true, conversionStatus: true, wavFeatures: true, recordedAt: true },
     })
   }
 
