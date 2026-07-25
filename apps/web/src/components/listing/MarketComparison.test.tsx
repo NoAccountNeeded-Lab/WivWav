@@ -54,8 +54,11 @@ describe('MarketComparison', () => {
       />,
     )
 
-    expect(screen.getByText('$18,000')).toBeTruthy() // p50 label
-    expect(screen.getByText(/50% below median|50% above median|median/)).toBeTruthy()
+    // Two separate labels: the p50 percentile amount in the .labels row, and
+    // the pctVsMedian callout text. priceCents === mp.p50 here, so the
+    // callout is pinned to exactly "0% below median" (pctVsMedian >= 0 branch).
+    expect(screen.getAllByText('$18,000').length).toBeGreaterThanOrEqual(1) // p50 label
+    expect(screen.getByText(/0% below median/)).toBeTruthy()
   })
 
   it('renders nothing when marketPricing has no priceCents band', () => {
