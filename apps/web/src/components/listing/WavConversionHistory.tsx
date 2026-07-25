@@ -31,9 +31,12 @@ function featureLabel(feature: string): string {
 }
 
 function sameFeatureSet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
+  // Compare as sets, not arrays — dedupes any repeated feature within a
+  // single snapshot so a duplicate doesn't register as a spurious change.
   const setA = new Set(a)
-  return b.every((feature) => setA.has(feature))
+  const setB = new Set(b)
+  if (setA.size !== setB.size) return false
+  return [...setB].every((feature) => setA.has(feature))
 }
 
 /**
@@ -89,7 +92,7 @@ export function WavConversionHistory({ history }: WavConversionHistoryProps) {
       <h2 id="conversion-history-heading" className={styles.sectionTitle}>
         Conversion history
       </h2>
-      <ul className={styles.changeList} aria-label="Conversion status and WAV feature changes">
+      <ul className={styles.changeList}>
         {changes.map((change) => (
           <li key={change.id} className={styles.changeItem}>
             <div className={styles.changeDate}>{formatDate(change.recordedAt)}</div>
