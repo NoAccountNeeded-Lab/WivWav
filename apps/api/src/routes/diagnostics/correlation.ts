@@ -113,6 +113,11 @@ async function gatherEntities(idType: IdType, id: string, deps: GatherDeps): Pro
   }
 
   // idType === 'jobId'
+  // getJobs() has no result-count param of its own — this loop relies on
+  // each queue's BullMQ retention policy (removeOnComplete/removeOnFail;
+  // see @wivwav/queue's per-queue policies) to keep the per-queue job list
+  // bounded, not on any limit applied here. If a queue's retention were ever
+  // set to keep an unbounded history, this scan would grow with it.
   let match: { queue: string; job: JobRecord } | null = null
   for (const [name, queue] of deps.queues) {
     const jobs = await queue.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed'])
