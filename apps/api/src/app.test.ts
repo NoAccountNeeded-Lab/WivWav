@@ -447,6 +447,82 @@ describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
   })
 })
 
+describe('/diagnostics auth boundary (#773)', () => {
+  it('fails closed (503) in production when DIAGNOSTIC_API_SECRET is unset', async () => {
+    const { app: appPromise } = buildTestApp({ config: { NODE_ENV: 'production' } })
+    const app = await appPromise
+
+    const response = await app.inject({ method: 'GET', url: '/diagnostics/ping' })
+    expect(response.statusCode).toBe(503)
+    expect(JSON.parse(response.body).error.code).toBe('DIAGNOSTIC_DISABLED')
+
+    await app.close()
+  })
+
+  it('rejects a request with no token or an invalid token once DIAGNOSTIC_API_SECRET is configured', async () => {
+    const { app: appPromise } = buildTestApp({ config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' } })
+    const app = await appPromise
+
+    const noToken = await app.inject({ method: 'GET', url: '/diagnostics/ping' })
+    expect(noToken.statusCode).toBe(401)
+
+    const wrongToken = await app.inject({
+      method: 'GET',
+      url: '/diagnostics/ping',
+      headers: { authorization: 'Bearer wrong-value' },
+    })
+    expect(wrongToken.statusCode).toBe(401)
+
+    await app.close()
+  })
+
+  it('accepts a valid DIAGNOSTIC_API_SECRET bearer token', async () => {
+    const { app: appPromise } = buildTestApp({ config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' } })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/diagnostics/ping',
+      headers: { authorization: 'Bearer diagnostic-secret-value' },
+    })
+    expect(response.statusCode).toBe(200)
+
+    await app.close()
+  })
+
+  it('also accepts a valid INTERNAL_API_SECRET bearer token (asymmetric compatibility)', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value', INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/diagnostics/ping',
+      headers: { authorization: 'Bearer shared-secret-value' },
+    })
+    expect(response.statusCode).toBe(200)
+
+    await app.close()
+  })
+
+  it('never accepts DIAGNOSTIC_API_SECRET on /admin/* routes', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { NODE_ENV: 'production', DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value', INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/runs',
+      headers: { authorization: 'Bearer diagnostic-secret-value' },
+    })
+    expect(response.statusCode).toBe(401)
+
+    await app.close()
+  })
+})
+
 describe('api key auth and per-key rate limiting (#453)', () => {
   it('returns 401 for /v1/listings with no key and no trusted origin', async () => {
     const { app: appPromise } = buildTestApp()
