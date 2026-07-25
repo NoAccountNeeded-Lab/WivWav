@@ -35,3 +35,45 @@ export function recallStatusLabel(status: 'open' | 'remedied' | 'unknown'): stri
   if (status === 'remedied') return 'Fix procedure published'
   return 'Fix not yet available'
 }
+
+/** Severity level driving the at-a-glance safety status badge's color/icon. */
+export type SafetyStatusLevel = 'good' | 'caution' | 'alert'
+
+export interface SafetyStatusSummary {
+  level: SafetyStatusLevel
+  label: string
+}
+
+/**
+ * Combines open recall count and NHTSA overall rating into a single
+ * at-a-glance summary for the safety status badge shown above the detailed
+ * recall/complaint lists. An open recall always takes precedence — it's the
+ * most actionable fact — followed by a low rating, then a clean bill of health.
+ */
+export function safetyStatusSummary(
+  openRecallCount: number,
+  overallRating: number | null,
+): SafetyStatusSummary {
+  if (openRecallCount > 0) {
+    return {
+      level: 'alert',
+      label: `${openRecallCount} open recall${openRecallCount > 1 ? 's' : ''}`,
+    }
+  }
+
+  if (overallRating !== null && overallRating <= 2) {
+    return {
+      level: 'caution',
+      label: `No open recalls · ${overallRating}/5 NHTSA rating`,
+    }
+  }
+
+  if (overallRating !== null) {
+    return {
+      level: 'good',
+      label: `No open recalls · ${overallRating}/5 NHTSA rating`,
+    }
+  }
+
+  return { level: 'good', label: 'No open recalls' }
+}

@@ -1,0 +1,14 @@
+.sparkline {
+  width: 4.5rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.line {
+  stroke: var(--clr-primary);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}

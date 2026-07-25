@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { RecallsList } from '@/components/listing/RecallsList'
 import { SafetyRatings } from '@/components/listing/SafetyRatings'
+import { SafetyStatusBadge } from '@/components/listing/SafetyStatusBadge'
 import { formatFreshnessDate, isSafetyDataStale } from './safetyTabUtils'
 import { SafetyRefreshButton } from '@/components/listing/SafetyRefreshButton'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
@@ -52,6 +53,13 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
             <SafetyRefreshButton listingId={listing.id} apiBaseUrl={apiBaseUrl} />
           )}
         </div>
+      )}
+
+      {safety !== null && (
+        <SafetyStatusBadge
+          openRecallCount={openRecallCount}
+          overallRating={rating?.overallRating ?? null}
+        />
       )}
 
       {listing.vin && (

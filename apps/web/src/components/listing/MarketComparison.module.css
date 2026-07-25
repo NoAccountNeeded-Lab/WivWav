@@ -43,6 +43,30 @@
   margin-bottom: 0.5rem;
 }
 
+/* Continuous p10–p90 position track. Kept a neutral, non-semantic color per
+   docs/BRAND.md ("chart fills for data use --clr-primary, never status
+   colors") — the marker position itself communicates where this listing
+   sits, so it doesn't need a good/bad color judgment layered on top. */
+.bandTrack {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--clr-border);
+  margin: 0 0.0625rem 0.5rem;
+}
+
+.bandMarker {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--clr-primary);
+  border: 2px solid var(--clr-surface);
+  box-shadow: 0 0 0 1px var(--clr-border-strong);
+  transform: translate(-50%, -50%);
+}
+
 .priceDrop {
   font-size: 0.6875rem;
   color: var(--clr-feature);

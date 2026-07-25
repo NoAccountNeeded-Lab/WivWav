@@ -11,6 +11,7 @@ import {
 import { DealerCard } from '@/components/listing/DealerCard'
 import { DealerReputation } from '@/components/listing/DealerReputation'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
+import { PriceSparkline } from '@/components/listing/PriceSparkline'
 import { ReportListingForm } from './ReportListingForm'
 import {
   conditionLabel,
@@ -51,6 +52,7 @@ export function OverviewTab({
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
+  const priceDropAmount = priceDrop !== null && priceDrop > 0 ? priceDrop : null
   const hasDealerInfo = listing.dealer.name ?? listing.dealer.phone ?? listing.dealer.website
   const crossListings = listing.crossListings ?? []
 
@@ -98,11 +100,18 @@ export function OverviewTab({
             Est. ${estimateMonthly(listing.priceCents).toLocaleString()}/mo
           </div>
         )}
-        {priceDrop !== null && priceDrop > 0 && lastPoint && (
+        {priceDropAmount !== null && lastPoint ? (
           <div className={styles.priceDrop}>
             <TrendingDown size={12} aria-hidden />
-            Reduced ${(priceDrop / 100).toLocaleString()} on {formatDate(lastPoint.recordedAt)}
+            Reduced ${(priceDropAmount / 100).toLocaleString()} on {formatDate(lastPoint.recordedAt)}
+            <PriceSparkline priceHistory={priceHistory} />
           </div>
+        ) : (
+          priceHistory.length >= 2 && (
+            <div className={styles.priceTrendRow}>
+              <PriceSparkline priceHistory={priceHistory} />
+            </div>
+          )
         )}
       </div>
 

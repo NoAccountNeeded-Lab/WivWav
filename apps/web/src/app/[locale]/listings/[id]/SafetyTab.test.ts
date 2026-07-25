@@ -3,7 +3,12 @@
 // following the same pattern as VehicleTab.test.ts.
 
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest'
-import { isSafetyDataStale, formatFreshnessDate, recallStatusLabel } from './safetyTabUtils.js'
+import {
+  isSafetyDataStale,
+  formatFreshnessDate,
+  recallStatusLabel,
+  safetyStatusSummary,
+} from './safetyTabUtils.js'
 
 // ── isSafetyDataStale ─────────────────────────────────────────────────────────
 
@@ -77,5 +82,35 @@ describe('recallStatusLabel', () => {
 
   it('returns status unknown label when status is unknown', () => {
     expect(recallStatusLabel('unknown')).toBe('Fix not yet available')
+  })
+})
+
+// ── safetyStatusSummary ────────────────────────────────────────────────────────
+
+describe('safetyStatusSummary', () => {
+  it('prioritizes an open recall over rating, even when the rating is good', () => {
+    expect(safetyStatusSummary(2, 5)).toEqual({ level: 'alert', label: '2 open recalls' })
+  })
+
+  it('uses singular wording for exactly one open recall', () => {
+    expect(safetyStatusSummary(1, null)).toEqual({ level: 'alert', label: '1 open recall' })
+  })
+
+  it('flags a low rating as caution when there are no open recalls', () => {
+    expect(safetyStatusSummary(0, 2)).toEqual({
+      level: 'caution',
+      label: 'No open recalls · 2/5 NHTSA rating',
+    })
+  })
+
+  it('reports good status with the rating when no open recalls and a solid rating', () => {
+    expect(safetyStatusSummary(0, 4)).toEqual({
+      level: 'good',
+      label: 'No open recalls · 4/5 NHTSA rating',
+    })
+  })
+
+  it('reports good status without a rating clause when no rating is available', () => {
+    expect(safetyStatusSummary(0, null)).toEqual({ level: 'good', label: 'No open recalls' })
   })
 })
