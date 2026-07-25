@@ -172,6 +172,19 @@ describe('computeAttentionSnapshot', () => {
     expect(dbDownViaSchedules.signalAvailability.db).toBe('unavailable')
   })
 
+  it('reports loki as available when the caller omits it (every pre-#775 caller)', () => {
+    const snapshot = computeAttentionSnapshot(baseRequest())
+    expect(snapshot.signalAvailability.loki).toBe('available')
+  })
+
+  it('reports loki as unavailable only when a caller (get_system_snapshot, #775) explicitly reports it unreachable', () => {
+    const lokiDown = computeAttentionSnapshot(baseRequest({ loki: { data: null, unavailable: true } }))
+    expect(lokiDown.signalAvailability).toEqual({ health: 'available', bullmq: 'available', db: 'available', loki: 'unavailable' })
+
+    const lokiUp = computeAttentionSnapshot(baseRequest({ loki: { data: null, unavailable: false } }))
+    expect(lokiUp.signalAvailability.loki).toBe('available')
+  })
+
   it('does not treat a not-yet-loaded resource as unavailable', () => {
     const snapshot = computeAttentionSnapshot(baseRequest({ sources: { data: null, unavailable: false } }))
 

@@ -120,4 +120,13 @@ export interface AttentionSnapshotRequest {
   sources: AttentionResourceInput<AttentionSourceSignal[]>
   runs: AttentionResourceInput<AttentionRunSignal[]>
   schedules: AttentionResourceInput<AttentionScheduleSignal[]>
+  /**
+   * Loki reachability, reported by callers that actually probe it (issue
+   * #775's `get_system_snapshot`). Optional and unconsumed by every other
+   * caller (`POST /admin/attention-snapshot`, `POST
+   * /internal/ops/problem-aggregate`) — they never send this field, so
+   * `computeSignalAvailability` treats an omitted value the same as the
+   * hardcoded `'available'` it always reported before this field existed.
+   */
+  loki?: AttentionResourceInput<unknown>
 }

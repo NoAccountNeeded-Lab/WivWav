@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { parseLine, type LogEntry } from '../services/loki-client.js'
 
 interface AdminLogsPluginOptions {
   lokiUrl: string
@@ -20,20 +21,7 @@ interface LokiQueryResponse {
   data: LokiQueryData
 }
 
-/** Normalised log entry returned to the UI */
-export interface LogEntry {
-  ts: string
-  level: string | null
-  service: string | null
-  message: string | null
-  requestId: string | null
-  queue: string | null
-  jobId: string | null
-  sourceId: string | null
-  stack: string | null
-  /** Any remaining structured fields not captured above */
-  extra: Record<string, unknown>
-}
+export type { LogEntry }
 
 interface LogsQuerystring {
   service?: string
@@ -41,83 +29,6 @@ interface LogsQuerystring {
   limit?: string
   start?: string
   end?: string
-}
-
-/**
- * Parse a Loki log line into a structured LogEntry.
- * Lines are pino-formatted JSON; fall back to raw message string if parsing fails.
- */
-function parseLine(streamLabels: Record<string, string>, line: string, tsNs: string): LogEntry {
-  const ts = new Date(Math.floor(Number(tsNs) / 1_000_000)).toISOString()
-
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(line) as Record<string, unknown>
-  } catch {
-    return {
-      ts,
-      level: streamLabels.level ?? null,
-      service: streamLabels.service ?? null,
-      message: line,
-      requestId: null,
-      queue: null,
-      jobId: null,
-      sourceId: null,
-      stack: null,
-      extra: {},
-    }
-  }
-
-  const pull = (key: string): string | null => {
-    const v = parsed[key]
-    if (typeof v === 'string') {
-      delete parsed[key]
-      return v || null
-    }
-    return null
-  }
-
-  // pino level numbers → names (pino defaults: trace=10 debug=20 info=30 warn=40 error=50 fatal=60)
-  const levelNum = parsed.level
-  delete parsed.level
-  let levelName: string | null = streamLabels.level ?? null
-  if (typeof levelNum === 'number') {
-    if (levelNum < 20) levelName = 'trace'
-    else if (levelNum < 30) levelName = 'debug'
-    else if (levelNum < 40) levelName = 'info'
-    else if (levelNum < 50) levelName = 'warn'
-    else if (levelNum < 60) levelName = 'error'
-    else levelName = 'fatal'
-  } else if (typeof levelNum === 'string') {
-    levelName = levelNum
-  }
-
-  // Remove well-known noise fields
-  delete parsed.time
-  delete parsed.pid
-  delete parsed.hostname
-  delete parsed.v
-
-  const service = pull('service') ?? streamLabels.service ?? streamLabels.app ?? null
-  const message = pull('msg') ?? pull('message') ?? null
-  const requestId = pull('requestId') ?? pull('req_id') ?? null
-  const queue = pull('queue') ?? null
-  const jobId = pull('jobId') ?? pull('job_id') ?? null
-  const sourceId = pull('sourceId') ?? pull('source_id') ?? null
-  const stack = pull('stack') ?? null
-
-  return {
-    ts,
-    level: levelName,
-    service,
-    message,
-    requestId,
-    queue,
-    jobId,
-    sourceId,
-    stack,
-    extra: parsed as Record<string, unknown>,
-  }
 }
 
 export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async (
