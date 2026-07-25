@@ -12,6 +12,7 @@ import {
   Histogram,
   Gauge,
 } from 'prom-client'
+import { latestCompletedTimestampSeconds } from '../services/queue-job-timestamps.js'
 
 export interface MetricsPluginOptions {
   db: PrismaClient
@@ -21,16 +22,6 @@ export interface MetricsPluginOptions {
   lokiUrl: string
   /** Pre-created registry shared with the root app so HTTP hooks can populate it from outside the plugin scope. */
   registry: Registry
-}
-
-/** Unix timestamp (seconds) of the most recently completed job in a queue, or 0 if none/unreachable. */
-async function latestCompletedTimestampSeconds(queueFactory: QueueFactory, queueName: string): Promise<number> {
-  const jobs = await queueFactory.createQueue(queueName).getJobs(['completed'])
-  const latestFinishedAt = jobs.reduce<number>((latest, job) => {
-    const finishedAt = job.finishedAt?.getTime() ?? 0
-    return Math.max(latest, finishedAt)
-  }, 0)
-  return Math.floor(latestFinishedAt / 1000)
 }
 
 /** Create the shared metrics registry and HTTP counters. Call this in the root app before registering metricsRoutes. */
@@ -251,7 +242,7 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
       // Meilisearch last sync recency from the most recently completed listing-sync job
       (async () => {
         try {
-          meilisearchLastSyncTimestamp.set(await latestCompletedTimestampSeconds(queueFactory, QUEUES.LISTING_SYNC))
+          meilisearchLastSyncTimestamp.set((await latestCompletedTimestampSeconds(queueFactory, QUEUES.LISTING_SYNC)) ?? 0)
         } catch {
           meilisearchLastSyncTimestamp.set(0)
         }
@@ -288,7 +279,7 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
         await Promise.allSettled(
           [QUEUES.NHTSA_RECALLS, QUEUES.NHTSA_COMPLAINTS, QUEUES.NHTSA_SAFETY_RATINGS].map(async (name) => {
             try {
-              nhtsaLastCompletedTimestamp.labels(name).set(await latestCompletedTimestampSeconds(queueFactory, name))
+              nhtsaLastCompletedTimestamp.labels(name).set((await latestCompletedTimestampSeconds(queueFactory, name)) ?? 0)
             } catch {
               nhtsaLastCompletedTimestamp.labels(name).set(0)
             }
