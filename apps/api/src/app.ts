@@ -48,6 +48,8 @@ import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.j
 import { internalOpsProblemAggregateRoutes } from './routes/internal-ops-problem-aggregate.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
+import { diagnosticAuthPlugin } from './plugins/diagnostic-auth.js'
+import { diagnosticsRoutes } from './routes/diagnostics.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
 import { metricsRoutes, createMetricsRegistry } from './routes/metrics.js'
 import { conversionBrandRoutes } from './routes/conversion-brands.js'
@@ -339,6 +341,29 @@ export async function buildApp(
       })
     },
     { prefix: '/internal/ops' },
+  )
+
+  // Read-only AI diagnostic gateway (#757/#773). A separate fail-closed
+  // scope from /admin and /internal — gated by DIAGNOSTIC_API_SECRET, a
+  // narrower credential safe to hand to desktop AI MCP clients (see
+  // plugins/diagnostic-auth.ts for why it must not be INTERNAL_API_SECRET).
+  // INTERNAL_API_SECRET is also accepted here (asymmetric compatibility so
+  // the ops BFF can proxy without new wiring), but adminAuthPlugin never
+  // accepts DIAGNOSTIC_API_SECRET, so this credential can never reach
+  // /admin/*. No real diagnostic routes exist yet — diagnosticsRoutes is a
+  // placeholder to exercise the auth boundary until a follow-up issue adds
+  // the first one.
+  await app.register(
+    async (diagnosticsScope) => {
+      await diagnosticAuthPlugin(diagnosticsScope, {
+        diagnosticApiSecret: config.DIAGNOSTIC_API_SECRET,
+        internalApiSecret: config.INTERNAL_API_SECRET,
+        nodeEnv: config.NODE_ENV,
+      })
+
+      await diagnosticsScope.register(diagnosticsRoutes)
+    },
+    { prefix: '/diagnostics' },
   )
 
   // Stripe calls this directly and authenticates via the signed payload
