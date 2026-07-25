@@ -79,6 +79,7 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 | POST   | /internal/ops/problem-aggregate | Single call the ops overview's Attention panel and `/ops/problems` both render from (issue #892, child of #758) — neither may fork this computation. A new privileged operator API, so it mounts under `/internal/ops/*` alongside `/internal/ops/problem-ack`, not `/admin/*`. Body: same shape as `/admin/attention-snapshot` (`now` plus `health`/`queues`/`sources`/`runs`/`schedules` resource inputs); Grafana and Sentry state is fetched server-side, not posted by the caller (those are internal-only surfaces the browser never calls directly). Federates domain conditions + Grafana alerts + Sentry issues (issue #890's `computeProblemAggregate`), persists one aggregation pass to `ops_problem_state`, and merges the persisted `firstSeen`/`lastSeen`/`occurrenceCount`/acknowledgement state back onto each problem. Response: `{ data: { problems: ProblemState[], availability } }`. |
 | POST   | /internal/ops/problem-ack      | Acknowledge or unacknowledge a persisted aggregated problem fingerprint. Body: `{ fingerprint, acknowledged, acknowledgedBy? }`. Acknowledging sets `acknowledgedAt` and `acknowledgedBy`; unacknowledging clears both. The row must already exist in `ops_problem_state`, which is populated by `/internal/ops/problem-aggregate` passes and retains resolved/flapping problem history. Uses the same fail-closed bearer guard as private ops routes. |
 | GET    | /admin/board                   | Queue job inspector UI (Bull Board). Reachable only through the ops BFF's authenticated session; fails closed like every other `/admin` route. |
+| GET    | /diagnostics/ping               | Placeholder route (#773) that only exists to exercise the `/diagnostics` fail-closed auth boundary — no real diagnostic gateway endpoints exist yet; remove once the first real route lands in a follow-up issue. Same response shape as `/admin/whoami`-style checks: `{ data: { ok: true } }`. |
 | POST   | /telemetry/client-events       | Ingest a browser error event (js-error, unhandled-rejection, fetch-error, react-error) and log it via pino with `service: "web-client"` so it appears in the Loki pipeline. Returns 204. Unauthenticated (public exception — see below); moved out of `/admin` in #450 so it isn't caught by the admin fail-closed boundary. Same narrow schema and per-route rate limit as before. |
 | GET    | /metrics                       | Prometheus text-format scrape endpoint (prom-client). Exposes Node.js process metrics, HTTP request counts/latency by route, BullMQ queue depths per queue and status, DB size/listing count, Valkey and Meilisearch up gauges, Meilisearch listings-index document count/size and last sync timestamp, Loki up gauge, last successful source scrape timestamp, and NHTSA refresh recency by queue. Scraped by Prometheus every 15 s when the `obs` profile is active. |
 
@@ -105,6 +106,28 @@ Every route under `/admin` — including `/admin/board` — is guarded by a sing
 `apps/ops` never calls `/admin/*` from the browser. It authenticates operators with its own session (login page + signed cookie) and proxies admin calls server-side through its BFF routes (`apps/ops/src/app/api/bff/*` and `apps/ops/src/app/admin/board/*`), injecting `INTERNAL_API_SECRET` there. See `apps/ops/src/lib/session.ts` and `apps/ops/src/middleware.ts`.
 
 `/internal/v1/api-keys` (key provisioning, #453) and `/internal/v1/grafana/alerts` / `/internal/v1/sentry/issues` (operator-dashboard federation, #890) reuse this exact same `adminAuthPlugin` boundary for a separate `/internal/v1` scope — same fail-closed rules as above, just a different route prefix for a conceptually different (billing/operator, monitoring-federation) surface than `/admin`.
+
+`/diagnostics/*` (below) is a **separate** scope with its own plugin (`diagnostic-auth.ts`) and its own credential (`DIAGNOSTIC_API_SECRET`) — `adminAuthPlugin`/`INTERNAL_API_SECRET` never gates it, and conversely `DIAGNOSTIC_API_SECRET` is never accepted here.
+
+## Diagnostic auth boundary (fail-closed, #757/#773)
+
+Every route under `/diagnostics` is guarded by a single `onRequest` hook (`apps/api/src/plugins/diagnostic-auth.ts`), the same fail-closed pattern as `/admin` but with a **separate, narrower-scoped credential**: `DIAGNOSTIC_API_SECRET`.
+
+This scope exists for a read-only AI diagnostic gateway intended to be called from desktop AI clients (Claude/ChatGPT desktop apps), whose MCP config stores the bearer token in a plaintext file on the user's machine. `INTERNAL_API_SECRET` unlocks queue mutation, schedule changes, and `GET /admin/config/:key/decrypt` — handing that credential to a desktop AI client would be unacceptable, so diagnostic routes never accept it as their *only* path to trust; they use a dedicated secret instead.
+
+The credential relationship is **intentionally asymmetric**:
+
+- **`DIAGNOSTIC_API_SECRET`** is accepted **only** on `/diagnostics/*`. It is never accepted on `/admin/*`, `/internal/v1/*`, or `/internal/ops/*` — those routes are guarded by `adminAuthPlugin`, which has no knowledge of this secret.
+- **`INTERNAL_API_SECRET`** is *also* accepted on `/diagnostics/*` — an intentional, documented compatibility choice so the ops BFF (which already holds `INTERNAL_API_SECRET`) can proxy diagnostic calls without provisioning and wiring a second secret.
+- The reverse never holds: possessing `DIAGNOSTIC_API_SECRET` grants no access whatsoever to `/admin/*` or any other privileged scope.
+
+Behaviour otherwise mirrors the admin boundary:
+
+- **Production, no `DIAGNOSTIC_API_SECRET` configured:** every `/diagnostics/*` request is refused with `503 DIAGNOSTIC_DISABLED`, even if `INTERNAL_API_SECRET` happens to be set. The API never silently serves diagnostic surfaces unauthenticated in production.
+- **`DIAGNOSTIC_API_SECRET` and/or `INTERNAL_API_SECRET` configured:** requests must carry `Authorization: Bearer <either secret>`, or receive `401 UNAUTHORIZED`.
+- **Non-production, neither secret configured:** requests pass through unauthenticated. This permissive mode only exists for local dev/CI and is unreachable when `NODE_ENV=production`.
+
+No real diagnostic endpoints exist yet — this issue (#773) lands only the auth boundary and scope, verified against a placeholder route (`GET /diagnostics/ping`, see above). Actual diagnostic gateway routes are a follow-up issue.
 
 ### Public exceptions to the admin boundary
 
