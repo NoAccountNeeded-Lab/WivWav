@@ -1,5 +1,6 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { formatPrice, formatDate } from '@/app/[locale]/listings/[id]/utils'
+import { pricePositionPercent } from '@/app/[locale]/listings/[id]/marketTabUtils'
 import type { MarketPricing, PricePoint } from '@/app/[locale]/listings/[id]/types'
 import styles from './MarketComparison.module.css'
 
@@ -33,6 +34,8 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
       ? Math.round(((mp.p50 - priceCents) / mp.p50) * 100)
       : null
 
+  const positionPct = pricePositionPercent(priceCents, { p10: mp.p10, p90: mp.p90 })
+
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
@@ -64,6 +67,18 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
         <span>{formatPrice(mp.p75)}</span>
         <span>{formatPrice(mp.p90)}+</span>
       </div>
+
+      {/* Continuous position indicator — where this exact price falls between
+          p10 and p90, distinct from the discrete histogram bucket above. */}
+      {positionPct !== null && priceCents !== null && (
+        <div
+          className={styles.bandTrack}
+          role="img"
+          aria-label={`This listing's price is ${formatPrice(priceCents)}, positioned at ${Math.round(positionPct)}% of the way from the 10th percentile (${formatPrice(mp.p10)}) to the 90th percentile (${formatPrice(mp.p90)}) among comparable listings.`}
+        >
+          <div className={styles.bandMarker} style={{ left: `${positionPct}%` }} />
+        </div>
+      )}
 
       {pctVsMedian !== null && (
         <div className={pctVsMedian >= 0 ? styles.noteBelow : styles.noteAbove}>

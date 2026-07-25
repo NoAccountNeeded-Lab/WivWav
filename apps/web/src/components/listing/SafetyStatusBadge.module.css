@@ -1,0 +1,26 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.625rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Status colors are fixed across themes per docs/BRAND.md — never theme tokens. */
+.good {
+  background: color-mix(in srgb, var(--clr-success) 14%, transparent);
+  color: var(--clr-success-text);
+}
+
+.caution {
+  background: color-mix(in srgb, var(--clr-warning) 16%, transparent);
+  color: var(--clr-warning-text);
+}
+
+.alert {
+  background: color-mix(in srgb, var(--clr-danger) 14%, transparent);
+  color: var(--clr-danger-text);
+}
