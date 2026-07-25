@@ -1,8 +1,9 @@
 import { WavDetailsGrid } from '@/components/listing/WavDetailsGrid'
 import { WavConversionInfo } from '@/components/listing/WavConversionInfo'
+import { WavConversionHistory } from '@/components/listing/WavConversionHistory'
 import { NmedaDealersNearby } from '@/components/listing/NmedaDealersNearby'
 import type { ConversionBrandDetail, ConversionProduct } from '@/components/listing/conversionBrand'
-import type { NmeaDealer } from './types'
+import type { ConversionHistoryEntry, NmeaDealer } from './types'
 import type { ListingDetail } from './types'
 import styles from './tabs.module.css'
 
@@ -12,6 +13,7 @@ interface WavTabProps {
   matchedConversionProduct?: ConversionProduct | null
   nearbyDealers?: NmeaDealer[]
   hasCoordinates?: boolean
+  conversionHistory?: ConversionHistoryEntry[]
 }
 
 export function WavTab({
@@ -20,6 +22,7 @@ export function WavTab({
   matchedConversionProduct,
   nearbyDealers = [],
   hasCoordinates = false,
+  conversionHistory = [],
 }: WavTabProps) {
   const { wav, fieldResolution } = listing
   const sourceUrl = listing.buyerUrl ?? listing.sourceUrl
@@ -36,6 +39,8 @@ export function WavTab({
       />
 
       <WavDetailsGrid wav={wav} rampTypeStatus={fieldResolution?.rampType} className={styles.wavGrid} />
+
+      <WavConversionHistory history={conversionHistory} />
 
       <NmedaDealersNearby dealers={nearbyDealers} hasCoordinates={hasCoordinates} />
     </div>

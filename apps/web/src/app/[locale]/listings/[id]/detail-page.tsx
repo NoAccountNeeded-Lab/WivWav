@@ -19,6 +19,7 @@ import { VehicleTab } from './VehicleTab'
 import { MarketTab } from './MarketTab'
 import { SafetyTab } from './SafetyTab'
 import type {
+  ConversionHistoryEntry,
   DealerProfile,
   DealerReview,
   ListingDetail,
@@ -74,6 +75,19 @@ async function getPriceHistory(id: string): Promise<PricePoint[]> {
     })
     if (!res.ok) return []
     const json = (await res.json()) as { data: PricePoint[] }
+    return json.data ?? []
+  } catch {
+    return []
+  }
+}
+
+async function getConversionHistory(id: string): Promise<ConversionHistoryEntry[]> {
+  try {
+    const res = await apiFetch(`${getServerApiBaseUrl()}/v1/listings/${id}/conversion-history`, {
+      next: { revalidate: 300 },
+    })
+    if (!res.ok) return []
+    const json = (await res.json()) as { data: ConversionHistoryEntry[] }
     return json.data ?? []
   } catch {
     return []
@@ -278,6 +292,7 @@ export default async function VehicleDetailPage({
     conversionBrand,
     nearbyDealers,
     dealerProfile,
+    conversionHistory,
   ] =
     await Promise.all([
       getPriceHistory(id),
@@ -290,6 +305,7 @@ export default async function VehicleDetailPage({
       getConversionBrand(listing.wav.conversionManufacturer),
       getNearbyDealers(listing.location.lat, listing.location.lng),
       getDealerProfile(id),
+      getConversionHistory(id),
     ])
   // Reviews depend on the dealer profile's id, resolved above — a
   // private-seller listing or an unmatched dealer has none to fetch.
@@ -321,6 +337,7 @@ export default async function VehicleDetailPage({
           matchedConversionProduct={matchedConversionProduct}
           nearbyDealers={nearbyDealers}
           hasCoordinates={listing.location.lat !== null && listing.location.lng !== null}
+          conversionHistory={conversionHistory}
         />
       ),
     },
