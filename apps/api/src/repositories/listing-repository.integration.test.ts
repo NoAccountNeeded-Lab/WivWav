@@ -155,4 +155,51 @@ describe('PrismaListingRepository (integration)', () => {
       expect(conversionRows).toHaveLength(1)
     })
   })
+
+  describe('findConversionHistory (#921)', () => {
+    it('returns snapshots ordered by recordedAt ascending, scoped to the listing', async () => {
+      const source = await createSource(db)
+      const target = await createListing(db, source.id, {})
+      const other = await createListing(db, source.id, {})
+
+      await db.listingConversionHistory.create({
+        data: {
+          listingId: target.id,
+          conversionStatus: 'proposed',
+          wavFeatures: ['transfer_seat'],
+          recordedAt: new Date('2026-02-01T00:00:00Z'),
+        },
+      })
+      await db.listingConversionHistory.create({
+        data: {
+          listingId: target.id,
+          conversionStatus: 'complete',
+          wavFeatures: ['transfer_seat', 'power_ramp'],
+          recordedAt: new Date('2026-01-01T00:00:00Z'),
+        },
+      })
+      // Different listing — must not appear in target's history.
+      await db.listingConversionHistory.create({
+        data: {
+          listingId: other.id,
+          conversionStatus: 'complete',
+          wavFeatures: [],
+          recordedAt: new Date('2026-01-15T00:00:00Z'),
+        },
+      })
+
+      const rows = await repo.findConversionHistory(target.id)
+
+      expect(rows.map((r) => r.conversionStatus)).toEqual(['complete', 'proposed'])
+      expect(rows.every((r) => r.recordedAt instanceof Date)).toBe(true)
+      expect(rows[0]!.recordedAt.getTime()).toBeLessThan(rows[1]!.recordedAt.getTime())
+    })
+
+    it('returns an empty array when the listing has no conversion history', async () => {
+      const source = await createSource(db)
+      const listing = await createListing(db, source.id, {})
+
+      await expect(repo.findConversionHistory(listing.id)).resolves.toEqual([])
+    })
+  })
 })
