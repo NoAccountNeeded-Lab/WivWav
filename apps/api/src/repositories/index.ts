@@ -19,6 +19,9 @@ export { PrismaSourceRepository } from './source-repository.js'
 export type { ScraperRunRepository, ScraperRunRow, LastScraperRunRow } from './scraper-run-repository.js'
 export { PrismaScraperRunRepository } from './scraper-run-repository.js'
 
+export type { JobRunRepository, JobRunRow, JobRunTreeNode } from './job-run-repository.js'
+export { PrismaJobRunRepository } from './job-run-repository.js'
+
 export type { ConversionBrandRepository, ConversionBrandSummary, ConversionBrandDetail, ConversionProductRow } from './conversion-brand-repository.js'
 export { PrismaConversionBrandRepository } from './conversion-brand-repository.js'
 

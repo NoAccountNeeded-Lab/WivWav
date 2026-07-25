@@ -9,6 +9,7 @@ import {
   type PrismaClient,
 } from '@wivwav/db'
 import type {
+  JobRunRepository,
   ListingPublicationCountRow,
   ListingRepository,
   QuarantinedListingRow,
@@ -63,6 +64,7 @@ interface AdminPluginOptions {
   listings: ListingRepository
   sources: SourceRepository
   scraperRuns: ScraperRunRepository
+  jobRuns: JobRunRepository
   queueFactory: QueueFactory
 }
 
@@ -141,7 +143,7 @@ const queueJobBodySchema = {
 
 export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app,
-  { db, listings, sources, scraperRuns, queueFactory },
+  { db, listings, sources, scraperRuns, jobRuns, queueFactory },
 ) => {
   const queues = new Map<string, QueueAdapter>()
   for (const name of Object.values(QUEUES)) {
@@ -379,6 +381,25 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     } catch (err) {
       app.log.error(err, 'Source pipeline status unavailable')
       return reply.code(503).send({ error: { code: 'SERVICE_UNAVAILABLE', message: 'Source pipeline status is unavailable' } })
+    }
+  })
+
+  // GET /admin/sources/:id/job-runs — full pipeline run tree for one source
+  // (#933 lineage backbone). Every JobRun directly attributed to the source
+  // (scrape, detail-crawl, detail-extract, etc.), plus every run
+  // transitively spawned from one of those (e.g. a listing-resolve run
+  // triggered by a detail-extract run), nested by parentRunId. 404 if the
+  // source does not exist.
+  app.get<{ Params: { id: string } }>('/sources/:id/job-runs', async (req, reply) => {
+    const source = await sources.findById(req.params.id)
+    if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
+
+    try {
+      const runs = await jobRuns.findRunTreeForSource(source.id)
+      return reply.send({ data: { source: { id: source.id, name: source.name }, generatedAt: new Date(), runs } })
+    } catch (err) {
+      app.log.error(err, 'Source job-run tree unavailable')
+      return reply.code(503).send({ error: { code: 'SERVICE_UNAVAILABLE', message: 'Source job-run tree is unavailable' } })
     }
   })
 

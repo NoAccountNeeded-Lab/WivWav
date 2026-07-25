@@ -54,25 +54,34 @@ function buildDefaultScraperRunRepo(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function buildDefaultJobRunRepo(overrides: Record<string, unknown> = {}) {
+  return {
+    findRunTreeForSource: vi.fn(async () => []),
+    ...overrides,
+  }
+}
+
 function buildTestApp(
   sourceRepoOverrides: Record<string, unknown> = {},
   scraperRunRepoOverrides: Record<string, unknown> = {},
   factory: MockQueueFactory,
   listingRepoOverrides: Record<string, unknown> = {},
+  jobRunRepoOverrides: Record<string, unknown> = {},
 ) {
   const app = Fastify()
   void app.register(sensible)
   const listings = buildDefaultListingRepo(listingRepoOverrides)
   const sources = buildDefaultSourceRepo(sourceRepoOverrides)
   const scraperRuns = buildDefaultScraperRunRepo(scraperRunRepoOverrides)
+  const jobRuns = buildDefaultJobRunRepo(jobRunRepoOverrides)
   const db = {
     configEntry: {
       create: vi.fn(async ({ data }) => ({ id: 'cfg-1', ...data })),
       findMany: vi.fn(async () => []),
     },
   }
-  void app.register(adminRoutes, { db: db as never, listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, queueFactory: factory as never })
-  return { app, listings, sources, scraperRuns, db }
+  void app.register(adminRoutes, { db: db as never, listings: listings as never, sources: sources as never, scraperRuns: scraperRuns as never, jobRuns: jobRuns as never, queueFactory: factory as never })
+  return { app, listings, sources, scraperRuns, jobRuns, db }
 }
 
 describe('GET /queues', () => {
@@ -461,6 +470,84 @@ describe('GET /sources/:id/pipeline', () => {
     const { app } = buildTestApp({}, {}, factory)
     const res = await app.inject({ method: 'GET', url: '/sources/nonexistent/pipeline' })
     expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+})
+
+describe('GET /sources/:id/job-runs', () => {
+  it('returns the source and its run tree from the repository', async () => {
+    const factory = new MockQueueFactory()
+    const tree = [
+      {
+        id: 'run-scrape-1',
+        jobType: QUEUES.SOURCE_SCRAPE,
+        sourceId: 'src-1',
+        parentRunId: null,
+        status: 'succeeded',
+        startedAt: new Date('2026-06-18T10:00:00Z'),
+        finishedAt: new Date('2026-06-18T10:01:00Z'),
+        succeededCount: 10,
+        failedCount: 0,
+        errorMessage: null,
+        children: [
+          {
+            id: 'run-resolve-1',
+            jobType: QUEUES.LISTING_RESOLVE,
+            sourceId: null,
+            parentRunId: 'run-scrape-1',
+            status: 'succeeded',
+            startedAt: new Date('2026-06-18T10:01:30Z'),
+            finishedAt: new Date('2026-06-18T10:01:45Z'),
+            succeededCount: 10,
+            failedCount: 0,
+            errorMessage: null,
+            children: [],
+          },
+        ],
+      },
+    ]
+    const { app } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'BLVD.com', status: 'active', lastScrapedAt: null })) },
+      {},
+      factory,
+      {},
+      { findRunTreeForSource: vi.fn(async () => tree) },
+    )
+
+    const res = await app.inject({ method: 'GET', url: '/sources/src-1/job-runs' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.source).toEqual({ id: 'src-1', name: 'BLVD.com' })
+    expect(body.data.runs).toHaveLength(1)
+    expect(body.data.runs[0].id).toBe('run-scrape-1')
+    expect(body.data.runs[0].children).toHaveLength(1)
+    expect(body.data.runs[0].children[0].id).toBe('run-resolve-1')
+    expect(body.data.runs[0].children[0].parentRunId).toBe('run-scrape-1')
+
+    await app.close()
+  })
+
+  it('returns 404 when source does not exist', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp({}, {}, factory)
+    const res = await app.inject({ method: 'GET', url: '/sources/nonexistent/job-runs' })
+    expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+
+  it('returns 503 when the repository throws', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'BLVD.com', status: 'active', lastScrapedAt: null })) },
+      {},
+      factory,
+      {},
+      { findRunTreeForSource: vi.fn(async () => { throw new Error('db down') }) },
+    )
+
+    const res = await app.inject({ method: 'GET', url: '/sources/src-1/job-runs' })
+    expect(res.statusCode).toBe(503)
+
     await app.close()
   })
 })

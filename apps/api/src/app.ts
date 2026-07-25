@@ -30,6 +30,7 @@ import {
   PrismaDealerRepository,
   PrismaApiKeyRepository,
   PrismaOpsProblemStateRepository,
+  PrismaJobRunRepository,
 } from './repositories/index.js'
 import { healthRoutes } from './routes/health.js'
 import { listingRoutes } from './routes/listings.js'
@@ -125,6 +126,7 @@ export async function buildApp(
   const dealerRepo = new PrismaDealerRepository(db)
   const apiKeyRepo = new PrismaApiKeyRepository(db)
   const problemStateRepo = new PrismaOpsProblemStateRepository(db)
+  const jobRunRepo = new PrismaJobRunRepository(db)
 
   await app.register(cors, {
     origin: (origin, cb) => {
@@ -255,7 +257,7 @@ export async function buildApp(
         nodeEnv: config.NODE_ENV,
       })
 
-      await adminScope.register(adminRoutes, { db, listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, queueFactory })
+      await adminScope.register(adminRoutes, { db, listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, jobRuns: jobRunRepo, queueFactory })
       await adminScope.register(adminVehicleIdentityRoutes, { prefix: '/vehicle-identity', vehicleIdentityDecisions: vehicleIdentityDecisionRepo })
       await adminScope.register(adminAiRoutes, {
         prefix: '/ai',
