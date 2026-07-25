@@ -98,11 +98,12 @@ const CARD_COL_SPAN: Record<string, number> = {
 
 /** Attention item ids that mean "this resource's endpoint failed" — see overview-helpers.ts */
 const UNAVAILABLE_ATTENTION_ID: Record<string, OverviewResourceKey> = {
-  'health-unavailable':      'health',
-  'queues-unavailable':      'queues',
-  'sources-unavailable':     'sources',
-  'runs-unavailable':        'runs',
-  'schedules-unavailable':   'schedules',
+  'health-unavailable':          'health',
+  'queues-unavailable':          'queues',
+  'sources-unavailable':         'sources',
+  'runs-unavailable':            'runs',
+  'schedules-unavailable':       'schedules',
+  'listing-refresh-unavailable': 'listingRefresh',
 }
 
 const TOP_PROBLEMS_PREVIEW_LIMIT = 5
