@@ -44,6 +44,15 @@ export interface JobContext {
   logger?: WivWavLogger
   log(message: string): Promise<void>
   updateProgress(progress: JobProgress): Promise<void>
+  /**
+   * Id of the current job's `JobRun` lineage row (#933), when run tracking
+   * is enabled for this queue — set by `withJobRunTracking` in
+   * `apps/scraper/src/lib/job-run-tracking.ts`. Undefined/null when tracking
+   * isn't wired for this worker (e.g. most test doubles). A processor that
+   * itself enqueues a follow-on job should pass this along as that job's
+   * `parentRunId` so the two runs link into one pipeline tree.
+   */
+  runId?: string | null
 }
 
 export type JobProcessor<T = unknown> = (data: T, context: JobContext) => Promise<void>

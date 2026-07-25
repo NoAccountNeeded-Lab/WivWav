@@ -56,6 +56,8 @@ import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
 import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fueleconomy-msrp.js'
 import { runSemanticImageAnalyzeJob, type SemanticImageAnalyzeJobData } from './jobs/semantic-image-analyze.js'
 import { withSentryCapture } from './lib/capture-job-error.js'
+import { withJobRunTracking } from './lib/job-run-tracking.js'
+import { PrismaJobRunRepository } from './lib/job-run-repository.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
 import { buildDetailScheduleSources, buildSourceScrapeScheduleSources, registerSources } from './sources/registry.js'
@@ -75,6 +77,10 @@ const engine = new ScraperEngine({
   sources: new PrismaSourceRepository(db, logger),
   listings: new PrismaListingRepository(db),
 })
+
+// #933 lineage backbone: one JobRun row per job execution, across every job
+// type registered below — see lib/job-run-tracking.ts.
+const jobRuns = new PrismaJobRunRepository(db)
 
 const browserService = new PlaywrightBrowserService()
 const runtimeMode = resolveScraperRuntimeMode()
@@ -175,167 +181,241 @@ const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 queueFactory.createQueue(QUEUES.IMAGE_SEMANTIC_ANALYZE)
 
 function registerWorkers(): void {
-  // Workers — each processor is wrapped with withSentryCapture so that job
-  // failures are reported to Sentry before BullMQ marks them as failed.
-  // Explicit type parameters on withSentryCapture preserve the same type safety
-  // as the original createWorker<T> call sites.
+  // Workers — each processor is wrapped with withSentryCapture(withJobRunTracking(...))
+  // so that every execution both reports failures to Sentry and is recorded
+  // as a JobRun row (#933 lineage backbone), innermost tracking first so
+  // Sentry still sees the rethrown error. Explicit type parameters on
+  // withSentryCapture preserve the same type safety as the original
+  // createWorker<T> call sites.
   queueFactory.createWorker<{ sourceId: string }>(
     QUEUES.SOURCE_SCRAPE,
-    withSentryCapture<{ sourceId: string }>(QUEUES.SOURCE_SCRAPE, async ({ sourceId }, context) => {
-      const ollamaProvider = await buildOllamaProvider()
-      const aiAvailable = await ollamaProvider.isAvailable()
-      if (!aiAvailable) {
-        context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
-        await context?.log('Ollama unavailable — running without AI-assisted remapping')
-      }
-      const listingsChanged = await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
-      if (listingsChanged) {
-        await listingSyncQueue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
-        await listingResolveQueue.add({ sourceId }, CRITICAL_JOB_OPTIONS)
-      }
-    }),
+    withSentryCapture<{ sourceId: string }>(
+      QUEUES.SOURCE_SCRAPE,
+      withJobRunTracking<{ sourceId: string }>(QUEUES.SOURCE_SCRAPE, jobRuns, async ({ sourceId }, context) => {
+        const ollamaProvider = await buildOllamaProvider()
+        const aiAvailable = await ollamaProvider.isAvailable()
+        if (!aiAvailable) {
+          context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
+          await context?.log('Ollama unavailable — running without AI-assisted remapping')
+        }
+        const listingsChanged = await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
+        if (listingsChanged) {
+          await listingSyncQueue.add(
+            { parentRunId: context.runId },
+            { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID },
+          )
+          await listingResolveQueue.add({ sourceId, parentRunId: context.runId }, CRITICAL_JOB_OPTIONS)
+        }
+      }),
+    ),
     { lockDuration: 300_000, logger },
   )
   queueFactory.createWorker<{ sourceId: string }>(
     QUEUES.DETAIL_CRAWL,
-    withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, ({ sourceId }, context) =>
-      runDetailCrawlJob(sourceId, context, browserService),
+    withSentryCapture<{ sourceId: string }>(
+      QUEUES.DETAIL_CRAWL,
+      withJobRunTracking<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, jobRuns, ({ sourceId }, context) =>
+        runDetailCrawlJob(sourceId, context, browserService),
+      ),
     ),
     { lockDuration: 120_000, logger },
   )
   queueFactory.createWorker<{ sourceId: string }>(
     QUEUES.DETAIL_EXTRACT,
-    withSentryCapture<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, ({ sourceId }, context) =>
-      runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
+    withSentryCapture<{ sourceId: string }>(
+      QUEUES.DETAIL_EXTRACT,
+      withJobRunTracking<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, jobRuns, ({ sourceId }, context) =>
+        runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
+      ),
     ),
     { lockDuration: 60_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.GEOCODE,
-    withSentryCapture(QUEUES.GEOCODE, (_data: unknown, context) => runGeocodeJob(context)),
+    withSentryCapture(
+      QUEUES.GEOCODE,
+      withJobRunTracking(QUEUES.GEOCODE, jobRuns, (_data: unknown, context) => runGeocodeJob(context)),
+    ),
     { lockDuration: 120_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.DEDUPLICATE,
-    withSentryCapture(QUEUES.DEDUPLICATE, (_data: unknown, context) => runDeduplicateJob(context)),
+    withSentryCapture(
+      QUEUES.DEDUPLICATE,
+      withJobRunTracking(QUEUES.DEDUPLICATE, jobRuns, (_data: unknown, context) => runDeduplicateJob(context)),
+    ),
     { lockDuration: 120_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.VIN_ENRICH,
-    withSentryCapture(QUEUES.VIN_ENRICH, (_data: unknown, context) =>
-      runVinEnrichJob(context, listingResolveQueue),
+    withSentryCapture(
+      QUEUES.VIN_ENRICH,
+      withJobRunTracking(QUEUES.VIN_ENRICH, jobRuns, (_data: unknown, context) =>
+        runVinEnrichJob(context, listingResolveQueue),
+      ),
     ),
     { lockDuration: 300_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.NHTSA_RECALLS,
-    withSentryCapture(QUEUES.NHTSA_RECALLS, (data: NhtsaRecallsJobData, context) =>
-      runNhtsaRecallsJob(context, data),
+    withSentryCapture(
+      QUEUES.NHTSA_RECALLS,
+      withJobRunTracking(QUEUES.NHTSA_RECALLS, jobRuns, (data: NhtsaRecallsJobData, context) =>
+        runNhtsaRecallsJob(context, data),
+      ),
     ),
     { lockDuration: 300_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.NHTSA_COMPLAINTS,
-    withSentryCapture(QUEUES.NHTSA_COMPLAINTS, (data: NhtsaComplaintsJobData, context) =>
-      runNhtsaComplaintsJob(context, data),
+    withSentryCapture(
+      QUEUES.NHTSA_COMPLAINTS,
+      withJobRunTracking(QUEUES.NHTSA_COMPLAINTS, jobRuns, (data: NhtsaComplaintsJobData, context) =>
+        runNhtsaComplaintsJob(context, data),
+      ),
     ),
     { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.NHTSA_SAFETY_RATINGS,
-    withSentryCapture(QUEUES.NHTSA_SAFETY_RATINGS, (data: NhtsaSafetyRatingsJobData, context) =>
-      runNhtsaSafetyRatingsJob(context, data),
+    withSentryCapture(
+      QUEUES.NHTSA_SAFETY_RATINGS,
+      withJobRunTracking(QUEUES.NHTSA_SAFETY_RATINGS, jobRuns, (data: NhtsaSafetyRatingsJobData, context) =>
+        runNhtsaSafetyRatingsJob(context, data),
+      ),
     ),
     { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.NHTSA_INVESTIGATIONS,
-    withSentryCapture(QUEUES.NHTSA_INVESTIGATIONS, (data: NhtsaInvestigationsJobData, context) =>
-      runNhtsaInvestigationsJob(context, data),
+    withSentryCapture(
+      QUEUES.NHTSA_INVESTIGATIONS,
+      withJobRunTracking(QUEUES.NHTSA_INVESTIGATIONS, jobRuns, (data: NhtsaInvestigationsJobData, context) =>
+        runNhtsaInvestigationsJob(context, data),
+      ),
     ),
     { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
-    withSentryCapture(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS, (data: NhtsaManufacturerCommunicationsJobData, context) =>
-      runNhtsaManufacturerCommunicationsJob(context, data),
+    withSentryCapture(
+      QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+      withJobRunTracking(
+        QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+        jobRuns,
+        (data: NhtsaManufacturerCommunicationsJobData, context) =>
+          runNhtsaManufacturerCommunicationsJob(context, data),
+      ),
     ),
     { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.VEHICLE_STATS_REFRESH,
-    withSentryCapture(QUEUES.VEHICLE_STATS_REFRESH, (_data: unknown, context) =>
-      runVehicleStatsRefreshJob(context),
+    withSentryCapture(
+      QUEUES.VEHICLE_STATS_REFRESH,
+      withJobRunTracking(QUEUES.VEHICLE_STATS_REFRESH, jobRuns, (_data: unknown, context) =>
+        runVehicleStatsRefreshJob(context),
+      ),
     ),
     { lockDuration: 60_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.CONVERSION_BRANDS_SEED,
-    withSentryCapture(QUEUES.CONVERSION_BRANDS_SEED, (_data: unknown, context) =>
-      runConversionBrandsSeedJob(context),
+    withSentryCapture(
+      QUEUES.CONVERSION_BRANDS_SEED,
+      withJobRunTracking(QUEUES.CONVERSION_BRANDS_SEED, jobRuns, (_data: unknown, context) =>
+        runConversionBrandsSeedJob(context),
+      ),
     ),
     { lockDuration: 60_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.NMEDA_DEALERS_SEED,
-    withSentryCapture(QUEUES.NMEDA_DEALERS_SEED, (_data: unknown, context) =>
-      runNmedaDealersSeedJob(context),
+    withSentryCapture(
+      QUEUES.NMEDA_DEALERS_SEED,
+      withJobRunTracking(QUEUES.NMEDA_DEALERS_SEED, jobRuns, (_data: unknown, context) =>
+        runNmedaDealersSeedJob(context),
+      ),
     ),
     { lockDuration: 60_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.MODEL_RESEARCH,
-    withSentryCapture(QUEUES.MODEL_RESEARCH, (_data: unknown, context) =>
-      runModelResearchJob(context),
+    withSentryCapture(
+      QUEUES.MODEL_RESEARCH,
+      withJobRunTracking(QUEUES.MODEL_RESEARCH, jobRuns, (_data: unknown, context) =>
+        runModelResearchJob(context),
+      ),
     ),
     { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.LISTING_SYNC,
-    withSentryCapture(QUEUES.LISTING_SYNC, (_data: unknown, context) =>
-      runMeilisearchSyncJob(context),
+    withSentryCapture(
+      QUEUES.LISTING_SYNC,
+      withJobRunTracking(QUEUES.LISTING_SYNC, jobRuns, (_data: unknown, context) =>
+        runMeilisearchSyncJob(context),
+      ),
     ),
     { lockDuration: 300_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.LISTING_INDEX_POLL,
-    withSentryCapture(QUEUES.LISTING_INDEX_POLL, (_data: unknown, context) =>
-      runSearchIndexerPollJob(context),
+    withSentryCapture(
+      QUEUES.LISTING_INDEX_POLL,
+      withJobRunTracking(QUEUES.LISTING_INDEX_POLL, jobRuns, (_data: unknown, context) =>
+        runSearchIndexerPollJob(context),
+      ),
     ),
     { lockDuration: 120_000, logger },
   )
   queueFactory.createWorker<ListingResolveJobData>(
     QUEUES.LISTING_RESOLVE,
-    withSentryCapture<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, (data, context) =>
-      runListingResolveJob(data, context),
+    withSentryCapture<ListingResolveJobData>(
+      QUEUES.LISTING_RESOLVE,
+      withJobRunTracking<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, jobRuns, (data, context) =>
+        runListingResolveJob(data, context),
+      ),
     ),
     { lockDuration: 120_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.RAWPAGE_CLEANUP,
-    withSentryCapture(QUEUES.RAWPAGE_CLEANUP, (_data: unknown, context) =>
-      runRawPageCleanupJob(context),
+    withSentryCapture(
+      QUEUES.RAWPAGE_CLEANUP,
+      withJobRunTracking(QUEUES.RAWPAGE_CLEANUP, jobRuns, (_data: unknown, context) =>
+        runRawPageCleanupJob(context),
+      ),
     ),
     { lockDuration: 120_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.DEALER_ENRICH,
-    withSentryCapture(QUEUES.DEALER_ENRICH, (_data: unknown, context) =>
-      runDealerEnrichJob(context),
+    withSentryCapture(
+      QUEUES.DEALER_ENRICH,
+      withJobRunTracking(QUEUES.DEALER_ENRICH, jobRuns, (_data: unknown, context) =>
+        runDealerEnrichJob(context),
+      ),
     ),
     { lockDuration: 300_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.FUELECONOMY_MSRP,
-    withSentryCapture(QUEUES.FUELECONOMY_MSRP, (data: FuelEconomyMsrpJobData, context) =>
-      runFuelEconomyMsrpJob(context, data),
+    withSentryCapture(
+      QUEUES.FUELECONOMY_MSRP,
+      withJobRunTracking(QUEUES.FUELECONOMY_MSRP, jobRuns, (data: FuelEconomyMsrpJobData, context) =>
+        runFuelEconomyMsrpJob(context, data),
+      ),
     ),
     { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.IMAGE_SEMANTIC_ANALYZE,
-    withSentryCapture(QUEUES.IMAGE_SEMANTIC_ANALYZE, (data: SemanticImageAnalyzeJobData, context) =>
-      runSemanticImageAnalyzeJob(data, context),
+    withSentryCapture(
+      QUEUES.IMAGE_SEMANTIC_ANALYZE,
+      withJobRunTracking(QUEUES.IMAGE_SEMANTIC_ANALYZE, jobRuns, (data: SemanticImageAnalyzeJobData, context) =>
+        runSemanticImageAnalyzeJob(data, context),
+      ),
     ),
     { lockDuration: 60_000, logger },
   )

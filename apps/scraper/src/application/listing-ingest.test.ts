@@ -744,4 +744,44 @@ describe('ingestListing', () => {
       expect(db.listing.update).not.toHaveBeenCalled()
     })
   })
+
+  // #933 lineage backbone: a listing's lastRunId should resolve to whichever
+  // JobRun (via context.runId, threaded in through ListingUpsertData.runId)
+  // last actually created or updated it.
+  describe('lastRunId lineage', () => {
+    it('sets lastRunId on create when a runId is provided', async () => {
+      const db = makeDb(null)
+      await ingestListing(db as never, makeListing({ runId: 'run-1' }))
+
+      expect(db.listing.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ lastRunId: 'run-1' }),
+      }))
+    })
+
+    it('leaves lastRunId null on create when no runId is provided', async () => {
+      const db = makeDb(null)
+      await ingestListing(db as never, makeListing())
+
+      expect(db.listing.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ lastRunId: null }),
+      }))
+    })
+
+    it('sets lastRunId on update when a runId is provided and the listing changed', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 2500000 })
+      await ingestListing(db as never, makeListing({ priceCents: 3000000, runId: 'run-2' }))
+
+      expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ lastRunId: 'run-2' }),
+      }))
+    })
+
+    it('does not touch lastRunId when the ingest is a no-op (unchanged)', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 3000000 })
+      const result = await ingestListing(db as never, makeListing({ priceCents: 3000000, runId: 'run-3' }))
+
+      expect(result.outcome).toBe('unchanged')
+      expect(db.listing.update).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -212,6 +212,7 @@ async function enqueueRequiredListingResolution(
   listingId: string,
   observationReference: string,
   changedFields: string[],
+  parentRunId?: string | null,
 ): Promise<void> {
   if (!requiresListingResolution(changedFields)) return
 
@@ -227,7 +228,7 @@ async function enqueueRequiredListingResolution(
   if (alreadyEnqueued || !resolutionQueue) return
 
   await resolutionQueue.add(
-    { listingId, observationReference },
+    { listingId, observationReference, parentRunId },
     { ...CRITICAL_JOB_OPTIONS, jobId: detailResolutionJobId(observationReference) },
   )
   await db.listingObservation.upsert({
@@ -588,6 +589,7 @@ export async function runDetailExtractJob(
               listing.id,
               observationReference,
               alreadyApplied.changedFields,
+              context?.runId,
             )
             await db.rawPage.update({
               where: { id: rawPage.id },
@@ -655,6 +657,7 @@ export async function runDetailExtractJob(
             listing.id,
             observationReference,
             changedFields,
+            context?.runId,
           )
 
           // #499: record an independent detail-page claim for whatever

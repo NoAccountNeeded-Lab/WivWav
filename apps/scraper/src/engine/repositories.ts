@@ -62,6 +62,13 @@ export type ListingUpsertData = Omit<
   sourceUpdatedAt?: Date | null
   publicationStatus?: 'pending' | 'eligible' | 'quarantined'
   qualityCheckedAt?: Date | null
+  /**
+   * #933 lineage backbone: the calling job's `JobRun` id (`context.runId`),
+   * when run tracking is wired for the caller. Recorded on the listing as
+   * `lastRunId` when this upsert actually creates or updates the row —
+   * an `unchanged` outcome leaves the listing's prior `lastRunId` in place.
+   */
+  runId?: string | null | undefined
 }
 
 export type ListingUpsertResult = {

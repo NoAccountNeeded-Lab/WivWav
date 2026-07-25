@@ -345,6 +345,7 @@ export class ScraperEngine {
           publicationStatus: decision?.publicationStatus ?? 'pending',
           qualityIssueCodes: decision?.qualityIssueCodes ?? listing.qualityIssueCodes ?? [],
           qualityCheckedAt: new Date(),
+          runId: context?.runId,
         })
         if (upsert.outcome === 'created') listingsNew++
         if (upsert.outcome === 'updated') listingsUpdated++

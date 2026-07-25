@@ -191,7 +191,11 @@ export async function runVinEnrichJob(context?: JobContext, resolutionQueue?: Qu
           // listing it invalidates cannot rely on an unrelated future
           // source-scrape or detail-extract to trigger resolution.
           await resolutionQueue?.add(
-            { listingId: id, observationReference: `vin-enrich:${id}:${new Date().toISOString()}` },
+            {
+              listingId: id,
+              observationReference: `vin-enrich:${id}:${new Date().toISOString()}`,
+              parentRunId: context?.runId,
+            },
             CRITICAL_JOB_OPTIONS,
           )
           enriched++
