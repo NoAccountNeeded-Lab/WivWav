@@ -16,6 +16,7 @@ import type {
   SourceRepository,
   SourceRow,
 } from '../repositories/index.js'
+import { latestCompletedTimestampSeconds } from '../services/queue-job-timestamps.js'
 
 const MAX_QUARANTINE_PAGE_SIZE = 200
 const DEFAULT_QUARANTINE_PAGE_SIZE = 50
@@ -394,6 +395,21 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     if (!queue) return reply.internalServerError('listing-sync queue is not registered')
     const jobId = await queue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
     return reply.code(202).send({ data: { enqueued: true, jobId } })
+  })
+
+  // GET /admin/sync — last completed listing-sync job, for operator tooling
+  // that wants a "synced N minutes ago" readout without scraping /metrics.
+  // Shares its BullMQ lookup with the wivwav_meilisearch_last_sync_timestamp_seconds
+  // gauge (routes/metrics.ts) via services/queue-job-timestamps.ts.
+  app.get('/sync', async (_req, reply) => {
+    try {
+      const seconds = await latestCompletedTimestampSeconds(queueFactory, QUEUES.LISTING_SYNC)
+      const lastSyncCompletedAt = seconds === null ? null : new Date(seconds * 1000).toISOString()
+      return reply.send({ data: { lastSyncCompletedAt } })
+    } catch (err) {
+      app.log.error(err, 'listing-sync queue is unavailable')
+      return reply.code(503).send({ error: { code: 'SERVICE_UNAVAILABLE', message: 'listing-sync queue is unavailable' } })
+    }
   })
 
   // ── Quarantine ──────────────────────────────────────────────────────────────
