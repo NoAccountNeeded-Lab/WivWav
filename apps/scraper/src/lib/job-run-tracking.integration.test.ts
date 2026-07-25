@@ -4,7 +4,7 @@ import type { PrismaClient } from '@wivwav/db'
 import { QUEUES } from '@wivwav/queue'
 import type { JobContext } from '@wivwav/queue'
 import { PrismaJobRunRepository } from './job-run-repository.js'
-import { withJobRunTracking } from './job-run-tracking.js'
+import { JobRunStatsError, withJobRunTracking } from './job-run-tracking.js'
 
 // Exercises #933's lineage backbone against a real, migrated Postgres:
 // every job type index.ts registers goes through the exact same
@@ -100,6 +100,51 @@ describe('withJobRunTracking + PrismaJobRunRepository (integration)', () => {
       expect(rows[0]).toMatchObject({ jobType, sourceId: null, status: 'succeeded' })
     })
   })
+
+  // #937: detail-extract, deduplicate, and vin-enrich each now return
+  // succeededCount/failedCount from their real processor bodies (see
+  // apps/scraper/src/jobs/{detail-extract,deduplicate,vin-enrich}.ts). This
+  // exercises the wrapper's plumbing of that return value into the JobRun
+  // row, same as the rest of this file — the heavy, networked/browser-driven
+  // business logic behind each processor is covered separately by each
+  // job's own unit tests.
+  describe.each([QUEUES.DETAIL_EXTRACT, QUEUES.DEDUPLICATE, QUEUES.VIN_ENRICH])(
+    'job type %s stats plumbing (#937)',
+    (jobType) => {
+      it('persists non-null succeededCount/failedCount when the processor resolves with stats', async () => {
+        const jobRuns = new PrismaJobRunRepository(db)
+        const wrapped = withJobRunTracking(jobType, jobRuns, async () => ({
+          succeededCount: 3,
+          failedCount: 1,
+        }))
+
+        await wrapped({}, makeContext())
+
+        const rows = await db.jobRun.findMany({ where: { jobType } })
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({ jobType, status: 'succeeded', succeededCount: 3, failedCount: 1 })
+      })
+
+      it('persists non-null succeededCount/failedCount on a partial-batch failure (JobRunStatsError)', async () => {
+        const jobRuns = new PrismaJobRunRepository(db)
+        const wrapped = withJobRunTracking(jobType, jobRuns, async () => {
+          throw new JobRunStatsError(`${jobType} partial failure`, { succeededCount: 2, failedCount: 1 })
+        })
+
+        await expect(wrapped({}, makeContext())).rejects.toThrow(`${jobType} partial failure`)
+
+        const rows = await db.jobRun.findMany({ where: { jobType } })
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({
+          jobType,
+          status: 'failed',
+          succeededCount: 2,
+          failedCount: 1,
+          errorMessage: `${jobType} partial failure`,
+        })
+      })
+    },
+  )
 
   it('links a spawned run to its parent via context.runId → parentRunId, forming a two-level tree', async () => {
     // Mirrors the real source-scrape → listing-resolve pipeline: the parent

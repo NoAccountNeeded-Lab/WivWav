@@ -1,6 +1,7 @@
 import { checkDigitValid, findOrCreateVehicle, getDb, isValidVin, normalizeVin } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
+import type { JobRunFinishStats } from '../lib/job-run-repository.js'
 import { report } from './job-progress.js'
 import { acquireListingLock, releaseListingLocks } from './listing-lock.js'
 
@@ -31,7 +32,7 @@ function completenessScore(listing: Listing): number {
   return optionalFields.filter((f) => listing[f] != null).length + listing.images.length
 }
 
-export async function runDeduplicateJob(context?: JobContext): Promise<void> {
+export async function runDeduplicateJob(context?: JobContext): Promise<JobRunFinishStats> {
   const db = getDb()
 
   // Find all VINs shared by two or more listings, regardless of source —
@@ -143,4 +144,9 @@ export async function runDeduplicateJob(context?: JobContext): Promise<void> {
     total: rows.length,
   })
   await db.$disconnect()
+
+  // succeededCount/failedCount are per VIN group (this run's unit of work),
+  // not per listing — a linked group can move several listings, so
+  // listingsLinked would overstate "how many groups this run resolved".
+  return { succeededCount: vehicleGroupsLinked, failedCount: skippedGroups }
 }

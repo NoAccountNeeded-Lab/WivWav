@@ -85,11 +85,12 @@ describe('runVinEnrichJob — case normalization', () => {
     mockFetch({ Make: 'TOYOTA', Model: 'SIENNA', 'Model Year': '2020', Trim: 'LE', 'Body Class': 'Van' })
     db.vehicleModel.create.mockResolvedValue({ id: 'vm1', bodyType: 'van' })
 
-    await runVinEnrichJob()
+    const stats = await runVinEnrichJob()
 
     expect(db.vehicleModel.findFirst).toHaveBeenCalledWith({
       where: { make: 'toyota', model: 'sienna', year: 2020, trim: 'le' },
     })
+    expect(stats).toEqual({ succeededCount: 1, failedCount: 0 })
     expect(db.vehicleModel.create).toHaveBeenCalledWith({
       data: { make: 'toyota', model: 'sienna', year: 2020, trim: 'le', bodyType: 'van' },
     })
@@ -228,13 +229,29 @@ describe('runVinEnrichJob — case normalization', () => {
     db.$executeRaw.mockResolvedValue(0)
     mockFetch({ Make: 'Toyota', Model: 'Sienna', 'Model Year': '2020', Trim: 'LE', 'Body Class': 'Van' })
 
-    await runVinEnrichJob()
+    const stats = await runVinEnrichJob()
 
     // Neither vehicleModel lookup nor listing update should have happened
     expect(db.vehicleModel.findFirst).not.toHaveBeenCalled()
     expect(db.listing.update).not.toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ vehicleModelId: expect.anything() }) }),
     )
+    // A lock-contended listing is retried on the next run — it's neither a
+    // success nor a failure for this run.
+    expect(stats).toEqual({ succeededCount: 0, failedCount: 0 })
+  })
+
+  it('counts a listing whose VIN vPIC cannot decode as a failure', async () => {
+    db.listing.findMany.mockResolvedValue([{ id: 'l7', vin: '7ABCD', make: 'Toyota', model: 'Sienna', year: 2020 }])
+    // No Make/Model/Model Year in the response — decodeVin() returns null
+    mockFetch({})
+
+    const stats = await runVinEnrichJob()
+
+    expect(db.listing.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ vehicleModelId: expect.anything() }) }),
+    )
+    expect(stats).toEqual({ succeededCount: 0, failedCount: 1 })
   })
 })
 
@@ -267,7 +284,7 @@ describe('runVinEnrichJob — authoritative mismatch', () => {
     ])
     mockFetch({ Make: 'Honda', Model: 'Odyssey', 'Model Year': '2020', Trim: 'EX', 'Body Class': 'Van' })
 
-    await runVinEnrichJob()
+    const stats = await runVinEnrichJob()
 
     expect(db.vehicleModel.findFirst).not.toHaveBeenCalled()
     expect(db.vehicleModel.create).not.toHaveBeenCalled()
@@ -279,6 +296,9 @@ describe('runVinEnrichJob — authoritative mismatch', () => {
         qualityCheckedAt: expect.any(Date),
       },
     })
+    // The VIN itself decoded successfully — the mismatch is a quarantine
+    // outcome, not a decode failure, so it still counts toward succeededCount.
+    expect(stats).toEqual({ succeededCount: 1, failedCount: 0 })
   })
 
   it('quarantines on a year mismatch beyond the 1-year tolerance', async () => {

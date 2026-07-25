@@ -92,10 +92,11 @@ describe('runDeduplicateJob', () => {
   it('does nothing when no cross-source VIN duplicates exist', async () => {
     db.$queryRaw.mockResolvedValue([])
 
-    await runDeduplicateJob()
+    const stats = await runDeduplicateJob()
 
     expect(db.listing.update).not.toHaveBeenCalled()
     expect(db.$disconnect).toHaveBeenCalled()
+    expect(stats).toEqual({ succeededCount: 0, failedCount: 0 })
   })
 
   it('assigns the same vehicleId to every listing in a cross-source VIN group', async () => {
@@ -121,7 +122,7 @@ describe('runDeduplicateJob', () => {
 
     db.listing.findMany.mockResolvedValue([sparse, complete])
 
-    await runDeduplicateJob()
+    const stats = await runDeduplicateJob()
 
     expect(db.listing.update).toHaveBeenCalledWith({
       where: { id: 'list-complete' },
@@ -131,6 +132,9 @@ describe('runDeduplicateJob', () => {
       where: { id: 'list-sparse' },
       data: { vehicleId: 'vehicle-1' },
     })
+    // One VIN group linked (this run's unit of work), regardless of how many
+    // listings that group touched.
+    expect(stats).toEqual({ succeededCount: 1, failedCount: 0 })
   })
 
   it('assigns the same vehicleId to every listing in a same-source VIN group', async () => {
@@ -260,10 +264,11 @@ describe('runDeduplicateJob', () => {
     // First call (list-locked) returns 0 — lock not acquired
     db.$executeRaw.mockResolvedValueOnce(0)
 
-    await runDeduplicateJob()
+    const stats = await runDeduplicateJob()
 
     // No update calls — the group was skipped
     expect(db.listing.update).not.toHaveBeenCalled()
+    expect(stats).toEqual({ succeededCount: 0, failedCount: 1 })
   })
 
   it('releases partially acquired locks when a later listing in the group is locked', async () => {

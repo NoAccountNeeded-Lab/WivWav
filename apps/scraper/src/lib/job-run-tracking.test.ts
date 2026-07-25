@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { JobContext } from '@wivwav/queue'
 import type { JobRunRepository } from './job-run-repository.js'
-import { withJobRunTracking } from './job-run-tracking.js'
+import { JobRunStatsError, withJobRunTracking } from './job-run-tracking.js'
 
 function makeContext(): JobContext {
   return {
@@ -99,6 +99,30 @@ describe('withJobRunTracking', () => {
 
     expect(jobRuns.fail).toHaveBeenCalledWith('run-1', 'boom')
     expect(jobRuns.succeed).not.toHaveBeenCalled()
+  })
+
+  it('marks the run succeeded with stats when the processor resolves with succeededCount/failedCount', async () => {
+    const jobRuns = makeJobRuns('run-1')
+    const processor = vi.fn().mockResolvedValue({ succeededCount: 5, failedCount: 2 })
+    const wrapped = withJobRunTracking('detail-extract', jobRuns, processor)
+
+    await wrapped({}, makeContext())
+
+    expect(jobRuns.succeed).toHaveBeenCalledWith('run-1', { succeededCount: 5, failedCount: 2 })
+  })
+
+  it('marks the run failed with stats when the processor throws a JobRunStatsError', async () => {
+    const jobRuns = makeJobRuns('run-1')
+    const error = new JobRunStatsError('partial batch failure', { succeededCount: 3, failedCount: 1 })
+    const processor = vi.fn().mockRejectedValue(error)
+    const wrapped = withJobRunTracking('detail-extract', jobRuns, processor)
+
+    await expect(wrapped({}, makeContext())).rejects.toThrow('partial batch failure')
+
+    expect(jobRuns.fail).toHaveBeenCalledWith('run-1', 'partial batch failure', {
+      succeededCount: 3,
+      failedCount: 1,
+    })
   })
 
   it('still rethrows the original error even if recording the failure itself throws', async () => {
