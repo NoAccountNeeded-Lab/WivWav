@@ -76,9 +76,20 @@ export function DealerReputation({
 
   if (!hasRating && reviews.length === 0 && hours === null) return null
 
+  // Heading must describe what's actually rendered below it — a screen-reader
+  // user navigating by headings shouldn't land on "Reviews" when the section
+  // only has hours (e.g. rating/reviews not yet enriched for this dealer).
+  const sectionHeading = reviews.length > 0
+    ? 'Reviews'
+    : hasRating && hours !== null
+      ? 'Rating & hours'
+      : hasRating
+        ? 'Rating'
+        : 'Hours'
+
   return (
     <div className={sectionClassName}>
-      {sectionLabelClassName && <h3 className={sectionLabelClassName}>Reviews</h3>}
+      {sectionLabelClassName && <h3 className={sectionLabelClassName}>{sectionHeading}</h3>}
       <div className={styles.wrap}>
         {hasRating && rating !== null && (
           <div className={styles.summary}>
