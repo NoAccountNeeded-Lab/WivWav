@@ -50,7 +50,7 @@ import { internalOpsProblemAggregateRoutes } from './routes/internal-ops-problem
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
 import { diagnosticAuthPlugin } from './plugins/diagnostic-auth.js'
-import { diagnosticsRoutes } from './routes/diagnostics.js'
+import { diagnosticsRoutes } from './routes/diagnostics/index.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
 import { metricsRoutes, createMetricsRegistry } from './routes/metrics.js'
 import { conversionBrandRoutes } from './routes/conversion-brands.js'
@@ -345,16 +345,16 @@ export async function buildApp(
     { prefix: '/internal/ops' },
   )
 
-  // Read-only AI diagnostic gateway (#757/#773). A separate fail-closed
+  // Read-only AI diagnostic gateway (#757/#773/#775). A separate fail-closed
   // scope from /admin and /internal — gated by DIAGNOSTIC_API_SECRET, a
   // narrower credential safe to hand to desktop AI MCP clients (see
   // plugins/diagnostic-auth.ts for why it must not be INTERNAL_API_SECRET).
   // INTERNAL_API_SECRET is also accepted here (asymmetric compatibility so
   // the ops BFF can proxy without new wiring), but adminAuthPlugin never
   // accepts DIAGNOSTIC_API_SECRET, so this credential can never reach
-  // /admin/*. No real diagnostic routes exist yet — diagnosticsRoutes is a
-  // placeholder to exercise the auth boundary until a follow-up issue adds
-  // the first one.
+  // /admin/*. get_system_snapshot calls /admin/* routes in-process via
+  // app.inject (see routes/diagnostics/system-snapshot.ts) using
+  // INTERNAL_API_SECRET itself, not the caller's diagnostic credential.
   await app.register(
     async (diagnosticsScope) => {
       await diagnosticAuthPlugin(diagnosticsScope, {
@@ -363,7 +363,15 @@ export async function buildApp(
         nodeEnv: config.NODE_ENV,
       })
 
-      await diagnosticsScope.register(diagnosticsRoutes)
+      await diagnosticsScope.register(diagnosticsRoutes, {
+        db,
+        sources: sourceRepo,
+        scraperRuns: scraperRunRepo,
+        meili,
+        cache,
+        queueFactory,
+        config,
+      })
     },
     { prefix: '/diagnostics' },
   )
