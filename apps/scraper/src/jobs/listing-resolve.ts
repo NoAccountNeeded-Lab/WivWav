@@ -41,8 +41,8 @@ import type { ListingUpsertData } from '../engine/repositories.js'
 import { report } from './job-progress.js'
 
 export type ListingResolveJobData =
-  | { sourceId: string }
-  | { listingId: string; observationReference: string }
+  | { sourceId: string; parentRunId?: string | null }
+  | { listingId: string; observationReference: string; parentRunId?: string | null }
 
 const SOURCE_BATCH_SIZE = 100
 

@@ -193,6 +193,7 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
       listedAt: listing.listedAt,
       sourceListedAt: listing.sourceListedAt ?? null,
       sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
+      lastRunId: listing.runId ?? null,
     } })
     if (listing.priceCents != null) {
       await tx.listingPriceHistory.create({
@@ -329,6 +330,7 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
       qualityCheckedAt: listing.qualityCheckedAt ?? null,
       ...(resetDetail ? { detailScrapedAt: null } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
+      ...(listing.runId != null ? { lastRunId: listing.runId } : {}),
     },
   })
 
