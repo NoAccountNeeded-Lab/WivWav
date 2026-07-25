@@ -1576,3 +1576,61 @@
     font-size: 0.75rem;
   }
 }
+
+/* ── Source job-run tree (#937) ──────── */
+
+.runTree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.runNode {
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-surface);
+}
+
+.runNodeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 0.875rem;
+}
+
+.runNodeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.runNodeType {
+  font-weight: 800;
+  font-size: 0.9375rem;
+}
+
+.runNodeMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  color: var(--clr-text-muted);
+  font-size: 0.8125rem;
+}
+
+/* Nested children are indented and left-bordered against the parent card,
+   so the tree structure reads visually without relying on the underlying
+   nested <ul> alone (which screen readers already convey natively). */
+.runNodeChildren {
+  list-style: none;
+  margin: 0;
+  padding: 0.625rem 0 0.75rem 1.25rem;
+  border-top: 1px solid var(--clr-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../../ops.module.css'
 import { stageStatus, stageStatusLabel, type PipelineStage } from './source-pipeline-helpers'
+import { SourceJobRunsSection } from './SourceJobRunsSection'
 
 interface PipelineResponse {
   source: { id: string; name: string }
@@ -265,6 +266,8 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
             })}
           </div>
         )}
+
+        <SourceJobRunsSection apiBaseUrl={apiBaseUrl} sourceId={sourceId} />
 
         <details className={styles.helpPanel}>
           <summary>How to read this page</summary>
