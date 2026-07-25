@@ -9,6 +9,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { DealerCard } from '@/components/listing/DealerCard'
+import { DealerReputation } from '@/components/listing/DealerReputation'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { ReportListingForm } from './ReportListingForm'
 import {
@@ -23,16 +24,25 @@ import {
   getVerificationTimestamp,
   isVerificationStale,
 } from './verificationUtils'
-import type { ListingDetail, PricePoint } from './types'
+import type { DealerProfile, DealerReview, ListingDetail, PricePoint } from './types'
 import styles from './tabs.module.css'
 
 interface OverviewTabProps {
   listing: ListingDetail
   priceHistory: PricePoint[]
   apiBaseUrl: string
+  /** #919 Google Places dealer reputation data. Optional so pre-existing tests that don't cover it need no changes. */
+  dealerProfile?: DealerProfile | null
+  dealerReviews?: DealerReview[]
 }
 
-export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabProps) {
+export function OverviewTab({
+  listing,
+  priceHistory,
+  apiBaseUrl,
+  dealerProfile = null,
+  dealerReviews = [],
+}: OverviewTabProps) {
   const ageTimestamp = listing.sourceListedAt ?? listing.listedAt
   const days = daysSince(ageTimestamp)
   const ageLabel = listing.sourceListedAt != null
@@ -155,6 +165,14 @@ export function OverviewTab({ listing, priceHistory, apiBaseUrl }: OverviewTabPr
             showLocation={false}
           />
         </div>
+      )}
+
+      {/* Dealer reputation — Google Places rating/reviews/hours (#103).
+          Absent for private sellers and dealers Places couldn't match, or
+          when a matched profile has no rating/reviews/hours to show yet;
+          DealerReputation renders nothing (no heading either) in that case. */}
+      {dealerProfile && (
+        <DealerReputation dealerProfile={dealerProfile} reviews={dealerReviews} sectionClassName={styles.section} sectionLabelClassName={styles.sectionLabel} />
       )}
 
       {/* CTA — contact seller / view seller listing. The safety report link

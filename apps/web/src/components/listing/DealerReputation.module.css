@@ -1,0 +1,115 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.starRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.0625rem;
+}
+
+.starFilled {
+  color: var(--clr-warning);
+  fill: var(--clr-warning);
+}
+
+.starEmpty {
+  color: var(--clr-border-strong);
+  fill: none;
+}
+
+.ratingValue {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--clr-text);
+}
+
+.reviewCount {
+  font-size: 0.8125rem;
+  color: var(--clr-text-secondary);
+}
+
+.openBadge,
+.closedBadge {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.openBadge {
+  color: var(--clr-success-text);
+  background: var(--glass-bg-strong);
+}
+
+.closedBadge {
+  color: var(--clr-text-secondary);
+  background: var(--glass-bg-strong);
+}
+
+.hoursList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--clr-text-secondary);
+}
+
+.reviewList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.reviewCard {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.625rem;
+}
+
+.reviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.reviewAuthor {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--clr-text);
+}
+
+.reviewText {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--clr-text);
+  margin: 0 0 0.375rem;
+}
+
+.reviewMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--clr-text-muted);
+}

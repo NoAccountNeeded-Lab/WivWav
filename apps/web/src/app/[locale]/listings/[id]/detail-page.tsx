@@ -19,6 +19,8 @@ import { VehicleTab } from './VehicleTab'
 import { MarketTab } from './MarketTab'
 import { SafetyTab } from './SafetyTab'
 import type {
+  DealerProfile,
+  DealerReview,
   ListingDetail,
   MarketPricing,
   ModelMsrp,
@@ -205,6 +207,32 @@ async function getNearbyDealers(
   }
 }
 
+async function getDealerProfile(id: string): Promise<DealerProfile | null> {
+  try {
+    const res = await apiFetch(`${getServerApiBaseUrl()}/v1/listings/${id}/dealer`, {
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return null
+    const json = (await res.json()) as { data: { dealerProfile: DealerProfile | null } }
+    return json.data.dealerProfile
+  } catch {
+    return null
+  }
+}
+
+async function getDealerReviews(dealerId: string): Promise<DealerReview[]> {
+  try {
+    const url = new URL(`${getServerApiBaseUrl()}/v1/dealers/${dealerId}/reviews`)
+    url.searchParams.set('take', '5')
+    const res = await apiFetch(url.toString(), { next: { revalidate: 3600 } })
+    if (!res.ok) return []
+    const json = (await res.json()) as { data: { reviews: DealerReview[] } }
+    return json.data.reviews ?? []
+  } catch {
+    return []
+  }
+}
+
 // ── Metadata ───────────────────────────────────────────────────────────────
 
 export async function generateMetadata({
@@ -249,6 +277,7 @@ export default async function VehicleDetailPage({
     modelMsrp,
     conversionBrand,
     nearbyDealers,
+    dealerProfile,
   ] =
     await Promise.all([
       getPriceHistory(id),
@@ -260,7 +289,11 @@ export default async function VehicleDetailPage({
       getModelMsrp(listing.make, listing.model, listing.year),
       getConversionBrand(listing.wav.conversionManufacturer),
       getNearbyDealers(listing.location.lat, listing.location.lng),
+      getDealerProfile(id),
     ])
+  // Reviews depend on the dealer profile's id, resolved above — a
+  // private-seller listing or an unmatched dealer has none to fetch.
+  const dealerReviews = dealerProfile ? await getDealerReviews(dealerProfile.id) : []
 
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   const photoEvidence = buildPhotoEvidence(listing.images, listing.semanticEvidence)
@@ -309,7 +342,15 @@ export default async function VehicleDetailPage({
       id: 'overview',
       label: 'Overview',
       icon: <Info size={14} aria-hidden />,
-      content: <OverviewTab listing={listing} priceHistory={priceHistory} apiBaseUrl={getPublicApiBaseUrl()} />,
+      content: (
+        <OverviewTab
+          listing={listing}
+          priceHistory={priceHistory}
+          apiBaseUrl={getPublicApiBaseUrl()}
+          dealerProfile={dealerProfile}
+          dealerReviews={dealerReviews}
+        />
+      ),
     },
     {
       id: 'market',

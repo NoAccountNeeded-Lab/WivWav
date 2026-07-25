@@ -231,3 +231,47 @@ describe('OverviewTab listing date provenance', () => {
     expect(screen.queryByText(/Source listed/)).toBeNull()
   })
 })
+
+describe('OverviewTab dealer reputation (#919)', () => {
+  it('renders without a dealer-reputation section for a private-seller listing with no matched DealerProfile', () => {
+    render(
+      <OverviewTab
+        listing={makeListing({ sellerType: 'private', dealer: { name: null, phone: null, website: null } })}
+        priceHistory={[]}
+        apiBaseUrl="https://api.example.com"
+        dealerProfile={null}
+        dealerReviews={[]}
+      />,
+    )
+
+    expect(screen.queryByText('Reviews')).toBeNull()
+    expect(screen.queryByRole('img', { name: /out of 5 stars/ })).toBeNull()
+  })
+
+  it('shows a star rating, review count, and at least one review for a listing with an enriched DealerProfile', () => {
+    render(
+      <OverviewTab
+        listing={makeListing()}
+        priceHistory={[]}
+        apiBaseUrl="https://api.example.com"
+        dealerProfile={{ id: 'dp1', name: 'Acme Vans', rating: 4.6, reviewCount: 42, hours: null }}
+        dealerReviews={[
+          {
+            id: 'r1',
+            authorName: 'J. Smith',
+            rating: 5,
+            text: 'Great experience buying a wheelchair van here.',
+            publishedAt: '2026-06-01T12:00:00.000Z',
+            source: 'google',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Reviews' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: '4.6 out of 5 stars' })).toBeTruthy()
+    expect(screen.getByText('(42 reviews)')).toBeTruthy()
+    expect(screen.getByText('J. Smith')).toBeTruthy()
+    expect(screen.getByText(/Great experience buying a wheelchair van/)).toBeTruthy()
+  })
+})
