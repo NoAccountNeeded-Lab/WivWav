@@ -1075,6 +1075,38 @@ describe('GET /:id — nested mapping (toListingDetailResponse)', () => {
   })
 })
 
+// ── GET /:id/conversion-history (#921) ───────────────────────────────────────
+
+describe('GET /:id/conversion-history', () => {
+  it('returns 404 for a missing listing', async () => {
+    const { app } = buildTestApp(undefined, { findByIdForSafety: vi.fn(async () => null) })
+
+    const res = await app.inject({ method: 'GET', url: '/missing/conversion-history' })
+
+    expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+
+  it('returns the conversion history for an existing listing', async () => {
+    const recordedAt = new Date('2026-01-01T00:00:00.000Z')
+    const history = [
+      { id: 'h1', conversionStatus: 'proposed', wavFeatures: ['power_ramp'], recordedAt },
+    ]
+    const { app } = buildTestApp(undefined, {
+      findByIdForSafety: vi.fn(async () => ({ id: 'listing-1' })),
+      findConversionHistory: vi.fn(async () => history),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/listing-1/conversion-history' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toMatchObject([
+      { id: 'h1', conversionStatus: 'proposed', wavFeatures: ['power_ramp'], recordedAt: recordedAt.toISOString() },
+    ])
+    await app.close()
+  })
+})
+
 // ── GET /:id/safety — investigations and manufacturer communications ────────
 
 describe('GET /:id/safety', () => {
