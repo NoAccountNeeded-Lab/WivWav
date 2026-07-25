@@ -568,6 +568,13 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
     return reply.send({ data: history })
   })
 
+  app.get<{ Params: { id: string } }>('/:id/conversion-history', async (req, reply) => {
+    const listing = await listings.findByIdForSafety(req.params.id)
+    if (!listing) return reply.notFound('Listing not found')
+    const history = await listings.findConversionHistory(req.params.id)
+    return reply.send({ data: history })
+  })
+
   app.get<{ Params: { id: string } }>('/:id/dealer', async (req, reply) => {
     const listing = await listings.findByIdForDealer(req.params.id)
     if (!listing) return reply.notFound('Listing not found')
