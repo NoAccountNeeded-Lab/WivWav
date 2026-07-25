@@ -253,3 +253,27 @@ export interface NmeaDealer {
   qapCertified: boolean
   distanceMiles: number | null
 }
+
+/**
+ * Enriched dealer reputation data from #103's Google Places pipeline —
+ * `GET /v1/listings/:id/dealer`. `hours` is raw opening_hours JSON whose
+ * shape varies by Places API version (see apps/api's
+ * `DealerProfileResult` comment); components must treat it as unknown.
+ */
+export interface DealerProfile {
+  id: string
+  name: string
+  rating: number | null
+  reviewCount: number | null
+  hours: unknown
+}
+
+/** One row from `GET /v1/dealers/:id/reviews`. */
+export interface DealerReview {
+  id: string
+  authorName: string
+  rating: number
+  text: string
+  publishedAt: string
+  source: string
+}
