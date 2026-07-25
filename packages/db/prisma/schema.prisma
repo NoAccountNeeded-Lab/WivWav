@@ -234,6 +234,7 @@ model Source {
   updatedAt       DateTime     @updatedAt
 
   listings Listing[]
+  jobRuns  JobRun[]
 
   @@map("sources")
 }
@@ -378,8 +379,15 @@ model Listing {
   fieldClaims       ListingFieldClaim[]
   reports           ListingReport[]
 
+  /// #933 lineage backbone: the JobRun that most recently created or updated
+  /// this listing. Nullable — listings written before this column existed,
+  /// or by a write path not yet instrumented, have no last-run pointer.
+  lastRunId String?
+  lastRun   JobRun? @relation("ListingLastRun", fields: [lastRunId], references: [id])
+
   @@unique([sourceId, sourceRecordKey])
   @@index([sourceId])
+  @@index([lastRunId])
   @@index([sourceUrl])
   @@index([vin])
   @@index([vehicleId, status])
@@ -560,6 +568,50 @@ model ScraperRun {
 
   @@index([sourceId])
   @@map("scraper_runs")
+}
+
+enum JobRunStatus {
+  running
+  succeeded
+  failed
+}
+
+/// #933 lineage backbone. One row per execution of any job type (not just
+/// scrape) — `jobType` is the BullMQ queue name (see `QUEUES` in
+/// `packages/queue/src/queues.ts`). `sourceId` is set whenever the run's work
+/// is attributable to a single source; many global jobs (geocode, dedupe,
+/// vin-enrich, listing-sync, nhtsa-*) leave it null. `parentRunId` links a
+/// run spawned by another run (e.g. detail-extract or vin-enrich enqueuing a
+/// listing-resolve run) back to its parent, forming a per-source pipeline
+/// tree. `ScraperRun` is retained as-is (existing history is not migrated)
+/// — new source-scrape executions are recorded in both tables during the
+/// transition; `JobRun` is the forward-looking source of truth for
+/// cross-job-type lineage.
+model JobRun {
+  id       String  @id @default(cuid())
+  jobType  String
+  sourceId String?
+  source   Source? @relation(fields: [sourceId], references: [id])
+
+  parentRunId String?
+  parent      JobRun?  @relation("JobRunChildren", fields: [parentRunId], references: [id])
+  children    JobRun[] @relation("JobRunChildren")
+
+  status     JobRunStatus @default(running)
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+
+  succeededCount Int?
+  failedCount    Int?
+  errorMessage   String?
+
+  listings Listing[] @relation("ListingLastRun")
+
+  @@index([sourceId])
+  @@index([parentRunId])
+  @@index([jobType, startedAt])
+  @@index([status])
+  @@map("job_run")
 }
 
 // ── Research platform ──────────────────────────────────────────────────────
