@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { VinHistoryResponse, VinHistoryEntry } from '@wivwav/types'
 import { Accessibility, Gauge, ShieldCheck, TrendingUp, Info } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getTranslations, getLocale } from 'next-intl/server'
@@ -89,6 +90,21 @@ async function getConversionHistory(id: string): Promise<ConversionHistoryEntry[
     if (!res.ok) return []
     const json = (await res.json()) as { data: ConversionHistoryEntry[] }
     return json.data ?? []
+  } catch {
+    return []
+  }
+}
+
+async function getVinHistory(vin: string | null): Promise<VinHistoryEntry[]> {
+  if (vin === null) return []
+
+  try {
+    const res = await apiFetch(`${getServerApiBaseUrl()}/v1/vin/${encodeURIComponent(vin)}/history`, {
+      next: { revalidate: 300 },
+    })
+    if (!res.ok) return []
+    const json = (await res.json()) as { data: VinHistoryResponse }
+    return json.data.history ?? []
   } catch {
     return []
   }
@@ -293,6 +309,7 @@ export default async function VehicleDetailPage({
     nearbyDealers,
     dealerProfile,
     conversionHistory,
+    vinHistory,
   ] =
     await Promise.all([
       getPriceHistory(id),
@@ -306,6 +323,7 @@ export default async function VehicleDetailPage({
       getNearbyDealers(listing.location.lat, listing.location.lng),
       getDealerProfile(id),
       getConversionHistory(id),
+      getVinHistory(listing.vin),
     ])
   // Reviews depend on the dealer profile's id, resolved above — a
   // private-seller listing or an unmatched dealer has none to fetch.
@@ -378,6 +396,7 @@ export default async function VehicleDetailPage({
           listing={listing}
           marketPricing={marketPricing}
           priceHistory={priceHistory}
+          vinHistory={vinHistory}
           similar={similar}
           modelMsrp={modelMsrp}
           vehiclePathPrefix={`/${locale}`}
