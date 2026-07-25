@@ -34,6 +34,7 @@ export async function resetIntegrationDb(db: PrismaClient): Promise<void> {
       "listing_price_history",
       "listing_reports",
       "listing_field_claim",
+      "job_run",
       "listings",
       "sources",
       "nmea_dealers"
