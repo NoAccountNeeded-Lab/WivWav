@@ -71,9 +71,11 @@ function computeSignalAvailability(request: AttentionSnapshotRequest): Attention
     health: request.health.unavailable ? 'unavailable' : 'available',
     bullmq: request.queues.unavailable ? 'unavailable' : 'available',
     db: dbUnavailable ? 'unavailable' : 'available',
-    // Not yet consumed by this computation — reserved for the diagnostic
-    // gateway follow-up so it can share this exact contract without a fork.
-    loki: 'available',
+    // Optional — only the diagnostic gateway's `get_system_snapshot` (#775)
+    // actually probes Loki and reports it. Every other caller omits `loki`
+    // entirely, which this treats identically to the hardcoded 'available'
+    // this field replaced, so their existing behaviour/tests are unchanged.
+    loki: request.loki?.unavailable ? 'unavailable' : 'available',
   }
 }
 

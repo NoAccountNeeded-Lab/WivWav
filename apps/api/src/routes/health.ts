@@ -27,24 +27,32 @@ interface HealthPluginOptions {
 
 type ProbeName = keyof typeof LATENCY_THRESHOLDS_MS
 
-export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app, { db, sources, scraperRuns, meili, cache, config }) => {
-  app.get('/', { logLevel: 'silent' }, async (): Promise<HealthResponse> => {
-    const [postgres, meilisearch, valkey, ollama, scraper] = await Promise.all([
-      probe('postgres', () => db.$queryRaw`SELECT 1`),
-      probe('meilisearch', () => meili.health()),
-      probe('valkey', () => cache.ping()),
-      probeOllama(config),
-      getScraperHealth(sources, scraperRuns),
-    ])
+export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app, opts) => {
+  app.get('/', { logLevel: 'silent' }, async (): Promise<HealthResponse> => computeHealth(opts))
+}
 
-    const services = { postgres, meilisearch, valkey, ollama, scraper }
+/**
+ * The same all-service health probe `GET /health` runs, factored out so the
+ * diagnostic gateway's `get_system_snapshot` (#775, `routes/diagnostics/system-snapshot.ts`)
+ * can obtain a `HealthResponse` directly instead of forking this probing
+ * logic into a second implementation.
+ */
+export async function computeHealth({ db, sources, scraperRuns, meili, cache, config }: HealthPluginOptions): Promise<HealthResponse> {
+  const [postgres, meilisearch, valkey, ollama, scraper] = await Promise.all([
+    probe('postgres', () => db.$queryRaw`SELECT 1`),
+    probe('meilisearch', () => meili.health()),
+    probe('valkey', () => cache.ping()),
+    probeOllama(config),
+    getScraperHealth(sources, scraperRuns),
+  ])
 
-    return {
-      status: getOverallStatus(Object.values(services)),
-      timestamp: new Date().toISOString(),
-      services,
-    }
-  })
+  const services = { postgres, meilisearch, valkey, ollama, scraper }
+
+  return {
+    status: getOverallStatus(Object.values(services)),
+    timestamp: new Date().toISOString(),
+    services,
+  }
 }
 
 async function probeOllama(config: Config): Promise<ServiceHealth> {

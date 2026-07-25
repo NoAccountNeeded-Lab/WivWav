@@ -65,6 +65,11 @@ const schema = z.object({
   // Stripe Dashboard's webhook endpoint config. When unset, the webhook
   // endpoint refuses all requests with 503 rather than accepting unverifiable payloads.
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Deployed commit SHA, set by the deploy pipeline (e.g. `GIT_SHA=$(git rev-parse HEAD)`
+  // as a build/run arg). Surfaced verbatim by `GET /diagnostics/diagnostic-context`
+  // (#775) as fixed-size revision metadata; 'unknown' in local dev where no
+  // pipeline sets it.
+  GIT_SHA: z.string().default('unknown'),
 })
 
 export type Config = z.infer<typeof schema>

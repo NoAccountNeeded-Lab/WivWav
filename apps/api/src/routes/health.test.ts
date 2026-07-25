@@ -17,6 +17,7 @@ const baseConfig = {
   LOKI_URL: 'http://localhost:3100',
   GRAFANA_URL: 'http://localhost:3003',
   CORS_ORIGIN: 'http://localhost:3000',
+  GIT_SHA: 'test-sha',
 }
 
 const baseDeps = {
