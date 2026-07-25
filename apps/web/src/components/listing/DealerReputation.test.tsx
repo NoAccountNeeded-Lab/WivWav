@@ -90,4 +90,24 @@ describe('DealerReputation', () => {
     expect(screen.queryByText('Closed now')).toBeNull()
     expect(container.firstChild).toBeNull()
   })
+
+  it('labels the section heading by what it actually contains, not always "Reviews"', () => {
+    const hoursOnlyProfile: DealerProfile = {
+      ...baseProfile,
+      rating: null,
+      reviewCount: null,
+      hours: { weekday_text: ['Monday: 9 AM – 6 PM'] },
+    }
+    const { rerender } = render(
+      <DealerReputation dealerProfile={hoursOnlyProfile} reviews={[]} sectionLabelClassName="label" />,
+    )
+    expect(screen.getByRole('heading', { name: 'Hours' })).toBeTruthy()
+
+    const ratingOnlyProfile: DealerProfile = { ...baseProfile, hours: null }
+    rerender(<DealerReputation dealerProfile={ratingOnlyProfile} reviews={[]} sectionLabelClassName="label" />)
+    expect(screen.getByRole('heading', { name: 'Rating' })).toBeTruthy()
+
+    rerender(<DealerReputation dealerProfile={baseProfile} reviews={[baseReview]} sectionLabelClassName="label" />)
+    expect(screen.getByRole('heading', { name: 'Reviews' })).toBeTruthy()
+  })
 })
