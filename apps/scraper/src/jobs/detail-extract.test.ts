@@ -63,6 +63,7 @@ import {
   summarizeError,
 } from './detail-extract.js'
 import { runDetailExtractJob } from './detail-extract.js'
+import { JobRunStatsError } from '../lib/job-run-tracking.js'
 import type { RawDetail } from '../sources/blvd-detail.js'
 import { evaluateMwDetail } from '../sources/mobilityworks-detail.js'
 import { evaluateDeclarativeDetail } from '../sources/declarative-detail.js'
@@ -221,9 +222,14 @@ describe('runDetailExtractJob', () => {
       .mockResolvedValueOnce(rawMwDetail())
       .mockRejectedValueOnce(new Error('parser failure: unexpected DOM shape'))
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).rejects.toThrow(
+    const err = await runDetailExtractJob('src-1', undefined, makeBrowser()).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(JobRunStatsError)
+    expect((err as Error).message).toBe(
       '[detail-extract] 1 of 2 raw page(s) failed extraction for source src-1 (1 succeeded)',
     )
+    // Partial-batch failures still carry the split so a JobRun row records
+    // how much of the batch succeeded before the throw, not just "failed".
+    expect((err as JobRunStatsError).stats).toEqual({ succeededCount: 1, failedCount: 1 })
 
     // Page 1 (success) is committed: listing update + observation + processedAt.
     expect(db.__tx.listing.update).toHaveBeenCalledTimes(1)
@@ -259,7 +265,10 @@ describe('runDetailExtractJob', () => {
     vi.mocked(getDb).mockReturnValue(db as never)
     vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({
+      succeededCount: 1,
+      failedCount: 0,
+    })
     expect(db.rawPage.update).toHaveBeenCalledWith({
       where: { id: 'raw-1' },
       data: { processedAt: expect.any(Date) },
@@ -306,7 +315,7 @@ describe('runDetailExtractJob', () => {
     vi.mocked(getDb).mockReturnValue(db as never)
     vi.mocked(evaluateMwDetail).mockResolvedValue(rawMwDetail())
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     expect(db.$transaction).not.toHaveBeenCalled()
     expect(db.rawPage.update).toHaveBeenCalledWith({
@@ -361,7 +370,7 @@ describe('runDetailExtractJob', () => {
     await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).rejects.toThrow(
       '[detail-extract] 1 of 1 raw page(s) failed extraction for source src-1 (0 succeeded)',
     )
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     expect(resolutionQueue.add).toHaveBeenCalledTimes(2)
     expect(resolutionQueue.add).toHaveBeenNthCalledWith(
@@ -415,7 +424,7 @@ describe('runDetailExtractJob', () => {
     await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).rejects.toThrow(
       '[detail-extract] 1 of 1 raw page(s) failed extraction for source src-1 (0 succeeded)',
     )
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser(), resolutionQueue as never)).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     expect(resolutionQueue.add).toHaveBeenCalledTimes(1)
     expect(listingObservationUpsert).toHaveBeenCalledTimes(1)
@@ -500,7 +509,7 @@ describe('runDetailExtractJob — declarative extraction (#822)', () => {
     const raw: RawDeclarativeDetail = { color: { values: ['Ebony Black'] } }
     vi.mocked(evaluateDeclarativeDetail).mockResolvedValue(raw)
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     expect(evaluateDeclarativeDetail).toHaveBeenCalledWith(expect.anything(), [colorMapping])
     expect(db.__tx.listing.update).toHaveBeenCalledWith(
@@ -514,7 +523,7 @@ describe('runDetailExtractJob — declarative extraction (#822)', () => {
     vi.mocked(getDb).mockReturnValue(dbRun1 as never)
     vi.mocked(evaluateDeclarativeDetail).mockResolvedValue({ color: { values: ['Ebony Black'] } })
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
     expect(dbRun1.__tx.listing.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ color: 'Ebony Black' }) }),
     )
@@ -536,7 +545,7 @@ describe('runDetailExtractJob — declarative extraction (#822)', () => {
     vi.mocked(getDb).mockReturnValue(dbRun2 as never)
     vi.mocked(evaluateDeclarativeDetail).mockResolvedValue({ color: { values: ['Snow White Pearl'] } })
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     expect(evaluateDeclarativeDetail).toHaveBeenCalledWith(expect.anything(), [remappedMapping])
     expect(dbRun2.__tx.listing.update).toHaveBeenCalledWith(
@@ -553,7 +562,7 @@ describe('runDetailExtractJob — declarative extraction (#822)', () => {
     vi.mocked(getDb).mockReturnValue(db as never)
     vi.mocked(evaluateDeclarativeDetail).mockResolvedValue({ color: { values: [] } })
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     const updateCall = db.__tx.listing.update.mock.calls.at(0)?.[0] as { data: Record<string, unknown> } | undefined
     expect(updateCall?.data.color).toBeUndefined()
@@ -571,7 +580,7 @@ describe('runDetailExtractJob — declarative extraction (#822)', () => {
     })
     vi.mocked(getDb).mockReturnValue(db as never)
 
-    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toBeUndefined()
+    await expect(runDetailExtractJob('src-1', undefined, makeBrowser())).resolves.toEqual({ succeededCount: 1, failedCount: 0 })
 
     expect(evaluateDeclarativeDetail).not.toHaveBeenCalled()
     expect(evaluateMwDetail).not.toHaveBeenCalled()

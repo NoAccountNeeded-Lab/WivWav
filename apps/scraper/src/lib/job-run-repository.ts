@@ -27,7 +27,13 @@ export interface JobRunFinishStats {
 export interface JobRunRepository {
   start(input: JobRunStartInput): Promise<JobRunRecord>
   succeed(id: string, stats?: JobRunFinishStats): Promise<void>
-  fail(id: string, errorMessage: string): Promise<void>
+  /**
+   * `stats` is optional here for the same reason it is on `succeed`: a
+   * processor that throws partway through (e.g. detail-extract's partial
+   * page-extraction failure) can still know how much of its batch succeeded
+   * before the failure, and that count is worth keeping on the row.
+   */
+  fail(id: string, errorMessage: string, stats?: JobRunFinishStats): Promise<void>
 }
 
 export class PrismaJobRunRepository implements JobRunRepository {
@@ -52,10 +58,15 @@ export class PrismaJobRunRepository implements JobRunRepository {
     })
   }
 
-  async fail(id: string, errorMessage: string): Promise<void> {
+  async fail(id: string, errorMessage: string, stats?: JobRunFinishStats): Promise<void> {
     await this.db.jobRun.update({
       where: { id },
-      data: { status: 'failed', finishedAt: new Date(), errorMessage },
+      data: {
+        status: 'failed',
+        finishedAt: new Date(),
+        errorMessage,
+        ...(stats ? { succeededCount: stats.succeededCount ?? null, failedCount: stats.failedCount ?? null } : {}),
+      },
     })
   }
 }

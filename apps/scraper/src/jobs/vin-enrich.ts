@@ -1,5 +1,6 @@
 import { getDb } from '@wivwav/db'
 import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
+import type { JobRunFinishStats } from '../lib/job-run-repository.js'
 import { report } from './job-progress.js'
 import { normalizeVehicleField, type VehicleModelMatchConfidence } from './normalize-vehicle-fields.js'
 import { acquireListingLock, releaseListingLock, unlockableWhere } from './listing-lock.js'
@@ -87,7 +88,10 @@ async function findOrCreateVehicleModel(
   return { id: created.id, bodyType: created.bodyType, confidence: 'exact' }
 }
 
-export async function runVinEnrichJob(context?: JobContext, resolutionQueue?: QueueAdapter): Promise<void> {
+export async function runVinEnrichJob(
+  context?: JobContext,
+  resolutionQueue?: QueueAdapter,
+): Promise<JobRunFinishStats> {
   const db = getDb()
 
   // Exclude listings locked by another concurrent job (e.g. geocode, deduplicate)
@@ -230,4 +234,11 @@ export async function runVinEnrichJob(context?: JobContext, resolutionQueue?: Qu
     total: listings.length,
   })
   await db.$disconnect()
+
+  // succeededCount covers both outcomes where the VIN itself decoded
+  // successfully — a clean enrich and an NHTSA-mismatch quarantine both mean
+  // vPIC returned a usable decode; failedCount is decodes vPIC could not
+  // produce at all. Listings skipped for a lock held by another job aren't
+  // this run's success or failure — they're simply retried on the next run.
+  return { succeededCount: enriched + mismatched, failedCount: failed }
 }

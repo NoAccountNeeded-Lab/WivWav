@@ -18,6 +18,8 @@ import {
 } from '../sources/source-listing-dates.js'
 import { recordDetailFieldClaims } from '../resolution/detail-claims.js'
 import { withTransientRetry } from '../lib/db-retry.js'
+import type { JobRunFinishStats } from '../lib/job-run-repository.js'
+import { JobRunStatsError } from '../lib/job-run-tracking.js'
 import { report } from './job-progress.js'
 
 /** Bespoke-parser BLVD listing pages are always served from this domain. */
@@ -450,7 +452,7 @@ export async function runDetailExtractJob(
   context?: JobContext,
   browserService?: BrowserService,
   resolutionQueue?: QueueAdapter,
-): Promise<void> {
+): Promise<JobRunFinishStats | void> {
   if (typeof sourceId !== 'string' || sourceId.trim().length === 0) {
     throw new Error('[detail-extract] sourceId must be a non-empty string')
   }
@@ -728,6 +730,8 @@ export async function runDetailExtractJob(
       { event: 'detail-extract.partial-failure', sourceId, success, failed, total: rawPages.length },
       `[detail-extract] ${reason}`,
     )
-    throw new Error(`[detail-extract] ${reason}`)
+    throw new JobRunStatsError(`[detail-extract] ${reason}`, { succeededCount: success, failedCount: failed })
   }
+
+  return { succeededCount: success, failedCount: failed }
 }

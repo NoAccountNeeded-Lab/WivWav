@@ -1,5 +1,5 @@
 import type { JobContext, JobProcessor } from '@wivwav/queue'
-import type { JobRunRepository } from './job-run-repository.js'
+import type { JobRunFinishStats, JobRunRepository } from './job-run-repository.js'
 
 function readStringField(data: unknown, field: string): string | null {
   if (data && typeof data === 'object' && field in data) {
@@ -8,6 +8,32 @@ function readStringField(data: unknown, field: string): string | null {
   }
   return null
 }
+
+/**
+ * Thrown by a processor that fails partway through a batch but still knows
+ * how much of it succeeded before the failure (e.g. detail-extract's
+ * per-page extraction loop). `withJobRunTracking` unwraps `.stats` and
+ * persists it on the failed `JobRun` row alongside `errorMessage`, instead
+ * of leaving `succeededCount`/`failedCount` null the way a plain `Error`
+ * thrown mid-batch would.
+ */
+export class JobRunStatsError extends Error {
+  readonly stats: JobRunFinishStats
+
+  constructor(message: string, stats: JobRunFinishStats) {
+    super(message)
+    this.name = 'JobRunStatsError'
+    this.stats = stats
+  }
+}
+
+/**
+ * A processor wrapped by `withJobRunTracking` may optionally resolve with
+ * `succeededCount`/`failedCount` for the batch it just processed — see
+ * `JobRunFinishStats`. Processors with no natural per-run count (most job
+ * types) can keep resolving `void` as before.
+ */
+type TrackedJobProcessor<T> = (data: T, context: JobContext) => Promise<JobRunFinishStats | void>
 
 /**
  * Wraps a BullMQ job processor so every execution of `jobType` is recorded
@@ -32,7 +58,7 @@ function readStringField(data: unknown, field: string): string | null {
 export function withJobRunTracking<T = unknown>(
   jobType: string,
   jobRuns: JobRunRepository,
-  processor: JobProcessor<T>,
+  processor: TrackedJobProcessor<T>,
 ): JobProcessor<T> {
   return async (data: T, context: JobContext): Promise<void> => {
     const sourceId = readStringField(data, 'sourceId')
@@ -41,14 +67,23 @@ export function withJobRunTracking<T = unknown>(
     const runContext: JobContext = { ...context, runId: run.id }
 
     try {
-      await processor(data, runContext)
-      await jobRuns.succeed(run.id)
+      const stats = await processor(data, runContext)
+      if (stats) {
+        await jobRuns.succeed(run.id, stats)
+      } else {
+        await jobRuns.succeed(run.id)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
+      const stats = err instanceof JobRunStatsError ? err.stats : undefined
       // Best-effort: a failure recording the failure must not mask the
       // original processor error, which is what actually needs to propagate
       // to BullMQ for retry/alerting.
-      await jobRuns.fail(run.id, message).catch(() => {})
+      if (stats) {
+        await jobRuns.fail(run.id, message, stats).catch(() => {})
+      } else {
+        await jobRuns.fail(run.id, message).catch(() => {})
+      }
       throw err
     }
   }
