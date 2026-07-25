@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import { fetchJson } from '@/lib/fetch-json'
+import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
 import { usePolledResource } from '@/lib/use-polled-resource'
 import type { OverviewResources } from '../../use-overview-resources'
 import {
@@ -22,10 +22,28 @@ export interface DashboardReadiness {
   isRefreshing: boolean
 }
 
+interface FetchResult<T> {
+  data: T | null
+  error?: string
+}
+
 function toResourceState<T>(data: T | null, error: string | null): ResourceState<T> | null {
   if (data !== null) return { status: 'loaded', data }
   if (error !== null) return { status: 'unavailable', error }
   return null
+}
+
+async function fetchListingSearchSnapshot(url: string): Promise<FetchResult<ListingSearchSnapshot>> {
+  try {
+    const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10_000)
+    if (!res.ok) return { data: null, error: `API returned ${res.status}` }
+    return { data: await res.json() as ListingSearchSnapshot }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { data: null, error: 'Request timed out' }
+    }
+    return { data: null, error: err instanceof Error ? err.message : 'Request failed' }
+  }
 }
 
 /**
@@ -39,7 +57,7 @@ function toResourceState<T>(data: T | null, error: string | null): ResourceState
 export function useDashboardReadiness(apiBaseUrl: string, resources: OverviewResources): DashboardReadiness {
   const listingSearch = usePolledResource<ListingSearchSnapshot>(
     'ops-dashboard-grid:listing-search',
-    useCallback(() => fetchJson<ListingSearchSnapshot>(`${apiBaseUrl}/v1/listings?perPage=1`), [apiBaseUrl]),
+    useCallback(() => fetchListingSearchSnapshot(`${apiBaseUrl}/v1/listings?perPage=1`), [apiBaseUrl]),
     REFRESH_MS,
   )
 

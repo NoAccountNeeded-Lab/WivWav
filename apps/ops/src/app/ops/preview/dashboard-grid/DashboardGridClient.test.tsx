@@ -52,7 +52,7 @@ const PROBLEM_AGGREGATE_BODY = {
     availability: { health: 'available', bullmq: 'available', db: 'available', loki: 'available', grafana: 'available', sentry: 'available' },
   },
 }
-const LISTINGS_BODY = { pagination: { total: 100 } }
+const LISTINGS_BODY = { data: [], facets: {}, pagination: { page: 1, perPage: 1, total: 100, totalPages: 100 } }
 const LISTING_REFRESH_BODY = {
   data: {
     generatedAt: new Date().toISOString(),
@@ -118,6 +118,9 @@ describe('DashboardGridClient — renders live data per panel (#912)', () => {
     await waitFor(() => {
       expect(within(readinessPanel).getAllByRole('listitem').length).toBeGreaterThan(0)
     })
+    const searchIndexItem = within(readinessPanel).getByText('Search index reachable').closest('[role="listitem"]')
+    expect(searchIndexItem).not.toBeNull()
+    expect(searchIndexItem?.getAttribute('data-status')).toBe('pass')
   })
 
   it('renders the site-readiness panel as a dense multi-column checklist, not the one-column /ops/readiness list', async () => {
