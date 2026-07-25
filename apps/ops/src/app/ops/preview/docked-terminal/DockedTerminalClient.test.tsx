@@ -57,6 +57,15 @@ const EMPTY_LIST = { data: [] }
 // un-enveloped `fetchResource` reading `services` off `undefined`.
 const HEALTH_BODY = { status: 'ok', timestamp: new Date().toISOString(), services: {} }
 const LISTINGS_BODY = { pagination: { total: 10 } }
+const LISTING_REFRESH_BODY = {
+  data: {
+    generatedAt: new Date().toISOString(),
+    sources: { total: 0, active: 0, needsAttention: 0, totalListings: 0, observedActiveListings: 0, eligibleListings: 0, lastScrapedAt: null },
+    listings: { active: 0, observedActive: 0, eligible: 0, mapReady: 0, missingLocations: 0 },
+    latestScrapeRun: null,
+    queues: [],
+  },
+}
 const PROBLEM_AGGREGATE_EMPTY = {
   data: {
     problems: [],
@@ -92,6 +101,7 @@ function mockFetch(routes: FetchRoutes = {}) {
     if (url.endsWith('/admin/sources')) return jsonResponse(routes.sources ?? EMPTY_LIST)
     if (url.endsWith('/admin/runs')) return jsonResponse(EMPTY_LIST)
     if (url.endsWith('/admin/repeatables')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.includes('/v1/listings')) return jsonResponse(LISTINGS_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(routes.problemAggregate ?? PROBLEM_AGGREGATE_EMPTY)
     if (url.includes('/admin/logs')) return jsonResponse(routes.logs ?? EMPTY_LIST)

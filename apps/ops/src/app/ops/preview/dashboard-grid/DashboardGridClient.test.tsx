@@ -53,6 +53,15 @@ const PROBLEM_AGGREGATE_BODY = {
   },
 }
 const LISTINGS_BODY = { pagination: { total: 100 } }
+const LISTING_REFRESH_BODY = {
+  data: {
+    generatedAt: new Date().toISOString(),
+    sources: { total: 1, active: 1, needsAttention: 0, totalListings: 42, observedActiveListings: 42, eligibleListings: 42, lastScrapedAt: new Date().toISOString() },
+    listings: { active: 42, observedActive: 42, eligible: 42, mapReady: 42, missingLocations: 0 },
+    latestScrapeRun: null,
+    queues: [],
+  },
+}
 
 function mockFetch() {
   return vi.fn(async (url: string) => {
@@ -61,6 +70,7 @@ function mockFetch() {
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return jsonResponse(RUNS_BODY)
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
     if (url.includes('/v1/listings')) return jsonResponse(LISTINGS_BODY)
     throw new Error(`Unexpected URL in test: ${url}`)

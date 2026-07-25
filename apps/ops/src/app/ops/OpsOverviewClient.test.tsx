@@ -32,6 +32,18 @@ const SCHEDULES_BODY = {
     lastRunAt: new Date().toISOString(), lastStatus: 'completed', recentFailureCount: 0, recentFailureReason: null,
   }],
 }
+// Backs the `missing-coordinates` telemetry tile (issue #927). Zero here so
+// the default healthy-overview tests below still see no warning-severity
+// elements anywhere on the page.
+const LISTING_REFRESH_BODY = {
+  data: {
+    generatedAt: new Date().toISOString(),
+    sources: { total: 1, active: 1, needsAttention: 0, totalListings: 42, observedActiveListings: 42, eligibleListings: 42, lastScrapedAt: new Date().toISOString() },
+    listings: { active: 42, observedActive: 42, eligible: 42, mapReady: 42, missingLocations: 0 },
+    latestScrapeRun: null,
+    queues: [],
+  },
+}
 // The Attention panel's Problems preview now renders from the shared
 // problem-aggregate computation (issue #892) rather than recomputing
 // conditions client-side, so every fetch mock below must also answer this
@@ -50,6 +62,7 @@ function mockFetchWithFailingRuns() {
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return { ok: false, status: 503, json: async () => ({}) } as Response
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
@@ -145,6 +158,7 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
       if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
       if (url.endsWith('/admin/runs')) return jsonResponse(runsBody)
       if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+      if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
       if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
       throw new Error(`Unexpected URL in test: ${url}`)
     }))
@@ -170,6 +184,7 @@ function mockFetchWith(overrides: { health?: unknown; queues?: unknown; problemA
     if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
     if (url.endsWith('/admin/runs')) return jsonResponse({ data: [] })
     if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(problemAggregate)
     throw new Error(`Unexpected URL in test: ${url}`)
   })

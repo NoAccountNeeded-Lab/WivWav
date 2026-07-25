@@ -1,6 +1,7 @@
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from '@/lib/relative-time'
 import type { AttentionResourceInput, HealthResponse, ServiceHealth } from '@wivwav/types'
 import type { PolledResourceState } from '@/lib/use-polled-resource'
+import type { ListingRefreshStatus } from './refresh-listings/listing-refresh-workflow'
 
 export interface QueueStats {
   waiting: number
@@ -87,7 +88,7 @@ export interface OverviewModel {
   telemetry: OverviewCard[]
 }
 
-export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules'
+export type OverviewResourceKey = 'health' | 'queues' | 'sources' | 'runs' | 'schedules' | 'listingRefresh'
 
 export interface OverviewInput {
   health: HealthResponse | null
@@ -95,6 +96,12 @@ export interface OverviewInput {
   sources: SourceRow[] | null
   runs: RunRow[] | null
   schedules: ScheduleEntry[] | null
+  /**
+   * Listing-refresh status aggregate (`GET /admin/listing-refresh/status`) —
+   * consumed here for `listings.missingLocations`, which feeds the
+   * `missing-coordinates` telemetry tile (issue #927).
+   */
+  listingRefresh: ListingRefreshStatus | null
   /**
    * Unacknowledged-problem counts by severity from the shared problem
    * aggregate (issue #892, `useProblemAggregate`) — factored into
@@ -130,12 +137,14 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const lastSuccessfulRunTitle = lastSuccessfulRun?.finishedAt ? formatAbsoluteTimestamp(lastSuccessfulRun.finishedAt) : null
   const geocodeQueue = input.queues?.find(queue => queue.name === 'geocode') ?? null
   const healthServices = input.health?.services
+  const missingLocations = input.listingRefresh?.listings.missingLocations ?? null
 
   const healthError = input.errors.health ?? (isSettledEmpty(input.health, input.pending?.health) ? 'Service health telemetry unavailable' : undefined)
   const queueError = input.errors.queues ?? (isSettledEmpty(input.queues, input.pending?.queues) ? 'Queue telemetry unavailable' : undefined)
   const sourceError = input.errors.sources ?? (isSettledEmpty(input.sources, input.pending?.sources) ? 'Source telemetry unavailable' : undefined)
   const runError = input.errors.runs ?? (isSettledEmpty(input.runs, input.pending?.runs) ? 'Scraper run telemetry unavailable' : undefined)
   const scheduleError = input.errors.schedules ?? (isSettledEmpty(input.schedules, input.pending?.schedules) ? 'Schedule telemetry unavailable' : undefined)
+  const listingRefreshError = input.errors.listingRefresh ?? (isSettledEmpty(input.listingRefresh, input.pending?.listingRefresh) ? 'Listing-refresh telemetry unavailable' : undefined)
 
   // Telemetry-fetch-failure signals only — real domain/Grafana/Sentry
   // problems are federated server-side by `computeProblemAggregate` (issue
@@ -215,9 +224,13 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
     {
       id: 'missing-coordinates',
       label: 'Listings missing coordinates',
-      value: 'Not yet tracked',
-      detail: 'The API does not currently expose a missing-coordinate count. Use the geocode queue status as the available proxy.',
-      severity: 'unknown',
+      value: listingRefreshError ? 'Unavailable' : missingLocations == null ? 'Not yet tracked' : missingLocations.toLocaleString(),
+      detail: listingRefreshError ?? (missingLocations == null
+        ? 'Listing-refresh telemetry has not loaded yet'
+        : missingLocations > 0
+          ? `${missingLocations.toLocaleString()} active listings need geocoding`
+          : 'All active listings have map coordinates'),
+      severity: listingRefreshError ? 'unknown' : missingLocations == null ? 'unknown' : missingLocations > 0 ? 'warning' : 'good',
       href: '/ops/queues',
     },
     {

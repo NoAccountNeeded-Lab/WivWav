@@ -112,7 +112,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   // slow or failing endpoint never blocks the other sections from rendering
   // (E5: streaming overview + per-section inline retry).
   const overviewResources = useOverviewResources(apiBaseUrl)
-  const { health, queues, sources, runs, schedules, now, updatedAt } = overviewResources
+  const { health, queues, sources, runs, schedules, listingRefresh, now, updatedAt } = overviewResources
 
   // The single server-side call the Attention panel below and `/ops/problems`
   // both render from (issue #892) — this component never recomputes "what is
@@ -143,7 +143,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
 
   // Not memoized: usePolledResource returns a new object every render
   // regardless, so a useMemo here would never actually skip recomputation.
-  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules }
+  const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules, listingRefresh }
 
   const overview = useMemo<OverviewModel>(() => buildOpsOverview({
     health: health.data,
@@ -151,13 +151,15 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
     sources: sources.data,
     runs: runs.data,
     schedules: schedules.data,
+    listingRefresh: listingRefresh.data,
     problemCounts: problemAggregate.data ? problemCountsBySeverity(unacknowledgedProblems(problemAggregate.data.problems)) : null,
     errors: {
-      ...(health.error     ? { health:     health.error }     : {}),
-      ...(queues.error     ? { queues:     queues.error }     : {}),
-      ...(sources.error    ? { sources:    sources.error }    : {}),
-      ...(runs.error       ? { runs:       runs.error }       : {}),
-      ...(schedules.error  ? { schedules:  schedules.error }  : {}),
+      ...(health.error         ? { health:         health.error }         : {}),
+      ...(queues.error         ? { queues:         queues.error }         : {}),
+      ...(sources.error        ? { sources:        sources.error }        : {}),
+      ...(runs.error           ? { runs:           runs.error }           : {}),
+      ...(schedules.error      ? { schedules:      schedules.error }      : {}),
+      ...(listingRefresh.error ? { listingRefresh: listingRefresh.error } : {}),
     },
     pending: {
       health: health.isLoading,
@@ -165,9 +167,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       sources: sources.isLoading,
       runs: runs.isLoading,
       schedules: schedules.isLoading,
+      listingRefresh: listingRefresh.isLoading,
     },
     now,
-  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, problemAggregate.data, now])
+  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, listingRefresh.data, listingRefresh.error, listingRefresh.isLoading, problemAggregate.data, now])
 
   const topProblems = useMemo(
     () => (problemAggregate.data ? sortProblems(unacknowledgedProblems(problemAggregate.data.problems)).slice(0, TOP_PROBLEMS_PREVIEW_LIMIT) : []),

@@ -6,6 +6,15 @@ import { clearWarmCache } from '@/lib/warm-data-cache'
 
 const HEALTH_BODY = { data: { status: 'ok', timestamp: new Date().toISOString(), services: {} } }
 const EMPTY_LIST = { data: [] }
+const LISTING_REFRESH_BODY = {
+  data: {
+    generatedAt: new Date().toISOString(),
+    sources: { total: 0, active: 0, needsAttention: 0, totalListings: 0, observedActiveListings: 0, eligibleListings: 0, lastScrapedAt: null },
+    listings: { active: 0, observedActive: 0, eligible: 0, mapReady: 0, missingLocations: 0 },
+    latestScrapeRun: null,
+    queues: [],
+  },
+}
 
 const ACTIVE_PROBLEM = {
   fingerprint: 'domain:queue_failed_jobs:queue:*',
@@ -46,6 +55,7 @@ function mockFetch(problemAggregateBody: unknown) {
     if (url.endsWith('/admin/sources')) return jsonResponse(EMPTY_LIST)
     if (url.endsWith('/admin/runs')) return jsonResponse(EMPTY_LIST)
     if (url.endsWith('/admin/repeatables')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(problemAggregateBody)
     if (url.endsWith('/internal/ops/problem-ack')) {
       const body = JSON.parse(String(init?.body)) as { fingerprint: string; acknowledged: boolean }
