@@ -402,8 +402,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   // Shares its BullMQ lookup with the wivwav_meilisearch_last_sync_timestamp_seconds
   // gauge (routes/metrics.ts) via services/queue-job-timestamps.ts.
   app.get('/sync', async (_req, reply) => {
+    const queue = queues.get(QUEUES.LISTING_SYNC)
+    if (!queue) return reply.internalServerError('listing-sync queue is not registered')
     try {
-      const seconds = await latestCompletedTimestampSeconds(queueFactory, QUEUES.LISTING_SYNC)
+      const seconds = await latestCompletedTimestampSeconds(queue)
       const lastSyncCompletedAt = seconds === null ? null : new Date(seconds * 1000).toISOString()
       return reply.send({ data: { lastSyncCompletedAt } })
     } catch (err) {

@@ -1,4 +1,4 @@
-import type { QueueFactory } from '@wivwav/queue'
+import type { QueueAdapter } from '@wivwav/queue'
 
 /**
  * Unix timestamp (seconds) of the most recently completed job in a queue, or
@@ -7,12 +7,19 @@ import type { QueueFactory } from '@wivwav/queue'
  * queues) and the admin API (`routes/admin.ts`, `GET /admin/sync`) so both
  * surfaces read the same BullMQ `getJobs(['completed'])` query instead of
  * maintaining separate copies.
+ *
+ * Takes an already-resolved `QueueAdapter` rather than a `QueueFactory` +
+ * name so callers that already hold a queue reference (e.g. `admin.ts`'s
+ * plugin-scoped `queues` map) don't need to re-resolve it.
  */
-export async function latestCompletedTimestampSeconds(queueFactory: QueueFactory, queueName: string): Promise<number | null> {
-  const jobs = await queueFactory.createQueue(queueName).getJobs(['completed'])
-  const latestFinishedAt = jobs.reduce<number>((latest, job) => {
-    const finishedAt = job.finishedAt?.getTime() ?? 0
-    return Math.max(latest, finishedAt)
-  }, 0)
-  return latestFinishedAt > 0 ? Math.floor(latestFinishedAt / 1000) : null
+export async function latestCompletedTimestampSeconds(queue: QueueAdapter): Promise<number | null> {
+  const jobs = await queue.getJobs(['completed'])
+  let latestFinishedAtMs: number | null = null
+  for (const job of jobs) {
+    const finishedAtMs = job.finishedAt?.getTime()
+    if (finishedAtMs !== undefined && (latestFinishedAtMs === null || finishedAtMs > latestFinishedAtMs)) {
+      latestFinishedAtMs = finishedAtMs
+    }
+  }
+  return latestFinishedAtMs === null ? null : Math.floor(latestFinishedAtMs / 1000)
 }

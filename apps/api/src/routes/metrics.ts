@@ -242,7 +242,8 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
       // Meilisearch last sync recency from the most recently completed listing-sync job
       (async () => {
         try {
-          meilisearchLastSyncTimestamp.set((await latestCompletedTimestampSeconds(queueFactory, QUEUES.LISTING_SYNC)) ?? 0)
+          const queue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
+          meilisearchLastSyncTimestamp.set((await latestCompletedTimestampSeconds(queue)) ?? 0)
         } catch {
           meilisearchLastSyncTimestamp.set(0)
         }
@@ -279,7 +280,8 @@ export const metricsRoutes: FastifyPluginAsync<MetricsPluginOptions> = async (
         await Promise.allSettled(
           [QUEUES.NHTSA_RECALLS, QUEUES.NHTSA_COMPLAINTS, QUEUES.NHTSA_SAFETY_RATINGS].map(async (name) => {
             try {
-              nhtsaLastCompletedTimestamp.labels(name).set((await latestCompletedTimestampSeconds(queueFactory, name)) ?? 0)
+              const queue = queueFactory.createQueue(name)
+              nhtsaLastCompletedTimestamp.labels(name).set((await latestCompletedTimestampSeconds(queue)) ?? 0)
             } catch {
               nhtsaLastCompletedTimestamp.labels(name).set(0)
             }
