@@ -41,6 +41,7 @@ const baseConfig: Config = {
   LOKI_URL: 'http://localhost:3100',
   GRAFANA_URL: 'http://localhost:3003',
   CORS_ORIGIN: ['http://localhost:3000'],
+  GIT_SHA: 'test-sha',
 }
 
 describe('isAllowedCorsOrigin', () => {
@@ -452,7 +453,7 @@ describe('/diagnostics auth boundary (#773)', () => {
     const { app: appPromise } = buildTestApp({ config: { NODE_ENV: 'production' } })
     const app = await appPromise
 
-    const response = await app.inject({ method: 'GET', url: '/diagnostics/ping' })
+    const response = await app.inject({ method: 'GET', url: '/diagnostics/diagnostic-context' })
     expect(response.statusCode).toBe(503)
     expect(JSON.parse(response.body).error.code).toBe('DIAGNOSTIC_DISABLED')
 
@@ -463,12 +464,12 @@ describe('/diagnostics auth boundary (#773)', () => {
     const { app: appPromise } = buildTestApp({ config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' } })
     const app = await appPromise
 
-    const noToken = await app.inject({ method: 'GET', url: '/diagnostics/ping' })
+    const noToken = await app.inject({ method: 'GET', url: '/diagnostics/diagnostic-context' })
     expect(noToken.statusCode).toBe(401)
 
     const wrongToken = await app.inject({
       method: 'GET',
-      url: '/diagnostics/ping',
+      url: '/diagnostics/diagnostic-context',
       headers: { authorization: 'Bearer wrong-value' },
     })
     expect(wrongToken.statusCode).toBe(401)
@@ -482,7 +483,7 @@ describe('/diagnostics auth boundary (#773)', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/diagnostics/ping',
+      url: '/diagnostics/diagnostic-context',
       headers: { authorization: 'Bearer diagnostic-secret-value' },
     })
     expect(response.statusCode).toBe(200)
@@ -498,7 +499,7 @@ describe('/diagnostics auth boundary (#773)', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/diagnostics/ping',
+      url: '/diagnostics/diagnostic-context',
       headers: { authorization: 'Bearer shared-secret-value' },
     })
     expect(response.statusCode).toBe(200)
