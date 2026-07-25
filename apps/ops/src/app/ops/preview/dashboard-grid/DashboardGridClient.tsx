@@ -64,7 +64,7 @@ const PANEL_ORDER: PanelId[] = ['health', 'problems', 'queues', 'runs', 'schedul
  */
 export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
   const overviewResources = useOverviewResources(apiBaseUrl)
-  const { health, queues, sources, runs, schedules, now } = overviewResources
+  const { health, queues, sources, runs, schedules, listingRefresh, now } = overviewResources
   const problemAggregate = useProblemAggregate(apiBaseUrl, overviewResources)
   const readiness = useDashboardReadiness(apiBaseUrl, overviewResources)
 
@@ -74,13 +74,15 @@ export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
     sources: sources.data,
     runs: runs.data,
     schedules: schedules.data,
+    listingRefresh: listingRefresh.data,
     problemCounts: problemAggregate.data ? problemCountsBySeverity(unacknowledgedProblems(problemAggregate.data.problems)) : null,
     errors: {
-      ...(health.error    ? { health:    health.error }    : {}),
-      ...(queues.error    ? { queues:    queues.error }    : {}),
-      ...(sources.error   ? { sources:   sources.error }   : {}),
-      ...(runs.error      ? { runs:      runs.error }      : {}),
-      ...(schedules.error ? { schedules: schedules.error } : {}),
+      ...(health.error         ? { health:         health.error }         : {}),
+      ...(queues.error         ? { queues:         queues.error }         : {}),
+      ...(sources.error        ? { sources:        sources.error }        : {}),
+      ...(runs.error           ? { runs:           runs.error }           : {}),
+      ...(schedules.error      ? { schedules:      schedules.error }      : {}),
+      ...(listingRefresh.error ? { listingRefresh: listingRefresh.error } : {}),
     },
     pending: {
       health: health.isLoading,
@@ -88,6 +90,7 @@ export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
       sources: sources.isLoading,
       runs: runs.isLoading,
       schedules: schedules.isLoading,
+      listingRefresh: listingRefresh.isLoading,
     },
     now,
   }), [
@@ -96,6 +99,7 @@ export function DashboardGridClient({ apiBaseUrl }: DashboardGridClientProps) {
     sources.data, sources.error, sources.isLoading,
     runs.data, runs.error, runs.isLoading,
     schedules.data, schedules.error, schedules.isLoading,
+    listingRefresh.data, listingRefresh.error, listingRefresh.isLoading,
     problemAggregate.data, now,
   ])
 

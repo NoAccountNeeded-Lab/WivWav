@@ -37,6 +37,13 @@ function baseInput(overrides: Partial<OverviewInput> = {}): OverviewInput {
     schedules: [
       { id: 'geocode', queue: 'geocode', label: 'Geocode', enabled: true, lastRunAt: '2026-06-18T08:00:00.000Z', lastStatus: 'completed', recentFailureCount: 0, recentFailureReason: null },
     ],
+    listingRefresh: {
+      generatedAt: '2026-06-18T17:00:00.000Z',
+      sources: { total: 2, active: 2, needsAttention: 0, totalListings: 20, observedActiveListings: 20, eligibleListings: 20, lastScrapedAt: '2026-06-18T17:00:00.000Z' },
+      listings: { active: 20, observedActive: 20, eligible: 20, mapReady: 18, missingLocations: 2 },
+      latestScrapeRun: null,
+      queues: [],
+    },
     problemCounts: { critical: 0, warning: 0 },
     errors: {},
     ...overrides,
@@ -78,6 +85,7 @@ describe('buildOpsOverview', () => {
       sources: null,
       runs: null,
       schedules: null,
+      listingRefresh: null,
       problemCounts: null,
       errors: { health: 'API returned 503', queues: 'Queue service is unavailable' },
     }))
@@ -85,8 +93,53 @@ describe('buildOpsOverview', () => {
     expect(overview.overall.severity).toBe('unknown')
     expect(overview.healthCards.find(card => card.id === 'api')?.value).toBe('Unavailable')
     expect(overview.healthCards.find(card => card.id === 'queues')?.detail).toBe('Queue service is unavailable')
+    expect(overview.telemetry.find(card => card.id === 'missing-coordinates')?.value).toBe('Unavailable')
+    expect(overview.telemetry.find(card => card.id === 'missing-coordinates')?.severity).toBe('unknown')
     expect(overview.telemetry.map(card => card.value)).toEqual(expect.arrayContaining(['Not yet tracked', 'Unavailable']))
     expect(overview.attention.map(item => item.id)).toEqual(expect.arrayContaining(['health-unavailable', 'queues-unavailable']))
+  })
+
+  it('shows the missing-coordinates tile as not yet loaded while its resource is still pending', () => {
+    const overview = buildOpsOverview(baseInput({
+      listingRefresh: null,
+      pending: { listingRefresh: true },
+    }))
+
+    const card = overview.telemetry.find(c => c.id === 'missing-coordinates')
+    expect(card?.value).toBe('Not yet tracked')
+    expect(card?.severity).toBe('unknown')
+  })
+
+  it('surfaces the live missing-coordinates count with warning severity when nonzero', () => {
+    const overview = buildOpsOverview(baseInput({
+      listingRefresh: {
+        generatedAt: '2026-06-18T17:00:00.000Z',
+        sources: { total: 2, active: 2, needsAttention: 0, totalListings: 20, observedActiveListings: 20, eligibleListings: 20, lastScrapedAt: '2026-06-18T17:00:00.000Z' },
+        listings: { active: 20, observedActive: 20, eligible: 20, mapReady: 15, missingLocations: 5 },
+        latestScrapeRun: null,
+        queues: [],
+      },
+    }))
+
+    const card = overview.telemetry.find(c => c.id === 'missing-coordinates')
+    expect(card?.value).toBe('5')
+    expect(card?.severity).toBe('warning')
+  })
+
+  it('shows a healthy state when the missing-coordinates count is zero', () => {
+    const overview = buildOpsOverview(baseInput({
+      listingRefresh: {
+        generatedAt: '2026-06-18T17:00:00.000Z',
+        sources: { total: 2, active: 2, needsAttention: 0, totalListings: 20, observedActiveListings: 20, eligibleListings: 20, lastScrapedAt: '2026-06-18T17:00:00.000Z' },
+        listings: { active: 20, observedActive: 20, eligible: 20, mapReady: 20, missingLocations: 0 },
+        latestScrapeRun: null,
+        queues: [],
+      },
+    }))
+
+    const card = overview.telemetry.find(c => c.id === 'missing-coordinates')
+    expect(card?.value).toBe('0')
+    expect(card?.severity).toBe('good')
   })
 
   it('warns when the latest successful scraper run is stale', () => {
