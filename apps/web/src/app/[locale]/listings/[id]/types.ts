@@ -85,6 +85,14 @@ export interface PricePoint {
   recordedAt: string
 }
 
+/** One `listing_conversion_history` snapshot (#921). Recorded on every scraper ingest pass, so consecutive entries are often identical. */
+export interface ConversionHistoryEntry {
+  id: string
+  conversionStatus: string
+  wavFeatures: string[]
+  recordedAt: string
+}
+
 export interface Recall {
   id: string
   nhtsaCampaignId: string
