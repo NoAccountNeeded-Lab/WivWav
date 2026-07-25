@@ -99,6 +99,18 @@ describe('buildOpsOverview', () => {
     expect(overview.attention.map(item => item.id)).toEqual(expect.arrayContaining(['health-unavailable', 'queues-unavailable']))
   })
 
+  it('surfaces a listing-refresh fetch failure as an attention item, matching the other five resources', () => {
+    const overview = buildOpsOverview(baseInput({
+      errors: { listingRefresh: 'Listing-refresh service is unavailable' },
+    }))
+
+    const card = overview.telemetry.find(c => c.id === 'missing-coordinates')
+    expect(card?.value).toBe('Unavailable')
+    expect(card?.severity).toBe('unknown')
+    expect(card?.detail).toBe('Listing-refresh service is unavailable')
+    expect(overview.attention.map(item => item.id)).toContain('listing-refresh-unavailable')
+  })
+
   it('shows the missing-coordinates tile as not yet loaded while its resource is still pending', () => {
     const overview = buildOpsOverview(baseInput({
       listingRefresh: null,

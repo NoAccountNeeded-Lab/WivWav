@@ -158,6 +158,7 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
     ...unavailableAttention('queues-unavailable', 'Queue telemetry unavailable', '/ops/queues', queueError),
     ...unavailableAttention('schedules-unavailable', 'Schedule telemetry unavailable', '/ops/schedules', scheduleError),
     ...unavailableAttention('runs-unavailable', 'Scraper run telemetry unavailable', '/ops/runs', runError),
+    ...unavailableAttention('listing-refresh-unavailable', 'Listing-refresh telemetry unavailable', '/ops/queues', listingRefreshError),
   ]
 
   const healthCards: OverviewCard[] = [
