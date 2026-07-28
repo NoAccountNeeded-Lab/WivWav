@@ -20,8 +20,8 @@
     "eval": "node --import tsx evals/run-eval.ts"
   },
   "dependencies": {
-    "@playwright/test": "^1.61.1",
-    "@sentry/node": "^10.64.0",
+    "@playwright/test": "^1.62.0",
+    "@sentry/node": "^10.68.0",
     "@wivwav/agents": "workspace:*",
     "@wivwav/db": "workspace:*",
     "@wivwav/logger": "workspace:*",
@@ -30,7 +30,7 @@
     "@wivwav/search": "workspace:*",
     "@wivwav/types": "workspace:*",
     "dotenv": "^17.4.2",
-    "meilisearch": "^0.59.0",
+    "meilisearch": "^0.60.0",
     "p-retry": "^8.0.0",
     "sharp": "^0.35.3",
     "playwright-extra": "^4.3.6",
@@ -39,9 +39,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "@wivwav/config": "workspace:*",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
