@@ -5,12 +5,16 @@ node_modules
 **/.pnpm-store
 
 # Build outputs (Dockerfiles build fresh inside the image; a stale local
-# `dist` or generated Prisma client must never leak into the build context)
+# `dist` or generated Prisma client must never leak into the build context).
+# tsbuildinfo must be excluded too: it's a TypeScript incremental-build cache
+# that references dist/ as already up to date, so tsc would skip emitting
+# it inside the image even though dist/ itself was stripped above.
 **/dist
 **/.next
 **/.turbo
 **/coverage
 **/src/generated
+**/*.tsbuildinfo
 
 # Version control and CI
 .git
