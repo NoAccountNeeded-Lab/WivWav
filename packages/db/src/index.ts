@@ -16,8 +16,20 @@ export type {
   ListingReport,
   OpsProblemState,
 } from './generated/prisma/index.js'
-export { SourceStatus, WavFeature, ConversionStatus, ListingPublicationStatus, ListingReportType, ListingReportStatus, ImageKind, FieldResolutionState, OpsProblemSource, JobRunStatus } from './generated/prisma/index.js'
-export { normalizeVin, isValidVin, checkDigitValid } from './lib/vin.js'
+export {
+  SourceStatus,
+  WavFeature,
+  ConversionStatus,
+  ListingPublicationStatus,
+  ListingReportType,
+  ListingReportStatus,
+  ImageKind,
+  FieldResolutionState,
+  OpsProblemSource,
+  JobRunStatus,
+} from './generated/prisma/index.js'
+// vin.ts relocated to @wivwav/types (#950); re-exported for existing consumers.
+export { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/types'
 export { findOrCreateVehicle } from './lib/vehicle-upsert.js'
 export {
   upsertVehicleIdentityDecision,

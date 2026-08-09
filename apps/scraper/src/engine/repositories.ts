@@ -1,4 +1,5 @@
-import type { Listing, FieldMapping } from '@wivwav/types'
+import type { FieldMapping } from '@wivwav/types'
+import type { ListingUpsertData, ListingUpsertResult } from '@wivwav/scraper-sources'
 import type { SourceDriftBaseline } from './listing-validator.js'
 
 export interface ScraperRunRecord {
@@ -48,34 +49,13 @@ export interface SourceRepository {
 }
 
 /**
- * publicationStatus/qualityCheckedAt are DB-internal publication-gate fields,
- * not part of the public Listing shape — they are added here rather than in
- * @wivwav/types because only the ingestion pipeline (this repository) needs
- * to set them. Optional: callers that do not validate before upsert (tests,
- * older adapters) fall back to the repository's default of 'pending'.
+ * Relocated to @wivwav/scraper-sources (#950): ListingUpsertData is the
+ * source adapters' output contract (`ScrapeResult.listings`), so it lives
+ * with them, where no @wivwav/db dependency is allowed. Re-exported here so
+ * every existing engine/infrastructure import keeps working until the #948
+ * cutover.
  */
-export type ListingUpsertData = Omit<
-  Listing,
-  'id' | 'scrapedAt' | 'updatedAt' | 'sourceListedAt' | 'sourceUpdatedAt'
-> & {
-  sourceListedAt?: Date | null
-  sourceUpdatedAt?: Date | null
-  publicationStatus?: 'pending' | 'eligible' | 'quarantined'
-  qualityCheckedAt?: Date | null
-  /**
-   * #933 lineage backbone: the calling job's `JobRun` id (`context.runId`),
-   * when run tracking is wired for the caller. Recorded on the listing as
-   * `lastRunId` when this upsert actually creates or updates the row —
-   * an `unchanged` outcome leaves the listing's prior `lastRunId` in place.
-   */
-  runId?: string | null | undefined
-}
-
-export type ListingUpsertResult = {
-  listingId: string
-  outcome: 'created' | 'updated' | 'unchanged'
-  changedFields: string[]
-}
+export type { ListingUpsertData, ListingUpsertResult }
 
 export interface PriceHistoryRow {
   id: string
@@ -125,5 +105,9 @@ export interface ListingRepository {
    *   promotes to gone when count reaches GONE_AFTER_CONSECUTIVE_MISSING.
    *   Resets missingFromCompleteCount to 0 for seen listings (reappearance).
    */
-  markGone(sourceId: string, activeSourceRecordKeys: string[], options: MarkGoneOptions): Promise<number>
+  markGone(
+    sourceId: string,
+    activeSourceRecordKeys: string[],
+    options: MarkGoneOptions,
+  ): Promise<number>
 }

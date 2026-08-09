@@ -9,16 +9,19 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./worker-protocol": {
+      "types": "./dist/worker-protocol.d.ts",
       "import": "./dist/worker-protocol.js",
-      "types": "./dist/worker-protocol.d.ts"
+      "default": "./dist/worker-protocol.js"
     },
     "./scraper-gateway": {
+      "types": "./dist/scraper-gateway.d.ts",
       "import": "./dist/scraper-gateway.js",
-      "types": "./dist/scraper-gateway.d.ts"
+      "default": "./dist/scraper-gateway.js"
     }
   },
   "scripts": {

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeVin, isValidVin, checkDigitValid } from './vin.js'
+// vin.ts moved to @wivwav/types (#950); this exercises the re-export path
+// consumers actually use, so the compatibility surface stays covered.
+import { normalizeVin, isValidVin, checkDigitValid } from '../index.js'
 
 describe('normalizeVin', () => {
   it('trims surrounding whitespace', () => {

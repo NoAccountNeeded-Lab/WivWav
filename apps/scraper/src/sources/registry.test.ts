@@ -9,7 +9,7 @@ import {
   type RegisteredSource,
 } from './registry.js'
 import { applyScheduleIntents, buildDetailScheduleDefinitions, reconcileSchedules } from '../schedule-registration.js'
-import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from './freedom-motors-detail-mappings.js'
+import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from '@wivwav/scraper-sources/sources/freedom-motors-detail-mappings.js'
 
 function makeRow(name: string, id: string) {
   return {

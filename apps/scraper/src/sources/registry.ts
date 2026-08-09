@@ -1,10 +1,14 @@
 import type { PrismaClient, Prisma } from '@wivwav/db'
-import { SCRAPER_SOURCE_REGISTRY, type FieldMapping, type ScraperSourceRegistryEntry } from '@wivwav/types'
+import {
+  SCRAPER_SOURCE_REGISTRY,
+  type FieldMapping,
+  type ScraperSourceRegistryEntry,
+} from '@wivwav/types'
 import type { PlaywrightBrowserService } from '../browser/index.js'
 import type { ScraperEngine } from '../engine/scraper-engine.js'
 import type { DetailScheduleSource } from '../schedule-registration.js'
-import type { SourceAdapterModule } from './factory.js'
-import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from './freedom-motors-detail-mappings.js'
+import { SOURCE_ADAPTER_MODULES } from '@wivwav/scraper-sources'
+import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from '@wivwav/scraper-sources/sources/freedom-motors-detail-mappings.js'
 
 interface SourceRow {
   id: string
@@ -50,11 +54,18 @@ export async function registerSources(
         baseUrl: definition.baseUrl,
         cronExpression: definition.cronExpression,
         timezone: definition.timezone,
-        ...(defaultMappings ? { mappings: defaultMappings as unknown as Prisma.InputJsonValue } : {}),
+        ...(defaultMappings
+          ? { mappings: defaultMappings as unknown as Prisma.InputJsonValue }
+          : {}),
       },
     })
 
-    const module = (await import(`./${definition.key}.js`)) as SourceAdapterModule
+    const module = SOURCE_ADAPTER_MODULES[definition.key]
+    if (!module) {
+      throw new Error(
+        `[registry] No adapter module for registry key '${definition.key}' — add it to SOURCE_ADAPTER_MODULES in @wivwav/scraper-sources`,
+      )
+    }
     engine.register(
       module.createSourceAdapter(row.fingerprintHash, {
         previousPage1Hash: row.page1Hash,
@@ -69,9 +80,7 @@ export async function registerSources(
   return registered
 }
 
-export function buildSourceScrapeScheduleSources(
-  sources: readonly RegisteredSource[],
-): Array<{
+export function buildSourceScrapeScheduleSources(sources: readonly RegisteredSource[]): Array<{
   id: string
   name: string
   data: { sourceId: string }

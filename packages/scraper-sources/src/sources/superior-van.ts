@@ -5,7 +5,7 @@ import type { JobContext } from '@wivwav/queue'
 import type { BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
 import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
-import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/db'
+import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/types'
 import { isVehicleImageUrl } from './image-filter.js'
 
 const SOURCE_ID = 'superior-van'
