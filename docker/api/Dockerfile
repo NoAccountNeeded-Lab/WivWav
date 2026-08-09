@@ -31,9 +31,9 @@ COPY packages/search ./packages/search
 COPY apps/api ./apps/api
 RUN pnpm --filter @wivwav/types build
 RUN pnpm --filter @wivwav/observability build
+RUN pnpm --filter @wivwav/logger build
 RUN pnpm --filter @wivwav/db generate
 RUN pnpm --filter @wivwav/db build
-RUN pnpm --filter @wivwav/logger build
 RUN pnpm --filter @wivwav/queue build
 RUN pnpm --filter @wivwav/search build
 RUN pnpm --filter @wivwav/api build
