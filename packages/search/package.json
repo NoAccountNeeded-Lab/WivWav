@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@wivwav/db": "workspace:*",
+    "@wivwav/types": "workspace:*",
     "meilisearch": "^0.59.0"
   },
   "devDependencies": {

@@ -32,9 +32,6 @@
     "dotenv": "^17.4.2",
     "meilisearch": "^0.59.0",
     "p-retry": "^8.0.0",
-    "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "robots-parser": "^3.0.1",
     "sharp": "^0.35.3",
     "zod": "^4.4.3"
   },

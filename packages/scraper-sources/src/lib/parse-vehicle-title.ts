@@ -1,4 +1,4 @@
-import { matchMultiWordModelTokenCount } from '@wivwav/search'
+import { matchMultiWordModelTokenCount } from '@wivwav/types'
 
 export interface ParsedVehicleTitle {
   year: number

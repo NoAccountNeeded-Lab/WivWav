@@ -77,16 +77,22 @@ curl -X POST http://localhost:3001/v1/listings/sync
 
 ## Sources
 
-| Source        | Adapter                          |
-| ------------- | -------------------------------- |
-| BLVD.com      | `src/sources/blvd.ts`            |
-| MobilityWorks | `src/sources/mobilityworks.ts`   |
+| Source        | Adapter (packages/scraper-sources)   |
+| ------------- | ------------------------------------ |
+| BLVD.com      | `src/sources/blvd.ts`                |
+| MobilityWorks | `src/sources/mobilityworks.ts`       |
+| Freedom Motors | `src/sources/freedom-motors.ts`     |
+| Superior Van  | `src/sources/superior-van.ts`        |
+
+Adapters and the browser layer live in `packages/scraper-sources` (#950) so the
+future DB-less worker (#948) can import them; this app consumes them via
+`SOURCE_ADAPTER_MODULES`.
 
 ---
 
 ## Architecture
 
-Each source has a `SourceAdapter` in `apps/scraper/src/sources/` implementing:
+Each source has a `SourceAdapter` in `packages/scraper-sources/src/sources/` implementing:
 
 - `checkStructure()` — fetches a sample page, hashes the DOM, compares to stored hash
 - `scrape()` — runs the full Playwright scrape, returns normalized listings
@@ -95,9 +101,9 @@ If `checkStructure()` detects a change, the engine marks the source `needs_remap
 
 ### Adding a new source
 
-1. Create `apps/scraper/src/sources/<name>.ts` implementing `SourceAdapter`
-2. Register it in `apps/scraper/src/index.ts`
-3. Add a seed row to the `sources` table or upsert it on startup
+1. Create `packages/scraper-sources/src/sources/<name>.ts` implementing `SourceAdapter`
+2. Add it to `SOURCE_ADAPTER_MODULES` in `packages/scraper-sources/src/sources/adapters.ts`
+3. Add its registry entry to `SCRAPER_SOURCE_REGISTRY` in `packages/types/src/source-registry.ts` (apps/scraper upserts the `sources` row on startup)
 
 ### Pitfall inside `page.evaluate`
 
