@@ -121,6 +121,7 @@ function buildTestApp(overrides?: { apiKey?: { findFirst?: ReturnType<typeof vi.
         scraperRun: {
           findMany: vi.fn(async () => []),
           findFirst: vi.fn(async () => null),
+          create: vi.fn(async () => ({ id: 'run-1' })),
         },
         apiKey: {
           findFirst: overrides?.apiKey?.findFirst ?? vi.fn(async () => null),
@@ -760,6 +761,56 @@ describe('GET /openapi.json', () => {
     // Fastify represents the plugin-prefix root route with a trailing slash.
     expect(doc.paths).toHaveProperty('/v1/listings/')
     expect(doc.paths).toHaveProperty('/v1/listings/facets')
+
+    await app.close()
+  })
+})
+
+describe('worker gateway registration (#948/#951)', () => {
+  it('registers no /internal/workers or /internal/scraper routes when WORKER_GATEWAY_ENABLED is unset (default false)', async () => {
+    const { app: appPromise } = buildTestApp()
+    const app = await appPromise
+
+    const ws = await app.inject({ method: 'GET', url: '/internal/workers/ws' })
+    expect(ws.statusCode).toBe(404)
+    const scraper = await app.inject({ method: 'POST', url: '/internal/scraper/runs', payload: {} })
+    expect(scraper.statusCode).toBe(404)
+
+    await app.close()
+  })
+
+  it('registers /internal/scraper (auth-guarded) when WORKER_GATEWAY_ENABLED is true', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32) },
+    })
+    const app = await appPromise
+
+    const unauthenticated = await app.inject({ method: 'POST', url: '/internal/scraper/runs', payload: {} })
+    expect(unauthenticated.statusCode).toBe(401)
+
+    const authenticated = await app.inject({
+      method: 'POST',
+      url: '/internal/scraper/runs',
+      headers: { authorization: `Bearer ${'a'.repeat(32)}` },
+      payload: { sourceId: 'src-1' },
+    })
+    expect(authenticated.statusCode).toBe(200)
+
+    await app.close()
+  })
+
+  it('registers the /internal/workers WS route (auth-guarded) when WORKER_GATEWAY_ENABLED is true', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32) },
+    })
+    const app = await appPromise
+
+    // The auth hook runs before the WS upgrade is attempted, so a plain
+    // (non-upgrade) request still exercises route registration + auth via
+    // the normal HTTP path — full WS handshake/protocol behavior is covered
+    // in plugins/worker-gateway-ws.test.ts.
+    const response = await app.inject({ method: 'GET', url: '/internal/workers/ws' })
+    expect(response.statusCode).toBe(401)
 
     await app.close()
   })
