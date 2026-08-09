@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import websocket from '@fastify/websocket'
 import type { FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
 import { workerToCoordinatorMessageSchema, workerJobCompleteRequestSchema } from '@wivwav/types/worker-protocol'
@@ -19,7 +18,15 @@ export interface WorkerGatewayPluginOptions {
  * Mount inside a scope already guarded by adminAuthPlugin (the auth hook
  * runs on the WS upgrade request too, so a missing/wrong bearer token is
  * rejected before the socket ever opens — same fail-closed semantics as
- * every other /internal surface).
+ * every other /internal surface) AND already registered with
+ * `@fastify/websocket` — this plugin does not register it itself. Doing so
+ * would work at runtime (app.ts's single registration site), but
+ * `@fastify/websocket` skips its own encapsulation (`fastify-plugin`),
+ * decorating whatever instance is actually handed to `.register()`; a
+ * caller (e.g. a test) that already registered it at a higher level would
+ * hit Fastify's "decorator already added" error on a second registration
+ * one level down. Requiring the caller to register it keeps this plugin
+ * composable without hidden double-registration hazards.
  *
  * Routes (relative to the mount prefix, normally /internal/workers):
  * - GET  /ws              WS upgrade; first message must be a WorkerHello.
@@ -29,8 +36,6 @@ export async function workerGatewayRoutes(
   app: FastifyInstance,
   { registry, dispatcher, logger }: WorkerGatewayPluginOptions,
 ): Promise<void> {
-  await app.register(websocket)
-
   app.get('/ws', { websocket: true }, (socket: WebSocket, req) => {
     const connectionId = randomUUID()
     let registered = false
@@ -46,7 +51,6 @@ export async function workerGatewayRoutes(
     socket.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {
       let parsedJson: unknown
       try {
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         parsedJson = JSON.parse(raw.toString())
       } catch {
         logger?.warn({ connectionId }, '[worker-gateway] non-JSON WS message; closing')

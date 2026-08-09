@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { isSentryEnabled, Sentry } from './sentry.js'
+import { ZodError } from 'zod'
 import Fastify, { type FastifyError, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import rateLimit from '@fastify/rate-limit'
+import websocketPlugin from '@fastify/websocket'
 import type { Redis } from 'ioredis'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
@@ -222,6 +224,18 @@ export async function buildApp(
   })
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
+    // The worker-gateway routes (#951) validate bodies with `schema.parse()`
+    // rather than Fastify's TypeBox route-schema validation (reserved for
+    // the public /v1/* surface) — a ZodError is a client-input problem, not
+    // a server fault, so it must not surface as an unhandled 500.
+    if (error instanceof ZodError) {
+      return reply.code(400).send({
+        error: {
+          code: 'INVALID_REQUEST',
+          message: error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+        },
+      })
+    }
     const statusCode = error.statusCode ?? 500
     if (statusCode >= 500) {
       request.log.error({ err: error }, 'unhandled error')
@@ -402,6 +416,7 @@ export async function buildApp(
 
     await app.register(
       async (workersScope) => {
+        await workersScope.register(websocketPlugin)
         await adminAuthPlugin(workersScope, {
           internalApiSecret: config.INTERNAL_API_SECRET,
           nodeEnv: config.NODE_ENV,
