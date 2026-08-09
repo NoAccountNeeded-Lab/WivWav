@@ -246,12 +246,20 @@ export function createDetailExtractHandler(
             mappings,
           )
 
-          const enrichment = await enrichBlvdDealerListing({
-            sourceUrl: rawPage.url,
-            vin: listing?.vin ?? null,
-            fetchPage: fetchDealerPage,
-            log: (message) => report(context, message),
-          })
+          // Only worth the (rate-limited) dealer-profile fetch when a
+          // listing actually matched this raw page's URL — mirrors the
+          // original job, which only ran dealer enrichment inside its
+          // `if (listing) {...}` branch (apps/scraper/src/jobs/detail-
+          // extract.ts). `submitDetailExtract` still requires the field on
+          // every request, so an orphaned raw page submits the empty shape.
+          const enrichment = listing
+            ? await enrichBlvdDealerListing({
+                sourceUrl: rawPage.url,
+                vin: listing.vin,
+                fetchPage: fetchDealerPage,
+                log: (message) => report(context, message),
+              })
+            : { dealerWebsite: null, directVehicleUrl: null }
 
           if (listing === null) {
             await report(context, `[detail-extract] No listing found for URL: ${rawPage.url}`)
