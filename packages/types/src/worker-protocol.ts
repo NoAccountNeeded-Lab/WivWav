@@ -83,6 +83,29 @@ export const coordinatorToWorkerMessageSchema = z.discriminatedUnion('type', [
 export type CoordinatorToWorkerMessage = z.infer<typeof coordinatorToWorkerMessageSchema>
 
 /**
+ * Worker → coordinator (HTTP, not WS): final outcome of a dispatched job.
+ * Settles the coordinator's in-memory correlation promise so the originating
+ * queue job completes (success) or fails and retries (failure). `errorMessage`
+ * is required on failure — a bare "it failed" gives operators nothing.
+ */
+export const workerJobCompleteRequestSchema = z
+  .object({
+    correlationId: z.string().min(1),
+    success: z.boolean(),
+    errorMessage: z.string().optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (!body.success && (body.errorMessage === undefined || body.errorMessage.length === 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['errorMessage'],
+        message: 'errorMessage is required when success is false',
+      })
+    }
+  })
+export type WorkerJobCompleteRequest = z.infer<typeof workerJobCompleteRequestSchema>
+
+/**
  * Canonical correlation-id format: one queue job maps to exactly one dispatch,
  * and the coordinator resolves its in-memory promise by this key when the
  * worker's final HTTP result submission lands.

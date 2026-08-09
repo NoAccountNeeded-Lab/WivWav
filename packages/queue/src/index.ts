@@ -12,6 +12,7 @@ export type {
   QueueFactory,
 } from './types.js'
 
+export { RetryJobSignal } from './retry-signal.js'
 export { QUEUES } from './queues.js'
 export type { QueueName } from './queues.js'
 

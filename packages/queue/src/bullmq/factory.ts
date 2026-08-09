@@ -9,6 +9,7 @@ import type {
 import { getQueuePolicy } from '../policies.js'
 import { BullMQQueueAdapter } from './queue-adapter.js'
 import { BullMQWorkerAdapter } from './worker-adapter.js'
+import { RetryJobSignal } from '../retry-signal.js'
 import { connectionFromEnv, type RedisConnectionOptions } from './connection.js'
 
 export class BullMQQueueFactory implements QueueFactory {
@@ -59,6 +60,14 @@ export class BullMQQueueFactory implements QueueFactory {
           })
           logger?.info({ durationMs: Date.now() - start }, 'job completed')
         } catch (err) {
+          if (err instanceof RetryJobSignal) {
+            // Not a failure: rate-limit this worker briefly and hand the job
+            // back to the waiting state without consuming a retry attempt
+            // (#948 — e.g. no remote worker connected to dispatch to).
+            logger?.info({ delayMs: err.delayMs }, 'job requeued by retry signal')
+            await worker.rateLimit(err.delayMs)
+            throw Worker.RateLimitError()
+          }
           logger?.error({ err, durationMs: Date.now() - start }, 'job failed')
           throw err
         }

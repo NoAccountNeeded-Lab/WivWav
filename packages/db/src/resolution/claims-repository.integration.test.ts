@@ -1,12 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { disconnectDb, getDb } from '@wivwav/db'
-import type { PrismaClient } from '@wivwav/db'
+import { disconnectDb, getDb } from '../index.js'
+import type { PrismaClient } from '../generated/prisma/index.js'
 import { recordClaim, getClaimsForListing, applyFieldResolution } from './claims-repository.js'
 import { recordCardFieldClaims } from './card-claims.js'
 import { recordDetailFieldClaims } from './detail-claims.js'
 import { NoopPhotoClaimProvider } from './photo-claim-provider.js'
 import type { PhotoClaimProvider } from './photo-claim-provider.js'
-import type { ListingUpsertData } from '../engine/repositories.js'
+import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 
 // Exercises #499's claim persistence + resolution against a real, migrated
 // Postgres — resolver.test.ts covers the pure decision logic; this file
