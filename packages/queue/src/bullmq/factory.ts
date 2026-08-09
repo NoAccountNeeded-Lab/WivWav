@@ -10,6 +10,7 @@ import { getQueuePolicy } from '../policies.js'
 import { BullMQQueueAdapter } from './queue-adapter.js'
 import { BullMQWorkerAdapter } from './worker-adapter.js'
 import { RetryJobSignal } from '../retry-signal.js'
+import { getStringField } from '../job-data.js'
 import { connectionFromEnv, type RedisConnectionOptions } from './connection.js'
 
 export class BullMQQueueFactory implements QueueFactory {
@@ -109,10 +110,4 @@ export class BullMQQueueFactory implements QueueFactory {
       ...[...this.queues.values()].map((q) => q.close()),
     ])
   }
-}
-
-function getStringField(data: unknown, key: string): string | undefined {
-  if (!data || typeof data !== 'object') return undefined
-  const value = (data as Record<string, unknown>)[key]
-  return typeof value === 'string' ? value : undefined
 }

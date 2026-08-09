@@ -52,22 +52,29 @@ describe('isAllowedCorsOrigin', () => {
   })
 
   it('allows arbitrary localhost ports in development', () => {
-    expect(isAllowedCorsOrigin('http://localhost:3002', {
-      ...baseConfig,
-      NODE_ENV: 'development',
-    })).toBe(true)
+    expect(
+      isAllowedCorsOrigin('http://localhost:3002', {
+        ...baseConfig,
+        NODE_ENV: 'development',
+      }),
+    ).toBe(true)
   })
 
   it('does not allow arbitrary origins outside development', () => {
     expect(isAllowedCorsOrigin('http://localhost:3002', baseConfig)).toBe(false)
-    expect(isAllowedCorsOrigin('https://example.com', {
-      ...baseConfig,
-      NODE_ENV: 'development',
-    })).toBe(false)
+    expect(
+      isAllowedCorsOrigin('https://example.com', {
+        ...baseConfig,
+        NODE_ENV: 'development',
+      }),
+    ).toBe(false)
   })
 })
 
-function buildTestApp(overrides?: { apiKey?: { findFirst?: ReturnType<typeof vi.fn> }; config?: Partial<Config> }) {
+function buildTestApp(overrides?: {
+  apiKey?: { findFirst?: ReturnType<typeof vi.fn> }
+  config?: Partial<Config>
+}) {
   const search = {
     search: vi.fn(async () => ({ hits: [], total: 0, facets: {} })),
   }
@@ -125,14 +132,16 @@ function buildTestApp(overrides?: { apiKey?: { findFirst?: ReturnType<typeof vi.
         },
         apiKey: {
           findFirst: overrides?.apiKey?.findFirst ?? vi.fn(async () => null),
-          create: vi.fn(async (args: { data: { ownerEmail: string; tier: string; rateLimitRpm: number } }) => ({
-            id: 'key-created',
-            ownerEmail: args.data.ownerEmail,
-            tier: args.data.tier,
-            rateLimitRpm: args.data.rateLimitRpm,
-            createdAt: new Date('2026-07-14T00:00:00.000Z'),
-            revokedAt: null,
-          })),
+          create: vi.fn(
+            async (args: { data: { ownerEmail: string; tier: string; rateLimitRpm: number } }) => ({
+              id: 'key-created',
+              ownerEmail: args.data.ownerEmail,
+              tier: args.data.tier,
+              rateLimitRpm: args.data.rateLimitRpm,
+              createdAt: new Date('2026-07-14T00:00:00.000Z'),
+              revokedAt: null,
+            }),
+          ),
           updateMany: vi.fn(async () => ({ count: 0 })),
         },
       } as never,
@@ -203,8 +212,10 @@ type LogEntry = { level: string; args: unknown[] }
 function makeSpyLogger(): { loggerInstance: FastifyBaseLogger; entries: LogEntry[] } {
   const entries: LogEntry[] = []
 
-  const makeMethod = (level: string) =>
-    (...args: unknown[]) => void entries.push({ level, args })
+  const makeMethod =
+    (level: string) =>
+    (...args: unknown[]) =>
+      void entries.push({ level, args })
 
   // `child` must return a new logger that also records to the same entries array
   const makeLogger = (): FastifyBaseLogger => {
@@ -236,12 +247,15 @@ function buildMinimalLoggingApp() {
 
   // Replicate the onResponse hook from app.ts
   app.addHook('onResponse', (request, reply, done) => {
-    request.log.info({
-      method: request.method,
-      url: request.routeOptions.url ?? request.url,
-      statusCode: reply.statusCode,
-      durationMs: Math.round(reply.elapsedTime),
-    }, 'request completed')
+    request.log.info(
+      {
+        method: request.method,
+        url: request.routeOptions.url ?? request.url,
+        statusCode: reply.statusCode,
+        durationMs: Math.round(reply.elapsedTime),
+      },
+      'request completed',
+    )
     done()
   })
 
@@ -262,7 +276,11 @@ describe('onResponse hook', () => {
     const { app } = buildTestApp()
     const built = await app
 
-    const response = await built.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
+    const response = await built.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { origin: TRUSTED_ORIGIN },
+    })
     expect(response.statusCode).toBe(200)
 
     await built.close()
@@ -312,7 +330,11 @@ describe('setErrorHandler', () => {
     const app = await appPromise
 
     // The listings/:id route returns 404 when the listing is not found
-    const response = await app.inject({ method: 'GET', url: '/v1/listings/nonexistent-id', headers: { origin: TRUSTED_ORIGIN } })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/listings/nonexistent-id',
+      headers: { origin: TRUSTED_ORIGIN },
+    })
     expect(response.statusCode).toBe(404)
 
     await app.close()
@@ -376,11 +398,19 @@ describe('rate limiting', () => {
     const app = await appPromise
 
     for (let i = 0; i < 100; i++) {
-      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/listings',
+        headers: { origin: TRUSTED_ORIGIN },
+      })
       expect(response.statusCode).toBe(200)
     }
 
-    const limited = await app.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
+    const limited = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { origin: TRUSTED_ORIGIN },
+    })
     expect(limited.statusCode).toBe(429)
 
     await app.close()
@@ -422,7 +452,9 @@ describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
   })
 
   it('refuses key provisioning without the bearer secret once one is configured', async () => {
-    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
     const app = await appPromise
 
     const response = await app.inject({
@@ -464,7 +496,9 @@ describe('/diagnostics auth boundary (#773)', () => {
   })
 
   it('rejects a request with no token or an invalid token once DIAGNOSTIC_API_SECRET is configured', async () => {
-    const { app: appPromise } = buildTestApp({ config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' } })
+    const { app: appPromise } = buildTestApp({
+      config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' },
+    })
     const app = await appPromise
 
     const noToken = await app.inject({ method: 'GET', url: '/diagnostics/diagnostic-context' })
@@ -481,7 +515,9 @@ describe('/diagnostics auth boundary (#773)', () => {
   })
 
   it('accepts a valid DIAGNOSTIC_API_SECRET bearer token', async () => {
-    const { app: appPromise } = buildTestApp({ config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' } })
+    const { app: appPromise } = buildTestApp({
+      config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' },
+    })
     const app = await appPromise
 
     const response = await app.inject({
@@ -496,7 +532,10 @@ describe('/diagnostics auth boundary (#773)', () => {
 
   it('also accepts a valid INTERNAL_API_SECRET bearer token (asymmetric compatibility)', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value', INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: {
+        DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value',
+        INTERNAL_API_SECRET: 'shared-secret-value',
+      },
     })
     const app = await appPromise
 
@@ -512,7 +551,11 @@ describe('/diagnostics auth boundary (#773)', () => {
 
   it('never accepts DIAGNOSTIC_API_SECRET on /admin/* routes', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { NODE_ENV: 'production', DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value', INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: {
+        NODE_ENV: 'production',
+        DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value',
+        INTERNAL_API_SECRET: 'shared-secret-value',
+      },
     })
     const app = await appPromise
 
@@ -543,7 +586,11 @@ describe('api key auth and per-key rate limiting (#453)', () => {
     const { app: appPromise } = buildTestApp({ apiKey: { findFirst: vi.fn(async () => null) } })
     const app = await appPromise
 
-    const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'revoked-key' } })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { 'x-api-key': 'revoked-key' },
+    })
     expect(response.statusCode).toBe(401)
 
     await app.close()
@@ -558,11 +605,19 @@ describe('api key auth and per-key rate limiting (#453)', () => {
     const app = await appPromise
 
     for (let i = 0; i < 2; i++) {
-      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'valid-key' } })
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/listings',
+        headers: { 'x-api-key': 'valid-key' },
+      })
       expect(response.statusCode).toBe(200)
     }
 
-    const limited = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'valid-key' } })
+    const limited = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { 'x-api-key': 'valid-key' },
+    })
     expect(limited.statusCode).toBe(429)
 
     await app.close()
@@ -576,7 +631,11 @@ describe('api key auth and per-key rate limiting (#453)', () => {
     // 3 requests exceeds what a rateLimitRpm: 2 FREE key (tested above) would
     // allow, but this PRO key's own higher limit lets all of them through.
     for (let i = 0; i < 3; i++) {
-      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'pro-key' } })
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/listings',
+        headers: { 'x-api-key': 'pro-key' },
+      })
       expect(response.statusCode).toBe(200)
     }
 
@@ -584,7 +643,9 @@ describe('api key auth and per-key rate limiting (#453)', () => {
   })
 
   it('accepts the internal bypass secret without requiring a provisioned key', async () => {
-    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
     const app = await appPromise
 
     const response = await app.inject({
@@ -599,7 +660,9 @@ describe('api key auth and per-key rate limiting (#453)', () => {
   })
 
   it('rejects the wrong bearer token even when a bypass secret is configured', async () => {
-    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
     const app = await appPromise
 
     const response = await app.inject({
@@ -624,11 +687,19 @@ describe('api key auth and per-key rate limiting (#453)', () => {
     const app = await appPromise
 
     for (let i = 0; i < 3; i++) {
-      const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': `garbage-key-${i}` } })
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/listings',
+        headers: { 'x-api-key': `garbage-key-${i}` },
+      })
       expect(response.statusCode).toBe(401)
     }
 
-    const limited = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': 'garbage-key-4' } })
+    const limited = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { 'x-api-key': 'garbage-key-4' },
+    })
     expect(limited.statusCode).toBe(429)
 
     await app.close()
@@ -641,7 +712,9 @@ describe('api key auth and per-key rate limiting (#453)', () => {
     // Authorization: Bearer header as a candidate raw API key, fail to find
     // a matching row, and silently fall back to FREE — wrongly 403ing a
     // fully-trusted internal caller.
-    const { app: appPromise } = buildTestApp({ config: { INTERNAL_API_SECRET: 'shared-secret-value' } })
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
     const app = await appPromise
 
     const response = await app.inject({
@@ -687,7 +760,11 @@ describe('x-request-id propagation (genReqId)', () => {
     const { app: appPromise } = buildTestApp()
     const app = await appPromise
 
-    const response = await app.inject({ method: 'GET', url: '/v1/listings', headers: { origin: TRUSTED_ORIGIN } })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/listings',
+      headers: { origin: TRUSTED_ORIGIN },
+    })
     expect(response.statusCode).toBe(200)
     // No crash — UUID fallback path is exercised without throwing
 
@@ -740,7 +817,11 @@ describe('setErrorHandler — Sentry capture', () => {
     const app = await appPromise
 
     // The listings/:id route returns 404 when not found
-    const response = await app.inject({ method: 'GET', url: '/v1/listings/nonexistent-id', headers: { origin: TRUSTED_ORIGIN } })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/listings/nonexistent-id',
+      headers: { origin: TRUSTED_ORIGIN },
+    })
     expect(response.statusCode).toBe(404)
     expect(mockCaptureException).not.toHaveBeenCalled()
 
@@ -785,7 +866,11 @@ describe('worker gateway registration (#948/#951)', () => {
     })
     const app = await appPromise
 
-    const unauthenticated = await app.inject({ method: 'POST', url: '/internal/scraper/runs', payload: {} })
+    const unauthenticated = await app.inject({
+      method: 'POST',
+      url: '/internal/scraper/runs',
+      payload: {},
+    })
     expect(unauthenticated.statusCode).toBe(401)
 
     const authenticated = await app.inject({

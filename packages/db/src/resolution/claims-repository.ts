@@ -132,7 +132,11 @@ export async function resolveListingField(
   const photoClaims = await photoClaimProvider.getClaims(listingId, field)
   const merged = [
     ...stored,
-    ...photoClaims.map((c): FieldClaim => ({ ...c, eligible: c.eligible ?? true, ineligibleReason: c.ineligibleReason ?? null })),
+    ...photoClaims.map((c): FieldClaim => ({
+      ...c,
+      eligible: c.eligible ?? true,
+      ineligibleReason: c.ineligibleReason ?? null,
+    })),
   ]
 
   const resolved = resolveField(merged)
@@ -150,10 +154,16 @@ async function readPreviousResolutionState(
   field: ClaimField,
 ): Promise<ResolvedField['state']> {
   if (field === 'conversionType') {
-    const row = await tx.listing.findUnique({ where: { id: listingId }, select: { conversionTypeResolution: true } })
+    const row = await tx.listing.findUnique({
+      where: { id: listingId },
+      select: { conversionTypeResolution: true },
+    })
     return row?.conversionTypeResolution ?? 'unknown'
   }
-  const row = await tx.listing.findUnique({ where: { id: listingId }, select: { rampTypeResolution: true } })
+  const row = await tx.listing.findUnique({
+    where: { id: listingId },
+    select: { rampTypeResolution: true },
+  })
   return row?.rampTypeResolution ?? 'unknown'
 }
 

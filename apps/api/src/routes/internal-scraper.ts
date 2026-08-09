@@ -172,47 +172,67 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     // re-resolve. Its own transaction, after the upsert commits — mirrors
     // apps/scraper's card-claims.ts docstring. Short-circuits when the card
     // supplied no evidence this scrape (the common case).
-    await recordCardFieldClaims(db, result.listingId, body)
+    await recordCardFieldClaims(db, result.listingId, body, undefined, logger)
     return reply.send({ data: result })
   })
 
-  app.post<{ Params: { sourceId: string } }>('/sources/:sourceId/listings/mark-gone', async (req, reply) => {
-    const body = listingMarkGoneRequestSchema.parse(req.body)
-    if (body.sourceId !== req.params.sourceId) {
-      return reply.badRequest('sourceId in the URL and body must match')
-    }
+  app.post<{ Params: { sourceId: string } }>(
+    '/sources/:sourceId/listings/mark-gone',
+    async (req, reply) => {
+      const body = listingMarkGoneRequestSchema.parse(req.body)
+      if (body.sourceId !== req.params.sourceId) {
+        return reply.badRequest('sourceId in the URL and body must match')
+      }
 
-    // Idempotency: a mark-gone HTTP retry for the same (sourceId,
-    // scraperRunId) must not double-increment missingFromCompleteCount.
-    // Marked at the ScraperRun row created by /runs — see the #948
-    // markGoneAppliedAt migration.
-    const run = await db.scraperRun.findUnique({
-      where: { id: body.scraperRunId },
-      select: { markGoneAppliedAt: true, markGoneNewlyMissingCount: true },
-    })
-    if (run?.markGoneAppliedAt) {
-      return reply.send({ data: { goneCount: run.markGoneNewlyMissingCount ?? 0 } })
-    }
+      // Idempotency: a mark-gone HTTP retry for the same (sourceId,
+      // scraperRunId) must not double-increment missingFromCompleteCount.
+      // Marked at the ScraperRun row created by /runs — see the #948
+      // markGoneAppliedAt migration. Read-check-write is done inside one
+      // Serializable transaction, additionally guarded by a run-scoped
+      // pg_advisory_xact_lock (same technique as claims-repository.ts's
+      // recordClaim), so two genuinely concurrent retries for the same run —
+      // not just sequential ones — serialize instead of both slipping past the
+      // check before either has written the marker; and a crash between
+      // applying markGoneListings and writing the marker rolls the whole
+      // transaction back, leaving the retry free to run cleanly rather than
+      // silently skipping work it never actually committed.
+      const goneCount = await withTransientRetry(() =>
+        db.$transaction(
+          async (tx) => {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mark_gone:${body.scraperRunId}`}))`
+            const run = await tx.scraperRun.findUnique({
+              where: { id: body.scraperRunId },
+              select: { markGoneAppliedAt: true, markGoneNewlyMissingCount: true },
+            })
+            if (run?.markGoneAppliedAt) return run.markGoneNewlyMissingCount ?? 0
 
-    const goneCount = await markGoneListings(db, body.sourceId, body.activeSourceRecordKeys, {
-      isCompleteCrawl: body.isCompleteCrawl,
-      // The old in-process onGone search-index callback has no wire
-      // equivalent — the single-owner LISTING_INDEX_POLL poller picks up the
-      // status change via `updatedAt` on its next tick (matches how the
-      // codebase already treats index sync post-#669).
-    })
-    await db.scraperRun.update({
-      where: { id: body.scraperRunId },
-      data: { markGoneAppliedAt: new Date(), markGoneNewlyMissingCount: goneCount },
-    })
-    return reply.send({ data: { goneCount } })
-  })
+            const count = await markGoneListings(tx, body.sourceId, body.activeSourceRecordKeys, {
+              isCompleteCrawl: body.isCompleteCrawl,
+              // The old in-process onGone search-index callback has no wire
+              // equivalent — the single-owner LISTING_INDEX_POLL poller picks
+              // up the status change via `updatedAt` on its next tick (matches
+              // how the codebase already treats index sync post-#669).
+            })
+            await tx.scraperRun.update({
+              where: { id: body.scraperRunId },
+              data: { markGoneAppliedAt: new Date(), markGoneNewlyMissingCount: count },
+            })
+            return count
+          },
+          { isolationLevel: 'Serializable' },
+        ),
+      )
+      return reply.send({ data: { goneCount } })
+    },
+  )
 
   // --- detail-crawl ---
 
   app.post('/detail-crawl/pending-listings', async (req, reply) => {
     const body = detailCrawlPendingListingsRequestSchema.parse(req.body)
-    const staleThreshold = new Date(Date.now() - DETAIL_CRAWL_STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000)
+    const staleThreshold = new Date(
+      Date.now() - DETAIL_CRAWL_STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000,
+    )
     const listings = await db.listing.findMany({
       where: {
         sourceId: body.sourceId,
@@ -281,10 +301,49 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
 
   app.post('/detail-extract/submit', async (req, reply) => {
     const body = detailExtractSubmitRequestSchema.parse(req.body)
-    const rawPage = await db.rawPage.findUnique({
-      where: { id: body.rawPageId },
-      select: { id: true, url: true, scrapedAt: true },
-    })
+    // Independent reads (the listing lookup only depends on body.listingId,
+    // already known from the parsed body) — run concurrently rather than
+    // paying two sequential round trips on every submission.
+    const [rawPage, listing] = await Promise.all([
+      db.rawPage.findUnique({
+        where: { id: body.rawPageId },
+        select: { id: true, url: true, scrapedAt: true },
+      }),
+      body.listingId === null
+        ? Promise.resolve(null)
+        : db.listing.findUnique({
+            where: { id: body.listingId },
+            select: {
+              id: true,
+              status: true,
+              soldAt: true,
+              missingFromCompleteCount: true,
+              color: true,
+              fuelType: true,
+              engine: true,
+              transmission: true,
+              rampType: true,
+              wavFeatures: true,
+              floorLoweringInches: true,
+              wheelchairCapacity: true,
+              description: true,
+              images: true,
+              zip: true,
+              dealerPhone: true,
+              dealerWebsite: true,
+              buyerUrl: true,
+              saleStatus: true,
+              sourceListedAt: true,
+              sourceUpdatedAt: true,
+              goneAt: true,
+              publicationStatus: true,
+              qualityIssueCodes: true,
+              qualityCheckedAt: true,
+              detailScrapedAt: true,
+              updatedAt: true,
+            },
+          }),
+    ])
     if (!rawPage) return reply.notFound(`raw page ${body.rawPageId} not found`)
 
     const observationReference = detailObservationReference(rawPage)
@@ -293,39 +352,6 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       await db.rawPage.update({ where: { id: rawPage.id }, data: { processedAt: new Date() } })
       return reply.send({ data: { outcome: 'listing_not_found', changedFields: [] } })
     }
-
-    const listing = await db.listing.findUnique({
-      where: { id: body.listingId },
-      select: {
-        id: true,
-        status: true,
-        soldAt: true,
-        missingFromCompleteCount: true,
-        color: true,
-        fuelType: true,
-        engine: true,
-        transmission: true,
-        rampType: true,
-        wavFeatures: true,
-        floorLoweringInches: true,
-        wheelchairCapacity: true,
-        description: true,
-        images: true,
-        zip: true,
-        dealerPhone: true,
-        dealerWebsite: true,
-        buyerUrl: true,
-        saleStatus: true,
-        sourceListedAt: true,
-        sourceUpdatedAt: true,
-        goneAt: true,
-        publicationStatus: true,
-        qualityIssueCodes: true,
-        qualityCheckedAt: true,
-        detailScrapedAt: true,
-        updatedAt: true,
-      },
-    })
     if (!listing) return reply.notFound(`listing ${body.listingId} not found`)
 
     // Retry idempotency: if this observation reference was already recorded
@@ -347,7 +373,9 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         body.runId,
       )
       await db.rawPage.update({ where: { id: rawPage.id }, data: { processedAt: new Date() } })
-      return reply.send({ data: { outcome: 'already_applied', changedFields: alreadyApplied.changedFields } })
+      return reply.send({
+        data: { outcome: 'already_applied', changedFields: alreadyApplied.changedFields },
+      })
     }
 
     const now = new Date()
@@ -362,33 +390,42 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     const claimsObserved = body.detail.evidence.accessibilityClaims !== 'missing'
     const changedFields = changedDetailFields(listing as unknown as Record<string, unknown>, update)
     const before = Object.fromEntries(
-      changedFields.map((field) => [field, auditDetailValue((listing as unknown as Record<string, unknown>)[field])]),
+      changedFields.map((field) => [
+        field,
+        auditDetailValue((listing as unknown as Record<string, unknown>)[field]),
+      ]),
     )
     const after = Object.fromEntries(
-      changedFields.map((field) => [field, auditDetailValue((update as Record<string, unknown>)[field])]),
+      changedFields.map((field) => [
+        field,
+        auditDetailValue((update as Record<string, unknown>)[field]),
+      ]),
     )
 
     // Serializable, matching detail-extract.ts's original transaction — same
     // pool-contention/transient-close hazard, same retry.
     await withTransientRetry(() =>
-      db.$transaction(async (tx) => {
-        await tx.listing.update({
-          where: { id: listing.id, updatedAt: listing.updatedAt },
-          data: changedFields.length > 0 ? update : { detailScrapedAt: now },
-        })
-        await tx.listingObservation.create({
-          data: {
-            listingId: listing.id,
-            stage: 'detail',
-            reference: observationReference,
-            extractionVersion: 'detail-v2-evidence',
-            changedFields,
-            before: before as Prisma.InputJsonObject,
-            after: after as Prisma.InputJsonObject,
-            observedAt: now,
-          },
-        })
-      }, { isolationLevel: 'Serializable' }),
+      db.$transaction(
+        async (tx) => {
+          await tx.listing.update({
+            where: { id: listing.id, updatedAt: listing.updatedAt },
+            data: changedFields.length > 0 ? update : { detailScrapedAt: now },
+          })
+          await tx.listingObservation.create({
+            data: {
+              listingId: listing.id,
+              stage: 'detail',
+              reference: observationReference,
+              extractionVersion: 'detail-v2-evidence',
+              changedFields,
+              before: before as Prisma.InputJsonObject,
+              after: after as Prisma.InputJsonObject,
+              observedAt: now,
+            },
+          })
+        },
+        { isolationLevel: 'Serializable' },
+      ),
     )
 
     await enqueueRequiredListingResolution(
@@ -413,6 +450,8 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         { conversionType: body.detail.conversionType, rampType: body.detail.rampType },
         rawPage.url,
         'detail-v2-evidence',
+        undefined,
+        logger,
       )
     }
 

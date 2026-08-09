@@ -45,27 +45,32 @@ export async function recordDetailFieldClaims(
   // See card-claims.ts's recordCardFieldClaims for why this needs both a wider
   // timeout and transient-error retry: recordClaim's pg_advisory_xact_lock can
   // block past Prisma's 5s default under concurrent writers to the same slot.
-  const logEvents = await withTransientRetry(() => db.$transaction(async (tx) => {
-    for (const field of observedFields) {
-      await recordClaim(tx, {
-        listingId,
-        field,
-        claimedValue: values[field],
-        evidenceKind: 'vehicle_text',
-        sourceRef,
-        observedAt,
-        extractorVersion,
-        confidence: null,
-      })
-    }
+  const logEvents = await withTransientRetry(() =>
+    db.$transaction(
+      async (tx) => {
+        for (const field of observedFields) {
+          await recordClaim(tx, {
+            listingId,
+            field,
+            claimedValue: values[field],
+            evidenceKind: 'vehicle_text',
+            sourceRef,
+            observedAt,
+            extractorVersion,
+            confidence: null,
+          })
+        }
 
-    const events = []
-    for (const field of observedFields) {
-      const { logEvent } = await applyFieldResolution(tx, listingId, field, photoClaimProvider)
-      if (logEvent) events.push(logEvent)
-    }
-    return events
-  }, { timeout: 10000 }))
+        const events = []
+        for (const field of observedFields) {
+          const { logEvent } = await applyFieldResolution(tx, listingId, field, photoClaimProvider)
+          if (logEvent) events.push(logEvent)
+        }
+        return events
+      },
+      { timeout: 10000 },
+    ),
+  )
 
   for (const event of logEvents) logFieldResolutionEvent(event, logger)
 }

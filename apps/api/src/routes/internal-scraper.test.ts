@@ -27,19 +27,21 @@ function createFakeDb() {
       findUnique: async ({ where }: { where: Record<string, unknown> }) => {
         if (where['id']) return listings.find((l) => l['id'] === where['id']) ?? null
         const compound = where['sourceId_sourceRecordKey'] as
-          | { sourceId: string; sourceRecordKey: string }
-          | undefined
+          { sourceId: string; sourceRecordKey: string } | undefined
         if (compound) {
           return (
             listings.find(
-              (l) => l['sourceId'] === compound.sourceId && l['sourceRecordKey'] === compound.sourceRecordKey,
+              (l) =>
+                l['sourceId'] === compound.sourceId &&
+                l['sourceRecordKey'] === compound.sourceRecordKey,
             ) ?? null
           )
         }
         return null
       },
       findFirst: async ({ where }: { where: Record<string, unknown> }) => {
-        if (where['sourceUrl']) return listings.find((l) => l['sourceUrl'] === where['sourceUrl']) ?? null
+        if (where['sourceUrl'])
+          return listings.find((l) => l['sourceUrl'] === where['sourceUrl']) ?? null
         return null
       },
       findMany: async () => [],
@@ -64,23 +66,37 @@ function createFakeDb() {
     listingMileageHistory: { create: async () => ({}) },
     listingConversionHistory: { create: async () => ({}) },
     listingObservation: {
-      findUnique: async ({ where }: { where: { stage_reference: { stage: string; reference: string } } }) =>
+      findUnique: async ({
+        where,
+      }: {
+        where: { stage_reference: { stage: string; reference: string } }
+      }) =>
         listingObservations.find(
           (o) =>
-            o['stage'] === where.stage_reference.stage && o['reference'] === where.stage_reference.reference,
+            o['stage'] === where.stage_reference.stage &&
+            o['reference'] === where.stage_reference.reference,
         ) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { id: nextId('obs'), ...data }
         listingObservations.push(row)
         return row
       },
-      upsert: async ({ where }: { where: { stage_reference: { stage: string; reference: string } } }) => {
+      upsert: async ({
+        where,
+      }: {
+        where: { stage_reference: { stage: string; reference: string } }
+      }) => {
         const existing = listingObservations.find(
           (o) =>
-            o['stage'] === where.stage_reference.stage && o['reference'] === where.stage_reference.reference,
+            o['stage'] === where.stage_reference.stage &&
+            o['reference'] === where.stage_reference.reference,
         )
         if (existing) return existing
-        const row = { id: nextId('obs'), stage: where.stage_reference.stage, reference: where.stage_reference.reference }
+        const row = {
+          id: nextId('obs'),
+          stage: where.stage_reference.stage,
+          reference: where.stage_reference.reference,
+        }
         listingObservations.push(row)
         return row
       },
@@ -92,7 +108,15 @@ function createFakeDb() {
         return null
       },
       findMany: async () => [],
-      upsert: async ({ where, create, update }: { where: { url: string }; create: Record<string, unknown>; update: Record<string, unknown> }) => {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { url: string }
+        create: Record<string, unknown>
+        update: Record<string, unknown>
+      }) => {
         const existing = rawPages.find((p) => p['url'] === where.url)
         if (existing) {
           Object.assign(existing, update)
@@ -199,7 +223,11 @@ describe('POST /listings/upsert', () => {
   it('creates a new listing on first submission', async () => {
     const { app, ready } = buildTestApp()
     await ready
-    const response = await app.inject({ method: 'POST', url: '/listings/upsert', payload: validListingPayload })
+    const response = await app.inject({
+      method: 'POST',
+      url: '/listings/upsert',
+      payload: validListingPayload,
+    })
     expect(response.json().data.outcome).toBe('created')
     await app.close()
   })
@@ -210,7 +238,11 @@ describe('POST /listings/upsert', () => {
     await app.inject({ method: 'POST', url: '/listings/upsert', payload: validListingPayload })
     const observationCountAfterFirst = listingObservations.length
 
-    const second = await app.inject({ method: 'POST', url: '/listings/upsert', payload: validListingPayload })
+    const second = await app.inject({
+      method: 'POST',
+      url: '/listings/upsert',
+      payload: validListingPayload,
+    })
     expect(second.json().data.outcome).toBe('unchanged')
     expect(listingObservations.length).toBe(observationCountAfterFirst)
     await app.close()
@@ -237,7 +269,12 @@ describe('POST /sources/:sourceId/listings/mark-gone', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/sources/src-1/listings/mark-gone',
-      payload: { sourceId: 'src-1', scraperRunId: runId, activeSourceRecordKeys: ['a'], isCompleteCrawl: false },
+      payload: {
+        sourceId: 'src-1',
+        scraperRunId: runId,
+        activeSourceRecordKeys: ['a'],
+        isCompleteCrawl: false,
+      },
     })
 
     expect(response.statusCode).toBe(200)
@@ -253,7 +290,12 @@ describe('POST /sources/:sourceId/listings/mark-gone', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/sources/src-1/listings/mark-gone',
-      payload: { sourceId: 'src-1', scraperRunId: runId, activeSourceRecordKeys: ['a'], isCompleteCrawl: true },
+      payload: {
+        sourceId: 'src-1',
+        scraperRunId: runId,
+        activeSourceRecordKeys: ['a'],
+        isCompleteCrawl: true,
+      },
     })
 
     expect(response.json().data.goneCount).toBe(7)
@@ -265,7 +307,12 @@ describe('POST /sources/:sourceId/listings/mark-gone', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/sources/src-1/listings/mark-gone',
-      payload: { sourceId: 'src-2', scraperRunId: 'run-1', activeSourceRecordKeys: [], isCompleteCrawl: false },
+      payload: {
+        sourceId: 'src-2',
+        scraperRunId: 'run-1',
+        activeSourceRecordKeys: [],
+        isCompleteCrawl: false,
+      },
     })
     expect(response.statusCode).toBe(400)
   })
@@ -275,7 +322,12 @@ describe('POST /detail-extract/submit', () => {
   it('reports listing_not_found and marks the raw page processed when listingId is null', async () => {
     const { app, ready, rawPages } = buildTestApp()
     await ready
-    rawPages.push({ id: 'raw-1', url: 'https://dealer.example/1', scrapedAt: new Date('2026-08-01T00:00:00.000Z'), processedAt: null })
+    rawPages.push({
+      id: 'raw-1',
+      url: 'https://dealer.example/1',
+      scrapedAt: new Date('2026-08-01T00:00:00.000Z'),
+      processedAt: null,
+    })
 
     const response = await app.inject({
       method: 'POST',
@@ -322,7 +374,11 @@ describe('POST /detail-extract/submit', () => {
       missingFromCompleteCount: 0,
       updatedAt: new Date(),
     })
-    listingObservations.push({ stage: 'detail', reference: `raw-1:${scrapedAt.toISOString()}`, changedFields: ['color'] })
+    listingObservations.push({
+      stage: 'detail',
+      reference: `raw-1:${scrapedAt.toISOString()}`,
+      changedFields: ['color'],
+    })
 
     const response = await app.inject({
       method: 'POST',

@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../generated/prisma/index.js'
+import type { Prisma, PrismaClient } from '../generated/prisma/index.js'
 
 /**
  * How many consecutive complete crawls without an observation before a
@@ -43,7 +43,7 @@ export interface MarkGoneListingsOptions {
  *   Resets missingFromCompleteCount to 0 for seen listings (reappearance).
  */
 export async function markGoneListings(
-  db: PrismaClient,
+  db: PrismaClient | Prisma.TransactionClient,
   sourceId: string,
   activeSourceRecordKeys: string[],
   options: MarkGoneListingsOptions,

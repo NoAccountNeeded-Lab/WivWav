@@ -1,4 +1,12 @@
-const TRANSIENT_PRISMA_CODES = new Set(['P2002', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017'])
+const TRANSIENT_PRISMA_CODES = new Set([
+  'P2002',
+  'P2028',
+  'P2034',
+  'P1001',
+  'P1002',
+  'P1008',
+  'P1017',
+])
 const TRANSIENT_DB_MESSAGES = [
   'connection closed',
   'connection reset',

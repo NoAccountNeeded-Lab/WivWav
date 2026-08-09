@@ -87,12 +87,21 @@ export type CoordinatorToWorkerMessage = z.infer<typeof coordinatorToWorkerMessa
  * Settles the coordinator's in-memory correlation promise so the originating
  * queue job completes (success) or fails and retries (failure). `errorMessage`
  * is required on failure — a bare "it failed" gives operators nothing.
+ *
+ * `result` is an opaque, queue-specific outcome payload the gateway processor
+ * for that queue may act on — e.g. `SOURCE_SCRAPE` reports
+ * `{ listingsChanged: boolean }` so the coordinator knows whether to enqueue
+ * the follow-on `LISTING_SYNC`/`LISTING_RESOLVE` jobs, mirroring what the
+ * in-process scraper daemon does after `engine.runSource` returns (see
+ * apps/api/src/worker-gateway/gateway-workers.ts). Absent for queues with no
+ * follow-on behavior.
  */
 export const workerJobCompleteRequestSchema = z
   .object({
     correlationId: z.string().min(1),
     success: z.boolean(),
     errorMessage: z.string().optional(),
+    result: z.unknown().optional(),
   })
   .superRefine((body, ctx) => {
     if (!body.success && (body.errorMessage === undefined || body.errorMessage.length === 0)) {

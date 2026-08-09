@@ -44,7 +44,11 @@ describe('resolveField', () => {
   })
 
   it('resolves a credible card/category vs. detail-text contradiction to conflicting', () => {
-    const cardClaim = claim({ evidenceKind: 'structured_source', claimedValue: 'side_entry', sourceRef: 'card-url' })
+    const cardClaim = claim({
+      evidenceKind: 'structured_source',
+      claimedValue: 'side_entry',
+      sourceRef: 'card-url',
+    })
     const detailClaim = claim({
       evidenceKind: 'vehicle_text',
       claimedValue: 'rear_entry',
@@ -58,7 +62,11 @@ describe('resolveField', () => {
   })
 
   it('a credible photo claim can conflict with a side-entry text claim', () => {
-    const textClaim = claim({ evidenceKind: 'vehicle_text', claimedValue: 'side_entry', sourceRef: 'detail-url' })
+    const textClaim = claim({
+      evidenceKind: 'vehicle_text',
+      claimedValue: 'side_entry',
+      sourceRef: 'detail-url',
+    })
     const photoClaim = claim({
       evidenceKind: 'photo',
       claimedValue: 'rear_entry',
@@ -71,7 +79,11 @@ describe('resolveField', () => {
   })
 
   it('ignores a low-confidence photo claim entirely — cannot establish or override', () => {
-    const textClaim = claim({ evidenceKind: 'vehicle_text', claimedValue: 'side_entry', sourceRef: 'detail-url' })
+    const textClaim = claim({
+      evidenceKind: 'vehicle_text',
+      claimedValue: 'side_entry',
+      sourceRef: 'detail-url',
+    })
     const lowConfidencePhoto = claim({
       evidenceKind: 'photo',
       claimedValue: 'rear_entry',
@@ -84,7 +96,11 @@ describe('resolveField', () => {
   })
 
   it('ignores a reused/stock photo claim marked ineligible', () => {
-    const textClaim = claim({ evidenceKind: 'vehicle_text', claimedValue: 'side_entry', sourceRef: 'detail-url' })
+    const textClaim = claim({
+      evidenceKind: 'vehicle_text',
+      claimedValue: 'side_entry',
+      sourceRef: 'detail-url',
+    })
     const reusedPhoto = claim({
       evidenceKind: 'photo',
       claimedValue: 'rear_entry',
@@ -100,11 +116,19 @@ describe('resolveField', () => {
 
   it('ignores generic/boilerplate text claims', () => {
     const generic = claim({ evidenceKind: 'generic_text', claimedValue: 'rear_entry' })
-    expect(resolveField([generic])).toEqual({ value: 'unknown', state: 'unknown', conflictingClaims: [] })
+    expect(resolveField([generic])).toEqual({
+      value: 'unknown',
+      state: 'unknown',
+      conflictingClaims: [],
+    })
   })
 
   it('an authoritative source establishes verified alone, overriding weaker agreement elsewhere', () => {
-    const cardClaim = claim({ evidenceKind: 'structured_source', claimedValue: 'side_entry', sourceRef: 'card-url' })
+    const cardClaim = claim({
+      evidenceKind: 'structured_source',
+      claimedValue: 'side_entry',
+      sourceRef: 'card-url',
+    })
     const detailClaim = claim({
       evidenceKind: 'vehicle_text',
       claimedValue: 'side_entry',
@@ -122,7 +146,11 @@ describe('resolveField', () => {
   })
 
   it('two disagreeing authoritative sources are conflicting, not a coin flip', () => {
-    const a = claim({ evidenceKind: 'authoritative_source', claimedValue: 'side_entry', sourceRef: 'sheet-a' })
+    const a = claim({
+      evidenceKind: 'authoritative_source',
+      claimedValue: 'side_entry',
+      sourceRef: 'sheet-a',
+    })
     const b = claim({
       evidenceKind: 'authoritative_source',
       claimedValue: 'rear_entry',
@@ -134,9 +162,24 @@ describe('resolveField', () => {
   })
 
   it('a later observation superseding an old conflicting claim resolves it (card corrects itself)', () => {
-    const staleCard = claim({ evidenceKind: 'structured_source', claimedValue: 'side_entry', sourceRef: 'card-url', observedAt: T0 })
-    const correctedCard = claim({ evidenceKind: 'structured_source', claimedValue: 'rear_entry', sourceRef: 'card-url', observedAt: T1 })
-    const detailClaim = claim({ evidenceKind: 'vehicle_text', claimedValue: 'rear_entry', sourceRef: 'detail-url', observedAt: T1 })
+    const staleCard = claim({
+      evidenceKind: 'structured_source',
+      claimedValue: 'side_entry',
+      sourceRef: 'card-url',
+      observedAt: T0,
+    })
+    const correctedCard = claim({
+      evidenceKind: 'structured_source',
+      claimedValue: 'rear_entry',
+      sourceRef: 'card-url',
+      observedAt: T1,
+    })
+    const detailClaim = claim({
+      evidenceKind: 'vehicle_text',
+      claimedValue: 'rear_entry',
+      sourceRef: 'detail-url',
+      observedAt: T1,
+    })
     // All three rows may still be stored (append-only claim history), but the
     // resolver only considers the latest claim per (evidenceKind, sourceRef) slot.
     const result = resolveField([staleCard, correctedCard, detailClaim])
@@ -151,11 +194,20 @@ describe('resolveField', () => {
 
   it('an ineligible non-photo claim (explicitly marked) is excluded from resolution', () => {
     const ineligible = claim({ eligible: false, ineligibleReason: 'manual override' })
-    expect(resolveField([ineligible])).toEqual({ value: 'unknown', state: 'unknown', conflictingClaims: [] })
+    expect(resolveField([ineligible])).toEqual({
+      value: 'unknown',
+      state: 'unknown',
+      conflictingClaims: [],
+    })
   })
 
   it('rampType conflicts resolve the same way as conversionType', () => {
-    const inFloor = claim({ field: 'rampType', evidenceKind: 'structured_source', claimedValue: 'in_floor', sourceRef: 'card-url' })
+    const inFloor = claim({
+      field: 'rampType',
+      evidenceKind: 'structured_source',
+      claimedValue: 'in_floor',
+      sourceRef: 'card-url',
+    })
     const foldOut = claim({
       field: 'rampType',
       evidenceKind: 'vehicle_text',

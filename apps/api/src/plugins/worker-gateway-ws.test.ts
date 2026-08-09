@@ -19,7 +19,10 @@ const INTERNAL_API_SECRET = 'a'.repeat(32)
  * worker-gateway-ws.ts's docstring for why that plugin itself never
  * registers `@fastify/websocket`.
  */
-function buildTestApp(secret: string | undefined, nodeEnv: 'development' | 'test' | 'production' = 'test') {
+function buildTestApp(
+  secret: string | undefined,
+  nodeEnv: 'development' | 'test' | 'production' = 'test',
+) {
   const app = Fastify()
   const registry = new WorkerRegistry()
   const dispatcher = new WorkerDispatcher(registry, 60_000)
@@ -69,7 +72,9 @@ describe('worker gateway WS auth', () => {
     await ready
     await app.ready()
 
-    const ws = await app.injectWS('/ws', { headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` } })
+    const ws = await app.injectWS('/ws', {
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
     ws.send(
       JSON.stringify({
         type: 'hello',
@@ -100,7 +105,9 @@ describe('worker gateway WS protocol', () => {
     await ready
     await app.ready()
 
-    const ws = await app.injectWS('/ws', { headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` } })
+    const ws = await app.injectWS('/ws', {
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
     ws.send(
       JSON.stringify({
         type: 'hello',
@@ -120,7 +127,9 @@ describe('worker gateway WS protocol', () => {
     await ready
     await app.ready()
 
-    const ws = await app.injectWS('/ws', { headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` } })
+    const ws = await app.injectWS('/ws', {
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
     ws.send(
       JSON.stringify({
         type: 'hello',
@@ -140,7 +149,9 @@ describe('worker gateway WS protocol', () => {
     await ready
     await app.ready()
 
-    const ws = await app.injectWS('/ws', { headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` } })
+    const ws = await app.injectWS('/ws', {
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
     const closed = new Promise<number>((resolve) => ws.on('close', (code: number) => resolve(code)))
     ws.send(JSON.stringify({ type: 'heartbeat', sentAt: new Date().toISOString() }))
     const code = await closed
@@ -154,7 +165,9 @@ describe('worker gateway WS protocol', () => {
     await app.ready()
     const refuseSpy = vi.spyOn(dispatcher, 'refuse')
 
-    const ws = await app.injectWS('/ws', { headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` } })
+    const ws = await app.injectWS('/ws', {
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
     ws.send(
       JSON.stringify({
         type: 'hello',
@@ -163,7 +176,9 @@ describe('worker gateway WS protocol', () => {
         capabilities: { chromium: true, maxConcurrentJobs: 2 },
       }),
     )
-    ws.send(JSON.stringify({ type: 'job-ack', correlationId: 'q:1', accepted: false, reason: 'busy' }))
+    ws.send(
+      JSON.stringify({ type: 'job-ack', correlationId: 'q:1', accepted: false, reason: 'busy' }),
+    )
     await waitFor(() => refuseSpy.mock.calls.length === 1)
     expect(refuseSpy).toHaveBeenCalledWith('q:1', 'busy')
     ws.close()
@@ -180,12 +195,15 @@ describe('POST /jobs/complete', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/jobs/complete',
-      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}`, 'content-type': 'application/json' },
+      headers: {
+        authorization: `Bearer ${INTERNAL_API_SECRET}`,
+        'content-type': 'application/json',
+      },
       payload: { correlationId: 'q:1', success: true },
     })
 
     expect(response.statusCode).toBe(200)
-    expect(completeSpy).toHaveBeenCalledWith('q:1', true, undefined)
+    expect(completeSpy).toHaveBeenCalledWith('q:1', true, undefined, undefined)
     await app.close()
   })
 
@@ -196,7 +214,10 @@ describe('POST /jobs/complete', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/jobs/complete',
-      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}`, 'content-type': 'application/json' },
+      headers: {
+        authorization: `Bearer ${INTERNAL_API_SECRET}`,
+        'content-type': 'application/json',
+      },
       payload: { correlationId: 'unknown:1', success: true },
     })
 

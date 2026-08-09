@@ -14,7 +14,12 @@ process.on('uncaughtException', (err) => {
 
 import { getDb, readCurrentScheduleIntents } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
-import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
+import {
+  BullMQQueueFactory,
+  CRITICAL_JOB_OPTIONS,
+  LISTING_SYNC_REBUILD_JOB_ID,
+  QUEUES,
+} from '@wivwav/queue'
 import { ScraperEngine } from './engine/scraper-engine.js'
 import { OllamaProvider } from './ai/ollama-provider.js'
 import { StructureDetector } from './ai/structure-detector.js'
@@ -38,8 +43,14 @@ import { runDeduplicateJob } from './jobs/deduplicate.js'
 import { runVinEnrichJob } from './jobs/vin-enrich.js'
 import { runNhtsaRecallsJob, type NhtsaRecallsJobData } from './jobs/nhtsa-recalls.js'
 import { runNhtsaComplaintsJob, type NhtsaComplaintsJobData } from './jobs/nhtsa-complaints.js'
-import { runNhtsaSafetyRatingsJob, type NhtsaSafetyRatingsJobData } from './jobs/nhtsa-safety-ratings.js'
-import { runNhtsaInvestigationsJob, type NhtsaInvestigationsJobData } from './jobs/nhtsa-investigations.js'
+import {
+  runNhtsaSafetyRatingsJob,
+  type NhtsaSafetyRatingsJobData,
+} from './jobs/nhtsa-safety-ratings.js'
+import {
+  runNhtsaInvestigationsJob,
+  type NhtsaInvestigationsJobData,
+} from './jobs/nhtsa-investigations.js'
 import {
   runNhtsaManufacturerCommunicationsJob,
   type NhtsaManufacturerCommunicationsJobData,
@@ -54,14 +65,26 @@ import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
 import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
 import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fueleconomy-msrp.js'
-import { runSemanticImageAnalyzeJob, type SemanticImageAnalyzeJobData } from './jobs/semantic-image-analyze.js'
+import {
+  runSemanticImageAnalyzeJob,
+  type SemanticImageAnalyzeJobData,
+} from './jobs/semantic-image-analyze.js'
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { withJobRunTracking } from './lib/job-run-tracking.js'
 import { PrismaJobRunRepository } from './lib/job-run-repository.js'
 import { PlaywrightBrowserService } from './browser/index.js'
 import type { JobContext } from '@wivwav/queue'
-import { buildDetailScheduleSources, buildSourceScrapeScheduleSources, registerSources } from './sources/registry.js'
-import { resolveScraperRuntimeMode, shouldRegisterSchedules, shouldStartWorkers } from './runtime-mode.js'
+import {
+  buildDetailScheduleSources,
+  buildSourceScrapeScheduleSources,
+  registerSources,
+} from './sources/registry.js'
+import {
+  isWorkerGatewayEnabled,
+  resolveScraperRuntimeMode,
+  shouldRegisterSchedules,
+  shouldStartWorkers,
+} from './runtime-mode.js'
 
 const db = getDb()
 const logger = createLogger({
@@ -164,7 +187,9 @@ const nhtsaRecallsQueue = queueFactory.createQueue(QUEUES.NHTSA_RECALLS)
 const nhtsaComplaintsQueue = queueFactory.createQueue(QUEUES.NHTSA_COMPLAINTS)
 const nhtsaSafetyRatingsQueue = queueFactory.createQueue(QUEUES.NHTSA_SAFETY_RATINGS)
 const nhtsaInvestigationsQueue = queueFactory.createQueue(QUEUES.NHTSA_INVESTIGATIONS)
-const nhtsaManufacturerCommunicationsQueue = queueFactory.createQueue(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS)
+const nhtsaManufacturerCommunicationsQueue = queueFactory.createQueue(
+  QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+)
 const vehicleStatsRefreshQueue = queueFactory.createQueue(QUEUES.VEHICLE_STATS_REFRESH)
 const conversionBrandsSeedQueue = queueFactory.createQueue(QUEUES.CONVERSION_BRANDS_SEED)
 const nmedaDealersSeedQueue = queueFactory.createQueue(QUEUES.NMEDA_DEALERS_SEED)
@@ -187,54 +212,84 @@ function registerWorkers(): void {
   // Sentry still sees the rethrown error. Explicit type parameters on
   // withSentryCapture preserve the same type safety as the original
   // createWorker<T> call sites.
-  queueFactory.createWorker<{ sourceId: string }>(
-    QUEUES.SOURCE_SCRAPE,
-    withSentryCapture<{ sourceId: string }>(
+  //
+  // The three browser-job queues below are skipped entirely once apps/api's
+  // worker gateway (#948/#951) owns them — see isWorkerGatewayEnabled's
+  // docstring for why this check exists at all (never two consumer groups
+  // registered against the same queue).
+  if (isWorkerGatewayEnabled()) {
+    logger.info(
+      { queues: [QUEUES.SOURCE_SCRAPE, QUEUES.DETAIL_CRAWL, QUEUES.DETAIL_EXTRACT] },
+      'WORKER_GATEWAY_ENABLED=true — skipping in-process registration for the worker-gateway queues',
+    )
+  } else {
+    queueFactory.createWorker<{ sourceId: string }>(
       QUEUES.SOURCE_SCRAPE,
-      withJobRunTracking<{ sourceId: string }>(QUEUES.SOURCE_SCRAPE, jobRuns, async ({ sourceId }, context) => {
-        const ollamaProvider = await buildOllamaProvider()
-        const aiAvailable = await ollamaProvider.isAvailable()
-        if (!aiAvailable) {
-          context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
-          await context?.log('Ollama unavailable — running without AI-assisted remapping')
-        }
-        const listingsChanged = await runSourceWithProvider(sourceId, aiAvailable ? ollamaProvider : null, context)
-        if (listingsChanged) {
-          await listingSyncQueue.add(
-            { parentRunId: context.runId },
-            { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID },
-          )
-          await listingResolveQueue.add({ sourceId, parentRunId: context.runId }, CRITICAL_JOB_OPTIONS)
-        }
-      }),
-    ),
-    { lockDuration: 300_000, logger },
-  )
-  queueFactory.createWorker<{ sourceId: string }>(
-    QUEUES.DETAIL_CRAWL,
-    withSentryCapture<{ sourceId: string }>(
+      withSentryCapture<{ sourceId: string }>(
+        QUEUES.SOURCE_SCRAPE,
+        withJobRunTracking<{ sourceId: string }>(
+          QUEUES.SOURCE_SCRAPE,
+          jobRuns,
+          async ({ sourceId }, context) => {
+            const ollamaProvider = await buildOllamaProvider()
+            const aiAvailable = await ollamaProvider.isAvailable()
+            if (!aiAvailable) {
+              context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
+              await context?.log('Ollama unavailable — running without AI-assisted remapping')
+            }
+            const listingsChanged = await runSourceWithProvider(
+              sourceId,
+              aiAvailable ? ollamaProvider : null,
+              context,
+            )
+            if (listingsChanged) {
+              await listingSyncQueue.add(
+                { parentRunId: context.runId },
+                { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID },
+              )
+              await listingResolveQueue.add(
+                { sourceId, parentRunId: context.runId },
+                CRITICAL_JOB_OPTIONS,
+              )
+            }
+          },
+        ),
+      ),
+      { lockDuration: 300_000, logger },
+    )
+    queueFactory.createWorker<{ sourceId: string }>(
       QUEUES.DETAIL_CRAWL,
-      withJobRunTracking<{ sourceId: string }>(QUEUES.DETAIL_CRAWL, jobRuns, ({ sourceId }, context) =>
-        runDetailCrawlJob(sourceId, context, browserService),
+      withSentryCapture<{ sourceId: string }>(
+        QUEUES.DETAIL_CRAWL,
+        withJobRunTracking<{ sourceId: string }>(
+          QUEUES.DETAIL_CRAWL,
+          jobRuns,
+          ({ sourceId }, context) => runDetailCrawlJob(sourceId, context, browserService),
+        ),
       ),
-    ),
-    { lockDuration: 120_000, logger },
-  )
-  queueFactory.createWorker<{ sourceId: string }>(
-    QUEUES.DETAIL_EXTRACT,
-    withSentryCapture<{ sourceId: string }>(
+      { lockDuration: 120_000, logger },
+    )
+    queueFactory.createWorker<{ sourceId: string }>(
       QUEUES.DETAIL_EXTRACT,
-      withJobRunTracking<{ sourceId: string }>(QUEUES.DETAIL_EXTRACT, jobRuns, ({ sourceId }, context) =>
-        runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
+      withSentryCapture<{ sourceId: string }>(
+        QUEUES.DETAIL_EXTRACT,
+        withJobRunTracking<{ sourceId: string }>(
+          QUEUES.DETAIL_EXTRACT,
+          jobRuns,
+          ({ sourceId }, context) =>
+            runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
+        ),
       ),
-    ),
-    { lockDuration: 60_000, logger },
-  )
+      { lockDuration: 60_000, logger },
+    )
+  }
   queueFactory.createWorker(
     QUEUES.GEOCODE,
     withSentryCapture(
       QUEUES.GEOCODE,
-      withJobRunTracking(QUEUES.GEOCODE, jobRuns, (_data: unknown, context) => runGeocodeJob(context)),
+      withJobRunTracking(QUEUES.GEOCODE, jobRuns, (_data: unknown, context) =>
+        runGeocodeJob(context),
+      ),
     ),
     { lockDuration: 120_000, logger },
   )
@@ -242,7 +297,9 @@ function registerWorkers(): void {
     QUEUES.DEDUPLICATE,
     withSentryCapture(
       QUEUES.DEDUPLICATE,
-      withJobRunTracking(QUEUES.DEDUPLICATE, jobRuns, (_data: unknown, context) => runDeduplicateJob(context)),
+      withJobRunTracking(QUEUES.DEDUPLICATE, jobRuns, (_data: unknown, context) =>
+        runDeduplicateJob(context),
+      ),
     ),
     { lockDuration: 120_000, logger },
   )
@@ -270,8 +327,10 @@ function registerWorkers(): void {
     QUEUES.NHTSA_COMPLAINTS,
     withSentryCapture(
       QUEUES.NHTSA_COMPLAINTS,
-      withJobRunTracking(QUEUES.NHTSA_COMPLAINTS, jobRuns, (data: NhtsaComplaintsJobData, context) =>
-        runNhtsaComplaintsJob(context, data),
+      withJobRunTracking(
+        QUEUES.NHTSA_COMPLAINTS,
+        jobRuns,
+        (data: NhtsaComplaintsJobData, context) => runNhtsaComplaintsJob(context, data),
       ),
     ),
     { lockDuration: 600_000, logger },
@@ -280,8 +339,10 @@ function registerWorkers(): void {
     QUEUES.NHTSA_SAFETY_RATINGS,
     withSentryCapture(
       QUEUES.NHTSA_SAFETY_RATINGS,
-      withJobRunTracking(QUEUES.NHTSA_SAFETY_RATINGS, jobRuns, (data: NhtsaSafetyRatingsJobData, context) =>
-        runNhtsaSafetyRatingsJob(context, data),
+      withJobRunTracking(
+        QUEUES.NHTSA_SAFETY_RATINGS,
+        jobRuns,
+        (data: NhtsaSafetyRatingsJobData, context) => runNhtsaSafetyRatingsJob(context, data),
       ),
     ),
     { lockDuration: 600_000, logger },
@@ -290,8 +351,10 @@ function registerWorkers(): void {
     QUEUES.NHTSA_INVESTIGATIONS,
     withSentryCapture(
       QUEUES.NHTSA_INVESTIGATIONS,
-      withJobRunTracking(QUEUES.NHTSA_INVESTIGATIONS, jobRuns, (data: NhtsaInvestigationsJobData, context) =>
-        runNhtsaInvestigationsJob(context, data),
+      withJobRunTracking(
+        QUEUES.NHTSA_INVESTIGATIONS,
+        jobRuns,
+        (data: NhtsaInvestigationsJobData, context) => runNhtsaInvestigationsJob(context, data),
       ),
     ),
     { lockDuration: 600_000, logger },
@@ -403,8 +466,10 @@ function registerWorkers(): void {
     QUEUES.FUELECONOMY_MSRP,
     withSentryCapture(
       QUEUES.FUELECONOMY_MSRP,
-      withJobRunTracking(QUEUES.FUELECONOMY_MSRP, jobRuns, (data: FuelEconomyMsrpJobData, context) =>
-        runFuelEconomyMsrpJob(context, data),
+      withJobRunTracking(
+        QUEUES.FUELECONOMY_MSRP,
+        jobRuns,
+        (data: FuelEconomyMsrpJobData, context) => runFuelEconomyMsrpJob(context, data),
       ),
     ),
     { lockDuration: 600_000, logger },
@@ -413,8 +478,10 @@ function registerWorkers(): void {
     QUEUES.IMAGE_SEMANTIC_ANALYZE,
     withSentryCapture(
       QUEUES.IMAGE_SEMANTIC_ANALYZE,
-      withJobRunTracking(QUEUES.IMAGE_SEMANTIC_ANALYZE, jobRuns, (data: SemanticImageAnalyzeJobData, context) =>
-        runSemanticImageAnalyzeJob(data, context),
+      withJobRunTracking(
+        QUEUES.IMAGE_SEMANTIC_ANALYZE,
+        jobRuns,
+        (data: SemanticImageAnalyzeJobData, context) => runSemanticImageAnalyzeJob(data, context),
       ),
     ),
     { lockDuration: 60_000, logger },
@@ -506,20 +573,52 @@ const SCHEDULE_DEFS: ScheduleDefinition[] = [
     pattern: '0 1 * * 0',
     tz,
   },
-  { queue: conversionBrandsSeedQueue, name: QUEUES.CONVERSION_BRANDS_SEED, data: {}, pattern: '15 1 * * 0', tz },
-  { queue: nmedaDealersSeedQueue, name: QUEUES.NMEDA_DEALERS_SEED, data: {}, pattern: '20 1 * * 0', tz },
+  {
+    queue: conversionBrandsSeedQueue,
+    name: QUEUES.CONVERSION_BRANDS_SEED,
+    data: {},
+    pattern: '15 1 * * 0',
+    tz,
+  },
+  {
+    queue: nmedaDealersSeedQueue,
+    name: QUEUES.NMEDA_DEALERS_SEED,
+    data: {},
+    pattern: '20 1 * * 0',
+    tz,
+  },
   { queue: modelResearchQueue, name: QUEUES.MODEL_RESEARCH, data: {}, pattern: '30 5 * * 0', tz },
-  { queue: listingSyncQueue, name: QUEUES.LISTING_SYNC, data: {}, pattern: '30 1 * * *', tz, options: CRITICAL_JOB_OPTIONS },
+  {
+    queue: listingSyncQueue,
+    name: QUEUES.LISTING_SYNC,
+    data: {},
+    pattern: '30 1 * * *',
+    tz,
+    options: CRITICAL_JOB_OPTIONS,
+  },
   // Single-owner incremental indexer poll (#669) — runs every minute so
   // Postgres writes reach the live search index within a bounded, small
   // delay without any mutation path calling the search service directly.
-  { queue: listingIndexPollQueue, name: QUEUES.LISTING_INDEX_POLL, data: {}, pattern: '* * * * *', tz, options: CRITICAL_JOB_OPTIONS },
+  {
+    queue: listingIndexPollQueue,
+    name: QUEUES.LISTING_INDEX_POLL,
+    data: {},
+    pattern: '* * * * *',
+    tz,
+    options: CRITICAL_JOB_OPTIONS,
+  },
   { queue: rawPageCleanupQueue, name: QUEUES.RAWPAGE_CLEANUP, data: {}, pattern: '0 0 * * *', tz },
   // dealer-enrich runs nightly at 07:00 — after the main pipeline windows.
   // At 50 dealers * 2 requests each = 100 requests, staying within the free-tier budget.
   { queue: dealerEnrichQueue, name: QUEUES.DEALER_ENRICH, data: {}, pattern: '0 7 * * *', tz },
   // fueleconomy-msrp runs weekly on Sunday 07:30 — after dealer-enrich, no listing writes.
-  { queue: fuelEconomyMsrpQueue, name: QUEUES.FUELECONOMY_MSRP, data: {}, pattern: '30 7 * * 0', tz },
+  {
+    queue: fuelEconomyMsrpQueue,
+    name: QUEUES.FUELECONOMY_MSRP,
+    data: {},
+    pattern: '30 7 * * 0',
+    tz,
+  },
 ]
 
 if (shouldRegisterSchedules(runtimeMode)) {

@@ -207,12 +207,15 @@ export async function buildApp(
   app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger())
 
   app.addHook('onResponse', (request, reply, done) => {
-    request.log.info({
-      method: request.method,
-      url: request.routeOptions.url ?? request.url,
-      statusCode: reply.statusCode,
-      durationMs: Math.round(reply.elapsedTime),
-    }, 'request completed')
+    request.log.info(
+      {
+        method: request.method,
+        url: request.routeOptions.url ?? request.url,
+        statusCode: reply.statusCode,
+        durationMs: Math.round(reply.elapsedTime),
+      },
+      'request completed',
+    )
 
     const route = request.routeOptions.url ?? 'unknown'
     const method = request.method
@@ -232,7 +235,9 @@ export async function buildApp(
       return reply.code(400).send({
         error: {
           code: 'INVALID_REQUEST',
-          message: error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+          message: error.issues
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join('; '),
         },
       })
     }
@@ -254,13 +259,43 @@ export async function buildApp(
     void reply.code(statusCode).send(error)
   })
 
-  await app.register(healthRoutes, { prefix: '/health', db, sources: sourceRepo, scraperRuns: scraperRunRepo, meili, cache, config })
-  await app.register(listingRoutes, { prefix: '/v1/listings', listings: listingRepo, search, facets, queueFactory })
+  await app.register(healthRoutes, {
+    prefix: '/health',
+    db,
+    sources: sourceRepo,
+    scraperRuns: scraperRunRepo,
+    meili,
+    cache,
+    config,
+  })
+  await app.register(listingRoutes, {
+    prefix: '/v1/listings',
+    listings: listingRepo,
+    search,
+    facets,
+    queueFactory,
+  })
   await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
-  await app.register(vinRoutes, { prefix: '/v1/vin', vehicles: vehicleRepo, listings: listingRepo, apiKeys: apiKeyRepo })
-  await app.register(marketRoutes, { prefix: '/v1/market', market: marketRepo, apiKeys: apiKeyRepo })
-  await app.register(dealerRoutes, { prefix: '/v1/dealers', dealers: dealerRepo, apiKeys: apiKeyRepo })
-  await app.register(conversionBrandRoutes, { prefix: '/v1/conversion-brands', conversionBrands: conversionBrandRepo })
+  await app.register(vinRoutes, {
+    prefix: '/v1/vin',
+    vehicles: vehicleRepo,
+    listings: listingRepo,
+    apiKeys: apiKeyRepo,
+  })
+  await app.register(marketRoutes, {
+    prefix: '/v1/market',
+    market: marketRepo,
+    apiKeys: apiKeyRepo,
+  })
+  await app.register(dealerRoutes, {
+    prefix: '/v1/dealers',
+    dealers: dealerRepo,
+    apiKeys: apiKeyRepo,
+  })
+  await app.register(conversionBrandRoutes, {
+    prefix: '/v1/conversion-brands',
+    conversionBrands: conversionBrandRepo,
+  })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
 
   // Every route nested under /admin — including Bull Board — is guarded by a
@@ -278,8 +313,18 @@ export async function buildApp(
         nodeEnv: config.NODE_ENV,
       })
 
-      await adminScope.register(adminRoutes, { db, listings: listingRepo, sources: sourceRepo, scraperRuns: scraperRunRepo, jobRuns: jobRunRepo, queueFactory })
-      await adminScope.register(adminVehicleIdentityRoutes, { prefix: '/vehicle-identity', vehicleIdentityDecisions: vehicleIdentityDecisionRepo })
+      await adminScope.register(adminRoutes, {
+        db,
+        listings: listingRepo,
+        sources: sourceRepo,
+        scraperRuns: scraperRunRepo,
+        jobRuns: jobRunRepo,
+        queueFactory,
+      })
+      await adminScope.register(adminVehicleIdentityRoutes, {
+        prefix: '/vehicle-identity',
+        vehicleIdentityDecisions: vehicleIdentityDecisionRepo,
+      })
       await adminScope.register(adminAiRoutes, {
         prefix: '/ai',
         sources: sourceRepo,
@@ -321,7 +366,10 @@ export async function buildApp(
         nodeEnv: config.NODE_ENV,
       })
 
-      await internalScope.register(internalApiKeysRoutes, { prefix: '/api-keys', apiKeys: apiKeyRepo })
+      await internalScope.register(internalApiKeysRoutes, {
+        prefix: '/api-keys',
+        apiKeys: apiKeyRepo,
+      })
       await internalScope.register(internalGrafanaAlertsRoutes, {
         prefix: '/grafana/alerts',
         grafanaUrl: config.GRAFANA_URL,
@@ -411,7 +459,11 @@ export async function buildApp(
   // against the same queue.
   if (config.WORKER_GATEWAY_ENABLED) {
     const workerRegistry = new WorkerRegistry()
-    const workerDispatcher = new WorkerDispatcher(workerRegistry, config.WORKER_JOB_TIMEOUT_MS, app.log)
+    const workerDispatcher = new WorkerDispatcher(
+      workerRegistry,
+      config.WORKER_JOB_TIMEOUT_MS,
+      app.log,
+    )
     const gatewayWorkers = registerGatewayWorkers(queueFactory, workerDispatcher, app.log)
 
     await app.register(
@@ -436,7 +488,11 @@ export async function buildApp(
           internalApiSecret: config.INTERNAL_API_SECRET,
           nodeEnv: config.NODE_ENV,
         })
-        await scraperGatewayScope.register(internalScraperRoutes, { db, queueFactory, logger: app.log })
+        await scraperGatewayScope.register(internalScraperRoutes, {
+          db,
+          queueFactory,
+          logger: app.log,
+        })
       },
       { prefix: '/internal/scraper' },
     )

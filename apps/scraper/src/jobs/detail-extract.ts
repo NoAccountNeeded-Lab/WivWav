@@ -60,7 +60,8 @@ async function getSourceExecutionBlockReason(sourceId: string): Promise<string |
     select: { status: true, errorMessage: true },
   })
   if (!source) return `Source ${sourceId} no longer exists`
-  if (source.status === SourceStatus.disabled) return source.errorMessage ?? 'Source is disabled by operator policy'
+  if (source.status === SourceStatus.disabled)
+    return source.errorMessage ?? 'Source is disabled by operator policy'
   if (source.status === SourceStatus.paused) return source.errorMessage ?? 'Source is paused'
   return null
 }
@@ -163,9 +164,10 @@ export function summarizeError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
   const headerOnly = raw.split('{')[0] ?? raw
   const collapsed = headerOnly.replace(/\s+/g, ' ').trim()
-  const bounded = collapsed.length > ERROR_LOG_MAX_LENGTH
-    ? `${collapsed.slice(0, ERROR_LOG_MAX_LENGTH)}…`
-    : collapsed
+  const bounded =
+    collapsed.length > ERROR_LOG_MAX_LENGTH
+      ? `${collapsed.slice(0, ERROR_LOG_MAX_LENGTH)}…`
+      : collapsed
   return bounded.length > 0 ? bounded : 'error (no message)'
 }
 
@@ -190,7 +192,9 @@ export function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
     transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
     description,
     images: raw.galleryFound
-      ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
+      ? raw.imageUrls.length > 0
+        ? 'value'
+        : 'authoritative_empty'
       : 'missing',
     // BLVD's entry/ramp claims are parsed from this same description text.
     accessibilityClaims: description,
@@ -203,7 +207,10 @@ export function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
  * nothing to extract, so every field stays 'missing'/unpopulated rather
  * than fabricating a value (#822).
  */
-function emptyDetailResult(sourceDates: { sourceListedAt: Date | null; sourceUpdatedAt: Date | null }): DetailResult {
+function emptyDetailResult(sourceDates: {
+  sourceListedAt: Date | null
+  sourceUpdatedAt: Date | null
+}): DetailResult {
   return {
     color: null,
     fuelType: null,
@@ -242,7 +249,9 @@ async function extractDetail(
     const raw = await evaluateMwDetail(page)
     const mw = parseMwDetail(raw)
     const description = raw.descriptionFound
-      ? raw.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
+      ? raw.descriptionText.trim().length > 0
+        ? 'value'
+        : 'authoritative_empty'
       : 'missing'
     // MobilityWorks exposes an explicit "Fuel Type" spec key; no engine description field.
     return {
@@ -250,13 +259,18 @@ async function extractDetail(
       engine: null,
       ...sourceDates,
       evidence: {
-        color: Object.hasOwn(raw.specs, 'Exterior Color') || Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
+        color:
+          Object.hasOwn(raw.specs, 'Exterior Color') || Object.hasOwn(raw.specs, 'Color')
+            ? 'value'
+            : 'missing',
         fuelType: Object.hasOwn(raw.specs, 'Fuel Type') ? 'value' : 'missing',
         engine: 'missing',
         transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
         description,
         images: raw.galleryFound
-          ? raw.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
+          ? raw.imageUrls.length > 0
+            ? 'value'
+            : 'authoritative_empty'
           : 'missing',
         // MobilityWorks' entry/ramp claims are parsed from this same description text.
         accessibilityClaims: description === 'missing' ? 'missing' : 'value',
@@ -322,11 +336,15 @@ export async function runDetailExtractJob(
     return
   }
 
-  await report(context, `[detail-extract] Extracting ${rawPages.length} raw pages for source ${sourceId}`, {
-    stage: 'extracting',
-    current: 0,
-    total: rawPages.length,
-  })
+  await report(
+    context,
+    `[detail-extract] Extracting ${rawPages.length} raw pages for source ${sourceId}`,
+    {
+      stage: 'extracting',
+      current: 0,
+      total: rawPages.length,
+    },
+  )
 
   // Read once per run (not cached across runs) — see getSourceMappings's docstring.
   const mappings = await getSourceMappings(sourceId)
@@ -396,13 +414,20 @@ export async function runDetailExtractJob(
         })
 
         await page.setContent(rawPage.html, { waitUntil: 'domcontentloaded' })
-        const sourceIdentifiers = [listing?.sourceRecordKey, listing?.externalId, listing?.stockNumber]
-          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        const detail = await extractDetail(page, {
-          expectedUrl: rawPage.url,
-          expectedVin: listing?.vin ?? null,
-          expectedSourceIdentifiers: sourceIdentifiers,
-        }, mappings)
+        const sourceIdentifiers = [
+          listing?.sourceRecordKey,
+          listing?.externalId,
+          listing?.stockNumber,
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        const detail = await extractDetail(
+          page,
+          {
+            expectedUrl: rawPage.url,
+            expectedVin: listing?.vin ?? null,
+            expectedSourceIdentifiers: sourceIdentifiers,
+          },
+          mappings,
+        )
 
         if (listing) {
           // Retry idempotency: if this observation reference was already recorded
@@ -460,33 +485,44 @@ export async function runDetailExtractJob(
             update as Record<string, unknown>,
           )
           const before = Object.fromEntries(
-            changedFields.map((field) => [field, auditDetailValue((listing as unknown as Record<string, unknown>)[field])]),
+            changedFields.map((field) => [
+              field,
+              auditDetailValue((listing as unknown as Record<string, unknown>)[field]),
+            ]),
           )
           const after = Object.fromEntries(
-            changedFields.map((field) => [field, auditDetailValue((update as Record<string, unknown>)[field])]),
+            changedFields.map((field) => [
+              field,
+              auditDetailValue((update as Record<string, unknown>)[field]),
+            ]),
           )
 
           // Serializable, like PrismaListingRepository.upsert's ingestListing
           // transaction — same pool-contention/transient-close hazard under
           // the scraper's concurrent workers, so it gets the same retry.
-          await withTransientRetry(() => db.$transaction(async (tx) => {
-            await tx.listing.update({
-              where: { id: listing.id, updatedAt: listing.updatedAt },
-              data: changedFields.length > 0 ? update : { detailScrapedAt: now },
-            })
-            await tx.listingObservation.create({
-              data: {
-                listingId: listing.id,
-                stage: 'detail',
-                reference: observationReference,
-                extractionVersion: DETAIL_EXTRACTION_VERSION,
-                changedFields,
-                before: before as Prisma.InputJsonObject,
-                after: after as Prisma.InputJsonObject,
-                observedAt: now,
+          await withTransientRetry(() =>
+            db.$transaction(
+              async (tx) => {
+                await tx.listing.update({
+                  where: { id: listing.id, updatedAt: listing.updatedAt },
+                  data: changedFields.length > 0 ? update : { detailScrapedAt: now },
+                })
+                await tx.listingObservation.create({
+                  data: {
+                    listingId: listing.id,
+                    stage: 'detail',
+                    reference: observationReference,
+                    extractionVersion: DETAIL_EXTRACTION_VERSION,
+                    changedFields,
+                    before: before as Prisma.InputJsonObject,
+                    after: after as Prisma.InputJsonObject,
+                    observedAt: now,
+                  },
+                })
               },
-            })
-          }, { isolationLevel: 'Serializable' }))
+              { isolationLevel: 'Serializable' },
+            ),
+          )
           // Search-index sync is no longer this job's concern — the
           // single-owner indexer poller (#669) picks up the change (via
           // `updatedAt`, bumped by the transaction above) on its next tick.
@@ -565,10 +601,19 @@ export async function runDetailExtractJob(
     // health (which reads `failedReason`) surfaces the partial outage (#637).
     const reason = `${failed} of ${rawPages.length} raw page(s) failed extraction for source ${sourceId} (${success} succeeded)`
     context?.logger?.error(
-      { event: 'detail-extract.partial-failure', sourceId, success, failed, total: rawPages.length },
+      {
+        event: 'detail-extract.partial-failure',
+        sourceId,
+        success,
+        failed,
+        total: rawPages.length,
+      },
       `[detail-extract] ${reason}`,
     )
-    throw new JobRunStatsError(`[detail-extract] ${reason}`, { succeededCount: success, failedCount: failed })
+    throw new JobRunStatsError(`[detail-extract] ${reason}`, {
+      succeededCount: success,
+      failedCount: failed,
+    })
   }
 
   return { succeededCount: success, failedCount: failed }

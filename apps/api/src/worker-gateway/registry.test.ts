@@ -29,7 +29,10 @@ describe('WorkerRegistry.pickWorker', () => {
   it('skips a worker at its concurrency cap', () => {
     const registry = new WorkerRegistry()
     registry.register(
-      makeWorker({ capabilities: { chromium: true, maxConcurrentJobs: 1 }, inFlight: new Set(['q:1']) }),
+      makeWorker({
+        capabilities: { chromium: true, maxConcurrentJobs: 1 },
+        inFlight: new Set(['q:1']),
+      }),
     )
     expect(registry.pickWorker({ chromium: true })).toBeUndefined()
   })
@@ -109,6 +112,11 @@ describe('WorkerRegistry connection lifecycle', () => {
     const registry = new WorkerRegistry()
     registry.register(makeWorker({ connectionId: 'a' }))
     registry.register(makeWorker({ connectionId: 'b' }))
-    expect(registry.list().map((w) => w.connectionId).sort()).toEqual(['a', 'b'])
+    expect(
+      registry
+        .list()
+        .map((w) => w.connectionId)
+        .sort(),
+    ).toEqual(['a', 'b'])
   })
 })
