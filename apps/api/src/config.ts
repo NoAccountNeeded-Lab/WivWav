@@ -65,6 +65,17 @@ const schema = z.object({
   // Stripe Dashboard's webhook endpoint config. When unset, the webhook
   // endpoint refuses all requests with 503 rather than accepting unverifiable payloads.
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // #948 worker gateway: when 'true', apps/api registers as the BullMQ
+  // consumer for the three browser-job queues and exposes the /internal/workers
+  // WS dispatch endpoint + /internal/scraper ingest routes. Default off — the
+  // in-process apps/scraper workers keep consuming those queues until cutover.
+  // The flag and the scraper's worker registrations are mutually exclusive:
+  // never run two consumer groups against the same queues.
+  WORKER_GATEWAY_ENABLED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
+  // How long the coordinator waits for a dispatched remote job's completion
+  // callback before failing the queue job so BullMQ retries it. Browser jobs
+  // legitimately run for many minutes (batched crawls + rate-limit sleeps).
+  WORKER_JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(45 * 60_000),
   // Deployed commit SHA, set by the deploy pipeline (e.g. `GIT_SHA=$(git rev-parse HEAD)`
   // as a build/run arg). Surfaced verbatim by `GET /diagnostics/diagnostic-context`
   // (#775) as fixed-size revision metadata; 'unknown' in local dev where no

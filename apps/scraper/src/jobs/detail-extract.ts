@@ -20,7 +20,6 @@ import {
   createRateLimitedFetcher,
   enrichBlvdDealerListing,
   fetchHtml,
-  type BlvdDealerEnrichment,
 } from '../sources/blvd-dealer-enrichment.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
 import { evaluateDeclarativeDetail, parseDeclarativeDetail } from '../sources/declarative-detail.js'

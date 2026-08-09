@@ -58,6 +58,11 @@ import { internalApiKeysRoutes } from './routes/internal-api-keys.js'
 import { internalGrafanaAlertsRoutes } from './routes/internal-grafana-alerts.js'
 import { internalSentryIssuesRoutes } from './routes/internal-sentry-issues.js'
 import { webhooksRoutes } from './routes/webhooks.js'
+import { internalScraperRoutes } from './routes/internal-scraper.js'
+import { workerGatewayRoutes } from './plugins/worker-gateway-ws.js'
+import { WorkerRegistry } from './worker-gateway/registry.js'
+import { WorkerDispatcher } from './worker-gateway/dispatcher.js'
+import { registerGatewayWorkers } from './worker-gateway/gateway-workers.js'
 
 export function isAllowedCorsOrigin(origin: string | undefined, config: Config): boolean {
   if (!origin) return true
@@ -384,6 +389,47 @@ export async function buildApp(
     apiKeys: apiKeyRepo,
     stripeWebhookSecret: config.STRIPE_WEBHOOK_SECRET,
   })
+
+  // Worker-fleet coordinator (#948/#951): gated behind WORKER_GATEWAY_ENABLED
+  // (default off) so apps/scraper's in-process workers keep consuming the
+  // three browser-job queues until the #953 cutover. The flag and those
+  // registrations are mutually exclusive — never run two consumer groups
+  // against the same queue.
+  if (config.WORKER_GATEWAY_ENABLED) {
+    const workerRegistry = new WorkerRegistry()
+    const workerDispatcher = new WorkerDispatcher(workerRegistry, config.WORKER_JOB_TIMEOUT_MS, app.log)
+    const gatewayWorkers = registerGatewayWorkers(queueFactory, workerDispatcher, app.log)
+
+    await app.register(
+      async (workersScope) => {
+        await adminAuthPlugin(workersScope, {
+          internalApiSecret: config.INTERNAL_API_SECRET,
+          nodeEnv: config.NODE_ENV,
+        })
+        await workersScope.register(workerGatewayRoutes, {
+          registry: workerRegistry,
+          dispatcher: workerDispatcher,
+          logger: app.log,
+        })
+      },
+      { prefix: '/internal/workers' },
+    )
+
+    await app.register(
+      async (scraperGatewayScope) => {
+        await adminAuthPlugin(scraperGatewayScope, {
+          internalApiSecret: config.INTERNAL_API_SECRET,
+          nodeEnv: config.NODE_ENV,
+        })
+        await scraperGatewayScope.register(internalScraperRoutes, { db, queueFactory, logger: app.log })
+      },
+      { prefix: '/internal/scraper' },
+    )
+
+    app.addHook('onClose', async () => {
+      await Promise.all(gatewayWorkers.map((worker) => worker.close()))
+    })
+  }
 
   // Intentionally unauthenticated and outside /admin — this endpoint accepts only
   // pre-validated structured browser error events and is rate-limited per-route.
