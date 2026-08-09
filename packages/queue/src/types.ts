@@ -42,6 +42,8 @@ export type JobProgress = string | number | boolean | object
 
 export interface JobContext {
   logger?: WivWavLogger
+  /** The queue job's id, when the backend exposes one (BullMQ always does). */
+  jobId?: string
   log(message: string): Promise<void>
   updateProgress(progress: JobProgress): Promise<void>
   /**

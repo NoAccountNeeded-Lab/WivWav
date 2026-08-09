@@ -53,6 +53,7 @@ export class BullMQQueueFactory implements QueueFactory {
         try {
           await processor(job.data, {
             ...(logger !== undefined ? { logger } : {}),
+            ...(job.id !== undefined ? { jobId: job.id } : {}),
             log: async (message) => {
               await job.log(message)
             },

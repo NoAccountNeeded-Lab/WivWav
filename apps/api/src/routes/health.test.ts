@@ -17,6 +17,8 @@ const baseConfig = {
   LOKI_URL: 'http://localhost:3100',
   GRAFANA_URL: 'http://localhost:3003',
   CORS_ORIGIN: 'http://localhost:3000',
+  WORKER_GATEWAY_ENABLED: false,
+  WORKER_JOB_TIMEOUT_MS: 2_700_000,
   GIT_SHA: 'test-sha',
 }
 
