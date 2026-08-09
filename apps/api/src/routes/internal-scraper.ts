@@ -99,6 +99,15 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     return reply.send({ data: { state } })
   })
 
+  // #952: a remote worker's SOURCE_SCRAPE dispatch carries only `sourceId` —
+  // this returns the name/baseUrl/fingerprintHash/page1Hash it needs to
+  // resolve the registry adapter module and seed change-detection state.
+  app.get<{ Params: { id: string } }>('/sources/:id/profile', async (req, reply) => {
+    const profile = await sources.getProfile(req.params.id)
+    if (!profile) return reply.notFound(`source ${req.params.id} not found`)
+    return reply.send({ data: profile })
+  })
+
   app.post('/sources/needs-remapping', async (req, reply) => {
     const body = sourceMarkNeedsRemappingRequestSchema.parse(req.body)
     await sources.markNeedsRemapping(body.sourceId, body.errorMessage)

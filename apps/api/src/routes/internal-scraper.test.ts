@@ -19,6 +19,7 @@ function createFakeDb() {
   const rawPages: Record<string, unknown>[] = []
   const listingObservations: Record<string, unknown>[] = []
   const scraperRuns: Record<string, unknown>[] = []
+  const sources: Record<string, unknown>[] = []
   let idCounter = 0
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`
 
@@ -149,7 +150,8 @@ function createFakeDb() {
       },
     },
     source: {
-      findUnique: async () => null,
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        sources.find((s) => s['id'] === where.id) ?? null,
       update: async () => ({}),
       updateMany: async () => ({ count: 1 }),
     },
@@ -160,7 +162,7 @@ function createFakeDb() {
     },
   }
 
-  return { db, listings, rawPages, listingObservations, scraperRuns }
+  return { db, listings, rawPages, listingObservations, scraperRuns, sources }
 }
 
 function buildTestApp() {
@@ -425,3 +427,35 @@ function minimalDetail() {
     },
   }
 }
+
+describe('GET /sources/:id/profile', () => {
+  it('returns the name/baseUrl/fingerprintHash/page1Hash a worker needs to resolve an adapter', async () => {
+    const { app, ready, sources } = buildTestApp()
+    sources.push({
+      id: 'src-1',
+      name: 'BLVD.com',
+      baseUrl: 'https://www.blvd.com',
+      fingerprintHash: 'hash-1',
+      page1Hash: 'page1-hash-1',
+    })
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/sources/src-1/profile' })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().data).toEqual({
+      id: 'src-1',
+      name: 'BLVD.com',
+      baseUrl: 'https://www.blvd.com',
+      fingerprintHash: 'hash-1',
+      page1Hash: 'page1-hash-1',
+    })
+    await app.close()
+  })
+
+  it('404s for an unknown source id', async () => {
+    const { app, ready } = buildTestApp()
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/sources/missing/profile' })
+    expect(response.statusCode).toBe(404)
+    await app.close()
+  })
+})
