@@ -33,6 +33,9 @@ COPY packages/observability/package.json ./packages/observability/
 COPY packages/db/package.json ./packages/db/
 COPY packages/db/prisma.config.ts ./packages/db/
 COPY packages/db/prisma/schema.prisma ./packages/db/prisma/
+# @wivwav/db depends on @wivwav/logger since the #499 claims/resolution logic
+# moved there (#951).
+COPY packages/logger/package.json ./packages/logger/
 COPY packages/search/package.json ./packages/search/
 COPY apps/web/package.json ./apps/web/
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
@@ -42,10 +45,12 @@ COPY packages/config ./packages/config
 COPY packages/types ./packages/types
 COPY packages/observability ./packages/observability
 COPY packages/db ./packages/db
+COPY packages/logger ./packages/logger
 COPY packages/search ./packages/search
 COPY apps/web ./apps/web
 RUN pnpm --filter @wivwav/types build
 RUN pnpm --filter @wivwav/observability build
+RUN pnpm --filter @wivwav/logger build
 RUN pnpm --filter @wivwav/db generate
 RUN pnpm --filter @wivwav/db build
 RUN pnpm --filter @wivwav/search build
