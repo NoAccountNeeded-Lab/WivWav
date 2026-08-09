@@ -15,6 +15,8 @@ import type {
   WavFeatures,
   WavFieldResolution,
 } from './listing.js'
+import type { AssertTrue, MutuallyAssignable } from './type-parity.js'
+import { issuePaths } from './test-helpers/issue-paths.js'
 import type {
   conversionStatusSchema,
   conversionTypeSchema,
@@ -28,7 +30,8 @@ import type {
   saleStatusSchema,
   wavFeatureSchema,
   wavFeaturesSchema,
-  wavFieldResolutionSchema} from './scraper-gateway.js';
+  wavFieldResolutionSchema,
+} from './scraper-gateway.js'
 import {
   detailExtractSubmitRequestSchema,
   detailExtractSubmitResponseSchema,
@@ -38,46 +41,49 @@ import {
   listingUpsertResponseSchema,
   scraperRunCompleteRequestSchema,
   sourceLastFullCrawlAtResponseSchema,
-  sourceMarkActiveRequestSchema
+  sourceMarkActiveRequestSchema,
 } from './scraper-gateway.js'
 
 // --- compile-time parity with the hand-written types in ./listing.js ---
 // (fails `tsc` if a schema's vocabulary or shape drifts from the interface)
 
-type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
-type Assert<T extends true> = T
-
-export type _ConversionTypeParity = Assert<
+export type _ConversionTypeParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof conversionTypeSchema>, ConversionType>
 >
-export type _RampTypeParity = Assert<MutuallyAssignable<z.infer<typeof rampTypeSchema>, RampType>>
-export type _ConversionStatusParity = Assert<
+export type _RampTypeParity = AssertTrue<
+  MutuallyAssignable<z.infer<typeof rampTypeSchema>, RampType>
+>
+export type _ConversionStatusParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof conversionStatusSchema>, ConversionStatus>
 >
-export type _ListingConditionParity = Assert<
+export type _ListingConditionParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof listingConditionSchema>, ListingCondition>
 >
-export type _ListingSellerTypeParity = Assert<
+export type _ListingSellerTypeParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof listingSellerTypeSchema>, ListingSellerType>
 >
-export type _SaleStatusParity = Assert<MutuallyAssignable<z.infer<typeof saleStatusSchema>, SaleStatus>>
-export type _FieldResolutionStateParity = Assert<
+export type _SaleStatusParity = AssertTrue<
+  MutuallyAssignable<z.infer<typeof saleStatusSchema>, SaleStatus>
+>
+export type _FieldResolutionStateParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof fieldResolutionStateSchema>, FieldResolutionState>
 >
-export type _WavFeatureParity = Assert<MutuallyAssignable<z.infer<typeof wavFeatureSchema>, WavFeature>>
-export type _WavFeaturesParity = Assert<
+export type _WavFeatureParity = AssertTrue<
+  MutuallyAssignable<z.infer<typeof wavFeatureSchema>, WavFeature>
+>
+export type _WavFeaturesParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof wavFeaturesSchema>, WavFeatures>
 >
-export type _WavFieldResolutionParity = Assert<
+export type _WavFieldResolutionParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof wavFieldResolutionSchema>, WavFieldResolution>
 >
-export type _ListingLocationParity = Assert<
+export type _ListingLocationParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof listingLocationSchema>, ListingLocation>
 >
-export type _ListingDealerParity = Assert<
+export type _ListingDealerParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof listingDealerSchema>, ListingDealer>
 >
-export type _FieldMappingParity = Assert<
+export type _FieldMappingParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof fieldMappingSchema>, FieldMapping>
 >
 
@@ -123,80 +129,82 @@ const validUpsert = {
 }
 
 describe('listingUpsertRequestSchema', () => {
-  it('parses a valid upsert and coerces ISO date strings to Dates', () => {
+  it('should coerce ISO date strings to Dates', () => {
     const parsed = listingUpsertRequestSchema.parse(validUpsert)
-    expect(parsed.listedAt).toBeInstanceOf(Date)
-    expect(parsed.listedAt.toISOString()).toBe('2026-08-01T00:00:00.000Z')
-    expect(parsed.sourceListedAt).toBeInstanceOf(Date)
-    expect(parsed.soldAt).toBeNull()
-    expect(parsed.wav.wavFeatures).toEqual(['power_ramp', 'kneel_system'])
+    expect(parsed.listedAt).toEqual(new Date('2026-08-01T00:00:00.000Z'))
   })
 
-  it('rejects a missing sourceRecordKey with a field-level path', () => {
+  it('should preserve null date fields', () => {
+    expect(listingUpsertRequestSchema.parse(validUpsert).soldAt).toBeNull()
+  })
+
+  it('should parse the nested wav feature vocabulary', () => {
+    expect(listingUpsertRequestSchema.parse(validUpsert).wav.wavFeatures).toEqual([
+      'power_ramp',
+      'kneel_system',
+    ])
+  })
+
+  it('should reject a missing sourceRecordKey with a field-level path', () => {
     const rest: Record<string, unknown> = { ...validUpsert }
     delete rest['sourceRecordKey']
-    const result = listingUpsertRequestSchema.safeParse(rest)
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('sourceRecordKey')
+    expect(issuePaths(listingUpsertRequestSchema.safeParse(rest))).toContain('sourceRecordKey')
   })
 
-  it('rejects a mistyped year', () => {
+  it('should reject a mistyped year', () => {
     const result = listingUpsertRequestSchema.safeParse({ ...validUpsert, year: '2022' })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('year')
+    expect(issuePaths(result)).toContain('year')
   })
 
-  it('rejects an unknown wav feature with a nested path', () => {
+  it('should reject an unknown wav feature with a nested path', () => {
     const result = listingUpsertRequestSchema.safeParse({
       ...validUpsert,
       wav: { ...validUpsert.wav, wavFeatures: ['jetpack'] },
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain(
-      'wav.wavFeatures.0',
-    )
+    expect(issuePaths(result)).toContain('wav.wavFeatures.0')
   })
 
-  it('rejects an unparseable listedAt', () => {
+  it('should reject an unparseable listedAt', () => {
     const result = listingUpsertRequestSchema.safeParse({ ...validUpsert, listedAt: 'yesterday' })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('listedAt')
+    expect(issuePaths(result)).toContain('listedAt')
+  })
+
+  it('should reject a numeric listedAt (no epoch-millisecond coercion)', () => {
+    const result = listingUpsertRequestSchema.safeParse({ ...validUpsert, listedAt: 2022 })
+    expect(issuePaths(result)).toContain('listedAt')
   })
 })
 
 describe('listingUpsertResponseSchema', () => {
-  it('parses each outcome', () => {
+  it('should parse each outcome', () => {
     for (const outcome of ['created', 'updated', 'unchanged'] as const) {
       expect(
-        listingUpsertResponseSchema.parse({ listingId: 'l-1', outcome, changedFields: [] })
-          .outcome,
+        listingUpsertResponseSchema.parse({ listingId: 'l-1', outcome, changedFields: [] }).outcome,
       ).toBe(outcome)
     }
   })
 
-  it('rejects an unknown outcome', () => {
+  it('should reject an unknown outcome', () => {
     const result = listingUpsertResponseSchema.safeParse({
       listingId: 'l-1',
       outcome: 'skipped',
       changedFields: [],
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('outcome')
+    expect(issuePaths(result)).toContain('outcome')
   })
 })
 
 describe('listingMarkGoneRequestSchema', () => {
-  it('requires the scraperRunId idempotency key', () => {
+  it('should require the scraperRunId idempotency key', () => {
     const result = listingMarkGoneRequestSchema.safeParse({
       sourceId: 'src-1',
       activeSourceRecordKeys: ['a', 'b'],
       isCompleteCrawl: true,
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('scraperRunId')
+    expect(issuePaths(result)).toContain('scraperRunId')
   })
 
-  it('parses a valid request', () => {
+  it('should parse a valid request', () => {
     const request = {
       sourceId: 'src-1',
       scraperRunId: 'run-1',
@@ -208,10 +216,13 @@ describe('listingMarkGoneRequestSchema', () => {
 })
 
 describe('scraper-run and source contracts', () => {
-  it('parses a run completion with and without change counts', () => {
+  it('should parse a run completion without change counts', () => {
     expect(
       scraperRunCompleteRequestSchema.parse({ runId: 'r-1', listingsFound: 12 }).changes,
     ).toBeUndefined()
+  })
+
+  it('should parse a run completion with change counts', () => {
     expect(
       scraperRunCompleteRequestSchema.parse({
         runId: 'r-1',
@@ -221,26 +232,28 @@ describe('scraper-run and source contracts', () => {
     ).toEqual({ listingsNew: 3, listingsUpdated: 4 })
   })
 
-  it('rejects a negative listing count on mark-active', () => {
+  it('should reject a negative listing count on mark-active', () => {
     const result = sourceMarkActiveRequestSchema.safeParse({
       sourceId: 'src-1',
       listingCount: -1,
       fingerprintHash: 'abc',
       isCompleteCrawl: true,
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('listingCount')
+    expect(issuePaths(result)).toContain('listingCount')
   })
 
-  it('round-trips a nullable lastFullCrawlAt', () => {
+  it('should parse a null lastFullCrawlAt', () => {
     expect(
       sourceLastFullCrawlAtResponseSchema.parse({ lastFullCrawlAt: null }).lastFullCrawlAt,
     ).toBeNull()
+  })
+
+  it('should parse an ISO lastFullCrawlAt into a Date', () => {
     expect(
       sourceLastFullCrawlAtResponseSchema.parse({
         lastFullCrawlAt: '2026-08-01T00:00:00.000Z',
       }).lastFullCrawlAt,
-    ).toBeInstanceOf(Date)
+    ).toEqual(new Date('2026-08-01T00:00:00.000Z'))
   })
 })
 
@@ -273,7 +286,7 @@ const validDetail = {
 }
 
 describe('detailExtractSubmitRequestSchema', () => {
-  it('parses a submission with a matched listing', () => {
+  it('should parse a submission with a matched listing', () => {
     const parsed = detailExtractSubmitRequestSchema.parse({
       sourceId: 'src-1',
       rawPageId: 'raw-1',
@@ -281,11 +294,10 @@ describe('detailExtractSubmitRequestSchema', () => {
       detail: validDetail,
       enrichment: { dealerWebsite: null, directVehicleUrl: null },
     })
-    expect(parsed.detail.sourceUpdatedAt).toBeInstanceOf(Date)
-    expect(parsed.listingId).toBe('l-1')
+    expect(parsed.detail.sourceUpdatedAt).toEqual(new Date('2026-08-05T00:00:00.000Z'))
   })
 
-  it('parses a submission with no matched listing', () => {
+  it('should parse a submission with no matched listing', () => {
     const parsed = detailExtractSubmitRequestSchema.parse({
       sourceId: 'src-1',
       rawPageId: 'raw-1',
@@ -296,7 +308,7 @@ describe('detailExtractSubmitRequestSchema', () => {
     expect(parsed.listingId).toBeNull()
   })
 
-  it('rejects a mistyped evidence value with a nested path', () => {
+  it('should reject a mistyped evidence value with a nested path', () => {
     const result = detailExtractSubmitRequestSchema.safeParse({
       sourceId: 'src-1',
       rawPageId: 'raw-1',
@@ -304,27 +316,22 @@ describe('detailExtractSubmitRequestSchema', () => {
       detail: { ...validDetail, evidence: { ...validDetail.evidence, images: 'yes' } },
       enrichment: { dealerWebsite: null, directVehicleUrl: null },
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain(
-      'detail.evidence.images',
-    )
+    expect(issuePaths(result)).toContain('detail.evidence.images')
   })
 
-  it('rejects a detail missing its evidence block', () => {
+  it('should reject a detail missing its evidence block', () => {
     const detailWithoutEvidence: Record<string, unknown> = { ...validDetail }
     delete detailWithoutEvidence['evidence']
-    const result = detailResultSchema.safeParse(detailWithoutEvidence)
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('evidence')
+    expect(issuePaths(detailResultSchema.safeParse(detailWithoutEvidence))).toContain('evidence')
   })
 })
 
 describe('detailExtractSubmitResponseSchema', () => {
-  it('parses each outcome', () => {
+  it('should parse each outcome', () => {
     for (const outcome of ['applied', 'already_applied', 'listing_not_found'] as const) {
-      expect(
-        detailExtractSubmitResponseSchema.parse({ outcome, changedFields: [] }).outcome,
-      ).toBe(outcome)
+      expect(detailExtractSubmitResponseSchema.parse({ outcome, changedFields: [] }).outcome).toBe(
+        outcome,
+      )
     }
   })
 })

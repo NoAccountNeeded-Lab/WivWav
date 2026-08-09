@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isoDateTimeSchema } from './wire-date.js'
 
 /**
  * WebSocket protocol envelope between the job coordinator (`apps/api`) and
@@ -42,19 +43,29 @@ export const wsJobDispatchMessageSchema = z.object({
 })
 export type WsJobDispatchMessage = z.infer<typeof wsJobDispatchMessageSchema>
 
-/** Worker → coordinator: dispatch received (or refused, with a reason). */
-export const wsJobAckMessageSchema = z.object({
-  type: z.literal('job-ack'),
-  correlationId: z.string().min(1),
-  accepted: z.boolean(),
-  reason: z.string().optional(),
-})
+/** Worker → coordinator: dispatch received, or refused — then `reason` is required. */
+export const wsJobAckMessageSchema = z
+  .object({
+    type: z.literal('job-ack'),
+    correlationId: z.string().min(1),
+    accepted: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .superRefine((message, ctx) => {
+    if (!message.accepted && (message.reason === undefined || message.reason.length === 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reason'],
+        message: 'reason is required when a dispatch is refused',
+      })
+    }
+  })
 export type WsJobAckMessage = z.infer<typeof wsJobAckMessageSchema>
 
 /** Liveness signal, sent in both directions. */
 export const wsHeartbeatMessageSchema = z.object({
   type: z.literal('heartbeat'),
-  sentAt: z.coerce.date(),
+  sentAt: isoDateTimeSchema,
 })
 export type WsHeartbeatMessage = z.infer<typeof wsHeartbeatMessageSchema>
 

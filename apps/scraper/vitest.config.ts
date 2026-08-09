@@ -14,6 +14,23 @@ export default defineConfig({
   resolve: {
     alias: {
       '@wivwav/db': pkgSrc('db'),
+      // Subpath entries must precede the bare package alias: Vite substitutes
+      // by prefix, so the bare entry would otherwise mangle subpath imports
+      // into '<...>/src/index.ts/scraper-gateway'.
+      '@wivwav/types/scraper-gateway': path.resolve(
+        WORKSPACE_ROOT,
+        'packages',
+        'types',
+        'src',
+        'scraper-gateway.ts',
+      ),
+      '@wivwav/types/worker-protocol': path.resolve(
+        WORKSPACE_ROOT,
+        'packages',
+        'types',
+        'src',
+        'worker-protocol.ts',
+      ),
       '@wivwav/types': pkgSrc('types'),
       '@wivwav/queue': pkgSrc('queue'),
       '@wivwav/logger': pkgSrc('logger'),

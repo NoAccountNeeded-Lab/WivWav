@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
+import type { AssertTrue, MutuallyAssignable } from '@wivwav/types'
 import type {
   blvdDealerEnrichmentSchema,
   detailResultSchema,
+  listingStatusSchema,
   listingUpsertResponseSchema,
+  publicationStatusSchema,
   sourceDriftBaselineSchema,
-  sourceExecutionStateSchema} from '@wivwav/types';
-import {
-  listingUpsertRequestSchema
-} from '@wivwav/types'
+  sourceExecutionStateSchema,
+} from '@wivwav/types/scraper-gateway'
+import { listingUpsertRequestSchema } from '@wivwav/types/scraper-gateway'
+import type {
+  Listing as DbListingRow,
+  ListingPublicationStatus as DbListingPublicationStatus,
+} from '@wivwav/db'
 import type {
   ListingUpsertData,
   ListingUpsertResult,
@@ -20,44 +26,38 @@ import type { BlvdDealerEnrichment } from '../sources/blvd-dealer-enrichment.js'
 
 /**
  * Compile-time parity between the wire contracts in @wivwav/types and the
- * hand-written shapes they mirror (#948/#949). If a field is added, removed,
- * or retyped on either side, `tsc` fails here.
- *
- * `WidenOptional` adds `| undefined` to every property before comparing:
- * under `exactOptionalPropertyTypes`, zod's `.optional()` infers `?: T |
- * undefined` while the hand-written types write `?: T` — a difference with
- * no wire-level meaning. Required keys stay load-bearing: a wrongly optional
- * or missing key still fails both directions.
+ * hand-written shapes they mirror (#948/#949) — including the Prisma enums
+ * the schemas claim to mirror. If a field or enum member is added, removed,
+ * or retyped on either side, `tsc` fails here. See @wivwav/types'
+ * type-parity.js for how MutuallyAssignable treats optional properties.
  */
-type WidenOptional<T> = { [K in keyof T]: T[K] | undefined }
-type MutuallyAssignable<A, B> = [A] extends [WidenOptional<B>]
-  ? [B] extends [WidenOptional<A>]
-    ? true
-    : false
-  : false
-type Assert<T extends true> = T
-
-export type _ListingUpsertRequestParity = Assert<
+export type _ListingUpsertRequestParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof listingUpsertRequestSchema>, ListingUpsertData>
 >
-export type _ListingUpsertResponseParity = Assert<
+export type _ListingUpsertResponseParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof listingUpsertResponseSchema>, ListingUpsertResult>
 >
-export type _SourceExecutionStateParity = Assert<
+export type _SourceExecutionStateParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof sourceExecutionStateSchema>, SourceExecutionState>
 >
-export type _SourceDriftBaselineParity = Assert<
+export type _SourceDriftBaselineParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof sourceDriftBaselineSchema>, SourceDriftBaseline>
 >
-export type _DetailResultParity = Assert<
+export type _DetailResultParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof detailResultSchema>, DetailResult>
 >
-export type _BlvdDealerEnrichmentParity = Assert<
+export type _BlvdDealerEnrichmentParity = AssertTrue<
   MutuallyAssignable<z.infer<typeof blvdDealerEnrichmentSchema>, BlvdDealerEnrichment>
+>
+export type _ListingStatusPrismaParity = AssertTrue<
+  MutuallyAssignable<z.infer<typeof listingStatusSchema>, DbListingRow['status']>
+>
+export type _ListingPublicationStatusPrismaParity = AssertTrue<
+  MutuallyAssignable<z.infer<typeof publicationStatusSchema>, DbListingPublicationStatus>
 >
 
 describe('gateway contract parity', () => {
-  it('a schema-parsed upsert payload is a valid ListingUpsertData', () => {
+  it('should accept a schema-parsed upsert payload as ListingUpsertData', () => {
     const parsed = listingUpsertRequestSchema.parse({
       sourceId: 'src-1',
       sourceUrl: 'https://dealer.example/listing/1',
@@ -94,7 +94,6 @@ describe('gateway contract parity', () => {
       soldAt: null,
       listedAt: '2026-08-01T00:00:00.000Z',
     })
-    expect(parsed.listedAt).toBeInstanceOf(Date)
-    expect(parsed.sourceRecordKey).toBe('rec-1')
+    expect(parsed.listedAt).toEqual(new Date('2026-08-01T00:00:00.000Z'))
   })
 })

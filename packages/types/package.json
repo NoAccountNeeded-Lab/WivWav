@@ -11,10 +11,18 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./worker-protocol": {
+      "import": "./dist/worker-protocol.js",
+      "types": "./dist/worker-protocol.d.ts"
+    },
+    "./scraper-gateway": {
+      "import": "./dist/scraper-gateway.js",
+      "types": "./dist/scraper-gateway.d.ts"
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
@@ -24,6 +32,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { issuePaths } from './test-helpers/issue-paths.js'
 import {
   buildCorrelationId,
   coordinatorToWorkerMessageSchema,
@@ -17,46 +18,37 @@ const validHello = {
 }
 
 describe('workerHelloSchema', () => {
-  it('parses a valid hello', () => {
+  it('should parse a valid hello', () => {
     expect(workerHelloSchema.parse(validHello)).toEqual(validHello)
   })
 
-  it('rejects a missing capability field with a field-level path', () => {
+  it('should reject a missing capability field with a field-level path', () => {
     const result = workerHelloSchema.safeParse({
       ...validHello,
       capabilities: { chromium: true },
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain(
-      'capabilities.maxConcurrentJobs',
-    )
+    expect(issuePaths(result)).toContain('capabilities.maxConcurrentJobs')
   })
 
-  it('rejects a non-positive maxConcurrentJobs', () => {
+  it('should reject a non-positive maxConcurrentJobs', () => {
     const result = workerHelloSchema.safeParse({
       ...validHello,
       capabilities: { chromium: false, maxConcurrentJobs: 0 },
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain(
-      'capabilities.maxConcurrentJobs',
-    )
+    expect(issuePaths(result)).toContain('capabilities.maxConcurrentJobs')
   })
 
-  it('rejects a mistyped chromium capability', () => {
+  it('should reject a mistyped chromium capability', () => {
     const result = workerHelloSchema.safeParse({
       ...validHello,
       capabilities: { chromium: 'yes', maxConcurrentJobs: 2 },
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain(
-      'capabilities.chromium',
-    )
+    expect(issuePaths(result)).toContain('capabilities.chromium')
   })
 })
 
 describe('wsJobDispatchMessageSchema', () => {
-  it('parses a dispatch with a payload', () => {
+  it('should parse a dispatch with a payload', () => {
     const message = {
       type: 'job-dispatch',
       correlationId: buildCorrelationId('detail-crawl', '42'),
@@ -66,7 +58,7 @@ describe('wsJobDispatchMessageSchema', () => {
     expect(wsJobDispatchMessageSchema.parse(message)).toEqual(message)
   })
 
-  it('parses a dispatch without a payload (payload-less jobs)', () => {
+  it('should parse a dispatch without a payload (payload-less jobs)', () => {
     const message = {
       type: 'job-dispatch',
       correlationId: 'q:1',
@@ -75,24 +67,23 @@ describe('wsJobDispatchMessageSchema', () => {
     expect(wsJobDispatchMessageSchema.parse(message)).toMatchObject(message)
   })
 
-  it('rejects an empty queueName', () => {
+  it('should reject an empty queueName', () => {
     const result = wsJobDispatchMessageSchema.safeParse({
       type: 'job-dispatch',
       correlationId: 'q:1',
       queueName: '',
     })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('queueName')
+    expect(issuePaths(result)).toContain('queueName')
   })
 })
 
 describe('wsJobAckMessageSchema', () => {
-  it('parses an accepted ack without a reason', () => {
+  it('should parse an accepted ack without a reason', () => {
     const message = { type: 'job-ack', correlationId: 'q:1', accepted: true }
     expect(wsJobAckMessageSchema.parse(message)).toEqual(message)
   })
 
-  it('parses a refusal with a reason', () => {
+  it('should parse a refusal with a reason', () => {
     const message = {
       type: 'job-ack',
       correlationId: 'q:1',
@@ -102,33 +93,47 @@ describe('wsJobAckMessageSchema', () => {
     expect(wsJobAckMessageSchema.parse(message)).toEqual(message)
   })
 
-  it('rejects a missing accepted flag', () => {
+  it('should reject a refusal without a reason', () => {
+    const result = wsJobAckMessageSchema.safeParse({
+      type: 'job-ack',
+      correlationId: 'q:1',
+      accepted: false,
+    })
+    expect(issuePaths(result)).toContain('reason')
+  })
+
+  it('should reject a missing accepted flag', () => {
     const result = wsJobAckMessageSchema.safeParse({ type: 'job-ack', correlationId: 'q:1' })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('accepted')
+    expect(issuePaths(result)).toContain('accepted')
   })
 })
 
 describe('wsHeartbeatMessageSchema', () => {
-  it('coerces an ISO string sentAt into a Date', () => {
+  it('should parse an ISO string sentAt into a Date', () => {
     const parsed = wsHeartbeatMessageSchema.parse({
       type: 'heartbeat',
       sentAt: '2026-08-08T12:00:00.000Z',
     })
-    expect(parsed.sentAt).toBeInstanceOf(Date)
-    expect(parsed.sentAt.toISOString()).toBe('2026-08-08T12:00:00.000Z')
+    expect(parsed.sentAt).toEqual(new Date('2026-08-08T12:00:00.000Z'))
   })
 
-  it('rejects an unparseable sentAt', () => {
+  it('should reject an unparseable sentAt', () => {
     const result = wsHeartbeatMessageSchema.safeParse({ type: 'heartbeat', sentAt: 'not-a-date' })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('sentAt')
+    expect(issuePaths(result)).toContain('sentAt')
+  })
+
+  it('should reject a numeric sentAt (no epoch-millisecond coercion)', () => {
+    const result = wsHeartbeatMessageSchema.safeParse({ type: 'heartbeat', sentAt: 1754650000000 })
+    expect(issuePaths(result)).toContain('sentAt')
   })
 })
 
 describe('direction unions', () => {
-  it('routes worker→coordinator messages by type', () => {
+  it('should route a hello on the worker→coordinator direction', () => {
     expect(workerToCoordinatorMessageSchema.parse(validHello).type).toBe('hello')
+  })
+
+  it('should route an ack on the worker→coordinator direction', () => {
     expect(
       workerToCoordinatorMessageSchema.parse({
         type: 'job-ack',
@@ -138,7 +143,7 @@ describe('direction unions', () => {
     ).toBe('job-ack')
   })
 
-  it('rejects a dispatch on the worker→coordinator direction', () => {
+  it('should reject a dispatch on the worker→coordinator direction', () => {
     const result = workerToCoordinatorMessageSchema.safeParse({
       type: 'job-dispatch',
       correlationId: 'q:1',
@@ -147,13 +152,13 @@ describe('direction unions', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects a hello on the coordinator→worker direction', () => {
+  it('should reject a hello on the coordinator→worker direction', () => {
     expect(coordinatorToWorkerMessageSchema.safeParse(validHello).success).toBe(false)
   })
 })
 
 describe('buildCorrelationId', () => {
-  it('joins queue name and job id with a colon', () => {
+  it('should join queue name and job id with a colon', () => {
     expect(buildCorrelationId('source-scrape', 'job-7')).toBe('source-scrape:job-7')
   })
 })
