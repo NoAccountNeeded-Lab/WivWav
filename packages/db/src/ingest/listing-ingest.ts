@@ -79,7 +79,10 @@ function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) 
  * so repeated ingests of the same payload are idempotent and never duplicate
  * history rows.
  */
-export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertData): Promise<ListingUpsertResult> {
+export async function ingestListing(
+  tx: ListingIngestTx,
+  listing: ListingUpsertData,
+): Promise<ListingUpsertResult> {
   const existing = await tx.listing.findUnique({
     where: {
       sourceId_sourceRecordKey: {
@@ -123,7 +126,9 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
   })
 
   const buyerUrl =
-    existing?.buyerUrl && existing.buyerUrl !== existing.sourceUrl && listing.buyerUrl === listing.sourceUrl
+    existing?.buyerUrl &&
+    existing.buyerUrl !== existing.sourceUrl &&
+    listing.buyerUrl === listing.sourceUrl
       ? existing.buyerUrl
       : listing.buyerUrl
   const after = sourceObservation(listing, buyerUrl)
@@ -140,64 +145,61 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
     // accessibility evidence. Preserve a detail/resolution-owned value for
     // those absence sentinels; a real card value still replaces the current
     // value and is recorded below for resolution (fixes #633).
-    after.rampType = listing.wav.rampType === 'unknown'
-      ? existing.rampType
-      : listing.wav.rampType
-    after.wavFeatures = listing.wav.wavFeatures.length === 0
-      ? existing.wavFeatures
-      : listing.wav.wavFeatures
-    after.floorLoweringInches = listing.wav.floorLoweringInches
-      ?? existing.floorLoweringInches
-    after.wheelchairCapacity = listing.wav.wheelchairCapacity
-      ?? existing.wheelchairCapacity
+    after.rampType = listing.wav.rampType === 'unknown' ? existing.rampType : listing.wav.rampType
+    after.wavFeatures =
+      listing.wav.wavFeatures.length === 0 ? existing.wavFeatures : listing.wav.wavFeatures
+    after.floorLoweringInches = listing.wav.floorLoweringInches ?? existing.floorLoweringInches
+    after.wheelchairCapacity = listing.wav.wheelchairCapacity ?? existing.wheelchairCapacity
   }
 
   if (existing === null) {
-    const created = await tx.listing.create({ data: {
-      sourceId: listing.sourceId,
-      sourceUrl: listing.sourceUrl,
-      buyerUrl: listing.buyerUrl,
-      externalId: listing.externalId,
-      stockNumber: listing.stockNumber,
-      sourceRecordKey: listing.sourceRecordKey,
-      make: listing.make,
-      model: listing.model,
-      year: listing.year,
-      trim: listing.trim,
-      vin: listing.vin,
-      condition: listing.condition,
-      sellerType: listing.sellerType,
-      priceCents: listing.priceCents,
-      mileage: listing.mileage,
-      color: listing.color,
-      fuelType: listing.fuelType,
-      transmission: listing.transmission,
-      conversionType: listing.wav.conversionType,
-      conversionManufacturer: listing.wav.conversionManufacturer,
-      floorLoweringInches: listing.wav.floorLoweringInches,
-      rampType: listing.wav.rampType,
-      conversionStatus: listing.wav.conversionStatus,
-      wavFeatures: listing.wav.wavFeatures,
-      wheelchairCapacity: listing.wav.wheelchairCapacity,
-      zip: listing.location.zip,
-      city: listing.location.city,
-      state: listing.location.state,
-      lat: listing.location.lat,
-      lng: listing.location.lng,
-      dealerName: listing.dealer.name,
-      dealerPhone: listing.dealer.phone,
-      dealerWebsite: listing.dealer.website,
-      cardImages: listing.images,
-      images: listing.images,
-      description: listing.description,
-      qualityIssueCodes: listing.qualityIssueCodes ?? [],
-      publicationStatus: listing.publicationStatus ?? 'pending',
-      qualityCheckedAt: listing.qualityCheckedAt ?? null,
-      listedAt: listing.listedAt,
-      sourceListedAt: listing.sourceListedAt ?? null,
-      sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
-      lastRunId: listing.runId ?? null,
-    } })
+    const created = await tx.listing.create({
+      data: {
+        sourceId: listing.sourceId,
+        sourceUrl: listing.sourceUrl,
+        buyerUrl: listing.buyerUrl,
+        externalId: listing.externalId,
+        stockNumber: listing.stockNumber,
+        sourceRecordKey: listing.sourceRecordKey,
+        make: listing.make,
+        model: listing.model,
+        year: listing.year,
+        trim: listing.trim,
+        vin: listing.vin,
+        condition: listing.condition,
+        sellerType: listing.sellerType,
+        priceCents: listing.priceCents,
+        mileage: listing.mileage,
+        color: listing.color,
+        fuelType: listing.fuelType,
+        transmission: listing.transmission,
+        conversionType: listing.wav.conversionType,
+        conversionManufacturer: listing.wav.conversionManufacturer,
+        floorLoweringInches: listing.wav.floorLoweringInches,
+        rampType: listing.wav.rampType,
+        conversionStatus: listing.wav.conversionStatus,
+        wavFeatures: listing.wav.wavFeatures,
+        wheelchairCapacity: listing.wav.wheelchairCapacity,
+        zip: listing.location.zip,
+        city: listing.location.city,
+        state: listing.location.state,
+        lat: listing.location.lat,
+        lng: listing.location.lng,
+        dealerName: listing.dealer.name,
+        dealerPhone: listing.dealer.phone,
+        dealerWebsite: listing.dealer.website,
+        cardImages: listing.images,
+        images: listing.images,
+        description: listing.description,
+        qualityIssueCodes: listing.qualityIssueCodes ?? [],
+        publicationStatus: listing.publicationStatus ?? 'pending',
+        qualityCheckedAt: listing.qualityCheckedAt ?? null,
+        listedAt: listing.listedAt,
+        sourceListedAt: listing.sourceListedAt ?? null,
+        sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
+        lastRunId: listing.runId ?? null,
+      },
+    })
     if (listing.priceCents != null) {
       await tx.listingPriceHistory.create({
         data: { listingId: created.id, priceCents: listing.priceCents },
@@ -273,24 +275,27 @@ export async function ingestListing(tx: ListingIngestTx, listing: ListingUpsertD
 
   const priceChanged = changedFields.includes('priceCents')
   const mileageChanged = changedFields.includes('mileage')
-  const conversionChanged = changedFields.some((field) => [
-    'conversionType',
-    'conversionManufacturer',
-    'floorLoweringInches',
-    'rampType',
-    'conversionStatus',
-    'wavFeatures',
-    'wheelchairCapacity',
-  ].includes(field))
+  const conversionChanged = changedFields.some((field) =>
+    [
+      'conversionType',
+      'conversionManufacturer',
+      'floorLoweringInches',
+      'rampType',
+      'conversionStatus',
+      'wavFeatures',
+      'wheelchairCapacity',
+    ].includes(field),
+  )
   const locationChanged = changedFields.some((field) => ['zip', 'city', 'state'].includes(field))
   const resetDetail = changedFields.some(
-    (field) => ![
-      'buyerUrl',
-      'sellerType',
-      'sourceListedAt',
-      'sourceUpdatedAt',
-      'qualityIssueCodes',
-    ].includes(field),
+    (field) =>
+      ![
+        'buyerUrl',
+        'sellerType',
+        'sourceListedAt',
+        'sourceUpdatedAt',
+        'qualityIssueCodes',
+      ].includes(field),
   )
 
   await tx.listing.update({

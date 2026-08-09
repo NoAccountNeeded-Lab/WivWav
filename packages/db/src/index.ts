@@ -84,8 +84,17 @@ export type {
   StatusUpdate,
 } from './ingest/detail-apply.js'
 export { MIN_PHOTO_CONFIDENCE, resolveField, resolveFields } from './resolution/resolver.js'
-export type { ClaimField, EvidenceKind, FieldClaim, NewFieldClaim, ResolvedField } from './resolution/types.js'
-export { NoopPhotoClaimProvider, isImageEligibleForClaims } from './resolution/photo-claim-provider.js'
+export type {
+  ClaimField,
+  EvidenceKind,
+  FieldClaim,
+  NewFieldClaim,
+  ResolvedField,
+} from './resolution/types.js'
+export {
+  NoopPhotoClaimProvider,
+  isImageEligibleForClaims,
+} from './resolution/photo-claim-provider.js'
 export type { PhotoClaimProvider } from './resolution/photo-claim-provider.js'
 export { buildFieldUpdateData } from './resolution/listing-update.js'
 export { logFieldResolutionEvent } from './resolution/metrics.js'
@@ -95,6 +104,27 @@ export {
   recordClaim,
   resolveListingField,
 } from './resolution/claims-repository.js'
-export type { ClaimsTx, FieldResolutionLogEvent, FieldResolutionResult } from './resolution/claims-repository.js'
+export type {
+  ClaimsTx,
+  FieldResolutionLogEvent,
+  FieldResolutionResult,
+} from './resolution/claims-repository.js'
 export { CARD_CLAIM_EXTRACTOR_VERSION, recordCardFieldClaims } from './resolution/card-claims.js'
 export { recordDetailFieldClaims } from './resolution/detail-claims.js'
+export { isRecordNotFoundError } from './lib/prisma-errors.js'
+export { startScraperRun, completeScraperRun, failScraperRun } from './ingest/scraper-run-state.js'
+export type { ScraperRunRecord } from './ingest/scraper-run-state.js'
+export {
+  getSourceExecutionState,
+  getSourceDriftBaseline,
+  getSourceLastFullCrawlAt,
+  getSourceMappings,
+  markSourceActive,
+  markSourceChecked,
+  markSourceError,
+  markSourceNeedsRemapping,
+  markSourcePaused,
+  setSourceDriftBaseline,
+  setSourceMappings,
+} from './ingest/source-state.js'
+export type { SourceDriftBaseline, SourceExecutionState } from './ingest/source-state.js'

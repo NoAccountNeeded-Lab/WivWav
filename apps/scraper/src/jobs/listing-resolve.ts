@@ -34,7 +34,12 @@
  * concern — the single-owner indexer poller (#669) picks up every touched
  * listing (via `updatedAt`) on its next tick.
  */
-import { getDb, Prisma, type Listing as PrismaListing, type PrismaClient } from '@wivwav/db'
+import {
+  getDb,
+  isRecordNotFoundError,
+  type Listing as PrismaListing,
+  type PrismaClient,
+} from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { validateListing, decidePublication } from '../engine/listing-validator.js'
 import type { ListingUpsertData } from '../engine/repositories.js'
@@ -88,10 +93,6 @@ export function toValidatorInput(row: PrismaListing): ListingUpsertData {
   }
 }
 
-function isRecordNotFoundError(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025'
-}
-
 /**
  * Re-validates one listing against current data and writes the decision.
  * Does not sync to Meilisearch — callers batch the sync across everything
@@ -136,7 +137,10 @@ async function resolveOneListing(
 ): Promise<void> {
   const row = await db.listing.findUnique({ where: { id: listingId, status: { not: 'gone' } } })
   if (!row) {
-    await report(context, `[listing-resolve] Listing ${listingId} no longer exists or is gone — skipping`)
+    await report(
+      context,
+      `[listing-resolve] Listing ${listingId} no longer exists or is gone — skipping`,
+    )
     return
   }
 

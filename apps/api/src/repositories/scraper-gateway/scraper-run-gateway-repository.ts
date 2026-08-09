@@ -1,35 +1,28 @@
-import type { PrismaClient } from '@wivwav/db'
+import { completeScraperRun, failScraperRun, startScraperRun, type PrismaClient } from '@wivwav/db'
 
 /**
- * Scraper-run lifecycle writes for the worker gateway (#951). Deliberately
- * separate from the admin-oriented ScraperRunRepository in
- * ../scraper-run-repository.ts — same table, different surface. Mirrors
- * apps/scraper's PrismaScraperRunRepository until the #948 cutover deletes
- * that copy.
+ * Scraper-run lifecycle writes for the worker gateway (#951). Deliberately a
+ * separate class from the admin-oriented ScraperRunRepository in
+ * ../scraper-run-repository.ts — same table, different surface — but both
+ * this class and apps/scraper's PrismaScraperRunRepository delegate to the
+ * one shared implementation in @wivwav/db.
  */
 export class ScraperRunGatewayRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async start(sourceId: string): Promise<{ id: string }> {
-    const run = await this.db.scraperRun.create({ data: { sourceId, startedAt: new Date() } })
-    return { id: run.id }
+    return startScraperRun(this.db, sourceId)
   }
 
   async complete(
     id: string,
     listingsFound: number,
-    changes: { listingsNew: number; listingsUpdated: number } = { listingsNew: 0, listingsUpdated: 0 },
+    changes?: { listingsNew: number; listingsUpdated: number },
   ): Promise<void> {
-    await this.db.scraperRun.update({
-      where: { id },
-      data: { finishedAt: new Date(), success: true, listingsFound, ...changes },
-    })
+    await completeScraperRun(this.db, id, listingsFound, changes)
   }
 
   async fail(id: string, errorMessage: string): Promise<void> {
-    await this.db.scraperRun.update({
-      where: { id },
-      data: { finishedAt: new Date(), success: false, errorMessage },
-    })
+    await failScraperRun(this.db, id, errorMessage)
   }
 }

@@ -42,7 +42,9 @@ export class MockQueueAdapter implements QueueAdapter {
   async add(data: unknown, options?: JobOptions): Promise<string> {
     if (options?.jobId !== undefined) {
       const existing = this.jobs.find(
-        (j) => j.options?.jobId === options.jobId && (j.status === 'waiting' || j.status === 'active' || j.status === 'delayed'),
+        (j) =>
+          j.options?.jobId === options.jobId &&
+          (j.status === 'waiting' || j.status === 'active' || j.status === 'delayed'),
       )
       if (existing) return existing.id
     }
@@ -105,7 +107,14 @@ export class MockQueueAdapter implements QueueAdapter {
     return this.repeatableJobs.map((job) => ({ ...job }))
   }
 
-  async addRepeatable(name: string, data: unknown, pattern: string, tz?: string, jobId?: string, _options?: JobOptions): Promise<void> {
+  async addRepeatable(
+    name: string,
+    data: unknown,
+    pattern: string,
+    tz?: string,
+    jobId?: string,
+    _options?: JobOptions,
+  ): Promise<void> {
     const key = jobId ?? name
     const repeatable: RepeatableJob = {
       key,
@@ -128,7 +137,9 @@ export class MockQueueAdapter implements QueueAdapter {
     return this.repeatableJobs.length !== initialLength
   }
 
-  async cleanFailed(_limit?: number): Promise<number> { return 0 }
+  async cleanFailed(_limit?: number): Promise<number> {
+    return 0
+  }
 
   async close(): Promise<void> {}
 
@@ -182,7 +193,11 @@ export class MockQueueFactory implements QueueFactory {
     return queue
   }
 
-  createWorker<T = unknown>(_name: string, _processor: JobProcessor<T>, _options?: WorkerOptions): WorkerAdapter {
+  createWorker<T = unknown>(
+    _name: string,
+    _processor: JobProcessor<T>,
+    _options?: WorkerOptions,
+  ): WorkerAdapter {
     return new MockWorkerAdapter()
   }
 

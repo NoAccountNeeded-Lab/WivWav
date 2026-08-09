@@ -6,7 +6,10 @@ let fallbackLogger: WivWavLogger | undefined
 function getFallbackLogger(): WivWavLogger {
   if (fallbackLogger) return fallbackLogger
   const env = process.env['NODE_ENV'] ?? 'development'
-  fallbackLogger = env === 'test' ? createNoopLogger() : createLogger({ service: process.env['WIVWAV_SERVICE'] ?? 'scraper', env })
+  fallbackLogger =
+    env === 'test'
+      ? createNoopLogger()
+      : createLogger({ service: process.env['WIVWAV_SERVICE'] ?? 'scraper', env })
   return fallbackLogger
 }
 
@@ -17,7 +20,10 @@ function getFallbackLogger(): WivWavLogger {
  * "rear_entry"/"side_entry") are logged — never claim source text or
  * descriptions, which may contain private-seller copy.
  */
-export function logFieldResolutionEvent(event: FieldResolutionLogEvent, logger: WivWavLogger = getFallbackLogger()): void {
+export function logFieldResolutionEvent(
+  event: FieldResolutionLogEvent,
+  logger: WivWavLogger = getFallbackLogger(),
+): void {
   logger.info(
     {
       event: event.event,

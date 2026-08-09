@@ -13,6 +13,7 @@ export type {
 } from './types.js'
 
 export { RetryJobSignal } from './retry-signal.js'
+export { getStringField } from './job-data.js'
 export { QUEUES } from './queues.js'
 export type { QueueName } from './queues.js'
 

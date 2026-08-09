@@ -12,7 +12,10 @@
  * - Mock: the job is returned to `waiting` with attemptsMade unchanged.
  */
 export class RetryJobSignal extends Error {
-  constructor(readonly delayMs: number, message = 'job requeued by processor retry signal') {
+  constructor(
+    readonly delayMs: number,
+    message = 'job requeued by processor retry signal',
+  ) {
     super(message)
     this.name = 'RetryJobSignal'
   }

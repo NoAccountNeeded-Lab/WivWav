@@ -51,27 +51,32 @@ export async function recordCardFieldClaims(
   // query inside it. withTransientRetry catches that (and other transient
   // failures) and retries the whole transaction, which recordClaim's dedup
   // check makes safe to redo.
-  const logEvents = await withTransientRetry(() => db.$transaction(async (tx) => {
-    for (const field of observedFields) {
-      await recordClaim(tx, {
-        listingId,
-        field,
-        claimedValue: cardValues[field],
-        evidenceKind: 'structured_source',
-        sourceRef: listing.sourceUrl,
-        observedAt,
-        extractorVersion: CARD_CLAIM_EXTRACTOR_VERSION,
-        confidence: null,
-      })
-    }
+  const logEvents = await withTransientRetry(() =>
+    db.$transaction(
+      async (tx) => {
+        for (const field of observedFields) {
+          await recordClaim(tx, {
+            listingId,
+            field,
+            claimedValue: cardValues[field],
+            evidenceKind: 'structured_source',
+            sourceRef: listing.sourceUrl,
+            observedAt,
+            extractorVersion: CARD_CLAIM_EXTRACTOR_VERSION,
+            confidence: null,
+          })
+        }
 
-    const events = []
-    for (const field of observedFields) {
-      const { logEvent } = await applyFieldResolution(tx, listingId, field, photoClaimProvider)
-      if (logEvent) events.push(logEvent)
-    }
-    return events
-  }, { timeout: 10000 }))
+        const events = []
+        for (const field of observedFields) {
+          const { logEvent } = await applyFieldResolution(tx, listingId, field, photoClaimProvider)
+          if (logEvent) events.push(logEvent)
+        }
+        return events
+      },
+      { timeout: 10000 },
+    ),
+  )
 
   for (const event of logEvents) logFieldResolutionEvent(event, logger)
 }

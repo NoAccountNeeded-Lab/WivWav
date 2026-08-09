@@ -126,10 +126,13 @@ afterEach(() => {
 
 /** Stubs `fetch` so Loki's `/ready` probe always succeeds (used by tests that don't care about Loki reachability). */
 function stubLokiReady(ok = true) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    if (url.includes('/ready')) return new Response(null, { status: ok ? 200 : 503 })
-    return Response.json({ status: 'success', data: { resultType: 'streams', result: [] } })
-  }))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      if (url.includes('/ready')) return new Response(null, { status: ok ? 200 : 503 })
+      return Response.json({ status: 'success', data: { resultType: 'streams', result: [] } })
+    }),
+  )
 }
 
 describe('GET /', () => {
@@ -139,9 +142,19 @@ describe('GET /', () => {
 
     const res = await app.inject({ method: 'GET', url: '/system-snapshot' })
     expect(res.statusCode).toBe(200)
-    const body = res.json() as { data: { window: { minutes: number }; snapshot: { signalAvailability: Record<string, string> } } }
+    const body = res.json() as {
+      data: {
+        window: { minutes: number }
+        snapshot: { signalAvailability: Record<string, string> }
+      }
+    }
     expect(body.data.window.minutes).toBe(60)
-    expect(body.data.snapshot.signalAvailability).toMatchObject({ health: 'available', bullmq: 'available', db: 'available', loki: 'available' })
+    expect(body.data.snapshot.signalAvailability).toMatchObject({
+      health: 'available',
+      bullmq: 'available',
+      db: 'available',
+      loki: 'available',
+    })
 
     await app.close()
   })
@@ -164,7 +177,9 @@ describe('GET /', () => {
 
     const res = await app.inject({ method: 'GET', url: '/system-snapshot' })
     expect(res.statusCode).toBe(200)
-    const body = res.json() as { data: { snapshot: { signalAvailability: Record<string, string> } } }
+    const body = res.json() as {
+      data: { snapshot: { signalAvailability: Record<string, string> } }
+    }
     expect(body.data.snapshot.signalAvailability.loki).toBe('unavailable')
 
     await app.close()
@@ -179,8 +194,28 @@ describe('GET /', () => {
     const { app } = buildTestApp({
       scraperRunRepoOverrides: {
         findRecent: vi.fn(async () => [
-          { id: 'run-in', sourceId: 'src-1', startedAt: inWindow, finishedAt: inWindow, success: true, listingsFound: 1, listingsNew: 1, listingsUpdated: 0, errorMessage: null },
-          { id: 'run-out', sourceId: 'src-1', startedAt: outOfWindow, finishedAt: outOfWindow, success: true, listingsFound: 1, listingsNew: 1, listingsUpdated: 0, errorMessage: null },
+          {
+            id: 'run-in',
+            sourceId: 'src-1',
+            startedAt: inWindow,
+            finishedAt: inWindow,
+            success: true,
+            listingsFound: 1,
+            listingsNew: 1,
+            listingsUpdated: 0,
+            errorMessage: null,
+          },
+          {
+            id: 'run-out',
+            sourceId: 'src-1',
+            startedAt: outOfWindow,
+            finishedAt: outOfWindow,
+            success: true,
+            listingsFound: 1,
+            listingsNew: 1,
+            listingsUpdated: 0,
+            errorMessage: null,
+          },
         ]),
       },
     })

@@ -55,7 +55,10 @@ describe('healthRoutes', () => {
   })
 
   it('returns ok when all service probes are up', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true })),
+    )
 
     const app = Fastify()
     await app.register(healthRoutes, {
@@ -82,7 +85,10 @@ describe('healthRoutes', () => {
   })
 
   it('keeps scraper up before its first successful run when active sources exist', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true })),
+    )
 
     const app = Fastify()
     await app.register(healthRoutes, {
@@ -104,9 +110,12 @@ describe('healthRoutes', () => {
   })
 
   it('reports optional Ollama as offline without failing overall health', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      throw new Error('connect failed')
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('connect failed')
+      }),
+    )
 
     const app = Fastify()
     await app.register(healthRoutes, {

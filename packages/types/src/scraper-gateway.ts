@@ -94,6 +94,19 @@ export const fieldMappingSchema = z.object({
   transform: z.string().nullable(),
 })
 
+/**
+ * `WorkerJobCompleteRequest.result` shape for a completed `SOURCE_SCRAPE`
+ * dispatch (worker-protocol.ts) — mirrors the boolean `engine.runSource`
+ * returns in-process. The coordinator uses it to decide whether to enqueue
+ * the follow-on `LISTING_SYNC`/`LISTING_RESOLVE` jobs, exactly as
+ * apps/scraper's daemon does today (see
+ * apps/api/src/worker-gateway/gateway-workers.ts).
+ */
+export const sourceScrapeJobResultSchema = z.object({
+  listingsChanged: z.boolean(),
+})
+export type SourceScrapeJobResult = z.infer<typeof sourceScrapeJobResultSchema>
+
 // --- scraper runs (mirrors ScraperRunRepository) ---
 
 export const scraperRunStartRequestSchema = z.object({

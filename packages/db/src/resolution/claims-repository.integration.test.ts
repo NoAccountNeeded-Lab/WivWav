@@ -25,7 +25,10 @@ let sourceCounter = 0
 async function createSource() {
   sourceCounter += 1
   return db.source.create({
-    data: { name: `Claims Test Source ${sourceCounter}`, baseUrl: `https://source-${sourceCounter}.example.com` },
+    data: {
+      name: `Claims Test Source ${sourceCounter}`,
+      baseUrl: `https://source-${sourceCounter}.example.com`,
+    },
   })
 }
 
@@ -114,9 +117,13 @@ describe('claims-repository (integration)', () => {
       }
 
       await db.$transaction((tx) => recordClaim(tx, base))
-      await db.$transaction((tx) => recordClaim(tx, { ...base, observedAt: new Date('2026-01-02T00:00:00Z') }))
+      await db.$transaction((tx) =>
+        recordClaim(tx, { ...base, observedAt: new Date('2026-01-02T00:00:00Z') }),
+      )
 
-      const claims = await db.$transaction((tx) => getClaimsForListing(tx, listing.id, 'conversionType'))
+      const claims = await db.$transaction((tx) =>
+        getClaimsForListing(tx, listing.id, 'conversionType'),
+      )
       expect(claims).toHaveLength(1)
     })
 
@@ -132,10 +139,24 @@ describe('claims-repository (integration)', () => {
         confidence: null,
       }
 
-      await db.$transaction((tx) => recordClaim(tx, { ...base, claimedValue: 'side_entry', observedAt: new Date('2026-01-01T00:00:00Z') }))
-      await db.$transaction((tx) => recordClaim(tx, { ...base, claimedValue: 'rear_entry', observedAt: new Date('2026-01-02T00:00:00Z') }))
+      await db.$transaction((tx) =>
+        recordClaim(tx, {
+          ...base,
+          claimedValue: 'side_entry',
+          observedAt: new Date('2026-01-01T00:00:00Z'),
+        }),
+      )
+      await db.$transaction((tx) =>
+        recordClaim(tx, {
+          ...base,
+          claimedValue: 'rear_entry',
+          observedAt: new Date('2026-01-02T00:00:00Z'),
+        }),
+      )
 
-      const claims = await db.$transaction((tx) => getClaimsForListing(tx, listing.id, 'conversionType'))
+      const claims = await db.$transaction((tx) =>
+        getClaimsForListing(tx, listing.id, 'conversionType'),
+      )
       expect(claims).toHaveLength(2)
     })
   })
@@ -170,14 +191,24 @@ describe('claims-repository (integration)', () => {
 
       await db.$transaction(async (tx) => {
         await recordClaim(tx, {
-          listingId: listing.id, field: 'conversionType', claimedValue: 'side_entry',
-          evidenceKind: 'structured_source', sourceRef: 'card', observedAt: new Date('2026-01-01'),
-          extractorVersion: 'v1', confidence: null,
+          listingId: listing.id,
+          field: 'conversionType',
+          claimedValue: 'side_entry',
+          evidenceKind: 'structured_source',
+          sourceRef: 'card',
+          observedAt: new Date('2026-01-01'),
+          extractorVersion: 'v1',
+          confidence: null,
         })
         await recordClaim(tx, {
-          listingId: listing.id, field: 'conversionType', claimedValue: 'rear_entry',
-          evidenceKind: 'vehicle_text', sourceRef: 'detail', observedAt: new Date('2026-01-02'),
-          extractorVersion: 'v1', confidence: null,
+          listingId: listing.id,
+          field: 'conversionType',
+          claimedValue: 'rear_entry',
+          evidenceKind: 'vehicle_text',
+          sourceRef: 'detail',
+          observedAt: new Date('2026-01-02'),
+          extractorVersion: 'v1',
+          confidence: null,
         })
         await applyFieldResolution(tx, listing.id, 'conversionType', photoNoop)
       })
@@ -223,30 +254,65 @@ describe('claims-repository (integration)', () => {
       expect(updated.conversionType).toBe('unknown')
       expect(updated.conversionTypeResolution).toBe('conflicting')
 
-      const claims = await db.$transaction((tx) => getClaimsForListing(tx, listing.id, 'conversionType'))
-      expect(claims.map((c) => c.evidenceKind).sort()).toEqual(['structured_source', 'vehicle_text'])
+      const claims = await db.$transaction((tx) =>
+        getClaimsForListing(tx, listing.id, 'conversionType'),
+      )
+      expect(claims.map((c) => c.evidenceKind).sort()).toEqual([
+        'structured_source',
+        'vehicle_text',
+      ])
     })
 
     it('a later corrected card observation resolves a prior conflict', async () => {
       const source = await createSource()
       const listing = await createListing(source.id)
 
-      await recordCardFieldClaims(db, listing.id, makeListingUpsertData({
-        sourceUrl: listing.sourceUrl,
-        sourceRecordKey: 'k1',
-        wav: { conversionType: 'side_entry', conversionManufacturer: null, floorLoweringInches: null, rampType: 'unknown', conversionStatus: 'unknown', wavFeatures: [], wheelchairCapacity: null },
-      }))
-      await recordDetailFieldClaims(db, listing.id, { conversionType: 'rear_entry', rampType: 'unknown' }, `${listing.sourceUrl}/detail`, 'detail-v1')
+      await recordCardFieldClaims(
+        db,
+        listing.id,
+        makeListingUpsertData({
+          sourceUrl: listing.sourceUrl,
+          sourceRecordKey: 'k1',
+          wav: {
+            conversionType: 'side_entry',
+            conversionManufacturer: null,
+            floorLoweringInches: null,
+            rampType: 'unknown',
+            conversionStatus: 'unknown',
+            wavFeatures: [],
+            wheelchairCapacity: null,
+          },
+        }),
+      )
+      await recordDetailFieldClaims(
+        db,
+        listing.id,
+        { conversionType: 'rear_entry', rampType: 'unknown' },
+        `${listing.sourceUrl}/detail`,
+        'detail-v1',
+      )
 
       let updated = await db.listing.findUniqueOrThrow({ where: { id: listing.id } })
       expect(updated.conversionTypeResolution).toBe('conflicting')
 
       // Dealer corrects the card to match the detail page.
-      await recordCardFieldClaims(db, listing.id, makeListingUpsertData({
-        sourceUrl: listing.sourceUrl,
-        sourceRecordKey: 'k1',
-        wav: { conversionType: 'rear_entry', conversionManufacturer: null, floorLoweringInches: null, rampType: 'unknown', conversionStatus: 'unknown', wavFeatures: [], wheelchairCapacity: null },
-      }))
+      await recordCardFieldClaims(
+        db,
+        listing.id,
+        makeListingUpsertData({
+          sourceUrl: listing.sourceUrl,
+          sourceRecordKey: 'k1',
+          wav: {
+            conversionType: 'rear_entry',
+            conversionManufacturer: null,
+            floorLoweringInches: null,
+            rampType: 'unknown',
+            conversionStatus: 'unknown',
+            wavFeatures: [],
+            wheelchairCapacity: null,
+          },
+        }),
+      )
 
       updated = await db.listing.findUniqueOrThrow({ where: { id: listing.id } })
       expect(updated.conversionType).toBe('rear_entry')
@@ -257,9 +323,15 @@ describe('claims-repository (integration)', () => {
       const source = await createSource()
       const listing = await createListing(source.id)
 
-      await recordCardFieldClaims(db, listing.id, makeListingUpsertData({ sourceUrl: listing.sourceUrl }))
+      await recordCardFieldClaims(
+        db,
+        listing.id,
+        makeListingUpsertData({ sourceUrl: listing.sourceUrl }),
+      )
 
-      const claims = await db.$transaction((tx) => getClaimsForListing(tx, listing.id, 'conversionType'))
+      const claims = await db.$transaction((tx) =>
+        getClaimsForListing(tx, listing.id, 'conversionType'),
+      )
       expect(claims).toHaveLength(0)
     })
 
@@ -267,21 +339,29 @@ describe('claims-repository (integration)', () => {
       const source = await createSource()
       const listing = await createListing(source.id)
 
-      await recordDetailFieldClaims(db, listing.id, { conversionType: 'side_entry', rampType: 'unknown' }, `${listing.sourceUrl}/detail`, 'detail-v1')
+      await recordDetailFieldClaims(
+        db,
+        listing.id,
+        { conversionType: 'side_entry', rampType: 'unknown' },
+        `${listing.sourceUrl}/detail`,
+        'detail-v1',
+      )
 
       const rearEntryPhotoProvider: PhotoClaimProvider = {
         async getClaims(listingId, field) {
           if (field !== 'conversionType') return []
-          return [{
-            listingId,
-            field: 'conversionType',
-            claimedValue: 'rear_entry',
-            evidenceKind: 'photo',
-            sourceRef: 'https://cdn.example/photo-1.jpg',
-            observedAt: new Date(),
-            extractorVersion: 'photo-v1',
-            confidence: 0.92,
-          }]
+          return [
+            {
+              listingId,
+              field: 'conversionType',
+              claimedValue: 'rear_entry',
+              evidenceKind: 'photo',
+              sourceRef: 'https://cdn.example/photo-1.jpg',
+              observedAt: new Date(),
+              extractorVersion: 'photo-v1',
+              confidence: 0.92,
+            },
+          ]
         },
       }
 
@@ -299,8 +379,16 @@ describe('claims-repository (integration)', () => {
       // recordDetailFieldClaims itself has no such gate; the caller owns it.
       const source = await createSource()
       const listing = await createListing(source.id)
-      await recordDetailFieldClaims(db, listing.id, { conversionType: 'unknown', rampType: 'unknown' }, 'x', 'v1')
-      const claims = await db.$transaction((tx) => getClaimsForListing(tx, listing.id, 'conversionType'))
+      await recordDetailFieldClaims(
+        db,
+        listing.id,
+        { conversionType: 'unknown', rampType: 'unknown' },
+        'x',
+        'v1',
+      )
+      const claims = await db.$transaction((tx) =>
+        getClaimsForListing(tx, listing.id, 'conversionType'),
+      )
       expect(claims).toHaveLength(0)
     })
   })

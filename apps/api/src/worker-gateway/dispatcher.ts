@@ -7,7 +7,7 @@ import type { WorkerRegistry } from './registry.js'
 export const NO_WORKER_RETRY_DELAY_MS = 15_000
 
 interface PendingDispatch {
-  resolve: () => void
+  resolve: (result: unknown) => void
   reject: (err: Error) => void
   connectionId: string
   sourceId: string | undefined
@@ -20,6 +20,16 @@ interface PendingDispatch {
  * callback (POST /internal/workers/jobs/complete) lands in this same
  * process, or rejects on timeout/refusal/disconnect so BullMQ retries the
  * job. Idempotent ingest endpoints make those retries safe.
+ *
+ * Rejection uses `RetryJobSignal` (no attempt consumed) whenever the failure
+ * reflects worker *availability*, not the job itself: no eligible worker,
+ * a worker's explicit refusal, a send() that fails because the socket had
+ * already gone bad, or a mid-flight disconnect. A real `Error` (attempt
+ * consumed) is reserved for the two cases that are actually informative
+ * about the job: the worker reporting `success: false`, and the completion
+ * timeout — `WORKER_JOB_TIMEOUT_MS` is already generous (browser jobs
+ * legitimately run for many minutes), so reaching it signals a genuinely
+ * hung job or worker, not routine unavailability.
  */
 export class WorkerDispatcher {
   private readonly pending = new Map<string, PendingDispatch>()
@@ -31,17 +41,19 @@ export class WorkerDispatcher {
   ) {}
 
   /**
-   * Dispatches one queue job to an eligible worker and resolves when the
-   * worker reports completion. Throws RetryJobSignal — putting the job back
-   * in the waiting state without consuming an attempt — when no eligible
-   * worker is connected or the source's concurrency slot is taken.
+   * Dispatches one queue job to an eligible worker and resolves with the
+   * worker's reported `result` (queue-specific, opaque) when it completes.
+   * Throws/rejects with RetryJobSignal — putting the job back in the
+   * waiting state without consuming an attempt — when no eligible worker is
+   * connected, the source's concurrency slot is taken, or the picked
+   * worker's connection turns out to be dead.
    */
   async dispatch(
     queueName: string,
     jobId: string,
     payload: unknown,
     requirements: { chromium: boolean; sourceId?: string | undefined },
-  ): Promise<void> {
+  ): Promise<unknown> {
     const correlationId = buildCorrelationId(queueName, jobId)
 
     // A BullMQ retry of a job whose previous dispatch is still pending (e.g.
@@ -52,18 +64,24 @@ export class WorkerDispatcher {
 
     const { sourceId } = requirements
     if (sourceId !== undefined && !this.registry.tryAcquireSourceLock(sourceId, correlationId)) {
-      throw new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, `source ${sourceId} already has a job in flight`)
+      throw new RetryJobSignal(
+        NO_WORKER_RETRY_DELAY_MS,
+        `source ${sourceId} already has a job in flight`,
+      )
     }
 
     const worker = this.registry.pickWorker({ chromium: requirements.chromium })
     if (!worker) {
-      if (sourceId !== undefined) this.registry.releaseSourceLock(sourceId, correlationId)
+      this.releaseLockIfHeld(sourceId, correlationId)
       throw new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, 'no eligible worker connected')
     }
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.settle(correlationId, new Error(`worker did not report completion within ${this.timeoutMs}ms`))
+        this.settle(
+          correlationId,
+          new Error(`worker did not report completion within ${this.timeoutMs}ms`),
+        )
       }, this.timeoutMs)
       timer.unref()
 
@@ -76,10 +94,25 @@ export class WorkerDispatcher {
       })
       worker.inFlight.add(correlationId)
       this.logger?.info(
-        { correlationId, queue: queueName, workerId: worker.workerId, workerName: worker.workerName },
+        {
+          correlationId,
+          queue: queueName,
+          workerId: worker.workerId,
+          workerName: worker.workerName,
+        },
         '[worker-gateway] dispatching job',
       )
-      worker.send({ type: 'job-dispatch', correlationId, queueName, payload })
+      try {
+        worker.send({ type: 'job-dispatch', correlationId, queueName, payload })
+      } catch (err) {
+        // The registry believed this connection was live, but the socket
+        // write itself failed (e.g. it closed in the gap between pickWorker()
+        // and send()) — an infrastructure hiccup, not a job failure.
+        this.settle(
+          correlationId,
+          new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, `failed to send to worker: ${String(err)}`),
+        )
+      }
     })
   }
 
@@ -88,44 +121,56 @@ export class WorkerDispatcher {
    * for an unknown correlation id (already timed out, or a duplicate
    * callback) — the route reports that distinctly instead of 500ing.
    */
-  complete(correlationId: string, success: boolean, errorMessage?: string): boolean {
+  complete(
+    correlationId: string,
+    success: boolean,
+    errorMessage?: string,
+    result?: unknown,
+  ): boolean {
     if (!this.pending.has(correlationId)) return false
-    this.settle(correlationId, success ? undefined : new Error(errorMessage ?? 'worker reported failure'))
+    this.settle(
+      correlationId,
+      success ? undefined : new Error(errorMessage ?? 'worker reported failure'),
+      result,
+    )
     return true
   }
 
-  /** A worker refused a dispatch (`accepted: false` ack): fail fast so BullMQ retries. */
+  /** A worker refused a dispatch (`accepted: false` ack): not a job failure — retry without penalty. */
   refuse(correlationId: string, reason: string): void {
     if (!this.pending.has(correlationId)) return
-    this.settle(correlationId, new Error(`worker refused dispatch: ${reason}`))
+    this.settle(
+      correlationId,
+      new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, `worker refused dispatch: ${reason}`),
+    )
   }
 
-  /** A connection dropped: fail every dispatch in flight on it. */
+  /** A connection dropped: fail every dispatch in flight on it, without penalty — see class docstring. */
   failConnection(connectionId: string, reason: string): void {
-    for (const [correlationId, entry] of this.pending) {
-      if (entry.connectionId === connectionId) {
-        this.settle(correlationId, new Error(reason))
+    for (const worker of [this.registry.get(connectionId)]) {
+      for (const correlationId of worker?.inFlight ?? []) {
+        this.settle(correlationId, new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, reason))
       }
     }
   }
 
-  pendingCount(): number {
-    return this.pending.size
+  private releaseLockIfHeld(sourceId: string | undefined, correlationId: string): void {
+    if (sourceId !== undefined) this.registry.releaseSourceLock(sourceId, correlationId)
   }
 
-  private settle(correlationId: string, error: Error | undefined): void {
+  private settle(correlationId: string, error: Error | undefined, result?: unknown): void {
     const entry = this.pending.get(correlationId)
     if (!entry) return
     this.pending.delete(correlationId)
     clearTimeout(entry.timer)
-    if (entry.sourceId !== undefined) this.registry.releaseSourceLock(entry.sourceId, correlationId)
+    this.releaseLockIfHeld(entry.sourceId, correlationId)
     this.registry.get(entry.connectionId)?.inFlight.delete(correlationId)
     if (error) {
       this.logger?.warn({ correlationId, err: error }, '[worker-gateway] dispatch failed')
       entry.reject(error)
     } else {
       this.logger?.info({ correlationId }, '[worker-gateway] dispatch completed')
-      entry.resolve()
+      entry.resolve(result)
     }
   }
 }

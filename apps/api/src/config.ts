@@ -9,17 +9,24 @@ const schema = z.object({
   DATABASE_URL: z.url(),
   MEILISEARCH_HOST: z.url().default('http://localhost:7700'),
   MEILISEARCH_API_KEY: z.string(),
-  MEILISEARCH_INDEX_NAME: z.string().optional().transform(value => value ?? DEFAULT_INDEX_NAME).refine((value) => {
-    try {
-      validateIndexName(value)
-      return true
-    } catch {
-      return false
-    }
-  }, 'MEILISEARCH_INDEX_NAME must contain only letters, numbers, underscores, and hyphens'),
+  MEILISEARCH_INDEX_NAME: z
+    .string()
+    .optional()
+    .transform((value) => value ?? DEFAULT_INDEX_NAME)
+    .refine((value) => {
+      try {
+        validateIndexName(value)
+        return true
+      } catch {
+        return false
+      }
+    }, 'MEILISEARCH_INDEX_NAME must contain only letters, numbers, underscores, and hyphens'),
   VALKEY_URL: z.string().default('redis://localhost:6379'),
   OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
-  OLLAMA_REQUIRED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
+  OLLAMA_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   // Loki log aggregation — used by the /admin/logs proxy endpoint
   LOKI_URL: z.url().default('http://localhost:3100'),
   // Grafana — used by the /internal/v1/grafana/alerts proxy endpoint (#890).
@@ -36,13 +43,17 @@ const schema = z.object({
   SENTRY_ISSUES_AUTH_TOKEN: z.string().optional(),
   SENTRY_ISSUES_ORG: z.string().optional(),
   SENTRY_ISSUES_PROJECT: z.string().optional(),
-  CORS_ORIGIN: z.string().default('http://localhost:4000,http://localhost:3000').transform(v =>
-    v.includes(',') ? v.split(',').map(s => s.trim()) : v
-  ),
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:4000,http://localhost:3000')
+    .transform((v) => (v.includes(',') ? v.split(',').map((s) => s.trim()) : v)),
   // 32-byte hex string — required for secret config entries (AES-256-GCM encryption)
   CONFIG_ENCRYPTION_SECRET: z
     .string()
-    .regex(/^[0-9a-fA-F]{64}$/, 'CONFIG_ENCRYPTION_SECRET must be a 64-character hex string (32 bytes)')
+    .regex(
+      /^[0-9a-fA-F]{64}$/,
+      'CONFIG_ENCRYPTION_SECRET must be a 64-character hex string (32 bytes)',
+    )
     .optional(),
   // Shared secret for server-to-server calls to /admin, /internal, and the
   // apps/web SSR bypass on /v1 (#453). Set the same value in every service
@@ -71,11 +82,18 @@ const schema = z.object({
   // in-process apps/scraper workers keep consuming those queues until cutover.
   // The flag and the scraper's worker registrations are mutually exclusive:
   // never run two consumer groups against the same queues.
-  WORKER_GATEWAY_ENABLED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
+  WORKER_GATEWAY_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   // How long the coordinator waits for a dispatched remote job's completion
   // callback before failing the queue job so BullMQ retries it. Browser jobs
   // legitimately run for many minutes (batched crawls + rate-limit sleeps).
-  WORKER_JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(45 * 60_000),
+  WORKER_JOB_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(45 * 60_000),
   // Deployed commit SHA, set by the deploy pipeline (e.g. `GIT_SHA=$(git rev-parse HEAD)`
   // as a build/run arg). Surfaced verbatim by `GET /diagnostics/diagnostic-context`
   // (#775) as fixed-size revision metadata; 'unknown' in local dev where no

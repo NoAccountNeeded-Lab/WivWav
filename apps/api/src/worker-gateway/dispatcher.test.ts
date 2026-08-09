@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkerDispatcher, NO_WORKER_RETRY_DELAY_MS } from './dispatcher.js'
 import { WorkerRegistry, type RegisteredWorker } from './registry.js'
 
-function connectWorker(registry: WorkerRegistry, overrides: Partial<RegisteredWorker> = {}): RegisteredWorker {
+function connectWorker(
+  registry: WorkerRegistry,
+  overrides: Partial<RegisteredWorker> = {},
+): RegisteredWorker {
   const worker: RegisteredWorker = {
     connectionId: 'conn-1',
     workerId: 'worker-1',
@@ -22,13 +25,17 @@ describe('WorkerDispatcher.dispatch', () => {
   it('throws RetryJobSignal when no worker is connected', async () => {
     const registry = new WorkerRegistry()
     const dispatcher = new WorkerDispatcher(registry, 1000)
-    await expect(dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })).rejects.toThrow(RetryJobSignal)
+    await expect(dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })).rejects.toThrow(
+      RetryJobSignal,
+    )
   })
 
   it('sets the RetryJobSignal delay to NO_WORKER_RETRY_DELAY_MS', async () => {
     const registry = new WorkerRegistry()
     const dispatcher = new WorkerDispatcher(registry, 1000)
-    await expect(dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })).rejects.toMatchObject({
+    await expect(
+      dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true }),
+    ).rejects.toMatchObject({
       delayMs: NO_WORKER_RETRY_DELAY_MS,
     })
   })
@@ -37,7 +44,12 @@ describe('WorkerDispatcher.dispatch', () => {
     const registry = new WorkerRegistry()
     const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
-    void dispatcher.dispatch('detail-crawl', '1', { sourceId: 'src-1' }, { chromium: true, sourceId: 'src-1' })
+    void dispatcher.dispatch(
+      'detail-crawl',
+      '1',
+      { sourceId: 'src-1' },
+      { chromium: true, sourceId: 'src-1' },
+    )
     await Promise.resolve()
     expect(worker.send).toHaveBeenCalledWith({
       type: 'job-dispatch',
@@ -47,6 +59,21 @@ describe('WorkerDispatcher.dispatch', () => {
     })
   })
 
+  it('rejects with RetryJobSignal, and releases the source lock, when send() throws synchronously', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry, {
+      send: vi.fn(() => {
+        throw new Error('WebSocket is not open')
+      }),
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    await expect(
+      dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true, sourceId: 'src-1' }),
+    ).rejects.toThrow(RetryJobSignal)
+    expect(worker.inFlight.size).toBe(0)
+    expect(registry.tryAcquireSourceLock('src-1', 'detail-crawl:2')).toBe(true)
+  })
+
   it('resolves when complete(success: true) is called for the correlation id', async () => {
     const registry = new WorkerRegistry()
     connectWorker(registry)
@@ -54,6 +81,15 @@ describe('WorkerDispatcher.dispatch', () => {
     const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
     dispatcher.complete('detail-crawl:1', true)
     await expect(promise).resolves.toBeUndefined()
+  })
+
+  it('resolves with the worker-reported result', async () => {
+    const registry = new WorkerRegistry()
+    connectWorker(registry)
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const promise = dispatcher.dispatch('source-scrape', '1', {}, { chromium: true })
+    dispatcher.complete('source-scrape:1', true, undefined, { listingsChanged: true })
+    await expect(promise).resolves.toEqual({ listingsChanged: true })
   })
 
   it('rejects when complete(success: false) is called', async () => {
@@ -85,28 +121,59 @@ describe('WorkerDispatcher.dispatch', () => {
     const registry = new WorkerRegistry()
     connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
-    const first = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true, sourceId: 'src-1' })
+    const first = dispatcher.dispatch(
+      'detail-crawl',
+      '1',
+      {},
+      { chromium: true, sourceId: 'src-1' },
+    )
     dispatcher.complete('detail-crawl:1', true)
     await first
     expect(registry.tryAcquireSourceLock('src-1', 'detail-crawl:2')).toBe(true)
   })
 
-  it('refuse() rejects the pending dispatch with the worker-supplied reason', async () => {
+  it('refuse() rejects the pending dispatch with RetryJobSignal and the worker-supplied reason', async () => {
     const registry = new WorkerRegistry()
     connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
     dispatcher.refuse('detail-crawl:1', 'at capacity')
+    await expect(promise).rejects.toThrow(RetryJobSignal)
     await expect(promise).rejects.toThrow('at capacity')
   })
 
-  it('failConnection() rejects every dispatch pending on that connection', async () => {
+  it('failConnection() rejects every dispatch in flight on that connection, without consuming a retry attempt', async () => {
     const registry = new WorkerRegistry()
     connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
     dispatcher.failConnection('conn-1', 'worker disconnected')
+    await expect(promise).rejects.toThrow(RetryJobSignal)
     await expect(promise).rejects.toThrow('worker disconnected')
+  })
+
+  it('failConnection() only affects dispatches on the given connection, not other workers', async () => {
+    const registry = new WorkerRegistry()
+    connectWorker(registry, { connectionId: 'conn-1' })
+    connectWorker(registry, { connectionId: 'conn-2' })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    // Force each dispatch onto a specific worker by exhausting the other's capacity first.
+    const first = dispatcher.dispatch(
+      'detail-crawl',
+      '1',
+      {},
+      { chromium: true, sourceId: 'src-1' },
+    )
+    const second = dispatcher.dispatch(
+      'detail-crawl',
+      '2',
+      {},
+      { chromium: true, sourceId: 'src-2' },
+    )
+    dispatcher.failConnection('conn-1', 'worker disconnected')
+    dispatcher.complete('detail-crawl:2', true)
+    const settled = await Promise.allSettled([first, second])
+    expect(settled.map((s) => s.status)).toEqual(['rejected', 'fulfilled'])
   })
 
   it('a stale pending dispatch is superseded by a re-dispatch of the same correlation id', async () => {
@@ -132,9 +199,9 @@ describe('WorkerDispatcher timeout', () => {
     const registry = new WorkerRegistry()
     connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 5000)
-    const assertion = expect(dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })).rejects.toThrow(
-      'did not report completion',
-    )
+    const assertion = expect(
+      dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true }),
+    ).rejects.toThrow('did not report completion')
     await vi.advanceTimersByTimeAsync(5000)
     await assertion
   })

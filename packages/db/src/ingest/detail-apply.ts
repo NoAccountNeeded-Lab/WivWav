@@ -207,7 +207,8 @@ export function changedDetailFields(
   update: Record<string, unknown>,
 ): string[] {
   return Object.keys(update).filter(
-    (field) => !DETAIL_METADATA_FIELDS.has(field) && !sameDetailValue(existing[field], update[field]),
+    (field) =>
+      !DETAIL_METADATA_FIELDS.has(field) && !sameDetailValue(existing[field], update[field]),
   )
 }
 
@@ -228,13 +229,16 @@ export function buildListingDetailUpdateData(
     ...(detail.evidence.fuelType !== 'missing' ? { fuelType: detail.fuelType } : {}),
     ...(detail.evidence.engine !== 'missing' ? { engine: detail.engine } : {}),
     ...(detail.evidence.transmission !== 'missing' ? { transmission: detail.transmission } : {}),
-    ...(descriptionObserved ? {
-      rampType: detail.rampType,
-      wavFeatures: detail.wavFeatures,
-      floorLoweringInches: detail.floorLoweringInches,
-      wheelchairCapacity: detail.wheelchairCapacity,
-      description: detail.evidence.description === 'authoritative_empty' ? null : detail.description,
-    } : {}),
+    ...(descriptionObserved
+      ? {
+          rampType: detail.rampType,
+          wavFeatures: detail.wavFeatures,
+          floorLoweringInches: detail.floorLoweringInches,
+          wheelchairCapacity: detail.wheelchairCapacity,
+          description:
+            detail.evidence.description === 'authoritative_empty' ? null : detail.description,
+        }
+      : {}),
     ...(imagesObserved ? { images: detail.images } : {}),
     ...(detail.zip && { zip: detail.zip }),
     ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),

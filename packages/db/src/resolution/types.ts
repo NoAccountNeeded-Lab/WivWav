@@ -1,3 +1,7 @@
+import type { FieldResolutionState } from '@wivwav/types'
+
+export type { FieldResolutionState }
+
 /**
  * Shared types for the #499 claim/evidence resolution model.
  *
@@ -26,11 +30,7 @@ export type ClaimField = 'conversionType' | 'rampType'
  *    vehicle. Never eligible evidence (recorded only for audit, if at all).
  */
 export type EvidenceKind =
-  | 'structured_source'
-  | 'vehicle_text'
-  | 'authoritative_source'
-  | 'photo'
-  | 'generic_text'
+  'structured_source' | 'vehicle_text' | 'authoritative_source' | 'photo' | 'generic_text'
 
 /** One evidence-backed assertion about a listing field's value. */
 export interface FieldClaim {
@@ -54,8 +54,6 @@ export interface FieldClaim {
 
 /** Input to `recordClaim` — a claim not yet persisted. */
 export type NewFieldClaim = Omit<FieldClaim, 'eligible'> & { eligible?: boolean }
-
-export type FieldResolutionState = 'verified' | 'source_reported' | 'conflicting' | 'unknown'
 
 export interface ResolvedField {
   /** Normalized value to write to the Listing row. `unknown` unless verified/source_reported. */
