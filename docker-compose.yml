@@ -149,6 +149,45 @@ services:
         - action: rebuild
           path: ./apps/scraper/package.json
 
+  # Generic remote worker (#948/#952) — the laptop deployment vehicle for the
+  # three phase-1 Chromium jobs (source-scrape, detail-crawl, detail-extract).
+  # Deliberately gated behind `profiles: [worker]` (same pattern as `ollama`'s
+  # `[ai]`) so it never starts on the Mac Mini's default stack: it dials an
+  # outbound WS to `api` for job dispatch and submits every result over
+  # authenticated HTTP — no DATABASE_URL, valkey URL, or Meilisearch key in
+  # its environment, and no such dependency in apps/worker/package.json.
+  # Start with: docker compose --profile worker up
+  job-runner:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    profiles: [worker]
+    init: true
+    ipc: host
+    security_opt:
+      - seccomp=./docker/chromium-seccomp.json
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      COORDINATOR_URL: http://api:3001
+      WORKER_TOKEN: ${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
+      WORKER_CAPABILITIES: chromium=true
+      WORKER_MAX_CONCURRENT_JOBS: ${WORKER_MAX_CONCURRENT_JOBS:-2}
+      LOG_LEVEL: debug
+      LOG_FORMAT: json
+    tmpfs:
+      - /tmp:size=512m
+    depends_on:
+      api:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/worker/src
+          target: /app/apps/worker/src
+        - action: rebuild
+          path: ./apps/worker/package.json
+
   # Optional local AI container for testing the self-healing scraper engine.
   # Start with: docker compose --profile ai up
   # First run pulls the model (cached to a named volume — subsequent starts are fast).
