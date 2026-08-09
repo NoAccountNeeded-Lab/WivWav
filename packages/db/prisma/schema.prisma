@@ -565,6 +565,12 @@ model ScraperRun {
   listingsNew      Int?
   listingsUpdated  Int?
   errorMessage     String?
+  /// #948 worker gateway: set once a mark-gone request for this run has been
+  /// applied. An HTTP retry of the same (sourceId, scraperRunId) mark-gone
+  /// replays the stored count instead of double-incrementing
+  /// missingFromCompleteCount.
+  markGoneAppliedAt         DateTime?
+  markGoneNewlyMissingCount Int?
 
   @@index([sourceId])
   @@map("scraper_runs")
