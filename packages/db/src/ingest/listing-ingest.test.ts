@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ingestListing } from './listing-ingest.js'
-import type { ListingUpsertData } from '../engine/repositories.js'
+import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 
 function makeListing(overrides: Partial<ListingUpsertData> = {}): ListingUpsertData {
   return {

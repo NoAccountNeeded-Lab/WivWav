@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { issuePaths } from './test-helpers/issue-paths.js'
 import {
   buildCorrelationId,
+  workerJobCompleteRequestSchema,
   coordinatorToWorkerMessageSchema,
   workerHelloSchema,
   workerToCoordinatorMessageSchema,
@@ -154,6 +155,26 @@ describe('direction unions', () => {
 
   it('should reject a hello on the coordinator→worker direction', () => {
     expect(coordinatorToWorkerMessageSchema.safeParse(validHello).success).toBe(false)
+  })
+})
+
+describe('workerJobCompleteRequestSchema', () => {
+  it('should parse a success without an errorMessage', () => {
+    const body = { correlationId: 'q:1', success: true }
+    expect(workerJobCompleteRequestSchema.parse(body)).toEqual(body)
+  })
+
+  it('should parse a failure with an errorMessage', () => {
+    const body = { correlationId: 'q:1', success: false, errorMessage: 'browser crashed' }
+    expect(workerJobCompleteRequestSchema.parse(body)).toEqual(body)
+  })
+
+  it('should reject a failure without an errorMessage', () => {
+    const result = workerJobCompleteRequestSchema.safeParse({
+      correlationId: 'q:1',
+      success: false,
+    })
+    expect(issuePaths(result)).toContain('errorMessage')
   })
 })
 

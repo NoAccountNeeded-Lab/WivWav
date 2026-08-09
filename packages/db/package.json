@@ -18,20 +18,23 @@
   },
   "scripts": {
     "build": "tsc && cp -r src/generated dist/",
-    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "postinstall": "prisma generate --schema prisma/schema.prisma",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
     "generate": "prisma generate --schema prisma/schema.prisma",
     "migrate": "prisma migrate deploy",
     "migrate:create": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "postinstall": "prisma generate --schema prisma/schema.prisma",
+    "test": "vitest run src --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run src/**/*.integration.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/client-runtime-utils": "^7.8.0",
+    "@wivwav/logger": "workspace:*",
     "@wivwav/types": "workspace:*",
     "dotenv": "^17.4.2",
     "pg": "^8.22.0"
@@ -42,6 +45,7 @@
     "@wivwav/config": "workspace:*",
     "prisma": "^7.8.0",
     "tsx": "^4.23.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

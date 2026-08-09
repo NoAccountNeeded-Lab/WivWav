@@ -11,7 +11,7 @@ import type {
   ListingUpsertResult,
   MarkGoneOptions,
 } from '../engine/repositories.js'
-import { GONE_AFTER_CONSECUTIVE_MISSING } from '../engine/repositories.js'
+import { markGoneListings } from '@wivwav/db'
 import type { SourceDriftBaseline } from '../engine/listing-validator.js'
 import { ingestListing } from '../application/listing-ingest.js'
 import { recordCardFieldClaims } from '../resolution/card-claims.js'
@@ -174,112 +174,9 @@ export class PrismaListingRepository implements ListingRepository {
   }
 
   async markGone(sourceId: string, activeSourceRecordKeys: string[], options: MarkGoneOptions): Promise<number> {
-    // Guard: if the scrape returned nothing, assume a scraper failure and leave status unchanged
-    if (activeSourceRecordKeys.length === 0) return 0
-
-    const { isCompleteCrawl, onGone } = options
-
-    if (!isCompleteCrawl) {
-      // Partial crawl (page-1 changed but we may have missed pages): soft-mark
-      // active listings as possibly_gone without counting it as evidence.
-      // missingFromCompleteCount is NOT incremented — only complete crawls provide
-      // conclusive index-absence evidence.
-      const result = await this.db.listing.updateMany({
-        where: {
-          sourceId,
-          status: 'active',
-          sourceRecordKey: { notIn: activeSourceRecordKeys },
-        },
-        data: { status: 'possibly_gone', detailScrapedAt: null },
-      })
-      return result.count
-    }
-
-    // Complete crawl path:
-    // 1. Seen listings: reset missingFromCompleteCount and record lastSeenInCompleteCrawlAt.
-    //    Also restore possibly_gone → active for listings that reappeared in the source index.
-    const now = new Date()
-    await this.db.listing.updateMany({
-      where: {
-        sourceId,
-        status: 'possibly_gone',
-        sourceRecordKey: { in: activeSourceRecordKeys },
-      },
-      data: {
-        missingFromCompleteCount: 0,
-        lastSeenInCompleteCrawlAt: now,
-        status: 'active',
-        goneAt: null,
-        detailScrapedAt: null,
-      },
-    })
-
-    // Update lastSeenInCompleteCrawlAt for all seen non-gone listings
-    await this.db.listing.updateMany({
-      where: {
-        sourceId,
-        status: { not: 'gone' },
-        sourceRecordKey: { in: activeSourceRecordKeys },
-      },
-      data: { lastSeenInCompleteCrawlAt: now, missingFromCompleteCount: 0 },
-    })
-
-    // 2. Count how many active listings are newly absent (before updating status).
-    //    This is the "newly missing" count returned to the caller for logging.
-    //    We count before the update so we have the pre-transition number.
-    const newlyMissingCount = await this.db.listing.count({
-      where: {
-        sourceId,
-        status: 'active',
-        sourceRecordKey: { notIn: activeSourceRecordKeys },
-      },
-    })
-
-    // 3. Increment missingFromCompleteCount for ALL absent non-gone listings
-    //    (both active and already-possibly_gone) in a single UPDATE, below the
-    //    threshold cap. Active listings also transition to possibly_gone here.
-    //
-    //    This single query prevents a double-increment that would occur if two
-    //    separate UPDATEs ran: step A writing active→possibly_gone with count=1,
-    //    then step B matching the now-possibly_gone rows and incrementing again
-    //    to count=2 in the same run.
-    await this.db.listing.updateMany({
-      where: {
-        sourceId,
-        status: { in: ['active', 'possibly_gone'] },
-        sourceRecordKey: { notIn: activeSourceRecordKeys },
-        missingFromCompleteCount: { lt: GONE_AFTER_CONSECUTIVE_MISSING },
-      },
-      data: {
-        status: 'possibly_gone',
-        detailScrapedAt: null,
-        missingFromCompleteCount: { increment: 1 },
-      },
-    })
-
-    // 4. Promote to gone when the threshold is reached.
-    const promoteWhere = {
-      sourceId,
-      status: 'possibly_gone' as const,
-      sourceRecordKey: { notIn: activeSourceRecordKeys },
-      missingFromCompleteCount: { gte: GONE_AFTER_CONSECUTIVE_MISSING },
-    }
-
-    // Only look up the ids when a caller wants them — this query is otherwise
-    // redundant work on every complete crawl.
-    const newlyGone = onGone
-      ? await this.db.listing.findMany({ where: promoteWhere, select: { id: true } })
-      : []
-
-    await this.db.listing.updateMany({
-      where: promoteWhere,
-      data: { status: 'gone', goneAt: now },
-    })
-
-    if (onGone && newlyGone.length > 0) {
-      await onGone(newlyGone.map((l) => l.id))
-    }
-
-    return newlyMissingCount
+    // Relocated to @wivwav/db's markGoneListings (#951) so apps/api's worker
+    // gateway shares the exact implementation; this class stays the scraper's
+    // port adapter until the #948 cutover.
+    return markGoneListings(this.db, sourceId, activeSourceRecordKeys, options)
   }
 }

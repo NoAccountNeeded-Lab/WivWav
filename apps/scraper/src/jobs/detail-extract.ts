@@ -1,4 +1,16 @@
-import { SourceStatus, getDb, type Prisma } from '@wivwav/db'
+import {
+  DETAIL_EXTRACTION_VERSION,
+  SourceStatus,
+  auditDetailValue,
+  buildListingDetailUpdateData as buildListingDetailUpdateDataShared,
+  changedDetailFields as changedDetailFieldsShared,
+  detailObservationReference as detailObservationReferenceShared,
+  enqueueRequiredListingResolution as enqueueRequiredListingResolutionShared,
+  getDb,
+  requiresListingResolution as requiresListingResolutionShared,
+  resolveListingStatus as resolveListingStatusShared,
+} from '@wivwav/db'
+import type { Prisma, StatusUpdate as SharedStatusUpdate } from '@wivwav/db'
 import { CRITICAL_JOB_OPTIONS, type JobContext, type QueueAdapter } from '@wivwav/queue'
 import type { ConversionType, FieldMapping, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
@@ -37,23 +49,10 @@ const BATCH_SIZE = 100
  * payload into logs (#637).
  */
 const ERROR_LOG_MAX_LENGTH = 300
-const DETAIL_EXTRACTION_VERSION = 'detail-v2-evidence'
-const DETAIL_RESOLUTION_ENQUEUE_STAGE = 'detail-resolution-enqueue'
-const DETAIL_METADATA_FIELDS = new Set([
-  'detailScrapedAt',
-  'publicationStatus',
-  'qualityIssueCodes',
-  'qualityCheckedAt',
-])
-const ACCESSIBILITY_FIELDS = new Set([
-  'conversionType',
-  'conversionManufacturer',
-  'conversionStatus',
-  'rampType',
-  'wavFeatures',
-  'floorLoweringInches',
-  'wheelchairCapacity',
-])
+// DETAIL_EXTRACTION_VERSION plus the status/diff/enqueue logic below moved to
+// @wivwav/db's ingest/detail-apply (#951) so apps/api's worker-gateway submit
+// endpoint shares one implementation. Re-exported under their original names
+// for this module's existing consumers (tests, fixture-to-facets pipeline).
 
 async function getSourceExecutionBlockReason(sourceId: string): Promise<string | null> {
   const db = getDb()
@@ -87,59 +86,8 @@ async function getSourceMappings(sourceId: string): Promise<FieldMapping[]> {
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
 
-export type StatusUpdate =
-  | { status: 'gone'; goneAt: Date; soldAt?: Date }
-  | { status: 'active'; goneAt: null }
-  | Record<string, never>
-
-/**
- * Derives the ListingStatus update fields from the current listing state and
- * the sale status parsed from the detail page.
- *
- * Rules:
- * - sold banner on any non-gone listing → gone (+ soldAt on first confirmation)
- * - gone/unavailable banner on any non-gone listing → gone without soldAt
- * - pending banner on possibly_gone that is NOT index-absent → restore to active
- * - pending banner on active → no status change (stays visible in search with saleStatus label)
- * - possibly_gone with NO index-absence evidence + no/pending banner → restore to active
- * - possibly_gone with index-absence evidence (missingFromCompleteCount > 0) + no/pending banner
- *   → no status change from detail page; only a new complete source crawl may restore it
- * - active + no banner (stale refresh) → no status change
- *
- * The `missingFromCompleteCount` parameter is the number of consecutive complete
- * source crawls that did not include this listing. A value > 0 means the listing
- * is absent from the source index; a detail-page 200 without a sold/gone banner
- * is then a stale orphan page and must NOT restore the listing to active.
- */
-export function resolveListingStatus(
-  currentStatus: ListingStatus,
-  saleStatus: SaleStatus,
-  existingSoldAt: Date | null,
-  now: Date,
-  missingFromCompleteCount = 0,
-): StatusUpdate {
-  if ((saleStatus === 'sold' || saleStatus === 'gone') && currentStatus !== 'gone') {
-    return {
-      status: 'gone',
-      goneAt: now,
-      ...(saleStatus === 'sold' && existingSoldAt == null ? { soldAt: now } : {}),
-    }
-  }
-  if (currentStatus === 'possibly_gone' && saleStatus !== 'sold') {
-    // When the listing is missing from the source index (has been absent from ≥1
-    // complete crawl), a 200 detail response without a sold/gone banner is not
-    // sufficient evidence to restore active status. The listing might be an orphan
-    // detail page that remains reachable after the dealer removes it from inventory.
-    // Only a new complete source crawl that includes the listing can restore it.
-    if (missingFromCompleteCount > 0) {
-      return {}
-    }
-    // Pending banner means the listing is still live (just under contract); restore it.
-    // No banner also means it's still live when there is no index-absence evidence.
-    return { status: 'active', goneAt: null }
-  }
-  return {}
-}
+export type StatusUpdate = SharedStatusUpdate
+export const resolveListingStatus = resolveListingStatusShared
 
 export type DetailResult = {
   color: string | null
@@ -196,85 +144,10 @@ export type DetailResult = {
 
 export type DetailEvidence = 'value' | 'authoritative_empty' | 'missing'
 
-export function detailObservationReference(rawPage: { id: string; scrapedAt: Date }): string {
-  return `${rawPage.id}:${rawPage.scrapedAt.toISOString()}`
-}
+export const detailObservationReference = detailObservationReferenceShared
+export const requiresListingResolution = requiresListingResolutionShared
 
-export function requiresListingResolution(changedFields: string[]): boolean {
-  return changedFields.some((field) => ACCESSIBILITY_FIELDS.has(field))
-}
-
-function detailResolutionJobId(observationReference: string): string {
-  return `detail-resolution:${observationReference}`
-}
-
-async function enqueueRequiredListingResolution(
-  db: ReturnType<typeof getDb>,
-  resolutionQueue: QueueAdapter | undefined,
-  listingId: string,
-  observationReference: string,
-  changedFields: string[],
-  parentRunId?: string | null,
-): Promise<void> {
-  if (!requiresListingResolution(changedFields)) return
-
-  const alreadyEnqueued = await db.listingObservation.findUnique({
-    where: {
-      stage_reference: {
-        stage: DETAIL_RESOLUTION_ENQUEUE_STAGE,
-        reference: observationReference,
-      },
-    },
-    select: { id: true },
-  })
-  if (alreadyEnqueued || !resolutionQueue) return
-
-  await resolutionQueue.add(
-    { listingId, observationReference, parentRunId },
-    { ...CRITICAL_JOB_OPTIONS, jobId: detailResolutionJobId(observationReference) },
-  )
-  await db.listingObservation.upsert({
-    where: {
-      stage_reference: {
-        stage: DETAIL_RESOLUTION_ENQUEUE_STAGE,
-        reference: observationReference,
-      },
-    },
-    update: {},
-    create: {
-      listingId,
-      stage: DETAIL_RESOLUTION_ENQUEUE_STAGE,
-      reference: observationReference,
-      extractionVersion: DETAIL_EXTRACTION_VERSION,
-      changedFields: [],
-      before: {} as Prisma.InputJsonObject,
-      after: {} as Prisma.InputJsonObject,
-      observedAt: new Date(),
-    },
-  })
-}
-
-function sameDetailValue(left: unknown, right: unknown): boolean {
-  if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime()
-  if (Array.isArray(left) && Array.isArray(right)) {
-    if (left.length !== right.length) return false
-    return left.every((value, index) => value === right[index])
-  }
-  return left === right
-}
-
-export function changedDetailFields(
-  existing: Record<string, unknown>,
-  update: Record<string, unknown>,
-): string[] {
-  return Object.keys(update).filter(
-    (field) => !DETAIL_METADATA_FIELDS.has(field) && !sameDetailValue(existing[field], update[field]),
-  )
-}
-
-function auditValue(value: unknown): unknown {
-  return value instanceof Date ? value.toISOString() : value
-}
+export const changedDetailFields = changedDetailFieldsShared
 
 /**
  * Formats a caught error for logging: message-only (no stack, no thrown
@@ -297,43 +170,7 @@ export function summarizeError(err: unknown): string {
   return bounded.length > 0 ? bounded : 'error (no message)'
 }
 
-export function buildListingDetailUpdateData(
-  detail: DetailResult,
-  enrichment: BlvdDealerEnrichment,
-  statusUpdate: StatusUpdate,
-  now: Date,
-) {
-  const descriptionObserved = detail.evidence.description !== 'missing'
-  const imagesObserved = detail.evidence.images !== 'missing'
-  return {
-    ...(detail.evidence.color !== 'missing' ? { color: detail.color } : {}),
-    ...(detail.evidence.fuelType !== 'missing' ? { fuelType: detail.fuelType } : {}),
-    ...(detail.evidence.engine !== 'missing' ? { engine: detail.engine } : {}),
-    ...(detail.evidence.transmission !== 'missing' ? { transmission: detail.transmission } : {}),
-    ...(descriptionObserved ? {
-      rampType: detail.rampType,
-      wavFeatures: detail.wavFeatures,
-      floorLoweringInches: detail.floorLoweringInches,
-      wheelchairCapacity: detail.wheelchairCapacity,
-      description: detail.evidence.description === 'authoritative_empty' ? null : detail.description,
-    } : {}),
-    ...(imagesObserved ? { images: detail.images } : {}),
-    ...(detail.zip && { zip: detail.zip }),
-    ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
-    ...(enrichment.dealerWebsite && { dealerWebsite: enrichment.dealerWebsite }),
-    ...(enrichment.directVehicleUrl && { buyerUrl: enrichment.directVehicleUrl }),
-    ...(detail.sourceListedAt !== null ? { sourceListedAt: detail.sourceListedAt } : {}),
-    ...(detail.sourceUpdatedAt !== null ? { sourceUpdatedAt: detail.sourceUpdatedAt } : {}),
-    saleStatus: detail.saleStatus,
-    ...statusUpdate,
-    detailScrapedAt: now,
-    // Detail data is part of the publication decision. Invalidate any previous
-    // decision until the validator evaluates this new observation.
-    publicationStatus: 'pending' as const,
-    qualityIssueCodes: [],
-    qualityCheckedAt: null,
-  }
-}
+export const buildListingDetailUpdateData = buildListingDetailUpdateDataShared
 
 /**
  * Builds the BLVD-branch evidence record from raw extraction output.
@@ -585,9 +422,10 @@ export async function runDetailExtractJob(
             select: { id: true, changedFields: true },
           })
           if (alreadyApplied) {
-            await enqueueRequiredListingResolution(
+            await enqueueRequiredListingResolutionShared(
               db,
               resolutionQueue,
+              CRITICAL_JOB_OPTIONS,
               listing.id,
               observationReference,
               alreadyApplied.changedFields,
@@ -623,10 +461,10 @@ export async function runDetailExtractJob(
             update as Record<string, unknown>,
           )
           const before = Object.fromEntries(
-            changedFields.map((field) => [field, auditValue((listing as unknown as Record<string, unknown>)[field])]),
+            changedFields.map((field) => [field, auditDetailValue((listing as unknown as Record<string, unknown>)[field])]),
           )
           const after = Object.fromEntries(
-            changedFields.map((field) => [field, auditValue((update as Record<string, unknown>)[field])]),
+            changedFields.map((field) => [field, auditDetailValue((update as Record<string, unknown>)[field])]),
           )
 
           // Serializable, like PrismaListingRepository.upsert's ingestListing
@@ -653,9 +491,10 @@ export async function runDetailExtractJob(
           // Search-index sync is no longer this job's concern — the
           // single-owner indexer poller (#669) picks up the change (via
           // `updatedAt`, bumped by the transaction above) on its next tick.
-          await enqueueRequiredListingResolution(
+          await enqueueRequiredListingResolutionShared(
             db,
             resolutionQueue,
+            CRITICAL_JOB_OPTIONS,
             listing.id,
             observationReference,
             changedFields,
