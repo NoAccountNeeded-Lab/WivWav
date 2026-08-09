@@ -36,6 +36,30 @@ export class SourceGatewayRepository {
     return getSourceExecutionState(this.db, id)
   }
 
+  /**
+   * The fields a worker needs to construct a `SourceAdapter` for a dispatched
+   * SOURCE_SCRAPE job (#952): the dispatch payload carries only `sourceId`, so
+   * the worker resolves the registry adapter module via `name` (matched
+   * against `@wivwav/types`' `SCRAPER_SOURCE_REGISTRY`, which has no DB
+   * dependency) and seeds the adapter's change-detection state from
+   * `fingerprintHash`/`page1Hash` — the same fields
+   * `apps/scraper/src/sources/registry.ts`'s `registerSources` reads to build
+   * the in-process adapter.
+   */
+  async getProfile(id: string): Promise<{
+    id: string
+    name: string
+    baseUrl: string
+    fingerprintHash: string | null
+    page1Hash: string | null
+  } | null> {
+    const source = await this.db.source.findUnique({
+      where: { id },
+      select: { id: true, name: true, baseUrl: true, fingerprintHash: true, page1Hash: true },
+    })
+    return source
+  }
+
   async markNeedsRemapping(id: string, errorMessage?: string): Promise<void> {
     await markSourceNeedsRemapping(this.db, id, errorMessage, this.logger)
   }
