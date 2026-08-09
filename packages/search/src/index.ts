@@ -7,7 +7,7 @@ import {
   canonicalModel,
   canonicalConversionManufacturer,
   conversionBrandSlug,
-} from './canonicalize.js'
+} from '@wivwav/types'
 
 /**
  * Counts non-null optional fields as a data completeness score for a listing.
@@ -84,8 +84,8 @@ export {
   matchMultiWordModelTokenCount,
   MULTI_WORD_MODEL_FIRST_TOKENS,
   AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS,
-} from './canonicalize.js'
-export type { CanonicalFuelType } from './canonicalize.js'
+} from '@wivwav/types'
+export type { CanonicalFuelType } from '@wivwav/types'
 
 export const DEFAULT_INDEX_NAME = 'listings'
 const INDEX_NAME_PATTERN = /^[A-Za-z0-9_-]+$/

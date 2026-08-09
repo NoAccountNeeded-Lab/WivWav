@@ -25,7 +25,9 @@ export const noopJobContext: JobContext = {
 function createFallbackLogger(): WivWavLogger {
   const env = process.env['NODE_ENV'] ?? 'development'
   if (env === 'test') return createNoopLogger()
-  return createLogger({ service: 'scraper', env })
+  // Shared by apps/scraper and the future apps/worker — the process, not
+  // this package, owns its service name (defaults keep today's behavior).
+  return createLogger({ service: process.env['WIVWAV_SERVICE'] ?? 'scraper', env })
 }
 
 export async function report(

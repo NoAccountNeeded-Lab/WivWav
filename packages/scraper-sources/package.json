@@ -28,7 +28,6 @@
     "@playwright/test": "^1.61.1",
     "@wivwav/logger": "workspace:*",
     "@wivwav/queue": "workspace:*",
-    "@wivwav/search": "workspace:*",
     "@wivwav/types": "workspace:*",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",

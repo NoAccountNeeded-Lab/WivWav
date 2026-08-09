@@ -55,8 +55,8 @@
  * regression is traceable to the layer that diverged, per the AC.
  */
 import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+import { FIXTURE_CONTRACTS_DIR } from '@wivwav/scraper-sources/sources/fixture-paths.js'
 import { Meilisearch } from 'meilisearch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getDb, disconnectDb } from '@wivwav/db'
@@ -114,16 +114,7 @@ process.env['MEILI_HOST'] ??= process.env['MEILISEARCH_HOST']
 process.env['MEILI_API_KEY'] ??= process.env['MEILISEARCH_API_KEY']
 
 // Fixtures relocated with the source parsers to packages/scraper-sources (#950).
-const fixtureDir = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../..',
-  'packages',
-  'scraper-sources',
-  'src',
-  'sources',
-  'fixtures',
-  'contracts',
-)
+const fixtureDir = FIXTURE_CONTRACTS_DIR
 
 function fixtureHtml(name: string): string {
   return readFileSync(join(fixtureDir, name), 'utf8')
