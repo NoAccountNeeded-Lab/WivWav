@@ -1,5 +1,16 @@
 import { z } from 'zod'
-import { WAV_FEATURES, type WavFeature } from './listing.js'
+import {
+  CONVERSION_STATUSES,
+  CONVERSION_TYPES,
+  FIELD_RESOLUTION_STATES,
+  LISTING_CONDITIONS,
+  LISTING_SELLER_TYPES,
+  RAMP_TYPES,
+  SALE_STATUSES,
+  WAV_FEATURES,
+  type WavFeature,
+} from './listing.js'
+import { isoDateTimeSchema } from './wire-date.js'
 
 /**
  * HTTP request/response contracts for the coordinator's `/internal/scraper`
@@ -14,31 +25,38 @@ import { WAV_FEATURES, type WavFeature } from './listing.js'
  * groups cover data access that has no port today.
  *
  * Date-bearing fields cross the wire as ISO strings; every date field uses
- * `z.coerce.date()` so both sides parse back to `Date` — never assume a
- * `Date` object survives JSON.
+ * `isoDateTimeSchema` (./wire-date.js) so both sides parse back to `Date` —
+ * never assume a `Date` object survives JSON.
  */
 
-// --- shared vocabulary (kept in parity with ./listing.js types by tests) ---
+// --- shared vocabulary (derived from ./listing.js consts, so it cannot drift) ---
 
-export const conversionTypeSchema = z.enum(['rear_entry', 'side_entry', 'unknown'])
-export const rampTypeSchema = z.enum(['in_floor', 'fold_out', 'fold_in', 'none', 'unknown'])
-export const conversionStatusSchema = z.enum(['proposed', 'complete', 'unknown'])
-export const listingConditionSchema = z.enum(['new', 'used', 'certified_pre_owned'])
-export const listingSellerTypeSchema = z.enum(['dealer', 'private'])
-export const saleStatusSchema = z.enum(['active', 'pending', 'sold', 'gone'])
-export const fieldResolutionStateSchema = z.enum(['verified', 'source_reported', 'conflicting', 'unknown'])
+export const conversionTypeSchema = z.enum(CONVERSION_TYPES)
+export const rampTypeSchema = z.enum(RAMP_TYPES)
+export const conversionStatusSchema = z.enum(CONVERSION_STATUSES)
+export const listingConditionSchema = z.enum(LISTING_CONDITIONS)
+export const listingSellerTypeSchema = z.enum(LISTING_SELLER_TYPES)
+export const saleStatusSchema = z.enum(SALE_STATUSES)
+export const fieldResolutionStateSchema = z.enum(FIELD_RESOLUTION_STATES)
 
-/** Derived from WAV_FEATURES so the vocabulary cannot drift from ./listing.js. */
-export const wavFeatureSchema = z.enum(
-  Object.keys(WAV_FEATURES) as [WavFeature, ...WavFeature[]],
-)
+export const wavFeatureSchema = z.enum(Object.keys(WAV_FEATURES) as [WavFeature, ...WavFeature[]])
 
-/** Mirrors Prisma's `ListingStatus` enum (lifecycle, distinct from SaleStatus). */
+/**
+ * Mirrors Prisma's `ListingStatus` enum (lifecycle, distinct from SaleStatus);
+ * parity is asserted at compile time in apps/scraper against @wivwav/db.
+ */
 export const listingStatusSchema = z.enum(['active', 'possibly_gone', 'gone'])
 export type ListingStatus = z.infer<typeof listingStatusSchema>
 
-/** Mirrors Prisma's `PublicationStatus` enum. */
+/**
+ * Mirrors Prisma's `ListingPublicationStatus` enum; parity is asserted at
+ * compile time in apps/scraper against @wivwav/db.
+ */
 export const publicationStatusSchema = z.enum(['pending', 'eligible', 'quarantined'])
+export type ListingPublicationStatus = z.infer<typeof publicationStatusSchema>
+
+/** Non-empty entity-id string, shared by every contract that names a source. */
+export const sourceIdSchema = z.string().min(1)
 
 export const wavFeaturesSchema = z.object({
   conversionType: conversionTypeSchema,
@@ -79,7 +97,7 @@ export const fieldMappingSchema = z.object({
 // --- scraper runs (mirrors ScraperRunRepository) ---
 
 export const scraperRunStartRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
 })
 export type ScraperRunStartRequest = z.infer<typeof scraperRunStartRequestSchema>
 
@@ -120,13 +138,13 @@ export const sourceExecutionStateResponseSchema = z.object({
 export type SourceExecutionStateResponse = z.infer<typeof sourceExecutionStateResponseSchema>
 
 export const sourceMarkNeedsRemappingRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   errorMessage: z.string().optional(),
 })
 export type SourceMarkNeedsRemappingRequest = z.infer<typeof sourceMarkNeedsRemappingRequestSchema>
 
 export const sourceMarkActiveRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   listingCount: z.number().int().nonnegative(),
   fingerprintHash: z.string(),
   page1Hash: z.string().optional(),
@@ -135,18 +153,18 @@ export const sourceMarkActiveRequestSchema = z.object({
 export type SourceMarkActiveRequest = z.infer<typeof sourceMarkActiveRequestSchema>
 
 export const sourceMarkCheckedRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
 })
 export type SourceMarkCheckedRequest = z.infer<typeof sourceMarkCheckedRequestSchema>
 
 export const sourceMarkErrorRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   errorMessage: z.string(),
 })
 export type SourceMarkErrorRequest = z.infer<typeof sourceMarkErrorRequestSchema>
 
 export const sourceMarkPausedRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   reason: z.string(),
 })
 export type SourceMarkPausedRequest = z.infer<typeof sourceMarkPausedRequestSchema>
@@ -157,13 +175,13 @@ export const sourceMappingsResponseSchema = z.object({
 export type SourceMappingsResponse = z.infer<typeof sourceMappingsResponseSchema>
 
 export const sourceSetMappingsRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   mappings: z.array(fieldMappingSchema),
 })
 export type SourceSetMappingsRequest = z.infer<typeof sourceSetMappingsRequestSchema>
 
 export const sourceLastFullCrawlAtResponseSchema = z.object({
-  lastFullCrawlAt: z.coerce.date().nullable(),
+  lastFullCrawlAt: isoDateTimeSchema.nullable(),
 })
 export type SourceLastFullCrawlAtResponse = z.infer<typeof sourceLastFullCrawlAtResponseSchema>
 
@@ -179,7 +197,7 @@ export const sourceDriftBaselineResponseSchema = z.object({
 export type SourceDriftBaselineResponse = z.infer<typeof sourceDriftBaselineResponseSchema>
 
 export const sourceSetDriftBaselineRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   baseline: sourceDriftBaselineSchema,
 })
 export type SourceSetDriftBaselineRequest = z.infer<typeof sourceSetDriftBaselineRequestSchema>
@@ -191,7 +209,7 @@ export type SourceSetDriftBaselineRequest = z.infer<typeof sourceSetDriftBaselin
  * bidirectional assignability is asserted at compile time there.
  */
 export const listingUpsertRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   sourceUrl: z.string().min(1),
   buyerUrl: z.string().nullable(),
   externalId: z.string().nullable(),
@@ -217,12 +235,12 @@ export const listingUpsertRequestSchema = z.object({
   description: z.string().nullable(),
   qualityIssueCodes: z.array(z.string()).optional(),
   saleStatus: saleStatusSchema,
-  soldAt: z.coerce.date().nullable(),
-  listedAt: z.coerce.date(),
-  sourceListedAt: z.coerce.date().nullable().optional(),
-  sourceUpdatedAt: z.coerce.date().nullable().optional(),
+  soldAt: isoDateTimeSchema.nullable(),
+  listedAt: isoDateTimeSchema,
+  sourceListedAt: isoDateTimeSchema.nullable().optional(),
+  sourceUpdatedAt: isoDateTimeSchema.nullable().optional(),
   publicationStatus: publicationStatusSchema.optional(),
-  qualityCheckedAt: z.coerce.date().nullable().optional(),
+  qualityCheckedAt: isoDateTimeSchema.nullable().optional(),
   runId: z.string().nullable().optional(),
 })
 export type ListingUpsertRequest = z.infer<typeof listingUpsertRequestSchema>
@@ -243,7 +261,7 @@ export type ListingUpsertResponse = z.infer<typeof listingUpsertResponseSchema>
  * single-owner indexer poller picks up status changes via `updatedAt`.
  */
 export const listingMarkGoneRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   scraperRunId: z.string().min(1),
   activeSourceRecordKeys: z.array(z.string()),
   isCompleteCrawl: z.boolean(),
@@ -258,10 +276,12 @@ export type ListingMarkGoneResponse = z.infer<typeof listingMarkGoneResponseSche
 // --- detail-crawl (no port today; mirrors apps/scraper/src/jobs/detail-crawl.ts) ---
 
 export const detailCrawlPendingListingsRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   limit: z.number().int().positive().optional(),
 })
-export type DetailCrawlPendingListingsRequest = z.infer<typeof detailCrawlPendingListingsRequestSchema>
+export type DetailCrawlPendingListingsRequest = z.infer<
+  typeof detailCrawlPendingListingsRequestSchema
+>
 
 export const detailCrawlPendingListingsResponseSchema = z.object({
   listings: z.array(
@@ -271,11 +291,13 @@ export const detailCrawlPendingListingsResponseSchema = z.object({
     }),
   ),
 })
-export type DetailCrawlPendingListingsResponse = z.infer<typeof detailCrawlPendingListingsResponseSchema>
+export type DetailCrawlPendingListingsResponse = z.infer<
+  typeof detailCrawlPendingListingsResponseSchema
+>
 
 /** Upsert resets `processedAt` so detail-extract re-processes on re-crawl. */
 export const rawPageUpsertRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   url: z.string().min(1),
   html: z.string(),
 })
@@ -304,23 +326,27 @@ export type ListingMarkGoneByUrlResponse = z.infer<typeof listingMarkGoneByUrlRe
 // --- detail-extract (no port today; mirrors apps/scraper/src/jobs/detail-extract.ts) ---
 
 export const detailExtractPendingRawPagesRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   limit: z.number().int().positive().optional(),
 })
-export type DetailExtractPendingRawPagesRequest = z.infer<typeof detailExtractPendingRawPagesRequestSchema>
+export type DetailExtractPendingRawPagesRequest = z.infer<
+  typeof detailExtractPendingRawPagesRequestSchema
+>
 
 export const rawPageSchema = z.object({
   id: z.string().min(1),
   url: z.string().min(1),
   html: z.string(),
-  scrapedAt: z.coerce.date(),
+  scrapedAt: isoDateTimeSchema,
 })
 export type RawPage = z.infer<typeof rawPageSchema>
 
 export const detailExtractPendingRawPagesResponseSchema = z.object({
   rawPages: z.array(rawPageSchema),
 })
-export type DetailExtractPendingRawPagesResponse = z.infer<typeof detailExtractPendingRawPagesResponseSchema>
+export type DetailExtractPendingRawPagesResponse = z.infer<
+  typeof detailExtractPendingRawPagesResponseSchema
+>
 
 export const listingBySourceUrlRequestSchema = z.object({
   sourceUrl: z.string().min(1),
@@ -328,10 +354,15 @@ export const listingBySourceUrlRequestSchema = z.object({
 export type ListingBySourceUrlRequest = z.infer<typeof listingBySourceUrlRequestSchema>
 
 /**
- * The listing fields detail-extract reads before extraction (identity for
- * the parser: vin + source identifiers) and that the coordinator needs to
- * apply the result. Mirrors the `db.listing.findFirst` select in
- * apps/scraper/src/jobs/detail-extract.ts.
+ * Deliberately an identity-only subset of the `db.listing.findFirst` select
+ * in apps/scraper/src/jobs/detail-extract.ts: the worker needs just the
+ * parser-identity fields (vin + source identifiers) plus the status context
+ * to extract. Everything the old in-process job read for its diff/audit —
+ * current content values and the optimistic-lock `updatedAt` — stays
+ * server-side: the coordinator's submit endpoint re-reads the full row and
+ * computes the changed-field diff, observation before/after, and the
+ * `updatedAt`-guarded update inside its own transaction (see
+ * detailExtractSubmitRequestSchema).
  */
 export const listingDetailStateSchema = z.object({
   id: z.string().min(1),
@@ -339,7 +370,7 @@ export const listingDetailStateSchema = z.object({
   externalId: z.string().nullable(),
   stockNumber: z.string().nullable(),
   status: listingStatusSchema,
-  soldAt: z.coerce.date().nullable(),
+  soldAt: isoDateTimeSchema.nullable(),
   vin: z.string().nullable(),
   missingFromCompleteCount: z.number().int().nonnegative(),
 })
@@ -374,8 +405,8 @@ export const detailResultSchema = z.object({
   zip: z.string().nullable(),
   dealerPhone: z.string().nullable(),
   saleStatus: saleStatusSchema,
-  sourceListedAt: z.coerce.date().nullable(),
-  sourceUpdatedAt: z.coerce.date().nullable(),
+  sourceListedAt: isoDateTimeSchema.nullable(),
+  sourceUpdatedAt: isoDateTimeSchema.nullable(),
   evidence: z.object({
     color: detailEvidenceSchema,
     fuelType: detailEvidenceSchema,
@@ -400,7 +431,7 @@ export const blvdDealerEnrichmentSchema = z.object({
  * `already_applied` (no new listing update or observation row).
  */
 export const detailExtractSubmitRequestSchema = z.object({
-  sourceId: z.string().min(1),
+  sourceId: sourceIdSchema,
   rawPageId: z.string().min(1),
   /** Null when no listing matched the raw page's URL at read time. */
   listingId: z.string().min(1).nullable(),

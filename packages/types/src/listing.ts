@@ -37,12 +37,23 @@ export const QUALITY_RULE_SEVERITY: Readonly<Record<string, QualityIssueSeverity
   nhtsa_year_mismatch: 'error',
 } as const
 
-export type ConversionType = 'rear_entry' | 'side_entry' | 'unknown'
-export type RampType = 'in_floor' | 'fold_out' | 'fold_in' | 'none' | 'unknown'
-export type ConversionStatus = 'proposed' | 'complete' | 'unknown'
-export type ListingCondition = 'new' | 'used' | 'certified_pre_owned'
-export type ListingSellerType = 'dealer' | 'private'
-export type SaleStatus = 'active' | 'pending' | 'sold' | 'gone'
+/*
+ * Vocabulary unions are derived from `as const` tuples (like WAV_FEATURES
+ * below) so the wire schemas in scraper-gateway.ts can build their z.enum()
+ * from the same single source of truth instead of hand-repeating the members.
+ */
+export const CONVERSION_TYPES = ['rear_entry', 'side_entry', 'unknown'] as const
+export type ConversionType = (typeof CONVERSION_TYPES)[number]
+export const RAMP_TYPES = ['in_floor', 'fold_out', 'fold_in', 'none', 'unknown'] as const
+export type RampType = (typeof RAMP_TYPES)[number]
+export const CONVERSION_STATUSES = ['proposed', 'complete', 'unknown'] as const
+export type ConversionStatus = (typeof CONVERSION_STATUSES)[number]
+export const LISTING_CONDITIONS = ['new', 'used', 'certified_pre_owned'] as const
+export type ListingCondition = (typeof LISTING_CONDITIONS)[number]
+export const LISTING_SELLER_TYPES = ['dealer', 'private'] as const
+export type ListingSellerType = (typeof LISTING_SELLER_TYPES)[number]
+export const SALE_STATUSES = ['active', 'pending', 'sold', 'gone'] as const
+export type SaleStatus = (typeof SALE_STATUSES)[number]
 
 /**
  * Controlled vocabulary for WAV features.
@@ -50,14 +61,14 @@ export type SaleStatus = 'active' | 'pending' | 'sold' | 'gone'
  * Absence of a feature in wavFeatures means "not observed", not "confirmed absent".
  */
 export const WAV_FEATURES = {
-  hand_controls:           'Hand Controls',
-  transfer_seat:           'Transfer Seat',
-  has_lift:                'Wheelchair Lift',
-  kneel_system:            'Kneel System',
-  lowered_floor:           'Lowered Floor',
-  power_ramp:              'Power Ramp',
-  tie_down_system:         'Tie-Down System',
-  automatic_door:          'Automatic Door',
+  hand_controls: 'Hand Controls',
+  transfer_seat: 'Transfer Seat',
+  has_lift: 'Wheelchair Lift',
+  kneel_system: 'Kneel System',
+  lowered_floor: 'Lowered Floor',
+  power_ramp: 'Power Ramp',
+  tie_down_system: 'Tie-Down System',
+  automatic_door: 'Automatic Door',
   motorized_running_board: 'Motorized Running Board',
 } as const
 
@@ -80,7 +91,13 @@ export interface WavFeatures {
  * stored value is, never a side/rear/ramp value itself. Mirrors Prisma's
  * `FieldResolutionState` enum (packages/db/prisma/schema.prisma).
  */
-export type FieldResolutionState = 'verified' | 'source_reported' | 'conflicting' | 'unknown'
+export const FIELD_RESOLUTION_STATES = [
+  'verified',
+  'source_reported',
+  'conflicting',
+  'unknown',
+] as const
+export type FieldResolutionState = (typeof FIELD_RESOLUTION_STATES)[number]
 
 export interface WavFieldResolution {
   conversionType: FieldResolutionState
