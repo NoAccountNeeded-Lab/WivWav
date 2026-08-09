@@ -71,7 +71,11 @@ export class HttpClient {
         })
       } catch (err) {
         if (attempt < this.maxAttempts) {
-          const delay = this.baseDelayMs * 2 ** (attempt - 1)
+          // Full-jitter backoff (not just exponential): across a fleet of
+          // workers, an API blip would otherwise send every worker's retry
+          // to the same handful of timestamps, thundering-herding the
+          // just-recovered coordinator.
+          const delay = Math.random() * this.baseDelayMs * 2 ** (attempt - 1)
           this.logger?.warn(
             { event: 'http.retry', url, attempt, err: err instanceof Error ? err.message : String(err) },
             `[http-client] network error calling ${method} ${path}; retrying in ${delay}ms`,
