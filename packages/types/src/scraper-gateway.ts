@@ -150,6 +150,21 @@ export const sourceExecutionStateResponseSchema = z.object({
 })
 export type SourceExecutionStateResponse = z.infer<typeof sourceExecutionStateResponseSchema>
 
+/**
+ * Fields a remote worker needs to construct a `SourceAdapter` (#952): the
+ * SOURCE_SCRAPE dispatch payload carries only `sourceId`, so the worker
+ * resolves the registry adapter module via `name` and seeds its
+ * change-detection state from `fingerprintHash`/`page1Hash`.
+ */
+export const sourceProfileResponseSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  baseUrl: z.string().min(1),
+  fingerprintHash: z.string().nullable(),
+  page1Hash: z.string().nullable(),
+})
+export type SourceProfileResponse = z.infer<typeof sourceProfileResponseSchema>
+
 export const sourceMarkNeedsRemappingRequestSchema = z.object({
   sourceId: sourceIdSchema,
   errorMessage: z.string().optional(),
@@ -202,6 +217,7 @@ export const sourceDriftBaselineSchema = z.object({
   baselineErrorRate: z.number().min(0).max(1),
   baselineMissingRate: z.number().min(0).max(1),
 })
+export type SourceDriftBaseline = z.infer<typeof sourceDriftBaselineSchema>
 
 /** `baseline` is null until a first run has completed for the source. */
 export const sourceDriftBaselineResponseSchema = z.object({
@@ -430,6 +446,7 @@ export const detailResultSchema = z.object({
     accessibilityClaims: detailEvidenceSchema,
   }),
 })
+export type DetailResult = z.infer<typeof detailResultSchema>
 
 /** Mirrors `BlvdDealerEnrichment` (apps/scraper/src/sources/blvd-dealer-enrichment.ts). */
 export const blvdDealerEnrichmentSchema = z.object({
