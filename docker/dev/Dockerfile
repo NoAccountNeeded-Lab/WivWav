@@ -27,6 +27,7 @@ COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/logger/package.json packages/logger/
 COPY packages/observability/package.json packages/observability/
 COPY packages/queue/package.json packages/queue/
+COPY packages/scraper-sources/package.json packages/scraper-sources/
 COPY packages/sdlc-cli/package.json packages/sdlc-cli/
 COPY packages/search/package.json packages/search/
 COPY packages/types/package.json packages/types/

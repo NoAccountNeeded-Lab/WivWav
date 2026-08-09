@@ -26,6 +26,7 @@ COPY packages/logger/package.json ./packages/logger/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/search/package.json ./packages/search/
 COPY packages/agents/package.json ./packages/agents/
+COPY packages/scraper-sources/package.json ./packages/scraper-sources/
 COPY apps/scraper/package.json ./apps/scraper/
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
@@ -38,6 +39,7 @@ COPY packages/logger ./packages/logger
 COPY packages/queue ./packages/queue
 COPY packages/search ./packages/search
 COPY packages/agents ./packages/agents
+COPY packages/scraper-sources ./packages/scraper-sources
 COPY apps/scraper ./apps/scraper
 RUN pnpm --filter @wivwav/db generate \
     && pnpm --filter @wivwav/scraper... run build

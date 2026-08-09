@@ -1,47 +1,42 @@
 {
-  "name": "@wivwav/scraper",
+  "name": "@wivwav/scraper-sources",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "files": [
     "dist"
   ],
-  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./*": "./dist/*"
+  },
   "scripts": {
     "build": "tsc",
-    "dev": "node --import tsx --watch src/index.ts",
-    "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run src --exclude '**/*.integration.test.ts'",
+    "test:fixtures": "vitest run src/sources/fixture-contract.test.ts",
     "test:integration": "vitest run src/**/*.integration.test.ts",
-    "test:integration:offline": "vitest run src/pipeline/fixture-to-facets.integration.test.ts src/schedule-registration.integration.test.ts",
-    "clean": "rm -rf dist",
-    "eval": "node --import tsx evals/run-eval.ts"
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@playwright/test": "^1.61.1",
-    "@sentry/node": "^10.64.0",
-    "@wivwav/agents": "workspace:*",
-    "@wivwav/db": "workspace:*",
     "@wivwav/logger": "workspace:*",
-    "@wivwav/observability": "workspace:*",
     "@wivwav/queue": "workspace:*",
-    "@wivwav/scraper-sources": "workspace:*",
     "@wivwav/search": "workspace:*",
     "@wivwav/types": "workspace:*",
-    "dotenv": "^17.4.2",
-    "meilisearch": "^0.59.0",
-    "p-retry": "^8.0.0",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "robots-parser": "^3.0.1",
-    "sharp": "^0.35.3",
-    "zod": "^4.4.3"
+    "robots-parser": "^3.0.1"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
-    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

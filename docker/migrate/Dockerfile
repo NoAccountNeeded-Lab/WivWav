@@ -13,6 +13,8 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY scripts/check-node-version.mjs ./scripts/
 COPY packages/config/package.json ./packages/config/
+# @wivwav/db depends on @wivwav/types since the VIN helpers moved there (#950).
+COPY packages/types/package.json ./packages/types/
 COPY packages/db/package.json ./packages/db/
 COPY packages/db/prisma.config.ts ./packages/db/
 COPY packages/db/prisma/schema.prisma ./packages/db/prisma/

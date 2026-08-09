@@ -69,7 +69,12 @@ import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
 import { evaluateMobilityWorksCards, parseCard as parseMwCard } from '../sources/mobilityworks.js'
 import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
 import { ingestListing } from '../application/listing-ingest.js'
-import { buildListingDetailUpdateData, changedDetailFields, blvdEvidence, type DetailResult } from '../jobs/detail-extract.js'
+import {
+  buildListingDetailUpdateData,
+  changedDetailFields,
+  blvdEvidence,
+  type DetailResult,
+} from '../jobs/detail-extract.js'
 import { runDeduplicateJob } from '../jobs/deduplicate.js'
 import { runListingResolveJob } from '../jobs/listing-resolve.js'
 import { runMeilisearchSyncJob } from '../jobs/meilisearch-sync.js'
@@ -87,8 +92,14 @@ import {
 
 // apps/api SERVICE modules — see the cross-app import note above. Neither
 // module imports Fastify, TypeBox, or any other apps/api-only dependency.
-import { ListingSearchService, type SearchParams } from '../../../api/src/services/listing-search.js'
-import { ListingFacetsService, type FacetsParams } from '../../../api/src/services/listing-facets.js'
+import {
+  ListingSearchService,
+  type SearchParams,
+} from '../../../api/src/services/listing-search.js'
+import {
+  ListingFacetsService,
+  type FacetsParams,
+} from '../../../api/src/services/listing-facets.js'
 import { MeilisearchService } from '../../../api/src/services/search/meilisearch-service.js'
 import { MemoryCacheService } from '../../../api/src/services/cache/memory-cache-service.js'
 
@@ -102,7 +113,17 @@ process.env['MEILISEARCH_API_KEY'] ??= 'wav_master_key'
 process.env['MEILI_HOST'] ??= process.env['MEILISEARCH_HOST']
 process.env['MEILI_API_KEY'] ??= process.env['MEILISEARCH_API_KEY']
 
-const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'sources', 'fixtures', 'contracts')
+// Fixtures relocated with the source parsers to packages/scraper-sources (#950).
+const fixtureDir = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../..',
+  'packages',
+  'scraper-sources',
+  'src',
+  'sources',
+  'fixtures',
+  'contracts',
+)
 
 function fixtureHtml(name: string): string {
   return readFileSync(join(fixtureDir, name), 'utf8')
@@ -143,7 +164,10 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
   }
 
   async function clearIndex(): Promise<void> {
-    const task = await meili.index(INDEX_NAME).deleteAllDocuments().catch(() => null)
+    const task = await meili
+      .index(INDEX_NAME)
+      .deleteAllDocuments()
+      .catch(() => null)
     if (task) await meili.tasks.waitForTask(task.taskUid, { timeout: 15_000 })
   }
 
@@ -181,7 +205,8 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
 
       const mwCards = await evaluateMobilityWorksCards(mwListPage)
       const mwRawCard = mwCards[0]
-      if (!mwRawCard) throw new Error('[fixture-to-facets] Missing MobilityWorks normal card (index 0)')
+      if (!mwRawCard)
+        throw new Error('[fixture-to-facets] Missing MobilityWorks normal card (index 0)')
       const mwCard = parseMwCard(mwRawCard)
       if (!mwCard) throw new Error('[fixture-to-facets] MobilityWorks normal card did not parse')
 
@@ -193,15 +218,23 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
         // description field — mirrors detail-extract.ts's own MW branch.
         engine: null,
         evidence: {
-          color: Object.hasOwn(mwRawDetail.specs, 'Exterior Color') || Object.hasOwn(mwRawDetail.specs, 'Color') ? 'value' : 'missing',
+          color:
+            Object.hasOwn(mwRawDetail.specs, 'Exterior Color') ||
+            Object.hasOwn(mwRawDetail.specs, 'Color')
+              ? 'value'
+              : 'missing',
           fuelType: Object.hasOwn(mwRawDetail.specs, 'Fuel Type') ? 'value' : 'missing',
           engine: 'missing',
           transmission: Object.hasOwn(mwRawDetail.specs, 'Transmission') ? 'value' : 'missing',
           description: mwRawDetail.descriptionFound
-            ? mwRawDetail.descriptionText.trim().length > 0 ? 'value' : 'authoritative_empty'
+            ? mwRawDetail.descriptionText.trim().length > 0
+              ? 'value'
+              : 'authoritative_empty'
             : 'missing',
           images: mwRawDetail.galleryFound
-            ? mwRawDetail.imageUrls.length > 0 ? 'value' : 'authoritative_empty'
+            ? mwRawDetail.imageUrls.length > 0
+              ? 'value'
+              : 'authoritative_empty'
             : 'missing',
         },
       }
@@ -220,7 +253,11 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
           detail: blvdDetail,
         },
         mw: {
-          card: { ...mwCard, sourceId: mwSourceId, sourceRecordKey: 'CATALOG-MW-1' } as ListingUpsertData,
+          card: {
+            ...mwCard,
+            sourceId: mwSourceId,
+            sourceRecordKey: 'CATALOG-MW-1',
+          } as ListingUpsertData,
           detail: mwDetail,
         },
       }
@@ -243,10 +280,25 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
   async function applyDetailUpdate(listingId: string, detail: DetailResult): Promise<void> {
     const existing = await db.listing.findUniqueOrThrow({ where: { id: listingId } })
     const now = new Date()
-    const update = buildListingDetailUpdateData(detail, { dealerWebsite: null, directVehicleUrl: null }, {}, now)
-    const changed = changedDetailFields(existing as unknown as Record<string, unknown>, update as Record<string, unknown>)
-    const before = Object.fromEntries(changed.map((field) => [field, (existing as unknown as Record<string, unknown>)[field] ?? null]))
-    const after = Object.fromEntries(changed.map((field) => [field, (update as Record<string, unknown>)[field] ?? null]))
+    const update = buildListingDetailUpdateData(
+      detail,
+      { dealerWebsite: null, directVehicleUrl: null },
+      {},
+      now,
+    )
+    const changed = changedDetailFields(
+      existing as unknown as Record<string, unknown>,
+      update as Record<string, unknown>,
+    )
+    const before = Object.fromEntries(
+      changed.map((field) => [
+        field,
+        (existing as unknown as Record<string, unknown>)[field] ?? null,
+      ]),
+    )
+    const after = Object.fromEntries(
+      changed.map((field) => [field, (update as Record<string, unknown>)[field] ?? null]),
+    )
     // Same statements detail-extract.ts's runDetailExtractJob wraps in a
     // Serializable db.$transaction — reproduced here without the wrapper
     // since this suite is single-writer (no concurrent detail extraction
@@ -284,9 +336,18 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
     await resetDb()
     await clearIndex()
 
-    const blvdSource = await db.source.create({ data: { name: 'Fixture-to-facets BLVD', baseUrl: 'https://fixture.example.com/blvd' } })
-    const mwSource = await db.source.create({ data: { name: 'Fixture-to-facets MobilityWorks', baseUrl: 'https://fixture.example.com/mw' } })
-    const pendingSource = await db.source.create({ data: { name: 'Fixture-to-facets Pending Queue', baseUrl: 'https://fixture.example.com/pending' } })
+    const blvdSource = await db.source.create({
+      data: { name: 'Fixture-to-facets BLVD', baseUrl: 'https://fixture.example.com/blvd' },
+    })
+    const mwSource = await db.source.create({
+      data: { name: 'Fixture-to-facets MobilityWorks', baseUrl: 'https://fixture.example.com/mw' },
+    })
+    const pendingSource = await db.source.create({
+      data: {
+        name: 'Fixture-to-facets Pending Queue',
+        baseUrl: 'https://fixture.example.com/pending',
+      },
+    })
     blvdSourceId = blvdSource.id
     mwSourceId = mwSource.id
     pendingSourceId = pendingSource.id
@@ -359,7 +420,9 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
     return Object.fromEntries(breakdown.map((b) => [b.value, b.count]))
   }
 
-  function toBucketRecord(breakdown: Array<{ bucket: string; count: number }>): Record<string, number> {
+  function toBucketRecord(
+    breakdown: Array<{ bucket: string; count: number }>,
+  ): Record<string, number> {
     return Object.fromEntries(breakdown.map((b) => [b.bucket, b.count]))
   }
 
@@ -380,29 +443,48 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
 
   it('[database row checkpoint] every catalog row lands in Postgres via the production repository path', async () => {
     const count = await db.listing.count()
-    expect(count, '[database row] expected every catalog row (including excluded lifecycles) to be persisted').toBe(rows.length)
+    expect(
+      count,
+      '[database row] expected every catalog row (including excluded lifecycles) to be persisted',
+    ).toBe(rows.length)
   })
 
   it('[publication decision checkpoint] pending, quarantined, and gone listings never reach publicationStatus: eligible', async () => {
     const pending = await db.listing.findFirst({ where: { sourceId: pendingSourceId } })
-    expect(pending?.publicationStatus, '[publication decision] pending-never-resolved must stay pending').toBe('pending')
+    expect(
+      pending?.publicationStatus,
+      '[publication decision] pending-never-resolved must stay pending',
+    ).toBe('pending')
 
     const quarantined = await db.listing.findFirst({ where: { sourceRecordKey: 'CATALOG-BLVD-4' } })
-    expect(quarantined?.publicationStatus, '[publication decision] quarantined-bad-year must be quarantined').toBe('quarantined')
+    expect(
+      quarantined?.publicationStatus,
+      '[publication decision] quarantined-bad-year must be quarantined',
+    ).toBe('quarantined')
     expect(quarantined?.qualityIssueCodes).toContain('implausible_year')
 
     const gone = await db.listing.findFirst({ where: { sourceRecordKey: 'CATALOG-MW-3' } })
-    expect(gone?.status, '[publication decision] gone-after-eligible must have status: gone').toBe('gone')
+    expect(gone?.status, '[publication decision] gone-after-eligible must have status: gone').toBe(
+      'gone',
+    )
   })
 
   it('[search document checkpoint] a duplicate vehicle group contributes exactly one representative', async () => {
     const dupRows = await db.listing.findMany({ where: { vin: '1FTFW1XT0EFA12345' } })
-    expect(dupRows, '[search document] both duplicate rows should share one vehicleId after runDeduplicateJob').toHaveLength(2)
+    expect(
+      dupRows,
+      '[search document] both duplicate rows should share one vehicleId after runDeduplicateJob',
+    ).toHaveLength(2)
     expect(dupRows[0]!.vehicleId).not.toBeNull()
     expect(dupRows[0]!.vehicleId).toBe(dupRows[1]!.vehicleId)
 
-    const doc = await meili.index(INDEX_NAME).getDocument(dupRows.find((r) => r.sourceRecordKey === 'CATALOG-MW-2')!.id)
-    expect(doc['color'], '[search document] the more-complete duplicate member must be the synced representative').toBe('Silver')
+    const doc = await meili
+      .index(INDEX_NAME)
+      .getDocument(dupRows.find((r) => r.sourceRecordKey === 'CATALOG-MW-2')!.id)
+    expect(
+      doc['color'],
+      '[search document] the more-complete duplicate member must be the synced representative',
+    ).toBe('Silver')
 
     const otherId = dupRows.find((r) => r.sourceRecordKey === 'CATALOG-BLVD-3')!.id
     await expect(meili.index(INDEX_NAME).getDocument(otherId)).rejects.toThrow()
@@ -410,41 +492,69 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
 
   it('[facet API checkpoint] GET /v1/listings/facets total equals eligible unique vehicle groups, not raw listing rows', async () => {
     const facets = await getFacets()
-    expect(facets['total'], '[facet API] total must count vehicle groups (7), not the 11 persisted rows').toBe(EXPECTED_TOTAL)
+    expect(
+      facets['total'],
+      '[facet API] total must count vehicle groups (7), not the 11 persisted rows',
+    ).toBe(EXPECTED_TOTAL)
   })
 
-  it.each(Object.entries(EXPECTED_BREAKDOWNS))('[facet API checkpoint] %s breakdown matches the hand-authored manifest exactly', async (field, expected) => {
-    const facets = await getFacets()
-    const key = BREAKDOWN_KEY[field]!
-    if (field === 'year') {
-      const actual = Object.fromEntries((facets[key] as Array<{ year: number; count: number }>).map((b) => [b.year, b.count]))
-      expect(actual, `[facet API] ${key} diverged from the hand-authored manifest`).toEqual(expected)
-      return
-    }
-    const actual = toRecord(facets[key] as Array<{ value: string; count: number }>)
-    expect(actual, `[facet API] ${key} diverged from the hand-authored manifest`).toEqual(expected)
-  })
+  it.each(Object.entries(EXPECTED_BREAKDOWNS))(
+    '[facet API checkpoint] %s breakdown matches the hand-authored manifest exactly',
+    async (field, expected) => {
+      const facets = await getFacets()
+      const key = BREAKDOWN_KEY[field]!
+      if (field === 'year') {
+        const actual = Object.fromEntries(
+          (facets[key] as Array<{ year: number; count: number }>).map((b) => [b.year, b.count]),
+        )
+        expect(actual, `[facet API] ${key} diverged from the hand-authored manifest`).toEqual(
+          expected,
+        )
+        return
+      }
+      const actual = toRecord(facets[key] as Array<{ value: string; count: number }>)
+      expect(actual, `[facet API] ${key} diverged from the hand-authored manifest`).toEqual(
+        expected,
+      )
+    },
+  )
 
   it('[facet API checkpoint] wavFeatureCounts are multi-valued and are not asserted to sum to total', async () => {
     const facets = await getFacets()
     const wavFeatureCounts = facets['wavFeatureCounts'] as Record<string, number>
-    expect(wavFeatureCounts, '[facet API] wavFeatureCounts diverged from the hand-authored manifest').toEqual(EXPECTED_WAV_FEATURE_COUNTS)
+    expect(
+      wavFeatureCounts,
+      '[facet API] wavFeatureCounts diverged from the hand-authored manifest',
+    ).toEqual(EXPECTED_WAV_FEATURE_COUNTS)
 
     const sum = Object.values(wavFeatureCounts).reduce((a, b) => a + b, 0)
-    expect(sum, '[facet API] multi-valued wavFeature counts legitimately exceed total — this is not a bug').toBeGreaterThan(EXPECTED_TOTAL)
+    expect(
+      sum,
+      '[facet API] multi-valued wavFeature counts legitimately exceed total — this is not a bug',
+    ).toBeGreaterThan(EXPECTED_TOTAL)
     expect(wavFeatureCounts['has_lift']).toBeUndefined()
   })
 
   it('[facet API checkpoint] priceDistribution and mileageDistribution buckets match, including exact boundaries', async () => {
     const facets = await getFacets()
-    expect(toBucketRecord(facets['priceDistribution'] as Array<{ bucket: string; count: number }>)).toEqual(EXPECTED_PRICE_BUCKETS)
-    expect(toBucketRecord(facets['mileageDistribution'] as Array<{ bucket: string; count: number }>)).toEqual(EXPECTED_MILEAGE_BUCKETS)
+    expect(
+      toBucketRecord(facets['priceDistribution'] as Array<{ bucket: string; count: number }>),
+    ).toEqual(EXPECTED_PRICE_BUCKETS)
+    expect(
+      toBucketRecord(facets['mileageDistribution'] as Array<{ bucket: string; count: number }>),
+    ).toEqual(EXPECTED_MILEAGE_BUCKETS)
   })
 
-  it.each(EXPECTED_FILTER_COUNTS)('[filtered listing API checkpoint] $param=$value returns total=$total', async ({ param, value, total }) => {
-    const actual = await getListingsTotal({ [param]: [value] } as SearchParams)
-    expect(actual, `[filtered listing API] ${param}=${value} diverged from the hand-authored manifest`).toBe(total)
-  })
+  it.each(EXPECTED_FILTER_COUNTS)(
+    '[filtered listing API checkpoint] $param=$value returns total=$total',
+    async ({ param, value, total }) => {
+      const actual = await getListingsTotal({ [param]: [value] } as SearchParams)
+      expect(
+        actual,
+        `[filtered listing API] ${param}=${value} diverged from the hand-authored manifest`,
+      ).toBe(total)
+    },
+  )
 
   it('[filtered listing API checkpoint] combined-filter case narrows to the intersection', async () => {
     // make=Ford AND state=TX isolates exactly the duplicate group's representative.
@@ -469,11 +579,15 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
     // not suppress other makes from the state/color/etc. breakdowns when the
     // web client queries with make omitted — and vice versa.
     const withMakeFilter = await getFacets({ make: ['Ford'] })
-    expect(toRecord(withMakeFilter['stateBreakdown'] as Array<{ value: string; count: number }>)).toEqual({ TX: 1 })
+    expect(
+      toRecord(withMakeFilter['stateBreakdown'] as Array<{ value: string; count: number }>),
+    ).toEqual({ TX: 1 })
 
     const stateBreakdownOmittingMake = await getFacets({}) // web client's disjunctive call for the 'make' param
     expect(
-      toRecord(stateBreakdownOmittingMake['makeBreakdown'] as Array<{ value: string; count: number }>),
+      toRecord(
+        stateBreakdownOmittingMake['makeBreakdown'] as Array<{ value: string; count: number }>,
+      ),
       '[facet API] the disjunctive (make-omitted) call must show every make, not just the currently-filtered one',
     ).toEqual(EXPECTED_BREAKDOWNS.make)
   })
@@ -487,7 +601,9 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
   // a ListingUpsertData rather than re-driving DOM parsing a second time.
   describe('recrawl phase', () => {
     it('[database row checkpoint] a card-only recrawl updates price/mileage while preserving detail-owned fields', async () => {
-      const before = await db.listing.findFirstOrThrow({ where: { sourceRecordKey: 'CATALOG-BLVD-1' } })
+      const before = await db.listing.findFirstOrThrow({
+        where: { sourceRecordKey: 'CATALOG-BLVD-1' },
+      })
       expect(before.color).not.toBeNull()
       expect(before.rampType).toBe('fold_out')
       expect(before.wavFeatures.length).toBeGreaterThan(0)
@@ -504,12 +620,23 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
       }
       await db.$transaction((tx) => ingestListing(tx, recrawlCard))
 
-      const after = await db.listing.findFirstOrThrow({ where: { sourceRecordKey: 'CATALOG-BLVD-1' } })
+      const after = await db.listing.findFirstOrThrow({
+        where: { sourceRecordKey: 'CATALOG-BLVD-1' },
+      })
       expect(after.priceCents, '[database row] recrawl must update price').toBe(6_950_000)
       expect(after.mileage, '[database row] recrawl must update mileage').toBe(50_211)
-      expect(after.color, '[database row] detail-owned color must survive a card-only recrawl').toBe(before.color)
-      expect(after.rampType, '[database row] detail-owned rampType must survive a card-only recrawl').toBe(before.rampType)
-      expect(after.wavFeatures, '[database row] detail-owned wavFeatures must survive a card-only recrawl').toEqual(before.wavFeatures)
+      expect(
+        after.color,
+        '[database row] detail-owned color must survive a card-only recrawl',
+      ).toBe(before.color)
+      expect(
+        after.rampType,
+        '[database row] detail-owned rampType must survive a card-only recrawl',
+      ).toBe(before.rampType)
+      expect(
+        after.wavFeatures,
+        '[database row] detail-owned wavFeatures must survive a card-only recrawl',
+      ).toEqual(before.wavFeatures)
 
       // Card recrawl invalidates the prior publication decision (resetDetail) —
       // production code re-resolves it before the search sync can trust it again.
@@ -519,30 +646,50 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
 
     it('[search document checkpoint] cache behavior: a stale facets response is served until invalidated, then reflects the resync', async () => {
       const before = await getFacets({ make: ['Toyota'] })
-      const beforePrice = toBucketRecord(before['priceDistribution'] as Array<{ bucket: string; count: number }>)
-      expect(beforePrice['70000-75000'], 'precondition: blvd-fixture must still be in the pre-recrawl $70-75k bucket').toBe(1)
+      const beforePrice = toBucketRecord(
+        before['priceDistribution'] as Array<{ bucket: string; count: number }>,
+      )
+      expect(
+        beforePrice['70000-75000'],
+        'precondition: blvd-fixture must still be in the pre-recrawl $70-75k bucket',
+      ).toBe(1)
 
       await runMeilisearchSyncJob()
 
       const stillCached = await getFacets({ make: ['Toyota'] })
       expect(
-        toBucketRecord(stillCached['priceDistribution'] as Array<{ bucket: string; count: number }>),
+        toBucketRecord(
+          stillCached['priceDistribution'] as Array<{ bucket: string; count: number }>,
+        ),
         '[cache behavior] the facets cache must still serve the pre-resync distribution until invalidated',
       ).toEqual(beforePrice)
 
       cache.clear()
 
       const fresh = await getFacets({ make: ['Toyota'] })
-      const freshPrice = toBucketRecord(fresh['priceDistribution'] as Array<{ bucket: string; count: number }>)
-      expect(freshPrice['70000-75000'], '[cache behavior] after invalidation, facets must reflect the recrawled price').toBeUndefined()
+      const freshPrice = toBucketRecord(
+        fresh['priceDistribution'] as Array<{ bucket: string; count: number }>,
+      )
+      expect(
+        freshPrice['70000-75000'],
+        '[cache behavior] after invalidation, facets must reflect the recrawled price',
+      ).toBeUndefined()
       // mobilityworks-fixture ($68,250) already lives in this bucket — the
       // recrawled blvd-fixture ($69,500) now joins it, making 2.
-      expect(freshPrice['65000-70000'], '[cache behavior] recrawled blvd-fixture now falls in the $65-70k bucket').toBe(2)
+      expect(
+        freshPrice['65000-70000'],
+        '[cache behavior] recrawled blvd-fixture now falls in the $65-70k bucket',
+      ).toBe(2)
     })
 
     it('[search document checkpoint] deletion/exclusion: a listing that goes missing is removed from search and facets on reindex', async () => {
-      const extraDiversity = await db.listing.findFirstOrThrow({ where: { sourceRecordKey: 'CATALOG-BLVD-6' } })
-      await db.listing.update({ where: { id: extraDiversity.id }, data: { status: 'gone', goneAt: new Date() } })
+      const extraDiversity = await db.listing.findFirstOrThrow({
+        where: { sourceRecordKey: 'CATALOG-BLVD-6' },
+      })
+      await db.listing.update({
+        where: { id: extraDiversity.id },
+        data: { status: 'gone', goneAt: new Date() },
+      })
 
       await runMeilisearchSyncJob()
       cache.clear()
@@ -550,8 +697,13 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
       await expect(meili.index(INDEX_NAME).getDocument(extraDiversity.id)).rejects.toThrow()
 
       const facets = await getFacets()
-      expect(facets['total'], '[facet API] total must drop by 1 once extra-diversity goes gone and is reindexed').toBe(EXPECTED_TOTAL - 1)
-      const makeBreakdown = toRecord(facets['makeBreakdown'] as Array<{ value: string; count: number }>)
+      expect(
+        facets['total'],
+        '[facet API] total must drop by 1 once extra-diversity goes gone and is reindexed',
+      ).toBe(EXPECTED_TOTAL - 1)
+      const makeBreakdown = toRecord(
+        facets['makeBreakdown'] as Array<{ value: string; count: number }>,
+      )
       expect(makeBreakdown['Toyota'], '[facet API] Toyota count must drop from 3 to 2').toBe(2)
     })
   })

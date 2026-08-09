@@ -10,33 +10,29 @@ function pkgSrc(name: string): string {
   return path.resolve(WORKSPACE_ROOT, 'packages', name, 'src', 'index.ts')
 }
 
+function pkgFile(name: string, file: string): string {
+  return path.resolve(WORKSPACE_ROOT, 'packages', name, 'src', file)
+}
+
 export default defineConfig({
   resolve: {
-    alias: {
-      '@wivwav/db': pkgSrc('db'),
-      // Subpath entries must precede the bare package alias: Vite substitutes
-      // by prefix, so the bare entry would otherwise mangle subpath imports
-      // into '<...>/src/index.ts/scraper-gateway'.
-      '@wivwav/types/scraper-gateway': path.resolve(
-        WORKSPACE_ROOT,
-        'packages',
-        'types',
-        'src',
-        'scraper-gateway.ts',
-      ),
-      '@wivwav/types/worker-protocol': path.resolve(
-        WORKSPACE_ROOT,
-        'packages',
-        'types',
-        'src',
-        'worker-protocol.ts',
-      ),
-      '@wivwav/types': pkgSrc('types'),
-      '@wivwav/queue': pkgSrc('queue'),
-      '@wivwav/logger': pkgSrc('logger'),
-      '@wivwav/observability': pkgSrc('observability'),
-      '@wivwav/search': pkgSrc('search'),
-      '@wivwav/agents': pkgSrc('agents'),
-    },
+    // Subpath entries must precede the bare package aliases: Vite substitutes
+    // by prefix, so a bare entry would otherwise mangle subpath imports.
+    alias: [
+      {
+        find: /^@wivwav\/scraper-sources\/(.*)\.js$/,
+        replacement: path.resolve(WORKSPACE_ROOT, 'packages', 'scraper-sources', 'src') + '/$1.ts',
+      },
+      { find: '@wivwav/types/scraper-gateway', replacement: pkgFile('types', 'scraper-gateway.ts') },
+      { find: '@wivwav/types/worker-protocol', replacement: pkgFile('types', 'worker-protocol.ts') },
+      { find: '@wivwav/scraper-sources', replacement: pkgSrc('scraper-sources') },
+      { find: '@wivwav/db', replacement: pkgSrc('db') },
+      { find: '@wivwav/types', replacement: pkgSrc('types') },
+      { find: '@wivwav/queue', replacement: pkgSrc('queue') },
+      { find: '@wivwav/logger', replacement: pkgSrc('logger') },
+      { find: '@wivwav/observability', replacement: pkgSrc('observability') },
+      { find: '@wivwav/search', replacement: pkgSrc('search') },
+      { find: '@wivwav/agents', replacement: pkgSrc('agents') },
+    ],
   },
 })

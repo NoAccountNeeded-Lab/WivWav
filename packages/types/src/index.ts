@@ -9,6 +9,7 @@ export * from './source-registry.js'
 export * from './attention-snapshot.js'
 export * from './problem-aggregate.js'
 export * from './type-parity.js'
+export * from './vin.js'
 // worker-protocol.js and scraper-gateway.js are deliberately NOT re-exported
 // here: they carry the package's only runtime dependency (zod), and this
 // barrel is imported at runtime by apps/web client code (WAV_FEATURES) as
