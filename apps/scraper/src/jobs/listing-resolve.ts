@@ -42,7 +42,7 @@ import {
 } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { validateListing, decidePublication } from '../engine/listing-validator.js'
-import type { ListingUpsertData } from '../engine/repositories.js'
+import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
 
 export type ListingResolveJobData =

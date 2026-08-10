@@ -56,8 +56,7 @@
 
 import '../lib/load-env.js'
 
-import { getDb } from '@wivwav/db'
-import { applyFieldResolution, recordClaim } from '../resolution/claims-repository.js'
+import { applyFieldResolution, getDb, recordClaim } from '@wivwav/db'
 import { NoopPhotoClaimProvider } from '../resolution/photo-claim-provider.js'
 import type { ClaimField, FieldResolutionState } from '../resolution/types.js'
 import { withTransientRetry } from '../lib/db-retry.js'

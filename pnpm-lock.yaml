@@ -187,9 +187,6 @@ importers:
 
   apps/scraper:
     dependencies:
-      '@playwright/test':
-        specifier: ^1.61.1
-        version: 1.61.1
       '@sentry/node':
         specifier: ^10.64.0
         version: 10.64.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))
@@ -208,9 +205,6 @@ importers:
       '@wivwav/queue':
         specifier: workspace:*
         version: link:../../packages/queue
-      '@wivwav/scraper-sources':
-        specifier: workspace:*
-        version: link:../../packages/scraper-sources
       '@wivwav/search':
         specifier: workspace:*
         version: link:../../packages/search
@@ -239,6 +233,9 @@ importers:
       '@wivwav/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@wivwav/scraper-sources':
+        specifier: workspace:*
+        version: link:../../packages/scraper-sources
       tsx:
         specifier: ^4.23.0
         version: 4.23.0

@@ -24,7 +24,7 @@
 import type { Listing } from '@wivwav/types'
 
 /**
- * Matches apps/scraper/src/engine/repositories.ts's ListingUpsertData exactly
+ * Matches the worker-gateway ListingUpsertRequest contract exactly
  * (re-declared here rather than imported so this catalog has zero dependency
  * on scraper internals beyond the shared @wivwav/types Listing shape).
  */

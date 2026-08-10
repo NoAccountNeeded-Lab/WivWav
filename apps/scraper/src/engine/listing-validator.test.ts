@@ -8,7 +8,7 @@ import {
   SYSTEMIC_ERROR_THRESHOLD,
   DRIFT_THRESHOLD_PERCENTAGE_POINTS,
 } from './listing-validator.js'
-import type { ListingUpsertData } from './repositories.js'
+import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 
 function makeListing(overrides: Partial<ListingUpsertData> = {}): ListingUpsertData {
   return {

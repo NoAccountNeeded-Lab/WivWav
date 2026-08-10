@@ -19,14 +19,12 @@
     "eval": "node --import tsx evals/run-eval.ts"
   },
   "dependencies": {
-    "@playwright/test": "^1.61.1",
     "@sentry/node": "^10.64.0",
     "@wivwav/agents": "workspace:*",
     "@wivwav/db": "workspace:*",
     "@wivwav/logger": "workspace:*",
     "@wivwav/observability": "workspace:*",
     "@wivwav/queue": "workspace:*",
-    "@wivwav/scraper-sources": "workspace:*",
     "@wivwav/search": "workspace:*",
     "@wivwav/types": "workspace:*",
     "dotenv": "^17.4.2",
@@ -38,6 +36,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
+    "@wivwav/scraper-sources": "workspace:*",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
