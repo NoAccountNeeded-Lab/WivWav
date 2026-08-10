@@ -78,10 +78,9 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   // #948 worker gateway: when 'true', apps/api registers as the BullMQ
   // consumer for the three browser-job queues and exposes the /internal/workers
-  // WS dispatch endpoint + /internal/scraper ingest routes. Default off — the
-  // in-process apps/scraper workers keep consuming those queues until cutover.
-  // The flag and the scraper's worker registrations are mutually exclusive:
-  // never run two consumer groups against the same queues.
+  // WS dispatch endpoint + /internal/scraper ingest routes. Production must
+  // set this true after #953; default false keeps local/test API startup
+  // opt-in. apps/scraper no longer provides fallback browser-job consumers.
   WORKER_GATEWAY_ENABLED: z
     .enum(['true', 'false'])
     .default('false')

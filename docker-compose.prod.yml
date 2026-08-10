@@ -142,9 +142,6 @@ services:
   scraper:
     image: ghcr.io/noaccountneeded-lab/wivwav/scraper@sha256:0000000000000000000000000000000000000000000000000000000000000000
     init: true
-    ipc: host
-    security_opt:
-      - seccomp=./docker/chromium-seccomp.json
     restart: unless-stopped
     environment:
       NODE_ENV: production

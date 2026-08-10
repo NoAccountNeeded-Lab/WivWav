@@ -65,9 +65,8 @@ async function handleSourceScrapeCompletion(
 /**
  * Registers apps/api as the BullMQ consumer for the gateway queues; each
  * processor forwards the job to a connected worker and awaits its completion
- * callback. Only call when WORKER_GATEWAY_ENABLED — the flag and the
- * scraper's in-process registrations are mutually exclusive (never two
- * consumer groups per queue).
+ * callback. Only call when WORKER_GATEWAY_ENABLED; after #953 these are the
+ * sole consumers for the three queues.
  */
 export function registerGatewayWorkers(
   queueFactory: QueueFactory,

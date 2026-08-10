@@ -452,11 +452,10 @@ export async function buildApp(
     stripeWebhookSecret: config.STRIPE_WEBHOOK_SECRET,
   })
 
-  // Worker-fleet coordinator (#948/#951): gated behind WORKER_GATEWAY_ENABLED
-  // (default off) so apps/scraper's in-process workers keep consuming the
-  // three browser-job queues until the #953 cutover. The flag and those
-  // registrations are mutually exclusive — never run two consumer groups
-  // against the same queue.
+  // Worker-fleet coordinator (#948/#951/#953): when enabled, apps/api is the
+  // sole BullMQ consumer for the three browser-job queues and dispatches them
+  // to connected apps/worker runners. apps/scraper no longer has fallback
+  // consumers, so disabling this flag pauses browser-job processing.
   if (config.WORKER_GATEWAY_ENABLED) {
     const workerRegistry = new WorkerRegistry()
     const workerDispatcher = new WorkerDispatcher(
