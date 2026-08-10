@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Playwright supports Debian/glibc, not Alpine/musl. Keep every stage on the
-# same runtime family so native packages such as sharp are built for the final
-# image's libc and architecture.
+# Keep every stage on Debian/glibc so native packages such as sharp are built
+# for the final image's libc and architecture.
 FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -64,7 +63,6 @@ RUN pnpm --config.inject-workspace-packages=true \
 
 FROM base AS runner
 ENV NODE_ENV=production
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV HOME=/home/scraper
 WORKDIR /app
 
@@ -72,13 +70,6 @@ RUN groupadd --gid 10001 scraper \
     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin scraper
 
 COPY --from=builder --chown=scraper:scraper /prod/scraper ./
-
-# The scraper launches Playwright's default headless mode without a channel, so
-# only Chromium headless shell is required. Firefox, WebKit, and full Chromium
-# are intentionally not installed.
-RUN ./node_modules/.bin/playwright install --with-deps --only-shell chromium \
-    && rm -rf /var/lib/apt/lists/* \
-    && chown -R scraper:scraper /ms-playwright
 
 COPY --chown=scraper:scraper docker/scraper-smoke.mjs ./smoke.mjs
 

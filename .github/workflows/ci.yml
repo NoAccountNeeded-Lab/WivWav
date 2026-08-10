@@ -68,9 +68,7 @@ jobs:
       - name: Smoke-test final scraper image
         if: matrix.service == 'scraper'
         run: |
-          docker run --rm --init --ipc=host \
-            --security-opt seccomp=./docker/chromium-seccomp.json \
-            wivwav-ci-scraper:${{ github.sha }} \
+          docker run --rm --init wivwav-ci-scraper:${{ github.sha }} \
             node smoke.mjs
 
       # #658: the API and migration images must ship only what production
