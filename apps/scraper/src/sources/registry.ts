@@ -4,11 +4,7 @@ import {
   type FieldMapping,
   type ScraperSourceRegistryEntry,
 } from '@wivwav/types'
-import type { PlaywrightBrowserService } from '../browser/index.js'
-import type { ScraperEngine } from '../engine/scraper-engine.js'
 import type { DetailScheduleSource } from '../schedule-registration.js'
-import { SOURCE_ADAPTER_MODULES } from '@wivwav/scraper-sources'
-import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from '@wivwav/scraper-sources/sources/freedom-motors-detail-mappings.js'
 
 interface SourceRow {
   id: string
@@ -34,14 +30,60 @@ export interface RegisteredSource {
  * below intentionally never overwrites a live (possibly AI-remapped) row.
  */
 const DEFAULT_MAPPINGS_BY_KEY: Partial<Record<string, FieldMapping[]>> = {
-  'freedom-motors': FREEDOM_MOTORS_DETAIL_MAPPINGS,
+  // Kept local so the scheduler image does not pull the browser-owning
+  // @wivwav/scraper-sources package into production. registry.test.ts checks
+  // this seed against the worker package's canonical mapping.
+  'freedom-motors': [
+    {
+      targetField: 'images',
+      selector: '.images .woocommerce-product-gallery__image img.wp-post-image',
+      attribute: 'data-large_image',
+      transform: null,
+    },
+    {
+      targetField: 'color',
+      selector:
+        '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Exterior Color")]]/span',
+      attribute: null,
+      transform: 'trimText',
+    },
+    {
+      targetField: 'fuelType',
+      selector:
+        '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Fuel Type")]]/span',
+      attribute: null,
+      transform: 'trimText',
+    },
+    {
+      targetField: 'engine',
+      selector: '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Engine")]]/span',
+      attribute: null,
+      transform: 'trimText',
+    },
+    {
+      targetField: 'transmission',
+      selector: '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Trans")]]/span',
+      attribute: null,
+      transform: 'trimText',
+    },
+    {
+      targetField: 'conversionType',
+      selector:
+        '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Conversion Location")]]/span',
+      attribute: null,
+      transform: 'trimText',
+    },
+    {
+      targetField: 'saleStatus',
+      selector:
+        '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Vehicle Status")]]/span',
+      attribute: null,
+      transform: 'trimText',
+    },
+  ],
 }
 
-export async function registerSources(
-  db: PrismaClient,
-  engine: ScraperEngine,
-  browserService: PlaywrightBrowserService,
-): Promise<RegisteredSource[]> {
+export async function registerSources(db: PrismaClient): Promise<RegisteredSource[]> {
   const registered: RegisteredSource[] = []
 
   for (const definition of SCRAPER_SOURCE_REGISTRY) {
@@ -59,20 +101,6 @@ export async function registerSources(
           : {}),
       },
     })
-
-    const module = SOURCE_ADAPTER_MODULES[definition.key]
-    if (!module) {
-      throw new Error(
-        `[registry] No adapter module for registry key '${definition.key}' — add it to SOURCE_ADAPTER_MODULES in @wivwav/scraper-sources`,
-      )
-    }
-    engine.register(
-      module.createSourceAdapter(row.fingerprintHash, {
-        previousPage1Hash: row.page1Hash,
-        browserService,
-      }),
-      row.id,
-    )
 
     registered.push({ definition, row })
   }
