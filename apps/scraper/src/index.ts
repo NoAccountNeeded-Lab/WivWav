@@ -14,24 +14,7 @@ process.on('uncaughtException', (err) => {
 
 import { getDb, readCurrentScheduleIntents } from '@wivwav/db'
 import { createLogger } from '@wivwav/logger'
-import {
-  BullMQQueueFactory,
-  CRITICAL_JOB_OPTIONS,
-  LISTING_SYNC_REBUILD_JOB_ID,
-  QUEUES,
-} from '@wivwav/queue'
-import { ScraperEngine } from './engine/scraper-engine.js'
-import { OllamaProvider } from './ai/ollama-provider.js'
-import { StructureDetector } from './ai/structure-detector.js'
-import { resolveOllamaModel } from './ai/ollama-config.js'
-import type { CompletionProvider } from './ai/completion-provider.js'
-import {
-  PrismaScraperRunRepository,
-  PrismaSourceRepository,
-  PrismaListingRepository,
-} from './infrastructure/prisma-repositories.js'
-import { runDetailCrawlJob } from './jobs/detail-crawl.js'
-import { runDetailExtractJob } from './jobs/detail-extract.js'
+import { BullMQQueueFactory, CRITICAL_JOB_OPTIONS, QUEUES } from '@wivwav/queue'
 import {
   applyScheduleIntents,
   buildDetailScheduleDefinitions,
@@ -72,15 +55,12 @@ import {
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { withJobRunTracking } from './lib/job-run-tracking.js'
 import { PrismaJobRunRepository } from './lib/job-run-repository.js'
-import { PlaywrightBrowserService } from './browser/index.js'
-import type { JobContext } from '@wivwav/queue'
 import {
   buildDetailScheduleSources,
   buildSourceScrapeScheduleSources,
   registerSources,
 } from './sources/registry.js'
 import {
-  isWorkerGatewayEnabled,
   resolveScraperRuntimeMode,
   shouldRegisterSchedules,
   shouldStartWorkers,
@@ -92,20 +72,10 @@ const logger = createLogger({
   env: process.env['NODE_ENV'] ?? 'development',
 })
 
-// No onListingsGone hook here (#669): the single-owner indexer poller picks
-// up newly-gone listings (via `updatedAt`) on its next tick instead of an
-// eager per-mutation search sync.
-const engine = new ScraperEngine({
-  runs: new PrismaScraperRunRepository(db),
-  sources: new PrismaSourceRepository(db, logger),
-  listings: new PrismaListingRepository(db),
-})
-
 // #933 lineage backbone: one JobRun row per job execution, across every job
 // type registered below — see lib/job-run-tracking.ts.
 const jobRuns = new PrismaJobRunRepository(db)
 
-const browserService = new PlaywrightBrowserService()
 const runtimeMode = resolveScraperRuntimeMode()
 
 /** Read a string config value from the DB. Falls back to null if unavailable. */
@@ -120,22 +90,6 @@ async function readConfigValue(key: string): Promise<string | null> {
   } catch {
     return null
   }
-}
-
-async function buildOllamaProvider(): Promise<OllamaProvider> {
-  const model = await resolveOllamaModel(db)
-  return new OllamaProvider({
-    baseUrl: process.env['OLLAMA_BASE_URL'] ?? 'http://localhost:11434',
-    model: model ?? process.env['OLLAMA_MODEL'] ?? 'llama3.2:3b',
-  })
-}
-
-async function runSourceWithProvider(
-  sourceId: string,
-  provider: CompletionProvider | null,
-  context?: JobContext,
-): Promise<boolean> {
-  return engine.runSource(sourceId, context, provider ? new StructureDetector(provider) : null)
 }
 
 // --- Queue setup ---
@@ -171,11 +125,12 @@ process.once('SIGTERM', () => void shutdown('SIGTERM'))
 process.once('SIGINT', () => void shutdown('SIGINT'))
 
 // --- Source registration ---
-// Adapters MUST be registered with the engine before the SOURCE_SCRAPE worker
-// is created below. createWorker starts consuming immediately, so any repeatable
-// source-scrape job that is already due (or stalled from a prior run) would call
-// engine.runSource() before registration and fail with "No adapter registered".
-const registeredSources = await registerSources(db, engine, browserService)
+// Upserts each registry entry's Source row so schedule-building below
+// (SOURCE_SCRAPE and detail-pages schedules) always has row data to work
+// from. Adapter instances are no longer constructed here — apps/api's worker gateway
+// dispatches SOURCE_SCRAPE/DETAIL_CRAWL/DETAIL_EXTRACT to apps/worker, which
+// owns adapter construction (#953).
+const registeredSources = await registerSources(db)
 
 const scrapeQueue = queueFactory.createQueue(QUEUES.SOURCE_SCRAPE)
 const crawlQueue = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
@@ -213,76 +168,12 @@ function registerWorkers(): void {
   // withSentryCapture preserve the same type safety as the original
   // createWorker<T> call sites.
   //
-  // The three browser-job queues below are skipped entirely once apps/api's
-  // worker gateway (#948/#951) owns them — see isWorkerGatewayEnabled's
-  // docstring for why this check exists at all (never two consumer groups
-  // registered against the same queue).
-  if (isWorkerGatewayEnabled()) {
-    logger.info(
-      { queues: [QUEUES.SOURCE_SCRAPE, QUEUES.DETAIL_CRAWL, QUEUES.DETAIL_EXTRACT] },
-      'WORKER_GATEWAY_ENABLED=true — skipping in-process registration for the worker-gateway queues',
-    )
-  } else {
-    queueFactory.createWorker<{ sourceId: string }>(
-      QUEUES.SOURCE_SCRAPE,
-      withSentryCapture<{ sourceId: string }>(
-        QUEUES.SOURCE_SCRAPE,
-        withJobRunTracking<{ sourceId: string }>(
-          QUEUES.SOURCE_SCRAPE,
-          jobRuns,
-          async ({ sourceId }, context) => {
-            const ollamaProvider = await buildOllamaProvider()
-            const aiAvailable = await ollamaProvider.isAvailable()
-            if (!aiAvailable) {
-              context?.logger?.warn('Ollama unavailable — running without AI-assisted remapping')
-              await context?.log('Ollama unavailable — running without AI-assisted remapping')
-            }
-            const listingsChanged = await runSourceWithProvider(
-              sourceId,
-              aiAvailable ? ollamaProvider : null,
-              context,
-            )
-            if (listingsChanged) {
-              await listingSyncQueue.add(
-                { parentRunId: context.runId },
-                { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID },
-              )
-              await listingResolveQueue.add(
-                { sourceId, parentRunId: context.runId },
-                CRITICAL_JOB_OPTIONS,
-              )
-            }
-          },
-        ),
-      ),
-      { lockDuration: 300_000, logger },
-    )
-    queueFactory.createWorker<{ sourceId: string }>(
-      QUEUES.DETAIL_CRAWL,
-      withSentryCapture<{ sourceId: string }>(
-        QUEUES.DETAIL_CRAWL,
-        withJobRunTracking<{ sourceId: string }>(
-          QUEUES.DETAIL_CRAWL,
-          jobRuns,
-          ({ sourceId }, context) => runDetailCrawlJob(sourceId, context, browserService),
-        ),
-      ),
-      { lockDuration: 120_000, logger },
-    )
-    queueFactory.createWorker<{ sourceId: string }>(
-      QUEUES.DETAIL_EXTRACT,
-      withSentryCapture<{ sourceId: string }>(
-        QUEUES.DETAIL_EXTRACT,
-        withJobRunTracking<{ sourceId: string }>(
-          QUEUES.DETAIL_EXTRACT,
-          jobRuns,
-          ({ sourceId }, context) =>
-            runDetailExtractJob(sourceId, context, browserService, listingResolveQueue),
-        ),
-      ),
-      { lockDuration: 60_000, logger },
-    )
-  }
+  // SOURCE_SCRAPE, DETAIL_CRAWL, and DETAIL_EXTRACT have no worker here —
+  // apps/api's worker gateway is their sole consumer, dispatching to
+  // apps/worker (#953 cutover; see worker-registration.ts for the tested
+  // list). This process still creates their Queue instances above and adds
+  // their repeatable jobs below — scheduling and worker registration are
+  // independent concerns.
   queueFactory.createWorker(
     QUEUES.GEOCODE,
     withSentryCapture(

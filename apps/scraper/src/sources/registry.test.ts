@@ -29,10 +29,8 @@ describe('registerSources — default mappings seeding (#822)', () => {
       Promise.resolve(makeRow(where.name, where.name)),
     )
     const db = { source: { upsert } } as never
-    const engine = { register: vi.fn() } as never
-    const browserService = {} as never
 
-    await registerSources(db, engine, browserService)
+    await registerSources(db)
 
     const freedomMotorsCall = upsert.mock.calls.find((call) => call[0].where.name === 'Freedom Motors')
     expect(freedomMotorsCall![0].create.mappings).toEqual(FREEDOM_MOTORS_DETAIL_MAPPINGS)
@@ -50,10 +48,8 @@ describe('registerSources — default mappings seeding (#822)', () => {
   it('never overwrites an existing row — update stays empty regardless of defaults', async () => {
     const upsert = vi.fn().mockResolvedValue(makeRow('Freedom Motors', 'existing-id'))
     const db = { source: { upsert } } as never
-    const engine = { register: vi.fn() } as never
-    const browserService = {} as never
 
-    await registerSources(db, engine, browserService)
+    await registerSources(db)
 
     for (const call of upsert.mock.calls) {
       expect(call[0].update).toEqual({})

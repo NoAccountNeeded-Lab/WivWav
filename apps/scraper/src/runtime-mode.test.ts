@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  isWorkerGatewayEnabled,
   resolveScraperRuntimeMode,
   shouldRegisterSchedules,
   shouldStartWorkers,
@@ -36,21 +35,5 @@ describe('runtime mode gates', () => {
   it('only starts workers in worker mode', () => {
     expect(shouldRegisterSchedules('worker')).toBe(false)
     expect(shouldStartWorkers('worker')).toBe(true)
-  })
-})
-
-describe('isWorkerGatewayEnabled', () => {
-  it('defaults to false when unset', () => {
-    expect(isWorkerGatewayEnabled(undefined)).toBe(false)
-  })
-
-  it('is false for any value other than the literal string "true"', () => {
-    expect(isWorkerGatewayEnabled('false')).toBe(false)
-    expect(isWorkerGatewayEnabled('1')).toBe(false)
-    expect(isWorkerGatewayEnabled('')).toBe(false)
-  })
-
-  it('is true only for the literal string "true"', () => {
-    expect(isWorkerGatewayEnabled('true')).toBe(true)
   })
 })
