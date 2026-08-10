@@ -1,6 +1,6 @@
 import { isValidVin, normalizeVin, checkDigitValid } from '@wivwav/db'
 import { QUALITY_RULE_SEVERITY } from '@wivwav/types'
-import type { ListingUpsertData } from './repositories.js'
+import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 
 export type ValidationSeverity = 'error' | 'warn'
 

@@ -13,7 +13,7 @@
  * persistence/search boundaries; meilisearch-sync.test.ts mocks both), every
  * checkpoint here is real production code, invoked synchronously (no BullMQ
  * timing):
- *   - card persistence:      ingestListing (apps/scraper/src/application/listing-ingest.ts)
+ *   - card persistence:      ingestListing (@wivwav/db)
  *   - detail-update path:    buildListingDetailUpdateData + a transaction shaped
  *                            exactly like detail-extract.ts's own tx.listing.update
  *   - deduplication:         runDeduplicateJob (apps/scraper/src/jobs/deduplicate.ts)
@@ -59,22 +59,35 @@ import { join } from 'node:path'
 import { FIXTURE_CONTRACTS_DIR } from '@wivwav/scraper-sources/sources/fixture-paths.js'
 import { Meilisearch } from 'meilisearch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { getDb, disconnectDb } from '@wivwav/db'
-import type { PrismaClient } from '@wivwav/db'
-import { INDEX_NAME } from '@wivwav/search'
-import { PlaywrightBrowserService } from '../browser/index.js'
-import type { BrowserPage, BrowserSession } from '../browser/index.js'
-import { evaluateBlvdCards, parseCard as parseBlvdCard } from '../sources/blvd.js'
-import { evaluateBlvdDetail, parseBlvdDetail } from '../sources/blvd-detail.js'
-import { evaluateMobilityWorksCards, parseCard as parseMwCard } from '../sources/mobilityworks.js'
-import { evaluateMwDetail, parseMwDetail } from '../sources/mobilityworks-detail.js'
-import { ingestListing } from '../application/listing-ingest.js'
 import {
   buildListingDetailUpdateData,
   changedDetailFields,
-  blvdEvidence,
-  type DetailResult,
-} from '../jobs/detail-extract.js'
+  disconnectDb,
+  getDb,
+  ingestListing,
+} from '@wivwav/db'
+import type { PrismaClient } from '@wivwav/db'
+import { INDEX_NAME } from '@wivwav/search'
+import { PlaywrightBrowserService } from '@wivwav/scraper-sources/browser/index.js'
+import type { BrowserPage, BrowserSession } from '@wivwav/scraper-sources/browser/index.js'
+import {
+  evaluateBlvdCards,
+  parseCard as parseBlvdCard,
+} from '@wivwav/scraper-sources/sources/blvd.js'
+import {
+  evaluateBlvdDetail,
+  parseBlvdDetail,
+  type RawDetail as RawBlvdDetail,
+} from '@wivwav/scraper-sources/sources/blvd-detail.js'
+import {
+  evaluateMobilityWorksCards,
+  parseCard as parseMwCard,
+} from '@wivwav/scraper-sources/sources/mobilityworks.js'
+import {
+  evaluateMwDetail,
+  parseMwDetail,
+} from '@wivwav/scraper-sources/sources/mobilityworks-detail.js'
+import type { DetailResult } from '@wivwav/types/scraper-gateway'
 import { runDeduplicateJob } from '../jobs/deduplicate.js'
 import { runListingResolveJob } from '../jobs/listing-resolve.js'
 import { runMeilisearchSyncJob } from '../jobs/meilisearch-sync.js'
@@ -102,6 +115,23 @@ import {
 } from '../../../api/src/services/listing-facets.js'
 import { MeilisearchService } from '../../../api/src/services/search/meilisearch-service.js'
 import { MemoryCacheService } from '../../../api/src/services/cache/memory-cache-service.js'
+
+function blvdEvidence(raw: RawBlvdDetail): DetailResult['evidence'] {
+  const description = raw.descriptionText.trim().length > 0 ? 'value' : 'missing'
+  return {
+    color: Object.hasOwn(raw.specs, 'Color') ? 'value' : 'missing',
+    fuelType: 'missing',
+    engine: Object.hasOwn(raw.specs, 'Engine') ? 'value' : 'missing',
+    transmission: Object.hasOwn(raw.specs, 'Transmission') ? 'value' : 'missing',
+    description,
+    images: raw.galleryFound
+      ? raw.imageUrls.length > 0
+        ? 'value'
+        : 'authoritative_empty'
+      : 'missing',
+    accessibilityClaims: description,
+  }
+}
 
 // Real Meilisearch instances are shared by app + api env var conventions
 // (apps/scraper reads MEILI_HOST/MEILI_API_KEY, apps/api reads
@@ -262,7 +292,7 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
 
   /**
    * Applies a DetailResult to a persisted listing exactly the way
-   * detail-extract.ts's runDetailExtractJob does (buildListingDetailUpdateData
+   * the API detail-extract submit path does (buildListingDetailUpdateData
    * + changedDetailFields + a tx.listing.update carrying the same fields) —
    * without re-driving that job's browser-launch/rawPage/network-enrichment
    * plumbing, which fixture-contract.test.ts and detail-extract.test.ts
@@ -290,7 +320,7 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
     const after = Object.fromEntries(
       changed.map((field) => [field, (update as Record<string, unknown>)[field] ?? null]),
     )
-    // Same statements detail-extract.ts's runDetailExtractJob wraps in a
+    // Same statements the API detail-extract submit path wraps in a
     // Serializable db.$transaction — reproduced here without the wrapper
     // since this suite is single-writer (no concurrent detail extraction
     // racing this same listing), so the isolation guarantee has nothing to
