@@ -9,10 +9,10 @@ verified public truth.
 
 Card and detail extraction each persist their observed value directly on the
 `Listing` row (as before) **and** record an independent, append-only claim in
-`ListingFieldClaim` (`apps/scraper/src/resolution/claims-repository.ts`).
+`ListingFieldClaim` (`packages/db/src/resolution/claims-repository.ts`).
 Every write path then recomputes the field's resolution from every stored
 claim — including any photo-derived claim from a `PhotoClaimProvider`
-(`apps/scraper/src/resolution/photo-claim-provider.ts`, a no-op until #129
+(`packages/db/src/resolution/photo-claim-provider.ts`, a no-op until #129
 supplies a real classifier) — via the pure resolver in
 `apps/scraper/src/resolution/resolver.ts`, and writes both the resolved
 normalized value and a separate `conversionTypeResolution`/
@@ -29,10 +29,10 @@ public `wav` value to `unknown` while conflicting.
 
 Integration points, each gated on "this stage actually observed a value" so
 untouched listings never write to `ListingFieldClaim`:
-- Card: `apps/scraper/src/resolution/card-claims.ts`, called from
-  `PrismaListingRepository.upsert` after `ingestListing` commits.
-- Detail: `apps/scraper/src/resolution/detail-claims.ts`, called from
-  `detail-extract.ts` when the description was actually observed.
+- Card: `packages/db/src/resolution/card-claims.ts`, called by the API's
+  internal scraper ingest route after `ingestListing` commits.
+- Detail: `packages/db/src/resolution/detail-claims.ts`, called by the API's
+  internal detail-submit route when the worker actually observed a description.
 - Backfill (pre-#499 data): `apps/scraper/src/jobs/field-claims-backfill.ts`
   seeds one claim from the currently-stored value for a listing with no claim
   history yet — see that file's module docstring for the full deploy

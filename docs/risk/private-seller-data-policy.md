@@ -34,7 +34,7 @@ The following fields are ingested, indexed, stored, or displayed for private-sel
 
 ### Detail extraction (detail-crawl + detail-extract → database)
 
-Detail extraction is performed by `apps/scraper/src/sources/blvd-detail.ts` for all listings regardless of seller type. For private-seller listings this can add:
+Detail extraction is performed by `apps/worker/src/handlers/detail-extract.ts`, using the parser in `packages/scraper-sources/src/sources/blvd-detail.ts`, for all listings regardless of seller type. For private-seller listings this can add:
 
 | Field | Source | Sensitivity | Notes |
 | --- | --- | --- | --- |

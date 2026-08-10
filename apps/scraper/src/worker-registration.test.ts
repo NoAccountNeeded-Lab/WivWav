@@ -10,7 +10,9 @@ describe('worker registration', () => {
 
     for (const queueConstant of queueConstants) {
       expect(indexSource).not.toMatch(
-        new RegExp(`queueFactory\\.createWorker\\(\\s*QUEUES\\.${queueConstant}\\b`),
+        new RegExp(
+          `queueFactory\\.createWorker(?:<[^>]+>)?\\(\\s*QUEUES\\.${queueConstant}\\b`,
+        ),
       )
     }
   })

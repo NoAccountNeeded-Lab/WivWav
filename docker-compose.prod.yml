@@ -123,6 +123,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN}
       CONFIG_ENCRYPTION_SECRET: ${CONFIG_ENCRYPTION_SECRET:?set CONFIG_ENCRYPTION_SECRET}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
+      WORKER_GATEWAY_ENABLED: ${WORKER_GATEWAY_ENABLED:-true}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: json
     depends_on:
@@ -150,13 +151,10 @@ services:
       MEILI_HOST: http://meilisearch:7700
       MEILI_API_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
       SCRAPER_RUNTIME_MODE: ${SCRAPER_RUNTIME_MODE:-all}
-      SCRAPER_HEADLESS: "true"
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: json
-    tmpfs:
-      - /tmp:size=512m
     depends_on:
       migrate:
         condition: service_completed_successfully
