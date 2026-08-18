@@ -244,6 +244,64 @@ export function validateListing(listing: ListingUpsertData): ValidationIssue[] {
   return issues
 }
 
+// ─── Authoritative mismatch (NHTSA vPIC vs scraped identity) ────────────────
+// Ported unchanged from apps/scraper/src/engine/listing-validator.ts (#963) —
+// the vin-enrich handler's pure comparison between a vPIC VIN decode and the
+// scraped identity fields for the same listing.
+
+export interface DecodedVehicleIdentity {
+  make: string
+  model: string
+  year: number
+}
+
+export interface ScrapedVehicleIdentity {
+  make: string
+  model: string
+  year: number
+}
+
+export function validateAuthoritativeMismatch(
+  scraped: ScrapedVehicleIdentity,
+  decoded: DecodedVehicleIdentity,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const normalize = (s: string) => s.trim().toLowerCase()
+
+  if (normalize(scraped.make) !== normalize(decoded.make)) {
+    push(
+      issues,
+      'make',
+      `scraped=${scraped.make} decoded=${decoded.make}`,
+      'nhtsa_make_mismatch',
+      'authoritative',
+      'error',
+    )
+  }
+  if (normalize(scraped.model) !== normalize(decoded.model)) {
+    push(
+      issues,
+      'model',
+      `scraped=${scraped.model} decoded=${decoded.model}`,
+      'nhtsa_model_mismatch',
+      'authoritative',
+      'error',
+    )
+  }
+  if (Math.abs(scraped.year - decoded.year) > 1) {
+    push(
+      issues,
+      'year',
+      `scraped=${scraped.year} decoded=${decoded.year}`,
+      'nhtsa_year_mismatch',
+      'authoritative',
+      'error',
+    )
+  }
+
+  return issues
+}
+
 export const RULE_SEVERITY: Readonly<Record<string, ValidationSeverity>> = QUALITY_RULE_SEVERITY
 
 const WARN_RULES_THAT_BLOCK_PUBLICATION: ReadonlySet<string> = new Set([

@@ -21,6 +21,10 @@ export default defineConfig({
         },
         { find: '@wivwav/types/scraper-gateway', replacement: TYPES_SRC + '/scraper-gateway.ts' },
         { find: '@wivwav/types/worker-protocol', replacement: TYPES_SRC + '/worker-protocol.ts' },
+        {
+          find: '@wivwav/types/http-enrich-gateway',
+          replacement: TYPES_SRC + '/http-enrich-gateway.ts',
+        },
       ],
     ),
   },
