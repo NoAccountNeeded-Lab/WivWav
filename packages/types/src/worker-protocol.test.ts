@@ -15,7 +15,7 @@ const validHello = {
   type: 'hello',
   workerId: 'worker-abc',
   workerName: 'laptop-job-runner',
-  capabilities: { chromium: true, maxConcurrentJobs: 2 },
+  capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
 }
 
 describe('workerHelloSchema', () => {
@@ -23,18 +23,31 @@ describe('workerHelloSchema', () => {
     expect(workerHelloSchema.parse(validHello)).toEqual(validHello)
   })
 
+  it('should parse a worker advertising httpEnrich without chromium', () => {
+    const hello = { ...validHello, capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 } }
+    expect(workerHelloSchema.parse(hello)).toEqual(hello)
+  })
+
   it('should reject a missing capability field with a field-level path', () => {
     const result = workerHelloSchema.safeParse({
       ...validHello,
-      capabilities: { chromium: true },
+      capabilities: { chromium: true, httpEnrich: false },
     })
     expect(issuePaths(result)).toContain('capabilities.maxConcurrentJobs')
+  })
+
+  it('should reject a missing httpEnrich capability field with a field-level path', () => {
+    const result = workerHelloSchema.safeParse({
+      ...validHello,
+      capabilities: { chromium: true, maxConcurrentJobs: 2 },
+    })
+    expect(issuePaths(result)).toContain('capabilities.httpEnrich')
   })
 
   it('should reject a non-positive maxConcurrentJobs', () => {
     const result = workerHelloSchema.safeParse({
       ...validHello,
-      capabilities: { chromium: false, maxConcurrentJobs: 0 },
+      capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 0 },
     })
     expect(issuePaths(result)).toContain('capabilities.maxConcurrentJobs')
   })
@@ -42,9 +55,17 @@ describe('workerHelloSchema', () => {
   it('should reject a mistyped chromium capability', () => {
     const result = workerHelloSchema.safeParse({
       ...validHello,
-      capabilities: { chromium: 'yes', maxConcurrentJobs: 2 },
+      capabilities: { chromium: 'yes', httpEnrich: false, maxConcurrentJobs: 2 },
     })
     expect(issuePaths(result)).toContain('capabilities.chromium')
+  })
+
+  it('should reject a mistyped httpEnrich capability', () => {
+    const result = workerHelloSchema.safeParse({
+      ...validHello,
+      capabilities: { chromium: true, httpEnrich: 'yes', maxConcurrentJobs: 2 },
+    })
+    expect(issuePaths(result)).toContain('capabilities.httpEnrich')
   })
 })
 

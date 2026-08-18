@@ -22,6 +22,11 @@
       "types": "./dist/scraper-gateway.d.ts",
       "import": "./dist/scraper-gateway.js",
       "default": "./dist/scraper-gateway.js"
+    },
+    "./http-enrich-gateway": {
+      "types": "./dist/http-enrich-gateway.d.ts",
+      "import": "./dist/http-enrich-gateway.js",
+      "default": "./dist/http-enrich-gateway.js"
     }
   },
   "scripts": {
