@@ -61,6 +61,7 @@ import { internalGrafanaAlertsRoutes } from './routes/internal-grafana-alerts.js
 import { internalSentryIssuesRoutes } from './routes/internal-sentry-issues.js'
 import { webhooksRoutes } from './routes/webhooks.js'
 import { internalScraperRoutes } from './routes/internal-scraper.js'
+import { internalHttpEnrichRoutes } from './routes/internal-http-enrich.js'
 import { workerGatewayRoutes } from './plugins/worker-gateway-ws.js'
 import { WorkerRegistry } from './worker-gateway/registry.js'
 import { WorkerDispatcher } from './worker-gateway/dispatcher.js'
@@ -491,6 +492,12 @@ export async function buildApp(
           db,
           queueFactory,
           logger: app.log,
+        })
+        await scraperGatewayScope.register(internalHttpEnrichRoutes, {
+          db,
+          queueFactory,
+          logger: app.log,
+          prefix: '/http-enrich',
         })
       },
       { prefix: '/internal/scraper' },
