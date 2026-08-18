@@ -23,14 +23,27 @@ describe('loadWorkerConfig', () => {
     expect(config.coordinatorUrl).toBe('http://api:3001')
   })
 
-  it('defaults capabilities to chromium=true and maxConcurrentJobs=2', () => {
+  it('defaults capabilities to chromium=true, httpEnrich=true, and maxConcurrentJobs=2', () => {
     const config = loadWorkerConfig(env())
-    expect(config.capabilities).toEqual({ chromium: true, maxConcurrentJobs: 2 })
+    expect(config.capabilities).toEqual({ chromium: true, httpEnrich: true, maxConcurrentJobs: 2 })
   })
 
   it('parses WORKER_CAPABILITIES=chromium=false', () => {
     const config = loadWorkerConfig(env({ WORKER_CAPABILITIES: 'chromium=false' }))
     expect(config.capabilities.chromium).toBe(false)
+  })
+
+  it('parses WORKER_CAPABILITIES=httpEnrich=false', () => {
+    const config = loadWorkerConfig(env({ WORKER_CAPABILITIES: 'httpEnrich=false' }))
+    expect(config.capabilities.httpEnrich).toBe(false)
+  })
+
+  it('parses independent chromium and httpEnrich flags together', () => {
+    const config = loadWorkerConfig(
+      env({ WORKER_CAPABILITIES: 'chromium=false,httpEnrich=true' }),
+    )
+    expect(config.capabilities.chromium).toBe(false)
+    expect(config.capabilities.httpEnrich).toBe(true)
   })
 
   it('parses WORKER_MAX_CONCURRENT_JOBS', () => {

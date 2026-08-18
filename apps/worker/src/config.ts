@@ -17,20 +17,28 @@ export interface WorkerConfig {
   workerName: string
   capabilities: {
     chromium: boolean
+    httpEnrich: boolean
     maxConcurrentJobs: number
   }
 }
 
-function parseCapabilities(raw: string | undefined): { chromium: boolean } {
-  // Format: comma-separated key=value pairs, e.g. "chromium=true". Unknown
-  // keys are ignored — this is deliberately forward-compatible with future
-  // capability flags this worker binary predates.
-  const chromiumEntry = (raw ?? 'chromium=true')
-    .split(',')
-    .map((pair) => pair.trim())
-    .find((pair) => pair.startsWith('chromium='))
-  const chromium = chromiumEntry ? chromiumEntry.split('=')[1]?.trim().toLowerCase() === 'true' : true
-  return { chromium }
+function parseFlag(pairs: string[], key: string, fallback: boolean): boolean {
+  const entry = pairs.find((pair) => pair.startsWith(`${key}=`))
+  return entry ? entry.split('=')[1]?.trim().toLowerCase() === 'true' : fallback
+}
+
+function parseCapabilities(raw: string | undefined): { chromium: boolean; httpEnrich: boolean } {
+  // Format: comma-separated key=value pairs, e.g. "chromium=true,httpEnrich=false".
+  // Unknown keys are ignored — this is deliberately forward-compatible with
+  // future capability flags this worker binary predates. Both flags default
+  // to true: a worker with no WORKER_CAPABILITIES override advertises every
+  // capability this binary understands, exactly as `chromium` alone did
+  // before #962 added `httpEnrich` as a second, independent dimension.
+  const pairs = (raw ?? '').split(',').map((pair) => pair.trim())
+  return {
+    chromium: parseFlag(pairs, 'chromium', true),
+    httpEnrich: parseFlag(pairs, 'httpEnrich', true),
+  }
 }
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
@@ -49,7 +57,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     throw new Error('WORKER_TOKEN is required')
   }
 
-  const { chromium } = parseCapabilities(env['WORKER_CAPABILITIES'])
+  const { chromium, httpEnrich } = parseCapabilities(env['WORKER_CAPABILITIES'])
   const maxConcurrentJobs = parsePositiveInt(env['WORKER_MAX_CONCURRENT_JOBS'], 2)
 
   return {
@@ -57,6 +65,6 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     workerToken,
     workerId: env['WORKER_ID'] ?? `${hostname()}-${randomUUID().slice(0, 8)}`,
     workerName: env['WORKER_NAME'] ?? hostname(),
-    capabilities: { chromium, maxConcurrentJobs },
+    capabilities: { chromium, httpEnrich, maxConcurrentJobs },
   }
 }
