@@ -6,7 +6,20 @@ import { GATEWAY_OWNED_QUEUES, SCRAPER_WORKER_QUEUES } from './worker-registrati
 describe('worker registration', () => {
   it('registers no in-process worker for any gateway-owned queue', () => {
     const indexSource = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
-    const queueConstants = ['SOURCE_SCRAPE', 'DETAIL_CRAWL', 'DETAIL_EXTRACT']
+    const queueConstants = [
+      'SOURCE_SCRAPE',
+      'DETAIL_CRAWL',
+      'DETAIL_EXTRACT',
+      'NHTSA_RECALLS',
+      'NHTSA_COMPLAINTS',
+      'NHTSA_SAFETY_RATINGS',
+      'NHTSA_INVESTIGATIONS',
+      'NHTSA_MANUFACTURER_COMMUNICATIONS',
+      'VIN_ENRICH',
+      'MODEL_RESEARCH',
+      'FUELECONOMY_MSRP',
+      'DEALER_ENRICH',
+    ]
 
     for (const queueConstant of queueConstants) {
       expect(indexSource).not.toMatch(
@@ -21,11 +34,20 @@ describe('worker registration', () => {
     for (const queue of GATEWAY_OWNED_QUEUES) expect(SCRAPER_WORKER_QUEUES).not.toContain(queue)
   })
 
-  it('lists SOURCE_SCRAPE, DETAIL_CRAWL, and DETAIL_EXTRACT as gateway-owned', () => {
+  it('lists the three chromium jobs and the 9 outbound-HTTP jobs as gateway-owned', () => {
     expect(GATEWAY_OWNED_QUEUES).toEqual([
       QUEUES.SOURCE_SCRAPE,
       QUEUES.DETAIL_CRAWL,
       QUEUES.DETAIL_EXTRACT,
+      QUEUES.NHTSA_RECALLS,
+      QUEUES.NHTSA_COMPLAINTS,
+      QUEUES.NHTSA_SAFETY_RATINGS,
+      QUEUES.NHTSA_INVESTIGATIONS,
+      QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+      QUEUES.VIN_ENRICH,
+      QUEUES.MODEL_RESEARCH,
+      QUEUES.FUELECONOMY_MSRP,
+      QUEUES.DEALER_ENRICH,
     ])
   })
 

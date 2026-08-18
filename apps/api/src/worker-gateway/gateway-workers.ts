@@ -10,19 +10,42 @@ import type { WivWavLogger } from '@wivwav/logger'
 import type { WorkerDispatcher } from './dispatcher.js'
 
 /**
- * The queues the gateway consumes in phase 1 (#948): the three Chromium jobs.
- * All require a chromium-capable worker.
+ * The three Chromium/DOM jobs from phase 1 (#948/#953). All require a
+ * chromium-capable worker.
  */
-export const GATEWAY_QUEUES: readonly string[] = [
+export const CHROMIUM_GATEWAY_QUEUES: readonly string[] = [
   QUEUES.SOURCE_SCRAPE,
   QUEUES.DETAIL_CRAWL,
   QUEUES.DETAIL_EXTRACT,
 ]
 
 /**
- * Generous lock duration for dispatched browser jobs — BullMQ automatically
- * renews the lock while the processor (our dispatch await) is running, so
- * this only bounds how quickly a *crashed* coordinator's jobs are re-polled.
+ * The 9 outbound-HTTP-only enrichment jobs from phase 2 (#962/#963/#964).
+ * None touch Chromium/DOM; all require an httpEnrich-capable worker.
+ */
+export const HTTP_ENRICH_GATEWAY_QUEUES: readonly string[] = [
+  QUEUES.NHTSA_RECALLS,
+  QUEUES.NHTSA_COMPLAINTS,
+  QUEUES.NHTSA_SAFETY_RATINGS,
+  QUEUES.NHTSA_INVESTIGATIONS,
+  QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+  QUEUES.VIN_ENRICH,
+  QUEUES.MODEL_RESEARCH,
+  QUEUES.FUELECONOMY_MSRP,
+  QUEUES.DEALER_ENRICH,
+]
+
+/** Every queue apps/api's worker gateway consumes on behalf of apps/worker. */
+export const GATEWAY_QUEUES: readonly string[] = [
+  ...CHROMIUM_GATEWAY_QUEUES,
+  ...HTTP_ENRICH_GATEWAY_QUEUES,
+]
+
+/**
+ * Generous lock duration for dispatched gateway jobs (browser and
+ * outbound-HTTP alike) — BullMQ automatically renews the lock while the
+ * processor (our dispatch await) is running, so this only bounds how quickly
+ * a *crashed* coordinator's jobs are re-polled.
  */
 const GATEWAY_LOCK_DURATION_MS = 5 * 60_000
 
@@ -65,8 +88,9 @@ async function handleSourceScrapeCompletion(
 /**
  * Registers apps/api as the BullMQ consumer for the gateway queues; each
  * processor forwards the job to a connected worker and awaits its completion
- * callback. Only call when WORKER_GATEWAY_ENABLED; after #953 these are the
- * sole consumers for the three queues.
+ * callback. Only call when WORKER_GATEWAY_ENABLED; after #953 (chromium jobs)
+ * and #964 (outbound-HTTP jobs) these are the sole consumers for every
+ * GATEWAY_QUEUES entry.
  */
 export function registerGatewayWorkers(
   queueFactory: QueueFactory,
@@ -88,8 +112,8 @@ export function registerGatewayWorkers(
         }
         const sourceId = getStringField(data, 'sourceId')
         const result = await dispatcher.dispatch(queueName, jobId, data, {
-          chromium: true,
-          httpEnrich: false,
+          chromium: CHROMIUM_GATEWAY_QUEUES.includes(queueName),
+          httpEnrich: HTTP_ENRICH_GATEWAY_QUEUES.includes(queueName),
           sourceId,
         })
         if (queueName === QUEUES.SOURCE_SCRAPE) {

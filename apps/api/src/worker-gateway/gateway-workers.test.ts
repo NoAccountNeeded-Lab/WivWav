@@ -7,7 +7,7 @@ import type {
   WorkerAdapter,
 } from '@wivwav/queue'
 import { describe, expect, it, vi } from 'vitest'
-import { registerGatewayWorkers } from './gateway-workers.js'
+import { GATEWAY_QUEUES, registerGatewayWorkers } from './gateway-workers.js'
 import type { WorkerDispatcher } from './dispatcher.js'
 
 /**
@@ -52,13 +52,11 @@ function fakeContextWithoutJobId(): JobContext {
 }
 
 describe('registerGatewayWorkers', () => {
-  it('registers a BullMQ consumer for all three phase-1 queues', () => {
+  it('registers a BullMQ consumer for every gateway queue (phase-1 chromium + phase-2 httpEnrich)', () => {
     const { factory, processors } = createFakeQueueFactory()
     const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher
     registerGatewayWorkers(factory, dispatcher)
-    expect([...processors.keys()].sort()).toEqual(
-      [QUEUES.SOURCE_SCRAPE, QUEUES.DETAIL_CRAWL, QUEUES.DETAIL_EXTRACT].sort(),
-    )
+    expect([...processors.keys()].sort()).toEqual([...GATEWAY_QUEUES].sort())
   })
 
   it('dispatches with the sourceId pulled from job data and chromium: true', async () => {
@@ -79,6 +77,21 @@ describe('registerGatewayWorkers', () => {
         sourceId: 'src-1',
       },
     )
+  })
+
+  it('dispatches an outbound-HTTP queue with chromium: false and httpEnrich: true', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher
+    registerGatewayWorkers(factory, dispatcher)
+
+    const processor = processors.get(QUEUES.NHTSA_RECALLS)!
+    await processor({}, fakeContext({ jobId: 'job-99' }))
+
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(QUEUES.NHTSA_RECALLS, 'job-99', {}, {
+      chromium: false,
+      httpEnrich: true,
+      sourceId: undefined,
+    })
   })
 
   it('throws when the job context has no jobId (cannot build a correlation id)', async () => {

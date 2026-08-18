@@ -1,8 +1,9 @@
 import { QUEUES } from '@wivwav/queue'
 
 /**
- * The three browser-job queues this daemon never registers an in-process
- * worker for. As of the #953 cutover, apps/api's worker gateway is their
+ * The queues this daemon never registers an in-process worker for. As of the
+ * #953 cutover (the three Chromium/DOM jobs) and the #964 cutover (the 9
+ * outbound-HTTP-only enrichment jobs), apps/api's worker gateway is their
  * sole consumer — jobs are dispatched to apps/worker (the laptop/Mac Mini
  * job-runner fleet) instead. `index.ts`'s `registerWorkers()` intentionally
  * contains no `queueFactory.createWorker` call for any of these.
@@ -20,6 +21,15 @@ export const GATEWAY_OWNED_QUEUES = [
   QUEUES.SOURCE_SCRAPE,
   QUEUES.DETAIL_CRAWL,
   QUEUES.DETAIL_EXTRACT,
+  QUEUES.NHTSA_RECALLS,
+  QUEUES.NHTSA_COMPLAINTS,
+  QUEUES.NHTSA_SAFETY_RATINGS,
+  QUEUES.NHTSA_INVESTIGATIONS,
+  QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
+  QUEUES.VIN_ENRICH,
+  QUEUES.MODEL_RESEARCH,
+  QUEUES.FUELECONOMY_MSRP,
+  QUEUES.DEALER_ENRICH,
 ] as const
 
 /**
@@ -32,21 +42,12 @@ export const GATEWAY_OWNED_QUEUES = [
 export const SCRAPER_WORKER_QUEUES = [
   QUEUES.GEOCODE,
   QUEUES.DEDUPLICATE,
-  QUEUES.VIN_ENRICH,
-  QUEUES.NHTSA_RECALLS,
-  QUEUES.NHTSA_COMPLAINTS,
-  QUEUES.NHTSA_SAFETY_RATINGS,
-  QUEUES.NHTSA_INVESTIGATIONS,
-  QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
   QUEUES.VEHICLE_STATS_REFRESH,
   QUEUES.CONVERSION_BRANDS_SEED,
   QUEUES.NMEDA_DEALERS_SEED,
-  QUEUES.MODEL_RESEARCH,
   QUEUES.LISTING_SYNC,
   QUEUES.LISTING_INDEX_POLL,
   QUEUES.LISTING_RESOLVE,
   QUEUES.RAWPAGE_CLEANUP,
-  QUEUES.DEALER_ENRICH,
-  QUEUES.FUELECONOMY_MSRP,
   QUEUES.IMAGE_SEMANTIC_ANALYZE,
 ] as const

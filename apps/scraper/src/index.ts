@@ -23,31 +23,13 @@ import {
 } from './schedule-registration.js'
 import { runGeocodeJob } from './jobs/geocode.js'
 import { runDeduplicateJob } from './jobs/deduplicate.js'
-import { runVinEnrichJob } from './jobs/vin-enrich.js'
-import { runNhtsaRecallsJob, type NhtsaRecallsJobData } from './jobs/nhtsa-recalls.js'
-import { runNhtsaComplaintsJob, type NhtsaComplaintsJobData } from './jobs/nhtsa-complaints.js'
-import {
-  runNhtsaSafetyRatingsJob,
-  type NhtsaSafetyRatingsJobData,
-} from './jobs/nhtsa-safety-ratings.js'
-import {
-  runNhtsaInvestigationsJob,
-  type NhtsaInvestigationsJobData,
-} from './jobs/nhtsa-investigations.js'
-import {
-  runNhtsaManufacturerCommunicationsJob,
-  type NhtsaManufacturerCommunicationsJobData,
-} from './jobs/nhtsa-manufacturer-communications.js'
 import { runVehicleStatsRefreshJob } from './jobs/vehicle-stats-refresh.js'
 import { runConversionBrandsSeedJob } from './sources/conversion-brands.js'
 import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
-import { runModelResearchJob } from './jobs/model-research.js'
 import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
 import { runSearchIndexerPollJob } from './jobs/search-indexer-poll.js'
 import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing-resolve.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
-import { runDealerEnrichJob } from './jobs/dealer-enrich.js'
-import { runFuelEconomyMsrpJob, type FuelEconomyMsrpJobData } from './jobs/fueleconomy-msrp.js'
 import {
   runSemanticImageAnalyzeJob,
   type SemanticImageAnalyzeJobData,
@@ -151,7 +133,12 @@ const nmedaDealersSeedQueue = queueFactory.createQueue(QUEUES.NMEDA_DEALERS_SEED
 const modelResearchQueue = queueFactory.createQueue(QUEUES.MODEL_RESEARCH)
 const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
 const listingIndexPollQueue = queueFactory.createQueue(QUEUES.LISTING_INDEX_POLL)
-const listingResolveQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
+// No local binding: as of the #964 cutover nothing in this process enqueues
+// onto this queue directly anymore (vin-enrich, its last in-process caller,
+// now runs on apps/worker and enqueues follow-on resolve jobs server-side).
+// Registering it here still makes the BullMQ Queue instance visible to
+// shutdown()'s close().
+queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
@@ -168,11 +155,12 @@ function registerWorkers(): void {
   // withSentryCapture preserve the same type safety as the original
   // createWorker<T> call sites.
   //
-  // SOURCE_SCRAPE, DETAIL_CRAWL, and DETAIL_EXTRACT have no worker here —
+  // SOURCE_SCRAPE, DETAIL_CRAWL, DETAIL_EXTRACT (#953), and the 9
+  // outbound-HTTP enrichment queues below (#964) have no worker here —
   // apps/api's worker gateway is their sole consumer, dispatching to
-  // apps/worker (#953 cutover; see worker-registration.ts for the tested
-  // list). This process still creates their Queue instances above and adds
-  // their repeatable jobs below — scheduling and worker registration are
+  // apps/worker (see worker-registration.ts for the tested list). This
+  // process still creates their Queue instances above and adds their
+  // repeatable jobs below — scheduling and worker registration are
   // independent concerns.
   queueFactory.createWorker(
     QUEUES.GEOCODE,
@@ -193,75 +181,6 @@ function registerWorkers(): void {
       ),
     ),
     { lockDuration: 120_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.VIN_ENRICH,
-    withSentryCapture(
-      QUEUES.VIN_ENRICH,
-      withJobRunTracking(QUEUES.VIN_ENRICH, jobRuns, (_data: unknown, context) =>
-        runVinEnrichJob(context, listingResolveQueue),
-      ),
-    ),
-    { lockDuration: 300_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.NHTSA_RECALLS,
-    withSentryCapture(
-      QUEUES.NHTSA_RECALLS,
-      withJobRunTracking(QUEUES.NHTSA_RECALLS, jobRuns, (data: NhtsaRecallsJobData, context) =>
-        runNhtsaRecallsJob(context, data),
-      ),
-    ),
-    { lockDuration: 300_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.NHTSA_COMPLAINTS,
-    withSentryCapture(
-      QUEUES.NHTSA_COMPLAINTS,
-      withJobRunTracking(
-        QUEUES.NHTSA_COMPLAINTS,
-        jobRuns,
-        (data: NhtsaComplaintsJobData, context) => runNhtsaComplaintsJob(context, data),
-      ),
-    ),
-    { lockDuration: 600_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.NHTSA_SAFETY_RATINGS,
-    withSentryCapture(
-      QUEUES.NHTSA_SAFETY_RATINGS,
-      withJobRunTracking(
-        QUEUES.NHTSA_SAFETY_RATINGS,
-        jobRuns,
-        (data: NhtsaSafetyRatingsJobData, context) => runNhtsaSafetyRatingsJob(context, data),
-      ),
-    ),
-    { lockDuration: 600_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.NHTSA_INVESTIGATIONS,
-    withSentryCapture(
-      QUEUES.NHTSA_INVESTIGATIONS,
-      withJobRunTracking(
-        QUEUES.NHTSA_INVESTIGATIONS,
-        jobRuns,
-        (data: NhtsaInvestigationsJobData, context) => runNhtsaInvestigationsJob(context, data),
-      ),
-    ),
-    { lockDuration: 600_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
-    withSentryCapture(
-      QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
-      withJobRunTracking(
-        QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS,
-        jobRuns,
-        (data: NhtsaManufacturerCommunicationsJobData, context) =>
-          runNhtsaManufacturerCommunicationsJob(context, data),
-      ),
-    ),
-    { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.VEHICLE_STATS_REFRESH,
@@ -292,16 +211,6 @@ function registerWorkers(): void {
       ),
     ),
     { lockDuration: 60_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.MODEL_RESEARCH,
-    withSentryCapture(
-      QUEUES.MODEL_RESEARCH,
-      withJobRunTracking(QUEUES.MODEL_RESEARCH, jobRuns, (_data: unknown, context) =>
-        runModelResearchJob(context),
-      ),
-    ),
-    { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.LISTING_SYNC,
@@ -342,28 +251,6 @@ function registerWorkers(): void {
       ),
     ),
     { lockDuration: 120_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.DEALER_ENRICH,
-    withSentryCapture(
-      QUEUES.DEALER_ENRICH,
-      withJobRunTracking(QUEUES.DEALER_ENRICH, jobRuns, (_data: unknown, context) =>
-        runDealerEnrichJob(context),
-      ),
-    ),
-    { lockDuration: 300_000, logger },
-  )
-  queueFactory.createWorker(
-    QUEUES.FUELECONOMY_MSRP,
-    withSentryCapture(
-      QUEUES.FUELECONOMY_MSRP,
-      withJobRunTracking(
-        QUEUES.FUELECONOMY_MSRP,
-        jobRuns,
-        (data: FuelEconomyMsrpJobData, context) => runFuelEconomyMsrpJob(context, data),
-      ),
-    ),
-    { lockDuration: 600_000, logger },
   )
   queueFactory.createWorker(
     QUEUES.IMAGE_SEMANTIC_ANALYZE,
