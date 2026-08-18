@@ -122,9 +122,9 @@ function push(
  * rule families; callers decide publication using decidePublication().
  *
  * This function does NOT perform NHTSA lookups — authoritative VIN-decode
- * mismatch detection lives in vin-enrich.ts because it requires a network
- * call. validateAuthoritativeMismatch() below is the pure comparison used by
- * both that job and these tests.
+ * mismatch detection is the vin-enrich job's `validateAuthoritativeMismatch`
+ * (apps/worker/src/engine/listing-validator.ts as of #964's outbound-HTTP
+ * cutover), which requires a network call this app no longer makes.
  */
 export function validateListing(listing: ListingUpsertData): ValidationIssue[] {
   const issues: ValidationIssue[] = []
@@ -308,76 +308,6 @@ export function validateListing(listing: ListingUpsertData): ValidationIssue[] {
         break
       }
     }
-  }
-
-  return issues
-}
-
-// ─── Authoritative mismatch (NHTSA vPIC vs scraped identity) ────────────────
-
-export interface DecodedVehicleIdentity {
-  make: string
-  model: string
-  year: number
-}
-
-export interface ScrapedVehicleIdentity {
-  make: string
-  model: string
-  year: number
-}
-
-/**
- * Pure comparison between an NHTSA vPIC VIN decode and the scraped identity
- * fields for the same listing. Used by vin-enrich.ts, which performs the
- * actual network call — kept here so the comparison logic is unit-testable
- * without mocking fetch, and so the rule lives next to the other rule
- * families for the AC's "grouped by family" requirement.
- *
- * Year mismatch tolerates a 1-year model-year/calendar-year skew (common for
- * vehicles sold near a model-year boundary). Make/model mismatches are
- * compared case-insensitively after trimming, since dealers and NHTSA use
- * different casing conventions (e.g. "Mobility" vans badged under a chassis
- * make like "Dodge" / "RAM" are NOT considered a mismatch by this function;
- * that distinction is the caller's responsibility to encode via a known-OEM
- * allowlist, not this generic comparator).
- */
-export function validateAuthoritativeMismatch(
-  scraped: ScrapedVehicleIdentity,
-  decoded: DecodedVehicleIdentity,
-): ValidationIssue[] {
-  const issues: ValidationIssue[] = []
-  const normalize = (s: string) => s.trim().toLowerCase()
-
-  if (normalize(scraped.make) !== normalize(decoded.make)) {
-    push(
-      issues,
-      'make',
-      `scraped=${scraped.make} decoded=${decoded.make}`,
-      'nhtsa_make_mismatch',
-      'authoritative',
-      'error',
-    )
-  }
-  if (normalize(scraped.model) !== normalize(decoded.model)) {
-    push(
-      issues,
-      'model',
-      `scraped=${scraped.model} decoded=${decoded.model}`,
-      'nhtsa_model_mismatch',
-      'authoritative',
-      'error',
-    )
-  }
-  if (Math.abs(scraped.year - decoded.year) > 1) {
-    push(
-      issues,
-      'year',
-      `scraped=${scraped.year} decoded=${decoded.year}`,
-      'nhtsa_year_mismatch',
-      'authoritative',
-      'error',
-    )
   }
 
   return issues

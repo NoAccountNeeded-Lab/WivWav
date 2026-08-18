@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateListing,
-  validateAuthoritativeMismatch,
   decidePublication,
   summarizeQuality,
   detectSourceDrift,
@@ -298,51 +297,6 @@ describe('validateListing — cross-field', () => {
       },
     }))
     expect(issues.every(i => i.rule !== 'unsupported_accessibility_claim')).toBe(true)
-  })
-})
-
-// ─── Authoritative mismatch (NHTSA) ─────────────────────────────────────────
-
-describe('validateAuthoritativeMismatch', () => {
-  it('returns no issues when scraped identity matches the NHTSA decode', () => {
-    const issues = validateAuthoritativeMismatch(
-      { make: 'Toyota', model: 'Sienna', year: 2024 },
-      { make: 'Toyota', model: 'Sienna', year: 2024 },
-    )
-    expect(issues).toHaveLength(0)
-  })
-
-  it('is case-insensitive', () => {
-    const issues = validateAuthoritativeMismatch(
-      { make: 'TOYOTA', model: 'sienna', year: 2024 },
-      { make: 'Toyota', model: 'Sienna', year: 2024 },
-    )
-    expect(issues).toHaveLength(0)
-  })
-
-  it('tolerates a 1-year model-year skew', () => {
-    const issues = validateAuthoritativeMismatch(
-      { make: 'Toyota', model: 'Sienna', year: 2023 },
-      { make: 'Toyota', model: 'Sienna', year: 2024 },
-    )
-    expect(issues).toHaveLength(0)
-  })
-
-  it('flags a make mismatch as an authoritative error', () => {
-    const issues = validateAuthoritativeMismatch(
-      { make: 'Toyota', model: 'Sienna', year: 2024 },
-      { make: 'Honda', model: 'Odyssey', year: 2024 },
-    )
-    expect(issues.some(i => i.rule === 'nhtsa_make_mismatch' && i.family === 'authoritative' && i.severity === 'error')).toBe(true)
-    expect(issues.some(i => i.rule === 'nhtsa_model_mismatch' && i.severity === 'error')).toBe(true)
-  })
-
-  it('flags a year mismatch beyond the tolerance', () => {
-    const issues = validateAuthoritativeMismatch(
-      { make: 'Toyota', model: 'Sienna', year: 2018 },
-      { make: 'Toyota', model: 'Sienna', year: 2024 },
-    )
-    expect(issues.some(i => i.rule === 'nhtsa_year_mismatch' && i.severity === 'error')).toBe(true)
   })
 })
 
