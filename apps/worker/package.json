@@ -21,6 +21,7 @@
     "@wivwav/scraper-sources": "workspace:*",
     "@wivwav/types": "workspace:*",
     "dotenv": "^17.4.2",
+    "p-retry": "^8.0.0",
     "ws": "^8.19.0"
   },
   "devDependencies": {
