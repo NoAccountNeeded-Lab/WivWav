@@ -13,6 +13,12 @@ import { isoDateTimeSchema } from './wire-date.js'
 export const workerCapabilitiesSchema = z.object({
   /** Whether this worker can run Playwright/Chromium jobs. */
   chromium: z.boolean(),
+  /**
+   * Whether this worker can run outbound-HTTP-only enrichment jobs (#962) —
+   * no Chromium/DOM dependency, so independent of `chromium`: a worker may
+   * advertise either flag, both, or neither.
+   */
+  httpEnrich: z.boolean(),
   /** Upper bound of jobs the coordinator may have in flight on this worker. */
   maxConcurrentJobs: z.number().int().positive(),
 })
