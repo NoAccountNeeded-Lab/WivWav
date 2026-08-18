@@ -42,7 +42,7 @@ function buildClient(overrides: Partial<WsClientOptions> = {}) {
     token: 'secret',
     workerId: 'w-1',
     workerName: 'test-worker',
-    capabilities: { chromium: true, maxConcurrentJobs: 2 },
+    capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
     handlers,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     gateway: gateway as any,
@@ -64,7 +64,7 @@ describe('WsClient', () => {
       type: 'hello',
       workerId: 'w-1',
       workerName: 'test-worker',
-      capabilities: { chromium: true, maxConcurrentJobs: 2 },
+      capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
     })
     client.stop()
   })
@@ -133,7 +133,7 @@ describe('WsClient', () => {
   })
 
   it('refuses a dispatch when already at capacity', () => {
-    const { client, handlers } = buildClient({ capabilities: { chromium: true, maxConcurrentJobs: 1 } })
+    const { client, handlers } = buildClient({ capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 1 } })
     handlers.register('source-scrape', () => new Promise(() => {})) // never resolves
     client.start()
     const socket = FakeSocket.instances[0]!
