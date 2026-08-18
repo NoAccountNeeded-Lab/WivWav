@@ -80,7 +80,7 @@ describe('worker gateway WS auth', () => {
         type: 'hello',
         workerId: 'w-1',
         workerName: 'laptop',
-        capabilities: { chromium: true, maxConcurrentJobs: 2 },
+        capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
       }),
     )
     await waitFor(() => registry.list().length === 1)
@@ -113,11 +113,11 @@ describe('worker gateway WS protocol', () => {
         type: 'hello',
         workerId: 'w-1',
         workerName: 'laptop',
-        capabilities: { chromium: true, maxConcurrentJobs: 3 },
+        capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 3 },
       }),
     )
     await waitFor(() => registry.list().length === 1)
-    expect(registry.list()[0]?.capabilities).toEqual({ chromium: true, maxConcurrentJobs: 3 })
+    expect(registry.list()[0]?.capabilities).toEqual({ chromium: true, httpEnrich: false, maxConcurrentJobs: 3 })
     ws.close()
     await app.close()
   })
@@ -135,7 +135,7 @@ describe('worker gateway WS protocol', () => {
         type: 'hello',
         workerId: 'w-1',
         workerName: 'laptop',
-        capabilities: { chromium: true, maxConcurrentJobs: 2 },
+        capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
       }),
     )
     await waitFor(() => registry.list().length === 1)
@@ -173,7 +173,7 @@ describe('worker gateway WS protocol', () => {
         type: 'hello',
         workerId: 'w-1',
         workerName: 'laptop',
-        capabilities: { chromium: true, maxConcurrentJobs: 2 },
+        capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
       }),
     )
     ws.send(

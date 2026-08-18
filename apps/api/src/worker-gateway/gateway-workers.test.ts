@@ -75,6 +75,7 @@ describe('registerGatewayWorkers', () => {
       { sourceId: 'src-1' },
       {
         chromium: true,
+        httpEnrich: false,
         sourceId: 'src-1',
       },
     )

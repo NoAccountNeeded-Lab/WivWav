@@ -50,13 +50,17 @@ export class WorkerRegistry {
   }
 
   /**
-   * Least-loaded connected worker that matches the capability requirement
-   * and has spare concurrency, or undefined when none qualifies.
+   * Least-loaded connected worker that matches the capability requirements
+   * and has spare concurrency, or undefined when none qualifies. `chromium`
+   * and `httpEnrich` (#962) are independent dimensions — a caller sets
+   * whichever ones its job type needs; an omitted `httpEnrich` behaves as
+   * `false` (no requirement), matching every job type dispatched before #962.
    */
-  pickWorker(requirements: { chromium: boolean }): RegisteredWorker | undefined {
+  pickWorker(requirements: { chromium: boolean; httpEnrich?: boolean }): RegisteredWorker | undefined {
     let best: RegisteredWorker | undefined
     for (const worker of this.workers.values()) {
       if (requirements.chromium && !worker.capabilities.chromium) continue
+      if (requirements.httpEnrich && !worker.capabilities.httpEnrich) continue
       if (worker.inFlight.size >= worker.capabilities.maxConcurrentJobs) continue
       if (!best || worker.inFlight.size < best.inFlight.size) best = worker
     }

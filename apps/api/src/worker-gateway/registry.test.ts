@@ -6,7 +6,7 @@ function makeWorker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker
     connectionId: 'conn-1',
     workerId: 'worker-1',
     workerName: 'laptop',
-    capabilities: { chromium: true, maxConcurrentJobs: 2 },
+    capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
     inFlight: new Set(),
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
@@ -22,7 +22,9 @@ describe('WorkerRegistry.pickWorker', () => {
 
   it('skips a worker lacking the required chromium capability', () => {
     const registry = new WorkerRegistry()
-    registry.register(makeWorker({ capabilities: { chromium: false, maxConcurrentJobs: 2 } }))
+    registry.register(
+      makeWorker({ capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 2 } }),
+    )
     expect(registry.pickWorker({ chromium: true })).toBeUndefined()
   })
 
@@ -30,7 +32,7 @@ describe('WorkerRegistry.pickWorker', () => {
     const registry = new WorkerRegistry()
     registry.register(
       makeWorker({
-        capabilities: { chromium: true, maxConcurrentJobs: 1 },
+        capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 1 },
         inFlight: new Set(['q:1']),
       }),
     )
@@ -44,6 +46,63 @@ describe('WorkerRegistry.pickWorker', () => {
     registry.register(busy)
     registry.register(idle)
     expect(registry.pickWorker({ chromium: true })?.connectionId).toBe('idle')
+  })
+})
+
+describe('WorkerRegistry.pickWorker httpEnrich capability (#962)', () => {
+  it('returns undefined when no worker advertises httpEnrich', () => {
+    const registry = new WorkerRegistry()
+    registry.register(makeWorker({ capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 } }))
+    expect(registry.pickWorker({ chromium: false, httpEnrich: true })).toBeUndefined()
+  })
+
+  it('picks a non-chromium worker that advertises httpEnrich', () => {
+    const registry = new WorkerRegistry()
+    const worker = makeWorker({
+      capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
+    })
+    registry.register(worker)
+    expect(registry.pickWorker({ chromium: false, httpEnrich: true })?.connectionId).toBe(
+      worker.connectionId,
+    )
+  })
+
+  it('selects httpEnrich independently of chromium with mixed-capability workers', () => {
+    const registry = new WorkerRegistry()
+    const chromiumOnly = makeWorker({
+      connectionId: 'chromium-only',
+      capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
+    })
+    const httpEnrichOnly = makeWorker({
+      connectionId: 'http-enrich-only',
+      capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
+    })
+    const both = makeWorker({
+      connectionId: 'both',
+      capabilities: { chromium: true, httpEnrich: true, maxConcurrentJobs: 2 },
+    })
+    registry.register(chromiumOnly)
+    registry.register(httpEnrichOnly)
+    registry.register(both)
+
+    // Chromium-only requirement excludes the httpEnrich-only worker.
+    expect(registry.pickWorker({ chromium: true, httpEnrich: false })?.connectionId).not.toBe(
+      'http-enrich-only',
+    )
+
+    // httpEnrich requirement excludes the chromium-only worker.
+    expect(registry.pickWorker({ chromium: false, httpEnrich: true })?.connectionId).not.toBe(
+      'chromium-only',
+    )
+  })
+
+  it('an omitted httpEnrich requirement behaves as no requirement (backward compatible)', () => {
+    const registry = new WorkerRegistry()
+    const worker = makeWorker({
+      capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
+    })
+    registry.register(worker)
+    expect(registry.pickWorker({ chromium: true })?.connectionId).toBe(worker.connectionId)
   })
 })
 
