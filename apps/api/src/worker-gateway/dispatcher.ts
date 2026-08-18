@@ -52,7 +52,7 @@ export class WorkerDispatcher {
     queueName: string,
     jobId: string,
     payload: unknown,
-    requirements: { chromium: boolean; sourceId?: string | undefined },
+    requirements: { chromium: boolean; httpEnrich?: boolean; sourceId?: string | undefined },
   ): Promise<unknown> {
     const correlationId = buildCorrelationId(queueName, jobId)
 
@@ -70,7 +70,10 @@ export class WorkerDispatcher {
       )
     }
 
-    const worker = this.registry.pickWorker({ chromium: requirements.chromium })
+    const worker = this.registry.pickWorker({
+      chromium: requirements.chromium,
+      ...(requirements.httpEnrich !== undefined ? { httpEnrich: requirements.httpEnrich } : {}),
+    })
     if (!worker) {
       this.releaseLockIfHeld(sourceId, correlationId)
       throw new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, 'no eligible worker connected')

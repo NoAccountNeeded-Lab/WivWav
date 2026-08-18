@@ -89,6 +89,7 @@ export function registerGatewayWorkers(
         const sourceId = getStringField(data, 'sourceId')
         const result = await dispatcher.dispatch(queueName, jobId, data, {
           chromium: true,
+          httpEnrich: false,
           sourceId,
         })
         if (queueName === QUEUES.SOURCE_SCRAPE) {

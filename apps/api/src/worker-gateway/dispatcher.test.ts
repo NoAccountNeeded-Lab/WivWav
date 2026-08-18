@@ -11,7 +11,7 @@ function connectWorker(
     connectionId: 'conn-1',
     workerId: 'worker-1',
     workerName: 'laptop',
-    capabilities: { chromium: true, maxConcurrentJobs: 2 },
+    capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
     inFlight: new Set(),
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
@@ -178,11 +178,79 @@ describe('WorkerDispatcher.dispatch', () => {
 
   it('a stale pending dispatch is superseded by a re-dispatch of the same correlation id', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry, { capabilities: { chromium: true, maxConcurrentJobs: 5 } })
+    connectWorker(registry, {
+      capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 5 },
+    })
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const stale = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
     void dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
     await expect(stale).rejects.toThrow('superseded')
+  })
+})
+
+describe('WorkerDispatcher httpEnrich routing (#962)', () => {
+  it('routes to an httpEnrich-capable, non-chromium worker', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry, {
+      capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    void dispatcher.dispatch('nhtsa-recalls', '1', {}, { chromium: false, httpEnrich: true })
+    await Promise.resolve()
+    expect(worker.send).toHaveBeenCalledWith({
+      type: 'job-dispatch',
+      correlationId: 'nhtsa-recalls:1',
+      queueName: 'nhtsa-recalls',
+      payload: {},
+    })
+  })
+
+  it('throws RetryJobSignal when no httpEnrich-capable worker is connected', async () => {
+    const registry = new WorkerRegistry()
+    connectWorker(registry, { capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 } })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    await expect(
+      dispatcher.dispatch('nhtsa-recalls', '1', {}, { chromium: false, httpEnrich: true }),
+    ).rejects.toThrow(RetryJobSignal)
+  })
+
+  it('acquires the per-source lock for an httpEnrich dispatch exactly as SOURCE_SCRAPE does', async () => {
+    const registry = new WorkerRegistry()
+    connectWorker(registry, {
+      capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    void dispatcher.dispatch(
+      'nhtsa-recalls',
+      '1',
+      {},
+      { chromium: false, httpEnrich: true, sourceId: 'nhtsa-recalls-api' },
+    )
+    await expect(
+      dispatcher.dispatch(
+        'nhtsa-recalls',
+        '2',
+        {},
+        { chromium: false, httpEnrich: true, sourceId: 'nhtsa-recalls-api' },
+      ),
+    ).rejects.toThrow(RetryJobSignal)
+  })
+
+  it('releases the per-source lock once an httpEnrich dispatch completes', async () => {
+    const registry = new WorkerRegistry()
+    connectWorker(registry, {
+      capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const first = dispatcher.dispatch(
+      'nhtsa-recalls',
+      '1',
+      {},
+      { chromium: false, httpEnrich: true, sourceId: 'nhtsa-recalls-api' },
+    )
+    dispatcher.complete('nhtsa-recalls:1', true, undefined, { processed: 3 })
+    await expect(first).resolves.toEqual({ processed: 3 })
+    expect(registry.tryAcquireSourceLock('nhtsa-recalls-api', 'nhtsa-recalls:2')).toBe(true)
   })
 })
 
