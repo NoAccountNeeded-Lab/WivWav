@@ -100,10 +100,11 @@ export const internalHttpEnrichRoutes: FastifyPluginAsync<InternalHttpEnrichRout
     const body = vinEnrichResolveRequestSchema.parse(req.body)
     const { vehicleModelId } = await repo.resolveVinEnrichListing(body)
     // Guarantee a path back to eligible/quarantined (#652) — mirrors the
-    // unconditional enqueue in runVinEnrichJob's success branch
-    // (apps/scraper/src/jobs/vin-enrich.ts). Mismatched/failed outcomes
-    // don't gain a new vehicle-model link, so there is nothing new for
-    // resolution to reconsider.
+    // unconditional enqueue in the vin-enrich handler's success branch
+    // (apps/worker/src/handlers/vin-enrich.ts, formerly runVinEnrichJob in
+    // apps/scraper/src/jobs/vin-enrich.ts before #964's cutover). Mismatched/
+    // failed outcomes don't gain a new vehicle-model link, so there is
+    // nothing new for resolution to reconsider.
     if (body.outcome === 'enriched') {
       await resolutionQueue.add(
         {

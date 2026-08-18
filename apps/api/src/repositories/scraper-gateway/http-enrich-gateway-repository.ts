@@ -247,9 +247,11 @@ export class HttpEnrichGatewayRepository {
 
   /**
    * Applies a claimed listing's decode outcome and releases its lock. Mirrors
-   * `runVinEnrichJob`'s per-listing branch in
-   * apps/scraper/src/jobs/vin-enrich.ts, minus the resolution-queue enqueue
-   * (the caller does that — it needs the `QueueAdapter`, not this repository).
+   * the vin-enrich handler's per-listing branch in
+   * apps/worker/src/handlers/vin-enrich.ts (formerly `runVinEnrichJob` in
+   * apps/scraper/src/jobs/vin-enrich.ts before #964's cutover), minus the
+   * resolution-queue enqueue (the caller does that — it needs the
+   * `QueueAdapter`, not this repository).
    */
   async resolveVinEnrichListing(
     body: VinEnrichResolveRequest,
