@@ -7,12 +7,11 @@ let prisma: PrismaClient | undefined
 export function getDb(): PrismaClient {
   if (!prisma) {
     // DATABASE_POOL_SIZE should be set to at least the number of concurrent DB-writing
-    // workers across every process sharing this database — apps/scraper's own 21
-    // workers (21 workers × default concurrency 1), plus, as of #969, apps/api's own
-    // in-process copy of 10 of those same workers, on top of apps/api's normal HTTP
-    // request load. Default 25 gives only a small headroom above apps/scraper's count
-    // alone; raise DATABASE_POOL_SIZE explicitly once both processes run those 10
-    // workers concurrently in the same environment for any length of time.
+    // workers across every process sharing this database — apps/api's own 21
+    // direct-DB-backed workers (21 workers × default concurrency 1) plus its
+    // normal HTTP request load. Default 25 gives only a small headroom above
+    // that count; raise DATABASE_POOL_SIZE explicitly if request load or
+    // worker concurrency grows.
     // Without an explicit max the pg default of 10 starves the pool under concurrent writes
     // and causes Prisma P2028 "Transaction already closed" errors.
     const rawPoolSize = process.env['DATABASE_POOL_SIZE']

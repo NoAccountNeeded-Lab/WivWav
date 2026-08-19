@@ -58,8 +58,7 @@ export {
 export type { ScheduleIntent, SourceControlAuditEntry } from './lib/operator-intent.js'
 
 // --- shared scraper-ingest persistence (#948/#951): one implementation used
-// by apps/scraper's in-process jobs (until cutover) and apps/api's worker
-// gateway. Relocated from apps/scraper; the scraper re-exports these.
+// by apps/api's in-process jobs and its worker gateway.
 export { isTransientPrismaError, withTransientRetry } from './lib/db-retry.js'
 export { ingestListing } from './ingest/listing-ingest.js'
 export type { ListingIngestTx } from './ingest/listing-ingest.js'
