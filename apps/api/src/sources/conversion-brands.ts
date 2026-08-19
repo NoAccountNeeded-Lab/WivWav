@@ -99,5 +99,5 @@ export async function runConversionBrandsSeedJob(context?: JobContext): Promise<
     current: upserted,
     total: brandSeeds.length,
   })
-  await db.$disconnect()
+  // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
 }

@@ -61,7 +61,6 @@ describe('runSearchIndexerPollJob', () => {
     await runSearchIndexerPollJob()
 
     expect(rebuildMeilisearchIndex).toHaveBeenCalledWith(undefined, db, meili)
-    expect(db.$disconnect).toHaveBeenCalled()
   })
 
   it('does not rebuild an empty index when PostgreSQL also has no public listings', async () => {
@@ -79,7 +78,6 @@ describe('runSearchIndexerPollJob', () => {
 
     expect(syncListings).not.toHaveBeenCalled()
     expect(db.searchIndexerCheckpoint.upsert).not.toHaveBeenCalled()
-    expect(db.$disconnect).toHaveBeenCalled()
   })
 
   it('starts from epoch when no checkpoint row exists yet', async () => {
@@ -118,7 +116,6 @@ describe('runSearchIndexerPollJob', () => {
     await expect(runSearchIndexerPollJob()).rejects.toThrow('Meili down')
 
     expect(db.searchIndexerCheckpoint.upsert).not.toHaveBeenCalled()
-    expect(db.$disconnect).toHaveBeenCalled()
   })
 
   it('pages through multiple full batches in a single run, advancing the checkpoint after each', async () => {

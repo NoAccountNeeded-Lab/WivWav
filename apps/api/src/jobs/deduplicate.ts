@@ -143,7 +143,8 @@ export async function runDeduplicateJob(context?: JobContext): Promise<JobRunFin
     current: rows.length,
     total: rows.length,
   })
-  await db.$disconnect()
+  // #969: no per-job $disconnect() here — see geocode.ts's comment for why
+  // apps/api's copies of these jobs leave the shared `getDb()` client alone.
 
   // succeededCount/failedCount are per VIN group (this run's unit of work),
   // not per listing — a linked group can move several listings, so

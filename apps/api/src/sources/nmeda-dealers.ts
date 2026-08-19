@@ -62,5 +62,5 @@ export async function runNmedaDealersSeedJob(context?: JobContext): Promise<void
     current: upserted,
     total: dealerSeeds.length,
   })
-  await db.$disconnect()
+  // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
 }

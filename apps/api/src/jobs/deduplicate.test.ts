@@ -95,7 +95,6 @@ describe('runDeduplicateJob', () => {
     const stats = await runDeduplicateJob()
 
     expect(db.listing.update).not.toHaveBeenCalled()
-    expect(db.$disconnect).toHaveBeenCalled()
     expect(stats).toEqual({ succeededCount: 0, failedCount: 0 })
   })
 

@@ -140,15 +140,6 @@ describe('runVehicleStatsRefreshJob', () => {
     }
   })
 
-  it('calls $disconnect after all records are processed', async () => {
-    const db = makeDb()
-    getDbMock.mockReturnValue(db)
-
-    await runVehicleStatsRefreshJob()
-
-    expect(db.$disconnect).toHaveBeenCalledOnce()
-  })
-
   it('processes all seed records even when some already exist', async () => {
     let callCount = 0
     const db = makeDb({
@@ -168,6 +159,5 @@ describe('runVehicleStatsRefreshJob', () => {
 
     expect(db.vehicleStats.update).toHaveBeenCalledTimes(1)
     expect(db.vehicleStats.create).toHaveBeenCalledTimes(1)
-    expect(db.$disconnect).toHaveBeenCalledOnce()
   })
 })

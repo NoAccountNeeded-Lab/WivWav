@@ -50,7 +50,6 @@ describe('runGeocodeJob', () => {
     await runGeocodeJob()
 
     expect(db.listing.updateMany).not.toHaveBeenCalled()
-    expect(db.$disconnect).toHaveBeenCalled()
   })
 
   it('geocodes a location and updates all listings sharing that city+state', async () => {
@@ -153,11 +152,4 @@ describe('runGeocodeJob', () => {
       data: { processingLockedAt: null },
     })
   })
-
-  it('calls $disconnect when finished', async () => {
-    db.listing.findMany.mockResolvedValue([])
-    await runGeocodeJob()
-    expect(db.$disconnect).toHaveBeenCalledTimes(1)
-  })
-
 })

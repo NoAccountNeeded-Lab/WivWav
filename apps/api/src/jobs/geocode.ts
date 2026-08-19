@@ -144,5 +144,10 @@ export async function runGeocodeJob(context?: JobContext): Promise<void> {
     current: uniquePairs.length,
     total: uniquePairs.length,
   })
-  await db.$disconnect()
+  // #969: unlike apps/scraper (a dedicated, single-purpose process), the
+  // `getDb()` client here is a long-lived singleton apps/api's index.ts also
+  // hands to every HTTP route handler and only disconnects on graceful
+  // shutdown — a per-job `$disconnect()` would tear that shared client down
+  // (and force a reconnect) while concurrent API traffic may be using it, so
+  // apps/api's copies of these jobs omit it.
 }

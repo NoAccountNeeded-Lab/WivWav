@@ -110,11 +110,8 @@ async function cleanupOrphanedIndexes(client: Meilisearch, keepIndexName: string
 export async function runMeilisearchSyncJob(context?: JobContext): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
-  try {
-    await rebuildMeilisearchIndex(context, db, client)
-  } finally {
-    await db.$disconnect()
-  }
+  // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
+  await rebuildMeilisearchIndex(context, db, client)
 }
 
 /**

@@ -83,5 +83,5 @@ export async function runVehicleStatsRefreshJob(context?: JobContext): Promise<v
     current: upserted,
     total: seedData.length,
   })
-  await db.$disconnect()
+  // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
 }

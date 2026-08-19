@@ -207,13 +207,10 @@ export async function runListingResolveJob(
 ): Promise<void> {
   const db = getDb()
 
-  try {
-    if ('listingId' in data) {
-      await resolveOneListing(db, data.listingId, data.observationReference, context)
-    } else {
-      await resolveSourceBacklog(db, data.sourceId, context)
-    }
-  } finally {
-    await db.$disconnect()
+  // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
+  if ('listingId' in data) {
+    await resolveOneListing(db, data.listingId, data.observationReference, context)
+  } else {
+    await resolveSourceBacklog(db, data.sourceId, context)
   }
 }
