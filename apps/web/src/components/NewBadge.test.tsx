@@ -47,8 +47,20 @@ describe('NewBadge', () => {
     expect(screen.queryByText('New')).toBeNull()
   })
 
-  it('remains absent for invalid timestamps', () => {
+  it('remains absent when the listing equals the previous visit', () => {
+    renderBadge('2026-06-21T10:00:00.000Z', '2026-06-21T10:00:00.000Z')
+
+    expect(screen.queryByText('New')).toBeNull()
+  })
+
+  it('remains absent for an invalid listing timestamp', () => {
     renderBadge('not-a-date', '2026-06-21T10:00:00.000Z')
+
+    expect(screen.queryByText('New')).toBeNull()
+  })
+
+  it('remains absent for an invalid previous visit timestamp', () => {
+    renderBadge('2026-06-21T10:15:00.000Z', 'not-a-date')
 
     expect(screen.queryByText('New')).toBeNull()
   })
