@@ -75,7 +75,7 @@ The search endpoint returns `ListingDocument` hits directly from Meilisearch, wh
 
 **Decision:** Description text is currently returned from the API and indexed as a searchable field. Suppression for private sellers is **deferred** pending counsel review.
 
-**Rationale:** Description text may contain personal context but also contains WAV-specific details that are useful for buyers. The text is already publicly visible on BLVD.com. A product decision to suppress it would require changes to the search index settings and API response. This deferral is documented and must be resolved before public beta alongside the BLVD source posture review in `docs/risk/prelaunch-scraping-risk.md`.
+**Rationale:** Description text may contain personal context but also contains WAV-specific details that are useful for buyers. The text is already publicly visible on BLVD.com. A product decision to suppress it would require changes to the search index settings and API response. This is a private-seller privacy question independent of the BLVD/MobilityWorks source posture (resolved 2026-08-19, not a launch blocker) and remains deferred pending counsel review.
 
 **Required action:** Product and counsel to decide whether private-seller description text should be (a) excluded from the search index, (b) returned in API but not indexed as searchable, or (c) retained as-is.
 
@@ -133,7 +133,7 @@ The following items require explicit product or legal approval before public bet
 
 | Item | Risk | Required decision |
 | --- | --- | --- |
-| BLVD scraping posture | High | Counsel to approve or block BLVD as a source. See `prelaunch-scraping-risk.md`. |
+| BLVD scraping posture | Resolved | Product decision (2026-08-19): not a launch blocker; WivWav links back to source listings. |
 | Private-seller description text indexing | Medium | Product/counsel to choose: suppress, limit, or retain. |
 | ZIP code from detail extraction | Low–Medium | Product/counsel to choose: suppress or retain in public API. |
 | Image retention for private-seller listings | Low | Product/counsel to confirm link-through vs. re-hosting approach. |
