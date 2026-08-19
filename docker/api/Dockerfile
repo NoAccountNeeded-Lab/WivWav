@@ -72,13 +72,17 @@ RUN pnpm --filter @wivwav/api build
 # optionalDependency (e.g. `@img/sharp-linuxmusl-x64` on this alpine base),
 # and `--no-optional` would prune that along with everything else optional.
 # `@prisma/client`'s `prisma`/`typescript` optional peer deps — the actual
-# thing `--no-optional` used to target — are instead stripped explicitly
-# below, the same way this image has carried sharp since before #969.
+# thing `--no-optional` used to target — and their CLI-only Studio/PGlite
+# closure are instead stripped explicitly below, the same way this image has
+# carried sharp since before #969, without shipping the orphaned Prisma CLI
+# graph.
 FROM builder AS deploy
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     pnpm --filter @wivwav/api deploy --prod --ignore-scripts --legacy /app/deploy/api \
     && find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
-      \( -name 'typescript@*' -o -name 'prisma@*' \) -exec rm -rf '{}' + \
+      \( -name 'typescript@*' -o -name 'prisma@*' \
+         -o -name '@prisma+dev@*' -o -name '@prisma+studio-core@*' \
+         -o -name '@electric-sql+pglite@*' \) -exec rm -rf '{}' + \
     && symlink_fixture="$(mktemp -d)" \
     && touch "$symlink_fixture/target" \
     && ln -s target "$symlink_fixture/valid" \
@@ -91,7 +95,9 @@ RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     && sh /app/scripts/remove-dangling-symlinks.sh /app/deploy/api/node_modules \
     && ! find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
       \( -name 'typescript@*' -o -name 'vitest@*' -o -name 'eslint@*' \
-         -o -name 'prettier@*' -o -name 'turbo@*' \) | grep -q . \
+         -o -name 'prettier@*' -o -name 'turbo@*' \
+         -o -name '@prisma+dev@*' -o -name '@prisma+studio-core@*' \
+         -o -name '@electric-sql+pglite@*' \) | grep -q . \
     && cd /app/deploy/api \
     && node -e "const sharp = require('sharp'); console.log('sharp', sharp.versions.sharp)"
 
