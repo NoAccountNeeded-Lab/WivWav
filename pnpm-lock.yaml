@@ -71,6 +71,9 @@ importers:
       '@sinclair/typebox':
         specifier: ^0.34.49
         version: 0.34.49
+      '@wivwav/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@wivwav/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -104,9 +107,15 @@ importers:
       meilisearch:
         specifier: ^0.59.0
         version: 0.59.0
+      p-retry:
+        specifier: ^8.0.0
+        version: 8.0.0
       prom-client:
         specifier: ^15.1.3
         version: 15.1.3
+      sharp:
+        specifier: ^0.35.3
+        version: 0.35.3(@types/node@26.1.2)
       zod:
         specifier: ^4.4.3
         version: 4.4.3

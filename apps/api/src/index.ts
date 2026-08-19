@@ -25,6 +25,22 @@ import { MeilisearchService } from './services/search/index.js'
 import { applyScheduleIntents, reconcileSchedules } from './schedule-registration.js'
 import { registerSources } from './sources/registry.js'
 import { buildScheduleDefs } from './schedule-defs.js'
+import { runGeocodeJob } from './jobs/geocode.js'
+import { runDeduplicateJob } from './jobs/deduplicate.js'
+import { runVehicleStatsRefreshJob } from './jobs/vehicle-stats-refresh.js'
+import { runConversionBrandsSeedJob } from './sources/conversion-brands.js'
+import { runNmedaDealersSeedJob } from './sources/nmeda-dealers.js'
+import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
+import { runSearchIndexerPollJob } from './jobs/search-indexer-poll.js'
+import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing-resolve.js'
+import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
+import {
+  runSemanticImageAnalyzeJob,
+  type SemanticImageAnalyzeJobData,
+} from './jobs/semantic-image-analyze.js'
+import { withSentryCapture } from './lib/capture-job-error.js'
+import { withJobRunTracking } from './lib/job-run-tracking.js'
+import { PrismaJobRunRepository } from './lib/job-run-repository.js'
 
 const config = loadConfig()
 if (!config.CONFIG_ENCRYPTION_SECRET) {
@@ -40,6 +56,11 @@ const search = new ListingSearchService(searchService)
 const facets = new ListingFacetsService(searchService, cache)
 const queueFactory = new BullMQQueueFactory()
 const app = await buildApp(config, db, meili, cache, search, facets, queueFactory, redis)
+
+// #933 lineage backbone: one JobRun row per job execution, across every job
+// type registered below — see lib/job-run-tracking.ts. Mirrors
+// apps/scraper/src/index.ts's own instance.
+const jobRuns = new PrismaJobRunRepository(db)
 
 let shutdownPromise: Promise<void> | undefined
 
@@ -118,6 +139,128 @@ const listingIndexPollQueue = queueFactory.createQueue(QUEUES.LISTING_INDEX_POLL
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
+// No local binding: resolution jobs are enqueued from the internal-scraper
+// and internal-http-enrich routes, not from this startup script. Registering
+// it here still makes the BullMQ Queue instance visible to shutdown()'s
+// close(), matching apps/scraper/src/index.ts's own copy.
+queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
+// No local binding: nothing in this process enqueues onto this queue — only
+// the #798 backfill script (a separate process/factory) does. Registering it
+// here still makes the BullMQ Queue instance visible to shutdown()'s close().
+queueFactory.createQueue(QUEUES.IMAGE_SEMANTIC_ANALYZE)
+
+// --- Direct-DB job workers (#969) ---
+// Registers the same #969-relocated workers apps/scraper/src/index.ts's
+// registerWorkers() registers from its own copy of these job files — see the
+// note atop that function for why both processes running these workers
+// concurrently during the migration window is safe (BullMQ per-job locking
+// means only one process actually executes a given job run).
+function registerWorkers(): void {
+  queueFactory.createWorker(
+    QUEUES.GEOCODE,
+    withSentryCapture(
+      QUEUES.GEOCODE,
+      withJobRunTracking(QUEUES.GEOCODE, jobRuns, (_data: unknown, context) =>
+        runGeocodeJob(context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.DEDUPLICATE,
+    withSentryCapture(
+      QUEUES.DEDUPLICATE,
+      withJobRunTracking(QUEUES.DEDUPLICATE, jobRuns, (_data: unknown, context) =>
+        runDeduplicateJob(context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.VEHICLE_STATS_REFRESH,
+    withSentryCapture(
+      QUEUES.VEHICLE_STATS_REFRESH,
+      withJobRunTracking(QUEUES.VEHICLE_STATS_REFRESH, jobRuns, (_data: unknown, context) =>
+        runVehicleStatsRefreshJob(context),
+      ),
+    ),
+    { lockDuration: 60_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.CONVERSION_BRANDS_SEED,
+    withSentryCapture(
+      QUEUES.CONVERSION_BRANDS_SEED,
+      withJobRunTracking(QUEUES.CONVERSION_BRANDS_SEED, jobRuns, (_data: unknown, context) =>
+        runConversionBrandsSeedJob(context),
+      ),
+    ),
+    { lockDuration: 60_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.NMEDA_DEALERS_SEED,
+    withSentryCapture(
+      QUEUES.NMEDA_DEALERS_SEED,
+      withJobRunTracking(QUEUES.NMEDA_DEALERS_SEED, jobRuns, (_data: unknown, context) =>
+        runNmedaDealersSeedJob(context),
+      ),
+    ),
+    { lockDuration: 60_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.LISTING_SYNC,
+    withSentryCapture(
+      QUEUES.LISTING_SYNC,
+      withJobRunTracking(QUEUES.LISTING_SYNC, jobRuns, (_data: unknown, context) =>
+        runMeilisearchSyncJob(context),
+      ),
+    ),
+    { lockDuration: 300_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.LISTING_INDEX_POLL,
+    withSentryCapture(
+      QUEUES.LISTING_INDEX_POLL,
+      withJobRunTracking(QUEUES.LISTING_INDEX_POLL, jobRuns, (_data: unknown, context) =>
+        runSearchIndexerPollJob(context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker<ListingResolveJobData>(
+    QUEUES.LISTING_RESOLVE,
+    withSentryCapture<ListingResolveJobData>(
+      QUEUES.LISTING_RESOLVE,
+      withJobRunTracking<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, jobRuns, (data, context) =>
+        runListingResolveJob(data, context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.RAWPAGE_CLEANUP,
+    withSentryCapture(
+      QUEUES.RAWPAGE_CLEANUP,
+      withJobRunTracking(QUEUES.RAWPAGE_CLEANUP, jobRuns, (_data: unknown, context) =>
+        runRawPageCleanupJob(context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker(
+    QUEUES.IMAGE_SEMANTIC_ANALYZE,
+    withSentryCapture(
+      QUEUES.IMAGE_SEMANTIC_ANALYZE,
+      withJobRunTracking(
+        QUEUES.IMAGE_SEMANTIC_ANALYZE,
+        jobRuns,
+        (data: SemanticImageAnalyzeJobData, context) => runSemanticImageAnalyzeJob(data, context),
+      ),
+    ),
+    { lockDuration: 60_000, logger: app.log },
+  )
+}
+
+registerWorkers()
 
 try {
   const registeredSources = await registerSources(db)

@@ -1,0 +1,98 @@
+[
+  {
+    "make": "Toyota",
+    "model": "Sienna",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "Toyota",
+    "model": "Highlander",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "Honda",
+    "model": "Odyssey",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "Chrysler",
+    "model": "Pacifica",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "Ford",
+    "model": "Transit",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "Dodge",
+    "model": "Grand Caravan",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "Chevrolet",
+    "model": "Express",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  },
+  {
+    "make": "GMC",
+    "model": "Savana",
+    "year": null,
+    "avgLifespanMiles": null,
+    "reliabilityScore": null,
+    "reliabilitySource": null,
+    "jdPowerScore": null,
+    "dataSourceName": null,
+    "dataSourceUrl": null,
+    "methodology": "No reliability or lifespan score is populated. WivWav does not calculate reliability scores or scrape commercial score providers; add values only with a public, linkable source."
+  }
+]
