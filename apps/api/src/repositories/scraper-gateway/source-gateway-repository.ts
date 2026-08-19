@@ -21,10 +21,9 @@ export type { SourceDriftBaseline, SourceExecutionState }
 
 /**
  * Source-state transitions for the worker gateway (#951). Deliberately a
- * separate class from the admin-oriented SourceRepository in
- * ../source-repository.ts — same table, different surface — but both this
- * class and apps/scraper's PrismaSourceRepository delegate to the one
- * shared implementation in @wivwav/db.
+ * separate class from the admin-oriented PrismaSourceRepository in
+ * ../source-repository.ts — same table, different surface — but both
+ * classes delegate to the one shared implementation in @wivwav/db.
  */
 export class SourceGatewayRepository {
   constructor(
@@ -42,9 +41,8 @@ export class SourceGatewayRepository {
    * the worker resolves the registry adapter module via `name` (matched
    * against `@wivwav/types`' `SCRAPER_SOURCE_REGISTRY`, which has no DB
    * dependency) and seeds the adapter's change-detection state from
-   * `fingerprintHash`/`page1Hash` — the same fields
-   * `apps/scraper/src/sources/registry.ts`'s `registerSources` reads to build
-   * the in-process adapter.
+   * `fingerprintHash`/`page1Hash` — the same fields `sources/registry.ts`'s
+   * `registerSources` reads to build the in-process adapter.
    */
   async getProfile(id: string): Promise<{
     id: string

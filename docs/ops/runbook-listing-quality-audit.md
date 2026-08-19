@@ -19,26 +19,26 @@ respond to a failed gate.
 
 ```bash
 # Human-readable output (default)
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report
 
 # Scope to a single source
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --source blvd
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --source blvd
 
 # Machine-readable JSON to file
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --json --out audit-$(date +%Y%m%d).json
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --json --out audit-$(date +%Y%m%d).json
 
 # Limit scan for quick spot-checks (does not produce a representative baseline)
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --limit 500
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --limit 500
 
 # Compare against a previously approved coverage baseline (search reconciliation)
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json
 
 # Approve the current coverage/unknown-rates as the new baseline after a
 # deliberate schema or canonicalization change
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --approve-baseline search-baseline.json
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --approve-baseline search-baseline.json
 
 # Tune how large a coverage-rate drop (0–1, absolute) triggers a baseline alert (default 0.1)
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json --coverage-drop-threshold 0.15
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json --coverage-drop-threshold 0.15
 ```
 
 Always run against a live production database. The audit is read-only and
@@ -127,7 +127,7 @@ Zero values here mean the `image-integrity-backfill` job has not been run yet.
 Run it first:
 
 ```bash
-pnpm tsx apps/scraper/src/jobs/image-integrity-backfill.ts --apply
+pnpm tsx apps/api/src/jobs/image-integrity-backfill.ts --apply
 ```
 
 ### Search index reconciliation (#642)
@@ -206,7 +206,7 @@ hang the audit).
 1. **Stale/missing/unexpected documents**: re-trigger the incremental
    indexer for the affected ids, or if widespread, run a full-rebuild sync
    (`LISTING_SYNC` queue with the `LISTING_SYNC_REBUILD_JOB_ID`, see
-   `packages/search`/`apps/scraper/src/jobs/meilisearch-sync.ts`) to force a
+   `packages/search`/`apps/api/src/jobs/meilisearch-sync.ts`) to force a
    clean re-derivation of every representative from current Postgres state.
 2. **Duplicate vehicleId documents**: identify and fix the `syncListings`
    defect that let a non-representative member survive a sync, then run a
@@ -239,7 +239,7 @@ restored index before re-attempting the rebuild.
 After any full-rebuild sync (or a fix for one of the above), re-run:
 
 ```bash
-pnpm tsx apps/scraper/src/jobs/listing-quality-audit.ts --report --json --out post-rebuild-audit.json
+pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --json --out post-rebuild-audit.json
 ```
 
 and confirm `searchReconciliation.countDivergence` is `false`,
@@ -378,5 +378,5 @@ These gaps are included in every audit report under `knownGaps`.
   characters), and a legitimate, complete 40-character trim was found at
   the same length as some genuinely truncated examples, so a length- or
   shape-based heuristic would risk hiding real data. See
-  `apps/scraper/src/lib/parse-vehicle-title.ts` for the full investigation
+  `packages/scraper-sources/src/lib/parse-vehicle-title.ts` for the full investigation
   note.

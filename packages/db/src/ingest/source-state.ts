@@ -4,9 +4,9 @@ import type { FieldMapping } from '@wivwav/types'
 import { isRecordNotFoundError } from '../lib/prisma-errors.js'
 
 /**
- * Source execution-state transitions (#948/#951): shared by apps/scraper's
- * PrismaSourceRepository (until the cutover) and apps/api's worker gateway,
- * one implementation instead of a hand-copied port.
+ * Source execution-state transitions (#948/#951): shared by apps/api's
+ * admin-oriented PrismaSourceRepository and its worker gateway, one
+ * implementation instead of a hand-copied port.
  */
 
 export interface SourceExecutionState {

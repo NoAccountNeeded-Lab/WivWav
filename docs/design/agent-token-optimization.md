@@ -89,4 +89,4 @@ Provider-specific model selection belongs to the agent runtime. The SDLC CLI rec
 ## Follow-Ups
 
 - Split `AGENTS.md` into optional topic imports only if multiple agents continue loading the full file unnecessarily.
-- Add path-scoped Claude rules for `apps/web`, `apps/api`, and `apps/scraper` if Claude Code workers still over-read after this change.
+- Add path-scoped Claude rules for `apps/web`, `apps/api`, and `apps/worker` if Claude Code workers still over-read after this change.

@@ -2,10 +2,9 @@ import { completeScraperRun, failScraperRun, startScraperRun, type PrismaClient 
 
 /**
  * Scraper-run lifecycle writes for the worker gateway (#951). Deliberately a
- * separate class from the admin-oriented ScraperRunRepository in
+ * separate class from the admin-oriented PrismaScraperRunRepository in
  * ../scraper-run-repository.ts — same table, different surface — but both
- * this class and apps/scraper's PrismaScraperRunRepository delegate to the
- * one shared implementation in @wivwav/db.
+ * classes delegate to the one shared implementation in @wivwav/db.
  */
 export class ScraperRunGatewayRepository {
   constructor(private readonly db: PrismaClient) {}

@@ -60,7 +60,7 @@ checkpoint only after the corresponding Meilisearch write succeeds.
   every Prisma `update`/`updateMany`/`upsert` call advances it automatically,
   including inside `$transaction`.
 - **Non-Prisma writers:** one raw-SQL writer exists —
-  `apps/scraper/src/jobs/listing-lock.ts` (`acquireListingLock`) — which sets
+  `apps/api/src/jobs/listing-lock.ts` (`acquireListingLock`) — which sets
   only `processingLockedAt` via `UPDATE listings SET "processingLockedAt" =
   ...`. That column is not part of the search document and is never read by
   `toDocument()`/`syncListings()`, so this writer cannot silently invalidate
@@ -73,7 +73,7 @@ checkpoint only after the corresponding Meilisearch write succeeds.
   timestamps are still totally ordered and none are skipped or
   double-counted across pages.
 - **Crash safety:** the checkpoint advances only *after* `syncListings()`
-  resolves for a batch (see `apps/scraper/src/jobs/search-indexer-poll.ts`).
+  resolves for a batch (see `apps/api/src/jobs/search-indexer-poll.ts`).
   If the process crashes between the Meilisearch write and the checkpoint
   write, the next run re-reads and replays the same batch; replay is safe
   because `syncListings()` recomputes the correct document/deletion set from
@@ -94,7 +94,7 @@ depends on both conditions holding.
 
 ## Resulting design (implemented in this issue)
 
-- `apps/scraper/src/jobs/search-indexer-poll.ts` — the single steady-state
+- `apps/api/src/jobs/search-indexer-poll.ts` — the single steady-state
   owner of incremental search-index writes. Runs on a one-minute repeatable
   schedule (`QUEUES.LISTING_INDEX_POLL`), reads a durable checkpoint from the
   new `search_indexer_checkpoint` table, and calls the existing
@@ -102,7 +102,7 @@ depends on both conditions holding.
 - All nine scraper mutation-path calls to `syncListings()`, and the API's
   startup `syncAll`, are removed. Mutations only need to commit to Postgres;
   the poller observes the change on its next tick.
-- `apps/scraper/src/jobs/meilisearch-sync.ts` (the periodic full rebuild) now
+- `apps/api/src/jobs/meilisearch-sync.ts` (the periodic full rebuild) now
   builds into a freshly created, uniquely named index, validates the
   submitted/committed document counts against the database, and only then
   calls Meilisearch `swapIndexes` to cut the live `listings` index over

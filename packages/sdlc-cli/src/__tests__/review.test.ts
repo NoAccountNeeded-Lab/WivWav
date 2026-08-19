@@ -139,8 +139,8 @@ describe('reviewCommand — domain notes', () => {
     log.mockRestore()
   })
 
-  it('emits scraper arrow-function warning for apps/scraper changes', async () => {
-    mockChangedFiles.mockReturnValue(['apps/scraper/src/engine.ts'])
+  it('emits scraper arrow-function warning for packages/scraper-sources changes', async () => {
+    mockChangedFiles.mockReturnValue(['packages/scraper-sources/src/sources/blvd.ts'])
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     await reviewCommand()
     const allOutput = log.mock.calls.map((c) => String(c[0])).join('\n')

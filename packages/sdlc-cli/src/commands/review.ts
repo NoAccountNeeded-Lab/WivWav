@@ -64,9 +64,9 @@ function buildDomainNotes(files: string[]): string[] {
   if (files.some((f) => f.startsWith('apps/api/src/routes/'))) {
     notes.push('[api] Verify docs/api-routes.md is current after route changes.')
   }
-  if (files.some((f) => f.startsWith('apps/scraper/'))) {
+  if (files.some((f) => f.startsWith('packages/scraper-sources/'))) {
     notes.push(
-      '[scraper] Avoid arrow functions inside page.evaluate() — tsx esbuild wraps them with __name() which breaks in Playwright browser context. Use function declarations instead.',
+      '[scraper-sources] Avoid arrow functions inside page.evaluate() — tsx esbuild wraps them with __name() which breaks in Playwright browser context. Use function declarations instead.',
     )
   }
   if (files.some((f) => f.includes('.env') || f.includes('secrets'))) {

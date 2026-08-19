@@ -283,7 +283,6 @@ function writeRecoveryState(target: SprintTarget, sprintId: string, dryRun: bool
 const ENV_FILES_TO_COPY = [
   'apps/api/.env',
   'apps/api/.env.local',
-  'apps/scraper/.env',
   'apps/web/.env.local',
   'packages/db/.env',
 ]

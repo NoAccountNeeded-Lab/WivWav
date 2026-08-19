@@ -437,7 +437,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
   // ── Quarantine ──────────────────────────────────────────────────────────────
   // Operator-facing list/filter/reprocess surface for listings the publication
-  // validator quarantined (see apps/scraper/src/engine/listing-validator.ts).
+  // validator quarantined (see engine/listing-validator.ts).
 
   // GET /admin/quarantine — list quarantined listings, filterable by source,
   // rule, severity, and age (olderThanDays).
@@ -499,7 +499,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
   // ── #499 field conflicts ─────────────────────────────────────────────────────
   // Operator triage surface for listings whose conversionType/rampType
-  // resolution is `conflicting` (apps/scraper/src/resolution). Reuses #147's
+  // resolution is `conflicting` (resolution/). Reuses #147's
   // triage list/filter/paginate shape (see the quarantine routes above) —
   // this issue does not build a separate user-report form, only the
   // operator-facing conflict list the issue's acceptance criteria require.

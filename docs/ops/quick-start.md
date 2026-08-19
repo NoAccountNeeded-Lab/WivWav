@@ -2,7 +2,7 @@
 
 **Prerequisites:** Docker, Node 26, pnpm 11
 
-Pick one of the two paths below — both start api, web, ops, and scraper, so don't run both.
+Pick one of the two paths below — both start api, web, and ops, so don't run both.
 
 ### Option A: local dev with hot reload (recommended while developing)
 
@@ -11,7 +11,6 @@ Pick one of the two paths below — both start api, web, ops, and scraper, so do
 pnpm install
 pnpm db:generate
 cp apps/api/.env.example apps/api/.env
-cp apps/scraper/.env.example apps/scraper/.env
 cp apps/web/.env.example apps/web/.env.local
 cp apps/ops/.env.example apps/ops/.env.local
 cp packages/db/.env.example packages/db/.env
@@ -27,7 +26,7 @@ openssl rand -hex 32
 
 # Each session
 make dev       # starts Postgres, Valkey, Meilisearch in Docker, applies
-               # migrations, then runs api, web, ops, and scraper locally with hot reload
+               # migrations, then runs api, web, and ops locally with hot reload
 ```
 
 | Service     | URL                   |
@@ -48,7 +47,7 @@ make down      # stop the Postgres/Valkey/Meilisearch containers started by make
 cp apps/api/.env.example apps/api/.env
 
 # Each session
-make up        # starts the entire stack in Docker — infra, api, web, ops, scraper,
+make up        # starts the entire stack in Docker — infra, api, web, ops,
                # Ollama, and observability. Builds images automatically on first run.
 ```
 
@@ -111,21 +110,13 @@ All `*:affected` commands use `turbo --filter="...[origin/main]"` — they run o
 
 Turbo uses a **shared remote cache** (Vercel Remote Cache) across CI and the sprint runner: with `TURBO_TOKEN`/`TURBO_TEAM` set, unchanged inputs skip re-execution. See [docs/design/turbo-remote-cache.md](../design/turbo-remote-cache.md) for setup, cache keys, invalidation, and troubleshooting.
 
-## Scraper browser sandbox
+## Worker browser sandbox
 
-The production scraper image runs as the dedicated non-root `scraper` user
-(UID 10001). Browser jobs run in the separate `worker` image; the scraper
-image contains neither Playwright nor Chromium. To build and verify it directly:
-
-```bash
-docker build -f docker/scraper/Dockerfile -t wivwav-scraper:local .
-docker run --rm --init wivwav-scraper:local node smoke.mjs
-```
-
-The smoke script fails unless the process is non-root, `sharp` can process an
-image, development tools are absent, and no Playwright runtime package is
-present. The worker service retains the Chromium seccomp and host-IPC settings
-required for browser jobs.
+Browser jobs (source-scrape, detail-crawl, detail-extract) run in the
+dedicated `worker` image, which retains the Chromium seccomp and host-IPC
+settings required for browser jobs. `apps/api`'s own image contains neither
+Playwright nor Chromium — see #658's forbidden-content CI check for what it
+verifies.
 
 ## SDLC delivery metrics report
 

@@ -1,11 +1,8 @@
-// #968: apps/api's copy of apps/scraper/src/schedule-registration.ts,
-// relocated so apps/api can register the same repeatable schedules from its
-// own startup. apps/scraper keeps running its own copy of this module until
-// the follow-on cutover issue (#961) deletes the scraper daemon entirely —
-// reconcileSchedules is idempotent (add-if-missing / correct-if-mismatched
-// against BullMQ's existing repeatable-job state), so both processes calling
-// it concurrently during the migration window is safe, not a correctness
-// risk. Keep the two copies in sync until the cutover issue removes this one.
+// #968: relocated from apps/scraper/src/schedule-registration.ts so apps/api
+// can register the same repeatable schedules from its own startup. #970
+// deleted the standalone scraper daemon entirely, so this is now the sole
+// copy — reconcileSchedules is idempotent (add-if-missing /
+// correct-if-mismatched against BullMQ's existing repeatable-job state).
 import type { WivWavLogger } from '@wivwav/logger'
 import type { JobOptions, QueueAdapter, RepeatableJob } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
