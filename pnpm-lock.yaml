@@ -120,6 +120,9 @@ importers:
       '@wivwav/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@wivwav/scraper-sources':
+        specifier: workspace:*
+        version: link:../../packages/scraper-sources
       pino-pretty:
         specifier: ^13.1.3
         version: 13.1.3
