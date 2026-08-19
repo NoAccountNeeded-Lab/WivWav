@@ -85,9 +85,17 @@ process.once('SIGINT', () => void shutdown('SIGINT'))
 // Registers the same repeatable schedules apps/scraper/src/index.ts
 // registers from its own copy of this logic — see the note atop
 // schedule-registration.ts for why both processes reconciling concurrently
-// during the migration window is safe.
-const registeredSources = await registerSources(db)
-
+// during the migration window is safe. Wrapped in try/catch (unlike
+// apps/scraper's unguarded equivalent) because apps/api is the primary
+// user-facing HTTP service: a transient DB/Redis error here must not stop
+// it from binding its port and serving requests — apps/scraper's copy is
+// still registering these same schedules regardless.
+//
+// Runs unconditionally on every boot, same as apps/scraper today — there is
+// no singleton/runtime-mode gate. registerSources upserts (cheap) and
+// reconcileSchedules is idempotent, so a rolling deploy or restart re-running
+// this is safe, just not free; revisit if apps/api is ever run with more than
+// a couple of replicas.
 const scrapeQueue = queueFactory.createQueue(QUEUES.SOURCE_SCRAPE)
 const crawlQueue = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
 const extractQueue = queueFactory.createQueue(QUEUES.DETAIL_EXTRACT)
@@ -111,41 +119,48 @@ const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 
-const schedulerSource = registeredSources[0]
-if (!schedulerSource) {
-  throw new Error('No scraper sources are registered')
+try {
+  const registeredSources = await registerSources(db)
+
+  const schedulerSource = registeredSources[0]
+  if (!schedulerSource) {
+    throw new Error('No scraper sources are registered')
+  }
+  const scheduleTz = schedulerSource.row.timezone
+
+  const SCHEDULE_DEFS = buildScheduleDefs(
+    registeredSources,
+    {
+      scrape: scrapeQueue,
+      crawl: crawlQueue,
+      extract: extractQueue,
+      geocode: geocodeQueue,
+      deduplicate: deduplicateQueue,
+      vinEnrich: vinEnrichQueue,
+      nhtsaRecalls: nhtsaRecallsQueue,
+      nhtsaComplaints: nhtsaComplaintsQueue,
+      nhtsaSafetyRatings: nhtsaSafetyRatingsQueue,
+      nhtsaInvestigations: nhtsaInvestigationsQueue,
+      nhtsaManufacturerCommunications: nhtsaManufacturerCommunicationsQueue,
+      vehicleStatsRefresh: vehicleStatsRefreshQueue,
+      conversionBrandsSeed: conversionBrandsSeedQueue,
+      nmedaDealersSeed: nmedaDealersSeedQueue,
+      modelResearch: modelResearchQueue,
+      listingSync: listingSyncQueue,
+      listingIndexPoll: listingIndexPollQueue,
+      rawPageCleanup: rawPageCleanupQueue,
+      dealerEnrich: dealerEnrichQueue,
+      fuelEconomyMsrp: fuelEconomyMsrpQueue,
+    },
+    scheduleTz,
+  )
+
+  const scheduleIntents = await readCurrentScheduleIntents(db)
+  await reconcileSchedules(applyScheduleIntents(SCHEDULE_DEFS, scheduleIntents), app.log)
+  app.log.info({ scheduleCount: SCHEDULE_DEFS.length }, '[schedules] Reconciled on startup')
+} catch (err) {
+  app.log.error(err, '[schedules] Reconciliation skipped; apps/scraper is still registering these schedules')
 }
-const scheduleTz = schedulerSource.row.timezone
-
-const SCHEDULE_DEFS = buildScheduleDefs(
-  registeredSources,
-  {
-    scrape: scrapeQueue,
-    crawl: crawlQueue,
-    extract: extractQueue,
-    geocode: geocodeQueue,
-    deduplicate: deduplicateQueue,
-    vinEnrich: vinEnrichQueue,
-    nhtsaRecalls: nhtsaRecallsQueue,
-    nhtsaComplaints: nhtsaComplaintsQueue,
-    nhtsaSafetyRatings: nhtsaSafetyRatingsQueue,
-    nhtsaInvestigations: nhtsaInvestigationsQueue,
-    nhtsaManufacturerCommunications: nhtsaManufacturerCommunicationsQueue,
-    vehicleStatsRefresh: vehicleStatsRefreshQueue,
-    conversionBrandsSeed: conversionBrandsSeedQueue,
-    nmedaDealersSeed: nmedaDealersSeedQueue,
-    modelResearch: modelResearchQueue,
-    listingSync: listingSyncQueue,
-    listingIndexPoll: listingIndexPollQueue,
-    rawPageCleanup: rawPageCleanupQueue,
-    dealerEnrich: dealerEnrichQueue,
-    fuelEconomyMsrp: fuelEconomyMsrpQueue,
-  },
-  scheduleTz,
-)
-
-const scheduleIntents = await readCurrentScheduleIntents(db)
-await reconcileSchedules(applyScheduleIntents(SCHEDULE_DEFS, scheduleIntents), app.log)
 
 // Apply index settings before accepting traffic so filters/facets work on the
 // first request. Idempotent — safe on every restart, including a fresh container.

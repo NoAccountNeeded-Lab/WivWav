@@ -5,6 +5,14 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN npm install -g corepack@latest && corepack enable
 
 FROM base AS builder
+# apps/api's test suite imports @wivwav/scraper-sources (a devDependency, see
+# apps/api/package.json) to cross-check a seeded field mapping against that
+# package's canonical constant (#968). tsc compiles test files into dist
+# alongside production code (same as every other *.test.ts here), so the
+# builder stage still needs scraper-sources' types even though the deploy
+# stage below never ships it. Skip the browser download for this
+# devDependency-only need — apps/api never runs Playwright.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY scripts/check-node-version.mjs ./scripts/
@@ -17,6 +25,7 @@ COPY packages/db/prisma/schema.prisma ./packages/db/prisma/
 COPY packages/logger/package.json ./packages/logger/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/search/package.json ./packages/search/
+COPY packages/scraper-sources/package.json ./packages/scraper-sources/
 COPY apps/api/package.json ./apps/api/
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
@@ -28,6 +37,7 @@ COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger
 COPY packages/queue ./packages/queue
 COPY packages/search ./packages/search
+COPY packages/scraper-sources ./packages/scraper-sources
 COPY apps/api ./apps/api
 RUN pnpm --filter @wivwav/types build
 RUN pnpm --filter @wivwav/observability build
@@ -36,6 +46,7 @@ RUN pnpm --filter @wivwav/db generate
 RUN pnpm --filter @wivwav/db build
 RUN pnpm --filter @wivwav/queue build
 RUN pnpm --filter @wivwav/search build
+RUN pnpm --filter @wivwav/scraper-sources build
 RUN pnpm --filter @wivwav/api build
 
 # `pnpm deploy` resolves @wivwav/api's production dependency closure only —
