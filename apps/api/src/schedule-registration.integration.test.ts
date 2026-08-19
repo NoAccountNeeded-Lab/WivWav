@@ -21,7 +21,7 @@ import {
 // Requires a reachable Redis/Valkey (QUEUE_REDIS_URL / VALKEY_URL, default
 // redis://localhost:6379 — `docker compose up -d valkey` starts one).
 // Excluded from `pnpm test` by this package's test script; run explicitly via
-// `pnpm --filter @wivwav/scraper test:integration`.
+// `pnpm --filter @wivwav/api test:integration`.
 const noopLogger = { debug: () => {}, info: () => {}, warn: () => {} }
 
 describe('reconcileSchedules against real BullMQ/Redis (integration)', () => {
