@@ -11,14 +11,12 @@
     "4002": { "label": "Ops (Next.js)" }
   },
 
-  "postCreateCommand": "pnpm install && pnpm db:generate && cp -n apps/api/.env.example apps/api/.env && cp -n apps/ops/.env.example apps/ops/.env.local && cp -n apps/scraper/.env.example apps/scraper/.env && cp -n apps/web/.env.example apps/web/.env.local && cp -n packages/db/.env.example packages/db/.env",
+  "postCreateCommand": "pnpm install && pnpm db:generate && cp -n apps/api/.env.example apps/api/.env && cp -n apps/ops/.env.example apps/ops/.env.local && cp -n apps/web/.env.example apps/web/.env.local && cp -n packages/db/.env.example packages/db/.env",
 
   "remoteEnv": {
     "DATABASE_URL": "postgresql://wav:wav@postgres:5432/wivwav",
     "MEILISEARCH_HOST": "http://meilisearch:7700",
     "MEILISEARCH_API_KEY": "wav_master_key",
-    "MEILI_HOST": "http://meilisearch:7700",
-    "MEILI_API_KEY": "wav_master_key",
     "VALKEY_URL": "redis://valkey:6379",
     "QUEUE_REDIS_URL": "redis://valkey:6379",
     "NEXT_PUBLIC_API_URL": "http://localhost:4001",

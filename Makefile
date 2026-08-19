@@ -9,7 +9,7 @@ COMPOSE = docker compose
 # ── Docker stack ──────────────────────────────────────────────────────────────
 
 ## up     Start the complete Docker stack in the background — infra, api, web,
-##        scraper, Ollama, and observability (Loki, Alloy, Grafana). Images are
+##        ops, Ollama, and observability (Loki, Alloy, Grafana). Images are
 ##        built automatically on first run; use 'make build' to force a rebuild.
 ##        Grafana UI: http://localhost:3003
 up:
@@ -42,7 +42,7 @@ prune:
 # ── Local development ─────────────────────────────────────────────────────────
 
 ## dev    Start backing services (Postgres, Valkey, Meilisearch) in Docker,
-##        apply pending migrations, then run api, web, and scraper locally
+##        apply pending migrations, then run api, web, and ops locally
 ##        with hot reload. Ctrl-C stops the apps; services keep running.
 ##        Run 'make down' to stop backing services when done.
 ##        Inside the VS Code dev container, backing services are already
@@ -51,7 +51,6 @@ prune:
 dev:
 	@[ -f /.dockerenv ] || $(COMPOSE) up postgres valkey meilisearch -d
 	@[ -f packages/db/.env ] || cp packages/db/.env.example packages/db/.env
-	@[ -f apps/scraper/.env ] || cp apps/scraper/.env.example apps/scraper/.env
 	pnpm db:migrate
 	pnpm --filter "./packages/*" build
 	pnpm dev
@@ -62,10 +61,10 @@ dev:
 test:
 	pnpm test
 
-## test-integration  Run scraper integration tests. Requires 'make dev' first
-##                   for backing services (Postgres, Valkey).
+## test-integration  Run API + search integration tests. Requires 'make dev'
+##                   first for backing services (Postgres, Valkey, Meilisearch).
 test-integration:
-	pnpm --filter @wivwav/scraper test:integration
+	pnpm test:integration
 
 ## typecheck         Run TypeScript type checking across all packages without
 ##                   emitting any files. Catches type errors before committing.
@@ -99,7 +98,7 @@ test-affected:
 format:
 	pnpm format
 
-## build-app         Build production bundles for all apps (Next.js, API, scraper).
+## build-app         Build production bundles for all apps (Next.js, API).
 build-app:
 	pnpm build
 

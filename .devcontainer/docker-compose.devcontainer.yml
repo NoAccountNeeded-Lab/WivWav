@@ -11,7 +11,6 @@ services:
       - dev_api_node_modules:/workspace/apps/api/node_modules
       - dev_ops_node_modules:/workspace/apps/ops/node_modules
       - dev_ops_next:/workspace/apps/ops/.next
-      - dev_scraper_node_modules:/workspace/apps/scraper/node_modules
       - dev_web_node_modules:/workspace/apps/web/node_modules
       - dev_web_next:/workspace/apps/web/.next
       - dev_e2e_node_modules:/workspace/e2e/node_modules
@@ -44,15 +43,12 @@ services:
     profiles: ["disabled"]
   web:
     profiles: ["disabled"]
-  scraper:
-    profiles: ["disabled"]
 
 volumes:
   dev_root_node_modules:
   dev_api_node_modules:
   dev_ops_node_modules:
   dev_ops_next:
-  dev_scraper_node_modules:
   dev_web_node_modules:
   dev_web_next:
   dev_e2e_node_modules:

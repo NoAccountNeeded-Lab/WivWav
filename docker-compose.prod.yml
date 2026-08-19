@@ -140,27 +140,6 @@ services:
       retries: 10
       start_period: 30s
 
-  scraper:
-    image: ghcr.io/noaccountneeded-lab/wivwav/scraper@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    init: true
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
-      QUEUE_REDIS_URL: redis://valkey:6379
-      MEILI_HOST: http://meilisearch:7700
-      MEILI_API_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
-      SCRAPER_RUNTIME_MODE: ${SCRAPER_RUNTIME_MODE:-all}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_FORMAT: json
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      valkey:
-        condition: service_healthy
-
   web:
     image: ghcr.io/noaccountneeded-lab/wivwav/web@sha256:0000000000000000000000000000000000000000000000000000000000000000
     restart: unless-stopped

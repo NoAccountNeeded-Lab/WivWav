@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.7
-# node:26-alpine (musl libc) is kept here, unlike docker/scraper/Dockerfile's
-# Debian/glibc base — sharp (added in #969 for the relocated image-analysis
-# jobs) ships prebuilt musl-x64 binaries via its optionalDependencies, so no
-# base-image change is needed. The deploy stage below must not pass
+# node:26-alpine (musl libc) is kept here, unlike docker/worker/Dockerfile's
+# Debian/glibc base (Playwright requires glibc) — sharp (added in #969 for the
+# relocated image-analysis jobs) ships prebuilt musl-x64 binaries via its
+# optionalDependencies, so no base-image change is needed. The deploy stage below must not pass
 # `--no-optional` to `pnpm deploy`, or those platform-specific binaries would
 # be pruned along with the CLI-only optional deps it's meant to strip; see
 # the sharp smoke-test at the end of that stage.
@@ -73,8 +73,7 @@ RUN pnpm --filter @wivwav/api build
 # and `--no-optional` would prune that along with everything else optional.
 # `@prisma/client`'s `prisma`/`typescript` optional peer deps — the actual
 # thing `--no-optional` used to target — are instead stripped explicitly
-# below, mirroring docker/scraper/Dockerfile's equivalent step (which has
-# carried sharp the same way since before #969).
+# below, the same way this image has carried sharp since before #969.
 FROM builder AS deploy
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     pnpm --filter @wivwav/api deploy --prod --ignore-scripts --legacy /app/deploy/api \

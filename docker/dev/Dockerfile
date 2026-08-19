@@ -16,8 +16,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY scripts/check-node-version.mjs scripts/
 COPY apps/api/package.json apps/api/
 COPY apps/ops/package.json apps/ops/
-COPY apps/scraper/package.json apps/scraper/
 COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 COPY e2e/package.json e2e/
 COPY packages/agents/package.json packages/agents/
 COPY packages/charts/package.json packages/charts/
