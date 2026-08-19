@@ -13,7 +13,7 @@ import { poll } from './fixture.js'
  * expected count below is hand-derivable from the rows alone. Exhaustive
  * count/filter correctness across aliases, dedup and lifecycle transitions is
  * the backend pipeline contract's job (#640,
- * apps/scraper/src/pipeline/fixture-to-facets.integration.test.ts); this
+ * apps/api/src/pipeline/fixture-to-facets.integration.test.ts); this
  * catalog only has to give the browser suite deterministic, cross-group
  * variety: every visible facet group populated, an unknown entry/ramp row, a
  * 'none' ramp row, a null-color row, a null-price row, and price/mileage
@@ -216,7 +216,7 @@ async function withDb(fn: (db: PrismaClient) => Promise<void>): Promise<void> {
 /**
  * Indexing rides the production path: every Prisma write here advances
  * `updatedAt`, and the scraper's every-minute LISTING_INDEX_POLL checkpoint
- * poller (apps/scraper/src/jobs/search-indexer-poll.ts) syncs the touched
+ * poller (apps/api/src/jobs/search-indexer-poll.ts) syncs the touched
  * rows into Meilisearch. POST /admin/sync is deliberately NOT used — it
  * enqueues under a fixed BullMQ jobId that dedupes against the retained
  * completed rebuild from global-setup, so a second trigger in the same stack

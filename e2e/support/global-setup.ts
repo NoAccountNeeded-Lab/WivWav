@@ -25,7 +25,6 @@ export default async function globalSetup(): Promise<void> {
         'valkey',
         'meilisearch',
         'api',
-        'scraper',
         'web',
       ])
     }

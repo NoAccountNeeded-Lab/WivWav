@@ -109,37 +109,6 @@ services:
         - action: rebuild
           path: ./apps/api/package.json
 
-  scraper:
-    build:
-      context: .
-      dockerfile: docker/scraper/Dockerfile
-    init: true
-    restart: unless-stopped
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://wav:wav@postgres:5432/wivwav
-      QUEUE_REDIS_URL: redis://valkey:6379
-      MEILI_HOST: http://meilisearch:7700
-      MEILI_API_KEY: wav_master_key
-      SCRAPER_RUNTIME_MODE: all
-      # Docker service name resolves automatically — no user config needed
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
-      LOG_LEVEL: debug
-      LOG_FORMAT: json
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      valkey:
-        condition: service_healthy
-    develop:
-      watch:
-        - action: sync
-          path: ./apps/scraper/src
-          target: /app/apps/scraper/src
-        - action: rebuild
-          path: ./apps/scraper/package.json
-
   # Generic remote worker (#948/#952) — the laptop deployment vehicle for the
   # three phase-1 Chromium jobs (source-scrape, detail-crawl, detail-extract).
   # Deliberately gated behind `profiles: [worker]` (same pattern as `ollama`'s

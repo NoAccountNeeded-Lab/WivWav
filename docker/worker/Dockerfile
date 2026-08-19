@@ -2,7 +2,7 @@
 
 # Playwright supports Debian/glibc, not Alpine/musl. Keep every stage on the
 # same runtime family so native packages are built for the final image's
-# libc and architecture (mirrors docker/scraper/Dockerfile).
+# libc and architecture.
 FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -60,8 +60,7 @@ RUN groupadd --gid 10001 worker \
 
 COPY --from=builder --chown=worker:worker /prod/worker ./
 
-# Same headless-shell-only footprint as the scraper image — no Firefox,
-# WebKit, or full Chromium.
+# Headless-shell-only footprint — no Firefox, WebKit, or full Chromium.
 RUN ./node_modules/.bin/playwright install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/* \
     && chown -R worker:worker /ms-playwright

@@ -28,9 +28,6 @@ jobs:
             target: runner
             # 25% below the 685 MB baseline measured pre-#658, ARM64.
             max-size-mb: 514
-          - service: scraper
-            file: docker/scraper/Dockerfile
-            target: runner
           - service: web
             file: docker/web/Dockerfile
             target: runner
@@ -60,16 +57,10 @@ jobs:
           file: ${{ matrix.file }}
           target: ${{ matrix.target }}
           push: false
-          load: ${{ matrix.service == 'scraper' || matrix.service == 'api' || matrix.service == 'migrate' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+          load: ${{ matrix.service == 'api' || matrix.service == 'migrate' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
           tags: wivwav-ci-${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-
-      - name: Smoke-test final scraper image
-        if: matrix.service == 'scraper'
-        run: |
-          docker run --rm --init wivwav-ci-scraper:${{ github.sha }} \
-            node smoke.mjs
 
       # #658: the API and migration images must ship only what production
       # needs — no local secrets, no build/test-only tooling, and within an
@@ -246,18 +237,6 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
-      - name: Build runnable scraper image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: docker/scraper/Dockerfile
-          target: runner
-          push: false
-          load: true
-          tags: wivwav-ci-scraper:${{ github.sha }}
-          cache-from: type=gha,scope=scraper
-          cache-to: type=gha,mode=max,scope=scraper
-
       - name: Cache Playwright Chromium
         id: playwright-cache
         uses: actions/cache@v6
@@ -282,7 +261,6 @@ jobs:
           WIVWAV_E2E_MIGRATE_IMAGE: wivwav-ci-migrate:${{ github.sha }}
           WIVWAV_E2E_API_IMAGE: wivwav-ci-api:${{ github.sha }}
           WIVWAV_E2E_WEB_IMAGE: wivwav-ci-web:${{ github.sha }}
-          WIVWAV_E2E_SCRAPER_IMAGE: wivwav-ci-scraper:${{ github.sha }}
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -333,9 +311,6 @@ jobs:
 
       - name: Build api
         run: pnpm build --filter=@wivwav/api...
-
-      - name: Build scraper
-        run: pnpm build --filter=@wivwav/scraper...
 
       - name: Lint
         run: pnpm lint
@@ -440,11 +415,11 @@ jobs:
       # must be reinstalled every run on these ephemeral runners regardless
       # of cache hit; only the browser binary download itself is skippable.
       - name: Install Chromium OS dependencies for scraper fixture contracts
-        run: pnpm --filter @wivwav/scraper exec playwright install-deps chromium
+        run: pnpm --filter @wivwav/scraper-sources exec playwright install-deps chromium
 
       - name: Install Chromium browser for scraper fixture contracts
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @wivwav/scraper exec playwright install chromium
+        run: pnpm --filter @wivwav/scraper-sources exec playwright install chromium
 
       - name: Generate Prisma client
         run: pnpm db:generate
@@ -557,7 +532,7 @@ jobs:
         id: push
         run: |
           set -euo pipefail
-          for service in api web ops scraper migrate; do
+          for service in api web ops migrate; do
             tar_path="/tmp/images/docker-image-${service}/${service}.tar"
             docker load -i "$tar_path"
 
@@ -584,7 +559,6 @@ jobs:
           API_DIGEST: ${{ steps.push.outputs.api }}
           WEB_DIGEST: ${{ steps.push.outputs.web }}
           OPS_DIGEST: ${{ steps.push.outputs.ops }}
-          SCRAPER_DIGEST: ${{ steps.push.outputs.scraper }}
           MIGRATE_DIGEST: ${{ steps.push.outputs.migrate }}
         run: |
           set -euo pipefail
@@ -592,7 +566,6 @@ jobs:
             -e "s|wivwav/api@sha256:[0-9a-f]\{64\}|wivwav/api@${API_DIGEST}|" \
             -e "s|wivwav/web@sha256:[0-9a-f]\{64\}|wivwav/web@${WEB_DIGEST}|" \
             -e "s|wivwav/ops@sha256:[0-9a-f]\{64\}|wivwav/ops@${OPS_DIGEST}|" \
-            -e "s|wivwav/scraper@sha256:[0-9a-f]\{64\}|wivwav/scraper@${SCRAPER_DIGEST}|" \
             -e "s|wivwav/migrate@sha256:[0-9a-f]\{64\}|wivwav/migrate@${MIGRATE_DIGEST}|" \
             docker-compose.prod.yml
 
