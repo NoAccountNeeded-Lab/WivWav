@@ -140,9 +140,9 @@ These sources are unrestricted for caching and display with source attribution.
 | **Public API / dataset?** | None of these sites offer free public APIs. AutoTrader and Cars.com have partner/OEM programs but not open APIs. BLVD.com has no publicly visible ToS or scraping policy (footer has no legal link; robots.txt only disallows `/admin` and `/my-blvd`). MobilityWorks blocks crawlers aggressively (HTTP 429 Too Many Requests returned during robots.txt fetch). |
 | **Terms allow caching/display?** | Unknown for BLVD (no ToS found). MobilityWorks: no ToS link found in public footer during prior review. AutoTrader/CarGurus/Cars.com: all prohibit scraping in published terms. |
 | **Robots / rate limits** | BLVD: no crawl-delay, only `/admin` and `/my-blvd` disallowed — listing paths not blocked by robots.txt. MobilityWorks: rate-limited (HTTP 429 on robots.txt fetch). |
-| **Permission / contact route** | BLVD.com: contact page at blvd.com/contact. MobilityWorks: dealer inquiry or corporate contact. AutoTrader/Cars.com: see paid data provider alternatives in `prelaunch-scraping-risk.md`. |
-| **Legal review needed?** | Yes — required before public beta for BLVD and MobilityWorks; see `docs/risk/prelaunch-scraping-risk.md` for the full scraping-risk audit. Do not add AutoTrader, CarGurus, or Cars.com as scraper sources without counsel. |
-| **Recommendation** | **Legal review required** for BLVD and MobilityWorks before public beta. **Do not use** AutoTrader, CarGurus, or Cars.com as scraper sources. Consider paid licensed inventory providers (Auto.dev or MarketCheck — already evaluated in `prelaunch-scraping-risk.md`). |
+| **Permission / contact route** | BLVD.com: contact page at blvd.com/contact. MobilityWorks: dealer inquiry or corporate contact. AutoTrader/Cars.com: see paid data provider alternatives above. |
+| **Legal review needed?** | No — product decision (2026-08-19): BLVD and MobilityWorks scraping is not a public-beta blocker, since WivWav links back to each source listing (attribution/referral). Do not add AutoTrader, CarGurus, or Cars.com as scraper sources without counsel. |
+| **Recommendation** | BLVD and MobilityWorks scraping approved for public beta (source-attributed links). **Do not use** AutoTrader, CarGurus, or Cars.com as scraper sources. Consider paid licensed inventory providers (Auto.dev or MarketCheck) if broader coverage is needed. |
 
 ---
 
@@ -174,8 +174,8 @@ These sources are unrestricted for caching and display with source attribution.
 | Full TSB text | **Do not use** | No | — |
 | Vehicle history (Carfax/AutoCheck) | Legal review; consider NMVTIS provider | Yes | Yes |
 | Vehicle history (link-out only) | **Use now** — link to Carfax/AutoCheck by VIN | No | No |
-| BLVD.com listing inventory | Legal review before public beta | Yes | Yes (see prelaunch-scraping-risk.md) |
-| MobilityWorks listing inventory | Legal review before public beta | Yes | Yes (see prelaunch-scraping-risk.md) |
+| BLVD.com listing inventory | **Use now** — approved for public beta (source-attributed links) | No | No |
+| MobilityWorks listing inventory | **Use now** — approved for public beta (source-attributed links) | No | No |
 | AutoTrader / CarGurus / Cars.com | **Do not use** as scraper source | — | Yes if reconsidering |
 | Conversion specs (factual, attributed) | **Use now** — manual curation with source links | No | No |
 | Conversion marketing copy / images | Do not reproduce without license | Yes (per manufacturer) | Yes |
@@ -198,7 +198,7 @@ In priority order for WivWav product value:
 ## Sources That Require Lawyer Review Before Any Use
 
 1. **Carfax / AutoCheck** — known for aggressive enforcement of data terms. Any caching, scraping, or display requires counsel sign-off.
-2. **BLVD.com and MobilityWorks** — already flagged in `prelaunch-scraping-risk.md`. This evaluation confirms: no public ToS found for BLVD; MobilityWorks actively rate-limits. Both require counsel review before public beta.
+2. ~~BLVD.com and MobilityWorks~~ — resolved 2026-08-19: product decision is that these are not launch blockers since WivWav links back to source listings (attribution/referral). No public ToS was found for BLVD; MobilityWorks actively rate-limits, but neither requires counsel review before public beta.
 3. **J.D. Power** — commercial product with trademark implications; displaying scores requires a license agreement. See section 1.
 4. **Consumer Reports** — subscriber-only data; redistribution requires a paid license. See section 2.
 5. **IIHS** — uncertain whether individual rating values are facts or protectable expression. Requires counsel clarification before storing.
