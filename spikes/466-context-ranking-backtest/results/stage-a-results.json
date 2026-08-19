@@ -1,0 +1,5999 @@
+{
+  "generatedAt": "2026-08-19T06:01:45.827Z",
+  "classifierVersion": 1,
+  "budgetTokens": 1000,
+  "estimator": "bytes/4",
+  "reproduceCommand": "node spikes/466-context-ranking-backtest/scripts/stage-a-backtest.mjs --corpus /Users/matt/Projects/NoAccountNeeded-Lab/WivWav/.claude/worktrees/issue-466-researchsdlc-backtest-and-pilot-1k-context-ranking/spikes/466-context-ranking-backtest/scripts/../corpus/corpus.json --budget 1000",
+  "allPrBase": {
+    "sampleSize": 92,
+    "byVariant": {
+      "likelyFileHints": {
+        "hitAt1K": 0.8804347826086957,
+        "recallAt1K": 0.6801255213912071,
+        "mrr": 0.44428660304726053,
+        "uniqueRelevantPer1K": 3.874467527792496,
+        "capExceededCount": 0
+      },
+      "dependencyCentrality": {
+        "hitAt1K": 0.4782608695652174,
+        "recallAt1K": 0.2857854264073207,
+        "mrr": 0.09127761224434167,
+        "uniqueRelevantPer1K": 1.5766204472968444,
+        "capExceededCount": 0
+      },
+      "issueKeyword": {
+        "hitAt1K": 0.9021739130434783,
+        "recallAt1K": 0.6792215683296796,
+        "mrr": 0.3983997517285605,
+        "uniqueRelevantPer1K": 3.8413795470905874,
+        "capExceededCount": 0
+      },
+      "combined": {
+        "hitAt1K": 0.8695652173913043,
+        "recallAt1K": 0.6607967792016947,
+        "mrr": 0.2640919897548653,
+        "uniqueRelevantPer1K": 3.8529688384728327,
+        "capExceededCount": 0
+      },
+      "random": {
+        "hitAt1K": 0.5434782608695652,
+        "recallAt1K": 0.1487556436317214,
+        "mrr": 0.07422946711211935,
+        "uniqueRelevantPer1K": 1.1756567741274113,
+        "capExceededCount": 0
+      }
+    },
+    "domainBreakdown": {
+      "apps/api": {
+        "prCount": 29,
+        "likelyFileHintsRecall": 0.5791423766314168,
+        "combinedRecall": 0.4856385217652639
+      },
+      "apps/ops": {
+        "prCount": 37,
+        "likelyFileHintsRecall": 0.7531873928932752,
+        "combinedRecall": 0.7573935470994294
+      },
+      "apps/scraper": {
+        "prCount": 29,
+        "likelyFileHintsRecall": 0.6199432424322825,
+        "combinedRecall": 0.5962707056733099
+      },
+      "apps/web": {
+        "prCount": 21,
+        "likelyFileHintsRecall": 0.6005354297439327,
+        "combinedRecall": 0.6563471201420894
+      },
+      "apps/worker": {
+        "prCount": 2,
+        "likelyFileHintsRecall": 0.3,
+        "combinedRecall": 0.4
+      },
+      "docker": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0.25806451612903225,
+        "combinedRecall": 0.2903225806451613
+      },
+      "packages/agents": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0,
+        "combinedRecall": 0.3333333333333333
+      },
+      "packages/charts": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0.6666666666666666,
+        "combinedRecall": 0.6666666666666666
+      },
+      "packages/config": {
+        "prCount": 3,
+        "likelyFileHintsRecall": 0.17777777777777778,
+        "combinedRecall": 0.13333333333333333
+      },
+      "packages/db": {
+        "prCount": 11,
+        "likelyFileHintsRecall": 0.4375194324392186,
+        "combinedRecall": 0.4185232770794268
+      },
+      "packages/queue": {
+        "prCount": 6,
+        "likelyFileHintsRecall": 0.35796703296703297,
+        "combinedRecall": 0.3768315018315018
+      },
+      "packages/sdlc-cli": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0,
+        "combinedRecall": 0
+      },
+      "packages/search": {
+        "prCount": 7,
+        "likelyFileHintsRecall": 0.553212473800709,
+        "combinedRecall": 0.5500489706372059
+      },
+      "packages/types": {
+        "prCount": 15,
+        "likelyFileHintsRecall": 0.5138129517541282,
+        "combinedRecall": 0.4868665648077412
+      },
+      "scripts": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0,
+        "combinedRecall": 0.3333333333333333
+      }
+    },
+    "riskBreakdown": {
+      "heuristic:high (>20 files)": {
+        "prCount": 22,
+        "likelyFileHintsRecall": 0.563750015861065,
+        "combinedRecall": 0.5219899944105502
+      },
+      "heuristic:low (<=5 files)": {
+        "prCount": 19,
+        "likelyFileHintsRecall": 0.9298245614035087,
+        "combinedRecall": 0.8157894736842105
+      },
+      "heuristic:medium (6-20 files)": {
+        "prCount": 51,
+        "likelyFileHintsRecall": 0.6373015873015874,
+        "combinedRecall": 0.6629318394024275
+      }
+    },
+    "bootstrapCI": {
+      "lower": -0.07551433798443123,
+      "upper": 0.035100123524139694,
+      "mean": -0.01932874218951232,
+      "iterations": 10000
+    },
+    "recallImprovementCombinedVsLikelyFileHints": -0.019328742189512416,
+    "domainsRegressed": [
+      "apps/api"
+    ],
+    "conditions": {
+      "recallImprovementAtLeast10pp": false,
+      "ciLowerBoundAboveZero": false,
+      "noHitRegression": false,
+      "noDomainRegressionOver5pp": false,
+      "capNeverExceeded": true
+    },
+    "stageAPass": false
+  },
+  "markerBackedSensitivity": {
+    "sampleSize": 88,
+    "byVariant": {
+      "likelyFileHints": {
+        "hitAt1K": 0.875,
+        "recallAt1K": 0.6821326624750182,
+        "mrr": 0.4264250796911149,
+        "uniqueRelevantPer1K": 3.7312021933916197,
+        "capExceededCount": 0
+      },
+      "dependencyCentrality": {
+        "hitAt1K": 0.45454545454545453,
+        "recallAt1K": 0.28076735562206334,
+        "mrr": 0.07363310631912472,
+        "uniqueRelevantPer1K": 1.568819366256517,
+        "capExceededCount": 0
+      },
+      "issueKeyword": {
+        "hitAt1K": 0.8977272727272727,
+        "recallAt1K": 0.6800587929734648,
+        "mrr": 0.40484430709073727,
+        "uniqueRelevantPer1K": 3.7079957787624394,
+        "capExceededCount": 0
+      },
+      "combined": {
+        "hitAt1K": 0.8636363636363636,
+        "recallAt1K": 0.663375561997166,
+        "mrr": 0.25582683656242167,
+        "uniqueRelevantPer1K": 3.6854503010571915,
+        "capExceededCount": 0
+      },
+      "random": {
+        "hitAt1K": 0.5681818181818182,
+        "recallAt1K": 0.16723446058340133,
+        "mrr": 0.05884003293034034,
+        "uniqueRelevantPer1K": 1.2632665718514184,
+        "capExceededCount": 0
+      }
+    },
+    "domainBreakdown": {
+      "apps/api": {
+        "prCount": 28,
+        "likelyFileHintsRecall": 0.5946193348758406,
+        "combinedRecall": 0.49811311452169404
+      },
+      "apps/ops": {
+        "prCount": 34,
+        "likelyFileHintsRecall": 0.7506611468116658,
+        "combinedRecall": 0.7587143681001813
+      },
+      "apps/scraper": {
+        "prCount": 27,
+        "likelyFileHintsRecall": 0.6518234500524192,
+        "combinedRecall": 0.6082284150595346
+      },
+      "apps/web": {
+        "prCount": 19,
+        "likelyFileHintsRecall": 0.6395221125254165,
+        "combinedRecall": 0.6886581104148771
+      },
+      "apps/worker": {
+        "prCount": 2,
+        "likelyFileHintsRecall": 0.3,
+        "combinedRecall": 0.4
+      },
+      "docker": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0.25806451612903225,
+        "combinedRecall": 0.2903225806451613
+      },
+      "packages/agents": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0,
+        "combinedRecall": 0.3333333333333333
+      },
+      "packages/charts": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0.6666666666666666,
+        "combinedRecall": 0.6666666666666666
+      },
+      "packages/config": {
+        "prCount": 3,
+        "likelyFileHintsRecall": 0.17777777777777778,
+        "combinedRecall": 0.13333333333333333
+      },
+      "packages/db": {
+        "prCount": 10,
+        "likelyFileHintsRecall": 0.4666926211043858,
+        "combinedRecall": 0.42909355350531825
+      },
+      "packages/queue": {
+        "prCount": 6,
+        "likelyFileHintsRecall": 0.3460622710622711,
+        "combinedRecall": 0.3768315018315018
+      },
+      "packages/sdlc-cli": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0,
+        "combinedRecall": 0
+      },
+      "packages/search": {
+        "prCount": 6,
+        "likelyFileHintsRecall": 0.6607991681521094,
+        "combinedRecall": 0.6173648247177659
+      },
+      "packages/types": {
+        "prCount": 14,
+        "likelyFileHintsRecall": 0.5571072834728297,
+        "combinedRecall": 0.5112031875687337
+      },
+      "scripts": {
+        "prCount": 1,
+        "likelyFileHintsRecall": 0,
+        "combinedRecall": 0.3333333333333333
+      }
+    },
+    "riskBreakdown": {
+      "heuristic:high (>20 files)": {
+        "prCount": 21,
+        "likelyFileHintsRecall": 0.5916806354962206,
+        "combinedRecall": 0.5301996339473075
+      },
+      "heuristic:low (<=5 files)": {
+        "prCount": 17,
+        "likelyFileHintsRecall": 0.9215686274509803,
+        "combinedRecall": 0.7941176470588235
+      },
+      "heuristic:medium (6-20 files)": {
+        "prCount": 50,
+        "likelyFileHintsRecall": 0.6387142857142857,
+        "combinedRecall": 0.6748571428571428
+      }
+    },
+    "bootstrapCI": {
+      "lower": -0.07732229891320798,
+      "upper": 0.038130299756322296,
+      "mean": -0.01875710047785213,
+      "iterations": 10000
+    },
+    "recallImprovementCombinedVsLikelyFileHints": -0.018757100477852284,
+    "domainsRegressed": [
+      "apps/api"
+    ],
+    "conditions": {
+      "recallImprovementAtLeast10pp": false,
+      "ciLowerBoundAboveZero": false,
+      "noHitRegression": false,
+      "noDomainRegressionOver5pp": false,
+      "capNeverExceeded": true
+    },
+    "stageAPass": false
+  },
+  "deterministic": true,
+  "perPr": [
+    {
+      "number": 967,
+      "linkedIssue": 964,
+      "groundTruthCount": 17,
+      "domains": [
+        "apps/api",
+        "apps/scraper"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 17.034068136272545,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1908
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004784688995215311,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1908
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.8823529411764706,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 15.045135406218655,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1908
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.8235294117647058,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 14.02805611222445,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1908
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.17647058823529413,
+          "mrr": 0.03333333333333333,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1908
+        }
+      }
+    },
+    {
+      "number": 966,
+      "linkedIssue": 963,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/api",
+        "apps/worker",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.010869565217391304,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1847
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005235602094240838,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1847
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.015873015873015872,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1847
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.0136986301369863,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1847
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.05263157894736842,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1847
+        }
+      }
+    },
+    {
+      "number": 965,
+      "linkedIssue": 962,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/api",
+        "apps/worker",
+        "packages/types"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1806
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0037593984962406013,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1806
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1806
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1806
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.03571428571428571,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1806
+        }
+      }
+    },
+    {
+      "number": 959,
+      "linkedIssue": 953,
+      "groundTruthCount": 31,
+      "domains": [
+        "apps/api",
+        "apps/scraper",
+        "docker"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.25806451612903225,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 8,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1825
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005235602094240838,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1825
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.3225806451612903,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 10,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1825
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.2903225806451613,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 9.00900900900901,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1825
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.12903225806451613,
+          "mrr": 0.02127659574468085,
+          "uniqueRelevantPer1K": 4.012036108324975,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1825
+        }
+      }
+    },
+    {
+      "number": 958,
+      "linkedIssue": 952,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/api",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.02631578947368421,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1770
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004761904761904762,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1770
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.029411764705882353,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1770
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00909090909090909,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1770
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.01020408163265306,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1770
+        }
+      }
+    },
+    {
+      "number": 957,
+      "linkedIssue": 951,
+      "groundTruthCount": 26,
+      "domains": [
+        "apps/api",
+        "apps/scraper",
+        "packages/db",
+        "packages/queue",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.2692307692307692,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 7.007007007007007,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1718
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005235602094240838,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1718
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.15384615384615385,
+          "mrr": 0.05555555555555555,
+          "uniqueRelevantPer1K": 4.008016032064128,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1718
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.15384615384615385,
+          "mrr": 0.05,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1718
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.23076923076923078,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 6.018054162487463,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1718
+        }
+      }
+    },
+    {
+      "number": 956,
+      "linkedIssue": 950,
+      "groundTruthCount": 33,
+      "domains": [
+        "apps/scraper",
+        "packages/db",
+        "packages/search",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6363636363636364,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 21.04208416833667,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1713
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0029411764705882353,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1713
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5757575757575758,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 19,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1713
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5757575757575758,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 19.01901901901902,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1713
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.12121212121212122,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1713
+        }
+      }
+    },
+    {
+      "number": 955,
+      "linkedIssue": 949,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/scraper",
+        "packages/types"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.047619047619047616,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1595
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0023148148148148147,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1595
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.020833333333333332,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1595
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.018518518518518517,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1595
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.0625,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1595
+        }
+      }
+    },
+    {
+      "number": 939,
+      "linkedIssue": 775,
+      "groundTruthCount": 7,
+      "domains": [
+        "apps/api",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.8571428571428571,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 6.012024048096192,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1563
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005235602094240838,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1563
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.8571428571428571,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 6.018054162487463,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1563
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.8571428571428571,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 6.018054162487463,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1563
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2857142857142857,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1563
+        }
+      }
+    },
+    {
+      "number": 938,
+      "linkedIssue": 937,
+      "groundTruthCount": 6,
+      "domains": [
+        "apps/ops",
+        "apps/scraper"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1556
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.010869565217391304,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1556
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1556
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1556
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.16666666666666666,
+          "mrr": 0.020833333333333332,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1556
+        }
+      }
+    },
+    {
+      "number": 936,
+      "linkedIssue": 933,
+      "groundTruthCount": 14,
+      "domains": [
+        "apps/api",
+        "apps/scraper",
+        "packages/db",
+        "packages/queue"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.42857142857142855,
+          "mrr": 0.037037037037037035,
+          "uniqueRelevantPer1K": 6,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005291005291005291,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.35714285714285715,
+          "mrr": 0.03225806451612903,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.35714285714285715,
+          "mrr": 0.02631578947368421,
+          "uniqueRelevantPer1K": 5.01002004008016,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.07142857142857142,
+          "mrr": 0.030303030303030304,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        }
+      }
+    },
+    {
+      "number": 935,
+      "linkedIssue": 773,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/api"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005291005291005291,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0027624309392265192,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        }
+      }
+    },
+    {
+      "number": 932,
+      "linkedIssue": 929,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.013157894736842105,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0035842293906810036,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1543
+        }
+      }
+    },
+    {
+      "number": 931,
+      "linkedIssue": 927,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.75,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004784688995215311,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        }
+      }
+    },
+    {
+      "number": 930,
+      "linkedIssue": 928,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/api"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004672897196261682,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.009009009009009009,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1542
+        }
+      }
+    },
+    {
+      "number": 926,
+      "linkedIssue": 922,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.75,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008547008547008548,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 4.012036108324975,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.75,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.023809523809523808,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        }
+      }
+    },
+    {
+      "number": 925,
+      "linkedIssue": 920,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1532
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008928571428571428,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1532
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1532
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1532
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00546448087431694,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1532
+        }
+      }
+    },
+    {
+      "number": 924,
+      "linkedIssue": 921,
+      "groundTruthCount": 6,
+      "domains": [
+        "apps/api",
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.16666666666666666,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.16666666666666666,
+          "mrr": 0.01694915254237288,
+          "uniqueRelevantPer1K": 1.0040160642570282,
+          "estimatedTokens": 996,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1528
+        }
+      }
+    },
+    {
+      "number": 923,
+      "linkedIssue": 919,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.020833333333333332,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1525
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1525
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1525
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1525
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005681818181818182,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1525
+        }
+      }
+    },
+    {
+      "number": 918,
+      "linkedIssue": 915,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.022222222222222223,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1522
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.041666666666666664,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1522
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1522
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.047619047619047616,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1522
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0024691358024691358,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1522
+        }
+      }
+    },
+    {
+      "number": 917,
+      "linkedIssue": 913,
+      "groundTruthCount": 11,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.5454545454545454,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 6,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1504
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.9090909090909091,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 10,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1504
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6363636363636364,
+          "mrr": 0.08333333333333333,
+          "uniqueRelevantPer1K": 7,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1504
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.7272727272727273,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 8,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1504
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.18181818181818182,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1504
+        }
+      }
+    },
+    {
+      "number": 916,
+      "linkedIssue": 912,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.08333333333333333,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005649717514124294,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        }
+      }
+    },
+    {
+      "number": 914,
+      "linkedIssue": 911,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.011904761904761904,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.06666666666666667,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.041666666666666664,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        }
+      }
+    },
+    {
+      "number": 910,
+      "linkedIssue": 909,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.016666666666666666,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.012345679012345678,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008771929824561403,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.009433962264150943,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002544529262086514,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        }
+      }
+    },
+    {
+      "number": 908,
+      "linkedIssue": 837,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008403361344537815,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.037037037037037035,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1486
+        }
+      }
+    },
+    {
+      "number": 907,
+      "linkedIssue": 250,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006622516556291391,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.01818181818181818,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.07692307692307693,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        }
+      }
+    },
+    {
+      "number": 906,
+      "linkedIssue": 889,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.003289473684210526,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0019267822736030828,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1477
+        }
+      }
+    },
+    {
+      "number": 905,
+      "linkedIssue": 904,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.01818181818181818,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00303951367781155,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        }
+      }
+    },
+    {
+      "number": 903,
+      "linkedIssue": 901,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.011363636363636364,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.014492753623188406,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.011627906976744186,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0043859649122807015,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        }
+      }
+    },
+    {
+      "number": 902,
+      "linkedIssue": 900,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0021929824561403508,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.07142857142857142,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.010416666666666666,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1475
+        }
+      }
+    },
+    {
+      "number": 899,
+      "linkedIssue": 267,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/api",
+        "packages/search"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4.012036108324975,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005988023952095809,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        }
+      }
+    },
+    {
+      "number": 898,
+      "linkedIssue": 892,
+      "groundTruthCount": 8,
+      "domains": [
+        "apps/api",
+        "apps/ops",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.375,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.016666666666666666,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.375,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.375,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.125,
+          "mrr": 0.015873015873015872,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1445
+        }
+      }
+    },
+    {
+      "number": 895,
+      "linkedIssue": 891,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/api",
+        "packages/db"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006329113924050633,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.06666666666666667,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.02702702702702703,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        }
+      }
+    },
+    {
+      "number": 893,
+      "linkedIssue": 890,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/api",
+        "packages/types"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1433
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006024096385542169,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1433
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1433
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.02631578947368421,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1433
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.023809523809523808,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1433
+        }
+      }
+    },
+    {
+      "number": 888,
+      "linkedIssue": 762,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.8,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.043478260869565216,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.8,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.8,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.015151515151515152,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        }
+      }
+    },
+    {
+      "number": 887,
+      "linkedIssue": 760,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.018518518518518517,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0021008403361344537,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        }
+      }
+    },
+    {
+      "number": 880,
+      "linkedIssue": 877,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.01282051282051282,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005208333333333333,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1401
+        }
+      }
+    },
+    {
+      "number": 878,
+      "linkedIssue": 759,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1402
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.038461538461538464,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1402
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4.012036108324975,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1402
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1402
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.021739130434782608,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1402
+        }
+      }
+    },
+    {
+      "number": 876,
+      "linkedIssue": 761,
+      "groundTruthCount": 7,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.8571428571428571,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 6,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1400
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.42857142857142855,
+          "mrr": 0.0196078431372549,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1400
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 7,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1400
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 7.014028056112225,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1400
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2857142857142857,
+          "mrr": 0.05,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1400
+        }
+      }
+    },
+    {
+      "number": 875,
+      "linkedIssue": 874,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/ops",
+        "packages/agents",
+        "scripts"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008771929824561403,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004830917874396135,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.02127659574468085,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.017857142857142856,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.010101010101010102,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        }
+      }
+    },
+    {
+      "number": 873,
+      "linkedIssue": 853,
+      "groundTruthCount": 1,
+      "domains": [
+        "packages/config"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0027624309392265192,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0022271714922048997,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002207505518763797,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002207505518763797,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0035460992907801418,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        }
+      }
+    },
+    {
+      "number": 865,
+      "linkedIssue": 690,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0078125,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004739336492890996,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006535947712418301,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0033003300330033004,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1325
+        }
+      }
+    },
+    {
+      "number": 858,
+      "linkedIssue": 857,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.003389830508474576,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 2.004008016032064,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0028011204481792717,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        }
+      }
+    },
+    {
+      "number": 850,
+      "linkedIssue": 849,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0029850746268656717,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005405405405405406,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1290
+        }
+      }
+    },
+    {
+      "number": 848,
+      "linkedIssue": 800,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1283
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1283
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.07692307692307693,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1283
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1283
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002793296089385475,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1283
+        }
+      }
+    },
+    {
+      "number": 847,
+      "linkedIssue": 801,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/api"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.014925373134328358,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1282
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006578947368421052,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1282
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.016666666666666666,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1282
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.011235955056179775,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1282
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1282
+        }
+      }
+    },
+    {
+      "number": 846,
+      "linkedIssue": 799,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/api"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1280
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006622516556291391,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1280
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1280
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1280
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008849557522123894,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1280
+        }
+      }
+    },
+    {
+      "number": 844,
+      "linkedIssue": 798,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/scraper",
+        "packages/queue"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.010869565217391304,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.003676470588235294,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.058823529411764705,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.029411764705882353,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004694835680751174,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        }
+      }
+    },
+    {
+      "number": 842,
+      "linkedIssue": 145,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.034482758620689655,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.013888888888888888,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.03125,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.047619047619047616,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.08333333333333333,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1274
+        }
+      }
+    },
+    {
+      "number": 841,
+      "linkedIssue": 788,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0035587188612099642,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00423728813559322,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        }
+      }
+    },
+    {
+      "number": 840,
+      "linkedIssue": 797,
+      "groundTruthCount": 2,
+      "domains": [
+        "packages/db"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0022727272727272726,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0022935779816513763,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002277904328018223,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002277904328018223,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.017857142857142856,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1263
+        }
+      }
+    },
+    {
+      "number": 836,
+      "linkedIssue": 832,
+      "groundTruthCount": 26,
+      "domains": [
+        "apps/api",
+        "apps/scraper",
+        "apps/web",
+        "packages/db",
+        "packages/search",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.3076923076923077,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 8.02407221664995,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.19230769230769232,
+          "mrr": 0.014285714285714285,
+          "uniqueRelevantPer1K": 5.005005005005005,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.2692307692307692,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 7.014028056112225,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.34615384615384615,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 9.027081243731194,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.23076923076923078,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 6,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        }
+      }
+    },
+    {
+      "number": 831,
+      "linkedIssue": 830,
+      "groundTruthCount": 7,
+      "domains": [
+        "apps/api",
+        "apps/ops",
+        "apps/web"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.42857142857142855,
+          "mrr": 0.0625,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.14285714285714285,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.01020408163265306,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.14285714285714285,
+          "mrr": 0.027777777777777776,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.14285714285714285,
+          "mrr": 0.02,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1264
+        }
+      }
+    },
+    {
+      "number": 829,
+      "linkedIssue": 774,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/api",
+        "apps/ops",
+        "packages/types"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1248
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.02631578947368421,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1248
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1248
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1248
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.012987012987012988,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1248
+        }
+      }
+    },
+    {
+      "number": 828,
+      "linkedIssue": 822,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/scraper",
+        "packages/types"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.75,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0036231884057971015,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.75,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.75,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        }
+      }
+    },
+    {
+      "number": 827,
+      "linkedIssue": 764,
+      "groundTruthCount": 11,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 11,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1247
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.08333333333333333,
+          "uniqueRelevantPer1K": 11,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1247
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 11.01101101101101,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1247
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 11.022044088176353,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1247
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.18181818181818182,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1247
+        }
+      }
+    },
+    {
+      "number": 826,
+      "linkedIssue": 765,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.08333333333333333,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        }
+      }
+    },
+    {
+      "number": 825,
+      "linkedIssue": 824,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/api",
+        "packages/config"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.019230769230769232,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006622516556291391,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.01639344262295082,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006329113924050633,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.0196078431372549,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1230
+        }
+      }
+    },
+    {
+      "number": 808,
+      "linkedIssue": 807,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0064516129032258064,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1204
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0037735849056603774,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1204
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00641025641025641,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1204
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0056179775280898875,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1204
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004694835680751174,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1204
+        }
+      }
+    },
+    {
+      "number": 806,
+      "linkedIssue": 453,
+      "groundTruthCount": 11,
+      "domains": [
+        "apps/api",
+        "apps/web",
+        "packages/db"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.9090909090909091,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 10.01001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.09090909090909091,
+          "mrr": 0.010526315789473684,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.9090909090909091,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 10.02004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.9090909090909091,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 10.030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.18181818181818182,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        }
+      }
+    },
+    {
+      "number": 805,
+      "linkedIssue": 130,
+      "groundTruthCount": 20,
+      "domains": [
+        "apps/api",
+        "apps/scraper",
+        "apps/web",
+        "packages/db",
+        "packages/search",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 8.008008008008009,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.45,
+          "mrr": 0.07692307692307693,
+          "uniqueRelevantPer1K": 9.01803607214429,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 12,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 6.018054162487463,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        }
+      }
+    },
+    {
+      "number": 804,
+      "linkedIssue": 803,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.05555555555555555,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.022727272727272728,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.058823529411764705,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0028089887640449437,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1199
+        }
+      }
+    },
+    {
+      "number": 793,
+      "linkedIssue": 147,
+      "groundTruthCount": 10,
+      "domains": [
+        "apps/api",
+        "apps/web",
+        "packages/db"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.3,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 5.005005005005005,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.1,
+          "mrr": 0.038461538461538464,
+          "uniqueRelevantPer1K": 1.0040160642570282,
+          "estimatedTokens": 996,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        }
+      }
+    },
+    {
+      "number": 792,
+      "linkedIssue": 660,
+      "groundTruthCount": 7,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 7,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.003745318352059925,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 7.007007007007007,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 7,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.14285714285714285,
+          "mrr": 0.07142857142857142,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1193
+        }
+      }
+    },
+    {
+      "number": 791,
+      "linkedIssue": 499,
+      "groundTruthCount": 17,
+      "domains": [
+        "apps/api",
+        "apps/ops",
+        "apps/scraper",
+        "apps/web",
+        "packages/db",
+        "packages/search",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.4117647058823529,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 7.007007007007007,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1158
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.17647058823529413,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1158
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.4117647058823529,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 7.007007007007007,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1158
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.4117647058823529,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 7.021063189568706,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1158
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.17647058823529413,
+          "mrr": 0.029411764705882353,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1158
+        }
+      }
+    },
+    {
+      "number": 789,
+      "linkedIssue": 420,
+      "groundTruthCount": 19,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.5789473684210527,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 11.01101101101101,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1154
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.3684210526315789,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 7,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1154
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6842105263157895,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 13.039117352056168,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1154
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.631578947368421,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 12.048192771084338,
+          "estimatedTokens": 996,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1154
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.15789473684210525,
+          "mrr": 0.012048192771084338,
+          "uniqueRelevantPer1K": 3.003003003003003,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1154
+        }
+      }
+    },
+    {
+      "number": 787,
+      "linkedIssue": 637,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/ops",
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.02702702702702703,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006622516556291391,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        }
+      }
+    },
+    {
+      "number": 786,
+      "linkedIssue": 705,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002638522427440633,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006134969325153374,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        }
+      }
+    },
+    {
+      "number": 785,
+      "linkedIssue": 632,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0037313432835820895,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.07142857142857142,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.007575757575757576,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        }
+      }
+    },
+    {
+      "number": 784,
+      "linkedIssue": 619,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.011904761904761904,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0033783783783783786,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006896551724137931,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006024096385542169,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00847457627118644,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        }
+      }
+    },
+    {
+      "number": 782,
+      "linkedIssue": 652,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0038314176245210726,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.1,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006944444444444444,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1152
+        }
+      }
+    },
+    {
+      "number": 772,
+      "linkedIssue": 767,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/scraper",
+        "packages/queue"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0033222591362126247,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004651162790697674,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1153
+        }
+      }
+    },
+    {
+      "number": 769,
+      "linkedIssue": 611,
+      "groundTruthCount": 6,
+      "domains": [
+        "apps/ops",
+        "packages/charts"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1064
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.029411764705882353,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1064
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1064
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1064
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006329113924050633,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1064
+        }
+      }
+    },
+    {
+      "number": 768,
+      "linkedIssue": 766,
+      "groundTruthCount": 10,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 10.01001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1059
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.08333333333333333,
+          "uniqueRelevantPer1K": 10,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1059
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 10.02004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1059
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 10,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1059
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3,
+          "mrr": 0.05555555555555555,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1059
+        }
+      }
+    },
+    {
+      "number": 756,
+      "linkedIssue": 735,
+      "groundTruthCount": 17,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 17.034068136272545,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1044
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.29411764705882354,
+          "mrr": 0.07692307692307693,
+          "uniqueRelevantPer1K": 5.01002004008016,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1044
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 17,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1044
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.16666666666666666,
+          "uniqueRelevantPer1K": 17.051153460381144,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1044
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.29411764705882354,
+          "mrr": 0.043478260869565216,
+          "uniqueRelevantPer1K": 5,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1044
+        }
+      }
+    },
+    {
+      "number": 753,
+      "linkedIssue": 734,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1030
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.029411764705882353,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1030
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1030
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1030
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006711409395973154,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1030
+        }
+      }
+    },
+    {
+      "number": 752,
+      "linkedIssue": 732,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.0090270812437314,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1007
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.03125,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1007
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1007
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.14285714285714285,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1007
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004347826086956522,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1007
+        }
+      }
+    },
+    {
+      "number": 751,
+      "linkedIssue": 730,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.041666666666666664,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 996
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.007042253521126761,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 996
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.09090909090909091,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 996
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.034482758620689655,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 996
+        },
+        "random": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.022727272727272728,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 996
+        }
+      }
+    },
+    {
+      "number": 750,
+      "linkedIssue": 731,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 995
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.024390243902439025,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 995
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.02564102564102564,
+          "uniqueRelevantPer1K": 3,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 995
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.024390243902439025,
+          "uniqueRelevantPer1K": 3.006012024048096,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 995
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005263157894736842,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 995
+        }
+      }
+    },
+    {
+      "number": 746,
+      "linkedIssue": 728,
+      "groundTruthCount": 4,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.5,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 985
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.038461538461538464,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 985
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 985
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 4.008016032064128,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 985
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.01694915254237288,
+          "uniqueRelevantPer1K": 2.0080321285140563,
+          "estimatedTokens": 996,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 985
+        }
+      }
+    },
+    {
+      "number": 741,
+      "linkedIssue": 672,
+      "groundTruthCount": 47,
+      "domains": [
+        "apps/web"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.8085106382978723,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 38.11434302908726,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.46808510638297873,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 22,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.7872340425531915,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 37.03703703703704,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.8085106382978723,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 38.03803803803804,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.23404255319148937,
+          "mrr": 0.041666666666666664,
+          "uniqueRelevantPer1K": 11.022044088176353,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        }
+      }
+    },
+    {
+      "number": 738,
+      "linkedIssue": 737,
+      "groundTruthCount": 3,
+      "domains": [
+        "apps/scraper",
+        "apps/web",
+        "packages/search"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.011235955056179775,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.6666666666666666,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.3333333333333333,
+          "mrr": 0.01282051282051282,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        }
+      }
+    },
+    {
+      "number": 736,
+      "linkedIssue": 641,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/api"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005917159763313609,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.009900990099009901,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.012345679012345678,
+          "uniqueRelevantPer1K": 1.0030090270812437,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.007518796992481203,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004366812227074236,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        }
+      }
+    },
+    {
+      "number": 725,
+      "linkedIssue": 724,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/ops"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1.002004008016032,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.006711409395973154,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.125,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008547008547008548,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        }
+      }
+    },
+    {
+      "number": 721,
+      "linkedIssue": 720,
+      "groundTruthCount": 5,
+      "domains": [
+        "apps/ops",
+        "apps/scraper"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.05263157894736842,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.03125,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.03125,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.03333333333333333,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.07142857142857142,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 1052
+        }
+      }
+    },
+    {
+      "number": 718,
+      "linkedIssue": 670,
+      "groundTruthCount": 14,
+      "domains": [
+        "apps/api",
+        "apps/ops",
+        "apps/scraper",
+        "packages/queue",
+        "packages/types"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.3333333333333333,
+          "uniqueRelevantPer1K": 7.007007007007007,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.07142857142857142,
+          "mrr": 0.03125,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 7.014028056112225,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 7,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.2857142857142857,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4.004004004004004,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        }
+      }
+    },
+    {
+      "number": 717,
+      "linkedIssue": 642,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005681818181818182,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.004651162790697674,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.00558659217877095,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0040650406504065045,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.003937007874015748,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 998,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 991
+        }
+      }
+    },
+    {
+      "number": 713,
+      "linkedIssue": 669,
+      "groundTruthCount": 20,
+      "domains": [
+        "apps/api",
+        "apps/scraper",
+        "apps/web",
+        "packages/db",
+        "packages/queue",
+        "packages/search"
+      ],
+      "risk": "heuristic:high (>20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.45,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 9,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 988
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.05,
+          "mrr": 0.01639344262295082,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 988
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.3,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 6.006006006006006,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 988
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.25,
+          "mrr": 0.25,
+          "uniqueRelevantPer1K": 5.005005005005005,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 988
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.1,
+          "mrr": 0.1111111111111111,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 988
+        }
+      }
+    },
+    {
+      "number": 712,
+      "linkedIssue": 598,
+      "groundTruthCount": 2,
+      "domains": [
+        "apps/api"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.05263157894736842,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.009900990099009901,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.041666666666666664,
+          "uniqueRelevantPer1K": 2.0060180541624875,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.017857142857142856,
+          "uniqueRelevantPer1K": 2,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.5,
+          "mrr": 0.017543859649122806,
+          "uniqueRelevantPer1K": 1.001001001001001,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        }
+      }
+    },
+    {
+      "number": 711,
+      "linkedIssue": 671,
+      "groundTruthCount": 1,
+      "domains": [
+        "apps/scraper"
+      ],
+      "risk": "heuristic:low (<=5 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.0049504950495049506,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.058823529411764705,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 1,
+          "mrr": 0.045454545454545456,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.005,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        }
+      }
+    },
+    {
+      "number": 688,
+      "linkedIssue": 673,
+      "groundTruthCount": 10,
+      "domains": [
+        "apps/ops",
+        "apps/web",
+        "packages/config"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 1,
+          "recall": 0.2,
+          "mrr": 0.2,
+          "uniqueRelevantPer1K": 2.002002002002002,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "dependencyCentrality": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.06666666666666667,
+          "uniqueRelevantPer1K": 4,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "issueKeyword": {
+          "hit": 1,
+          "recall": 0.1,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 1,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "combined": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 1,
+          "uniqueRelevantPer1K": 4.012036108324975,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        },
+        "random": {
+          "hit": 1,
+          "recall": 0.4,
+          "mrr": 0.041666666666666664,
+          "uniqueRelevantPer1K": 4.012036108324975,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 986
+        }
+      }
+    },
+    {
+      "number": 687,
+      "linkedIssue": 686,
+      "groundTruthCount": 2,
+      "domains": [
+        "packages/sdlc-cli"
+      ],
+      "risk": "heuristic:medium (6-20 files)",
+      "perVariant": {
+        "likelyFileHints": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002702702702702703,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 981
+        },
+        "dependencyCentrality": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002702702702702703,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 1000,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 981
+        },
+        "issueKeyword": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002702702702702703,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 981
+        },
+        "combined": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.002702702702702703,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 997,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 981
+        },
+        "random": {
+          "hit": 0,
+          "recall": 0,
+          "mrr": 0.008333333333333333,
+          "uniqueRelevantPer1K": 0,
+          "estimatedTokens": 999,
+          "exceededCap": false,
+          "includedSymbolCount": 0,
+          "omittedSymbolCount": 981
+        }
+      }
+    }
+  ]
+}

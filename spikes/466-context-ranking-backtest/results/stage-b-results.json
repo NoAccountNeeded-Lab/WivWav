@@ -1,0 +1,849 @@
+{
+  "generatedAt": "2026-08-19T06:02:39.328Z",
+  "methodology": "REPLAYED proxy pilot over historical corpus — see file header comment. Not a live multi-agent trial.",
+  "budgetTokens": 1000,
+  "reproduceCommand": "node spikes/466-context-ranking-backtest/scripts/stage-b-replay.mjs --corpus /Users/matt/Projects/NoAccountNeeded-Lab/WivWav/.claude/worktrees/issue-466-researchsdlc-backtest-and-pilot-1k-context-ranking/spikes/466-context-ranking-backtest/scripts/../corpus/corpus.json --budget 1000",
+  "sampleSize": 92,
+  "medianExploratoryReadReduction": 1,
+  "medianReadTokenReduction": 0.7691465320582305,
+  "meetsReadReductionThreshold15pct": true,
+  "meetsTokenReductionThreshold15pct": true,
+  "notMeasured": [
+    "total input tokens through first green affected check (requires a real check run)",
+    "first-pass completion rate (requires a real agent attempt)",
+    "acceptance-criteria coverage (requires a real agent attempt)",
+    "warning/critical review finding counts (requires a real reviewer pass)",
+    "stuck rate (requires real multi-attempt sprint runs)",
+    "re-review cycle count (requires real review rounds)"
+  ],
+  "perPr": [
+    {
+      "number": 967,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 869,
+      "mapReadTokens": 998,
+      "tokenReduction": -0.14844649021864212
+    },
+    {
+      "number": 966,
+      "nativeExploratoryReads": 92,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 131100,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.992372234935164
+    },
+    {
+      "number": 965,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3368,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.7036817102137767
+    },
+    {
+      "number": 959,
+      "nativeExploratoryReads": 8,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 9072,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.8898809523809523
+    },
+    {
+      "number": 958,
+      "nativeExploratoryReads": 38,
+      "mapExploratoryReads": 110,
+      "readReduction": -1.894736842105263,
+      "nativeReadTokens": 54753,
+      "mapReadTokens": 174938,
+      "tokenReduction": -2.1950395412123536
+    },
+    {
+      "number": 957,
+      "nativeExploratoryReads": 8,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 11755,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9149298170991068
+    },
+    {
+      "number": 956,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 84,
+      "mapReadTokens": 999,
+      "tokenReduction": -10.892857142857142
+    },
+    {
+      "number": 955,
+      "nativeExploratoryReads": 21,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 9920,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.8992943548387097
+    },
+    {
+      "number": 939,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 2227,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.552312528064661
+    },
+    {
+      "number": 938,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3648,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7258771929824561
+    },
+    {
+      "number": 936,
+      "nativeExploratoryReads": 27,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 41533,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.9759709146943394
+    },
+    {
+      "number": 935,
+      "nativeExploratoryReads": 10,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 9864,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.89882400648824
+    },
+    {
+      "number": 932,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 721,
+      "mapReadTokens": 998,
+      "tokenReduction": -0.3841886269070735
+    },
+    {
+      "number": 931,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 4549,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7801714662563201
+    },
+    {
+      "number": 930,
+      "nativeExploratoryReads": 7,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 16948,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9409959877271654
+    },
+    {
+      "number": 926,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5671,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8236642567448422
+    },
+    {
+      "number": 925,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3513,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7153430116709365
+    },
+    {
+      "number": 924,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 6686,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.8505833084056237
+    },
+    {
+      "number": 923,
+      "nativeExploratoryReads": 48,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 91469,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.9890782669538314
+    },
+    {
+      "number": 918,
+      "nativeExploratoryReads": 45,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 16158,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9381111523703428
+    },
+    {
+      "number": 917,
+      "nativeExploratoryReads": 10,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 14670,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9318336741649625
+    },
+    {
+      "number": 916,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 10283,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9027521151414957
+    },
+    {
+      "number": 914,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 263,
+      "mapReadTokens": 1000,
+      "tokenReduction": -2.802281368821293
+    },
+    {
+      "number": 910,
+      "nativeExploratoryReads": 60,
+      "mapExploratoryReads": 106,
+      "readReduction": -0.7666666666666667,
+      "nativeReadTokens": 57604,
+      "mapReadTokens": 138756,
+      "tokenReduction": -1.4087910561766543
+    },
+    {
+      "number": 908,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 81,
+      "mapReadTokens": 1000,
+      "tokenReduction": -11.345679012345679
+    },
+    {
+      "number": 907,
+      "nativeExploratoryReads": 151,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 192433,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9948033861136084
+    },
+    {
+      "number": 906,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 4493,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.7778766970843535
+    },
+    {
+      "number": 905,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 709,
+      "mapReadTokens": 999,
+      "tokenReduction": -0.4090267983074753
+    },
+    {
+      "number": 903,
+      "nativeExploratoryReads": 5,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 2536,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.6068611987381703
+    },
+    {
+      "number": 902,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 401,
+      "mapReadTokens": 997,
+      "tokenReduction": -1.486284289276808
+    },
+    {
+      "number": 899,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3521,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7159897756319228
+    },
+    {
+      "number": 898,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 6986,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.8571428571428571
+    },
+    {
+      "number": 895,
+      "nativeExploratoryReads": 6,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5524,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.8193338160753078
+    },
+    {
+      "number": 893,
+      "nativeExploratoryReads": 8,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 7832,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8723186925434117
+    },
+    {
+      "number": 888,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3838,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7394476289734236
+    },
+    {
+      "number": 887,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5280,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.8107954545454545
+    },
+    {
+      "number": 880,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3556,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.71962879640045
+    },
+    {
+      "number": 878,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 2867,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.6515521450994071
+    },
+    {
+      "number": 876,
+      "nativeExploratoryReads": 7,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 17201,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.9419801174350328
+    },
+    {
+      "number": 875,
+      "nativeExploratoryReads": 114,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 100996,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.9901184205315062
+    },
+    {
+      "number": 873,
+      "nativeExploratoryReads": 362,
+      "mapExploratoryReads": 453,
+      "readReduction": -0.2513812154696133,
+      "nativeReadTokens": 398783,
+      "mapReadTokens": 487850,
+      "tokenReduction": -0.22334703334896422
+    },
+    {
+      "number": 865,
+      "nativeExploratoryReads": 128,
+      "mapExploratoryReads": 250,
+      "readReduction": -0.953125,
+      "nativeReadTokens": 115274,
+      "mapReadTokens": 261823,
+      "tokenReduction": -1.271310095945313
+    },
+    {
+      "number": 858,
+      "nativeExploratoryReads": 11,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 20791,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.9519503631378962
+    },
+    {
+      "number": 850,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 9595,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.8958832725377801
+    },
+    {
+      "number": 848,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 2891,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.6544448287789693
+    },
+    {
+      "number": 847,
+      "nativeExploratoryReads": 67,
+      "mapExploratoryReads": 89,
+      "readReduction": -0.3283582089552239,
+      "nativeReadTokens": 94544,
+      "mapReadTokens": 94567,
+      "tokenReduction": -0.00024327297343036046
+    },
+    {
+      "number": 846,
+      "nativeExploratoryReads": 9,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 18842,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.9469801507270991
+    },
+    {
+      "number": 844,
+      "nativeExploratoryReads": 92,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 105146,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.990517946474426
+    },
+    {
+      "number": 842,
+      "nativeExploratoryReads": 29,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 48154,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.9792540598911824
+    },
+    {
+      "number": 841,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 9852,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.8985992691839221
+    },
+    {
+      "number": 840,
+      "nativeExploratoryReads": 440,
+      "mapExploratoryReads": 439,
+      "readReduction": 0.0022727272727272726,
+      "nativeReadTokens": 483835,
+      "mapReadTokens": 483918,
+      "tokenReduction": -0.00017154608492564615
+    },
+    {
+      "number": 836,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 851,
+      "mapReadTokens": 997,
+      "tokenReduction": -0.17156286721504113
+    },
+    {
+      "number": 831,
+      "nativeExploratoryReads": 16,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 12439,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.9196880778197605
+    },
+    {
+      "number": 829,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5027,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8010741993236523
+    },
+    {
+      "number": 828,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 4667,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7857295907435183
+    },
+    {
+      "number": 827,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 7145,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.8603219034289713
+    },
+    {
+      "number": 826,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 7614,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8686629892303651
+    },
+    {
+      "number": 825,
+      "nativeExploratoryReads": 52,
+      "mapExploratoryReads": 158,
+      "readReduction": -2.0384615384615383,
+      "nativeReadTokens": 51669,
+      "mapReadTokens": 176726,
+      "tokenReduction": -2.420348758443167
+    },
+    {
+      "number": 808,
+      "nativeExploratoryReads": 155,
+      "mapExploratoryReads": 178,
+      "readReduction": -0.14838709677419354,
+      "nativeReadTokens": 214521,
+      "mapReadTokens": 231662,
+      "tokenReduction": -0.07990359918143213
+    },
+    {
+      "number": 806,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 167,
+      "mapReadTokens": 997,
+      "tokenReduction": -4.970059880239521
+    },
+    {
+      "number": 805,
+      "nativeExploratoryReads": 11,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 15639,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9360572926657714
+    },
+    {
+      "number": 804,
+      "nativeExploratoryReads": 18,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 17218,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9419212452085027
+    },
+    {
+      "number": 793,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 1675,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.4035820895522388
+    },
+    {
+      "number": 792,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 4296,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7672253258845437
+    },
+    {
+      "number": 791,
+      "nativeExploratoryReads": 11,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 7463,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.866407610880343
+    },
+    {
+      "number": 789,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3606,
+      "mapReadTokens": 996,
+      "tokenReduction": 0.7237936772046589
+    },
+    {
+      "number": 787,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5618,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.822000711997152
+    },
+    {
+      "number": 786,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 1308,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.23547400611620795
+    },
+    {
+      "number": 785,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3324,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.6994584837545126
+    },
+    {
+      "number": 784,
+      "nativeExploratoryReads": 84,
+      "mapExploratoryReads": 166,
+      "readReduction": -0.9761904761904762,
+      "nativeReadTokens": 145528,
+      "mapReadTokens": 257819,
+      "tokenReduction": -0.7716109614644604
+    },
+    {
+      "number": 782,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3056,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.6734293193717278
+    },
+    {
+      "number": 772,
+      "nativeExploratoryReads": 7,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 4418,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.7736532367587143
+    },
+    {
+      "number": 769,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 1324,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.24471299093655588
+    },
+    {
+      "number": 768,
+      "nativeExploratoryReads": 6,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5602,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8214923241699393
+    },
+    {
+      "number": 756,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 163,
+      "mapReadTokens": 997,
+      "tokenReduction": -5.116564417177914
+    },
+    {
+      "number": 753,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 7107,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.8597157731813705
+    },
+    {
+      "number": 752,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 4355,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.7710677382319173
+    },
+    {
+      "number": 751,
+      "nativeExploratoryReads": 24,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 35107,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.9715441364969949
+    },
+    {
+      "number": 750,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 253,
+      "mapReadTokens": 998,
+      "tokenReduction": -2.9446640316205532
+    },
+    {
+      "number": 746,
+      "nativeExploratoryReads": 2,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 1021,
+      "mapReadTokens": 998,
+      "tokenReduction": 0.022526934378060724
+    },
+    {
+      "number": 741,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 2068,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.5169245647969052
+    },
+    {
+      "number": 738,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 3315,
+      "mapReadTokens": 997,
+      "tokenReduction": 0.6992458521870286
+    },
+    {
+      "number": 736,
+      "nativeExploratoryReads": 169,
+      "mapExploratoryReads": 133,
+      "readReduction": 0.21301775147928995,
+      "nativeReadTokens": 147068,
+      "mapReadTokens": 176206,
+      "tokenReduction": -0.19812603693529524
+    },
+    {
+      "number": 725,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 63,
+      "mapReadTokens": 1000,
+      "tokenReduction": -14.873015873015873
+    },
+    {
+      "number": 721,
+      "nativeExploratoryReads": 19,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 45617,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.978078347984304
+    },
+    {
+      "number": 718,
+      "nativeExploratoryReads": 3,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5514,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8186434530286544
+    },
+    {
+      "number": 717,
+      "nativeExploratoryReads": 176,
+      "mapExploratoryReads": 246,
+      "readReduction": -0.3977272727272727,
+      "nativeReadTokens": 264101,
+      "mapReadTokens": 325812,
+      "tokenReduction": -0.2336643935464084
+    },
+    {
+      "number": 713,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 1601,
+      "mapReadTokens": 999,
+      "tokenReduction": 0.3760149906308557
+    },
+    {
+      "number": 712,
+      "nativeExploratoryReads": 19,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 27082,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.9630751052359501
+    },
+    {
+      "number": 711,
+      "nativeExploratoryReads": 1,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 5447,
+      "mapReadTokens": 1000,
+      "tokenReduction": 0.8164127042408665
+    },
+    {
+      "number": 688,
+      "nativeExploratoryReads": 5,
+      "mapExploratoryReads": 0,
+      "readReduction": 1,
+      "nativeReadTokens": 299,
+      "mapReadTokens": 997,
+      "tokenReduction": -2.3344481605351173
+    },
+    {
+      "number": 687,
+      "nativeExploratoryReads": 370,
+      "mapExploratoryReads": 370,
+      "readReduction": 0,
+      "nativeReadTokens": 431382,
+      "mapReadTokens": 432379,
+      "tokenReduction": -0.0023111766369482267
+    }
+  ]
+}
