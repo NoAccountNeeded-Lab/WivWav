@@ -184,15 +184,6 @@ describe('runListingResolveJob — single listing', () => {
     ).rejects.toThrow('db exploded')
   })
 
-  it('disconnects from the database even when resolution fails', async () => {
-    db.listing.findUnique.mockResolvedValueOnce(makeListingRow())
-    db.listing.update.mockRejectedValueOnce(new Error('db exploded'))
-
-    await expect(
-      runListingResolveJob({ listingId: 'l-1', observationReference: 'raw-1:2026-01-01T00:00:00.000Z' }),
-    ).rejects.toThrow()
-    expect(db.$disconnect).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe('runListingResolveJob — source-scoped fan-out', () => {

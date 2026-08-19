@@ -129,12 +129,13 @@ async function fetchTouchedPage(db: PrismaClient, after: Checkpoint): Promise<To
 export async function runSearchIndexerPollJob(context?: JobContext): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
-  try {
-    await repairOrphanedSearchCatalog(context, db, client)
-    await pollOnce(context, db, client)
-  } finally {
-    await db.$disconnect()
-  }
+  // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
+  // Notable for this queue in particular: its schedule fires every minute,
+  // so disconnecting the shared client here would churn apps/api's DB
+  // connection roughly once a minute while concurrent HTTP traffic may be
+  // using the same client.
+  await repairOrphanedSearchCatalog(context, db, client)
+  await pollOnce(context, db, client)
 }
 
 async function pollOnce(context: JobContext | undefined, db: PrismaClient, client: Meilisearch): Promise<void> {
