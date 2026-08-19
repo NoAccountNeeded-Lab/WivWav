@@ -22,7 +22,7 @@ FROM base AS builder
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY scripts/check-node-version.mjs ./scripts/
+COPY scripts/check-node-version.mjs scripts/remove-dangling-symlinks.sh ./scripts/
 COPY packages/config/package.json ./packages/config/
 COPY packages/types/package.json ./packages/types/
 COPY packages/observability/package.json ./packages/observability/
@@ -79,7 +79,16 @@ RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
     pnpm --filter @wivwav/api deploy --prod --ignore-scripts --legacy /app/deploy/api \
     && find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
       \( -name 'typescript@*' -o -name 'prisma@*' \) -exec rm -rf '{}' + \
-    && find /app/deploy/api/node_modules -xtype l -delete \
+    && symlink_fixture="$(mktemp -d)" \
+    && touch "$symlink_fixture/target" \
+    && ln -s target "$symlink_fixture/valid" \
+    && ln -s missing "$symlink_fixture/dangling" \
+    && sh /app/scripts/remove-dangling-symlinks.sh "$symlink_fixture" \
+    && test -L "$symlink_fixture/valid" \
+    && test -e "$symlink_fixture/valid" \
+    && test ! -L "$symlink_fixture/dangling" \
+    && rm -rf "$symlink_fixture" \
+    && sh /app/scripts/remove-dangling-symlinks.sh /app/deploy/api/node_modules \
     && ! find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
       \( -name 'typescript@*' -o -name 'vitest@*' -o -name 'eslint@*' \
          -o -name 'prettier@*' -o -name 'turbo@*' \) | grep -q . \
