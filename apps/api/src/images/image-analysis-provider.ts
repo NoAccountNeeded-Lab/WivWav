@@ -3,7 +3,7 @@
  *
  * Reuses the shape already established for text completion
  * (`CompletionProvider` in `@wivwav/agents`, implemented by
- * `apps/scraper/src/ai/ollama-provider.ts`), extended for image input.
+ * `ai/ollama-provider.ts`), extended for image input.
  * Vendor lock-in lives behind `ImageAnalysisProvider` only — call sites
  * (the #797 vertical slice, the future #798 queue worker) depend on this
  * interface, never on a specific vendor SDK.
@@ -80,7 +80,7 @@ export interface ImageAnalysisProvider {
 /**
  * Default provider: asserts no labels or claims. Safe until a real
  * classifier is wired in (mirrors `NoopPhotoClaimProvider` in
- * `apps/scraper/src/resolution/photo-claim-provider.ts`).
+ * `resolution/photo-claim-provider.ts`).
  */
 export class NoopImageAnalysisProvider implements ImageAnalysisProvider {
   readonly name = 'noop'

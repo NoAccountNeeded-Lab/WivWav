@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { SourceStatus, type PrismaClient, type Listing, type ListingImageSemanticAnalysis, type Prisma, type ConversionStatus, type WavFeature } from '@wivwav/db'
 
-// Mirrors STALE_DETAIL_DAYS in apps/scraper/src/jobs/detail-crawl.ts — a
+// Mirrors DETAIL_CRAWL_STALE_DETAIL_DAYS in routes/internal-scraper.ts — a
 // listing whose detail page was last crawled longer ago than this is treated
 // as pending re-crawl, same as the job itself would pick it up again.
 const STALE_DETAIL_CRAWL_DAYS = 30
@@ -405,8 +405,8 @@ export interface ListingRepository {
    * Per-stage pending/last-completed state for a single source, covering the
    * DB-derivable pipeline stages (detail-crawl, detail-extract, geocode,
    * vin-enrich). Stage pending conditions mirror the job queries in
-   * apps/scraper/src/jobs/*.ts so the counts stay consistent with what a job
-   * run would actually pick up.
+   * apps/api's and apps/worker's src/jobs/*.ts (respectively) so the counts
+   * stay consistent with what a job run would actually pick up.
    */
   getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]>
 }
@@ -847,9 +847,9 @@ export class PrismaListingRepository implements ListingRepository {
         if (filter.field && filter.field !== field) continue
 
         // Latest claim per (evidenceKind, sourceRef) slot — mirrors the
-        // resolver's own dedup (apps/scraper/src/resolution/resolver.ts) so
-        // this shows exactly the claims currently driving the conflict, not
-        // every superseded historical row.
+        // resolver's own dedup (resolution/resolver.ts) so this shows
+        // exactly the claims currently driving the conflict, not every
+        // superseded historical row.
         const latestBySlot = new Map<string, (typeof claims)[number]>()
         for (const claim of claimsByListingField.get(`${listing.id}:${field}`) ?? []) {
           const slotKey = `${claim.evidenceKind} ${claim.sourceRef ?? ''}`

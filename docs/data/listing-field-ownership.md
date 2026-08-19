@@ -14,7 +14,7 @@ Every write path then recomputes the field's resolution from every stored
 claim — including any photo-derived claim from a `PhotoClaimProvider`
 (`packages/db/src/resolution/photo-claim-provider.ts`, a no-op until #129
 supplies a real classifier) — via the pure resolver in
-`apps/scraper/src/resolution/resolver.ts`, and writes both the resolved
+`apps/api/src/resolution/resolver.ts`, and writes both the resolved
 normalized value and a separate `conversionTypeResolution`/
 `rampTypeResolution` (`FieldResolutionState`: `verified` | `source_reported` |
 `conflicting` | `unknown`) back onto the row in the same transaction.
@@ -33,7 +33,7 @@ untouched listings never write to `ListingFieldClaim`:
   internal scraper ingest route after `ingestListing` commits.
 - Detail: `packages/db/src/resolution/detail-claims.ts`, called by the API's
   internal detail-submit route when the worker actually observed a description.
-- Backfill (pre-#499 data): `apps/scraper/src/jobs/field-claims-backfill.ts`
+- Backfill (pre-#499 data): `apps/api/src/jobs/field-claims-backfill.ts`
   seeds one claim from the currently-stored value for a listing with no claim
   history yet — see that file's module docstring for the full deploy
   procedure and why it can only ever produce `source_reported`, never

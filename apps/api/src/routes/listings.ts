@@ -125,7 +125,7 @@ function toListingDetailResponse(
   const name = isPrivate ? 'For Sale By Owner' : dealerName
 
   // #499: the resolver already writes `unknown` to conversionType/rampType
-  // while conflicting (see apps/scraper/src/resolution), but this is the
+  // while conflicting (see resolution/), but this is the
   // public response boundary — never let a `conflicting` field read as a
   // definitive side/rear/ramp value here even if that invariant is ever
   // violated upstream.

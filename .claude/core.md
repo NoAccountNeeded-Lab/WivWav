@@ -3,10 +3,10 @@
 ## Structure
 
 ```text
-apps/api               Fastify REST API; Node 26
+apps/api               Fastify REST API; Node 26; scraping schedules, job
+                        processing, and Ollama remapping all run here
 apps/web               Next.js 16 App Router
 apps/ops               Next.js 16 operations UI
-apps/scraper           Playwright scraper and Ollama remapping
 packages/types         Shared TypeScript interfaces
 packages/db            Prisma; PostgreSQL 17
 packages/config        Shared TypeScript and ESLint configuration
@@ -29,7 +29,7 @@ Preserve API-first boundaries; web clients call APIs, not the database.
 Use mobile-first UI; all user-facing output must meet WCAG 2.1 AA.
 Runtime dependency licenses: MIT, Apache-2.0, BSD, or PostgreSQL License only; never GPL or AGPL.
 TypeScript: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`; no `any`; no unjustified non-null assertions; use `import type` for type-only imports.
-NodeNext local imports require `.js` in `apps/api`, `apps/scraper`, and all NodeNext packages.
+NodeNext local imports require `.js` in `apps/api`, `apps/worker`, and all NodeNext packages.
 Bundler source imports are extensionless in `apps/web`, `apps/ops`, and `packages/charts`; follow local test patterns.
 API defaults: `{ data: T }` success; `{ error: { code, message } }` error; preserve documented route exceptions.
 

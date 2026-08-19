@@ -24,7 +24,7 @@ rather than reusing `ListingImage.analysisVersion`.
 
 Reuse the shape already established for text completion
 (`packages/agents/src/provider.ts`'s `CompletionProvider`, implemented by
-`apps/scraper/src/ai/ollama-provider.ts`), extended for image input rather
+`apps/api/src/ai/ollama-provider.ts`), extended for image input rather
 than inventing a new pattern:
 
 ```ts
@@ -42,7 +42,7 @@ export interface ImageAnalysisProvider {
   vertical slice, the #798 queue worker) depend on `ImageAnalysisProvider`,
   never on a specific vendor SDK.
 - **Local-dev / CI provider:** a `NoopImageAnalysisProvider` (mirroring
-  `NoopPhotoClaimProvider` in `apps/scraper/src/resolution/photo-claim-provider.ts`)
+  `NoopPhotoClaimProvider` in `apps/api/src/resolution/photo-claim-provider.ts`)
   that returns an empty label/claim set. Production wiring selects a real
   provider via config; tests inject a stub, the same pattern
   `PhotoClaimProvider` already uses to let #499's resolver be exercised
@@ -58,7 +58,7 @@ the model provider. Do not hand the provider a source-image URL to fetch
 itself.
 
 Reuses the existing bounded-download primitive from #503's
-`apps/scraper/src/images/image-hasher.ts` (`MAX_IMAGE_BYTES` = 10 MiB,
+`apps/api/src/images/image-hasher.ts` (`MAX_IMAGE_BYTES` = 10 MiB,
 `DEFAULT_FETCH_TIMEOUT_MS` = 10s) rather than a new fetch path — one
 image byte range is downloaded once and used for both hashing and
 semantic analysis where both run in the same pass.
@@ -94,7 +94,7 @@ semantic analysis when:
 
 The cluster half of this (`isPlaceholder`/`crossVehicle`) reuses
 `isImageEligibleForClaims` from
-`apps/scraper/src/resolution/photo-claim-provider.ts` unchanged — the
+`apps/api/src/resolution/photo-claim-provider.ts` unchanged — the
 same gate #499 already defined for photo evidence in general applies
 here too. That function does **not** check `ListingImage.kind` today (it
 only inspects the image's cluster, and returns `eligible: true` for any
@@ -157,7 +157,7 @@ by the row-level version field.
 
 ## Per-claim confidence and result shape
 
-`apps/scraper/src/resolution/types.ts`'s `FieldClaim`/`NewFieldClaim`
+`apps/api/src/resolution/types.ts`'s `FieldClaim`/`NewFieldClaim`
 already models confidence per-claim (`confidence: number | null`) rather
 than one scalar per image — the semantic provider's output must produce
 one entry per asserted label, each independently confident, not a single
@@ -177,7 +177,7 @@ export interface ImageAnalysisResult {
   }>
   /** Populated only for labels that map to a resolver-governed field (ramp/lift → rampType, etc). */
   fieldClaims: Array<{
-    field: ClaimField // from apps/scraper/src/resolution/types.ts — 'conversionType' | 'rampType' initially
+    field: ClaimField // from apps/api/src/resolution/types.ts — 'conversionType' | 'rampType' initially
     claimedValue: string
     confidence: number
   }>

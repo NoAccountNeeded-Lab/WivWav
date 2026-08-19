@@ -3,7 +3,7 @@ name: performance
 description: Reviews API, scraper, DB, queue, and search performance
 tools: [Read, Bash]
 spawned_by: review-pipeline
-receives: changed files under apps/api, apps/scraper, packages/db, packages/queue, or packages/search
+receives: changed files under apps/api, apps/worker, packages/db, packages/queue, or packages/search
 output_contract: "Numbered [CRITICAL], [WARNING], or [SUGGESTION] findings; end with REVISION_NEEDED: yes|no"
 ---
 

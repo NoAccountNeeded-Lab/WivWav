@@ -19,13 +19,13 @@ without persisting any decisions in `--report` mode.
 
 ```bash
 # Read-only report (no writes):
-pnpm tsx apps/scraper/src/jobs/vehicle-identity-backfill.ts --report
+pnpm tsx apps/api/src/jobs/vehicle-identity-backfill.ts --report
 
 # Apply decisions for a single source (phased rollout):
-pnpm tsx apps/scraper/src/jobs/vehicle-identity-backfill.ts --apply --source <sourceId>
+pnpm tsx apps/api/src/jobs/vehicle-identity-backfill.ts --apply --source <sourceId>
 
 # Apply decisions for all sources:
-pnpm tsx apps/scraper/src/jobs/vehicle-identity-backfill.ts --apply
+pnpm tsx apps/api/src/jobs/vehicle-identity-backfill.ts --apply
 ```
 
 ## Metrics to monitor
@@ -54,7 +54,7 @@ After each `--apply` run, check the following:
 2. **Apply per-source, one at a time.**
 
    ```bash
-   pnpm tsx apps/scraper/src/jobs/vehicle-identity-backfill.ts --apply --source <sourceId>
+   pnpm tsx apps/api/src/jobs/vehicle-identity-backfill.ts --apply --source <sourceId>
    ```
 
    After each source:
@@ -63,14 +63,14 @@ After each `--apply` run, check the following:
    - Trigger a Meilisearch sync if needed:
      ```bash
      # Via the ops job queue or directly:
-     pnpm tsx apps/scraper/src/jobs/meilisearch-sync.ts
+     pnpm tsx apps/api/src/jobs/meilisearch-sync.ts
      ```
    - Check representative listing selection for newly grouped vehicles.
 
 3. **Apply to all sources once each per-source run looks clean.**
 
    ```bash
-   pnpm tsx apps/scraper/src/jobs/vehicle-identity-backfill.ts --apply
+   pnpm tsx apps/api/src/jobs/vehicle-identity-backfill.ts --apply
    ```
 
 4. **Re-run `--report` after the live `match-vehicle-identity` job has run.**

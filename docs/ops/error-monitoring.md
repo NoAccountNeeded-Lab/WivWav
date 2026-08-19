@@ -1,7 +1,7 @@
 # Error Monitoring — Sentry Runbook
 
-WivWav has an optional [Sentry](https://sentry.io) integration for error monitoring across all three services:
-`apps/web` (Next.js), `apps/api` (Fastify), and `apps/scraper` (BullMQ workers).
+WivWav has an optional [Sentry](https://sentry.io) integration for error monitoring across both services:
+`apps/web` (Next.js) and `apps/api` (Fastify — including its BullMQ workers).
 
 Sentry is disabled by default. It does not initialise, upload source maps,
 forward browser envelopes, or capture exceptions unless the relevant
@@ -23,12 +23,11 @@ Filter by project to narrow to a specific service:
 |---------|----------------------|
 | Web (frontend + API routes) | `wivwav-web` (or your project name) |
 | API | `wivwav-api` |
-| Scraper | `wivwav-scraper` |
 
 ## Setting up Sentry (first time)
 
 1. Create an account at <https://sentry.io> (free tier is sufficient for pre-beta).
-2. Create **three projects** — one per service — all under the same organisation.
+2. Create **two projects** — one per service — all under the same organisation.
 3. Copy the DSN for each project from **Settings → Projects → \<project\> → Client Keys**.
 4. Add the DSNs to each service's environment:
 
@@ -44,12 +43,6 @@ Filter by project to narrow to a specific service:
    ```
 
    **`apps/api/.env`**:
-   ```
-   SENTRY_ENABLED=true
-   SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
-   ```
-
-   **`apps/scraper/.env`**:
    ```
    SENTRY_ENABLED=true
    SENTRY_DSN=https://...@o<id>.ingest.sentry.io/<project-id>
@@ -93,9 +86,9 @@ curl -X POST https://api.staging.example.com/<temporary-test-error-route>
 ```
 
 If you prefer not to add a route, trigger a deliberately bad staging job payload
-from Bull Board and confirm the resulting API or scraper exception in Sentry.
+from Bull Board and confirm the resulting exception in Sentry.
 
-### Scraper
+### BullMQ job processors
 
 Temporarily throw inside a BullMQ job processor and enqueue the job via the
 Bull Board UI at `/admin/board`. The `withSentryCapture` wrapper will forward
@@ -175,7 +168,7 @@ Complete these steps before declaring error monitoring live for public beta. The
 Sentry SDK is inert unless `SENTRY_ENABLED=true` and a DSN are both present,
 so all items below must be done in staging before declaring Sentry live.
 
-- [ ] Create three Sentry projects: `wivwav-web`, `wivwav-api`, `wivwav-scraper` (all under the same org)
+- [ ] Create two Sentry projects: `wivwav-web`, `wivwav-api` (both under the same org)
 - [ ] Copy each project's DSN into the service environment (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`)
 - [ ] Set `SENTRY_ENABLED=true` for server-side services and `NEXT_PUBLIC_SENTRY_ENABLED=true` for the browser bundle
 - [ ] Restore CI source-map upload steps and set the relevant Sentry secrets

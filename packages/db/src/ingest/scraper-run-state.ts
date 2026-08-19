@@ -1,9 +1,9 @@
 import type { PrismaClient } from '../generated/prisma/index.js'
 
 /**
- * ScraperRun lifecycle writes (#948/#951): shared by apps/scraper's
- * PrismaScraperRunRepository (until the cutover) and apps/api's worker
- * gateway, one implementation instead of a hand-copied port.
+ * ScraperRun lifecycle writes (#948/#951): shared by apps/api's admin-oriented
+ * PrismaScraperRunRepository and its worker gateway, one implementation
+ * instead of a hand-copied port.
  */
 
 export interface ScraperRunRecord {

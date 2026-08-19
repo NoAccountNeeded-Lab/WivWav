@@ -30,17 +30,15 @@ export interface ScheduleDefQueues {
 }
 
 /**
- * Mirrors apps/scraper/src/index.ts's SCHEDULE_DEFS — every queue
- * apps/scraper currently schedules on startup, relocated so apps/api
- * registers the same set (#968). Keep in sync with that file's SCHEDULE_DEFS
- * array until the follow-on cutover issue (#961) deletes the scraper daemon
- * and this becomes the sole source of truth. schedule-defs.test.ts pins the
- * queue-name set this builds against apps/scraper's current SCHEDULE_DEFS
- * names so a drift between the two copies fails CI instead of silently
- * diverging.
+ * Relocated from apps/scraper/src/index.ts's SCHEDULE_DEFS — every queue
+ * the standalone scraper daemon used to schedule on startup, moved so
+ * apps/api registers the same set (#968). #970 deleted the scraper daemon,
+ * so this is now the sole source of truth; schedule-defs.test.ts pins the
+ * queue-name set this builds so a future regression fails CI instead of
+ * silently dropping a schedule.
  *
- * See apps/scraper/src/index.ts for the staggering rationale behind each
- * pipeline job's cron pattern.
+ * See the git history of apps/scraper/src/index.ts (pre-#970) for the
+ * staggering rationale behind each pipeline job's cron pattern.
  */
 export function buildScheduleDefs(
   registeredSources: readonly RegisteredSource[],

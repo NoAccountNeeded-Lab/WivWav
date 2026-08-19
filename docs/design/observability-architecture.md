@@ -12,7 +12,7 @@ the same pattern: **the app emits once; the collector routes everywhere.**
 
 ## Core principle: app emits once
 
-Application packages (`apps/api`, `apps/scraper`, `apps/web`) write structured
+Application packages (`apps/api`, `apps/worker`, `apps/web`) write structured
 JSON to stdout via `packages/logger` (pino). They never import Loki, Grafana,
 Sentry, New Relic, or any other provider SDK. Vendor routing is a collector
 concern, not an app concern.

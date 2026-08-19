@@ -58,8 +58,7 @@ const queueFactory = new BullMQQueueFactory()
 const app = await buildApp(config, db, meili, cache, search, facets, queueFactory, redis)
 
 // #933 lineage backbone: one JobRun row per job execution, across every job
-// type registered below — see lib/job-run-tracking.ts. Mirrors
-// apps/scraper/src/index.ts's own instance.
+// type registered below — see lib/job-run-tracking.ts.
 const jobRuns = new PrismaJobRunRepository(db)
 
 let shutdownPromise: Promise<void> | undefined
@@ -102,21 +101,18 @@ function shutdown(signal: NodeJS.Signals): Promise<void> {
 process.once('SIGTERM', () => void shutdown('SIGTERM'))
 process.once('SIGINT', () => void shutdown('SIGINT'))
 
-// --- Scraper schedule registration (#968) ---
-// Registers the same repeatable schedules apps/scraper/src/index.ts
-// registers from its own copy of this logic — see the note atop
-// schedule-registration.ts for why both processes reconciling concurrently
-// during the migration window is safe. Wrapped in try/catch (unlike
-// apps/scraper's unguarded equivalent) because apps/api is the primary
-// user-facing HTTP service: a transient DB/Redis error here must not stop
-// it from binding its port and serving requests — apps/scraper's copy is
-// still registering these same schedules regardless.
+// --- Scraper schedule registration (#968, apps/scraper deleted by #970) ---
+// Registers the repeatable schedules apps/scraper/src/index.ts used to
+// register before #970 deleted the standalone scraper daemon and made
+// apps/api the sole process reconciling them. Wrapped in try/catch because
+// apps/api is the primary user-facing HTTP service: a transient DB/Redis
+// error here must not stop it from binding its port and serving requests.
 //
-// Runs unconditionally on every boot, same as apps/scraper today — there is
-// no singleton/runtime-mode gate. registerSources upserts (cheap) and
-// reconcileSchedules is idempotent, so a rolling deploy or restart re-running
-// this is safe, just not free; revisit if apps/api is ever run with more than
-// a couple of replicas.
+// Runs unconditionally on every boot — there is no singleton/runtime-mode
+// gate. registerSources upserts (cheap) and reconcileSchedules is
+// idempotent, so a rolling deploy or restart re-running this is safe, just
+// not free; revisit if apps/api is ever run with more than a couple of
+// replicas.
 const scrapeQueue = queueFactory.createQueue(QUEUES.SOURCE_SCRAPE)
 const crawlQueue = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
 const extractQueue = queueFactory.createQueue(QUEUES.DETAIL_EXTRACT)
@@ -141,20 +137,18 @@ const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 // No local binding: resolution jobs are enqueued from the internal-scraper
 // and internal-http-enrich routes, not from this startup script. Registering
-// it here still makes the BullMQ Queue instance visible to shutdown()'s
-// close(), matching apps/scraper/src/index.ts's own copy.
+// it here still makes the BullMQ Queue instance visible to shutdown()'s close().
 queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
 // No local binding: nothing in this process enqueues onto this queue — only
-// the #798 backfill script (a separate process/factory) does. Registering it
-// here still makes the BullMQ Queue instance visible to shutdown()'s close().
+// the #798 backfill script (jobs/semantic-image-analyze-backfill.ts, a
+// separate process/factory) does. Registering it here still makes the
+// BullMQ Queue instance visible to shutdown()'s close().
 queueFactory.createQueue(QUEUES.IMAGE_SEMANTIC_ANALYZE)
 
 // --- Direct-DB job workers (#969) ---
-// Registers the same #969-relocated workers apps/scraper/src/index.ts's
-// registerWorkers() registers from its own copy of these job files — see the
-// note atop that function for why both processes running these workers
-// concurrently during the migration window is safe (BullMQ per-job locking
-// means only one process actually executes a given job run).
+// Registers the workers apps/scraper/src/index.ts's registerWorkers() used
+// to register from its own copy of these job files, before #970 deleted the
+// standalone scraper daemon.
 function registerWorkers(): void {
   queueFactory.createWorker(
     QUEUES.GEOCODE,
@@ -302,7 +296,7 @@ try {
   await reconcileSchedules(applyScheduleIntents(SCHEDULE_DEFS, scheduleIntents), app.log)
   app.log.info({ scheduleCount: SCHEDULE_DEFS.length }, '[schedules] Reconciled on startup')
 } catch (err) {
-  app.log.error(err, '[schedules] Reconciliation skipped; apps/scraper is still registering these schedules')
+  app.log.error(err, '[schedules] Reconciliation skipped this boot; will retry on next restart')
 }
 
 // Apply index settings before accepting traffic so filters/facets work on the

@@ -162,7 +162,6 @@ Observability: `docs/design/observability-architecture.md`.
 Merge queue: `docs/design/merge-queue.md`.
 Turbo cache: `docs/design/turbo-remote-cache.md`.
 Agent optimization: `docs/design/agent-token-optimization.md`.
-Scraper architecture: `apps/scraper/README.md`.
 Testing: `.claude/roles/tester.md`.
 
 Read `docs/design/observability-architecture.md` before changing `packages/logger`, adding telemetry, or working on issues #255–#260, #263, #272, or #273.

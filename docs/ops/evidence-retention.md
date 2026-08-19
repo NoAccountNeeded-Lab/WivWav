@@ -90,7 +90,7 @@ evidence preserved under this policy.
 
 6. **Check the validator** — if `qualityIssueCodes` includes a code that
    conflicts with your manual reading, consult
-   `apps/scraper/src/engine/listing-validator.ts` for the rule definition and
+   `apps/api/src/engine/listing-validator.ts` for the rule definition and
    `packages/types/src/listing.ts` for the severity mapping.
 
 ---
@@ -100,7 +100,7 @@ evidence preserved under this policy.
 Every audit report includes `auditVersion` (currently `1`). When extraction
 or analysis logic changes in a way that would produce different field values
 for the same source HTML, increment `AUDIT_VERSION` in
-`apps/scraper/src/jobs/listing-quality-audit.ts`. This allows operators to
+`apps/api/src/jobs/listing-quality-audit.ts`. This allows operators to
 identify which results came from which version of the logic.
 
 Gold fixture files include a `parserVersion` field for the same purpose. When

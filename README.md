@@ -18,7 +18,7 @@ WivWav scrapes, normalizes, and indexes WAV listings so buyers can filter by wha
 
 **Prerequisites:** Docker, Node 26, pnpm 11
 
-Pick one of the two paths below — both start api, web, and scraper, so don't run both.
+Pick one of the two paths below — both start api, web, and ops, so don't run both.
 
 ### Option A: local dev with hot reload (recommended while developing)
 
@@ -27,7 +27,6 @@ Pick one of the two paths below — both start api, web, and scraper, so don't r
 pnpm install
 pnpm db:generate
 cp apps/api/.env.example apps/api/.env
-cp apps/scraper/.env.example apps/scraper/.env
 cp apps/web/.env.example apps/web/.env.local
 cp packages/db/.env.example packages/db/.env
 
@@ -37,7 +36,7 @@ openssl rand -hex 32
 
 # Each session
 make dev       # starts Postgres, Valkey, Meilisearch in Docker, applies
-               # migrations, then runs api, web, and scraper locally with hot reload
+               # migrations, then runs api, web, and ops locally with hot reload
 ```
 
 | Service     | URL                   |
@@ -57,7 +56,7 @@ make down      # stop the Postgres/Valkey/Meilisearch containers started by make
 cp apps/api/.env.example apps/api/.env
 
 # Each session
-make up        # starts the entire stack in Docker — infra, api, web, scraper,
+make up        # starts the entire stack in Docker — infra, api, web, ops,
                # Ollama, and observability. Builds images automatically on first run.
 ```
 
@@ -83,9 +82,9 @@ make typecheck # type check
 make lint      # lint
 ```
 
-### Optional: local AI for the self-healing scraper
+### Optional: local AI for self-healing scraping
 
-The scraper can detect site layout changes and remap CSS selectors using an AI model. Normal `make dev` works fine without it.
+apps/api can detect site layout changes and remap CSS selectors using an AI model. Normal `make dev` works fine without it.
 
 **Ollama (local, no API key):**
 ```bash
@@ -104,16 +103,17 @@ If neither provider is reachable, scraping continues without AI remapping — la
 
 ```
 apps/
-  api/       Fastify REST API (TypeScript, Node 26)
+  api/       Fastify REST API (TypeScript, Node 26) — scraping schedules,
+             job processing, and AI-assisted extraction all run here
   web/       Next.js 16 frontend (App Router)
-  scraper/   Playwright + AI scraper engine
+  ops/       Next.js 16 operations UI
+  worker/    Remote job-runner fleet (Chromium/DOM jobs)
 packages/
   types/     Shared TypeScript interfaces
   db/        Prisma schema + client (PostgreSQL)
   config/    Shared tsconfig and ESLint configs
 ```
 
-- [Scraper: running and pipeline docs](apps/scraper/README.md)
 - [AGENTS.md](AGENTS.md) — architecture details and agent workflow
 
 ---

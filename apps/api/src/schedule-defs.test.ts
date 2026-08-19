@@ -43,12 +43,12 @@ function makeQueues(): ScheduleDefQueues {
   }
 }
 
-// The full set of queues apps/scraper/src/index.ts's SCHEDULE_DEFS registers
-// on startup (#968's issue body): SOURCE_SCRAPE/DETAIL_CRAWL/DETAIL_EXTRACT
-// plus the 13 direct-DB-backed queues. Pinned here — built directly from the
-// shared QUEUES constants, not string literals — so a change to either
-// apps/scraper's or apps/api's copy of SCHEDULE_DEFS is caught by CI instead
-// of silently diverging until the #961 cutover deletes apps/scraper.
+// The full set of queues buildScheduleDefs registers on startup (originally
+// apps/scraper/src/index.ts's SCHEDULE_DEFS, per #968's issue body):
+// SOURCE_SCRAPE/DETAIL_CRAWL/DETAIL_EXTRACT plus the 13 direct-DB-backed
+// queues. Pinned here — built directly from the shared QUEUES constants, not
+// string literals — so a future regression in buildScheduleDefs is caught
+// by CI instead of silently dropping a schedule.
 const EXPECTED_SCHEDULED_QUEUE_NAMES = [
   QUEUES.SOURCE_SCRAPE,
   QUEUES.DETAIL_CRAWL,
@@ -73,7 +73,7 @@ const EXPECTED_SCHEDULED_QUEUE_NAMES = [
 ].sort()
 
 describe('buildScheduleDefs (#968)', () => {
-  it('registers the full queue set apps/scraper schedules on startup', () => {
+  it('registers the full queue set apps/api schedules on startup', () => {
     const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.map((definition) => ({
       definition,
       row: makeRow(definition.name, definition.key),

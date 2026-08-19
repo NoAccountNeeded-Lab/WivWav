@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { resolveOllamaConfig } from '@/lib/resolve-ollama-config'
 
-// Exact system prompt used by apps/scraper/src/ai/structure-detector.ts
+// Exact system prompt used by apps/api/src/ai/structure-detector.ts
 const SYSTEM_PROMPT = `You are an expert at analyzing HTML structure and deriving CSS selectors for data extraction.
 Given a previous field mapping and updated HTML from a WAV (wheelchair accessible vehicle) listing page,
 output new CSS selectors that correctly target the same data fields.

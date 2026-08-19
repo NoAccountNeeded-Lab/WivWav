@@ -1,6 +1,6 @@
-// #968: apps/api's copy of apps/scraper/src/sources/registry.ts, relocated
-// alongside schedule-registration.ts (see the note at the top of that file
-// for why apps/scraper keeps its own copy in the interim).
+// #968: relocated from apps/scraper/src/sources/registry.ts, alongside
+// schedule-registration.ts. #970 later deleted the standalone scraper
+// daemon, so this is now the sole copy.
 import type { PrismaClient, Prisma } from '@wivwav/db'
 import {
   SCRAPER_SOURCE_REGISTRY,

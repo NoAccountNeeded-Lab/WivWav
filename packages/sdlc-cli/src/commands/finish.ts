@@ -57,7 +57,7 @@ export function deriveScope(files: string[]): string {
   const prefixes: Record<string, string> = {
     'apps/api/': 'api',
     'apps/web/': 'web',
-    'apps/scraper/': 'scraper',
+    'apps/worker/': 'worker',
     'packages/db/': 'db',
     'packages/agents/': 'agents',
     'packages/queue/': 'queue',
