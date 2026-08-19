@@ -1,4 +1,11 @@
 # syntax=docker/dockerfile:1.7
+# node:26-alpine (musl libc) is kept here, unlike docker/scraper/Dockerfile's
+# Debian/glibc base — sharp (added in #969 for the relocated image-analysis
+# jobs) ships prebuilt musl-x64 binaries via its optionalDependencies, so no
+# base-image change is needed. The deploy stage below must not pass
+# `--no-optional` to `pnpm deploy`, or those platform-specific binaries would
+# be pruned along with the CLI-only optional deps it's meant to strip; see
+# the sharp smoke-test at the end of that stage.
 FROM node:26-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -25,6 +32,7 @@ COPY packages/db/prisma/schema.prisma ./packages/db/prisma/
 COPY packages/logger/package.json ./packages/logger/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/search/package.json ./packages/search/
+COPY packages/agents/package.json ./packages/agents/
 COPY packages/scraper-sources/package.json ./packages/scraper-sources/
 COPY apps/api/package.json ./apps/api/
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
@@ -37,6 +45,7 @@ COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger
 COPY packages/queue ./packages/queue
 COPY packages/search ./packages/search
+COPY packages/agents ./packages/agents
 COPY packages/scraper-sources ./packages/scraper-sources
 COPY apps/api ./apps/api
 RUN pnpm --filter @wivwav/types build
@@ -46,6 +55,7 @@ RUN pnpm --filter @wivwav/db generate
 RUN pnpm --filter @wivwav/db build
 RUN pnpm --filter @wivwav/queue build
 RUN pnpm --filter @wivwav/search build
+RUN pnpm --filter @wivwav/agents build
 RUN pnpm --filter @wivwav/scraper-sources build
 RUN pnpm --filter @wivwav/api build
 
@@ -53,15 +63,29 @@ RUN pnpm --filter @wivwav/api build
 # the runtime workspace packages it needs (each pruned to its own `files`
 # allowlist, e.g. just `dist`) plus their third-party production deps. No
 # TypeScript, Vitest, ESLint, Prettier, Turbo, tsx, or root devDependencies
-# make it into the deployed tree. `--no-optional` additionally drops the
-# `prisma` CLI and `typescript`, which @prisma/client lists as *optional*
-# peer dependencies — the API only needs the already-generated client, never
-# the CLI that generated it. `--ignore-scripts` is safe here: the Prisma
+# make it into the deployed tree. `--ignore-scripts` is safe here: the Prisma
 # client and every workspace package's `dist` were already built above, and
 # this step only re-links already-built artifacts into a pruned tree.
+#
+# Unlike before #969, this no longer passes `--no-optional`: sharp (added for
+# the relocated image-analysis jobs) resolves its native binary through an
+# optionalDependency (e.g. `@img/sharp-linuxmusl-x64` on this alpine base),
+# and `--no-optional` would prune that along with everything else optional.
+# `@prisma/client`'s `prisma`/`typescript` optional peer deps — the actual
+# thing `--no-optional` used to target — are instead stripped explicitly
+# below, mirroring docker/scraper/Dockerfile's equivalent step (which has
+# carried sharp the same way since before #969).
 FROM builder AS deploy
 RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
-    pnpm --filter @wivwav/api deploy --prod --no-optional --ignore-scripts --legacy /app/deploy/api
+    pnpm --filter @wivwav/api deploy --prod --ignore-scripts --legacy /app/deploy/api \
+    && find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
+      \( -name 'typescript@*' -o -name 'prisma@*' \) -exec rm -rf '{}' + \
+    && find /app/deploy/api/node_modules -xtype l -delete \
+    && ! find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
+      \( -name 'typescript@*' -o -name 'vitest@*' -o -name 'eslint@*' \
+         -o -name 'prettier@*' -o -name 'turbo@*' \) | grep -q . \
+    && cd /app/deploy/api \
+    && node -e "const sharp = require('sharp'); console.log('sharp', sharp.versions.sharp)"
 
 FROM base AS runner
 WORKDIR /app

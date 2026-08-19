@@ -1,0 +1,56 @@
+[
+  {
+    "name": "MobilityWorks",
+    "address": "4215 Highlander Pkwy",
+    "state": "OH",
+    "zip": "44333",
+    "phone": "800-638-8267",
+    "website": "https://www.mobilityworks.com",
+    "qapCertified": true
+  },
+  {
+    "name": "Freedom Mobility Center",
+    "address": "1 Freedom Way",
+    "state": "AZ",
+    "zip": "85260",
+    "phone": null,
+    "website": "https://www.freedommobilitycenter.com",
+    "qapCertified": true
+  },
+  {
+    "name": "Ride-Away",
+    "address": "68 Hampshire Dr",
+    "state": "MA",
+    "zip": "01760",
+    "phone": "800-292-7433",
+    "website": "https://www.rideaway.com",
+    "qapCertified": true
+  },
+  {
+    "name": "Superior Van & Mobility",
+    "address": "4520 Robards Ln",
+    "state": "KY",
+    "zip": "40218",
+    "phone": "502-491-0111",
+    "website": "https://www.superiorvan.com",
+    "qapCertified": true
+  },
+  {
+    "name": "AMS Vans",
+    "address": "4855 River Green Pkwy",
+    "state": "GA",
+    "zip": "30096",
+    "phone": "800-775-2267",
+    "website": "https://www.amsvans.com",
+    "qapCertified": true
+  },
+  {
+    "name": "Rollx Vans",
+    "address": "15800 95th Ave N",
+    "state": "MN",
+    "zip": "55311",
+    "phone": "800-488-0359",
+    "website": "https://www.rollxvans.com",
+    "qapCertified": true
+  }
+]
