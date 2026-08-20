@@ -1,6 +1,7 @@
 ---
 description: Validate, commit, push, and open or update a draft PR for a completed issue
 argument-hint: "[issue-number]"
+user-invocable: true
 ---
 
 # Finish issue

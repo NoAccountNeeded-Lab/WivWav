@@ -48,8 +48,15 @@ storybook-static/
 # images on a failing run) — transient debugging output, not test fixtures.
 .vitest-attachments/
 
-# Agents pipeline output
-.agents/
+# Agents pipeline output (per-run state; not shared across machines)
+**/.agents/*
+!/.agents/skills/
+!/.agents/skills/**
+
+# Codex project skills (/.agents/skills, repo root only) are committed so
+# they travel with the repo; everything else under any .agents/ directory,
+# including nested ones like packages/sdlc-cli/.agents/, is ephemeral
+# sprint-run state.
 
 # Claude Code subagent worktrees
 .claude/worktrees/

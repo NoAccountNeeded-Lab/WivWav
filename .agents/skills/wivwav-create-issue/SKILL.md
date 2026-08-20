@@ -1,6 +1,7 @@
 ---
 description: Create a structured WivWav GitHub issue with labels and attribution
 argument-hint: "[issue-title-or-description]"
+user-invocable: true
 ---
 
 # Create issue
