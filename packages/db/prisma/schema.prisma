@@ -585,6 +585,13 @@ model ScraperRun {
   /// missingFromCompleteCount.
   markGoneAppliedAt         DateTime?
   markGoneNewlyMissingCount Int?
+  /// #986 per-source crawl-completeness and gone-promotion tracking, feeding
+  /// the trailing-window report in listing-quality-audit.ts. Precursor to
+  /// re-tuning GONE_AFTER_CONSECUTIVE_MISSING (packages/db/src/ingest/mark-gone.ts)
+  /// in #676 once enough real data has accumulated. Null until a mark-gone
+  /// call is applied for this run (same lifecycle as markGoneAppliedAt).
+  isCompleteCrawl        Boolean?
+  markGoneNewlyGoneCount Int?
 
   @@index([sourceId])
   @@map("scraper_runs")
