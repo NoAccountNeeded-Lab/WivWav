@@ -23,6 +23,7 @@ Update `docs/api-routes.md` when adding, removing, or renaming API routes.
 Do not add new WivWav-owned runtime URLs under `/admin/*`. Use `/internal/ops/*` for private operator APIs and `/ops/*` for the ops UI/BFF surface unless an existing issue explicitly authorizes a narrower exception.
 Before UI edits under `apps/web`, read `docs/BRAND.md`.
 Before adding a new `packages/*` or `apps/*` workspace, read `.claude/skills/wav-new-package/SKILL.md` and update every Dockerfile it identifies (`docker/api`, `docker/web`, `docker/ops`, `docker/worker`, `docker/migrate`, `docker/dev`); `pnpm-workspace.yaml` and `turbo.json` pick up new workspaces automatically, Dockerfiles do not.
+Before editing `packages/db/prisma/schema.prisma`, read `.claude/skills/wav-prisma-migration/SKILL.md`; never use `db:push`/`make db-push` for a change that will be deployed, and verify with `prisma migrate diff --exit-code` locally before pushing — that is the exact check CI runs.
 
 Use the SDLC CLI:
 

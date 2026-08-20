@@ -58,8 +58,9 @@ regardless of skill-loading support.
 3. **`wivwav-add-scraper-source`** (custom) — fills a real, currently undocumented-as-a-workflow
    gap: `.claude/instructions.md` states the `SourceAdapter` contract and AI-remap confidence rule
    as facts, not as a scaffolding procedure.
-4. **`wivwav-prisma-migration`** (custom) — same gap for `docs/data/schema-conventions.md`; there
-   is no `db:reset`, so migration mistakes are costly and currently only guarded by prose.
+4. **`wav-prisma-migration`** (custom) — same gap for `docs/data/schema-conventions.md`; there
+   is no `db:reset`, so migration mistakes are costly and currently only guarded by prose. **Built**
+   this session — see `.agents/skills/wav-prisma-migration/SKILL.md`.
 5. **`wivwav-api-contract-review`** (custom) — wraps the route/envelope/docs rules already spread
    across `AGENTS.md` and `docs/api-routes.md` into one checkable pass.
 6. **`wivwav-accessibility-qa`** (custom) — real value specifically *for Codex*: `.claude/roles/accessibility.md`
@@ -144,7 +145,7 @@ generic skill can't know and that currently only live in prose an agent might sk
 1. `gh-address-comments`
 2. `gh-fix-ci` (scoped to `check:affected`)
 3. `wivwav-add-scraper-source`
-4. `wivwav-prisma-migration`
+4. `wav-prisma-migration` — **built** this session
 5. `wivwav-api-contract-review`
 6. `wivwav-accessibility-qa`
 
@@ -160,7 +161,7 @@ unscoped risks conflicting with existing built-container and data-exposure const
   package/task and proposes a fix without reaching for `--no-verify` or skipped checks.
 - `wivwav-add-scraper-source`: scaffold against one simple, already-understood target; confirm
   `checkStructure()`/`scrape()`, fixtures, and the 0.7 AI-remap threshold are all present.
-- `wivwav-prisma-migration`: run against a trivial additive migration; confirm it follows
+- `wav-prisma-migration`: run against a trivial additive migration; confirm it follows
   `docs/data/schema-conventions.md` and calls out backfill/rollback even when "not applicable."
 - `wivwav-api-contract-review`: run against a merged PR that already touched routes; confirm it
   would have caught what human review actually caught.
