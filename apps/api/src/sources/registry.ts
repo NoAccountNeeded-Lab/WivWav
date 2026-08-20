@@ -26,10 +26,11 @@ export interface RegisteredSource {
 /**
  * Initial `Source.mappings` seeded for a source's row the first time it's
  * created — only meaningful for `pipeline: 'detail-pages'` sources whose
- * detail extraction is declarative (#822) rather than a bespoke per-source
- * parser (BLVD, MobilityWorks have no use for this). This only covers a
- * brand-new install; an already-existing row is backfilled once by the
- * seed_freedom_motors_detail_mappings migration instead, since `update: {}`
+ * detail extraction is declarative (#822, applied to a second source by
+ * #823) rather than a bespoke per-source parser (BLVD, MobilityWorks have no
+ * use for this). This only covers a brand-new install; an already-existing
+ * row is backfilled once by the seed_freedom_motors_detail_mappings /
+ * seed_superior_van_detail_mappings migrations instead, since `update: {}`
  * below intentionally never overwrites a live (possibly AI-remapped) row.
  */
 const DEFAULT_MAPPINGS_BY_KEY: Partial<Record<string, FieldMapping[]>> = {
@@ -82,6 +83,30 @@ const DEFAULT_MAPPINGS_BY_KEY: Partial<Record<string, FieldMapping[]>> = {
         '//li[contains(@class,"product_attribute-row")][b[contains(text(),"Vehicle Status")]]/span',
       attribute: null,
       transform: 'trimText',
+    },
+  ],
+  // Kept in sync with packages/scraper-sources/src/sources/
+  // superior-van-detail-mappings.ts (#823) — see that file's doc comment for
+  // why interior color, conversionType/rampType, and saleStatus are
+  // deliberately not mapped.
+  'superior-van': [
+    {
+      targetField: 'images',
+      selector: '.vehicle-gallery .vehicle-gallery-item img',
+      attribute: 'src',
+      transform: null,
+    },
+    {
+      targetField: 'color',
+      selector: '//span[contains(@class,"elementor-icon-list-text")][b[contains(text(),"Exterior Color")]]',
+      attribute: null,
+      transform: 'afterColon',
+    },
+    {
+      targetField: 'fuelType',
+      selector: '//span[contains(@class,"elementor-icon-list-text")][b[contains(text(),"Fuel Type")]]',
+      attribute: null,
+      transform: 'afterColon',
     },
   ],
 }
