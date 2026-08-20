@@ -1,6 +1,7 @@
 ---
 description: Prepare and run single, sequential, or parallel WivWav worker sprints
 argument-hint: "[issue-number] [--limit N] [--parallel N]"
+user-invocable: true
 ---
 
 # Run sprint
