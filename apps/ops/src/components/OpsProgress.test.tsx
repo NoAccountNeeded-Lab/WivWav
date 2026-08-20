@@ -2,6 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { OpsProgressDeterminate, OpsProgressIndeterminate } from './OpsProgress'
+import styles from './OpsProgress.module.css'
 
 afterEach(() => {
   cleanup()
@@ -18,24 +19,24 @@ describe('OpsProgressDeterminate', () => {
 
   it('should derive the fill width purely from value/min/max', () => {
     const { container } = render(<OpsProgressDeterminate value={25} min={0} max={50} label="Progress" />)
-    const fill = container.querySelector('[class*="fill"]') as HTMLElement
+    const fill = container.querySelector(`.${styles.fill}`) as HTMLElement
     expect(fill.style.width).toBe('50%')
   })
 
   it('should derive the marker position purely from value/min/max', () => {
     const { container } = render(<OpsProgressDeterminate value={25} min={0} max={50} label="Progress" />)
-    const marker = container.querySelector('[class*="marker"]') as HTMLElement
+    const marker = container.querySelector(`.${styles.marker}`) as HTMLElement
     expect(marker.style.left).toBe('50%')
   })
 
   it('should clamp the visual fill to [0, 100] even for out-of-range values', () => {
     const over = render(<OpsProgressDeterminate value={999} min={0} max={100} label="Progress" />)
-    const overFill = over.container.querySelector('[class*="fill"]') as HTMLElement
+    const overFill = over.container.querySelector(`.${styles.fill}`) as HTMLElement
     expect(overFill.style.width).toBe('100%')
     over.unmount()
 
     const under = render(<OpsProgressDeterminate value={-50} min={0} max={100} label="Progress" />)
-    const underFill = under.container.querySelector('[class*="fill"]') as HTMLElement
+    const underFill = under.container.querySelector(`.${styles.fill}`) as HTMLElement
     expect(underFill.style.width).toBe('0%')
   })
 
@@ -72,7 +73,7 @@ describe('OpsProgressIndeterminate', () => {
 
   it('should never render a filled track segment, only a travelling marker', () => {
     const { container } = render(<OpsProgressIndeterminate statusText="Fetching sources…" />)
-    expect(container.querySelector('[class*="fill"]')).toBeNull()
-    expect(container.querySelector('[class*="marker"]')).not.toBeNull()
+    expect(container.querySelector(`.${styles.fill}`)).toBeNull()
+    expect(container.querySelector(`.${styles.indeterminateMarker}`)).not.toBeNull()
   })
 })
