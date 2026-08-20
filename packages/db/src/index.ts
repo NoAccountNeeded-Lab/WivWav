@@ -51,11 +51,18 @@ export type { ListingImageInput, ImageClusterInput } from './lib/listing-image.j
 export {
   appendScheduleIntent,
   appendSourceControlAuditEntry,
+  appendPrivateSellerDeletionAuditEntry,
+  listPrivateSellerDeletionAuditEntries,
   readCurrentScheduleIntents,
   SCHEDULE_INTENT_KEY_PREFIX,
   SOURCE_CONTROL_AUDIT_KEY_PREFIX,
+  PRIVATE_SELLER_DELETION_AUDIT_KEY_PREFIX,
 } from './lib/operator-intent.js'
-export type { ScheduleIntent, SourceControlAuditEntry } from './lib/operator-intent.js'
+export type {
+  ScheduleIntent,
+  SourceControlAuditEntry,
+  PrivateSellerDeletionAuditEntry,
+} from './lib/operator-intent.js'
 
 // --- shared scraper-ingest persistence (#948/#951): one implementation used
 // by apps/api's in-process jobs and its worker gateway.

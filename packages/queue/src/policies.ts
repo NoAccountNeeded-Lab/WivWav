@@ -47,6 +47,7 @@ export const QUEUE_POLICIES: Record<QueueName, QueuePolicy> = {
   [QUEUES.LISTING_INDEX_POLL]: policy(1, { completed: 20, failed: 100 }),
   [QUEUES.LISTING_RESOLVE]: policy(2, { completed: 100, failed: 300 }),
   [QUEUES.RAWPAGE_CLEANUP]: policy(1, { completed: 20, failed: 100 }),
+  [QUEUES.PRIVATE_SELLER_RETENTION]: policy(1, { completed: 20, failed: 100 }),
   [QUEUES.CONVERSION_BRANDS_SEED]: policy(1, { completed: 20, failed: 100 }),
   [QUEUES.NMEDA_DEALERS_SEED]: policy(1, { completed: 20, failed: 100 }),
   [QUEUES.FUELECONOMY_MSRP]: policy(1),
