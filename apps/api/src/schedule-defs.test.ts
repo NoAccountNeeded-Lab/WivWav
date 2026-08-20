@@ -40,12 +40,13 @@ function makeQueues(): ScheduleDefQueues {
     rawPageCleanup: new MockQueueAdapter(QUEUES.RAWPAGE_CLEANUP),
     dealerEnrich: new MockQueueAdapter(QUEUES.DEALER_ENRICH),
     fuelEconomyMsrp: new MockQueueAdapter(QUEUES.FUELECONOMY_MSRP),
+    privateSellerRetention: new MockQueueAdapter(QUEUES.PRIVATE_SELLER_RETENTION),
   }
 }
 
 // The full set of queues buildScheduleDefs registers on startup (originally
 // apps/scraper/src/index.ts's SCHEDULE_DEFS, per #968's issue body):
-// SOURCE_SCRAPE/DETAIL_CRAWL/DETAIL_EXTRACT plus the 13 direct-DB-backed
+// SOURCE_SCRAPE/DETAIL_CRAWL/DETAIL_EXTRACT plus the 14 direct-DB-backed
 // queues. Pinned here — built directly from the shared QUEUES constants, not
 // string literals — so a future regression in buildScheduleDefs is caught
 // by CI instead of silently dropping a schedule.
@@ -70,6 +71,7 @@ const EXPECTED_SCHEDULED_QUEUE_NAMES = [
   QUEUES.FUELECONOMY_MSRP,
   QUEUES.DEALER_ENRICH,
   QUEUES.RAWPAGE_CLEANUP,
+  QUEUES.PRIVATE_SELLER_RETENTION,
 ].sort()
 
 describe('buildScheduleDefs (#968)', () => {
