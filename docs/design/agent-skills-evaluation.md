@@ -26,8 +26,9 @@ Fixed as part of this pass:
 - `.gitignore` now ignores `.agents/` contents except `/.agents/skills/` (root only — nested
   `.agents/` directories like `packages/sdlc-cli/.agents/` stay ignored; they're per-run state,
   not skills).
-- Committed the three existing skill mirrors plus a new one (`wivwav-new-package`, added this
-  session) under `.agents/skills/`.
+- Committed the three existing skill mirrors plus a new one (`wav-new-package`, added this
+  session) under `.agents/skills/`. All four were later renamed from `wivwav-*` to `wav-*` for
+  brevity (`wav-create-issue`, `wav-finish-issue`, `wav-run-sprint`, `wav-new-package`).
 
 **Resolved: `.agents/skills/` is now the single source of truth.** Claude Code has no support for
 scanning `.agents/skills/` directly — its project-skill lookup is fixed to `.claude/skills/` (plus
@@ -41,7 +42,7 @@ possibility of drift.
 **Claude-only frontmatter is a no-op for Codex.** `disable-model-invocation` and `user-invocable`
 (Claude Code frontmatter fields) are meaningless to Codex — it has its own `$skill-name` explicit
 vs. description-match implicit invocation model, with no documented equivalent gating field found
-in the fetched docs. If Codex-side gating is wanted (e.g. "only invoke `wivwav-finish-issue`
+in the fetched docs. If Codex-side gating is wanted (e.g. "only invoke `wav-finish-issue`
 explicitly, never automatically"), that needs a Codex-native mechanism — not yet confirmed to
 exist — or must stay enforced only by convention in `AGENTS.md` prose, which any agent reads
 regardless of skill-loading support.
@@ -94,7 +95,7 @@ regardless of skill-loading support.
 
 The custom list is otherwise solid. Two more worth naming:
 
-- A **new-package/Dockerfile checklist** — already built this session as `wivwav-new-package`
+- A **new-package/Dockerfile checklist** — already built this session as `wav-new-package`
   (mirrored to both `.claude/skills/` and `.agents/skills/`). Not in the original proposal, but
   it's exactly the kind of "silent trap, no existing doc" gap the custom skills target.
 - `wivwav-listing-quality-audit` and `wivwav-observability-change` are good ideas but should be

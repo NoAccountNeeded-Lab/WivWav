@@ -66,4 +66,4 @@ for a background processor), plus a service block in `docker-compose.yml`, plus 
   only way to actually catch a missing COPY/build line; CI checks alone won't.
 - If `docker-compose.yml` was touched, `docker compose config` to confirm it parses.
 
-Then continue with the normal issue workflow (`/wivwav-finish-issue`).
+Then continue with the normal issue workflow (`/wav-finish-issue`).

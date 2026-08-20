@@ -37,6 +37,6 @@ No supported `pnpm db:reset` command exists.
 
 Before finish: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`.
 Never commit failing relevant checks.
-Use `/wivwav-finish-issue`; do not rely on session end.
+Use `/wav-finish-issue`; do not rely on session end.
 
 Review priority: correctness; security/data exposure; accessibility; API/data contract drift; missing tests.
