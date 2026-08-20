@@ -123,4 +123,31 @@ describe('runPrivateSellerRetentionJob', () => {
 
     expect(anonymizePrivateSellerListing).toHaveBeenCalledTimes(101)
   })
+
+  it('should stop after 20 batches when the backlog is larger than one run can drain, leaving the rest as candidates for the next tick', async () => {
+    // Every batch returns a full 100-row page — findMany's mock never
+    // "shrinks" the backlog the way the real idempotent query would (each
+    // anonymized row would normally drop out of the next SELECT), so a run
+    // that doesn't bound its batch count would loop indefinitely here.
+    const db = makeDb([])
+    db.listing.findMany.mockReset()
+    db.listing.findMany.mockResolvedValue(Array.from({ length: 100 }, (_, i) => ({ id: `l-${i}` })))
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(anonymizePrivateSellerListing).mockResolvedValue({
+      listingId: 'x',
+      outcome: 'applied',
+      fieldsCleared: [],
+      imagesDeleted: 0,
+      rawPagesDeleted: 0,
+    })
+
+    await runPrivateSellerRetentionJob()
+
+    // MAX_BATCHES_PER_RUN (20) * BATCH_SIZE (100) = 2000: this run processes
+    // exactly that many and returns rather than draining forever. The
+    // untouched remainder stays a candidate (retentionAppliedAt was never
+    // set on it) and is picked up by the next scheduled tick.
+    expect(db.listing.findMany).toHaveBeenCalledTimes(20)
+    expect(anonymizePrivateSellerListing).toHaveBeenCalledTimes(2000)
+  })
 })
