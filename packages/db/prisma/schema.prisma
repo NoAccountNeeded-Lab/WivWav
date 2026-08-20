@@ -420,7 +420,10 @@ model Listing {
   @@index([status, conversionTypeResolution])
   @@index([status, rampTypeResolution])
   /// Supports the #817 private-seller retention sweep's candidate query:
-  /// gone private-seller listings not yet past retention, ordered by age.
+  /// gone private-seller listings not yet anonymized. The migration for this
+  /// index (20260820052054) narrows it with `WHERE "retentionAppliedAt" IS
+  /// NULL` — not representable here — so the query stays cheap as more rows
+  /// get anonymized instead of degrading over the table's lifetime.
   @@index([sellerType, status, goneAt], map: "listings_private_seller_retention_idx")
   @@map("listings")
 }

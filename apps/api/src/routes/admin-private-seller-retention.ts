@@ -39,7 +39,7 @@ export const adminPrivateSellerRetentionRoutes: FastifyPluginAsync<AdminPrivateS
     // audit entry on both success and failure so a failure can be
     // investigated and retried (by the operator, or by the next scheduled
     // sweep once the listing eventually goes gone and ages past the window).
-    app.post<{ Params: { id: string }; Body: DeletionRequestBody | null }>(
+    app.post<{ Params: { id: string }; Body: DeletionRequestBody }>(
       '/listings/:id/delete',
       async (req, reply) => {
         const listingId = req.params.id

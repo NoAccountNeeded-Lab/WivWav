@@ -113,6 +113,10 @@ export async function anonymizePrivateSellerListing(
     }
   }
 
+  // RawPage has no listingId FK — it's matched by URL (see the model comment
+  // in packages/db/prisma/schema.prisma). `RawPage.url` is `@unique`, so this
+  // targets exactly the scraped page(s) for this listing's own sourceUrl/
+  // buyerUrl and cannot delete evidence belonging to a different listing.
   const rawPageUrls = [...new Set([listing.sourceUrl, listing.buyerUrl].filter((url): url is string => Boolean(url)))]
 
   const [, imageDeleteResult, rawPageDeleteResult] = await db.$transaction([
