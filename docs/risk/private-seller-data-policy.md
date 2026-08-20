@@ -1,8 +1,8 @@
 # Private-Seller Personal Data Policy
 
-Reviewed: 2026-06-18
+Reviewed: 2026-08-20
 Status: **Implemented with counsel-review deferral** (see section below)
-Follow-up from: #138, #336
+Follow-up from: #138, #336, #817
 
 ---
 
@@ -107,23 +107,45 @@ The search endpoint returns `ListingDocument` hits directly from Meilisearch, wh
 
 ---
 
-## Deletion and Staleness Behavior
+## Deletion and Staleness Behavior (implemented — #817)
 
 ### When a listing disappears from source
 
 When the BLVD scraper no longer finds a listing on subsequent scrapes, the scraper engine marks it `status = 'possibly_gone'` and eventually `status = 'gone'`. Gone listings are excluded from active search results.
 
-**Gap:** There is no automatic hard deletion of private-seller rows when a listing goes `gone`. The row and all extracted fields (including phone, description, images) remain in the database indefinitely.
+### Retention period and disposition
 
-**Required action before public beta:** Implement a retention policy for gone private-seller listings. Options:
+**Decision:** A gone private-seller listing is **anonymized** (not hard-deleted) **30 days** after `goneAt` (`RETENTION_DAYS` in `apps/api/src/services/private-seller-retention.ts`).
 
-1. Hard-delete gone private-seller rows after N days (e.g., 30 days after `goneAt`).
-2. Null out sensitive fields (`dealerPhone`, `description`, `images`) on transition to `gone`.
-3. Require a specific deletion request workflow.
+**Rationale for anonymize-in-place over hard delete:** the row's non-sensitive fields (make/model/year/price/mileage history, VIN, city/state) remain useful for aggregate market-trend and vehicle-recall lookups after the listing itself is gone, and other rows (`ListingPriceHistory`, `ListingMileageHistory`, `VehicleIdentityDecision`) foreign-key to the listing row. Hard-deleting the row would either cascade-delete that history or require it first, for no privacy benefit beyond what field-level anonymization already achieves.
+
+**Fields cleared:** `dealerPhone`, `dealerName`, `description`, `zip`, `images`, `cardImages` (`RETENTION_CLEARED_FIELDS`). `sourceUrl`/`buyerUrl`, VIN, city/state, and vehicle-fact fields (make/model/year/price/mileage) are retained per the "VIN — retain" and "City/state location — retain" decisions above.
+
+### One deletion contract across every store
+
+`anonymizePrivateSellerListing` (`apps/api/src/services/private-seller-retention.ts`) is the single place both paths below call — it is the deletion contract:
+
+1. **PostgreSQL** — clears the fields above on the `listings` row and sets `retentionAppliedAt` (the idempotency marker: once set, repeat calls are a no-op).
+2. **Image references** — deletes the listing's `ListingImage` rows (and their `ListingImageSemanticAnalysis` children). No image bytes are ever stored server-side (`images`/`cardImages` hold source URLs only), so this is reference cleanup, not a media purge.
+3. **Raw-page evidence** — deletes `RawPage` rows matching the listing's `sourceUrl`/`buyerUrl` (the full scraped HTML, which can carry the seller's phone/ZIP/description verbatim from the source page).
+4. **Meilisearch** — calls `syncListings([listingId], ...)`, the same single-owner incremental indexer `search-indexer-poll` uses. A gone listing is already excluded from the index (`status !== 'active'`), so this is normally a no-op removal; it is still called explicitly so the contract is self-documenting rather than relying on the listing's `gone` status alone. Best-effort: a failure here is non-fatal (the listing was never published to begin with) and self-heals on the next `search-indexer-poll` tick.
+5. **Cached responses** — no per-listing response cache exists. The only cache consumer (`apps/api/src/services/listing-facets.ts`) caches aggregate facet counts with a 60-second TTL and holds no listing-level PII, so no explicit invalidation is needed.
+
+Steps 1–3 run inside one PostgreSQL transaction (fail-closed: a failure partway through leaves `retentionAppliedAt` unset and the row unchanged, so the next attempt redoes the whole thing rather than leaving a half-anonymized row).
+
+### Automated sweep and backfill
+
+`apps/api/src/jobs/private-seller-retention.ts` runs daily (`00:15` local time) and anonymizes every `sellerType: 'private', status: 'gone', goneAt <= now - 30d, retentionAppliedAt: null` row, bounded to 20 batches of 100 per run (mirrors `search-indexer-poll`'s draining pattern). Because eligibility is re-queried fresh every batch — not scoped to "gone since this job started existing" — the same job also drains the pre-existing backlog of already-gone private-seller rows over its first several runs after deploy; no separate backfill script is needed. One listing's anonymization failing does not abort the batch: the failure is logged and recorded in the audit trail, the row stays a candidate (its `retentionAppliedAt` was never set), and it is retried on the next tick.
 
 ### When a private seller requests deletion
 
-There is no self-service deletion mechanism. Requests received at `privacy@wivwav.com` should be handled manually by deleting or anonymizing the relevant `listings` row. The privacy page has been updated to document this contact path.
+Operators have an authenticated deletion-request workflow at `POST /admin/private-seller-retention/listings/:id/delete` (guarded by the same `Authorization: Bearer {INTERNAL_API_SECRET}` boundary as every other `/admin` route), with an ops UI at `/ops/privacy-requests`. It calls the same `anonymizePrivateSellerListing` contract immediately, bypassing the `status`/`goneAt` gate — a seller can ask for removal regardless of whether the listing has gone `gone` yet — but still only applies to `sellerType: 'private'` listings. `GET /admin/private-seller-retention/listings/:id/audit` returns the full history.
+
+Requests received at `privacy@wivwav.com` are handled by an operator submitting the listing ID through `/ops/privacy-requests`.
+
+### Audit trail
+
+Every attempt — automated sweep or operator request, success or failure — is recorded as an append-only `ConfigEntry` row (`ops.private-seller-deletion.<listingId>`, via `appendPrivateSellerDeletionAuditEntry` in `packages/db/src/lib/operator-intent.ts`), the same pattern used for source enable/disable audit history. A failed attempt records `errorMessage` so it can be investigated; because `retentionAppliedAt` was never set on failure, the automated sweep retries it automatically once the underlying cause is fixed.
 
 ---
 
@@ -137,7 +159,7 @@ The following items require explicit product or legal approval before public bet
 | Private-seller description text indexing | Medium | Product/counsel to choose: suppress, limit, or retain. |
 | ZIP code from detail extraction | Low–Medium | Product/counsel to choose: suppress or retain in public API. |
 | Image retention for private-seller listings | Low | Product/counsel to confirm link-through vs. re-hosting approach. |
-| Hard-deletion policy for gone private-seller rows | Medium | Engineering to implement retention schedule once policy is set. |
+| Retention/deletion policy for gone private-seller rows | Resolved | Implemented 2026-08-20 (#817): 30-day anonymize-in-place, see "Deletion and Staleness Behavior" above. |
 
 These deferrals are documented. No public display of private-seller listings should occur until the BLVD source posture is resolved (item 1 above).
 
@@ -148,3 +170,10 @@ These deferrals are documented. No public display of private-seller listings sho
 1. **Phone suppression** — `dealerPhone` is nulled in the API detail response and Meilisearch document for any listing where `sellerType = 'private'`. This prevents personal phone numbers from appearing in the public API or search index.
 2. **Privacy page updated** — The privacy policy now discloses that listing data may include private-seller listings from BLVD FSBO pages, describes what fields are retained, and provides a deletion contact path.
 3. **This policy document** — Provides a complete data inventory, field-level decisions, and deferred items for counsel/product review.
+
+## Implemented Mitigations (issue #817)
+
+4. **Retention lifecycle** — `apps/api/src/jobs/private-seller-retention.ts` anonymizes gone private-seller listings 30 days after `goneAt`, automatically and idempotently, including the pre-existing backlog at deploy time.
+5. **Operator deletion-request workflow** — `/ops/privacy-requests` (backed by `POST /admin/private-seller-retention/listings/:id/delete`) lets an authenticated operator anonymize a specific listing immediately, for seller requests received at `privacy@wivwav.com`.
+6. **Audit trail** — every automated and operator-initiated attempt, success or failure, is recorded and queryable via `GET /admin/private-seller-retention/listings/:id/audit`.
+7. **Privacy page updated** — now states the 30-day automatic retention window in addition to the manual contact path.

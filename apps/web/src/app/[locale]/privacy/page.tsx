@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     <div className={styles.page}>
       <div className={styles.container}>
         <h1 className={styles.heading}>Privacy Policy</h1>
-        <p className={styles.updated}>Last updated: June 2026</p>
+        <p className={styles.updated}>Last updated: August 2026</p>
 
         <section className={styles.section} aria-labelledby="overview-heading">
           <h2 id="overview-heading" className={styles.sectionHeading}>Overview</h2>
@@ -77,7 +77,12 @@ export default function PrivacyPage() {
             number of a private seller.
           </p>
           <p className={styles.body}>
-            If you are a private seller and would like your listing removed from WivWav, please
+            When a private-seller listing is no longer found on its source site, we automatically
+            clear the seller&apos;s phone number, name, description, ZIP code, and images, and delete
+            the underlying scraped page and image references, within 30 days.
+          </p>
+          <p className={styles.body}>
+            If you are a private seller and would like your listing removed from WivWav sooner, please
             contact{' '}
             <a href="mailto:privacy@wivwav.com" className={styles.contactLink}>
               privacy@wivwav.com
