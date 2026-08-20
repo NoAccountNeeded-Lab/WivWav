@@ -1,0 +1,4 @@
+interface:
+  display_name: "WivWav Scraper Source"
+  short_description: "Add WivWav scraper sources safely"
+  default_prompt: "Use $wav-add-scraper-source to add or update a WivWav scraper source with the applicable safety and test coverage."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "WivWav New Workspace"
+  short_description: "Scaffold WivWav workspaces safely"
+  default_prompt: "Use $wav-new-package to add a WivWav workspace and update every required Docker, Compose, and CI dependency edge."

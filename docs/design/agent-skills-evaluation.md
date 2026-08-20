@@ -1,7 +1,8 @@
 # WivWav Codex Skills Evaluation
 
 Date: 2026-08-20
-Status: Proposal + Claude assessment — no external Codex skills installed yet.
+Status: Evaluated and revised — three custom cross-agent skills implemented; no external Codex
+skills installed yet.
 
 ## Purpose
 
@@ -39,13 +40,47 @@ symlink into `.agents/skills/<name>` (`git ls-files -s` shows mode `120000`), so
 one real `SKILL.md` per skill; editing it updates what both Claude Code and Codex see, with no
 possibility of drift.
 
-**Claude-only frontmatter is a no-op for Codex.** `disable-model-invocation` and `user-invocable`
-(Claude Code frontmatter fields) are meaningless to Codex — it has its own `$skill-name` explicit
-vs. description-match implicit invocation model, with no documented equivalent gating field found
-in the fetched docs. If Codex-side gating is wanted (e.g. "only invoke `wav-finish-issue`
-explicitly, never automatically"), that needs a Codex-native mechanism — not yet confirmed to
-exist — or must stay enforced only by convention in `AGENTS.md` prose, which any agent reads
-regardless of skill-loading support.
+### Cross-agent format decision
+
+The shared `SKILL.md` contract is the portable Agent Skills core: required `name` and
+`description` fields followed by Markdown instructions. This is the intersection documented by
+the [Agent Skills specification](https://agentskills.io/specification),
+[OpenAI](https://learn.chatgpt.com/docs/build-skills), and
+[Claude Code](https://code.claude.com/docs/en/skills).
+
+Claude Code supports additional top-level fields such as `user-invocable` and
+`disable-model-invocation`, but they are Claude extensions rather than portable Agent Skills
+fields. Codex-specific presentation belongs in `agents/openai.yaml`. Therefore the three skills
+evaluated below use only `name` and `description` in shared frontmatter and place Codex display
+metadata in `agents/openai.yaml`. Claude ignores that product-specific file and follows the same
+`SKILL.md` through the `.claude/skills/` symlink.
+
+The trade-off is deliberate: the three knowledge/workflow skills remain visible for direct use in
+Claude's `/` menu instead of using `user-invocable: false`. Their behavior is safe to invoke
+directly, and mandatory workflow constraints remain in `AGENTS.md`, which applies even when an
+agent does not load skills.
+
+### Re-evaluation of the three implemented skills
+
+An implementation review found the following issues and resolved them in this branch:
+
+| Skill | Finding | Resolution |
+| --- | --- | --- |
+| All three | Missing required `name`; Claude-only `user-invocable` prevented strict portable validation | Added matching `name` fields and removed product-specific shared frontmatter |
+| `wav-new-package` | The build-stage checklist accidentally included manifest-only `docker/dev` | Split `docker/dev` into a manifest-only step and made other build behavior follow each Dockerfile's existing pattern |
+| `wav-new-package` | New deployable services omitted production and conditional E2E Compose wiring | Added `docker-compose.prod.yml`, conditional `e2e/docker-compose.e2e.yml`, and CI build/smoke/artifact/publish checks |
+| `wav-prisma-migration` | Migration commands could target an arbitrary `DATABASE_URL`; the phased `NOT NULL` guidance did not distinguish a data-only backfill | Added a fail-closed local-database check before creation, application, or drift commands; credentials must not be printed; data-only backfills now use an explicit `--create-only` draft |
+| `wav-add-scraper-source` | Claimed integration tests were offline and implied universal fixture/gold coverage | Distinguished offline unit/fixture checks from authorized live-network integration tests and documented current source-specific coverage |
+| All three | No Codex UI metadata | Added optional `agents/openai.yaml` files without changing Claude behavior |
+
+Issue #984 originally called the Prisma and scraper skills follow-on work. The user explicitly
+expanded its scope on 2026-08-20; its acceptance criteria now cover all three skills and their
+cross-agent compatibility.
+
+A read-only forward test exercised package scaffolding, a required Prisma field with an unknown
+database host, and a new scraper without live-network permission. The skills selected the expected
+files and checks, stopped before unsafe database or network actions, and exposed one ambiguity that
+was corrected: data-only Prisma backfills now explicitly create and edit an empty migration draft.
 
 ### 1. Recommended skills, ranked
 
@@ -167,9 +202,12 @@ unscoped risks conflicting with existing built-container and data-exposure const
 - `gh-fix-ci`: point at a genuinely red CI run; confirm it identifies the failing Turbo
   package/task and proposes a fix without reaching for `--no-verify` or skipped checks.
 - `wav-add-scraper-source`: scaffold against one simple, already-understood target; confirm
-  `checkStructure()`/`scrape()`, fixtures, and the 0.7 AI-remap threshold are all present.
-- `wav-prisma-migration`: run against a trivial additive migration; confirm it follows
-  `docs/data/schema-conventions.md` and calls out backfill/rollback even when "not applicable."
+  `checkStructure()`/`scrape()`, applicable fixtures/gold cases, and the 0.7 AI-remap check are
+  present. Run offline checks first and treat live integration tests as a separately authorized
+  step.
+- `wav-prisma-migration`: run against a trivial additive migration on the disposable local
+  database; confirm it refuses an unknown or remote database target, follows
+  `docs/data/schema-conventions.md`, and calls out backfill/rollback even when "not applicable."
 - `wav-api-contract-review`: run against a merged PR that already touched routes; confirm it
   would have caught what human review actually caught.
 - `wav-accessibility-qa`: run against one existing `apps/web` component; compare its evidence
@@ -179,8 +217,8 @@ unscoped risks conflicting with existing built-container and data-exposure const
 
 - The `.agents/skills` gitignore gap (fixed this session) was the real blocker — nothing else
   matters if Codex can't see the skills at all on a fresh checkout.
-- Drift between mirrors is resolved structurally (symlinks, see #7) rather than by convention, so
-  there's nothing left to enforce here going forward.
+- Drift between Claude and Codex copies is resolved structurally (symlinks, see #7) rather than by
+  convention. Portable shared frontmatter is still a review requirement for every new skill.
 - Sentry and any future skill with live external-service access needs explicit read-only scoping
   before install, decided per-skill, not assumed.
 - Generic security skills (`security-best-practices`, `security-threat-model`) risk producing
