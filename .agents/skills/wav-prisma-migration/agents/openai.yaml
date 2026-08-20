@@ -1,0 +1,4 @@
+interface:
+  display_name: "WivWav Prisma Migration"
+  short_description: "Guide safe WivWav Prisma migrations"
+  default_prompt: "Use $wav-prisma-migration to plan and verify a safe WivWav Prisma schema migration."

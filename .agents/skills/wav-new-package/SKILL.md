@@ -1,5 +1,6 @@
 ---
-description: Scaffold a new packages/* or apps/* workspace and update every Dockerfile that must know about it
+name: wav-new-package
+description: Scaffold a new packages/* or apps/* workspace and update its Docker, Compose, and CI dependency wiring. Use when adding a WivWav workspace or a deployable service.
 user-invocable: false
 ---
 
@@ -39,24 +40,35 @@ depends on whom. Always add the new package there.
 
 ## 3. Edit each affected Dockerfile, in order
 
-For every affected Dockerfile (`docker/dev` always; others per step 2):
+Handle `docker/dev` separately: add only the new workspace's `package.json` COPY before
+`pnpm install`. Do not copy its source or add a build command; source is bind-mounted at runtime
+and this Dockerfile has no build stage.
+
+For each other affected image Dockerfile:
 
 1. Install stage — add `COPY packages/<name>/package.json ./packages/<name>/` (or
    `apps/<name>/package.json`) alongside the other manifest COPY lines, before `pnpm install`.
-2. Build stage — add `COPY packages/<name> ./packages/<name>` and
-   `RUN pnpm --filter @wivwav/<name> build`, placed **before** the build line of anything that
-   imports it (topological order — check how `db` before `queue`/`search`/`agents` is ordered in
-   `docker/api/Dockerfile` for the pattern; `docker/worker/Dockerfile` instead uses one
-   `pnpm --filter @wivwav/worker... run build` that resolves transitively — match whichever style
-   that Dockerfile already uses).
+2. Build stage — add `COPY packages/<name> ./packages/<name>`. If the Dockerfile builds packages
+   explicitly, add `RUN pnpm --filter @wivwav/<name> build` before every consumer. If it uses a
+   recursive filter such as `@wivwav/worker...`, keep that pattern and let pnpm build the dependency
+   closure. Do not invent a build stage in a manifest-only or migration-only image.
 3. If the package needs Prisma (`packages/db`), mirror the extra
    `packages/db/prisma.config.ts` / `packages/db/prisma/schema.prisma` COPY lines already present
    in `docker/api`, `docker/web`, and `docker/migrate`.
 
+`docker/migrate` is specialized: it installs and deploys the `@wivwav/db` dependency closure but
+only copies DB source and runs Prisma generation. If a new dependency is required by that path,
+mirror its filtered-install/deploy pattern; do not add an unrelated package build command.
+
 A brand-new `apps/*` service that ships as its own container needs a new `docker/<name>/Dockerfile`
 (base it on the closest existing app — `docker/api` for a Fastify-style service, `docker/worker`
-for a background processor), plus a service block in `docker-compose.yml`, plus a build entry in
-`.github/workflows/ci.yml` if it should be built in CI.
+for a background processor), plus:
+
+- a service block in `docker-compose.yml` for local development;
+- a service or image reference in `docker-compose.prod.yml` when it deploys with the production
+  stack;
+- an entry in `e2e/docker-compose.e2e.yml` only when the built-container E2E topology needs it;
+- the corresponding build, size, smoke, artifact, and publish wiring in `.github/workflows/ci.yml`.
 
 ## 4. Verify
 
@@ -64,6 +76,6 @@ for a background processor), plus a service block in `docker-compose.yml`, plus 
 - `pnpm typecheck && pnpm lint && pnpm build && pnpm test` (per `AGENTS.md`).
 - `docker build -f docker/<affected>/Dockerfile .` for each Dockerfile you touched — this is the
   only way to actually catch a missing COPY/build line; CI checks alone won't.
-- If `docker-compose.yml` was touched, `docker compose config` to confirm it parses.
+- Run `docker compose -f <file> config` for every Compose file touched.
 
-Then continue with the normal issue workflow (`/wav-finish-issue`).
+Then continue with the normal issue finish workflow.

@@ -1,5 +1,6 @@
 ---
-description: Add or modify a scraper source in packages/scraper-sources — registration, SourceAdapter contract, crawl etiquette, and the fixture/gold-test tiers
+name: wav-add-scraper-source
+description: Add or modify a WivWav scraper source in packages/scraper-sources. Use for source registration, adapters, declarative mappings, crawl etiquette, browser extraction, fixtures, gold cases, or scraper integration tests.
 user-invocable: false
 ---
 
@@ -68,16 +69,28 @@ threshold) before relying on the number — this is exactly the kind of runtime-
 this repo has moved out of hardcoded constants and into DB-backed config elsewhere
 (`docs/data/schema-conventions.md`'s AI provider/model config table).
 
-## 7. Tests — four tiers, not just unit tests
+## 7. Test at the applicable tiers
 
-- **Fixtures** (`sources/fixtures/`): raw captured HTML/JSON inputs.
-- **Structural contract** (`fixture-contract.test.ts`): cross-source shape check — every source's
-  parser output conforms to the same facet shape.
-- **Gold regression** (`fixtures/gold/*.gold.json` + `*.gold.test.ts`): manually verified
-  expected output, checked with field-level precision/recall gates. Accessibility-critical fields
-  (`conversionType`, `rampType`, `wavFeatures`, `floorLoweringInches`, `vin`) must match 100% across
-  gold cases; optional/frequently-absent fields (`color`, dealer fields) only need ≥80%. Add gold
-  cases for the new source rather than skipping this tier — it's what catches silent extraction
-  regressions.
-- **Integration** (`*.integration.test.ts`): exercises the real parse path without live network
-  calls, per existing sources' pattern.
+- **Unit parser tests**: cover normalization, malformed or missing fields, duplicates, pagination,
+  and accessibility-critical fields.
+- **Fixtures** (`sources/fixtures/`): keep captured HTML/JSON local and deterministic.
+- **Structural contract** (`fixture-contract.test.ts`): currently covers BLVD and MobilityWorks,
+  not every registered source. Extend its `SourceId`, imports, fixtures, and manifest when the new
+  source uses the same list/detail facet contract; do not claim coverage until it is included.
+- **Gold regression** (`fixtures/gold/*.gold.json` + `*.gold.test.ts`): currently covers BLVD and
+  MobilityWorks. Add manually verified cases when enrolling a source in the gold corpus. Preserve
+  exact matching for expected keys and the explicit 100% aggregate gate for critical fields. Do
+  not claim an optional-field percentage unless the test implementation actually computes it.
+- **Integration** (`*.integration.test.ts`): inspect the test before running it. Existing scraper
+  integration tests may contact real target sites; they are not universally offline and are not
+  included in the root `pnpm test:integration` command.
+
+Run offline checks first:
+
+```bash
+pnpm --filter @wivwav/scraper-sources test
+pnpm --filter @wivwav/scraper-sources test:fixtures
+```
+
+Run `pnpm --filter @wivwav/scraper-sources test:integration` only when live-network access is
+expected and authorized. Record which targets were contacted and any skipped live checks.
