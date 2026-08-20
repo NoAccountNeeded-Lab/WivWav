@@ -10,6 +10,7 @@ import {
 } from './registry.js'
 import { applyScheduleIntents, buildDetailScheduleDefinitions, reconcileSchedules } from '../schedule-registration.js'
 import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from '@wivwav/scraper-sources/sources/freedom-motors-detail-mappings.js'
+import { SUPERIOR_VAN_DETAIL_MAPPINGS } from '@wivwav/scraper-sources/sources/superior-van-detail-mappings.js'
 
 function makeRow(name: string, id: string) {
   return {
@@ -35,10 +36,16 @@ describe('registerSources — default mappings seeding (#822)', () => {
     const freedomMotorsCall = upsert.mock.calls.find((call) => call[0].where.name === 'Freedom Motors')
     expect(freedomMotorsCall![0].create.mappings).toEqual(FREEDOM_MOTORS_DETAIL_MAPPINGS)
 
+    // Superior Van also gets a default mappings seed now that #823 flips it
+    // to detail-pages.
+    const superiorVanCall = upsert.mock.calls.find((call) => call[0].where.name === 'Superior Van & Mobility')
+    expect(superiorVanCall![0].create.mappings).toEqual(SUPERIOR_VAN_DETAIL_MAPPINGS)
+
     // No other source gets a default mappings seed — a bespoke-parser source
-    // (BLVD, MobilityWorks) has no use for one, and Superior Van stays
-    // scrape-only until its own dependent issue flips its pipeline.
-    const otherCalls = upsert.mock.calls.filter((call) => call[0].where.name !== 'Freedom Motors')
+    // (BLVD, MobilityWorks) has no use for one.
+    const otherCalls = upsert.mock.calls.filter(
+      (call) => call[0].where.name !== 'Freedom Motors' && call[0].where.name !== 'Superior Van & Mobility',
+    )
     expect(otherCalls.length).toBeGreaterThan(0)
     for (const call of otherCalls) {
       expect(call[0].create.mappings).toBeUndefined()
@@ -57,7 +64,7 @@ describe('registerSources — default mappings seeding (#822)', () => {
   })
 })
 
-describe('buildDetailScheduleSources — Freedom Motors registers under detail-pages (#822)', () => {
+describe('buildDetailScheduleSources — Freedom Motors and Superior Van register under detail-pages (#822, #823)', () => {
   it('includes freedom-motors now that its pipeline is detail-pages', () => {
     const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.map((definition) => ({
       definition,
@@ -66,6 +73,16 @@ describe('buildDetailScheduleSources — Freedom Motors registers under detail-p
 
     const detailSources = buildDetailScheduleSources(sources)
     expect(detailSources.map((s) => s.schedulerPrefix)).toContain('freedom-motors')
+  })
+
+  it('includes superior-van now that its pipeline is detail-pages (#823)', () => {
+    const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.map((definition) => ({
+      definition,
+      row: makeRow(definition.name, definition.key),
+    }))
+
+    const detailSources = buildDetailScheduleSources(sources)
+    expect(detailSources.map((s) => s.schedulerPrefix)).toContain('superior-van')
   })
 })
 
@@ -86,12 +103,16 @@ describe('detail-crawl/detail-extract jobIds never collide with card-scrape jobI
     )
     const detailJobIds = detailDefinitions.map((d) => d.jobId).filter((id): id is string => id !== undefined)
 
-    // Freedom Motors specifically must not collide with its own card-scrape
-    // jobId ('freedom-motors') now that it also has detail-crawl/detail-extract
-    // schedules.
+    // Freedom Motors and Superior Van specifically must not collide with
+    // their own card-scrape jobIds now that they also have detail-crawl/
+    // detail-extract schedules (#822, #823).
     expect(cardScrapeJobIds).toContain('freedom-motors')
     expect(detailJobIds).toContain('freedom-motors-crawl')
     expect(detailJobIds).toContain('freedom-motors-extract')
+
+    expect(cardScrapeJobIds).toContain('superior-van')
+    expect(detailJobIds).toContain('superior-van-crawl')
+    expect(detailJobIds).toContain('superior-van-extract')
 
     const allJobIds = [...cardScrapeJobIds, ...detailJobIds]
     expect(new Set(allJobIds).size).toBe(allJobIds.length)
@@ -129,7 +150,44 @@ describe('detail-crawl/detail-extract jobIds never collide with card-scrape jobI
     const afterDisableExtract = await extract.getRepeatableJobs()
     expect(afterDisable.map((j) => j.id)).not.toContain('freedom-motors-crawl')
     expect(afterDisableExtract.map((j) => j.id)).not.toContain('freedom-motors-extract')
-    // BLVD/MobilityWorks are untouched by disabling Freedom Motors specifically.
-    expect(afterDisable.map((j) => j.id)).toEqual(expect.arrayContaining(['blvd-crawl', 'mw-crawl']))
+    // BLVD/MobilityWorks/Superior Van are untouched by disabling Freedom Motors specifically.
+    expect(afterDisable.map((j) => j.id)).toEqual(
+      expect.arrayContaining(['blvd-crawl', 'mw-crawl', 'superior-van-crawl']),
+    )
+  })
+
+  it('registers and disables Superior Van detail-crawl/detail-extract independently of the other sources (#823)', async () => {
+    // Mirrors the Freedom Motors test above but for Superior Van, per #823's
+    // acceptance criteria that its detail schedules register independently
+    // and respect source disablement the same generic way.
+    const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn() }
+    const crawl = new MockQueueAdapter(QUEUES.DETAIL_CRAWL)
+    const extract = new MockQueueAdapter(QUEUES.DETAIL_EXTRACT)
+    const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.filter(
+      (definition) => definition.pipeline === 'detail-pages',
+    ).map((definition) => ({ definition, row: makeRow(definition.name, definition.key) }))
+    const detailSources = buildDetailScheduleSources(sources)
+
+    const definitions = buildDetailScheduleDefinitions(detailSources, { crawl, extract }, CRITICAL_JOB_OPTIONS)
+    await reconcileSchedules(definitions, logger)
+
+    const beforeDisable = await crawl.getRepeatableJobs()
+    expect(beforeDisable.map((j) => j.id)).toContain('superior-van-crawl')
+
+    const intents = new Map<string, ScheduleIntent>([
+      ['superior-van-crawl', { enabled: false, updatedAt: new Date().toISOString() }],
+      ['superior-van-extract', { enabled: false, updatedAt: new Date().toISOString() }],
+    ])
+    const intentDefinitions = applyScheduleIntents(definitions, intents)
+    await reconcileSchedules(intentDefinitions, logger)
+
+    const afterDisable = await crawl.getRepeatableJobs()
+    const afterDisableExtract = await extract.getRepeatableJobs()
+    expect(afterDisable.map((j) => j.id)).not.toContain('superior-van-crawl')
+    expect(afterDisableExtract.map((j) => j.id)).not.toContain('superior-van-extract')
+    // Freedom Motors/BLVD/MobilityWorks are untouched by disabling Superior Van specifically.
+    expect(afterDisable.map((j) => j.id)).toEqual(
+      expect.arrayContaining(['blvd-crawl', 'mw-crawl', 'freedom-motors-crawl']),
+    )
   })
 })

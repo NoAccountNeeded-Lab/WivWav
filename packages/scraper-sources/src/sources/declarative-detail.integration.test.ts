@@ -20,6 +20,7 @@ import type { FieldMapping } from '@wivwav/types'
 import { PlaywrightBrowserService } from '../browser/index.js'
 import { evaluateDeclarativeDetail, parseDeclarativeDetail } from './declarative-detail.js'
 import { FREEDOM_MOTORS_DETAIL_MAPPINGS } from './freedom-motors-detail-mappings.js'
+import { SUPERIOR_VAN_DETAIL_MAPPINGS } from './superior-van-detail-mappings.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixtureDir = join(__dirname, 'fixtures')
@@ -128,5 +129,55 @@ describe('declarative detail extractor — mappings drive extraction with no cod
     const result = await extract('freedom-motors-detail-v1.html', brokenMappings)
     expect(result.engine).toBeNull()
     expect(result.evidence.engine).toBe('missing')
+  }, 30_000)
+})
+
+describe('declarative detail extractor — Superior Van seeded mappings (sv-v1: full spec block, #823)', () => {
+  it('extracts the full photo gallery, not just a single card thumbnail', async () => {
+    const result = await extract('superior-van-detail-v1.html', SUPERIOR_VAN_DETAIL_MAPPINGS)
+    expect(result.images.length).toBeGreaterThan(1)
+    expect(result.images).toEqual([
+      'https://cdn.vehiclemall.com/photolibrary/original/vehicle/623/124710623/142037072.jpg?scale=both&maxwidth=1920&quality=75',
+      'https://cdn.vehiclemall.com/photolibrary/original/vehicle/623/124710623/142037073.jpg?scale=both&maxwidth=1920&quality=75',
+      'https://cdn.vehiclemall.com/photolibrary/original/vehicle/623/124710623/142037074.jpg?scale=both&maxwidth=1920&quality=75',
+      'https://cdn.vehiclemall.com/photolibrary/original/vehicle/623/124710623/142037075.jpg?scale=both&maxwidth=1920&quality=75',
+      'https://cdn.vehiclemall.com/photolibrary/original/vehicle/623/124710623/142037076.jpg?scale=both&maxwidth=1920&quality=75',
+    ])
+  }, 30_000)
+
+  it('extracts color and fuelType from the label+value spans, stripping the "Label:" prefix', async () => {
+    const result = await extract('superior-van-detail-v1.html', SUPERIOR_VAN_DETAIL_MAPPINGS)
+    expect(result.color).toBe('Redline 2 Coat Pearl')
+    expect(result.fuelType).toBe('Flex Fuel')
+    expect(result.evidence.color).toBe('value')
+    expect(result.evidence.fuelType).toBe('value')
+  }, 30_000)
+
+  it('does not pick up the recommended-vehicles loop grid, which reuses the same span/<b> markup for a different vehicle', async () => {
+    const result = await extract('superior-van-detail-v1.html', SUPERIOR_VAN_DETAIL_MAPPINGS)
+    // The decoy row further down the page has Exterior Color "Snow White Pearl" — must not leak in.
+    expect(result.color).not.toBe('Snow White Pearl')
+  }, 30_000)
+
+  it('leaves conversionType and saleStatus unmapped — Superior Van has no mapping for either', async () => {
+    const result = await extract('superior-van-detail-v1.html', SUPERIOR_VAN_DETAIL_MAPPINGS)
+    expect(result.conversionType).toBe('unknown')
+    expect(result.saleStatus).toBe('active')
+  }, 30_000)
+})
+
+describe('declarative detail extractor — Superior Van seeded mappings (sv-v2: missing Fuel Type, #823)', () => {
+  it('returns missing evidence for the one field whose selector matches nothing, without fabricating a value', async () => {
+    const result = await extract('superior-van-detail-v2-missing-fuel-type.html', SUPERIOR_VAN_DETAIL_MAPPINGS)
+    expect(result.fuelType).toBeNull()
+    expect(result.evidence.fuelType).toBe('missing')
+  }, 30_000)
+
+  it('still extracts every other mapped field on the same page', async () => {
+    const result = await extract('superior-van-detail-v2-missing-fuel-type.html', SUPERIOR_VAN_DETAIL_MAPPINGS)
+    expect(result.color).toBe('Bright Silver Metallic')
+    expect(result.images).toEqual([
+      'https://cdn.vehiclemall.com/photolibrary/original/vehicle/108/108839/900001.jpg?scale=both&maxwidth=1920&quality=75',
+    ])
   }, 30_000)
 })

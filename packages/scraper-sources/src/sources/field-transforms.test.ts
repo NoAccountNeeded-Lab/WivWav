@@ -41,6 +41,24 @@ describe('applyFieldTransform', () => {
     })
   })
 
+  describe('afterColon', () => {
+    it('strips a leading label and colon, trimming the remainder', () => {
+      expect(applyFieldTransform('afterColon', 'Exterior Color: Redline 2 Coat Pearl')).toBe('Redline 2 Coat Pearl')
+    })
+
+    it('splits on the first colon only, preserving a colon in the value', () => {
+      expect(applyFieldTransform('afterColon', 'Vehicle Status: Available: Featured')).toBe('Available: Featured')
+    })
+
+    it('returns the trimmed input unchanged when no colon is present', () => {
+      expect(applyFieldTransform('afterColon', '  Gas  ')).toBe('Gas')
+    })
+
+    it('returns null when nothing follows the colon', () => {
+      expect(applyFieldTransform('afterColon', 'Fuel Type:')).toBeNull()
+    })
+  })
+
   describe('unknown/null transform', () => {
     it('falls back to trimText for a null transform', () => {
       expect(applyFieldTransform(null, '  Gasoline Fuel  ')).toBe('Gasoline Fuel')
