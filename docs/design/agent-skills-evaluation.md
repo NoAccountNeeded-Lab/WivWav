@@ -55,9 +55,12 @@ regardless of skill-loading support.
 2. **`gh-fix-ci`** — high value, but should be scoped to *diagnose and point at* `pnpm check:affected`
    / the failing Turbo task rather than free-form CI archaeology, so it doesn't duplicate or fight
    the existing `check:affected` iteration loop.
-3. **`wivwav-add-scraper-source`** (custom) — fills a real, currently undocumented-as-a-workflow
+3. **`wav-add-scraper-source`** (custom) — fills a real, currently undocumented-as-a-workflow
    gap: `.claude/instructions.md` states the `SourceAdapter` contract and AI-remap confidence rule
-   as facts, not as a scaffolding procedure.
+   as facts, not as a scaffolding procedure. **Built** this session — see
+   `.agents/skills/wav-add-scraper-source/SKILL.md`. Building it surfaced that `apps/scraper` no
+   longer exists (relocated into `apps/api`/`packages/scraper-sources`); some existing doc comments
+   still point at the old path.
 4. **`wav-prisma-migration`** (custom) — same gap for `docs/data/schema-conventions.md`; there
    is no `db:reset`, so migration mistakes are costly and currently only guarded by prose. **Built**
    this session — see `.agents/skills/wav-prisma-migration/SKILL.md`.
@@ -144,7 +147,7 @@ generic skill can't know and that currently only live in prose an agent might sk
 
 1. `gh-address-comments`
 2. `gh-fix-ci` (scoped to `check:affected`)
-3. `wivwav-add-scraper-source`
+3. `wav-add-scraper-source` — **built** this session
 4. `wav-prisma-migration` — **built** this session
 5. `wivwav-api-contract-review`
 6. `wivwav-accessibility-qa`
@@ -159,7 +162,7 @@ unscoped risks conflicting with existing built-container and data-exposure const
   comments; confirm each thread is resolved or explicitly deferred, not silently dropped.
 - `gh-fix-ci`: point at a genuinely red CI run; confirm it identifies the failing Turbo
   package/task and proposes a fix without reaching for `--no-verify` or skipped checks.
-- `wivwav-add-scraper-source`: scaffold against one simple, already-understood target; confirm
+- `wav-add-scraper-source`: scaffold against one simple, already-understood target; confirm
   `checkStructure()`/`scrape()`, fixtures, and the 0.7 AI-remap threshold are all present.
 - `wav-prisma-migration`: run against a trivial additive migration; confirm it follows
   `docs/data/schema-conventions.md` and calls out backfill/rollback even when "not applicable."
