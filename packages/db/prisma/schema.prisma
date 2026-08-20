@@ -594,6 +594,11 @@ model ScraperRun {
   markGoneNewlyGoneCount Int?
 
   @@index([sourceId])
+  /// Supports the #986 trailing-window scan in listing-quality-audit.ts
+  /// (WHERE sourceId = ? AND markGoneAppliedAt >= ?) without falling back to
+  /// the single-column sourceId index plus a residual filter as scraper_runs
+  /// grows.
+  @@index([sourceId, markGoneAppliedAt])
   @@map("scraper_runs")
 }
 
