@@ -2,8 +2,8 @@
 -- mappings (#822's extractor applied to a second source by #823): flipping
 -- its pipeline to 'detail-pages' (packages/types/src/source-registry.ts)
 -- makes detail-extract.ts read Source.mappings at extraction time via the
--- generic declarative extractor (apps/scraper/src/sources/declarative-
--- detail.ts), but that only helps if the row actually has mappings.
+-- generic declarative extractor (packages/scraper-sources/src/sources/
+-- declarative-detail.ts), but that only helps if the row actually has mappings.
 --
 -- registry.ts's registerSources() seeds this same value on a brand-new
 -- install (create-only, via DEFAULT_MAPPINGS_BY_KEY), but that path never
@@ -17,7 +17,7 @@
 -- source always has the schema default of '[]'.
 --
 -- Selector values must stay in sync with the canonical TypeScript source of
--- truth: apps/scraper/src/sources/superior-van-detail-mappings.ts.
+-- truth: packages/scraper-sources/src/sources/superior-van-detail-mappings.ts.
 UPDATE "sources"
 SET "mappings" = '[
   {"targetField": "images", "selector": ".vehicle-gallery .vehicle-gallery-item img", "attribute": "src", "transform": null},
