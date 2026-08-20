@@ -34,6 +34,7 @@ import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
 import { runSearchIndexerPollJob } from './jobs/search-indexer-poll.js'
 import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing-resolve.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
+import { runPrivateSellerRetentionJob } from './jobs/private-seller-retention.js'
 import {
   runSemanticImageAnalyzeJob,
   type SemanticImageAnalyzeJobData,
@@ -135,6 +136,7 @@ const listingIndexPollQueue = queueFactory.createQueue(QUEUES.LISTING_INDEX_POLL
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
+const privateSellerRetentionQueue = queueFactory.createQueue(QUEUES.PRIVATE_SELLER_RETENTION)
 // No local binding: resolution jobs are enqueued from the internal-scraper
 // and internal-http-enrich routes, not from this startup script. Registering
 // it here still makes the BullMQ Queue instance visible to shutdown()'s close().
@@ -241,6 +243,16 @@ function registerWorkers(): void {
     { lockDuration: 120_000, logger: app.log },
   )
   queueFactory.createWorker(
+    QUEUES.PRIVATE_SELLER_RETENTION,
+    withSentryCapture(
+      QUEUES.PRIVATE_SELLER_RETENTION,
+      withJobRunTracking(QUEUES.PRIVATE_SELLER_RETENTION, jobRuns, (_data: unknown, context) =>
+        runPrivateSellerRetentionJob(context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker(
     QUEUES.IMAGE_SEMANTIC_ANALYZE,
     withSentryCapture(
       QUEUES.IMAGE_SEMANTIC_ANALYZE,
@@ -288,6 +300,7 @@ try {
       rawPageCleanup: rawPageCleanupQueue,
       dealerEnrich: dealerEnrichQueue,
       fuelEconomyMsrp: fuelEconomyMsrpQueue,
+      privateSellerRetention: privateSellerRetentionQueue,
     },
     scheduleTz,
   )

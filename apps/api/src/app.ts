@@ -47,6 +47,7 @@ import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
+import { adminPrivateSellerRetentionRoutes } from './routes/admin-private-seller-retention.js'
 import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.js'
 import { internalOpsProblemAggregateRoutes } from './routes/internal-ops-problem-aggregate.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
@@ -344,6 +345,11 @@ export async function buildApp(
         lokiUrl: config.LOKI_URL,
       })
       await adminScope.register(adminAttentionRoutes, { prefix: '/attention-snapshot' })
+      await adminScope.register(adminPrivateSellerRetentionRoutes, {
+        prefix: '/private-seller-retention',
+        db,
+        meili,
+      })
 
       const boardAdapter = new FastifyAdapter()
       boardAdapter.setBasePath('/admin/board')

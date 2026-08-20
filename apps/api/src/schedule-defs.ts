@@ -27,6 +27,7 @@ export interface ScheduleDefQueues {
   rawPageCleanup: QueueAdapter
   dealerEnrich: QueueAdapter
   fuelEconomyMsrp: QueueAdapter
+  privateSellerRetention: QueueAdapter
 }
 
 /**
@@ -153,6 +154,17 @@ export function buildScheduleDefs(
       name: QUEUES.DEALER_ENRICH,
       data: {},
       pattern: '0 7 * * *',
+      tz,
+    },
+    // #817 private-seller retention sweep: anonymizes gone private-seller
+    // listings past the retention window (clears sensitive fields, deletes
+    // their raw-page evidence and image references, removes them from
+    // search) — see apps/api/src/services/private-seller-retention.ts.
+    {
+      queue: queues.privateSellerRetention,
+      name: QUEUES.PRIVATE_SELLER_RETENTION,
+      data: {},
+      pattern: '15 0 * * *',
       tz,
     },
     {
