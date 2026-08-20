@@ -38,7 +38,7 @@ const ALT_TEXT_BY_CLAIM: Record<string, string> = {
  * URL list so `PhotoGallery` can render AI-derived alt text and category
  * filter chips. Matches evidence to images by exact `originalUrl` equality —
  * `ListingImage.originalUrl` is the same raw string the scraper stores in
- * `Listing.images` (see apps/scraper/src/jobs/detail-extract.ts).
+ * `Listing.images` (see apps/worker/src/handlers/detail-extract.ts).
  *
  * Returns all-null arrays and an empty label map when there is no evidence,
  * so callers can pass the result straight through to `PhotoGallery` without

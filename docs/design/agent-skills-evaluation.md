@@ -59,14 +59,18 @@ regardless of skill-loading support.
    gap: `.claude/instructions.md` states the `SourceAdapter` contract and AI-remap confidence rule
    as facts, not as a scaffolding procedure. **Built** this session — see
    `.agents/skills/wav-add-scraper-source/SKILL.md`. Building it surfaced that `apps/scraper` no
-   longer exists (relocated into `apps/api`/`packages/scraper-sources`); some existing doc comments
-   still point at the old path.
+   longer exists (relocated into `apps/api`, `apps/worker`, and `packages/scraper-sources`); three
+   `see apps/scraper/...` code comments still pointing at the deleted path
+   (`packages/types/src/source-registry.ts`, `packages/search/src/index.ts`,
+   `apps/web/src/components/photo-evidence.ts`) were corrected to their real current locations as
+   part of this session. `docs/design/scraper-ai-provider-production.md` still references the old
+   path but is a dated, point-in-time design record of a past PR — left as historical, not fixed.
 4. **`wav-prisma-migration`** (custom) — same gap for `docs/data/schema-conventions.md`; there
    is no `db:reset`, so migration mistakes are costly and currently only guarded by prose. **Built**
    this session — see `.agents/skills/wav-prisma-migration/SKILL.md`.
-5. **`wivwav-api-contract-review`** (custom) — wraps the route/envelope/docs rules already spread
+5. **`wav-api-contract-review`** (custom) — wraps the route/envelope/docs rules already spread
    across `AGENTS.md` and `docs/api-routes.md` into one checkable pass.
-6. **`wivwav-accessibility-qa`** (custom) — real value specifically *for Codex*: `.claude/roles/accessibility.md`
+6. **`wav-accessibility-qa`** (custom) — real value specifically *for Codex*: `.claude/roles/accessibility.md`
    already exists but is a Claude Code role construct Codex can't load as a role. Repackaging its
    checklist as a skill gives Codex parity, not just Claude.
 
@@ -93,7 +97,7 @@ regardless of skill-loading support.
   must defer to the existing built-container `test:e2e` requirement and the accessibility/QA roles
   rather than run its own ad hoc browser sessions. Don't install as-is; wrap with a short WivWav
   note (built-container constraint + `page.evaluate` `function`-not-arrow-const rule) or fold it
-  into `wivwav-accessibility-qa` instead.
+  into `wav-accessibility-qa` instead.
 
 ### 3. Missing skills
 
@@ -102,7 +106,7 @@ The custom list is otherwise solid. Two more worth naming:
 - A **new-package/Dockerfile checklist** — already built this session as `wav-new-package`
   (mirrored to both `.claude/skills/` and `.agents/skills/`). Not in the original proposal, but
   it's exactly the kind of "silent trap, no existing doc" gap the custom skills target.
-- `wivwav-listing-quality-audit` and `wivwav-observability-change` are good ideas but should be
+- `wav-listing-quality-audit` and `wav-observability-change` are good ideas but should be
   built as thin wrappers around the *existing* docs (`docs/ops/runbook-listing-quality-audit.md`,
   `docs/design/observability-architecture.md`) rather than inventing new criteria — lower priority
   than the four above since the underlying knowledge is already written down, just not packaged
@@ -126,7 +130,7 @@ generic skill can't know and that currently only live in prose an agent might sk
 ### 6. Global vs. repo-local
 
 - Repo-local (`.agents/skills/` + `.claude/skills/`, both committed): everything prefixed
-  `wivwav-*` — they encode rules specific to this repo and must not leak into other projects.
+  `wav-*` — they encode rules specific to this repo and must not leak into other projects.
 - Global-install candidates: `gh-fix-ci`, `gh-address-comments`, and (once scoped) `sentry` — these
   are generically useful across repos, but should be pointed at `AGENTS.md` for WivWav-specific
   conventions (severity labels, `check:affected`, coherent-commit rules) rather than re-inventing
@@ -149,8 +153,8 @@ generic skill can't know and that currently only live in prose an agent might sk
 2. `gh-fix-ci` (scoped to `check:affected`)
 3. `wav-add-scraper-source` — **built** this session
 4. `wav-prisma-migration` — **built** this session
-5. `wivwav-api-contract-review`
-6. `wivwav-accessibility-qa`
+5. `wav-api-contract-review`
+6. `wav-accessibility-qa`
 
 Generic `playwright`, `security-threat-model`, and `sentry` are deferred to a second batch pending
 the scoping/permissions decisions above — not because they lack value, but because installing them
@@ -166,9 +170,9 @@ unscoped risks conflicting with existing built-container and data-exposure const
   `checkStructure()`/`scrape()`, fixtures, and the 0.7 AI-remap threshold are all present.
 - `wav-prisma-migration`: run against a trivial additive migration; confirm it follows
   `docs/data/schema-conventions.md` and calls out backfill/rollback even when "not applicable."
-- `wivwav-api-contract-review`: run against a merged PR that already touched routes; confirm it
+- `wav-api-contract-review`: run against a merged PR that already touched routes; confirm it
   would have caught what human review actually caught.
-- `wivwav-accessibility-qa`: run against one existing `apps/web` component; compare its evidence
+- `wav-accessibility-qa`: run against one existing `apps/web` component; compare its evidence
   output to a Claude accessibility-role pass on the same component.
 
 ### 10. Security/maintenance concerns before installation

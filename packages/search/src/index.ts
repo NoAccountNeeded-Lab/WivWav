@@ -194,7 +194,7 @@ export interface ListingDocument {
   rampType: string
   /**
    * #499 field-resolution status. `conversionType`/`rampType` above already
-   * read `unknown` while conflicting (see apps/scraper/src/resolution),
+   * read `unknown` while conflicting (see packages/db/src/resolution),
    * which is what actually drives side/rear/ramp filter exclusion — these
    * are exposed only so ops tooling and result cards can show *why* a value
    * reads unknown without a second Postgres round-trip. Not filterable.
