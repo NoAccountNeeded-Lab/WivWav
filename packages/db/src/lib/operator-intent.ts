@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from '../generated/prisma/index.js'
 
 export const SCHEDULE_INTENT_KEY_PREFIX = 'ops.schedule.'
 export const SOURCE_CONTROL_AUDIT_KEY_PREFIX = 'ops.source-control.'
+export const PRIVATE_SELLER_DELETION_AUDIT_KEY_PREFIX = 'ops.private-seller-deletion.'
 
 export type ScheduleIntent = {
   enabled: boolean
@@ -20,12 +21,35 @@ export type SourceControlAuditEntry = {
   updatedAt: string
 }
 
+/**
+ * #817 audit trail for the private-seller retention/deletion lifecycle.
+ * One append-only row per attempt — both the scheduled sweep
+ * (`action: 'automated-retention'`) and an operator's explicit deletion
+ * request (`action: 'operator-request'`) write through the same function,
+ * so a listing's full history (including failures the next sweep retried)
+ * is queryable by `listingId` alone.
+ */
+export type PrivateSellerDeletionAuditEntry = {
+  listingId: string
+  action: 'automated-retention' | 'operator-request'
+  outcome: 'applied' | 'skipped-already-applied' | 'failed'
+  fieldsCleared: string[]
+  reason?: string | null
+  requestedBy?: string | null
+  errorMessage?: string | null
+  updatedAt: string
+}
+
 function scheduleIntentKey(scheduleId: string): string {
   return `${SCHEDULE_INTENT_KEY_PREFIX}${scheduleId}`
 }
 
 function sourceControlAuditKey(sourceId: string): string {
   return `${SOURCE_CONTROL_AUDIT_KEY_PREFIX}${sourceId}`
+}
+
+function privateSellerDeletionAuditKey(listingId: string): string {
+  return `${PRIVATE_SELLER_DELETION_AUDIT_KEY_PREFIX}${listingId}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,4 +137,76 @@ export async function appendSourceControlAuditEntry(
       createdBy: entry.updatedBy ?? null,
     },
   })
+}
+
+function parsePrivateSellerDeletionAuditEntry(
+  listingId: string,
+  value: unknown,
+): PrivateSellerDeletionAuditEntry | null {
+  if (
+    !isRecord(value) ||
+    typeof value['action'] !== 'string' ||
+    typeof value['outcome'] !== 'string' ||
+    typeof value['updatedAt'] !== 'string' ||
+    !Array.isArray(value['fieldsCleared'])
+  ) {
+    return null
+  }
+
+  return {
+    listingId,
+    action: value['action'] as PrivateSellerDeletionAuditEntry['action'],
+    outcome: value['outcome'] as PrivateSellerDeletionAuditEntry['outcome'],
+    fieldsCleared: value['fieldsCleared'].filter((field): field is string => typeof field === 'string'),
+    reason: typeof value['reason'] === 'string' ? value['reason'] : null,
+    requestedBy: typeof value['requestedBy'] === 'string' ? value['requestedBy'] : null,
+    errorMessage: typeof value['errorMessage'] === 'string' ? value['errorMessage'] : null,
+    updatedAt: value['updatedAt'],
+  }
+}
+
+export async function appendPrivateSellerDeletionAuditEntry(
+  db: PrismaClient,
+  listingId: string,
+  entry: Omit<PrivateSellerDeletionAuditEntry, 'listingId' | 'updatedAt'> & { updatedAt?: string },
+): Promise<void> {
+  const value: PrivateSellerDeletionAuditEntry = {
+    listingId,
+    action: entry.action,
+    outcome: entry.outcome,
+    fieldsCleared: entry.fieldsCleared,
+    reason: entry.reason ?? null,
+    requestedBy: entry.requestedBy ?? null,
+    errorMessage: entry.errorMessage ?? null,
+    updatedAt: entry.updatedAt ?? new Date().toISOString(),
+  }
+
+  await db.configEntry.create({
+    data: {
+      key: privateSellerDeletionAuditKey(listingId),
+      type: 'json',
+      value: value as unknown as Prisma.InputJsonValue,
+      description: 'Audit trail for private-seller retention/deletion lifecycle actions',
+      createdBy: entry.requestedBy ?? null,
+    },
+  })
+}
+
+/** Full history for one listing, newest first — evidence for the operator deletion-request workflow. */
+export async function listPrivateSellerDeletionAuditEntries(
+  db: PrismaClient,
+  listingId: string,
+): Promise<PrivateSellerDeletionAuditEntry[]> {
+  const rows = await db.configEntry.findMany({
+    where: { key: privateSellerDeletionAuditKey(listingId) },
+    orderBy: { createdAt: 'desc' },
+    select: { value: true },
+  })
+
+  const entries: PrivateSellerDeletionAuditEntry[] = []
+  for (const row of rows) {
+    const parsed = parsePrivateSellerDeletionAuditEntry(listingId, row.value)
+    if (parsed !== null) entries.push(parsed)
+  }
+  return entries
 }
