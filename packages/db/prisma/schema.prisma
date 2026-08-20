@@ -345,6 +345,14 @@ model Listing {
   goneAt     DateTime?
   soldAt     DateTime?
 
+  /// #817 private-seller retention lifecycle: set once the automated sweep
+  /// (or an operator-initiated deletion request) has nulled the sensitive
+  /// fields below for a gone private-seller listing. Null means retention
+  /// has not been applied yet — the sole idempotency marker for both the
+  /// scheduled job and the manual deletion-request path, both of which
+  /// share apps/api/src/services/private-seller-retention.ts.
+  retentionAppliedAt DateTime?
+
   // Publication quality gate. Source/detail jobs retain observations but do
   // not implicitly promote them into public APIs or search.
   publicationStatus ListingPublicationStatus @default(pending)
@@ -411,6 +419,9 @@ model Listing {
   @@index([sourceId, status, missingFromCompleteCount], map: "listings_possibly_gone_missing_count_idx")
   @@index([status, conversionTypeResolution])
   @@index([status, rampTypeResolution])
+  /// Supports the #817 private-seller retention sweep's candidate query:
+  /// gone private-seller listings not yet past retention, ordered by age.
+  @@index([sellerType, status, goneAt], map: "listings_private_seller_retention_idx")
   @@map("listings")
 }
 
