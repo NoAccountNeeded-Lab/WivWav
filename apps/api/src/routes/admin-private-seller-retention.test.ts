@@ -1,13 +1,14 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import type * as PrivateSellerRetentionServiceModule from '../services/private-seller-retention.js'
 
 vi.mock('@wivwav/db', () => ({
   appendPrivateSellerDeletionAuditEntry: vi.fn().mockResolvedValue(undefined),
   listPrivateSellerDeletionAuditEntries: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('../services/private-seller-retention.js', async () => {
-  const actual = await vi.importActual<typeof import('../services/private-seller-retention.js')>(
+  const actual = await vi.importActual<typeof PrivateSellerRetentionServiceModule>(
     '../services/private-seller-retention.js',
   )
   return { ...actual, anonymizePrivateSellerListing: vi.fn() }
