@@ -24,6 +24,7 @@ WivWav is a practical search tool for wheelchair accessible vehicles. The produc
 - Detail pages should prioritize image, price, location, conversion details, access equipment, seller contact, and source link.
 - Use full-width sections or constrained content areas; do not nest cards inside cards.
 - Every interactive control needs a stable size so labels, hover states, and dynamic values do not shift layout.
+- For filter panels, stat tiles, result counts, or any comparison/dashboard view, load the `dataviz` skill before designing or implementing — it's the source of truth for chart/tile color, density, and light/dark consistency, not a per-component judgment call.
 
 ## Accessibility Rules
 
