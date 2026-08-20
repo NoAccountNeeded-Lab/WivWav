@@ -53,9 +53,9 @@ Create with `gh issue create`.
 Spawned agents must add:
 
 ```text
-🤖 **{role}[{index}]** · `wivwav-create-issue` · {YYYY-MM-DD}
+🤖 **{role}[{index}]** · `wav-create-issue` · {YYYY-MM-DD}
 ```
 
 Interactive human-driven creation does not require attribution.
 Report issue number and URL.
-If ready, report `/wivwav-run-sprint <N>`; otherwise state missing scope.
+If ready, report `/wav-run-sprint <N>`; otherwise state missing scope.

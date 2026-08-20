@@ -6,7 +6,7 @@ user-invocable: true
 
 # Finish issue
 
-Use only when explicitly asked to finish, ship, commit, push, open a PR, or invoke `/wivwav-finish-issue`.
+Use only when explicitly asked to finish, ship, commit, push, open a PR, or invoke `/wav-finish-issue`.
 Never commit, push, or open a PR after failed validation.
 
 1. Reject `main`, `master`, or detached `HEAD`.
