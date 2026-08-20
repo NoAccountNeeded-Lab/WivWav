@@ -42,14 +42,25 @@ export interface MarkGoneListingsOptions {
  *   promotes to gone when count reaches GONE_AFTER_CONSECUTIVE_MISSING.
  *   Resets missingFromCompleteCount to 0 for seen listings (reappearance).
  */
+export interface MarkGoneListingsResult {
+  /** Listings newly absent from the crawled set this run (see field docs above). */
+  newlyMissingCount: number
+  /**
+   * Listings newly promoted from `possibly_gone` to `gone` this run (i.e.
+   * missingFromCompleteCount reached GONE_AFTER_CONSECUTIVE_MISSING). Always
+   * 0 for an incomplete crawl, since only complete crawls promote listings.
+   */
+  newlyGoneCount: number
+}
+
 export async function markGoneListings(
   db: PrismaClient | Prisma.TransactionClient,
   sourceId: string,
   activeSourceRecordKeys: string[],
   options: MarkGoneListingsOptions,
-): Promise<number> {
+): Promise<MarkGoneListingsResult> {
   // Guard: if the scrape returned nothing, assume a scraper failure and leave status unchanged
-  if (activeSourceRecordKeys.length === 0) return 0
+  if (activeSourceRecordKeys.length === 0) return { newlyMissingCount: 0, newlyGoneCount: 0 }
 
   const { isCompleteCrawl, onGone } = options
 
@@ -66,7 +77,7 @@ export async function markGoneListings(
       },
       data: { status: 'possibly_gone', detailScrapedAt: null },
     })
-    return result.count
+    return { newlyMissingCount: result.count, newlyGoneCount: 0 }
   }
 
   // Complete crawl path:
@@ -140,10 +151,13 @@ export async function markGoneListings(
   }
 
   // Only look up the ids when a caller wants them — this query is otherwise
-  // redundant work on every complete crawl.
+  // redundant work on every complete crawl. Without a callback, a plain count
+  // still gives the caller the gone-promotion figure for ScraperRun tracking
+  // (#986) without the extra id payload.
   const newlyGone = onGone
     ? await db.listing.findMany({ where: promoteWhere, select: { id: true } })
     : []
+  const newlyGoneCount = onGone ? newlyGone.length : await db.listing.count({ where: promoteWhere })
 
   await db.listing.updateMany({
     where: promoteWhere,
@@ -154,5 +168,5 @@ export async function markGoneListings(
     await onGone(newlyGone.map((l) => l.id))
   }
 
-  return newlyMissingCount
+  return { newlyMissingCount, newlyGoneCount }
 }
