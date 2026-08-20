@@ -97,6 +97,8 @@ function makeListing(overrides: Partial<{
 function makeDb(listings: ReturnType<typeof makeListing>[], overrides?: {
   imageClusterCount?: Partial<Record<string, number>>
   listingImageCount?: number
+  /** ScraperRun rows returned for every source — defaults to none (empty-state, #986). */
+  scraperRuns?: { isCompleteCrawl: boolean | null; markGoneNewlyGoneCount: number | null }[]
 }) {
   const db = {
     source: {
@@ -119,6 +121,9 @@ function makeDb(listings: ReturnType<typeof makeListing>[], overrides?: {
         if (where['crossVehicle'] === true) return counts['crossVehicle'] ?? 0
         return 0
       }),
+    },
+    scraperRun: {
+      findMany: vi.fn().mockResolvedValue(overrides?.scraperRuns ?? []),
     },
     $disconnect: vi.fn(),
   }
@@ -393,6 +398,7 @@ describe('runListingQualityAudit', () => {
       },
       listingImage: { count: vi.fn().mockResolvedValue(0) },
       imageCluster: { count: vi.fn().mockResolvedValue(0) },
+      scraperRun: { findMany: vi.fn().mockResolvedValue([]) },
       $disconnect: vi.fn(),
     }
     vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
@@ -448,5 +454,56 @@ describe('runListingQualityAudit', () => {
     // Only active listing is in the completeness tally
     expect(vinField.total).toBe(1)
     expect(vinField.present).toBe(1)
+  })
+
+  // ── Crawl completeness & gone-promotion history (#986) ─────────────────────
+
+  it('computes complete-crawl rate and total gone-promotions from ScraperRun rows', async () => {
+    const db = makeDb([makeListing({})], {
+      scraperRuns: [
+        { isCompleteCrawl: true, markGoneNewlyGoneCount: 3 },
+        { isCompleteCrawl: true, markGoneNewlyGoneCount: 0 },
+        { isCompleteCrawl: false, markGoneNewlyGoneCount: 0 },
+      ],
+    })
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
+
+    const report = await runListingQualityAudit({})
+    const cc = report.crawlCompleteness.find((c) => c.sourceId === 'test-source')!
+
+    expect(cc.totalMarkGoneRuns).toBe(3)
+    expect(cc.completeCrawls).toBe(2)
+    expect(cc.completeCrawlRate).toBeCloseTo(2 / 3)
+    expect(cc.totalGonePromotions).toBe(3)
+  })
+
+  it('reports a zeroed crawl-completeness summary for a source with no ScraperRun rows yet', async () => {
+    const db = makeDb([makeListing({})]) // default: no scraperRuns override → empty
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
+
+    const report = await runListingQualityAudit({})
+    const cc = report.crawlCompleteness.find((c) => c.sourceId === 'test-source')!
+
+    expect(cc.totalMarkGoneRuns).toBe(0)
+    expect(cc.completeCrawls).toBe(0)
+    expect(cc.completeCrawlRate).toBe(0)
+    expect(cc.totalGonePromotions).toBe(0)
+  })
+
+  it('respects a custom crawlCompletenessWindowDays option', async () => {
+    const db = makeDb([makeListing({})], {
+      scraperRuns: [{ isCompleteCrawl: true, markGoneNewlyGoneCount: 1 }],
+    })
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
+
+    const report = await runListingQualityAudit({ crawlCompletenessWindowDays: 7 })
+    const cc = report.crawlCompleteness.find((c) => c.sourceId === 'test-source')!
+
+    expect(cc.windowDays).toBe(7)
+    expect(db.scraperRun.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ sourceId: 'test-source', markGoneAppliedAt: expect.any(Object) }),
+      }),
+    )
   })
 })
