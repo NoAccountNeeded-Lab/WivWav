@@ -45,7 +45,10 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     baseUrl: 'https://superiorvan.com',
     cronExpression: '0 */12 * * *',
     timezone: 'America/New_York',
-    pipeline: 'scrape-only',
+    // Detail extraction is declarative, driven by Source.mappings — see
+    // apps/scraper/src/sources/declarative-detail.ts and
+    // superior-van-detail-mappings.ts (#822 applied to a second site by #823).
+    pipeline: 'detail-pages',
   },
 ] as const
 

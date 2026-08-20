@@ -12,7 +12,7 @@
  * case, which never reaches a transform at all.
  */
 
-export type FieldTransformName = 'trimText' | 'parsePrice' | 'parseInches'
+export type FieldTransformName = 'trimText' | 'parsePrice' | 'parseInches' | 'afterColon'
 
 export type FieldTransformResult = string | number | null
 
@@ -40,10 +40,25 @@ function parseInches(raw: string): FieldTransformResult {
   return Number.isFinite(value) ? value : null
 }
 
+/**
+ * Strips a leading "Label:" prefix and returns the trimmed remainder — for a
+ * selector whose matched element's innerText includes both the bold label
+ * and its value in one text node (e.g. Superior Van's `<span><b>Exterior
+ * Color:</b> Redline 2 Coat Pearl</span>` — #823), unlike Freedom Motors'
+ * markup where label and value are separate sibling elements. Splits on the
+ * first colon only, so a value that itself contains a colon is preserved.
+ */
+function afterColon(raw: string): FieldTransformResult {
+  const idx = raw.indexOf(':')
+  const rest = idx === -1 ? raw : raw.slice(idx + 1)
+  return trimText(rest)
+}
+
 const TRANSFORMS: Record<FieldTransformName, FieldTransformFn> = {
   trimText,
   parsePrice,
   parseInches,
+  afterColon,
 }
 
 /**

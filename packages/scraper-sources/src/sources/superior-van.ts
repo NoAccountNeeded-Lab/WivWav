@@ -21,12 +21,17 @@ const NAVIGATION_TIMEOUT_MS = 30_000
 // `e-loop-item` wrapper class).
 const CARD_SEL = 'div.e-loop-item.inventory'
 
-// Robots.txt review (2026-07-03): https://superiorvan.com/robots.txt disallows only
-// /wp-admin/ (admin-ajax.php explicitly re-allowed). /inventory/ and its FacetWP query
-// parameters (?_paged=, ?_condition=, …) are unrestricted, and no crawl-delay is set.
-// Pagination is server-rendered via ?_paged=N (verified: distinct listings returned
-// per page), so this adapter uses plain page.goto() navigation rather than driving
-// FacetWP's AJAX refresh endpoint through UI interaction.
+// Robots.txt review (2026-07-03, re-confirmed 2026-08-20 ahead of #823's detail-pages
+// pipeline activation): https://superiorvan.com/robots.txt disallows only /wp-admin/
+// (admin-ajax.php explicitly re-allowed). /inventory/ and its FacetWP query parameters
+// (?_paged=, ?_condition=, …) are unrestricted, and no crawl-delay is set. Pagination
+// is server-rendered via ?_paged=N (verified: distinct listings returned per page), so
+// this adapter uses plain page.goto() navigation rather than driving FacetWP's AJAX
+// refresh endpoint through UI interaction. Individual detail paths
+// (/inventory/<slug>/, e.g. /inventory/2014-braunability-dodge-grand-caravan-
+// 2c4rdgcg7er476983/) are covered by this same review — the disallow rule is scoped
+// to /wp-admin/ only, not to the listing grid specifically — so this covers
+// detail-crawl.ts's per-listing fetches too, not just the card-scrape listing grid.
 
 const DEALER_NAME = 'Superior Van & Mobility'
 const DEALER_PHONE = '(844) 341-5438'
