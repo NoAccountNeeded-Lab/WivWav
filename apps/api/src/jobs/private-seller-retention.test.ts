@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type * as PrivateSellerRetentionServiceModule from '../services/private-seller-retention.js'
 
 vi.mock('@wivwav/db', () => ({
   getDb: vi.fn(),
@@ -6,7 +7,7 @@ vi.mock('@wivwav/db', () => ({
 }))
 vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn(() => ({})) }))
 vi.mock('../services/private-seller-retention.js', async () => {
-  const actual = await vi.importActual<typeof import('../services/private-seller-retention.js')>(
+  const actual = await vi.importActual<typeof PrivateSellerRetentionServiceModule>(
     '../services/private-seller-retention.js',
   )
   return { ...actual, anonymizePrivateSellerListing: vi.fn() }
