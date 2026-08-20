@@ -16,7 +16,7 @@ output_contract: "Success: commit SHA and PR URL; failure: reason and status:stu
 3. Read `.agents/worker-context.md` and `.agents/issue-context.md`; use `gh issue view {N} --json number,title,body,labels` only if missing.
 4. Before source reads, state target files, required types, and edge cases.
 5. Locate with `rg` and `git diff --name-only`; read narrow ranges.
-6. Read `docs/BRAND.md` for `apps/web`; update `docs/api-routes.md` for route changes; use `function` declarations inside `page.evaluate`.
+6. Read `docs/BRAND.md` for `apps/web`; update `docs/api-routes.md` for route changes; use `function` declarations inside `page.evaluate`. For `apps/web` filters, listing cards, or forms, run `wav-a11y-audit` before committing UI work, not only after review flags it.
 7. Implement per `.claude/core.md`; read `.claude/roles/tester.md`; add tests with each behavior.
 8. Commit per layer the issue touches — schema/migration, then service/business logic, then API/route wiring, then UI, then any tests not already riding with their behavior — not one commit per issue; skip layers the issue doesn't touch; avoid WIP commits and unrelated churn; include required attribution trailers.
 9. After the first commit: push; open a draft PR; preserve commits unless explicitly told to squash.
