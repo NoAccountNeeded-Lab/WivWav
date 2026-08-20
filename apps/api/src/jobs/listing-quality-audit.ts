@@ -14,6 +14,7 @@
  *   pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --baseline search-baseline.json
  *   pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --approve-baseline search-baseline.json
  *   pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --coverage-drop-threshold 0.15
+ *   pnpm tsx apps/api/src/jobs/listing-quality-audit.ts --report --crawl-completeness-window-days 30
  *
  * Report dimensions:
  *   1. active/total listings, by source
@@ -34,6 +35,11 @@
  *      facet invariants, historical coverage-drop baselines, and the
  *      pending/quarantined/listing-resolve publication backlog. Skipped when
  *      `--source` scopes the audit, since vehicle groups may span sources.
+ *  12. crawl completeness & gone-promotion history (#986) — per-source
+ *      complete-crawl rate and gone-promotion count over a trailing window
+ *      (default 30 days), derived from ScraperRun.isCompleteCrawl and
+ *      .markGoneNewlyGoneCount. Precursor to re-tuning
+ *      GONE_AFTER_CONSECUTIVE_MISSING (#676) once enough real data exists.
  *
  * Privacy / redaction:
  *   Representative IDs are included for investigation. Descriptions, dealer
@@ -60,6 +66,8 @@ import type { CoverageBaseline, SearchReconciliationReport } from './search-reco
 const BATCH_SIZE = 500
 const STALE_DETAIL_DAYS = 14
 const MAX_REPRESENTATIVE_IDS = 10
+/** Trailing window (#986) for the crawl-completeness / gone-promotion report dimension. */
+const CRAWL_COMPLETENESS_WINDOW_DAYS = 30
 /** Scraper extraction and analysis version — increment when extraction logic changes. */
 export const AUDIT_VERSION = 1
 
@@ -127,6 +135,25 @@ export interface SourceDriftAlert {
   reason: string
 }
 
+/**
+ * Per-source crawl-completeness and gone-promotion history (#986), computed
+ * from ScraperRun rows over a trailing window. Feeds the eventual re-tuning
+ * of GONE_AFTER_CONSECUTIVE_MISSING (#676) with real data instead of a guess.
+ */
+export interface CrawlCompletenessSummary {
+  sourceId: string
+  /** Trailing window size, in days, this summary was computed over. */
+  windowDays: number
+  /** Mark-gone calls recorded on ScraperRun within the window (markGoneAppliedAt set). */
+  totalMarkGoneRuns: number
+  /** Of those, how many were complete crawls (isCompleteCrawl === true). */
+  completeCrawls: number
+  /** Rate 0–1: completeCrawls / totalMarkGoneRuns. 0 when there are no runs yet. */
+  completeCrawlRate: number
+  /** Sum of markGoneNewlyGoneCount across all mark-gone runs in the window. */
+  totalGonePromotions: number
+}
+
 export interface ListingQualityReport {
   /** ISO8601 timestamp of when this audit was run. */
   auditedAt: string
@@ -138,6 +165,8 @@ export interface ListingQualityReport {
   totalAll: number
   /** Per-source breakdowns. */
   bySources: SourceSummary[]
+  /** Per-source crawl-completeness and gone-promotion history (#986). */
+  crawlCompleteness: CrawlCompletenessSummary[]
   /** Image cluster summary across all sources. */
   imageClusters: ImageClusterSummary
   /**
@@ -421,6 +450,39 @@ async function auditImageClusters(db: DbClient): Promise<ImageClusterSummary> {
 }
 
 /**
+ * Computes per-source crawl-completeness and gone-promotion history (#986)
+ * over a trailing window, from ScraperRun rows where a mark-gone call has
+ * been applied (markGoneAppliedAt set — see internal-scraper.ts's mark-gone
+ * route). Returns a zeroed summary, not an error, when a source has no
+ * ScraperRun rows yet in the window.
+ */
+async function auditCrawlCompleteness(
+  db: DbClient,
+  sourceId: string,
+  windowDays: number,
+): Promise<CrawlCompletenessSummary> {
+  const windowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000)
+
+  const runs = await db.scraperRun.findMany({
+    where: { sourceId, markGoneAppliedAt: { gte: windowStart } },
+    select: { isCompleteCrawl: true, markGoneNewlyGoneCount: true },
+  })
+
+  const totalMarkGoneRuns = runs.length
+  const completeCrawls = runs.filter((r) => r.isCompleteCrawl === true).length
+  const totalGonePromotions = runs.reduce((sum, r) => sum + (r.markGoneNewlyGoneCount ?? 0), 0)
+
+  return {
+    sourceId,
+    windowDays,
+    totalMarkGoneRuns,
+    completeCrawls,
+    completeCrawlRate: totalMarkGoneRuns > 0 ? completeCrawls / totalMarkGoneRuns : 0,
+    totalGonePromotions,
+  }
+}
+
+/**
  * Run the full listing quality audit.
  * Read-only — no DB mutations.
  */
@@ -429,18 +491,22 @@ export async function runListingQualityAudit(opts: {
   limit?: number
   coverageBaseline?: CoverageBaseline | null
   coverageDropThreshold?: number
+  crawlCompletenessWindowDays?: number
 }): Promise<ListingQualityReport> {
   const db = getDb()
   const auditedAt = new Date().toISOString()
+  const crawlCompletenessWindowDays = opts.crawlCompletenessWindowDays ?? CRAWL_COMPLETENESS_WINDOW_DAYS
 
   const sources = await getSources(db, opts.sourceId)
   const bySources: SourceSummary[] = []
+  const crawlCompleteness: CrawlCompletenessSummary[] = []
 
   for (const src of sources) {
     const scanOpts: { limit?: number } = {}
     if (opts.limit !== undefined) scanOpts.limit = opts.limit
     const summary = await scanSourceListings(db, src.id, scanOpts)
     bySources.push(summary)
+    crawlCompleteness.push(await auditCrawlCompleteness(db, src.id, crawlCompletenessWindowDays))
   }
 
   const totalActive = bySources.reduce((sum, s) => sum + s.activeListings, 0)
@@ -490,6 +556,7 @@ export async function runListingQualityAudit(opts: {
     totalActive,
     totalAll,
     bySources,
+    crawlCompleteness,
     imageClusters,
     searchReconciliation,
     driftAlerts,
@@ -579,6 +646,17 @@ function printReport(report: ListingQualityReport): void {
   console.log(`  Placeholder clusters:      ${ic.placeholderClusters}`)
   console.log(`  Cross-vehicle clusters:    ${ic.crossVehicleClusters}`)
 
+  if (report.crawlCompleteness.length > 0) {
+    const windowDays = report.crawlCompleteness[0]!.windowDays
+    console.log(`\n── Crawl completeness & gone promotions (#986, trailing ${windowDays}d) ──`)
+    for (const cc of report.crawlCompleteness) {
+      console.log(
+        `  ${cc.sourceId.padEnd(24)} complete-crawl rate: ${pct(cc.completeCrawlRate).padStart(6)} `
+        + `(${cc.completeCrawls}/${cc.totalMarkGoneRuns})  gone-promotions: ${cc.totalGonePromotions}`,
+      )
+    }
+  }
+
   console.log(`\n── Search index reconciliation (#642) ──`)
   const sr = report.searchReconciliation
   if (sr === null) {
@@ -655,11 +733,13 @@ function parseArgs(argv: string[]): {
   baseline?: string
   approveBaseline?: string
   coverageDropThreshold?: number
+  crawlCompletenessWindowDays?: number
 } {
   if (!argv.includes('--report')) {
     console.error(
       'Usage: listing-quality-audit.ts --report [--json] [--source <sourceId>] [--limit N] [--out <file>] '
-      + '[--baseline <file>] [--approve-baseline <file>] [--coverage-drop-threshold <0-1>]',
+      + '[--baseline <file>] [--approve-baseline <file>] [--coverage-drop-threshold <0-1>] '
+      + '[--crawl-completeness-window-days <N>]',
     )
     process.exit(1)
   }
@@ -678,6 +758,9 @@ function parseArgs(argv: string[]): {
   const thresholdIdx = argv.indexOf('--coverage-drop-threshold')
   const thresholdRaw = thresholdIdx >= 0 ? argv[thresholdIdx + 1] : undefined
   const coverageDropThreshold = thresholdRaw !== undefined ? parseFloat(thresholdRaw) : undefined
+  const crawlWindowIdx = argv.indexOf('--crawl-completeness-window-days')
+  const crawlWindowRaw = crawlWindowIdx >= 0 ? argv[crawlWindowIdx + 1] : undefined
+  const crawlCompletenessWindowDays = crawlWindowRaw !== undefined ? parseInt(crawlWindowRaw, 10) : undefined
 
   const result: {
     sourceId?: string
@@ -687,6 +770,7 @@ function parseArgs(argv: string[]): {
     baseline?: string
     approveBaseline?: string
     coverageDropThreshold?: number
+    crawlCompletenessWindowDays?: number
   } = {
     json: argv.includes('--json'),
   }
@@ -696,6 +780,9 @@ function parseArgs(argv: string[]): {
   if (baseline !== undefined) result.baseline = baseline
   if (approveBaseline !== undefined) result.approveBaseline = approveBaseline
   if (coverageDropThreshold !== undefined && !isNaN(coverageDropThreshold)) result.coverageDropThreshold = coverageDropThreshold
+  if (crawlCompletenessWindowDays !== undefined && !isNaN(crawlCompletenessWindowDays)) {
+    result.crawlCompletenessWindowDays = crawlCompletenessWindowDays
+  }
   return result
 }
 
@@ -715,11 +802,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       limit?: number
       coverageBaseline?: CoverageBaseline | null
       coverageDropThreshold?: number
+      crawlCompletenessWindowDays?: number
     } = {}
     if (options.sourceId !== undefined) auditOpts.sourceId = options.sourceId
     if (options.limit !== undefined) auditOpts.limit = options.limit
     if (coverageBaseline !== null) auditOpts.coverageBaseline = coverageBaseline
     if (options.coverageDropThreshold !== undefined) auditOpts.coverageDropThreshold = options.coverageDropThreshold
+    if (options.crawlCompletenessWindowDays !== undefined) {
+      auditOpts.crawlCompletenessWindowDays = options.crawlCompletenessWindowDays
+    }
 
     try {
       const report = await runListingQualityAudit(auditOpts)
