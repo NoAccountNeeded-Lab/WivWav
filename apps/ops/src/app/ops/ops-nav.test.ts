@@ -9,6 +9,7 @@ const KNOWN_NEXT_ROUTES = new Set([
   '/ops',
   '/ops/ai',
   '/ops/config',
+  '/ops/privacy-requests',
   '/ops/field-conflicts',
   '/ops/logs',
   '/ops/problems',
@@ -63,6 +64,7 @@ describe('OPS_NAV_GROUPS', () => {
       '/ops/logs',
       '/ops/queues',
       '/ops/config',
+      '/ops/privacy-requests',
       '/admin/board',
     ]))
   })
