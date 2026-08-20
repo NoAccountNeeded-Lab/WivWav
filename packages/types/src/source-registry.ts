@@ -46,7 +46,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     cronExpression: '0 */12 * * *',
     timezone: 'America/New_York',
     // Detail extraction is declarative, driven by Source.mappings — see
-    // apps/scraper/src/sources/declarative-detail.ts and
+    // packages/scraper-sources/src/sources/declarative-detail.ts and
     // superior-van-detail-mappings.ts (#822 applied to a second site by #823).
     pipeline: 'detail-pages',
   },
