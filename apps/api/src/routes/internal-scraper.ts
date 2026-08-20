@@ -215,18 +215,32 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
             })
             if (run?.markGoneAppliedAt) return run.markGoneNewlyMissingCount ?? 0
 
-            const count = await markGoneListings(tx, body.sourceId, body.activeSourceRecordKeys, {
-              isCompleteCrawl: body.isCompleteCrawl,
-              // The old in-process onGone search-index callback has no wire
-              // equivalent — the single-owner LISTING_INDEX_POLL poller picks
-              // up the status change via `updatedAt` on its next tick (matches
-              // how the codebase already treats index sync post-#669).
-            })
+            const { newlyMissingCount, newlyGoneCount } = await markGoneListings(
+              tx,
+              body.sourceId,
+              body.activeSourceRecordKeys,
+              {
+                isCompleteCrawl: body.isCompleteCrawl,
+                // The old in-process onGone search-index callback has no wire
+                // equivalent — the single-owner LISTING_INDEX_POLL poller picks
+                // up the status change via `updatedAt` on its next tick (matches
+                // how the codebase already treats index sync post-#669).
+              },
+            )
             await tx.scraperRun.update({
               where: { id: body.scraperRunId },
-              data: { markGoneAppliedAt: new Date(), markGoneNewlyMissingCount: count },
+              data: {
+                markGoneAppliedAt: new Date(),
+                markGoneNewlyMissingCount: newlyMissingCount,
+                // #986: per-source crawl-completeness and gone-promotion
+                // history, feeding the trailing-window report in
+                // listing-quality-audit.ts so GONE_AFTER_CONSECUTIVE_MISSING
+                // (#676) can eventually be re-tuned from real data.
+                isCompleteCrawl: body.isCompleteCrawl,
+                markGoneNewlyGoneCount: newlyGoneCount,
+              },
             })
-            return count
+            return newlyMissingCount
           },
           { isolationLevel: 'Serializable' },
         ),
