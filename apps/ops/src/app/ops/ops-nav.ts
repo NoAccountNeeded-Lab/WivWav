@@ -178,6 +178,14 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         },
       },
       {
+        href: '/ops/privacy-requests',
+        title: 'Private-seller deletion requests',
+        desc: 'Immediately anonymize one private-seller listing on request, and review its automated-sweep and operator deletion history.',
+        shell: {
+          placement: 'advanced',
+        },
+      },
+      {
         href: '/admin/board',
         title: 'Bull Board diagnostics',
         desc: 'Open the full raw queue inspector for payloads, retry details, and stack traces.',
