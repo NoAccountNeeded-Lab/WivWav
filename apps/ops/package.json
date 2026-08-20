@@ -16,7 +16,7 @@
     "@wivwav/charts": "workspace:*",
     "@wivwav/types": "workspace:*",
     "lucide-react": "^1.23.0",
-    "next": "^16.2.10",
+    "next": "^16.2.11",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-resizable-panels": "^4.12.2"
