@@ -12,6 +12,7 @@ export interface FacetsData {
   colorBreakdown: BarDatum[]
   stateBreakdown: BarDatum[]
   sellerTypeBreakdown: BarDatum[]
+  fuelTypeBreakdown: BarDatum[]
   conversionBrandBreakdown: BarDatum[]
   wavFeatures: {
     hasLift: number
@@ -52,6 +53,7 @@ export function normalizeFacetsData(raw: unknown): FacetsData {
     colorBreakdown: toBars(source.colorBreakdown),
     stateBreakdown: toBars(source.stateBreakdown),
     sellerTypeBreakdown: toBars(source.sellerTypeBreakdown),
+    fuelTypeBreakdown: toBars(source.fuelTypeBreakdown),
     conversionBrandBreakdown: toBars(source.conversionBrandBreakdown),
     wavFeatures: {
       hasLift: toCount(wavFeatures.hasLift ?? wavFeatureCounts.has_lift),

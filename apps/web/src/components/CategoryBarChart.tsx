@@ -28,13 +28,13 @@ interface ConversionBrandSummary {
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
-const DISJUNCTIVE_PARAMS = ['make', 'model', 'trim', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'conversionBrand'] as const
+const DISJUNCTIVE_PARAMS = ['make', 'model', 'trim', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'fuelType', 'conversionBrand'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
   'q', 'make', 'model', 'trim', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures',
-  'conversionBrand', 'color', 'state', 'sellerType',
+  'conversionBrand', 'color', 'state', 'sellerType', 'fuelType',
 ]
 
 const MAX_BARS = 8
@@ -185,6 +185,7 @@ export function CategoryBarChart({
               break
             case 'state':          merged.stateBreakdown = d.stateBreakdown; break
             case 'sellerType':     merged.sellerTypeBreakdown = d.sellerTypeBreakdown; break
+            case 'fuelType':       merged.fuelTypeBreakdown = d.fuelTypeBreakdown; break
             case 'conversionBrand': merged.conversionBrandBreakdown = d.conversionBrandBreakdown; break
           }
         })
@@ -201,6 +202,7 @@ export function CategoryBarChart({
               colorBreakdown:      stabilizeBars(merged.colorBreakdown,      prev.colorBreakdown),
               stateBreakdown:      stabilizeBars(merged.stateBreakdown,      prev.stateBreakdown),
               sellerTypeBreakdown: stabilizeBars(merged.sellerTypeBreakdown, prev.sellerTypeBreakdown),
+              fuelTypeBreakdown: stabilizeBars(merged.fuelTypeBreakdown, prev.fuelTypeBreakdown),
               conversionBrandBreakdown: stabilizeBars(merged.conversionBrandBreakdown, prev.conversionBrandBreakdown),
               wavFeatures: {
                 ...merged.wavFeatures,
@@ -278,6 +280,7 @@ export function CategoryBarChart({
     { id: 'color',     title: t('groups.color'),     items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
     { id: 'state',     title: t('groups.state'),     items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
     { id: 'seller',    title: t('groups.seller'),    items: toFilterItems(data.sellerTypeBreakdown,                                         parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
+    { id: 'fuelType',  title: t('groups.fuelType'),  items: toFilterItems(data.fuelTypeBreakdown,                                           parseCommaSep(searchParams.get('fuelType'))),       param: 'fuelType'       },
   ].filter((g) => g.items.length > 0) : []
 
   const activeWavFeatures = parseCommaSep(searchParams.get('wavFeatures'))
