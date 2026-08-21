@@ -117,7 +117,7 @@ export async function configureIndexSettings(client: Meilisearch, indexName: str
   const task = await index.updateSettings({
     filterableAttributes: [
       'make', 'model', 'year', 'trim', 'condition', 'sellerType',
-      'conversionType', 'rampType', 'wavFeatures',
+      'conversionType', 'rampType', 'wavFeatures', 'fuelType',
       'conversionBrand', 'color', 'state', 'city', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
       'publicationStatus', 'vehicleId', 'vehicleGroupKey',
