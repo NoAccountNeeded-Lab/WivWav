@@ -82,7 +82,7 @@ const DEFAULT_MAX = 150000  // dollars
 
 const FORWARD_PARAMS = [
   'q', 'make', 'model', 'yearMin', 'yearMax',
-  'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
+  'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
   'conversionBrand',
 ]
 
