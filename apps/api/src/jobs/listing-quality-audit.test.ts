@@ -38,6 +38,7 @@ vi.mock('../lib/queue-factory.js', () => ({
   getQueueFactory: vi.fn(() => ({
     createQueue: vi.fn().mockReturnValue({
       getStats: vi.fn().mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 }),
+      close: vi.fn().mockResolvedValue(undefined),
     }),
   })),
 }))

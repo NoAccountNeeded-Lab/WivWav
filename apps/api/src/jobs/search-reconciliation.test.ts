@@ -38,6 +38,7 @@ import {
   buildExpectedCatalog,
   reconcileSearchCatalog,
   toFacetDoc,
+  QUEUE_STATS_TIMEOUT_MS,
   type FacetDoc,
 } from './search-reconciliation.js'
 
@@ -160,14 +161,24 @@ function makeDb(listings: Listing[], counts: { pending?: number; quarantined?: n
   }
 }
 
-function makeQueueFactory(stats: { waiting: number; active: number; delayed: number } | 'unavailable') {
+function makeQueueFactory(
+  stats: { waiting: number; active: number; delayed: number } | 'unavailable' | 'stalled',
+  closeSpy?: ReturnType<typeof vi.fn>,
+) {
+  const close = closeSpy ?? vi.fn().mockResolvedValue(undefined)
+  let getStats: ReturnType<typeof vi.fn>
+  if (stats === 'unavailable') {
+    getStats = vi.fn().mockRejectedValue(new Error('redis unreachable'))
+  } else if (stats === 'stalled') {
+    // Never settles — simulates a queue backend that accepts the connection
+    // but never replies (#995's reproduced hang), as distinct from an
+    // immediate rejection ('unavailable' above).
+    getStats = vi.fn(() => new Promise<never>(() => {}))
+  } else {
+    getStats = vi.fn().mockResolvedValue({ ...stats, completed: 0, failed: 0 })
+  }
   return {
-    createQueue: vi.fn().mockReturnValue({
-      getStats:
-        stats === 'unavailable'
-          ? vi.fn().mockRejectedValue(new Error('redis unreachable'))
-          : vi.fn().mockResolvedValue({ ...stats, completed: 0, failed: 0 }),
-    }),
+    createQueue: vi.fn().mockReturnValue({ getStats, close }),
   }
 }
 
@@ -490,6 +501,32 @@ describe('reconcileSearchCatalog', () => {
     const report = await reconcileSearchCatalog(db as never)
 
     expect(report.publicationBacklog.listingResolveBacklog).toBeNull()
+  })
+
+  it('resolves within the timeout window — not hanging — when the queue backend stalls, and closes the connection (#995)', async () => {
+    const db = makeDb([makeListing({ id: 'a' })])
+    vi.mocked(getMeiliClient).mockReturnValue(makeMeiliClient([]) as never)
+    const close = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(getQueueFactory).mockReturnValue(makeQueueFactory('stalled', close) as never)
+
+    vi.useFakeTimers()
+    try {
+      const reportPromise = reconcileSearchCatalog(db as never)
+      // Advance past QUEUE_STATS_TIMEOUT_MS (with margin) without ever
+      // settling `getStats()` — reproduces the queue backend that accepts a
+      // connection but never replies. Prior to the fix, `getPublicationBacklog`
+      // itself resolved on time, but the abandoned queue connection was never
+      // closed, leaving the process (and, in the mocked case, an open call to
+      // `close()` that never happened) hanging indefinitely.
+      await vi.advanceTimersByTimeAsync(QUEUE_STATS_TIMEOUT_MS + 500)
+      const report = await reportPromise
+
+      expect(report.publicationBacklog.listingResolveBacklog).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(close).toHaveBeenCalled()
   })
 
   it('applies a supplied coverage baseline and flags a coverage drop', async () => {
