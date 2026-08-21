@@ -123,7 +123,17 @@ export class BullMQQueueAdapter implements QueueAdapter {
   }
 
   async close(): Promise<void> {
-    await this.queue.close()
+    // BullMQ's `Queue#close()` only force-disconnects when the underlying
+    // ioredis client never reached "ready" (e.g. the backend never replied to
+    // the initial handshake) — otherwise it falls back to a graceful
+    // `QUIT`, which itself waits on a reply the backend may never send if it
+    // went unresponsive *after* becoming ready (#995). `Queue#disconnect()`
+    // has the complementary gap: it force-disconnects once the client is
+    // ready, but hangs awaiting that same not-yet-ready client if the
+    // handshake never completed. Racing both covers every connection state:
+    // whichever one is safe to call synchronously for the current status
+    // wins and tears down the socket; the other is simply abandoned.
+    await Promise.race([this.queue.close(), this.queue.disconnect()])
   }
 
   /** Exposes the underlying BullMQ Queue — for Bull Board wiring in the admin layer only. */

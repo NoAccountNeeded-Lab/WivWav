@@ -529,6 +529,29 @@ describe('reconcileSearchCatalog', () => {
     expect(close).toHaveBeenCalled()
   })
 
+  it('still resolves within (2 * timeout) when the cleanup close() itself stalls (#995)', async () => {
+    const db = makeDb([makeListing({ id: 'a' })])
+    vi.mocked(getMeiliClient).mockReturnValue(makeMeiliClient([]) as never)
+    // Both `getStats()` and the cleanup `close()` hang — e.g. a backend that
+    // accepted the connection and reached "ready" before going unresponsive,
+    // so `getPublicationBacklog`'s own `withTimeout(queue.close(), ...)`
+    // backstop is what has to bound this, not `BullMQQueueAdapter#close()`
+    // (which this mock bypasses entirely).
+    const close = vi.fn(() => new Promise<never>(() => {}))
+    vi.mocked(getQueueFactory).mockReturnValue(makeQueueFactory('stalled', close) as never)
+
+    vi.useFakeTimers()
+    try {
+      const reportPromise = reconcileSearchCatalog(db as never)
+      await vi.advanceTimersByTimeAsync(2 * QUEUE_STATS_TIMEOUT_MS + 500)
+      const report = await reportPromise
+
+      expect(report.publicationBacklog.listingResolveBacklog).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('applies a supplied coverage baseline and flags a coverage drop', async () => {
     const rows = [
       makeListing({ id: 'a', trim: null }),
