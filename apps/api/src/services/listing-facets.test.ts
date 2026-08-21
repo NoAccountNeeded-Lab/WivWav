@@ -113,6 +113,35 @@ describe('ListingFacetsService', () => {
     ])
   })
 
+  it('returns fuelType breakdown from facet distribution', async () => {
+    const search = {
+      search: vi.fn(async () => ({
+        hits: [],
+        total: 3,
+        facetDistribution: {
+          fuelType: { gas: 2, hybrid: 1 },
+        },
+      })),
+    } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      del: vi.fn(async () => {}),
+      ping: vi.fn(async () => {}),
+      getOrSet: vi.fn(),
+    } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
+      facets: expect.arrayContaining(['fuelType']),
+    }))
+    expect(result.fuelTypeBreakdown).toEqual([
+      { value: 'gas', count: 2 },
+      { value: 'hybrid', count: 1 },
+    ])
+  })
+
   it('returns conversion brand breakdown sorted by count', async () => {
     const search = {
       search: vi.fn(async () => ({

@@ -218,6 +218,7 @@ const filterQuerySchema = Type.Object(
     color: Type.Optional(Type.String()),
     state: Type.Optional(Type.String()),
     sellerType: Type.Optional(Type.String()),
+    fuelType: Type.Optional(Type.String()),
     sort: Type.Optional(Type.String()),
     page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
     perPage: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
@@ -248,6 +249,7 @@ const facetsResultSchema = Type.Object({
   colorBreakdown: Type.Optional(Type.Array(facetCountSchema)),
   rampTypeBreakdown: Type.Optional(Type.Array(facetCountSchema)),
   sellerTypeBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  fuelTypeBreakdown: Type.Optional(Type.Array(facetCountSchema)),
   conversionBrandBreakdown: Type.Optional(Type.Array(facetCountSchema)),
   wavFeatureCounts: Type.Optional(Type.Record(Type.String(), Type.Number())),
 })
@@ -321,6 +323,7 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         color: parseArr(q.color),
         state: parseArr(q.state),
         sellerType: parseArr(q.sellerType),
+        fuelType: parseArr(q.fuelType),
       })
       return reply.send({ data: result })
     } catch (err) {
@@ -340,6 +343,7 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
           colorBreakdown: [],
           rampTypeBreakdown: [],
           sellerTypeBreakdown: [],
+          fuelTypeBreakdown: [],
           conversionBrandBreakdown: [],
           wavFeatureCounts: {},
         },
@@ -373,6 +377,7 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         color: parseArr(q.color),
         state: parseArr(q.state),
         sellerType: parseArr(q.sellerType),
+        fuelType: parseArr(q.fuelType),
         sort: q.sort,
       })
 

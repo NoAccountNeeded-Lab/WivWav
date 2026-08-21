@@ -134,6 +134,7 @@ function buildTestApp(
       colorBreakdown: [],
       rampTypeBreakdown: [],
       sellerTypeBreakdown: [],
+      fuelTypeBreakdown: [],
       conversionBrandBreakdown: [],
       wavFeatureCounts: {},
     })),
@@ -192,6 +193,22 @@ describe('GET /', () => {
     expect(res.statusCode).toBe(200)
     expect(search.search).toHaveBeenCalledWith(expect.objectContaining({
       sellerType: ['dealer'],
+    }))
+
+    await app.close()
+  })
+
+  it('passes fuelType as a multi-value search filter', async () => {
+    const { app, search } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/?fuelType=hybrid',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(search.search).toHaveBeenCalledWith(expect.objectContaining({
+      fuelType: ['hybrid'],
     }))
 
     await app.close()
@@ -378,6 +395,22 @@ describe('GET /facets', () => {
     await app.close()
   })
 
+  it('passes fuelType to facet filtering', async () => {
+    const { app, facets } = buildTestApp()
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/facets?fuelType=hybrid,electric',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(facets.getFacets).toHaveBeenCalledWith(expect.objectContaining({
+      fuelType: ['hybrid', 'electric'],
+    }))
+
+    await app.close()
+  })
+
   it('passes trim to facet filtering', async () => {
     const { app, facets } = buildTestApp()
 
@@ -428,6 +461,7 @@ describe('GET /facets', () => {
       colorBreakdown: [],
       rampTypeBreakdown: [],
       sellerTypeBreakdown: [],
+      fuelTypeBreakdown: [],
       conversionBrandBreakdown: [],
       wavFeatureCounts: {},
     })
