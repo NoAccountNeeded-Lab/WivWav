@@ -57,7 +57,7 @@ const MAX_SAMPLE_IDS = 10
  * failing fast. Without a bounded timeout here, a down queue backend would
  * hang the entire read-only audit instead of degrading to "unavailable".
  */
-const QUEUE_STATS_TIMEOUT_MS = 3000
+export const QUEUE_STATS_TIMEOUT_MS = 3000
 /** Default absolute coverage-rate drop (0–1) that triggers a baseline alert. */
 export const DEFAULT_COVERAGE_DROP_THRESHOLD = 0.1
 
@@ -524,13 +524,41 @@ async function getPublicationBacklog(db: DbClient): Promise<PublicationBacklog> 
   ])
 
   let listingResolveBacklog: number | null
+  const factory = getQueueFactory()
+  const queue = factory.createQueue(QUEUES.LISTING_RESOLVE)
   try {
-    const factory = getQueueFactory()
-    const queue = factory.createQueue(QUEUES.LISTING_RESOLVE)
     const stats = await withTimeout(queue.getStats(), QUEUE_STATS_TIMEOUT_MS)
     listingResolveBacklog = stats.waiting + stats.active + stats.delayed
   } catch {
     listingResolveBacklog = null
+  } finally {
+    // Root cause (#995): `withTimeout` only bounds *this function's* wait —
+    // it races a timer against `queue.getStats()` but never cancels the
+    // underlying BullMQ/ioredis command. When the queue backend is
+    // unreachable or non-responsive, that abandoned command (and its open
+    // socket, held open by the shared `getQueueFactory()` singleton) is
+    // never torn down. The socket keeps at least one active libuv handle
+    // alive, so even though this function correctly returns
+    // `listingResolveBacklog: null` within QUEUE_STATS_TIMEOUT_MS, the
+    // read-only audit CLI process itself never exits — which is what the
+    // original report observed as an indefinite hang. Closing here (whether
+    // the check succeeded or timed out) releases that connection so the
+    // process can exit promptly. `QueueAdapter#close()` itself degrades
+    // safely in the common case: BullMQ force-disconnects rather than
+    // waiting on a reply when the connection never reached "ready" (the
+    // non-responsive case this check exists to survive). If the connection
+    // *did* reach "ready" and only the specific command then stalled,
+    // close() falls back to a graceful QUIT that could itself hang — so
+    // bound it too rather than trust it unconditionally. Wrapped in its own
+    // try/catch (not just a `.catch()` on the returned promise) because
+    // `queue.close()` is evaluated as withTimeout's argument before
+    // withTimeout itself runs, so a synchronous throw here would otherwise
+    // escape this cleanup step and replace the function's real result.
+    try {
+      await withTimeout(queue.close(), QUEUE_STATS_TIMEOUT_MS)
+    } catch {
+      // Best-effort cleanup — never let a close failure mask the backlog result.
+    }
   }
 
   return { pending, quarantined, listingResolveBacklog }
