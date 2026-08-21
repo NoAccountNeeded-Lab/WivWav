@@ -45,7 +45,7 @@ describe('DiscoverPage', () => {
       screen.getByRole('complementary', { name: 'Filter by vehicle type and brand' }),
     ).toBeTruthy()
     expect(
-      screen.getByRole('complementary', { name: 'Filter by feature, location, and seller' }),
+      screen.getByRole('complementary', { name: 'Filter by feature, location, seller, and fuel type' }),
     ).toBeTruthy()
     expect(
       screen.getByRole('complementary', { name: 'Filter by price, year, and mileage' }),
