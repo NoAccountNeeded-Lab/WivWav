@@ -1,8 +1,8 @@
 # WivWav Codex Skills Evaluation
 
 Date: 2026-08-20
-Status: Evaluated and revised — three custom cross-agent skills implemented; no external Codex
-skills installed yet.
+Status: Evaluated and revised — four custom cross-agent skills implemented, plus one reviewed and
+pinned external adoption (`impeccable`, issue #992 — see "Impeccable adoption" below).
 
 ## Purpose
 
@@ -225,6 +225,112 @@ unscoped risks conflicting with existing built-container and data-exposure const
   plausible-but-wrong guidance for WivWav's specific boundaries (`/internal/ops/*` vs `/ops/*`,
   `docs/risk/private-seller-data-policy.md`) unless required to read those docs first — same
   failure mode as any agent operating without repo context.
+
+---
+
+## Impeccable adoption (issue #992)
+
+Adopted a reviewed, pinned subset of the third-party [pbakaus/impeccable](https://github.com/pbakaus/impeccable)
+project (Apache-2.0) as a fifth cross-agent skill, `impeccable`, for read-only product-design
+critique. Full provenance, the pinned revision (`skill-v4.1.1` / `5a149f3`), the upstream-script
+review table, and the update/rollback procedure live in
+`.agents/skills/impeccable/PROVENANCE.md`. This section covers the two checks issue #992's
+acceptance criteria call for specifically: fresh-checkout discoverability and a read-only
+evaluation against a real WivWav mobile shopping surface and a real WivWav ops dashboard.
+
+### Structural pattern reused
+
+`impeccable` follows the exact symlink pattern established above for `wav-*` skills: canonical
+content at `.agents/skills/impeccable/SKILL.md`, a relative symlink at `.claude/skills/impeccable`,
+and Codex display metadata in `.agents/skills/impeccable/agents/openai.yaml`. No new mechanism was
+introduced. Unlike the `wav-*` skills, `impeccable` also ships a `PROVENANCE.md` because it is an
+adaptation of external, licensed content rather than a WivWav-original workflow skill.
+
+### Fresh-checkout verification
+
+```
+$ git ls-files -s .agents/skills/impeccable .claude/skills/impeccable
+100644 ... .agents/skills/impeccable/PROVENANCE.md
+100644 ... .agents/skills/impeccable/SKILL.md
+100644 ... .agents/skills/impeccable/agents/openai.yaml
+120000 ... .claude/skills/impeccable
+```
+
+Mode `120000` confirms `.claude/skills/impeccable` is committed as a real symlink, not a copy —
+same evidence format used for the four `wav-*` skills above. After committing this branch, a
+`git clone`/fresh worktree of it resolves `.claude/skills/impeccable/SKILL.md` through the symlink
+(`readlink .claude/skills/impeccable` → `../../.agents/skills/impeccable`, a relative path, so it
+works regardless of where the clone lives on disk) and Codex's scan of `.agents/skills/` sees the
+same `SKILL.md` plus `agents/openai.yaml` directly, with no drift possible between what the two
+agents read.
+
+### Evaluation evidence
+
+Run as read-only critique per `SKILL.md` §4 — source read directly, no scripts, no browser, no
+network, no file writes. Both passes are static-code reads, consistent with §2's decision to
+exclude live-browser/screenshot automation from this skill entirely.
+
+**Mobile public-shopping surface: `apps/web/src/app/[locale]/discover/DiscoverPage.tsx`**
+
+- `critique` / mode check: this is a Persuade/shop-mode surface per `SKILL.md` §3. It opens with a
+  single `<h1>`, active-filter chips, and a two-link CTA row before the filter facets — matches
+  `docs/BRAND.md`'s "search and comparison come first" principle; no marketing-style hero or
+  decorative section precedes the functional content.
+  - `docs/BRAND.md` layout rule ("cards only for repeated listings, modals, and framed tools; do
+    not nest cards inside cards") is respected: the filter groups render as plain `<aside>`
+    elements, not nested cards.
+  - `harden`: primary CTA (`ctaBtn`) and secondary link (`skipLink`) are real `<a>` elements with
+    computed `href`s, so they remain usable without JavaScript and have a natural focus order.
+    Each filter facet is independently wrapped in `<Suspense>`, giving each an isolated loading
+    boundary instead of one page-level blocking spinner — the right shape for
+    `docs/BRAND.md`'s "error, loading, empty states need readable text" requirement, though the
+    actual fallback content lives in the child components and was not re-verified here (out of
+    scope for this skill; `wav-a11y-audit`/the accessibility role owns that check).
+  - `audit`: no hardcoded hex colors or ad hoc spacing in this file — it's `styles.*` (CSS module)
+    throughout, consistent with the "well-executed CSS module approach" `design-system-audit.md`
+    already credits `apps/web` with, not the `filters/[id]/page.tsx` inline-style pattern that
+    same audit flags as the worst offender.
+  - Responsive/mobile-first: `aria-label`s on each `<aside>` ("Filter by vehicle type and brand",
+    etc.) give the three facet groups a distinguishable landmark structure at narrow widths where
+    visual grouping alone would be harder to scan — directly serving `docs/BRAND.md`'s mobile-first
+    principle rather than a desktop-shrunk layout.
+
+**Dense ops/dashboard surface: `apps/ops/src/app/ops/queues/QueuesClient.tsx`**
+
+- `critique` / mode check: Operate-mode per `SKILL.md` §3 — status chips, per-queue numeric stats,
+  and a 15s auto-refresh (`REFRESH_MS`) prioritize scanability over novelty, matching the mode
+  description.
+- `polish` / state coverage: pause/resume/trigger/sync actions all carry independent
+  `loading`/`feedback`/`isError` state (`ActionState`) rendered inline next to the row that
+  triggered them, not a single global toast — this keeps the operator's place in a dense list
+  instead of forcing them to scan the whole page for feedback, and covers the loading, error,
+  and empty (`queues.length === 0`) states `docs/BRAND.md` requires for user-facing states.
+- `audit`: every stat and status change routes through `formatCount`/`OpsStatusChip`/
+  `RelativeTimestamp` rather than ad hoc inline formatting, so number and time formatting stay
+  consistent across the ~19 queue rows this page can render (`QUEUE_META`).
+- Accessibility: each `EntityListRow` gets a synthesized `ariaLabel` that spells out status and
+  every stat in one string (`"${q.name}, ${status.label}, waiting …, active …, …"`) rather than
+  relying on the visually adjacent numbers alone — the right pattern for a screen-reader user
+  scanning a dense, live-refreshing table, and it satisfies `docs/BRAND.md`'s "color cannot be the
+  only way to communicate status" rule (status is also read as text through `OpsStatusChip`'s
+  `label`, not just its `variant` color).
+- Responsive/layout: `styles.controlsBar`/`styles.controlsBarRight` group the refresh timestamp
+  and three actions (Refresh, Bull Board link, Sync) together; this file only defines behavior, not
+  the CSS module's breakpoint rules, so wrap/stacking behavior at narrow ops-viewport widths was
+  not verified here — flagged as a gap rather than asserted.
+
+**Conclusion:** both surfaces already follow `docs/BRAND.md`'s rules well; the read-only critique
+did not surface a `docs/BRAND.md` violation on either page (consistent with this issue's "no
+WivWav UI or brand implementation" scope — no fix was proposed or applied). The one open gap noted
+(ops queues CSS-module breakpoint behavior) is a candidate for a future `wav-a11y-audit`/
+accessibility-role runtime pass, not an `impeccable` finding, since `impeccable` does not run a
+browser.
+
+### Rollback check
+
+Per `PROVENANCE.md`, `rm -rf .agents/skills/impeccable && rm .claude/skills/impeccable` removes the
+integration with no other file touched — confirmed by this session: nothing under `apps/`,
+`packages/`, `.gitignore`, or any dependency manifest references `impeccable`.
 
 ---
 
