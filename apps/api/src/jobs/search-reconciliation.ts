@@ -543,14 +543,13 @@ async function getPublicationBacklog(db: DbClient): Promise<PublicationBacklog> 
     // read-only audit CLI process itself never exits — which is what the
     // original report observed as an indefinite hang. Closing here (whether
     // the check succeeded or timed out) releases that connection so the
-    // process can exit promptly. `QueueAdapter#close()` itself degrades
-    // safely in the common case: BullMQ force-disconnects rather than
-    // waiting on a reply when the connection never reached "ready" (the
-    // non-responsive case this check exists to survive). If the connection
-    // *did* reach "ready" and only the specific command then stalled,
-    // close() falls back to a graceful QUIT that could itself hang — so
-    // bound it too rather than trust it unconditionally. Wrapped in its own
-    // try/catch (not just a `.catch()` on the returned promise) because
+    // process can exit promptly. `BullMQQueueAdapter#close()` (see
+    // packages/queue/src/bullmq/queue-adapter.ts) already races BullMQ's
+    // `close()`/`disconnect()` so it can't itself hang against an
+    // unreachable/non-responsive backend; the `withTimeout` here is a
+    // defense-in-depth backstop against any other `QueueAdapter`
+    // implementation that doesn't make the same guarantee. Wrapped in its
+    // own try/catch (not just a `.catch()` on the returned promise) because
     // `queue.close()` is evaluated as withTimeout's argument before
     // withTimeout itself runs, so a synchronous throw here would otherwise
     // escape this cleanup step and replace the function's real result.
