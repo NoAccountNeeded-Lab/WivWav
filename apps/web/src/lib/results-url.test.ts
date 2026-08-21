@@ -56,4 +56,12 @@ describe('countActiveResultFilters', () => {
 
     expect(countActiveResultFilters(params)).toBe(1)
   })
+
+  it('should count an active fuelType filter', () => {
+    const params = new URLSearchParams({
+      fuelType: 'hybrid',
+    })
+
+    expect(countActiveResultFilters(params)).toBe(1)
+  })
 })

@@ -16,6 +16,7 @@ const RESULT_FILTER_KEYS = [
   'color',
   'state',
   'sellerType',
+  'fuelType',
 ] as const
 
 type SearchParamsInput = { toString(): string }

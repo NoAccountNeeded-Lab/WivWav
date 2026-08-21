@@ -40,6 +40,7 @@ describe('normalizeFacetsData', () => {
 
     expect(result.conversionBreakdown).toEqual([])
     expect(result.sellerTypeBreakdown).toEqual([])
+    expect(result.fuelTypeBreakdown).toEqual([])
     expect(result.wavFeatures).toEqual({
       hasLift: 2,
       handControls: 0,
@@ -67,6 +68,17 @@ describe('normalizeFacetsData', () => {
     expect(result.sellerTypeBreakdown).toEqual([
       { value: 'dealer', count: 4 },
       { value: 'private', count: 2 },
+    ])
+  })
+
+  it('normalizes fuelType breakdown', () => {
+    const result = normalizeFacetsData({
+      fuelTypeBreakdown: [{ value: 'gas', count: 6 }, { value: 'hybrid', count: 2 }],
+    })
+
+    expect(result.fuelTypeBreakdown).toEqual([
+      { value: 'gas', count: 6 },
+      { value: 'hybrid', count: 2 },
     ])
   })
 

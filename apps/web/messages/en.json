@@ -105,6 +105,7 @@
       "color": "Color",
       "state": "State",
       "seller": "Seller type",
+      "fuelType": "Fuel type",
       "features": "Features",
       "conversionBrand": "Conversion brand"
     },
