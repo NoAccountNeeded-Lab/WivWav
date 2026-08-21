@@ -18,7 +18,7 @@ interface YearDatum {
 // Omit year params so this histogram shows cross-filtered data (all years visible)
 const FORWARD_PARAMS = [
   'q', 'make', 'model', 'priceMin', 'priceMax', 'mileageMax',
-  'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType',
+  'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
   'conversionBrand',
 ]
 
