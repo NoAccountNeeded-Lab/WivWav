@@ -57,13 +57,13 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
           </Suspense>
         </aside>
 
-        <aside aria-label="Filter by feature, location, and seller">
+        <aside aria-label="Filter by feature, location, seller, and fuel type">
           <Suspense>
             <CategoryBarChart
               showMap={false}
               showHistograms={false}
               singleColumn
-              limitGroups={['color', 'state', 'seller', 'features']}
+              limitGroups={['color', 'state', 'seller', 'fuelType', 'features']}
               renderers={{ color: 'swatches', seller: 'donut' }}
             />
           </Suspense>
