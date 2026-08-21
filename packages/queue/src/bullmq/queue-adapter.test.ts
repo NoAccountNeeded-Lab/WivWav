@@ -108,3 +108,34 @@ describe('BullMQQueueAdapter repeatable jobs', () => {
     expect(removeRepeatableByKey).not.toHaveBeenCalled()
   })
 })
+
+describe('BullMQQueueAdapter close (#995)', () => {
+  // BullMQ's `Queue#close()` and `Queue#disconnect()` have complementary
+  // hang risks: `close()` blocks on a graceful QUIT reply once the
+  // connection has reached "ready", while `disconnect()` blocks awaiting
+  // the not-yet-resolved connection promise if the handshake never
+  // completed. `BullMQQueueAdapter#close()` races both so at least one
+  // resolves regardless of which connection state the backend is stuck in.
+
+  it('resolves via disconnect() when close() hangs (connection reached "ready", then a command stalled)', async () => {
+    const close = vi.fn(() => new Promise<void>(() => {})) // never settles
+    const disconnect = vi.fn(async () => {})
+    const adapter = new BullMQQueueAdapter(makeQueue({ close, disconnect }), getQueuePolicy('detail-crawl'))
+
+    await adapter.close()
+
+    expect(close).toHaveBeenCalled()
+    expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('resolves via close() when disconnect() hangs (connection never reached "ready")', async () => {
+    const close = vi.fn(async () => {})
+    const disconnect = vi.fn(() => new Promise<void>(() => {})) // never settles
+    const adapter = new BullMQQueueAdapter(makeQueue({ close, disconnect }), getQueuePolicy('detail-crawl'))
+
+    await adapter.close()
+
+    expect(close).toHaveBeenCalled()
+    expect(disconnect).toHaveBeenCalled()
+  })
+})
