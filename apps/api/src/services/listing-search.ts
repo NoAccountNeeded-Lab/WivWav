@@ -29,6 +29,7 @@ export interface SearchParams {
   color?: string[] | undefined
   state?: string[] | undefined
   sellerType?: string[] | undefined
+  fuelType?: string[] | undefined
   sort?: string | undefined
 }
 
@@ -76,6 +77,7 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   if (params.color?.length) filters['color'] = params.color
   if (params.state?.length) filters['state'] = params.state
   if (params.sellerType?.length) filters['sellerType'] = params.sellerType
+  if (params.fuelType?.length) filters['fuelType'] = params.fuelType
 
   const rangeFilters: RangeFilter[] = []
   if (params.yearMin != null || params.yearMax != null) {
@@ -112,7 +114,7 @@ export class ListingSearchService {
       ...(params.q != null ? { query: params.q } : {}),
       filters,
       ...(rangeFilters.length ? { rangeFilters } : {}),
-      facets: ['make', 'model', 'year', 'trim', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType'],
+      facets: ['make', 'model', 'year', 'trim', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType', 'fuelType'],
       ...(params.sort ? { sort: [params.sort] } : {}),
       limit: perPage,
       offset: (page - 1) * perPage,

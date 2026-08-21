@@ -360,6 +360,20 @@ describe('ListingSearchService.search', () => {
     expect(opts.filters?.['sellerType']).toBeUndefined()
   })
 
+  it('adds fuelType filter as string array', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({ fuelType: ['hybrid', 'electric'] })
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['fuelType']).toEqual(['hybrid', 'electric'])
+  })
+
+  it('omits fuelType filter when not provided', async () => {
+    const { service, searchMock } = makeService()
+    await service.search({})
+    const [, opts] = searchMock.mock.calls[0]!
+    expect(opts.filters?.['fuelType']).toBeUndefined()
+  })
+
   it('passes sort when provided', async () => {
     const { service, searchMock } = makeService()
     await service.search({ sort: 'priceCents:asc' })
@@ -431,7 +445,7 @@ describe('ListingSearchService.search', () => {
     await service.search({})
     const [, opts] = searchMock.mock.calls[0]!
     expect(opts.facets).toEqual(
-      expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType']),
+      expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType', 'fuelType']),
     )
   })
 })
