@@ -1,0 +1,4 @@
+interface:
+  display_name: "WivWav Design Critique (Impeccable)"
+  short_description: "Read-only product-design critique adapted from Impeccable"
+  default_prompt: "Use $impeccable to run a read-only design critique (audit/critique/layout/typeset/polish/harden) against the surface I name, deferring to docs/BRAND.md and AGENTS.md."
