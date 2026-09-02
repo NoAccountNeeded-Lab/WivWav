@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Trimmed excerpt of the real https://www.amsvans.com/sitemap.xml (captured
+  2026-09-02 for #998) — a flat <loc>-only sitemap with no <lastmod>. Kept to
+  a handful of entries: two classified-ad detail URLs (the ones this adapter
+  discovers listings from) plus a couple of unrelated entries (AMS's own
+  dealer-inventory stock pages, keyed by stock number rather than VIN) that
+  the adapter must ignore.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://www.amsvans.com/lastUpdateDate</loc></url>
+<url><loc>https://www.amsvans.com/wheelchair-vans/25100010</loc></url>
+<url><loc>https://www.amsvans.com/wheelchair-vans/classifieds/2C4RDGBG8CR297107</loc></url>
+<url><loc>https://www.amsvans.com/wheelchair-vans/classifieds/2C4GP54L75R314298</loc></url>
+</urlset>
