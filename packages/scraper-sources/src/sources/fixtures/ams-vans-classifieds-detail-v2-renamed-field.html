@@ -1,0 +1,12 @@
+<!--
+  Synthetic variant of ams-vans-classifieds-detail-v1.html with `conv_wheelchairs`
+  renamed to `conv_capacity`, simulating an upstream field-name change to the
+  `cl` JSON contract. Used to exercise checkStructure()'s changed-detection path
+  (the adapter hashes the `cl` object's key set as its structure fingerprint).
+-->
+<html>
+<head><title>fixture</title></head>
+<body>
+<script id="__NEXT_DATA__" type="application/json">{"props": {"pageProps": {"page": {"type": "Classified", "name": "2C4RDGBG8CR297107", "pageSlug": "2C4RDGBG8CR297107", "compSlug": "wheelchair-vans/cl/2C4RDGBG8CR297107", "data": {"cl": {"_id": "6a91c80e24355a0d6f63d728", "owner": 239, "images": ["//d2fvmu12dwd1j3.cloudfront.net/imgs/cl-uploads/MjAxO-1559695427.jpg"], "vin": "2C4RDGBG8CR297107", "zip": "92345", "price": 24999, "year": 2012, "make": "Dodge", "model": "Grand Caravan", "trim": "LE", "type": "Mini Van", "mileage": 89912, "condition": "Excellent", "transmission": "Automatic", "engine": "V6", "color": "Charcoal gray", "int_color": "Black/beige", "details": "Rear entry Wheelchair Van", "features": "", "ada": 1, "conv_make": "FMI", "conv_model": "Kneelvan", "conv_location": "Rear", "conv_type": "Manual Ramp", "conv_capacity": 1, "conv_year": 0, "driver_remove": 0, "pass_remove": 2, "kneels": 2, "kneels_func": 0, "lowered": 1, "lowered_desc": "Unknown", "submitted": 0, "approved": 1, "deleted": 0, "changes": "[]", "last_updated": 1644601817, "sqlId": 216, "owner_email": "redacted@example.invalid", "__v": 0}}}}}, "page": "/wheelchair-vans/cl/[vin]", "query": {"vin": "2C4RDGBG8CR297107"}, "buildId": "0o_DDyK5-W_L70kfRfAwP"}</script>
+</body>
+</html>

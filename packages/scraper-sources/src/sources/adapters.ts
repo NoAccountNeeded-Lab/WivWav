@@ -1,4 +1,5 @@
 import type { SourceAdapterModule } from './factory.js'
+import * as amsVansClassifieds from './ams-vans-classifieds.js'
 import * as blvd from './blvd.js'
 import * as freedomMotors from './freedom-motors.js'
 import * as mobilityworks from './mobilityworks.js'
@@ -11,6 +12,7 @@ import * as superiorVan from './superior-van.js'
  * package boundary, and the static map is bundler-friendly (#950).
  */
 export const SOURCE_ADAPTER_MODULES: Readonly<Record<string, SourceAdapterModule>> = {
+  'ams-vans-classifieds': amsVansClassifieds,
   blvd,
   'freedom-motors': freedomMotors,
   mobilityworks,

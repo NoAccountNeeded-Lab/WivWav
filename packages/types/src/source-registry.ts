@@ -50,6 +50,18 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     // superior-van-detail-mappings.ts (#822 applied to a second site by #823).
     pipeline: 'detail-pages',
   },
+  {
+    key: 'ams-vans-classifieds',
+    name: 'AMS Vans Mobility Classifieds',
+    baseUrl: 'https://www.amsvans.com',
+    cronExpression: '0 */12 * * *',
+    timezone: 'America/New_York',
+    // 'scrape-only' (not 'detail-pages'): each classified ad's full record is
+    // already embedded server-side on its own detail page, so scrape() reads
+    // it directly (via https://www.amsvans.com/sitemap.xml for discovery)
+    // instead of needing a separate list/detail-crawl split (#998).
+    pipeline: 'scrape-only',
+  },
 ] as const
 
 export function findScraperSourceByName(name: string): ScraperSourceRegistryEntry | undefined {
