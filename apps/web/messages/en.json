@@ -40,6 +40,7 @@
     "noVehicles": "No vehicles match your current filters.",
     "noVehiclesForBrand": "No vehicles match the selected conversion brand. Try another brand or clear the brand filter.",
     "noListingsYet": "No vehicles are listed yet. Check back soon.",
+    "backToHome": "Back to home",
     "clearAllFilters": "Clear all filters",
     "searchUnavailableHeading": "Search is temporarily unavailable",
     "searchUnavailableMessage": "We're unable to load vehicle listings right now. Please try again in a few minutes.",
