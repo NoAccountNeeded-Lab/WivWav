@@ -296,6 +296,7 @@ interface PageLabels {
   vehiclesFound: (count: number) => string
   noVehicles: string
   noVehiclesForBrand: string
+  noListingsYet: string
   clearAllFilters: string
   searchUnavailableHeading: string
   searchUnavailableMessage: string
@@ -316,6 +317,7 @@ async function getPageLabels(): Promise<PageLabels> {
     vehiclesFound: (count) => t('vehiclesFound', { count }),
     noVehicles: t('noVehicles'),
     noVehiclesForBrand: t('noVehiclesForBrand'),
+    noListingsYet: t('noListingsYet'),
     clearAllFilters: t('clearAllFilters'),
     searchUnavailableHeading: t('searchUnavailableHeading'),
     searchUnavailableMessage: t('searchUnavailableMessage'),
@@ -416,12 +418,15 @@ export async function ListingsResults({
             </header>
           )}
 
-          <section className={styles.searchSection}>
-            {/* Client components use useSearchParams — must be in Suspense */}
-            <Suspense>
-              <CategoryBarChart renderers={{ color: 'swatches', seller: 'donut', condition: 'donut' }} />
-            </Suspense>
-          </section>
+          {/* Facets are meaningless against an empty catalog; a filtered-to-zero result keeps them for broadening. */}
+          {!(pagination.total === 0 && activeFilterCount === 0) && (
+            <section className={styles.searchSection}>
+              {/* Client components use useSearchParams — must be in Suspense */}
+              <Suspense>
+                <CategoryBarChart renderers={{ color: 'swatches', seller: 'donut', condition: 'donut' }} />
+              </Suspense>
+            </section>
+          )}
 
           <section aria-label={labels.searchResultsLabel} className={styles.resultsSection}>
             <div className={styles.resultsHeader}>
@@ -467,9 +472,15 @@ export async function ListingsResults({
             ) : (
               <div className={styles.emptyState} role="status">
                 <p>
-                  {hasConversionBrandFilter ? labels.noVehiclesForBrand : labels.noVehicles}
+                  {activeFilterCount === 0
+                    ? labels.noListingsYet
+                    : hasConversionBrandFilter
+                      ? labels.noVehiclesForBrand
+                      : labels.noVehicles}
                 </p>
-                <a href={resultsPath}>{labels.clearAllFilters}</a>
+                {activeFilterCount > 0 && (
+                  <a href={resultsPath}>{labels.clearAllFilters}</a>
+                )}
               </div>
             )}
           </section>

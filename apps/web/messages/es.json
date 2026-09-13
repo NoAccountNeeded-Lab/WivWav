@@ -38,6 +38,7 @@
     "vehiclesFound": "{count, plural, =1 {# vehículo encontrado} other {# vehículos encontrados}}",
     "noVehicles": "Ningún vehículo coincide con sus filtros actuales.",
     "noVehiclesForBrand": "Ningún vehículo coincide con la marca de conversión seleccionada. Pruebe otra marca o borre el filtro de marca.",
+    "noListingsYet": "Todavía no hay vehículos listados. Vuelva a consultar pronto.",
     "clearAllFilters": "Borrar todos los filtros",
     "searchUnavailableHeading": "La búsqueda no está disponible temporalmente",
     "searchUnavailableMessage": "No podemos cargar los vehículos en este momento. Vuelva a intentarlo en unos minutos.",
