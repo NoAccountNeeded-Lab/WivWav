@@ -16,7 +16,8 @@
     "sectionTitle": "Descubrir",
     "heading": "Encuentre el vehículo accesible adecuado",
     "seeMatches": "Ver coincidencias →",
-    "browseAll": "Ver todos los vehículos"
+    "browseAll": "Ver todos los vehículos",
+    "noListingsYet": "Todavía no hay vehículos listados. Vuelva a consultar pronto."
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
