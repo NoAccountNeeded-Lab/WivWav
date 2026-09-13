@@ -62,6 +62,14 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     // instead of needing a separate list/detail-crawl split (#998).
     pipeline: 'scrape-only',
   },
+  {
+    key: 'mobility-van-sales',
+    name: 'MobilityVanSales',
+    baseUrl: 'https://www.mobilityvansales.com',
+    cronExpression: '0 */12 * * *',
+    timezone: 'America/New_York',
+    pipeline: 'scrape-only',
+  },
 ] as const
 
 export function findScraperSourceByName(name: string): ScraperSourceRegistryEntry | undefined {
