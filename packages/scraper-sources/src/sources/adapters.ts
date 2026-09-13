@@ -2,6 +2,7 @@ import type { SourceAdapterModule } from './factory.js'
 import * as amsVansClassifieds from './ams-vans-classifieds.js'
 import * as blvd from './blvd.js'
 import * as freedomMotors from './freedom-motors.js'
+import * as mobilityVanSales from './mobility-van-sales.js'
 import * as mobilityworks from './mobilityworks.js'
 import * as superiorVan from './superior-van.js'
 
@@ -15,6 +16,7 @@ export const SOURCE_ADAPTER_MODULES: Readonly<Record<string, SourceAdapterModule
   'ams-vans-classifieds': amsVansClassifieds,
   blvd,
   'freedom-motors': freedomMotors,
+  'mobility-van-sales': mobilityVanSales,
   mobilityworks,
   'superior-van': superiorVan,
 }
