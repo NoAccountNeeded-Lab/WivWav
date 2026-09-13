@@ -516,12 +516,20 @@ async function fetchWithTlsBypass(
   timeoutMs: number,
   maxRedirects = 5,
 ): Promise<FetchResult> {
+  const startHostname = new URL(startUrl).hostname
   let currentUrl = startUrl
 
   for (let redirect = 0; redirect <= maxRedirects; redirect++) {
     const result = await fetchOnce(currentUrl, headers, timeoutMs)
     if (result.status >= 300 && result.status < 400 && result.location) {
-      currentUrl = new URL(result.location, currentUrl).toString()
+      const redirectUrl = new URL(result.location, currentUrl)
+      // Because TLS validation is bypassed for TLS_BYPASS_HOSTNAME, an on-path
+      // attacker who MITMs that host could otherwise inject a redirect to an
+      // arbitrary (e.g. internal) host. Refuse to follow off-host redirects.
+      if (redirectUrl.hostname !== startHostname || redirectUrl.protocol !== 'https:') {
+        throw new Error(`[mobility-van-sales] Refusing cross-host redirect from ${currentUrl} to ${redirectUrl}`)
+      }
+      currentUrl = redirectUrl.toString()
       continue
     }
     return { url: currentUrl, status: result.status, text: result.text }
