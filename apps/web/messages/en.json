@@ -16,7 +16,8 @@
     "sectionTitle": "Discover",
     "heading": "Find the right accessible vehicle",
     "seeMatches": "See Matches →",
-    "browseAll": "Browse all vehicles"
+    "browseAll": "Browse all vehicles",
+    "noListingsYet": "No vehicles are listed yet. Check back soon."
   },
   "IntakeForm": {
     "aiMessage": "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
