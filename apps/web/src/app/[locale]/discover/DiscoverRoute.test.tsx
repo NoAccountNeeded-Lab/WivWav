@@ -70,6 +70,7 @@ describe('DiscoverRoute empty catalog', () => {
     render(element)
 
     expect(screen.getByText('No vehicles are listed yet. Check back soon.')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1, name: 'Discover' })).toBeTruthy()
     expect(screen.queryByTestId('category-bar-chart')).toBeNull()
     expect(screen.queryByTestId('price-histogram')).toBeNull()
   })

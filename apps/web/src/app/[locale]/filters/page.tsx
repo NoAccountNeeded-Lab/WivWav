@@ -297,6 +297,7 @@ interface PageLabels {
   noVehicles: string
   noVehiclesForBrand: string
   noListingsYet: string
+  backToHome: string
   clearAllFilters: string
   searchUnavailableHeading: string
   searchUnavailableMessage: string
@@ -318,6 +319,7 @@ async function getPageLabels(): Promise<PageLabels> {
     noVehicles: t('noVehicles'),
     noVehiclesForBrand: t('noVehiclesForBrand'),
     noListingsYet: t('noListingsYet'),
+    backToHome: t('backToHome'),
     clearAllFilters: t('clearAllFilters'),
     searchUnavailableHeading: t('searchUnavailableHeading'),
     searchUnavailableMessage: t('searchUnavailableMessage'),
@@ -478,8 +480,10 @@ export async function ListingsResults({
                       ? labels.noVehiclesForBrand
                       : labels.noVehicles}
                 </p>
-                {activeFilterCount > 0 && (
+                {activeFilterCount > 0 ? (
                   <a href={resultsPath}>{labels.clearAllFilters}</a>
+                ) : (
+                  <a href={`/${locale}`}>{labels.backToHome}</a>
                 )}
               </div>
             )}

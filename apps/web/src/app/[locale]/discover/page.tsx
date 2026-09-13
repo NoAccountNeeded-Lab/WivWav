@@ -49,7 +49,7 @@ export default async function DiscoverRoute({ params }: DiscoverRouteProps) {
           </Suspense>
         ) : (
           <div className={styles.page}>
-            <h1 className={styles.pageHeading}>{t('heading')}</h1>
+            <h1 className={styles.pageHeading}>{t('sectionTitle')}</h1>
             <div className={styles.emptyState} role="status">
               <p>{t('noListingsYet')}</p>
             </div>

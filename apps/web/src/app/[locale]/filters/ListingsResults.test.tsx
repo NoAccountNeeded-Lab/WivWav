@@ -17,6 +17,7 @@ vi.mock('next-intl/server', () => ({
       noVehicles: 'No vehicles match your current filters.',
       noVehiclesForBrand: 'No vehicles match the selected conversion brand.',
       noListingsYet: 'No vehicles are listed yet. Check back soon.',
+      backToHome: 'Back to home',
       clearAllFilters: 'Clear all filters',
       searchUnavailableHeading: 'Search unavailable',
       searchUnavailableMessage: 'Try again shortly.',
@@ -83,6 +84,7 @@ describe('ListingsResults empty states', () => {
     expect(screen.queryByTestId('category-bar-chart')).toBeNull()
     expect(screen.getByText('No vehicles are listed yet. Check back soon.')).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Clear all filters' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Back to home' }).getAttribute('href')).toBe('/en')
   })
 
   it('keeps facets and the clear-filters link for a filtered-to-zero result', async () => {
