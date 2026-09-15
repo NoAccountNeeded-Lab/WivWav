@@ -37,7 +37,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
-    "cheerio": "1.1.2",
+    "cheerio": "1.0.0-rc.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

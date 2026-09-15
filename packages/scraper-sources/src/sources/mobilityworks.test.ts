@@ -9,11 +9,14 @@ import {
   MobilityWorksAdapter,
 } from './mobilityworks.js'
 import type { RawCard } from './mobilityworks.js'
-import { load } from 'cheerio'
+import { createRequire } from 'node:module'
 import type { CrawledHtmlPage, CrawleeHtmlFetcher, CrawledHtmlPageHandler } from '../crawlee/html-fetcher.js'
 
+const require = createRequire(import.meta.url)
+const cheerio = require('cheerio') as { load(html: string): CrawledHtmlPage['$'] }
+
 function pageFromHtml(url: string, html: string): CrawledHtmlPage {
-  return { url, body: html, $: load(html) }
+  return { url, body: html, $: cheerio.load(html) }
 }
 
 // ─── parseMileage ────────────────────────────────────────────────────────────
