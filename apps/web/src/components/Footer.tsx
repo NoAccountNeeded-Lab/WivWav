@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Shield, ScrollText } from 'lucide-react'
+import { Bot, Shield, ScrollText } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import styles from './Footer.module.css'
 
@@ -29,6 +29,11 @@ export async function Footer({ locale }: FooterProps = {}) {
             <li>
               <Link href="/terms" className={styles.navLink} aria-label="Terms of Service">
                 <ScrollText size={15} strokeWidth={1.5} aria-hidden="true" />
+              </Link>
+            </li>
+            <li>
+              <Link href="/bot" className={styles.navLink} aria-label="Crawler Information">
+                <Bot size={15} strokeWidth={1.5} aria-hidden="true" />
               </Link>
             </li>
           </ul>
