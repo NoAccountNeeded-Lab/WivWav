@@ -15,7 +15,9 @@ export interface CrawledHtmlPage {
   $: CheerioCrawlingContext['$']
 }
 
-export type CrawledHtmlPageHandler = (page: CrawledHtmlPage) => void | Promise<void>
+export type CrawledHtmlPageHandler = (
+  page: CrawledHtmlPage,
+) => string[] | void | Promise<string[] | void>
 
 export interface CrawleeHtmlFetcher {
   crawl(urls: string[], handler: CrawledHtmlPageHandler): Promise<void>
@@ -64,6 +66,8 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
     if (urls.length === 0) return
 
     const delay = await this.readLargestCrawlDelay(urls)
+    const failedRequests: string[] = []
+    const skippedRobotsRequests: string[] = []
     const crawler = new this.createCrawler(
       {
         maxConcurrency: this.maxConcurrency,
@@ -80,12 +84,26 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
             }
           },
         ],
-        async requestHandler({ request, body, $ }) {
-          await handler({
+        async requestHandler({ request, body, $, enqueueLinks }) {
+          const nextUrls = await handler({
             url: request.loadedUrl ?? request.url,
             body: typeof body === 'string' ? body : body.toString(),
             $,
           })
+          if (nextUrls && nextUrls.length > 0) {
+            await enqueueLinks({
+              urls: nextUrls,
+            })
+          }
+        },
+        failedRequestHandler({ request }, error) {
+          failedRequests.push(request.url)
+          crawleeLog.error(`Crawlee request failed for ${request.url}`, { error })
+        },
+        onSkippedRequest({ url, reason }) {
+          if (reason !== 'robotsTxt') return
+          skippedRobotsRequests.push(url)
+          crawleeLog.warning(`Crawlee request skipped by robots.txt for ${url}`)
         },
       },
       new Configuration({ persistStorage: false }),
@@ -97,6 +115,14 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
         headers: { 'user-agent': WIVWAV_CRAWLER_USER_AGENT },
       })),
     )
+    if (skippedRobotsRequests.length > 0) {
+      throw new Error(
+        `Crawlee skipped ${skippedRobotsRequests.length} robots-disallowed request(s): ${skippedRobotsRequests.join(', ')}`,
+      )
+    }
+    if (failedRequests.length > 0) {
+      throw new Error(`Crawlee failed ${failedRequests.length} request(s): ${failedRequests.join(', ')}`)
+    }
   }
 
   private async readLargestCrawlDelay(urls: string[]): Promise<number> {

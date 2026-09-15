@@ -63,4 +63,63 @@ describe('DefaultCrawleeHtmlFetcher', () => {
       },
     ])
   })
+
+  it('throws when Crawlee exhausts retries for any request', async () => {
+    class FailingCrawler {
+      private readonly options: CheerioCrawlerOptions
+
+      constructor(options?: CheerioCrawlerOptions) {
+        this.options = options ?? {}
+      }
+
+      async run(): Promise<void> {
+        const failedRequestHandler = this.options.failedRequestHandler
+        if (!failedRequestHandler) return
+        const context = {
+          request: { url: 'https://www.mobilityworks.com/wheelchair-vans-for-sale/' },
+        } as Parameters<NonNullable<CheerioCrawlerOptions['failedRequestHandler']>>[0]
+        await failedRequestHandler(context, new Error('network failed'))
+      }
+    }
+
+    const fetchRobots = vi.fn(async () => htmlResponse('User-agent: WivWav\nAllow: /\n'))
+    const fetcher = new DefaultCrawleeHtmlFetcher({
+      createCrawler: FailingCrawler,
+      fetchRobots,
+    })
+
+    await expect(
+      fetcher.crawl(['https://www.mobilityworks.com/wheelchair-vans-for-sale/'], () => {}),
+    ).rejects.toThrow('Crawlee failed 1 request(s)')
+  })
+
+  it('throws when Crawlee skips a request because robots.txt disallows it', async () => {
+    class RobotsSkippedCrawler {
+      private readonly options: CheerioCrawlerOptions
+
+      constructor(options?: CheerioCrawlerOptions) {
+        this.options = options ?? {}
+      }
+
+      async run(): Promise<void> {
+        const onSkippedRequest = this.options.onSkippedRequest
+        if (!onSkippedRequest) return
+        const context = {
+          url: 'https://www.mobilityworks.com/wheelchair-vans-for-sale/',
+          reason: 'robotsTxt',
+        } satisfies Parameters<NonNullable<CheerioCrawlerOptions['onSkippedRequest']>>[0]
+        await onSkippedRequest(context)
+      }
+    }
+
+    const fetchRobots = vi.fn(async () => htmlResponse('User-agent: WivWav\nAllow: /\n'))
+    const fetcher = new DefaultCrawleeHtmlFetcher({
+      createCrawler: RobotsSkippedCrawler,
+      fetchRobots,
+    })
+
+    await expect(
+      fetcher.crawl(['https://www.mobilityworks.com/wheelchair-vans-for-sale/'], () => {}),
+    ).rejects.toThrow('Crawlee skipped 1 robots-disallowed request(s)')
+  })
 })

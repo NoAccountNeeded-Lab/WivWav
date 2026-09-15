@@ -311,8 +311,10 @@ class FakeHtmlFetcher implements CrawleeHtmlFetcher {
   }
 
   async crawl(urls: string[], handler: CrawledHtmlPageHandler): Promise<void> {
-    for (const url of urls) {
-      await handler(await this.fetchOne(url))
+    const queue = [...urls]
+    for (let index = 0; index < queue.length; index++) {
+      const nextUrls = await handler(await this.fetchOne(queue[index]!))
+      if (nextUrls) queue.push(...nextUrls)
     }
   }
 

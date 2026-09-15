@@ -308,28 +308,23 @@ export class MobilityWorksAdapter implements SourceAdapter {
   async scrape(context?: JobContext): Promise<ScrapeResult> {
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
 
-    let pageNum = 1
+    const firstUrl = `${BASE_URL}${LISTINGS_PATH}`
     await report(context, '[mobilityworks] Starting listing pagination', {
       stage: 'scraping',
       source: SOURCE_ID,
-      page: pageNum,
+      page: 1,
       listings: 0,
     })
 
-    while (pageNum <= this.maxPages) {
-      const url =
-        pageNum === 1
-          ? `${BASE_URL}${LISTINGS_PATH}`
-          : `${BASE_URL}${LISTINGS_PATH}page/${pageNum}/`
-
-      await report(context, `[mobilityworks] Loading listing page ${pageNum}: ${url}`, {
+    await this.htmlFetcher.crawl([firstUrl], async (page) => {
+      const pageNum = mobilityWorksPageNumber(page.url)
+      await report(context, `[mobilityworks] Loading listing page ${pageNum}: ${page.url}`, {
         stage: 'scraping',
         source: SOURCE_ID,
         page: pageNum,
         listings: listings.length,
       })
 
-      const page = await this.htmlFetcher.fetchOne(url)
       const cards = extractMobilityWorksCards(page.$)
 
       await report(context, `[mobilityworks] Page ${pageNum} returned ${cards.length} card(s)`, {
@@ -352,7 +347,7 @@ export class MobilityWorksAdapter implements SourceAdapter {
             reason: 'no_cards',
           },
         )
-        break
+        return []
       }
 
       let parsedOnPage = 0
@@ -384,10 +379,11 @@ export class MobilityWorksAdapter implements SourceAdapter {
           page: pageNum,
           listings: listings.length,
         })
-        break
+        return []
       }
-      pageNum++
-    }
+      if (pageNum + 1 > this.maxPages) return []
+      return [`${BASE_URL}${LISTINGS_PATH}page/${pageNum + 1}/`]
+    })
 
     const fingerprintHash = createHash('sha256')
       .update(listings.map((l) => l.vin ?? l.sourceUrl).join('|'))
@@ -395,6 +391,11 @@ export class MobilityWorksAdapter implements SourceAdapter {
 
     return { listings, fingerprintHash }
   }
+}
+
+function mobilityWorksPageNumber(url: string): number {
+  const match = url.match(/\/page\/(\d+)\//)
+  return match ? Number.parseInt(match[1]!, 10) : 1
 }
 
 export function parseCard(raw: RawCard): Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> | null {
