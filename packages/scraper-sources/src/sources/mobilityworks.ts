@@ -8,13 +8,12 @@ import type {
 import type { ConversionType, Listing, ListingCondition, RampType } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
+import { DefaultCrawleeHtmlFetcher } from '../crawlee/html-fetcher.js'
+import type { CrawleeHtmlFetcher, CrawledHtmlPage } from '../crawlee/html-fetcher.js'
 import { report } from '../jobs/job-progress.js'
-import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
 import { parseVehicleTitle } from '../lib/parse-vehicle-title.js'
 
 const SOURCE_ID = 'mobilityworks'
-const INITIAL_NAV_MAX_ATTEMPTS = 3
-const INITIAL_NAV_BACKOFF_MS = 1_000
 const BASE_URL = 'https://www.mobilityworks.com'
 const LISTINGS_PATH = '/wheelchair-vans-for-sale/'
 const PAGE1_SORT_URL = `${BASE_URL}${LISTINGS_PATH}?sortby=yearnew`
@@ -22,8 +21,13 @@ const PAGE1_SORT_URL = `${BASE_URL}${LISTINGS_PATH}?sortby=yearnew`
 interface MobilityWorksConfig {
   maxPages?: number
   previousPage1Hash?: string | null
+  htmlFetcher?: CrawleeHtmlFetcher
+  /**
+   * @deprecated Use htmlFetcher. Retained only for older unit tests during the
+   * Crawlee migration; production no longer uses Playwright for MobilityWorks.
+   */
   browserService?: BrowserService
-  /** Override retry backoff for testing — defaults to INITIAL_NAV_BACKOFF_MS. */
+  /** @deprecated Playwright retry backoff is unused after the Crawlee migration. */
   navRetryBackoffMs?: number
 }
 
@@ -133,6 +137,130 @@ export async function evaluateMobilityWorksCards(page: BrowserPage): Promise<Raw
   )
 }
 
+export function extractMobilityWorksCards($: CrawledHtmlPage['$']): RawCard[] {
+  const results: RawCard[] = []
+  const seen = new Set<string>()
+
+  $('a[href*="/wheelchair-vans-for-sale/"]').each((_index, anchor) => {
+    const href = $(anchor).attr('href') ?? ''
+    if (!/-[A-Za-z0-9]{17}(?:\/)?$/.test(href) || seen.has(href)) return
+    seen.add(href)
+
+    let container = $(anchor)
+    for (let i = 0; i < 6; i++) {
+      const parent = container.parent()
+      if (parent.length === 0) break
+      const text = parent.text()
+      container = parent
+      if (text.includes('Mileage') || text.includes('Stock:')) break
+    }
+
+    const clone = container.clone()
+    clone.find('sup').remove()
+    const txt = clone.text()
+    const sup = /[¹²³⁴-⁹]/g
+    const heading = container.find('h2, h3, h4').first()
+    const title = (heading.text() || $(anchor).text()).trim()
+    const imgEl = container.find('img').first()
+    const imgSrc = imgEl.attr('src') ?? imgEl.attr('data-src') ?? ''
+    const imageUrl = imgSrc.startsWith('http') ? imgSrc : imgSrc ? `${BASE_URL}${imgSrc}` : ''
+    const rawLocation = (txt.match(/Location\s*:?\s*([^\n]+)/i)?.[1] ?? '')
+      .replace(sup, '')
+      .replace(/\s*\([^)]+\).*$/, '')
+      .replace(/\s+(?:Stock|Mileage|Color|Conv Make|Conversion|Request|Schedule)\b.*/i, '')
+      .trim()
+    const nextField =
+      /\s*(?:Mileage|Color|Conv\s*Make|Conv\b|Conversion|Location|Stock[:\s]|Request|Schedule).*/i
+
+    results.push({
+      href,
+      title,
+      price: (txt.match(/price\s*:?\s*([^\n]+)/i)?.[1] ?? '').replace(sup, '').trim(),
+      stock: (txt.match(/Stock\s*:?\s*([^\n]+)/i)?.[1] ?? '')
+        .replace(sup, '')
+        .replace(/\s.*$/, '')
+        .trim(),
+      mileage: (txt.match(/Mileage\s*:?\s*([^\n]+)/i)?.[1] ?? '')
+        .replace(sup, '')
+        .replace(/\s.*$/, '')
+        .trim(),
+      color: (txt.match(/Color\s*:?\s*([^\n]+)/i)?.[1] ?? '')
+        .replace(sup, '')
+        .replace(nextField, '')
+        .trim(),
+      convMake: (txt.match(/Conv Make\s*:?\s*([^\n]+)/i)?.[1] ?? '')
+        .replace(sup, '')
+        .replace(nextField, '')
+        .trim(),
+      conversion: (txt.match(/Conversion\s*:?\s*([^\n]+)/i)?.[1] ?? '')
+        .replace(sup, '')
+        .replace(nextField, '')
+        .trim(),
+      location: rawLocation,
+      imageUrl,
+    })
+  })
+
+  return results
+}
+
+function extractPage1Entries($: CrawledHtmlPage['$']): string[] {
+  const entries: string[] = []
+  const seen = new Set<string>()
+  const cards = extractMobilityWorksCards($)
+  for (const card of cards) {
+    const slug = card.href.replace(/\/+$/, '').split('/').pop() ?? ''
+    const slugParts = slug.split('-')
+    const vin = (slugParts[slugParts.length - 1] ?? '').toUpperCase()
+    if (!/^[A-Z0-9]{17}$/.test(vin) || seen.has(vin)) continue
+    seen.add(vin)
+    entries.push(`${vin}:${card.price}`)
+  }
+  return entries
+}
+
+function extractStructureSignature($: CrawledHtmlPage['$']): { signature: string; cardHtml: string } {
+  const first = $('a[href*="/wheelchair-vans-for-sale/"]')
+    .filter((_index, anchor) => /-[A-Za-z0-9]{17}(?:\/)?$/.test($(anchor).attr('href') ?? ''))
+    .first()
+
+  if (first.length === 0) return { signature: 'no-listings', cardHtml: '' }
+
+  let container = first
+  for (let i = 0; i < 6; i++) {
+    const parent = container.parent()
+    if (parent.length === 0) break
+    container = parent
+    const text = parent.text()
+    if (text.includes('Mileage') || text.includes('Stock:')) break
+  }
+
+  const parts: string[] = []
+  const stack = [{ element: container, depth: 0 }]
+  while (stack.length > 0) {
+    const { element, depth } = stack.pop()!
+    if (depth > 3 || element.length === 0) continue
+    const node = element.get(0)
+    if (!node || node.type !== 'tag') continue
+    parts.push(`${node.tagName}[${$(node).attr('class') ?? ''}]`)
+    const children = element.children().toArray()
+    for (let i = children.length - 1; i >= 0; i--) {
+      stack.push({ element: $(children[i]!), depth: depth + 1 })
+    }
+  }
+
+  return { signature: parts.join(','), cardHtml: $.html(container) }
+}
+
+function hasNextPage($: CrawledHtmlPage['$'], nextPageNum: number): boolean {
+  return $('a')
+    .toArray()
+    .some((anchor) => {
+      const href = $(anchor).attr('href') ?? ''
+      return href.includes(`/page/${nextPageNum}/`) || $(anchor).text().trim() === String(nextPageNum)
+    })
+}
+
 export class MobilityWorksAdapter implements SourceAdapter {
   readonly sourceId = SOURCE_ID
   readonly name = 'MobilityWorks'
@@ -140,315 +268,132 @@ export class MobilityWorksAdapter implements SourceAdapter {
   private readonly previousHash: string | null
   private readonly previousPage1Hash: string | null
   private readonly maxPages: number
-  private readonly browserService: BrowserService | null
-  private readonly navRetryBackoffMs: number
+  private readonly htmlFetcher: CrawleeHtmlFetcher
 
   constructor(previousHash: string | null = null, config: MobilityWorksConfig = {}) {
     this.previousHash = previousHash
     this.previousPage1Hash = config.previousPage1Hash ?? null
     this.maxPages = config.maxPages ?? Infinity
-    this.browserService = config.browserService ?? null
-    this.navRetryBackoffMs = config.navRetryBackoffMs ?? INITIAL_NAV_BACKOFF_MS
-  }
-
-  private async getBrowserService(): Promise<BrowserService> {
-    if (this.browserService) return this.browserService
-    const { PlaywrightBrowserService } = await import('../browser/index.js')
-    return new PlaywrightBrowserService()
+    this.htmlFetcher = config.htmlFetcher ?? new DefaultCrawleeHtmlFetcher()
   }
 
   async checkPage1(): Promise<Page1CheckResult> {
-    const service = await this.getBrowserService()
-    const browser = await service.launch()
-    try {
-      const page = await browser.newPage()
-      await withNavigationRetry(
-        () => page.goto(PAGE1_SORT_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
-        INITIAL_NAV_MAX_ATTEMPTS,
-        this.navRetryBackoffMs,
-      )
-      await page
-        .waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 })
-        .catch(() => {})
-
-      // Hash "vin:price" per listing so a price change triggers a full crawl even
-      // when the set of listings on page 1 is unchanged.
-      const entries = await page.evaluate(function (): string[] {
-        const anchors = Array.from(
-          document.querySelectorAll<HTMLAnchorElement>('a[href*="/wheelchair-vans-for-sale/"]'),
-        ).filter(function (a) {
-          return /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? '')
-        })
-
-        const seen = new Set<string>()
-        const results: string[] = []
-
-        for (let i = 0; i < anchors.length; i++) {
-          const anchor = anchors[i]!
-          const slug =
-            (anchor.getAttribute('href') ?? '').replace(/\/+$/, '').split('/').pop() ?? ''
-          const slugParts = slug.split('-')
-          const vin = (slugParts[slugParts.length - 1] ?? '').toUpperCase()
-          if (!/^[A-Z0-9]{17}$/.test(vin) || seen.has(vin)) continue
-          seen.add(vin)
-
-          let container: Element = anchor
-          for (let j = 0; j < 6; j++) {
-            if (!container.parentElement) break
-            const parent = container.parentElement
-            if (parent.textContent?.includes('Mileage') || parent.textContent?.includes('Stock:')) {
-              container = parent
-              break
-            }
-            container = parent
-          }
-
-          const clone = container.cloneNode(true) as Element
-          clone.querySelectorAll('sup').forEach(function (s: Element) {
-            s.remove()
-          })
-          const txt = clone.textContent ?? ''
-          const price = (txt.match(/price\s*:?\s*([^\n]+)/i)?.[1] ?? '').trim()
-          results.push(`${vin}:${price}`)
-        }
-
-        return results
-      })
-
-      const currentHash = createHash('sha256')
-        .update(entries.sort().join(',') || 'empty')
-        .digest('hex')
-      const changed = this.previousPage1Hash === null || this.previousPage1Hash !== currentHash
-      return { currentHash, changed }
-    } finally {
-      await browser.close()
-    }
+    const page = await this.htmlFetcher.fetchOne(PAGE1_SORT_URL)
+    // Hash "vin:price" per listing so a price change triggers a full crawl even
+    // when the set of listings on page 1 is unchanged.
+    const entries = extractPage1Entries(page.$)
+    const currentHash = createHash('sha256')
+      .update(entries.sort().join(',') || 'empty')
+      .digest('hex')
+    const changed = this.previousPage1Hash === null || this.previousPage1Hash !== currentHash
+    return { currentHash, changed }
   }
 
   async checkStructure(): Promise<StructureCheckResult> {
-    const service = await this.getBrowserService()
-    const browser = await service.launch()
-    try {
-      const page = await browser.newPage()
-      await withNavigationRetry(
-        () =>
-          page.goto(`${BASE_URL}${LISTINGS_PATH}`, {
-            waitUntil: 'domcontentloaded',
-            timeout: 30_000,
-          }),
-        INITIAL_NAV_MAX_ATTEMPTS,
-        this.navRetryBackoffMs,
-      )
-      await page
-        .waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 })
-        .catch(() => {})
-
-      const { signature, cardHtml } = await page.evaluate(function (): {
-        signature: string
-        cardHtml: string
-      } {
-        const anchors = Array.from(
-          document.querySelectorAll<HTMLAnchorElement>('a[href*="/wheelchair-vans-for-sale/"]'),
-        ).filter(function (a) {
-          return /-[A-Za-z0-9]{17}(?:\/)?$/.test(a.getAttribute('href') ?? '')
-        })
-
-        const first = anchors[0]
-        if (!first) return { signature: 'no-listings', cardHtml: '' }
-
-        // Walk up to find card container that contains structured listing data
-        let container: Element = first
-        for (let i = 0; i < 6; i++) {
-          if (!container.parentElement) break
-          const parent = container.parentElement
-          if (parent.textContent?.includes('Mileage') || parent.textContent?.includes('Stock:')) {
-            container = parent
-            break
-          }
-          container = parent
-        }
-
-        // Iterative DFS — tsx's esbuild injects __name() for named function declarations,
-        // which is undefined in the Playwright browser sandbox where only the function body
-        // is serialized, not the module-level helper.
-        const parts: string[] = []
-        const stack: Array<[Element, number]> = [[container, 0]]
-        while (stack.length > 0) {
-          const item = stack.pop()!
-          const el = item[0]
-          const depth = item[1]
-          if (depth > 3) continue
-          parts.push(`${el.tagName}[${el.className}]`)
-          for (let i = el.children.length - 1; i >= 0; i--) {
-            stack.push([el.children[i]!, depth + 1])
-          }
-        }
-
-        return { signature: parts.join(','), cardHtml: container.outerHTML }
-      })
-
-      const currentHash = createHash('sha256').update(signature).digest('hex')
-      const changed = this.previousHash !== null && this.previousHash !== currentHash
-      return {
-        changed,
-        currentHash,
-        previousHash: this.previousHash,
-        // Scoped to the listing card itself (not page.content()) so unrelated page-wide
-        // markup — e.g. the Osano cookie-consent widget — doesn't crowd out the actual
-        // listing structure when the AI remap prompt truncates the sample.
-        ...(changed ? { sampleHtml: cardHtml } : {}),
-      }
-    } finally {
-      await browser.close()
+    const page = await this.htmlFetcher.fetchOne(`${BASE_URL}${LISTINGS_PATH}`)
+    const { signature, cardHtml } = extractStructureSignature(page.$)
+    const currentHash = createHash('sha256').update(signature).digest('hex')
+    const changed = this.previousHash !== null && this.previousHash !== currentHash
+    return {
+      changed,
+      currentHash,
+      previousHash: this.previousHash,
+      // Scoped to the listing card itself (not page.content()) so unrelated page-wide
+      // markup — e.g. the Osano cookie-consent widget — doesn't crowd out the actual
+      // listing structure when the AI remap prompt truncates the sample.
+      ...(changed ? { sampleHtml: cardHtml } : {}),
     }
   }
 
   async scrape(context?: JobContext): Promise<ScrapeResult> {
-    const service = await this.getBrowserService()
-    const browser = await service.launch()
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
 
-    try {
-      // Block image/media/font/stylesheet bytes: this single page is reused
-      // across every listing page, and loading those subresources accumulates
-      // in-flight requests until Chromium fails navigation with
-      // net::ERR_INSUFFICIENT_RESOURCES. Card image URLs are read from the
-      // img src attribute, so the bytes are never needed.
-      const page = await browser.newPage({
-        blockResourceTypes: ['image', 'media', 'font', 'stylesheet'],
-      })
-      let pageNum = 1
-      await report(context, '[mobilityworks] Starting listing pagination', {
+    let pageNum = 1
+    await report(context, '[mobilityworks] Starting listing pagination', {
+      stage: 'scraping',
+      source: SOURCE_ID,
+      page: pageNum,
+      listings: 0,
+    })
+
+    while (pageNum <= this.maxPages) {
+      const url =
+        pageNum === 1
+          ? `${BASE_URL}${LISTINGS_PATH}`
+          : `${BASE_URL}${LISTINGS_PATH}page/${pageNum}/`
+
+      await report(context, `[mobilityworks] Loading listing page ${pageNum}: ${url}`, {
         stage: 'scraping',
         source: SOURCE_ID,
         page: pageNum,
-        listings: 0,
+        listings: listings.length,
       })
 
-      while (pageNum <= this.maxPages) {
-        const url =
-          pageNum === 1
-            ? `${BASE_URL}${LISTINGS_PATH}`
-            : `${BASE_URL}${LISTINGS_PATH}page/${pageNum}/`
+      const page = await this.htmlFetcher.fetchOne(url)
+      const cards = extractMobilityWorksCards(page.$)
 
-        await report(context, `[mobilityworks] Loading listing page ${pageNum}: ${url}`, {
-          stage: 'scraping',
-          source: SOURCE_ID,
-          page: pageNum,
-          listings: listings.length,
-        })
+      await report(context, `[mobilityworks] Page ${pageNum} returned ${cards.length} card(s)`, {
+        stage: 'scraping',
+        source: SOURCE_ID,
+        page: pageNum,
+        cards: cards.length,
+        listings: listings.length,
+      })
 
-        try {
-          if (pageNum === 1) {
-            await withNavigationRetry(
-              () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 }),
-              INITIAL_NAV_MAX_ATTEMPTS,
-              this.navRetryBackoffMs,
-            )
-          } else {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-          }
-        } catch (err) {
-          if (pageNum > 1 && isNavigationTimeout(err)) {
-            await report(
-              context,
-              `[mobilityworks] Stopping pagination after timeout loading page ${pageNum}: ${url}`,
-              {
-                stage: 'scraping',
-                source: SOURCE_ID,
-                page: pageNum,
-                listings: listings.length,
-                reason: 'page_timeout',
-              },
-            )
-            break
-          }
-          throw err
-        }
-        await page
-          .waitForSelector('a[href*="/wheelchair-vans-for-sale/"]', { timeout: 15_000 })
-          .catch(() => {})
-
-        const cards = await evaluateMobilityWorksCards(page)
-
-        await report(context, `[mobilityworks] Page ${pageNum} returned ${cards.length} card(s)`, {
-          stage: 'scraping',
-          source: SOURCE_ID,
-          page: pageNum,
-          cards: cards.length,
-          listings: listings.length,
-        })
-
-        if (cards.length === 0) {
-          await report(
-            context,
-            `[mobilityworks] No cards found on page ${pageNum}; stopping pagination`,
-            {
-              stage: 'scraping',
-              source: SOURCE_ID,
-              page: pageNum,
-              listings: listings.length,
-              reason: 'no_cards',
-            },
-          )
-          break
-        }
-
-        let parsedOnPage = 0
-        for (const card of cards) {
-          const listing = parseCard(card)
-          if (listing) {
-            listings.push(listing)
-            parsedOnPage++
-          }
-        }
-
+      if (cards.length === 0) {
         await report(
           context,
-          `[mobilityworks] Parsed ${parsedOnPage}/${cards.length} card(s) on page ${pageNum}; ${listings.length} listing(s) total`,
+          `[mobilityworks] No cards found on page ${pageNum}; stopping pagination`,
           {
             stage: 'scraping',
             source: SOURCE_ID,
             page: pageNum,
-            cards: cards.length,
-            parsed: parsedOnPage,
             listings: listings.length,
+            reason: 'no_cards',
           },
         )
-
-        const hasNext = await page.evaluate(function (nextPageNum: number): boolean {
-          return Array.from(document.querySelectorAll<HTMLAnchorElement>('a')).some(function (a) {
-            return (
-              a.href.includes(`/page/${nextPageNum}/`) ||
-              a.textContent?.trim() === String(nextPageNum)
-            )
-          })
-        }, pageNum + 1)
-
-        if (!hasNext) {
-          await report(
-            context,
-            `[mobilityworks] No next page after page ${pageNum}; pagination complete`,
-            {
-              stage: 'scraping',
-              source: SOURCE_ID,
-              page: pageNum,
-              listings: listings.length,
-            },
-          )
-          break
-        }
-        pageNum++
+        break
       }
 
-      const fingerprintHash = createHash('sha256')
-        .update(listings.map((l) => l.vin ?? l.sourceUrl).join('|'))
-        .digest('hex')
+      let parsedOnPage = 0
+      for (const card of cards) {
+        const listing = parseCard(card)
+        if (listing) {
+          listings.push(listing)
+          parsedOnPage++
+        }
+      }
 
-      return { listings, fingerprintHash }
-    } finally {
-      await browser.close()
+      await report(
+        context,
+        `[mobilityworks] Parsed ${parsedOnPage}/${cards.length} card(s) on page ${pageNum}; ${listings.length} listing(s) total`,
+        {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          page: pageNum,
+          cards: cards.length,
+          parsed: parsedOnPage,
+          listings: listings.length,
+        },
+      )
+
+      if (!hasNextPage(page.$, pageNum + 1)) {
+        await report(context, `[mobilityworks] No next page after page ${pageNum}; pagination complete`, {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          page: pageNum,
+          listings: listings.length,
+        })
+        break
+      }
+      pageNum++
     }
+
+    const fingerprintHash = createHash('sha256')
+      .update(listings.map((l) => l.vin ?? l.sourceUrl).join('|'))
+      .digest('hex')
+
+    return { listings, fingerprintHash }
   }
 }
 
