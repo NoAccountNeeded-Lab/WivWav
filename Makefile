@@ -1,6 +1,7 @@
 COMPOSE = docker compose
 
 .PHONY: up build down dev test test-integration typecheck lint build-app clean format logs \
+        worker worker-remote worker-logs \
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report restore-drill \
         db-push db-generate db-migrate db-seed db-studio \
@@ -30,6 +31,26 @@ down:
 ## logs   Tail live logs from all running containers. Press Ctrl-C to stop.
 logs:
 	$(COMPOSE) logs -f
+
+## worker Start the local API dependencies plus the Chromium-capable job runner.
+##        The worker connects to the API, waits for jobs, and keeps running
+##        with Docker restart policy enabled. Also starts Ops so an operator
+##        can click Run Now without a second setup command.
+worker:
+	$(COMPOSE) --profile worker up -d ops job-runner
+
+## worker-remote Start only the job runner and point it at a remote coordinator.
+##               Required env:
+##                 WORKER_COORDINATOR_URL=https://api.example.com
+##                 WORKER_TOKEN=<worker bearer token>
+worker-remote:
+	@[ -n "$$WORKER_COORDINATOR_URL" ] || (echo "Set WORKER_COORDINATOR_URL to the coordinator API URL." >&2; exit 1)
+	@[ -n "$$WORKER_TOKEN" ] || (echo "Set WORKER_TOKEN to the worker bearer token." >&2; exit 1)
+	$(COMPOSE) --profile worker up -d --no-deps job-runner
+
+## worker-logs Tail just the job-runner logs. Press Ctrl-C to stop following.
+worker-logs:
+	$(COMPOSE) --profile worker logs -f job-runner
 
 ## prune  Reclaim disk space: dangling images plus unused build cache. Run
 ##        this if 'docker system df' shows the Docker VM disk getting full.
