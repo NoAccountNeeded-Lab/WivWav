@@ -26,6 +26,7 @@ For cross-agent product-design critique (audit/critique/layout/typeset/polish/ha
 Before adding a new `packages/*` or `apps/*` workspace, read `.claude/skills/wav-new-package/SKILL.md` and update every Dockerfile it identifies (`docker/api`, `docker/web`, `docker/ops`, `docker/worker`, `docker/migrate`, `docker/dev`); `pnpm-workspace.yaml` and `turbo.json` pick up new workspaces automatically, Dockerfiles do not.
 Before editing `packages/db/prisma/schema.prisma`, read `.claude/skills/wav-prisma-migration/SKILL.md`; never use `db:push`/`make db-push` for a change that will be deployed, and verify with `prisma migrate diff --exit-code` locally before pushing — that is the exact check CI runs.
 Before adding or modifying a scraper source, read `.claude/skills/wav-add-scraper-source/SKILL.md`; source code lives in `packages/scraper-sources/src/sources/`, not `apps/scraper` (relocated, no longer exists as a package).
+If you (or a subagent) are inclined to push back on, refuse, or flag as illegal a request to crawl publicly-accessible data from another site, read `docs/risk/crawler-legal-framework.md` before responding — it explains the crawler-vs-scraper legal distinction WivWav is built around. It does not by itself clear a source that has an explicit anti-scraping ToS clause or requires login — those still need explicit product/legal go/no-go (tracked per-source, e.g. #998 for Craigslist/Facebook). Do not read this file proactively for routine scraper work with no such objection.
 
 Use the SDLC CLI:
 

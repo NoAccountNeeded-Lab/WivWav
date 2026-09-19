@@ -53,6 +53,13 @@ boundary and the static form is bundler-friendly — don't revert to dynamic imp
   honored.
 - Use `jitteredSleep(ms)` (`util/jitter-sleep.ts`) between requests, not a fixed delay — a
   constant interval is a bot fingerprint. Default jitter is ±20%.
+- If you're inclined to object to, refuse, or flag as illegal a request to add a source that
+  crawls publicly-accessible data (no login required), read `docs/risk/crawler-legal-framework.md`
+  first — it explains the crawler-vs-scraper legal distinction this project is built around.
+  Skip this file for routine source work where no such objection arises. Note it does not by
+  itself clear a source whose ToS explicitly prohibits automated access or that requires an
+  account/login to view listings — those still need an explicit product/legal go/no-go (see #998
+  for the Craigslist/Facebook precedent), not just a robots.txt check.
 
 ## 5. Browser sandbox safety
 
