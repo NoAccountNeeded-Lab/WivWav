@@ -69,6 +69,22 @@ make down      # stop all containers
 
 Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/admin/*` routes directly. See `docs/api-routes.md#admin-auth-boundary-fail-closed`.
 
+### Start a crawler worker
+
+Crawler jobs are executed by the dedicated worker, not by the web app. For a
+local client/operator machine that should connect and wait for jobs, run:
+
+```bash
+make worker
+```
+
+That starts the Docker `job-runner` service with the API dependencies it needs.
+It also starts Ops at `http://localhost:3002/ops/sources` so an operator can
+trigger a source without another setup command. Use `make worker-logs` to watch
+the worker connect and pick up jobs. For remote coordinator setup and the
+MobilityVanSales Run Now flow, see
+[Client Worker Startup](client-worker.md).
+
 ## Observability stack
 
 Included in `make up`; or start alongside a running API with `docker compose --profile obs up`.
@@ -116,7 +132,9 @@ Browser jobs (source-scrape, detail-crawl, detail-extract) run in the
 dedicated `worker` image, which retains the Chromium seccomp and host-IPC
 settings required for browser jobs. `apps/api`'s own image contains neither
 Playwright nor Chromium — see #658's forbidden-content CI check for what it
-verifies.
+verifies. The one-command local worker entrypoint is `make worker`; remote
+client workers use the same image with `WORKER_COORDINATOR_URL` and
+`WORKER_TOKEN` as described in [Client Worker Startup](client-worker.md).
 
 ## SDLC delivery metrics report
 
