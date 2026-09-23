@@ -17,6 +17,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@playwright/test": "^1.61.1",
     "@wivwav/logger": "workspace:*",
     "@wivwav/scraper-sources": "workspace:*",
     "@wivwav/types": "workspace:*",
