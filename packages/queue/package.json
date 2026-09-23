@@ -29,7 +29,7 @@
     "@wivwav/logger": "workspace:*",
     "@bull-board/api": "^8.1.2",
     "@bull-board/ui": "^8.1.2",
-    "bullmq": "^5.79.3"
+    "bullmq": "^6.3.4"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
