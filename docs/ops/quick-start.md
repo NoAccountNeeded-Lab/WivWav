@@ -6,6 +6,10 @@ Optional per-developer tooling: [Code Intelligence (TypeScript
 LSP)](code-intelligence.md) gives Claude Code sessions real type diagnostics
 and symbol navigation over this workspace.
 
+The delivery process itself — issue intake, the interactive and sprint paths,
+the finish gate, and the merge queue — is diagrammed in [SDLC Delivery
+Process](sdlc-workflow.md).
+
 Pick one of the two paths below — both start api, web, and ops, so don't run both.
 
 ### Option A: local dev with hot reload (recommended while developing)
