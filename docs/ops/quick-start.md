@@ -2,6 +2,10 @@
 
 **Prerequisites:** Docker, Node 26, pnpm 11
 
+Optional per-developer tooling: [Code Intelligence (TypeScript
+LSP)](code-intelligence.md) gives Claude Code sessions real type diagnostics
+and symbol navigation over this workspace.
+
 Pick one of the two paths below — both start api, web, and ops, so don't run both.
 
 ### Option A: local dev with hot reload (recommended while developing)

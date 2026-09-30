@@ -61,6 +61,13 @@ storybook-static/
 # Claude Code subagent worktrees
 .claude/worktrees/
 
+# Claude Code per-developer local settings (e.g. locally enabled plugins such
+# as the typescript-lsp code intelligence plugin; see
+# docs/ops/code-intelligence.md). The tracked .claude/settings.json holds the
+# shared configuration. Globbed so a nested workspace copy (e.g. from running
+# `claude plugin install --scope local` inside apps/web) is covered too.
+**/.claude/settings.local.json
+
 # design-sync (converter scripts, generated build, machine state)
 .ds-sync/
 ds-bundle/
