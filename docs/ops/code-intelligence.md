@@ -74,6 +74,26 @@ claude plugin list                      # expect: typescript-lsp, scope local, e
 claude plugin details typescript-lsp    # expect: LSP servers (1)  typescript
 ```
 
+Use `claude plugin details` rather than looking inside the plugin directory.
+The installed directory holds only a `LICENSE` and a `README.md` — there is no
+`.lsp.json` or `plugin.json` in it, at source or in the cache. The server
+command and the extension map are declared in the marketplace catalog entry
+(`.claude-plugin/marketplace.json` in `anthropics/claude-plugins-official`),
+not in the plugin directory:
+
+```json
+"lspServers": {
+  "typescript": {
+    "command": "typescript-language-server",
+    "args": ["--stdio"],
+    "extensionToLanguage": { ".ts": "typescript", ".tsx": "typescriptreact", "...": "..." }
+  }
+}
+```
+
+An apparently empty plugin directory is therefore normal and not a sign of a
+failed install.
+
 ## When diagnostics stop appearing
 
 Work down this list; the first two causes account for most of it.
