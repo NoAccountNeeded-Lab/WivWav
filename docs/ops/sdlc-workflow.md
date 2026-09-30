@@ -55,7 +55,8 @@ flowchart TD
     end
 
     DRAFT --> HUMAN{"Human review<br/>mark PR ready"}
-    HUMAN -->|changes requested| IWORK
+    HUMAN -->|changes requested| HANDOFF
+    HANDOFF --> IWORK
     HUMAN -->|approved| MERGE["gh pr merge N --auto<br/><i>no --rebase · no --delete-branch</i>"]
 
     subgraph queue["Merge queue — rebase method"]
@@ -67,6 +68,7 @@ flowchart TD
     end
 
     STUCK["status:stuck<br/>comment reason · do not repair<br/>orchestration state by hand"]
+    HANDOFF["<b>Becomes interactive work</b><br/>a sprint worker has already exited and<br/>run-sprint removed its worktree, so the<br/>sprint path cannot receive the change back"]
 
     MERGE --> MQ
     PUB --> MAIN(["main"])
@@ -79,6 +81,8 @@ flowchart TD
     classDef strong fill:#14532d,stroke:#22c55e,color:#fff
     class INOREV gap
     class REV strong
+    classDef handoff fill:#78350f,stroke:#f59e0b,color:#fff
+    class HANDOFF handoff
 ```
 
 ## The two paths are not equivalent
