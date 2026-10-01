@@ -177,9 +177,19 @@ pipeline above:
 - The eBay Motors `Source` row is seeded `status: 'disabled'` on first
   creation (`apps/api/src/sources/registry.ts`'s `DEFAULT_DISABLED_KEYS`) —
   it will not crawl on deploy even though its cron schedule is registered
-  like every other source. Before enabling it in a given environment, set
-  `ebay.motors.*` (and `ebay.motors.environment` to match) via that
-  environment's ops UI, then flip the source to `active` from `/ops/sources`.
+  like every other source. Before enabling it in a given environment, an
+  operator must set `ebay.motors.*` to that environment's real values (and
+  `ebay.motors.environment` to match) via that environment's own ops UI,
+  then flip the source to `active` from `/ops/sources`. There is no
+  automated gate that verifies the config values are correct before that
+  flip — only that the source stays off until someone does it.
+- Every unique listing the Browse API search discovers costs a second call
+  (`getItem`) — VIN, mileage, city/state, and the private/dealer seller
+  signal only exist on that per-item detail call, not on the search
+  response. Before raising `MAX_ITEMS_PER_RUN` or the cron frequency in
+  `packages/scraper-sources/src/sources/ebay-motors.ts`, check the app's
+  Browse API daily call quota in the eBay developer portal — the real
+  per-run call volume is roughly double the item count.
 
 ## Migration ordering
 

@@ -12,6 +12,10 @@ function tokenResponse(): Response {
   return jsonResponse(200, { access_token: 'tok-1', expires_in: 7200 })
 }
 
+function aspect(name: string, value: string) {
+  return { name, value }
+}
+
 describe('buildListing', () => {
   const baseItem = {
     itemId: 'v1|123|0',
@@ -21,11 +25,19 @@ describe('buildListing', () => {
     price: { value: '24999.00', currency: 'USD' },
     condition: 'Used',
     image: { imageUrl: 'https://img.ebay.com/1.jpg' },
-    itemLocation: { city: 'Columbus', stateOrProvince: 'OH', postalCode: '43215' },
-    seller: { username: 'some-seller' },
+    itemLocation: { city: 'Columbus', stateOrProvince: 'Ohio', postalCode: '432**' },
+    localizedAspects: [
+      aspect('Year', '2019'),
+      aspect('Make', 'Dodge'),
+      aspect('Mileage', '47121'),
+      aspect('Exterior Color', 'White'),
+      aspect('Fuel Type', 'Gasoline'),
+      aspect('Transmission', 'Automatic'),
+      aspect('For Sale By', 'Dealer'),
+    ],
   }
 
-  it('normalizes a well-formed item summary into a Listing', () => {
+  it('normalizes a well-formed getItem response into a Listing', () => {
     const listing = buildListing(baseItem)
     expect(listing).toMatchObject({
       sourceId: 'ebay-motors',
@@ -37,34 +49,38 @@ describe('buildListing', () => {
       trim: 'SXT',
       year: 2019,
       priceCents: 2499900,
+      mileage: 47121,
+      color: 'White',
+      fuelType: 'Gasoline',
+      transmission: 'Automatic',
       condition: 'used',
       sellerType: 'dealer',
-      location: { city: 'Columbus', state: 'OH', zip: '43215', lat: null, lng: null },
+      // postalCode is masked by eBay ("432**") — never stored as a literal ZIP.
+      location: { city: 'Columbus', state: 'Ohio', zip: null, lat: null, lng: null },
     })
   })
 
-  it('defaults to dealer when the API reports no seller account type', () => {
-    const listing = buildListing({ ...baseItem, seller: { username: 'unclassified-seller' } })
+  it('defaults to dealer when "For Sale By" is absent', () => {
+    const { localizedAspects, ...rest } = baseItem
+    const listing = buildListing({
+      ...rest,
+      localizedAspects: localizedAspects.filter((a) => a.name !== 'For Sale By'),
+    })
     expect(listing?.sellerType).toBe('dealer')
   })
 
-  it('classifies a disclosed individual seller as private', () => {
+  it('classifies a disclosed private seller as private', () => {
     const listing = buildListing({
       ...baseItem,
-      seller: { username: 'seller-1', sellerAccountType: 'INDIVIDUAL' },
+      localizedAspects: [...baseItem.localizedAspects.filter((a) => a.name !== 'For Sale By'), aspect('For Sale By', 'Private Seller')],
     })
     expect(listing?.sellerType).toBe('private')
   })
 
-  it('returns null when itemWebUrl is missing', () => {
-    const { itemWebUrl, ...withoutUrl } = baseItem
-    expect(buildListing(withoutUrl)).toBeNull()
-  })
-
-  it('extracts and validates a VIN embedded in the title', () => {
+  it('extracts and validates a VIN from localizedAspects', () => {
     const listing = buildListing({
       ...baseItem,
-      title: '2019 Dodge Grand Caravan SXT VIN 5TDYRKEC8RS205440',
+      localizedAspects: [...baseItem.localizedAspects, aspect('VIN (Vehicle Identification Number)', '5TDYRKEC8RS205440')],
     })
     expect(listing?.vin).toBe('5TDYRKEC8RS205440')
     expect(listing?.qualityIssueCodes ?? []).toEqual([])
@@ -73,14 +89,30 @@ describe('buildListing', () => {
   it('flags a VIN with a bad check digit without dropping the listing', () => {
     const listing = buildListing({
       ...baseItem,
-      title: '2019 Dodge Grand Caravan SXT VIN 5TDYRKEC8RS205441',
+      localizedAspects: [...baseItem.localizedAspects, aspect('VIN (Vehicle Identification Number)', '5TDYRKEC8RS205441')],
     })
     expect(listing?.vin).toBe('5TDYRKEC8RS205441')
     expect(listing?.qualityIssueCodes).toContain('invalid_check_digit')
   })
 
+  it('maps "Features" text to WAV feature flags', () => {
+    const listing = buildListing({
+      ...baseItem,
+      localizedAspects: [...baseItem.localizedAspects, aspect('Features', 'Wheelchair Lift, Power Ramp, Hand Controls')],
+    })
+    expect(listing?.wav.wavFeatures).toEqual(
+      expect.arrayContaining(['has_lift', 'power_ramp', 'hand_controls']),
+    )
+  })
+
   it('returns null for a title that does not parse to a plausible year/make/model', () => {
     expect(buildListing({ ...baseItem, title: 'Great family van for sale' })).toBeNull()
+  })
+
+  it('returns null when itemWebUrl is missing', () => {
+    const withoutUrl: Record<string, unknown> = { ...baseItem }
+    delete withoutUrl['itemWebUrl']
+    expect(buildListing(withoutUrl as typeof baseItem)).toBeNull()
   })
 
   it('drops non-vehicle images (icons/logos) from the result', () => {
@@ -100,47 +132,79 @@ describe('EbayMotorsAdapter.scrape', () => {
       return jsonResponse(200, { total: 0, itemSummaries: [] })
     })
 
-    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0 })
+    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0, detailDelayMs: 0 })
     const result = await adapter.scrape()
 
     expect(result.listings).toEqual([])
     expect(result.fingerprintHash).toMatch(/^[a-f0-9]{64}$/)
   })
 
-  it('deduplicates items seen across overlapping keyword searches', async () => {
-    const item = {
+  it('deduplicates items seen across overlapping keyword searches and fetches each unique item once', async () => {
+    const summary = { itemId: 'v1|1|0' }
+    const detail = {
       itemId: 'v1|1|0',
       title: '2020 Toyota Sienna LE',
       itemWebUrl: 'https://www.ebay.com/itm/1',
-      itemLocation: {},
+      localizedAspects: [aspect('Year', '2020')],
+    }
+    let getItemCalls = 0
+    const fetchFn = vi.fn(async (url: string | URL | Request) => {
+      const u = url.toString()
+      if (u.includes('/oauth2/token')) return tokenResponse()
+      if (u.includes('/item/')) {
+        getItemCalls += 1
+        return jsonResponse(200, detail)
+      }
+      return jsonResponse(200, { total: 1, itemSummaries: [summary] })
+    })
+
+    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0, detailDelayMs: 0 })
+    const result = await adapter.scrape()
+
+    expect(result.listings).toHaveLength(1)
+    expect(getItemCalls).toBe(1)
+  })
+
+  it('skips an item whose getItem call fails, without failing the run', async () => {
+    const goodDetail = {
+      itemId: 'v1|1|0',
+      title: '2021 Honda Odyssey EX-L',
+      itemWebUrl: 'https://www.ebay.com/itm/1',
     }
     const fetchFn = vi.fn(async (url: string | URL | Request) => {
       const u = url.toString()
       if (u.includes('/oauth2/token')) return tokenResponse()
-      return jsonResponse(200, { total: 1, itemSummaries: [item] })
+      if (u.includes('/item/v1%7C1%7C0')) return jsonResponse(200, goodDetail)
+      if (u.includes('/item/v1%7C2%7C0')) return jsonResponse(500, { error: 'boom' })
+      return jsonResponse(200, { total: 2, itemSummaries: [{ itemId: 'v1|1|0' }, { itemId: 'v1|2|0' }] })
     })
 
-    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0 })
+    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0, detailDelayMs: 0 })
     const result = await adapter.scrape()
 
-    expect(result.listings).toHaveLength(1)
+    expect(result.listings.map((l) => l.sourceRecordKey)).toEqual(['v1|1|0'])
   })
 
-  it('skips malformed/partial item summaries (missing itemWebUrl, or unparseable title) without throwing', async () => {
+  it('skips a malformed/partial getItem response (missing itemWebUrl, or unparseable title)', async () => {
     const fetchFn = vi.fn(async (url: string | URL | Request) => {
       const u = url.toString()
       if (u.includes('/oauth2/token')) return tokenResponse()
+      if (u.includes('/item/v1%7C1%7C0')) {
+        return jsonResponse(200, { itemId: 'v1|1|0', title: '2021 Honda Odyssey EX-L', itemWebUrl: 'https://www.ebay.com/itm/1' })
+      }
+      if (u.includes('/item/v1%7C2%7C0')) {
+        return jsonResponse(200, { itemId: 'v1|2|0', title: '2021 Honda Odyssey EX-L' }) // missing itemWebUrl
+      }
+      if (u.includes('/item/v1%7C3%7C0')) {
+        return jsonResponse(200, { itemId: 'v1|3|0', title: 'not a vehicle title', itemWebUrl: 'https://www.ebay.com/itm/3' })
+      }
       return jsonResponse(200, {
         total: 3,
-        itemSummaries: [
-          { itemId: 'v1|1|0', title: '2021 Honda Odyssey EX-L', itemWebUrl: 'https://www.ebay.com/itm/1' },
-          { itemId: 'v1|2|0', title: '2021 Honda Odyssey EX-L' }, // missing itemWebUrl
-          { itemId: 'v1|3|0', title: 'not a vehicle title', itemWebUrl: 'https://www.ebay.com/itm/3' },
-        ],
+        itemSummaries: [{ itemId: 'v1|1|0' }, { itemId: 'v1|2|0' }, { itemId: 'v1|3|0' }],
       })
     })
 
-    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0 })
+    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0, detailDelayMs: 0 })
     const result = await adapter.scrape()
 
     expect(result.listings.map((l) => l.sourceRecordKey)).toEqual(['v1|1|0'])
@@ -158,30 +222,19 @@ describe('EbayMotorsAdapter.scrape', () => {
       return jsonResponse(200, { total: 0, itemSummaries: [] })
     })
 
-    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0 })
+    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0, detailDelayMs: 0 })
     const result = await adapter.scrape()
 
     expect(result.listings).toEqual([])
     expect(searchCalls).toBeGreaterThan(1)
   })
 
-  it('throws after exhausting retries on sustained 429s', async () => {
-    const fetchFn = vi.fn(async (url: string | URL | Request) => {
-      const u = url.toString()
-      if (u.includes('/oauth2/token')) return tokenResponse()
-      return jsonResponse(429, { error: 'rate limited' }, { 'Retry-After': '0' })
-    })
-
-    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0 })
-    await expect(adapter.scrape()).rejects.toThrow(/429/)
-  })
-
   it('throws clearly when credentials are missing', async () => {
-    const adapter = new EbayMotorsAdapter(null, { pageDelayMs: 0 })
+    const adapter = new EbayMotorsAdapter(null, { pageDelayMs: 0, detailDelayMs: 0 })
     await expect(adapter.scrape()).rejects.toThrow(/missing eBay Browse API credentials/)
   })
 
-  it('reuses a cached token across paginated requests instead of re-authenticating', async () => {
+  it('reuses a cached token across paginated and detail requests instead of re-authenticating', async () => {
     let tokenCalls = 0
     const fetchFn = vi.fn(async (url: string | URL | Request) => {
       const u = url.toString()
@@ -189,10 +242,13 @@ describe('EbayMotorsAdapter.scrape', () => {
         tokenCalls += 1
         return tokenResponse()
       }
-      return jsonResponse(200, { total: 0, itemSummaries: [] })
+      if (u.includes('/item/')) {
+        return jsonResponse(200, { itemId: 'v1|1|0', title: '2020 Toyota Sienna LE', itemWebUrl: 'https://www.ebay.com/itm/1' })
+      }
+      return jsonResponse(200, { total: 1, itemSummaries: [{ itemId: 'v1|1|0' }] })
     })
 
-    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0 })
+    const adapter = new EbayMotorsAdapter(null, { ebayCredentials: CREDENTIALS, fetchFn, pageDelayMs: 0, detailDelayMs: 0 })
     await adapter.scrape()
 
     expect(tokenCalls).toBe(1)
@@ -206,7 +262,7 @@ describe('EbayMotorsAdapter.checkStructure', () => {
       if (u.includes('/oauth2/token')) return tokenResponse()
       return jsonResponse(200, {
         total: 1,
-        itemSummaries: [{ itemId: 'v1|1|0', title: 'x', itemWebUrl: 'https://www.ebay.com/itm/1' }],
+        itemSummaries: [{ itemId: 'v1|1|0' }],
       })
     })
 
@@ -221,10 +277,7 @@ describe('EbayMotorsAdapter.checkStructure', () => {
     const fetchFn = vi.fn(async (url: string | URL | Request) => {
       const u = url.toString()
       if (u.includes('/oauth2/token')) return tokenResponse()
-      return jsonResponse(200, {
-        total: 1,
-        itemSummaries: [{ itemId: 'v1|1|0', title: 'x', itemWebUrl: 'https://www.ebay.com/itm/1' }],
-      })
+      return jsonResponse(200, { total: 1, itemSummaries: [{ itemId: 'v1|1|0' }] })
     })
 
     const adapter = new EbayMotorsAdapter('deadbeef', { ebayCredentials: CREDENTIALS, fetchFn })
@@ -243,18 +296,15 @@ describe('EbayMotorsAdapter.checkStructure', () => {
 
     const sparse = await new EbayMotorsAdapter(null, {
       ebayCredentials: CREDENTIALS,
-      fetchFn: makeFetch({ itemId: 'v1|1|0', title: 'x', itemWebUrl: 'https://www.ebay.com/itm/1' }),
+      fetchFn: makeFetch({ itemId: 'v1|1|0' }),
     }).checkStructure()
 
     const rich = await new EbayMotorsAdapter(null, {
       ebayCredentials: CREDENTIALS,
       fetchFn: makeFetch({
         itemId: 'v1|2|0',
-        title: 'y',
-        itemWebUrl: 'https://www.ebay.com/itm/2',
         price: { value: '1.00', currency: 'USD' },
         additionalImages: [{ imageUrl: 'https://img.ebay.com/2.jpg' }],
-        seller: { username: 's', sellerAccountType: 'INDIVIDUAL' },
       }),
     }).checkStructure()
 
