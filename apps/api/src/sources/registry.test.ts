@@ -64,6 +64,36 @@ describe('registerSources — default mappings seeding (#822)', () => {
   })
 })
 
+describe('registerSources — eBay Motors seeds disabled (#999)', () => {
+  it('creates the eBay Motors row as disabled, and every other source without a status override', async () => {
+    const upsert = vi.fn().mockImplementation(({ where }: { where: { name: string } }) =>
+      Promise.resolve(makeRow(where.name, where.name)),
+    )
+    const db = { source: { upsert } } as never
+
+    await registerSources(db)
+
+    const ebayCall = upsert.mock.calls.find((call) => call[0].where.name === 'eBay Motors')
+    expect(ebayCall![0].create.status).toBe('disabled')
+
+    const otherCalls = upsert.mock.calls.filter((call) => call[0].where.name !== 'eBay Motors')
+    expect(otherCalls.length).toBeGreaterThan(0)
+    for (const call of otherCalls) {
+      expect(call[0].create.status).toBeUndefined()
+    }
+  })
+
+  it('never overwrites an existing eBay Motors row\'s status — update stays empty', async () => {
+    const upsert = vi.fn().mockResolvedValue(makeRow('eBay Motors', 'existing-id'))
+    const db = { source: { upsert } } as never
+
+    await registerSources(db)
+
+    const ebayCall = upsert.mock.calls.find((call) => call[0].where.name === 'eBay Motors')
+    expect(ebayCall![0].update).toEqual({})
+  })
+})
+
 describe('buildDetailScheduleSources — Freedom Motors and Superior Van register under detail-pages (#822, #823)', () => {
   it('includes freedom-motors now that its pipeline is detail-pages', () => {
     const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.map((definition) => ({

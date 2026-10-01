@@ -111,6 +111,18 @@ const DEFAULT_MAPPINGS_BY_KEY: Partial<Record<string, FieldMapping[]>> = {
   ],
 }
 
+/**
+ * Registry keys whose first-created Source row must start `disabled` rather
+ * than the schema's `active` default. Only meaningful for sources needing an
+ * explicit operator go/no-go before they run unattended — eBay Motors (#999)
+ * needs `ebay.motors.*` production config confirmed and the private-seller
+ * classification re-verified (see docs/risk/private-seller-data-policy.md)
+ * before it should crawl on its own cron schedule. Like `update: {}` above,
+ * this only governs row creation — an operator's later status change is
+ * never overwritten.
+ */
+const DEFAULT_DISABLED_KEYS: ReadonlySet<string> = new Set(['ebay-motors'])
+
 export async function registerSources(db: PrismaClient): Promise<RegisteredSource[]> {
   const registered: RegisteredSource[] = []
 
@@ -124,6 +136,7 @@ export async function registerSources(db: PrismaClient): Promise<RegisteredSourc
         baseUrl: definition.baseUrl,
         cronExpression: definition.cronExpression,
         timezone: definition.timezone,
+        ...(DEFAULT_DISABLED_KEYS.has(definition.key) ? { status: 'disabled' } : {}),
         ...(defaultMappings
           ? { mappings: defaultMappings as unknown as Prisma.InputJsonValue }
           : {}),

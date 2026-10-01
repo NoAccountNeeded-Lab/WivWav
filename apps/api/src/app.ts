@@ -498,6 +498,8 @@ export async function buildApp(
           db,
           queueFactory,
           logger: app.log,
+          cache,
+          configEncryptionSecret: config.CONFIG_ENCRYPTION_SECRET,
         })
         await scraperGatewayScope.register(internalHttpEnrichRoutes, {
           db,

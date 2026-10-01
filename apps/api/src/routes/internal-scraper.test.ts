@@ -2,8 +2,11 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { ZodError } from 'zod'
 import { MockQueueFactory } from '@wivwav/queue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { internalScraperRoutes } from './internal-scraper.js'
+import { encryptSecret } from '../services/config-service.js'
+
+const TEST_ENCRYPTION_SECRET = 'a'.repeat(64)
 
 /**
  * Minimal in-memory fake of the Prisma tables these routes touch. Not a
@@ -20,6 +23,7 @@ function createFakeDb() {
   const listingObservations: Record<string, unknown>[] = []
   const scraperRuns: Record<string, unknown>[] = []
   const sources: Record<string, unknown>[] = []
+  const configEntries: Record<string, unknown>[] = []
   let idCounter = 0
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`
 
@@ -155,6 +159,19 @@ function createFakeDb() {
       update: async () => ({}),
       updateMany: async () => ({ count: 1 }),
     },
+    configEntry: {
+      findFirst: async ({ where }: { where: { key: string; type?: string } }) => {
+        const matches = configEntries
+          .filter((e) => e['key'] === where.key && (!where.type || e['type'] === where.type))
+          .sort((a, b) => (b['createdAt'] as Date).getTime() - (a['createdAt'] as Date).getTime())
+        return matches[0] ?? null
+      },
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = { id: nextId('config'), createdAt: new Date(), ...data }
+        configEntries.push(row)
+        return row
+      },
+    },
     $executeRaw: async () => 0,
     $transaction: async (fnOrArray: unknown) => {
       if (typeof fnOrArray === 'function') return fnOrArray(db)
@@ -162,7 +179,7 @@ function createFakeDb() {
     },
   }
 
-  return { db, listings, rawPages, listingObservations, scraperRuns, sources }
+  return { db, listings, rawPages, listingObservations, scraperRuns, sources, configEntries }
 }
 
 function buildTestApp() {
@@ -178,9 +195,19 @@ function buildTestApp() {
     }
     return reply.send(error)
   })
+  const cache = {
+    get: vi.fn(async () => null),
+    set: vi.fn(async () => 'OK'),
+    del: vi.fn(async () => 1),
+  }
   const ready = app
     .register(sensible)
-    .register(internalScraperRoutes, { db: fake.db as never, queueFactory })
+    .register(internalScraperRoutes, {
+      db: fake.db as never,
+      queueFactory,
+      cache: cache as never,
+      configEncryptionSecret: TEST_ENCRYPTION_SECRET,
+    })
   return { app, ready, ...fake }
 }
 
@@ -456,6 +483,69 @@ describe('GET /sources/:id/profile', () => {
     await ready
     const response = await app.inject({ method: 'GET', url: '/sources/missing/profile' })
     expect(response.statusCode).toBe(404)
+    await app.close()
+  })
+})
+
+describe('GET /sources/ebay-motors/credentials (#999)', () => {
+  function seedSecret(configEntries: Record<string, unknown>[], key: string, value: string) {
+    configEntries.push({
+      key,
+      type: 'secret',
+      hint: value.slice(-4),
+      encryptedValue: encryptSecret(value, TEST_ENCRYPTION_SECRET),
+      createdAt: new Date(),
+    })
+  }
+
+  it('404s when the credential keys are not configured', async () => {
+    const { app, ready } = buildTestApp()
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/sources/ebay-motors/credentials' })
+    expect(response.statusCode).toBe(404)
+    await app.close()
+  })
+
+  it('defaults to sandbox when ebay.motors.environment is not set', async () => {
+    const { app, ready, configEntries } = buildTestApp()
+    seedSecret(configEntries, 'ebay.motors.app-id', 'app-123')
+    seedSecret(configEntries, 'ebay.motors.cert-id', 'cert-456')
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/sources/ebay-motors/credentials' })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().data).toEqual({ appId: 'app-123', certId: 'cert-456', environment: 'sandbox' })
+    await app.close()
+  })
+
+  it('returns production only when ebay.motors.environment is explicitly set to production', async () => {
+    const { app, ready, configEntries } = buildTestApp()
+    seedSecret(configEntries, 'ebay.motors.app-id', 'app-123')
+    seedSecret(configEntries, 'ebay.motors.cert-id', 'cert-456')
+    configEntries.push({
+      key: 'ebay.motors.environment',
+      type: 'string',
+      value: 'production',
+      createdAt: new Date(),
+    })
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/sources/ebay-motors/credentials' })
+    expect(response.json().data).toEqual({ appId: 'app-123', certId: 'cert-456', environment: 'production' })
+    await app.close()
+  })
+
+  it('treats any non-"production" environment value as sandbox', async () => {
+    const { app, ready, configEntries } = buildTestApp()
+    seedSecret(configEntries, 'ebay.motors.app-id', 'app-123')
+    seedSecret(configEntries, 'ebay.motors.cert-id', 'cert-456')
+    configEntries.push({
+      key: 'ebay.motors.environment',
+      type: 'string',
+      value: 'sandboxxx',
+      createdAt: new Date(),
+    })
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/sources/ebay-motors/credentials' })
+    expect(response.json().data.environment).toBe('sandbox')
     await app.close()
   })
 })

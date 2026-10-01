@@ -39,6 +39,8 @@ import {
 import type { WivWavLogger } from '@wivwav/logger'
 import { ScraperRunGatewayRepository } from '../repositories/scraper-gateway/scraper-run-gateway-repository.js'
 import { SourceGatewayRepository } from '../repositories/scraper-gateway/source-gateway-repository.js'
+import { ConfigService } from '../services/config-service.js'
+import type { CacheService } from '../services/cache/index.js'
 
 const DETAIL_CRAWL_BATCH_SIZE = 50
 const DETAIL_CRAWL_STALE_DETAIL_DAYS = 30
@@ -48,6 +50,8 @@ export interface InternalScraperRoutesOptions {
   db: PrismaClient
   queueFactory: QueueFactory
   logger?: WivWavLogger
+  cache: CacheService
+  configEncryptionSecret: string | undefined
 }
 
 /**
@@ -66,11 +70,12 @@ export interface InternalScraperRoutesOptions {
  */
 export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOptions> = async (
   app,
-  { db, queueFactory, logger },
+  { db, queueFactory, logger, cache, configEncryptionSecret },
 ) => {
   const scraperRuns = new ScraperRunGatewayRepository(db)
   const sources = new SourceGatewayRepository(db, logger)
   const resolutionQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
+  const config = new ConfigService(db, cache, configEncryptionSecret)
 
   // --- scraper runs ---
 
@@ -106,6 +111,25 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     const profile = await sources.getProfile(req.params.id)
     if (!profile) return reply.notFound(`source ${req.params.id} not found`)
     return reply.send({ data: profile })
+  })
+
+  // #999: the eBay Motors adapter needs its Browse API OAuth credentials,
+  // which live in ConfigService (apps/api, encrypted) — packages/scraper-sources
+  // must not depend on @wivwav/db/Prisma, so the worker fetches them through
+  // this gateway route rather than reading ConfigEntry directly.
+  app.get('/sources/ebay-motors/credentials', async (_req, reply) => {
+    const [appId, certId, environmentRow] = await Promise.all([
+      config.getSecret('ebay.motors.app-id'),
+      config.getSecret('ebay.motors.cert-id'),
+      config.get('ebay.motors.environment'),
+    ])
+    if (!appId || !certId) {
+      return reply.notFound('eBay Motors credentials are not configured')
+    }
+    // Default to 'sandbox' — an explicit 'production' value must be set via
+    // the ops config UI before this source can hit real eBay inventory.
+    const environment = environmentRow?.value === 'production' ? 'production' : 'sandbox'
+    return reply.send({ data: { appId, certId, environment } })
   })
 
   app.post('/sources/needs-remapping', async (req, reply) => {

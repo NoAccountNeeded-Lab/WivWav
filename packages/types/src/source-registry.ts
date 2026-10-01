@@ -86,6 +86,18 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     pipeline: 'scrape-only',
     requiresBrowser: false,
   },
+  {
+    key: 'ebay-motors',
+    name: 'eBay Motors',
+    baseUrl: 'https://www.ebay.com/motors',
+    cronExpression: '0 */6 * * *',
+    timezone: 'America/New_York',
+    // 'scrape-only': the official Browse API (api.ebay.com) is the data
+    // source, not an HTML page — there's no separate list/detail-crawl split
+    // to make (#999).
+    pipeline: 'scrape-only',
+    requiresBrowser: false,
+  },
 ] as const
 
 export function findScraperSourceByName(name: string): ScraperSourceRegistryEntry | undefined {
