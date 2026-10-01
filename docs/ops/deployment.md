@@ -142,6 +142,33 @@ docker compose -f docker-compose.prod.yml \
 Compose resolves each service to its pinned digest; Docker only pulls layers
 it doesn't already have cached.
 
+## Third-party API credentials
+
+Some sources (e.g. eBay Motors, #999) authenticate to a third-party API using
+credentials stored in the `ConfigService` (`apps/api/src/services/config-service.ts`),
+not `.env.production` or a Docker image. These are append-only, AES-256-GCM
+encrypted rows in Postgres (`type: "secret"`), keyed by dot-notation name
+(e.g. `ebay.motors.app-id`), and are entirely separate from the deploy
+pipeline above:
+
+- They are **not** rebuilt, rotated, or touched by a `main` push, the CI
+  pipeline, or `docker compose ... up`. Deploying a new image does not change
+  them.
+- They are set and updated by an operator through the ops config UI
+  (`/ops/config`, password-protected — see `apps/ops/src/middleware.ts`),
+  which calls `PUT /admin/config/:key` on the API directly. The API key
+  secrets table there includes a per-row "Rotate" action for replacing a
+  value without retyping its key/description.
+- Each key holds exactly one value regardless of environment — there is no
+  separate `ebay.motors.sandbox.app-id` vs. `ebay.motors.production.app-id`.
+  Switching an environment (e.g. Sandbox → Production for eBay) means an
+  operator logs into **that environment's** `/ops/config` and overwrites the
+  existing value with the new one.
+- Before enabling a credential-backed source against production traffic,
+  confirm an operator has set its production-environment values via that
+  environment's ops UI — this has no automated gate and is easy to forget
+  since nothing in the deploy pipeline checks for it.
+
 ## Migration ordering
 
 `migrate` always runs — and must complete — before `api`, `web`, or `ops`
