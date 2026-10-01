@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { RetryJobSignal } from '@wivwav/queue'
 import { buildCorrelationId } from '@wivwav/types/worker-protocol'
 import type { WivWavLogger } from '@wivwav/logger'
@@ -12,6 +13,13 @@ interface PendingDispatch {
   connectionId: string
   sourceId: string | undefined
   timer: NodeJS.Timeout
+  /**
+   * Fresh per dispatch attempt (see worker-protocol.ts's `job-dispatch`
+   * docstring) — fences a stale worker's late ack/completion for a
+   * correlationId that has since been re-dispatched to another connection
+   * from incorrectly settling the *new* attempt.
+   */
+  dispatchId: string
 }
 
 /**
@@ -79,6 +87,8 @@ export class WorkerDispatcher {
       throw new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, 'no eligible worker connected')
     }
 
+    const dispatchId = randomUUID()
+
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.settle(
@@ -94,11 +104,13 @@ export class WorkerDispatcher {
         connectionId: worker.connectionId,
         sourceId,
         timer,
+        dispatchId,
       })
       worker.inFlight.add(correlationId)
       this.logger?.info(
         {
           correlationId,
+          dispatchId,
           queue: queueName,
           workerId: worker.workerId,
           workerName: worker.workerName,
@@ -106,7 +118,7 @@ export class WorkerDispatcher {
         '[worker-gateway] dispatching job',
       )
       try {
-        worker.send({ type: 'job-dispatch', correlationId, queueName, payload })
+        worker.send({ type: 'job-dispatch', correlationId, dispatchId, queueName, payload })
       } catch (err) {
         // The registry believed this connection was live, but the socket
         // write itself failed (e.g. it closed in the gap between pickWorker()
@@ -122,15 +134,29 @@ export class WorkerDispatcher {
   /**
    * Settles a dispatch from the worker's completion callback. Returns false
    * for an unknown correlation id (already timed out, or a duplicate
-   * callback) — the route reports that distinctly instead of 500ing.
+   * callback) — the route reports that distinctly instead of 500ing. Also
+   * returns false, without touching the current pending entry, when
+   * `dispatchId` doesn't match: that means this report belongs to a prior
+   * attempt that has since been superseded by a re-dispatch (e.g. after a
+   * connection drop), so settling it now would incorrectly resolve the *new*
+   * attempt with the old worker's stale result.
    */
   complete(
     correlationId: string,
+    dispatchId: string,
     success: boolean,
     errorMessage?: string,
     result?: unknown,
   ): boolean {
-    if (!this.pending.has(correlationId)) return false
+    const entry = this.pending.get(correlationId)
+    if (!entry) return false
+    if (entry.dispatchId !== dispatchId) {
+      this.logger?.warn(
+        { correlationId, dispatchId, currentDispatchId: entry.dispatchId },
+        '[worker-gateway] completion dispatchId mismatch; ignoring stale report',
+      )
+      return false
+    }
     this.settle(
       correlationId,
       success ? undefined : new Error(errorMessage ?? 'worker reported failure'),
@@ -140,8 +166,9 @@ export class WorkerDispatcher {
   }
 
   /** A worker refused a dispatch (`accepted: false` ack): not a job failure — retry without penalty. */
-  refuse(correlationId: string, reason: string): void {
-    if (!this.pending.has(correlationId)) return
+  refuse(correlationId: string, dispatchId: string, reason: string): void {
+    const entry = this.pending.get(correlationId)
+    if (!entry || entry.dispatchId !== dispatchId) return
     this.settle(
       correlationId,
       new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, `worker refused dispatch: ${reason}`),

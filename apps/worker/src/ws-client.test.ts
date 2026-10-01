@@ -84,13 +84,25 @@ describe('WsClient', () => {
     socket.openNow()
     socket.sent.length = 0
 
-    socket.receive({ type: 'job-dispatch', correlationId: 'c1', queueName: 'source-scrape', payload: { sourceId: 's1' } })
-    expect(socket.sent).toContainEqual({ type: 'job-ack', correlationId: 'c1', accepted: true })
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c1',
+      dispatchId: 'd1',
+      queueName: 'source-scrape',
+      payload: { sourceId: 's1' },
+    })
+    expect(socket.sent).toContainEqual({
+      type: 'job-ack',
+      correlationId: 'c1',
+      dispatchId: 'd1',
+      accepted: true,
+    })
 
     resolveHandler()
     await new Promise((r) => setTimeout(r, 0))
     expect(gateway.completeJob).toHaveBeenCalledWith({
       correlationId: 'c1',
+      dispatchId: 'd1',
       success: true,
       result: { listingsChanged: true },
     })
@@ -106,10 +118,17 @@ describe('WsClient', () => {
     const socket = FakeSocket.instances[0]!
     socket.openNow()
 
-    socket.receive({ type: 'job-dispatch', correlationId: 'c2', queueName: 'detail-crawl', payload: { sourceId: 's1' } })
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c2',
+      dispatchId: 'd2',
+      queueName: 'detail-crawl',
+      payload: { sourceId: 's1' },
+    })
     await new Promise((r) => setTimeout(r, 0))
     expect(gateway.completeJob).toHaveBeenCalledWith({
       correlationId: 'c2',
+      dispatchId: 'd2',
       success: false,
       errorMessage: 'boom',
     })
@@ -123,7 +142,13 @@ describe('WsClient', () => {
     socket.openNow()
     socket.sent.length = 0
 
-    socket.receive({ type: 'job-dispatch', correlationId: 'c3', queueName: 'nope', payload: {} })
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c3',
+      dispatchId: 'd3',
+      queueName: 'nope',
+      payload: {},
+    })
     expect(socket.sent).toHaveLength(1)
     const ack = socket.sent[0] as { type: string; accepted: boolean; reason: string }
     expect(ack.type).toBe('job-ack')
@@ -139,14 +164,111 @@ describe('WsClient', () => {
     const socket = FakeSocket.instances[0]!
     socket.openNow()
 
-    socket.receive({ type: 'job-dispatch', correlationId: 'c4', queueName: 'source-scrape', payload: {} })
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c4',
+      dispatchId: 'd4',
+      queueName: 'source-scrape',
+      payload: {},
+    })
     socket.sent.length = 0
-    socket.receive({ type: 'job-dispatch', correlationId: 'c5', queueName: 'source-scrape', payload: {} })
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c5',
+      dispatchId: 'd5',
+      queueName: 'source-scrape',
+      payload: {},
+    })
 
     const ack = socket.sent[0] as { type: string; accepted: boolean; reason: string }
     expect(ack.accepted).toBe(false)
     expect(ack.reason).toMatch(/at capacity/)
     client.stop()
+  })
+
+  it('refuses any new dispatch once draining, without starting the handler', async () => {
+    const { client, handlers } = buildClient()
+    const handler = vi.fn(() => new Promise(() => {}))
+    handlers.register('source-scrape', handler)
+    client.start()
+    const socket = FakeSocket.instances[0]!
+    socket.openNow()
+
+    const drained = client.drain(1000)
+    socket.sent.length = 0
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c6',
+      dispatchId: 'd6',
+      queueName: 'source-scrape',
+      payload: {},
+    })
+
+    const ack = socket.sent[0] as { type: string; accepted: boolean; reason: string }
+    expect(ack.accepted).toBe(false)
+    expect(ack.reason).toMatch(/draining/)
+    expect(handler).not.toHaveBeenCalled()
+    await drained
+    client.stop()
+  })
+
+  it('drain() resolves once in-flight jobs finish, before the grace period elapses', async () => {
+    vi.useFakeTimers()
+    const { client, handlers } = buildClient()
+    let resolveHandler!: () => void
+    handlers.register(
+      'source-scrape',
+      () =>
+        new Promise((resolve) => {
+          resolveHandler = () => resolve({ listingsChanged: false })
+        }),
+    )
+    client.start()
+    const socket = FakeSocket.instances[0]!
+    socket.openNow()
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c7',
+      dispatchId: 'd7',
+      queueName: 'source-scrape',
+      payload: {},
+    })
+
+    let drainedResolved = false
+    const drained = client.drain(30_000).then(() => {
+      drainedResolved = true
+    })
+    await Promise.resolve()
+    expect(drainedResolved).toBe(false)
+
+    resolveHandler()
+    await vi.advanceTimersByTimeAsync(0)
+    await drained
+    expect(drainedResolved).toBe(true)
+    client.stop()
+    vi.useRealTimers()
+  })
+
+  it('drain() resolves anyway once the grace period elapses with jobs still in flight', async () => {
+    vi.useFakeTimers()
+    const { client, handlers } = buildClient()
+    handlers.register('source-scrape', () => new Promise(() => {}))
+    client.start()
+    const socket = FakeSocket.instances[0]!
+    socket.openNow()
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'c8',
+      dispatchId: 'd8',
+      queueName: 'source-scrape',
+      payload: {},
+    })
+
+    const drained = client.drain(5000)
+    await vi.advanceTimersByTimeAsync(5000)
+    await drained
+    client.stop()
+    vi.useRealTimers()
   })
 
   it('reconnects and re-sends hello after a disconnect', () => {

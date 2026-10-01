@@ -50,6 +50,8 @@ export class WsClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private inFlight = 0
   private stopped = false
+  private draining = false
+  private drainWaiters: Array<() => void> = []
 
   constructor(private readonly options: WsClientOptions) {}
 
@@ -63,6 +65,37 @@ export class WsClient {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
     this.socket?.close(1000, 'worker shutting down')
+  }
+
+  /**
+   * Graceful-shutdown entry point: refuses any dispatch that arrives from
+   * now on (so the coordinator reassigns it immediately instead of waiting
+   * out the connection-drop path) and waits for jobs already in flight to
+   * finish, up to `graceMs`. The socket is kept open the whole time —
+   * closing it first would hit `failConnection` and requeue the very jobs
+   * this is trying to let finish cleanly. Call `stop()` after this resolves
+   * to close the socket.
+   */
+  async drain(graceMs: number): Promise<void> {
+    this.draining = true
+    if (this.inFlight === 0) return
+    this.options.logger.info(
+      { event: 'ws.draining', inFlight: this.inFlight, graceMs },
+      `[ws-client] draining; waiting on ${this.inFlight} in-flight job(s)`,
+    )
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        this.options.logger.warn(
+          { event: 'ws.drain-timeout', inFlight: this.inFlight },
+          '[ws-client] drain grace period elapsed with jobs still in flight; shutting down anyway',
+        )
+        resolve()
+      }, graceMs)
+      this.drainWaiters.push(() => {
+        clearTimeout(timer)
+        resolve()
+      })
+    })
   }
 
   private connect(): void {
@@ -157,17 +190,34 @@ export class WsClient {
     const message = result.data
     if (message.type === 'heartbeat') return
     if (message.type === 'job-dispatch') {
-      this.handleDispatch(message.correlationId, message.queueName, message.payload)
+      this.handleDispatch(message.correlationId, message.dispatchId, message.queueName, message.payload)
     }
   }
 
-  private handleDispatch(correlationId: string, queueName: string, payload: unknown): void {
+  private handleDispatch(
+    correlationId: string,
+    dispatchId: string,
+    queueName: string,
+    payload: unknown,
+  ): void {
     const { logger, handlers, capabilities } = this.options
+
+    if (this.draining) {
+      this.send({
+        type: 'job-ack',
+        correlationId,
+        dispatchId,
+        accepted: false,
+        reason: 'worker is draining for shutdown',
+      })
+      return
+    }
 
     if (this.inFlight >= capabilities.maxConcurrentJobs) {
       this.send({
         type: 'job-ack',
         correlationId,
+        dispatchId,
         accepted: false,
         reason: `worker at capacity (${this.inFlight}/${capabilities.maxConcurrentJobs} in flight)`,
       })
@@ -179,19 +229,20 @@ export class WsClient {
       this.send({
         type: 'job-ack',
         correlationId,
+        dispatchId,
         accepted: false,
         reason: `no handler registered for queue '${queueName}'`,
       })
       return
     }
 
-    this.send({ type: 'job-ack', correlationId, accepted: true })
+    this.send({ type: 'job-ack', correlationId, dispatchId, accepted: true })
     this.inFlight++
     logger.info({ event: 'job.dispatch', correlationId, queueName }, `[ws-client] running ${queueName}`)
 
     handler(payload, correlationId)
       .then((result) =>
-        this.options.gateway.completeJob({ correlationId, success: true, result }),
+        this.options.gateway.completeJob({ correlationId, dispatchId, success: true, result }),
       )
       .catch((err: unknown) => {
         const errorMessage = err instanceof Error ? err.message : String(err)
@@ -199,7 +250,12 @@ export class WsClient {
           { event: 'job.failed', correlationId, queueName, err: errorMessage },
           `[ws-client] ${queueName} failed: ${errorMessage}`,
         )
-        return this.options.gateway.completeJob({ correlationId, success: false, errorMessage })
+        return this.options.gateway.completeJob({
+          correlationId,
+          dispatchId,
+          success: false,
+          errorMessage,
+        })
       })
       .catch((completeErr: unknown) => {
         // The job outcome itself couldn't be reported (network down, worker
@@ -214,6 +270,7 @@ export class WsClient {
       })
       .finally(() => {
         this.inFlight--
+        if (this.inFlight === 0) this.drainWaiters.splice(0).forEach((resolve) => resolve())
       })
   }
 }

@@ -74,6 +74,7 @@ describe('wsJobDispatchMessageSchema', () => {
     const message = {
       type: 'job-dispatch',
       correlationId: buildCorrelationId('detail-crawl', '42'),
+      dispatchId: 'dispatch-1',
       queueName: 'detail-crawl',
       payload: { sourceId: 'src-1' },
     }
@@ -84,6 +85,7 @@ describe('wsJobDispatchMessageSchema', () => {
     const message = {
       type: 'job-dispatch',
       correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
       queueName: 'q',
     }
     expect(wsJobDispatchMessageSchema.parse(message)).toMatchObject(message)
@@ -93,15 +95,25 @@ describe('wsJobDispatchMessageSchema', () => {
     const result = wsJobDispatchMessageSchema.safeParse({
       type: 'job-dispatch',
       correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
       queueName: '',
     })
     expect(issuePaths(result)).toContain('queueName')
+  })
+
+  it('should reject a missing dispatchId', () => {
+    const result = wsJobDispatchMessageSchema.safeParse({
+      type: 'job-dispatch',
+      correlationId: 'q:1',
+      queueName: 'q',
+    })
+    expect(issuePaths(result)).toContain('dispatchId')
   })
 })
 
 describe('wsJobAckMessageSchema', () => {
   it('should parse an accepted ack without a reason', () => {
-    const message = { type: 'job-ack', correlationId: 'q:1', accepted: true }
+    const message = { type: 'job-ack', correlationId: 'q:1', dispatchId: 'dispatch-1', accepted: true }
     expect(wsJobAckMessageSchema.parse(message)).toEqual(message)
   })
 
@@ -109,6 +121,7 @@ describe('wsJobAckMessageSchema', () => {
     const message = {
       type: 'job-ack',
       correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
       accepted: false,
       reason: 'at capacity',
     }
@@ -119,14 +132,28 @@ describe('wsJobAckMessageSchema', () => {
     const result = wsJobAckMessageSchema.safeParse({
       type: 'job-ack',
       correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
       accepted: false,
     })
     expect(issuePaths(result)).toContain('reason')
   })
 
   it('should reject a missing accepted flag', () => {
-    const result = wsJobAckMessageSchema.safeParse({ type: 'job-ack', correlationId: 'q:1' })
+    const result = wsJobAckMessageSchema.safeParse({
+      type: 'job-ack',
+      correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
+    })
     expect(issuePaths(result)).toContain('accepted')
+  })
+
+  it('should reject a missing dispatchId', () => {
+    const result = wsJobAckMessageSchema.safeParse({
+      type: 'job-ack',
+      correlationId: 'q:1',
+      accepted: true,
+    })
+    expect(issuePaths(result)).toContain('dispatchId')
   })
 })
 
@@ -160,6 +187,7 @@ describe('direction unions', () => {
       workerToCoordinatorMessageSchema.parse({
         type: 'job-ack',
         correlationId: 'q:1',
+        dispatchId: 'dispatch-1',
         accepted: true,
       }).type,
     ).toBe('job-ack')
@@ -169,6 +197,7 @@ describe('direction unions', () => {
     const result = workerToCoordinatorMessageSchema.safeParse({
       type: 'job-dispatch',
       correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
       queueName: 'q',
     })
     expect(result.success).toBe(false)
@@ -181,21 +210,35 @@ describe('direction unions', () => {
 
 describe('workerJobCompleteRequestSchema', () => {
   it('should parse a success without an errorMessage', () => {
-    const body = { correlationId: 'q:1', success: true }
+    const body = { correlationId: 'q:1', dispatchId: 'dispatch-1', success: true }
     expect(workerJobCompleteRequestSchema.parse(body)).toEqual(body)
   })
 
   it('should parse a failure with an errorMessage', () => {
-    const body = { correlationId: 'q:1', success: false, errorMessage: 'browser crashed' }
+    const body = {
+      correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
+      success: false,
+      errorMessage: 'browser crashed',
+    }
     expect(workerJobCompleteRequestSchema.parse(body)).toEqual(body)
   })
 
   it('should reject a failure without an errorMessage', () => {
     const result = workerJobCompleteRequestSchema.safeParse({
       correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
       success: false,
     })
     expect(issuePaths(result)).toContain('errorMessage')
+  })
+
+  it('should reject a missing dispatchId', () => {
+    const result = workerJobCompleteRequestSchema.safeParse({
+      correlationId: 'q:1',
+      success: true,
+    })
+    expect(issuePaths(result)).toContain('dispatchId')
   })
 })
 

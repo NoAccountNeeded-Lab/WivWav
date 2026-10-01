@@ -88,11 +88,35 @@ logger.info(
 
 wsClient.start()
 
+/** How long to wait for in-flight jobs to finish before exiting anyway. */
+const SHUTDOWN_GRACE_MS = parsePositiveIntOr(process.env['WORKER_SHUTDOWN_GRACE_MS'], 30_000)
+
+function parsePositiveIntOr(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(raw ?? '', 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+let shuttingDown = false
+
 async function shutdown(signal: string): Promise<void> {
-  logger.info({ event: 'worker.shutdown', signal }, `[worker] received ${signal}; shutting down`)
+  logger.info(
+    { event: 'worker.shutdown', signal },
+    `[worker] received ${signal}; draining in-flight jobs before exit`,
+  )
+  await wsClient.drain(SHUTDOWN_GRACE_MS)
   wsClient.stop()
   process.exit(0)
 }
 
-process.once('SIGTERM', () => void shutdown('SIGTERM'))
-process.once('SIGINT', () => void shutdown('SIGINT'))
+function onSignal(signal: string): void {
+  if (shuttingDown) {
+    // A second signal during drain means "stop waiting, exit now".
+    logger.warn({ event: 'worker.force-exit', signal }, '[worker] second signal; forcing exit')
+    process.exit(1)
+  }
+  shuttingDown = true
+  void shutdown(signal)
+}
+
+process.on('SIGTERM', () => onSignal('SIGTERM'))
+process.on('SIGINT', () => onSignal('SIGINT'))
