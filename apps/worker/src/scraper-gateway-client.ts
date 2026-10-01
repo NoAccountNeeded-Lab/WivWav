@@ -161,6 +161,7 @@ export class ScraperGatewayClient {
 
   completeJob(body: {
     correlationId: string
+    dispatchId: string
     success: boolean
     errorMessage?: string
     result?: unknown

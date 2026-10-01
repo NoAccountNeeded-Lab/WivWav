@@ -21,6 +21,13 @@ function connectWorker(
   return worker
 }
 
+/** Reads the dispatchId the dispatcher generated for the most recent send() call. */
+function dispatchIdFrom(worker: RegisteredWorker): string {
+  const send = worker.send as unknown as { mock: { calls: unknown[][] } }
+  const lastCall = send.mock.calls.at(-1)?.[0] as { dispatchId: string }
+  return lastCall.dispatchId
+}
+
 describe('WorkerDispatcher.dispatch', () => {
   it('throws RetryJobSignal when no worker is connected', async () => {
     const registry = new WorkerRegistry()
@@ -40,7 +47,7 @@ describe('WorkerDispatcher.dispatch', () => {
     })
   })
 
-  it('sends a job-dispatch message to the picked worker', async () => {
+  it('sends a job-dispatch message to the picked worker, with a fresh dispatchId', async () => {
     const registry = new WorkerRegistry()
     const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
@@ -54,6 +61,7 @@ describe('WorkerDispatcher.dispatch', () => {
     expect(worker.send).toHaveBeenCalledWith({
       type: 'job-dispatch',
       correlationId: 'detail-crawl:1',
+      dispatchId: expect.any(String),
       queueName: 'detail-crawl',
       payload: { sourceId: 'src-1' },
     })
@@ -76,35 +84,85 @@ describe('WorkerDispatcher.dispatch', () => {
 
   it('resolves when complete(success: true) is called for the correlation id', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry)
+    const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
-    dispatcher.complete('detail-crawl:1', true)
+    await Promise.resolve()
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), true)
     await expect(promise).resolves.toBeUndefined()
   })
 
   it('resolves with the worker-reported result', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry)
+    const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const promise = dispatcher.dispatch('source-scrape', '1', {}, { chromium: true })
-    dispatcher.complete('source-scrape:1', true, undefined, { listingsChanged: true })
+    await Promise.resolve()
+    dispatcher.complete('source-scrape:1', dispatchIdFrom(worker), true, undefined, {
+      listingsChanged: true,
+    })
     await expect(promise).resolves.toEqual({ listingsChanged: true })
   })
 
   it('rejects when complete(success: false) is called', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry)
+    const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
-    dispatcher.complete('detail-crawl:1', false, 'browser crashed')
+    await Promise.resolve()
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), false, 'browser crashed')
     await expect(promise).rejects.toThrow('browser crashed')
   })
 
   it('complete() returns false for an unknown correlation id', () => {
     const registry = new WorkerRegistry()
     const dispatcher = new WorkerDispatcher(registry, 1000)
-    expect(dispatcher.complete('unknown:1', true)).toBe(false)
+    expect(dispatcher.complete('unknown:1', 'any-dispatch-id', true)).toBe(false)
+  })
+
+  it('complete() returns false and does not settle when dispatchId is stale', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry, {
+      capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 5 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+    await Promise.resolve()
+    const staleDispatchId = dispatchIdFrom(worker)
+
+    // Connection drops and the job is re-dispatched to (in this test, the
+    // same) worker under a fresh dispatchId.
+    dispatcher.failConnection('conn-1', 'worker disconnected before reporting completion')
+    const second = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+    await Promise.resolve()
+
+    // The original (now-dead) attempt's late completion must not settle the
+    // re-dispatched attempt.
+    expect(dispatcher.complete('detail-crawl:1', staleDispatchId, true)).toBe(false)
+    await expect(promise).rejects.toThrow(RetryJobSignal)
+
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), true)
+    await expect(second).resolves.toBeUndefined()
+  })
+
+  it('refuse() with a stale dispatchId does not touch the current pending dispatch', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry, {
+      capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 5 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const first = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+    await Promise.resolve()
+    const staleDispatchId = dispatchIdFrom(worker)
+
+    dispatcher.failConnection('conn-1', 'worker disconnected before reporting completion')
+    await expect(first).rejects.toThrow(RetryJobSignal)
+    const second = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+    await Promise.resolve()
+
+    dispatcher.refuse('detail-crawl:1', staleDispatchId, 'stale refusal')
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), true)
+    await expect(second).resolves.toBeUndefined()
   })
 
   it('throws RetryJobSignal when the source lock is already held', async () => {
@@ -119,7 +177,7 @@ describe('WorkerDispatcher.dispatch', () => {
 
   it('releases the source lock once the in-flight dispatch completes', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry)
+    const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const first = dispatcher.dispatch(
       'detail-crawl',
@@ -127,17 +185,19 @@ describe('WorkerDispatcher.dispatch', () => {
       {},
       { chromium: true, sourceId: 'src-1' },
     )
-    dispatcher.complete('detail-crawl:1', true)
+    await Promise.resolve()
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), true)
     await first
     expect(registry.tryAcquireSourceLock('src-1', 'detail-crawl:2')).toBe(true)
   })
 
   it('refuse() rejects the pending dispatch with RetryJobSignal and the worker-supplied reason', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry)
+    const worker = connectWorker(registry)
     const dispatcher = new WorkerDispatcher(registry, 1000)
     const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
-    dispatcher.refuse('detail-crawl:1', 'at capacity')
+    await Promise.resolve()
+    dispatcher.refuse('detail-crawl:1', dispatchIdFrom(worker), 'at capacity')
     await expect(promise).rejects.toThrow(RetryJobSignal)
     await expect(promise).rejects.toThrow('at capacity')
   })
@@ -155,7 +215,7 @@ describe('WorkerDispatcher.dispatch', () => {
   it('failConnection() only affects dispatches on the given connection, not other workers', async () => {
     const registry = new WorkerRegistry()
     connectWorker(registry, { connectionId: 'conn-1' })
-    connectWorker(registry, { connectionId: 'conn-2' })
+    const worker2 = connectWorker(registry, { connectionId: 'conn-2' })
     const dispatcher = new WorkerDispatcher(registry, 1000)
     // Force each dispatch onto a specific worker by exhausting the other's capacity first.
     const first = dispatcher.dispatch(
@@ -170,8 +230,9 @@ describe('WorkerDispatcher.dispatch', () => {
       {},
       { chromium: true, sourceId: 'src-2' },
     )
+    await Promise.resolve()
     dispatcher.failConnection('conn-1', 'worker disconnected')
-    dispatcher.complete('detail-crawl:2', true)
+    dispatcher.complete('detail-crawl:2', dispatchIdFrom(worker2), true)
     const settled = await Promise.allSettled([first, second])
     expect(settled.map((s) => s.status)).toEqual(['rejected', 'fulfilled'])
   })
@@ -200,6 +261,7 @@ describe('WorkerDispatcher httpEnrich routing (#962)', () => {
     expect(worker.send).toHaveBeenCalledWith({
       type: 'job-dispatch',
       correlationId: 'nhtsa-recalls:1',
+      dispatchId: expect.any(String),
       queueName: 'nhtsa-recalls',
       payload: {},
     })
@@ -238,7 +300,7 @@ describe('WorkerDispatcher httpEnrich routing (#962)', () => {
 
   it('releases the per-source lock once an httpEnrich dispatch completes', async () => {
     const registry = new WorkerRegistry()
-    connectWorker(registry, {
+    const worker = connectWorker(registry, {
       capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
     })
     const dispatcher = new WorkerDispatcher(registry, 1000)
@@ -248,7 +310,10 @@ describe('WorkerDispatcher httpEnrich routing (#962)', () => {
       {},
       { chromium: false, httpEnrich: true, sourceId: 'nhtsa-recalls-api' },
     )
-    dispatcher.complete('nhtsa-recalls:1', true, undefined, { processed: 3 })
+    await Promise.resolve()
+    dispatcher.complete('nhtsa-recalls:1', dispatchIdFrom(worker), true, undefined, {
+      processed: 3,
+    })
     await expect(first).resolves.toEqual({ processed: 3 })
     expect(registry.tryAcquireSourceLock('nhtsa-recalls-api', 'nhtsa-recalls:2')).toBe(true)
   })

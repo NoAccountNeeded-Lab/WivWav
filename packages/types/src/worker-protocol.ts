@@ -43,6 +43,14 @@ export type WorkerHello = z.infer<typeof workerHelloSchema>
 export const wsJobDispatchMessageSchema = z.object({
   type: z.literal('job-dispatch'),
   correlationId: z.string().min(1),
+  /**
+   * Unique per dispatch attempt (fresh value each time this correlationId is
+   * (re)dispatched, e.g. after a dead-connection requeue). Echoed back in the
+   * ack and the HTTP completion so the coordinator can tell a stale attempt's
+   * late report apart from the current one and reject it instead of settling
+   * the wrong dispatch — see WorkerDispatcher's class docstring.
+   */
+  dispatchId: z.string().min(1),
   queueName: z.string().min(1),
   /** Queue-specific job payload; absent for jobs enqueued without one. */
   payload: z.unknown().optional(),
@@ -54,6 +62,7 @@ export const wsJobAckMessageSchema = z
   .object({
     type: z.literal('job-ack'),
     correlationId: z.string().min(1),
+    dispatchId: z.string().min(1),
     accepted: z.boolean(),
     reason: z.string().optional(),
   })
@@ -105,6 +114,8 @@ export type CoordinatorToWorkerMessage = z.infer<typeof coordinatorToWorkerMessa
 export const workerJobCompleteRequestSchema = z
   .object({
     correlationId: z.string().min(1),
+    /** Must match the `dispatchId` the worker was given in `job-dispatch`; see that field's docstring. */
+    dispatchId: z.string().min(1),
     success: z.boolean(),
     errorMessage: z.string().optional(),
     result: z.unknown().optional(),

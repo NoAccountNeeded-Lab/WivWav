@@ -153,7 +153,7 @@ export async function workerGatewayRoutes(
 
       // job-ack
       if (!message.accepted) {
-        dispatcher.refuse(message.correlationId, message.reason ?? 'unspecified')
+        dispatcher.refuse(message.correlationId, message.dispatchId, message.reason ?? 'unspecified')
       }
     })
 
@@ -180,6 +180,7 @@ export async function workerGatewayRoutes(
     const body = workerJobCompleteRequestSchema.parse(req.body)
     const known = dispatcher.complete(
       body.correlationId,
+      body.dispatchId,
       body.success,
       body.errorMessage,
       body.result,

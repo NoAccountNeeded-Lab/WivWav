@@ -177,10 +177,16 @@ describe('worker gateway WS protocol', () => {
       }),
     )
     ws.send(
-      JSON.stringify({ type: 'job-ack', correlationId: 'q:1', accepted: false, reason: 'busy' }),
+      JSON.stringify({
+        type: 'job-ack',
+        correlationId: 'q:1',
+        dispatchId: 'd1',
+        accepted: false,
+        reason: 'busy',
+      }),
     )
     await waitFor(() => refuseSpy.mock.calls.length === 1)
-    expect(refuseSpy).toHaveBeenCalledWith('q:1', 'busy')
+    expect(refuseSpy).toHaveBeenCalledWith('q:1', 'd1', 'busy')
     ws.close()
     await app.close()
   })
@@ -199,11 +205,11 @@ describe('POST /jobs/complete', () => {
         authorization: `Bearer ${INTERNAL_API_SECRET}`,
         'content-type': 'application/json',
       },
-      payload: { correlationId: 'q:1', success: true },
+      payload: { correlationId: 'q:1', dispatchId: 'd1', success: true },
     })
 
     expect(response.statusCode).toBe(200)
-    expect(completeSpy).toHaveBeenCalledWith('q:1', true, undefined, undefined)
+    expect(completeSpy).toHaveBeenCalledWith('q:1', 'd1', true, undefined, undefined)
     await app.close()
   })
 
@@ -218,7 +224,7 @@ describe('POST /jobs/complete', () => {
         authorization: `Bearer ${INTERNAL_API_SECRET}`,
         'content-type': 'application/json',
       },
-      payload: { correlationId: 'unknown:1', success: true },
+      payload: { correlationId: 'unknown:1', dispatchId: 'd1', success: true },
     })
 
     expect(response.json()).toEqual({ data: { acknowledged: false } })
