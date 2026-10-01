@@ -8,7 +8,9 @@ Follow-up from: #138, #336, #817
 
 ## Scope
 
-A private-seller listing is any listing where `sellerType = 'private'` in the database. The only current source producing private-seller rows is BLVD.com, which classifies "For Sale By Owner" cards on the `/wheelchair-vans-for-sale-by-owner` path as private-seller inventory.
+A private-seller listing is any listing where `sellerType = 'private'` in the database. BLVD.com classifies "For Sale By Owner" cards on the `/wheelchair-vans-for-sale-by-owner` path as private-seller inventory.
+
+eBay Motors (#999) is a second potential private-seller-producing source, added via eBay's official Browse API rather than HTML scraping. Whether the Browse API's `item_summary/search` response exposes any business-vs-private-seller disclosure field for the `EBAY_US` marketplace is **unverified** — live testing was blocked by a local environment issue during implementation (see the PR), and eBay's own documentation was unreachable. The adapter (`packages/scraper-sources/src/sources/ebay-motors.ts`'s `buildListing`) defaults every eBay Motors listing to `sellerType = 'dealer'` unless the API explicitly reports `seller.sellerAccountType = 'INDIVIDUAL'` — matching BLVD's (#176) convention of requiring an explicit private-seller signal rather than assuming private by default, so an unconfirmed or absent field doesn't wrongly route ordinary dealer listings through phone-suppression/anonymization. This needs re-verification against a real Browse API response before launch: if the field is absent, every eBay listing is (and stays) classified `dealer`; if real private-party eBay listings exist and go unclassified, they get none of the mitigations below. All mitigations below apply source-agnostically via `sellerType`, so correctly classifying eBay rows as `private` (once the field is confirmed) requires no further code changes — only verification of this default.
 
 ---
 

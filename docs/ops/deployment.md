@@ -148,7 +148,8 @@ Some sources (e.g. eBay Motors, #999) authenticate to a third-party API using
 credentials stored in the `ConfigService` (`apps/api/src/services/config-service.ts`),
 not `.env.production` or a Docker image. These are append-only, AES-256-GCM
 encrypted rows in Postgres (`type: "secret"`), keyed by dot-notation name
-(e.g. `ebay.motors.app-id`), and are entirely separate from the deploy
+(e.g. `ebay.motors.app-id`, `ebay.motors.cert-id`; see
+`docs/risk/private-seller-data-policy.md` for what that source ingests), and are entirely separate from the deploy
 pipeline above:
 
 - They are **not** rebuilt, rotated, or touched by a `main` push, the CI
@@ -168,6 +169,17 @@ pipeline above:
   confirm an operator has set its production-environment values via that
   environment's ops UI — this has no automated gate and is easy to forget
   since nothing in the deploy pipeline checks for it.
+- `ebay.motors.environment` (`'production'` or `'sandbox'`, defaulting to
+  `'sandbox'` when unset) is a separate, explicit config key that selects
+  `api.ebay.com` vs `api.sandbox.ebay.com` — the credential keys themselves
+  carry no sandbox/production marker, so this flag is the only thing that
+  decides which eBay environment the Browse API calls actually hit.
+- The eBay Motors `Source` row is seeded `status: 'disabled'` on first
+  creation (`apps/api/src/sources/registry.ts`'s `DEFAULT_DISABLED_KEYS`) —
+  it will not crawl on deploy even though its cron schedule is registered
+  like every other source. Before enabling it in a given environment, set
+  `ebay.motors.*` (and `ebay.motors.environment` to match) via that
+  environment's ops UI, then flip the source to `active` from `/ops/sources`.
 
 ## Migration ordering
 

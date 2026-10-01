@@ -54,9 +54,13 @@ export function createSourceScrapeHandler(
       throw new Error(`[source-scrape] no adapter module for registry key '${registryEntry.key}'`)
     }
 
+    const ebayCredentials =
+      registryEntry.key === 'ebay-motors' ? await gateway.getEbayMotorsCredentials() : undefined
+
     const adapter: SourceAdapter = module.createSourceAdapter(profile.fingerprintHash, {
       previousPage1Hash: profile.page1Hash,
       ...(browserService ? { browserService } : {}),
+      ...(ebayCredentials ? { ebayCredentials } : {}),
     })
 
     const runContext = new RunContext()

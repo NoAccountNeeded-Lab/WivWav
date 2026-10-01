@@ -83,6 +83,10 @@ export class ScraperGatewayClient {
     return this.http.post('/internal/scraper/sources/paused', { sourceId, reason })
   }
 
+  getEbayMotorsCredentials(): Promise<{ appId: string; certId: string; environment: 'production' | 'sandbox' }> {
+    return this.http.get('/internal/scraper/sources/ebay-motors/credentials')
+  }
+
   getMappings(sourceId: string): Promise<SourceMappingsResponse> {
     return this.http.get(`/internal/scraper/sources/${sourceId}/mappings`)
   }

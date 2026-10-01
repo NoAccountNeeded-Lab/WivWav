@@ -2,7 +2,7 @@ import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { MockQueueFactory } from '@wivwav/queue'
 import { GONE_AFTER_CONSECUTIVE_MISSING } from '@wivwav/db'
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internalScraperRoutes } from './internal-scraper.js'
 import {
   closeIntegrationDb,
@@ -35,9 +35,19 @@ describe('POST /sources/:sourceId/listings/mark-gone — ScraperRun persistence 
   function buildApp() {
     const queueFactory = new MockQueueFactory()
     const app = Fastify()
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => 'OK'),
+      del: vi.fn(async () => 1),
+    }
     const ready = app
       .register(sensible)
-      .register(internalScraperRoutes, { db, queueFactory })
+      .register(internalScraperRoutes, {
+        db,
+        queueFactory,
+        cache: cache as never,
+        configEncryptionSecret: 'a'.repeat(64),
+      })
     return { app, ready }
   }
 

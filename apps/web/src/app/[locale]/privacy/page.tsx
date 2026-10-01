@@ -64,10 +64,10 @@ export default function PrivacyPage() {
         <section className={styles.section} aria-labelledby="third-party-heading">
           <h2 id="third-party-heading" className={styles.sectionHeading}>Third-Party Data Sources</h2>
           <p className={styles.body}>
-            Listing data on WivWav is sourced from publicly accessible vehicle listing websites and the
-            U.S. National Highway Traffic Safety Administration (NHTSA) public API. We aggregate and
-            index this information to make it searchable. We do not control the privacy practices of
-            those sources.
+            Listing data on WivWav is sourced from publicly accessible vehicle listing websites, eBay's
+            official Browse API, and the U.S. National Highway Traffic Safety Administration (NHTSA)
+            public API. We aggregate and index this information to make it searchable. We do not
+            control the privacy practices of those sources.
           </p>
           <p className={styles.body}>
             Some listing sources include private-party ("For Sale By Owner") vehicle listings. When
