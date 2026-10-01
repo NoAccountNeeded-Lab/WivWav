@@ -11,15 +11,22 @@ import type { EbayCredentials } from './factory.js'
 
 const SOURCE_ID = 'ebay-motors'
 const PAGE_SIZE = 200
-// Hard cap on items fetched per scrape() run — bounds both wall-clock time and
-// the number of calls counted against the app's daily Browse API quota.
-// Revisit alongside the cron frequency if the developer-portal quota changes.
-const MAX_ITEMS_PER_RUN = 2_000
+// Hard cap on unique items discovered per scrape() run. Each discovered item
+// costs one search-page call plus one getItem call (VIN/mileage/seller-type/
+// city-state live only on getItem — see buildListing's doc comment) — bounds
+// both wall-clock time and Browse API daily-quota usage. Revisit alongside
+// the cron frequency if the developer-portal quota changes.
+const MAX_ITEMS_PER_RUN = 1_000
 const REQUEST_TIMEOUT_MS = 15_000
 const DEFAULT_PAGE_DELAY_MS = 500
+const DEFAULT_DETAIL_DELAY_MS = 300
 // eBay Motors has no dedicated "wheelchair accessible van" category — the
 // Cars & Trucks category is combined with keyword search across the common
-// ways sellers describe a WAV (#999).
+// ways sellers describe a WAV. Verified 2026-10-01: category_ids=6001 +
+// q="wheelchair van" surfaces genuine WAV listings (e.g. a "AM General
+// MOBILITY VENTURES WHEELCHAIR VAN VPG MV-1" with
+// localizedAspects["Disability Equipped"] = "YES") rather than parts/
+// accessories, against a live production Browse API response (#999).
 const MOTORS_CATEGORY_ID = '6001'
 const SEARCH_KEYWORDS = [
   'wheelchair van',
@@ -36,6 +43,7 @@ export interface EbayMotorsConfig {
   previousPage1Hash?: string | null
   ebayCredentials?: EbayCredentials
   pageDelayMs?: number
+  detailDelayMs?: number
   maxItems?: number
   fetchFn?: typeof fetch
 }
@@ -49,21 +57,8 @@ export function createSourceAdapter(
 
 interface EbaySearchItem {
   itemId: string
-  legacyItemId?: string
-  title: string
   /** Optional in the type because a malformed/partial API response can omit it — not every field summary guarantees. */
   itemWebUrl?: string
-  price?: { value: string; currency: string }
-  condition?: string
-  image?: { imageUrl: string }
-  additionalImages?: { imageUrl: string }[]
-  itemLocation?: { city?: string; stateOrProvince?: string; postalCode?: string }
-  seller?: {
-    username?: string
-    /** Only populated for marketplaces with EU/UK business-seller disclosure rules — not EBAY_US. */
-    sellerAccountType?: 'BUSINESS' | 'INDIVIDUAL'
-  }
-  itemCreationDate?: string
 }
 
 interface EbaySearchResponse {
@@ -72,6 +67,34 @@ interface EbaySearchResponse {
   offset?: number
   itemSummaries?: EbaySearchItem[]
   warnings?: unknown[]
+}
+
+interface EbayAspect {
+  name: string
+  value: string
+}
+
+/**
+ * `getItem` response shape — verified 2026-10-01 against a live production
+ * Browse API response (#999). Unlike `item_summary/search`, this carries
+ * `itemLocation.city`/`stateOrProvince` and `localizedAspects`, which is
+ * where VIN, mileage, and the private/dealer seller signal actually live —
+ * none of those are present on item_summary.
+ */
+interface EbayItemDetail {
+  itemId: string
+  title: string
+  legacyItemId?: string
+  itemWebUrl?: string
+  price?: { value: string; currency: string }
+  condition?: string
+  image?: { imageUrl: string }
+  additionalImages?: { imageUrl: string }[]
+  /** `postalCode` is masked (e.g. "481**") even on getItem — never store it as a literal ZIP. */
+  itemLocation?: { city?: string; stateOrProvince?: string; postalCode?: string }
+  localizedAspects?: EbayAspect[]
+  description?: string
+  itemCreationDate?: string
 }
 
 interface CachedToken {
@@ -86,6 +109,7 @@ export class EbayMotorsAdapter implements SourceAdapter {
   private readonly previousHash: string | null
   private readonly credentials: EbayCredentials | undefined
   private readonly pageDelayMs: number
+  private readonly detailDelayMs: number
   private readonly maxItems: number
   private readonly fetchFn: typeof fetch
   private readonly host: string
@@ -95,6 +119,7 @@ export class EbayMotorsAdapter implements SourceAdapter {
     this.previousHash = previousHash
     this.credentials = config.ebayCredentials
     this.pageDelayMs = config.pageDelayMs ?? DEFAULT_PAGE_DELAY_MS
+    this.detailDelayMs = config.detailDelayMs ?? DEFAULT_DETAIL_DELAY_MS
     this.maxItems = config.maxItems ?? MAX_ITEMS_PER_RUN
     this.fetchFn = config.fetchFn ?? fetch
     this.host = config.ebayCredentials?.environment === 'sandbox' ? SANDBOX_HOST : PRODUCTION_HOST
@@ -197,11 +222,11 @@ export class EbayMotorsAdapter implements SourceAdapter {
   }
 
   async scrape(context?: JobContext): Promise<ScrapeResult> {
-    const itemsById = new Map<string, EbaySearchItem>()
+    const itemIds = new Set<string>()
 
     for (const keyword of SEARCH_KEYWORDS) {
       let offset = 0
-      while (itemsById.size < this.maxItems) {
+      while (itemIds.size < this.maxItems) {
         const query = new URLSearchParams({
           q: keyword,
           category_ids: MOTORS_CATEGORY_ID,
@@ -214,26 +239,56 @@ export class EbayMotorsAdapter implements SourceAdapter {
           context,
         )
         const page = response.itemSummaries ?? []
-        for (const item of page) itemsById.set(item.itemId, item)
+        for (const item of page) itemIds.add(item.itemId)
 
-        await report(context, `[ebay-motors] "${keyword}" offset=${offset}: ${page.length} item(s), ${itemsById.size} unique so far`, {
+        await report(context, `[ebay-motors] "${keyword}" offset=${offset}: ${page.length} item(s), ${itemIds.size} unique so far`, {
           stage: 'scraping',
           source: SOURCE_ID,
-          listings: itemsById.size,
+          listings: itemIds.size,
         })
 
         offset += PAGE_SIZE
         const total = response.total ?? 0
-        const donePaging = page.length === 0 || offset >= total || itemsById.size >= this.maxItems
+        const donePaging = page.length === 0 || offset >= total || itemIds.size >= this.maxItems
         if (donePaging) break
         await jitteredSleep(this.pageDelayMs)
       }
     }
 
+    const ids = [...itemIds].slice(0, this.maxItems)
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
-    for (const item of itemsById.values()) {
-      const listing = buildListing(item)
-      if (listing) listings.push(listing)
+
+    for (let i = 0; i < ids.length; i++) {
+      const itemId = ids[i]!
+      let detail: EbayItemDetail | null = null
+      try {
+        detail = await this.getJson<EbayItemDetail>(
+          `/buy/browse/v1/item/${encodeURIComponent(itemId)}`,
+          new URLSearchParams(),
+          context,
+        )
+      } catch (err) {
+        await report(context, `[ebay-motors] getItem failed for ${itemId} — skipping: ${(err as Error).message}`, {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          reason: 'detail_fetch_failed',
+        })
+      }
+
+      if (detail) {
+        const listing = buildListing(detail)
+        if (listing) listings.push(listing)
+      }
+
+      if ((i + 1) % 50 === 0 || i === ids.length - 1) {
+        await report(context, `[ebay-motors] fetched detail ${i + 1}/${ids.length}; ${listings.length} listing(s) so far`, {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          listings: listings.length,
+        })
+      }
+
+      if (i < ids.length - 1) await jitteredSleep(this.detailDelayMs)
     }
 
     const fingerprintHash = createHash('sha256')
@@ -244,14 +299,23 @@ export class EbayMotorsAdapter implements SourceAdapter {
   }
 }
 
-export function buildListing(item: EbaySearchItem): Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> | null {
+function aspectsToMap(aspects: EbayAspect[] | undefined): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const aspect of aspects ?? []) {
+    if (aspect.name && aspect.value) map[aspect.name] = aspect.value
+  }
+  return map
+}
+
+export function buildListing(item: EbayItemDetail): Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'> | null {
   if (!item.itemWebUrl) return null
 
+  const aspects = aspectsToMap(item.localizedAspects)
   const titleParsed = parseVehicleTitle(stripConditionPrefix(item.title))
   const plausibleYear = titleParsed.year >= 1975 && titleParsed.year <= 2100
   if (!plausibleYear || !titleParsed.make || !titleParsed.model) return null
 
-  const rawVin = extractVin(item.title)
+  const rawVin = aspects['VIN (Vehicle Identification Number)'] ?? null
   const qualityIssueCodes: string[] = []
   let vin: string | null = null
   if (rawVin) {
@@ -272,17 +336,20 @@ export function buildListing(item: EbaySearchItem): Omit<Listing, 'id' | 'scrape
     ? Math.round(Number.parseFloat(item.price.value) * 100)
     : null
 
-  // UNVERIFIED (#999): whether EBAY_US exposes `seller.sellerAccountType` on
-  // item_summary at all is not confirmed against a live response — the field
-  // is documented for EU/UK marketplaces under their business-seller
-  // disclosure rules, and may only appear on getItem, not item_summary, for
-  // any marketplace. Until confirmed, default to 'dealer' — matching BLVD's
-  // (#176) convention of requiring an explicit private-seller signal
-  // ("For Sale By Owner") rather than assuming private by default — so an
-  // unconfirmed or absent field doesn't wrongly route ordinary dealer
-  // listings through the private-seller phone-suppression/30-day-anonymize
+  const mileage = aspects['Mileage'] ? Number.parseInt(aspects['Mileage'], 10) : null
+
+  // Verified 2026-10-01 against a live getItem response: the business-vs-
+  // private disclosure signal for EBAY_US is the `localizedAspects` entry
+  // named "For Sale By" (seen value: "Private Seller"), not a
+  // `seller.sellerAccountType` field — that field does not appear anywhere
+  // in the getItem response at all. Default to 'dealer' when the aspect is
+  // absent or doesn't say "Private" — matching BLVD's (#176) convention of
+  // requiring an explicit private-seller signal rather than assuming
+  // private by default — so a listing with no disclosed seller type doesn't
+  // wrongly go through the private-seller phone-suppression/30-day-anonymize
   // pipeline.
-  const sellerType = item.seller?.sellerAccountType === 'INDIVIDUAL' ? 'private' : 'dealer'
+  const forSaleBy = aspects['For Sale By'] ?? ''
+  const sellerType = /private/i.test(forSaleBy) ? 'private' : 'dealer'
 
   return {
     sourceId: SOURCE_ID,
@@ -291,29 +358,31 @@ export function buildListing(item: EbaySearchItem): Omit<Listing, 'id' | 'scrape
     externalId: item.legacyItemId ?? item.itemId,
     stockNumber: null,
     sourceRecordKey: item.itemId,
-    make: titleParsed.make,
+    make: aspects['Make'] ?? titleParsed.make,
     model: titleParsed.model,
-    year: titleParsed.year,
-    trim: titleParsed.trim,
+    year: parseAspectYear(aspects['Year']) ?? titleParsed.year,
+    trim: aspects['Trim'] ?? titleParsed.trim,
     vin,
     condition: parseCondition(item.condition),
     sellerType,
     priceCents,
-    mileage: null,
-    color: null,
-    fuelType: null,
-    transmission: null,
+    mileage,
+    color: aspects['Exterior Color'] ?? null,
+    fuelType: aspects['Fuel Type'] ?? null,
+    transmission: aspects['Transmission'] ?? null,
     wav: {
       conversionType: 'unknown',
       conversionManufacturer: null,
       floorLoweringInches: null,
       rampType: 'unknown',
       conversionStatus: 'unknown',
-      wavFeatures: [],
+      wavFeatures: inferWavFeatures(aspects['Features']),
       wheelchairCapacity: null,
     },
     location: {
-      zip: item.itemLocation?.postalCode ?? null,
+      // `postalCode` is masked even on getItem (e.g. "481**") — never stored
+      // as a literal ZIP.
+      zip: null,
       city: item.itemLocation?.city ?? null,
       state: item.itemLocation?.stateOrProvince ?? null,
       lat: null,
@@ -321,7 +390,7 @@ export function buildListing(item: EbaySearchItem): Omit<Listing, 'id' | 'scrape
     },
     dealer: { name: null, phone: null, website: null },
     images,
-    description: null,
+    description: item.description ? stripTags(item.description) : null,
     ...(qualityIssueCodes.length > 0 ? { qualityIssueCodes } : {}),
     saleStatus: 'active',
     soldAt: null,
@@ -342,7 +411,23 @@ function parseCondition(condition: string | undefined): Listing['condition'] {
   return 'used'
 }
 
-function extractVin(title: string): string | null {
-  const match = /\b([A-HJ-NPR-Z0-9]{17})\b/i.exec(title)
-  return match?.[1] ?? null
+function parseAspectYear(value: string | undefined): number | null {
+  if (!value) return null
+  const year = Number.parseInt(value, 10)
+  return Number.isFinite(year) ? year : null
+}
+
+function inferWavFeatures(features: string | undefined): Listing['wav']['wavFeatures'] {
+  const result: Listing['wav']['wavFeatures'] = []
+  const t = (features ?? '').toLowerCase()
+  if (t.includes('hand control')) result.push('hand_controls')
+  if (t.includes('kneel')) result.push('kneel_system')
+  if (t.includes('lowered floor')) result.push('lowered_floor')
+  if (t.includes('power ramp')) result.push('power_ramp')
+  if (t.includes('lift')) result.push('has_lift')
+  return result
+}
+
+function stripTags(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
