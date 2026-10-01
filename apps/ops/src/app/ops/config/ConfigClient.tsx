@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
@@ -109,6 +109,9 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
   const [newSecretKey, setNewSecretKey] = useState('')
   const [newSecretValue, setNewSecretValue] = useState('')
   const [newSecretDescription, setNewSecretDescription] = useState('')
+
+  const [rotateKey, setRotateKey] = useState<string | null>(null)
+  const [rotateValue, setRotateValue] = useState('')
 
   const secrets = useMemo(
     () => entries.filter(entry => entry.type === 'secret').sort((a, b) => a.key.localeCompare(b.key)),
@@ -226,6 +229,47 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
         secret: {
           loading: false,
           message: err instanceof Error ? err.message : 'Secret save failed',
+          isError: true,
+        },
+      }))
+    }
+  }
+
+  async function saveRotate(secret: ConfigEntry) {
+    const request = buildSecretRequest(secret.key, rotateValue, secret.description ?? '')
+    if (!request) {
+      setSaveStates(prev => ({
+        ...prev,
+        [`secret:${secret.key}`]: { loading: false, message: 'New value is required', isError: true },
+      }))
+      return
+    }
+
+    setSaveStates(prev => ({
+      ...prev,
+      [`secret:${secret.key}`]: { loading: true, message: 'Rotating...', isError: false },
+    }))
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(request.key)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.payload),
+      })
+      if (!res.ok) throw new Error(`Failed to rotate secret (${res.status})`)
+      setRotateKey(null)
+      setRotateValue('')
+      await refreshConfig()
+      setSaveStates(prev => ({
+        ...prev,
+        [`secret:${secret.key}`]: { loading: false, message: 'Rotated', isError: false },
+      }))
+    } catch (err) {
+      setSaveStates(prev => ({
+        ...prev,
+        [`secret:${secret.key}`]: {
+          loading: false,
+          message: err instanceof Error ? err.message : 'Rotate failed',
           isError: true,
         },
       }))
@@ -433,35 +477,86 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
                 <tbody>
                   {secrets.map(secret => {
                     const saveState = saveStates[`secret:${secret.key}`]
+                    const isRotating = rotateKey === secret.key
 
                     return (
-                      <tr key={secret.id}>
-                        <td><code className={styles.inlineCode}>{secret.key}</code></td>
-                        <td className={styles.muted}>{secret.description ?? '-'}</td>
-                        <td><code className={styles.inlineCode}>...{secret.hint ?? '????'}</code></td>
-                        <td className={styles.muted}>{displayDate(secret.createdAt)}</td>
-                        <td>
-                          <span
-                            role={saveState?.isError ? 'alert' : 'status'}
-                            aria-live={saveState?.isError ? 'assertive' : 'polite'}
-                            aria-atomic="true"
-                            className={saveState?.isError ? styles.errorMsg : styles.muted}
-                          >
-                            {saveState?.message ?? '-'}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className={`${styles.btn} ${styles.btnDanger}`}
-                            onClick={() => void deleteSecret(secret.key)}
-                            disabled={saveState?.loading}
-                          >
-                            <ACTION_ICONS.delete size={13} aria-hidden="true" />
-                            {saveState?.loading ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </td>
-                      </tr>
+                      <Fragment key={secret.id}>
+                        <tr>
+                          <td><code className={styles.inlineCode}>{secret.key}</code></td>
+                          <td className={styles.muted}>{secret.description ?? '-'}</td>
+                          <td><code className={styles.inlineCode}>...{secret.hint ?? '????'}</code></td>
+                          <td className={styles.muted}>{displayDate(secret.createdAt)}</td>
+                          <td>
+                            <span
+                              role={saveState?.isError ? 'alert' : 'status'}
+                              aria-live={saveState?.isError ? 'assertive' : 'polite'}
+                              aria-atomic="true"
+                              className={saveState?.isError ? styles.errorMsg : styles.muted}
+                            >
+                              {saveState?.message ?? '-'}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className={`${styles.btn} ${styles.btnGhost}`}
+                              onClick={() => {
+                                setRotateKey(isRotating ? null : secret.key)
+                                setRotateValue('')
+                              }}
+                              disabled={saveState?.loading}
+                            >
+                              <ACTION_ICONS.save size={13} aria-hidden="true" />
+                              {isRotating ? 'Cancel' : 'Rotate'}
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.btn} ${styles.btnDanger}`}
+                              onClick={() => void deleteSecret(secret.key)}
+                              disabled={saveState?.loading}
+                            >
+                              <ACTION_ICONS.delete size={13} aria-hidden="true" />
+                              {saveState?.loading ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </td>
+                        </tr>
+                        {isRotating ? (
+                          <tr>
+                            <td colSpan={6}>
+                              <div className={styles.formGrid}>
+                                <label className={styles.field}>
+                                  <span className={styles.fieldLabel}>
+                                    New value for <code className={styles.inlineCode}>{secret.key}</code>
+                                  </span>
+                                  <input
+                                    type="password"
+                                    className={styles.input}
+                                    value={rotateValue}
+                                    onChange={event => setRotateValue(event.target.value)}
+                                    placeholder="Write-only secret"
+                                    autoComplete="new-password"
+                                    autoFocus
+                                    onKeyDown={event => {
+                                      if (event.key === 'Enter') void saveRotate(secret)
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              <div className={styles.actions}>
+                                <button
+                                  type="button"
+                                  className={`${styles.btn} ${styles.btnPrimary}`}
+                                  onClick={() => void saveRotate(secret)}
+                                  disabled={saveState?.loading}
+                                >
+                                  <ACTION_ICONS.save size={13} aria-hidden="true" />
+                                  {saveState?.loading ? 'Rotating...' : 'Save new value'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     )
                   })}
                 </tbody>
