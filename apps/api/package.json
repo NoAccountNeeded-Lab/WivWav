@@ -19,7 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@bull-board/api": "^8.1.2",
+    "@bull-board/api": "^9.10.1",
     "@bull-board/fastify": "^9.10.1",
     "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^11.1.0",
