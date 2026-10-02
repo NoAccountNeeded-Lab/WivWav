@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { PlaywrightPageFetcher } from '../crawlee/playwright-page-fetcher.js'
 
 
 import {
@@ -15,9 +16,11 @@ import type { RawCard } from './blvd.js'
 import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse, NewPageOptions } from '../browser/types.js'
 import type { RobotsCache } from '../util/robots-cache.js'
 
+const allowRobots = { async isAllowed() { return true }, clear() {} } as unknown as RobotsCache
+
 // Minimal browser service factory for checkPage1 unit tests.
 // `gotoErrors` maps URL substrings to errors that goto() should throw.
-// evaluate() always returns [] (no DOM needed — checkPage1 only needs a hash).
+// Empty HTML is sufficient for the timeout/hash tests.
 function makeTimeoutService(gotoErrors: Record<string, Error> = {}): BrowserService {
   function makePage(): BrowserPage {
     return {
@@ -363,7 +366,7 @@ describe('BlvdAdapter.checkPage1 timeout handling', () => {
     const service = makeTimeoutService({
       'by-owner': new Error('page.goto: Timeout 30000ms exceeded.'),
     })
-    const adapter = new BlvdAdapter(null, { browserService: service })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, robotsCache: allowRobots, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }) })
 
     await expect(adapter.checkPage1()).resolves.toMatchObject({
       currentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
@@ -375,7 +378,7 @@ describe('BlvdAdapter.checkPage1 timeout handling', () => {
     const service = makeTimeoutService({
       'by-owner': new Error('net::ERR_CONNECTION_REFUSED'),
     })
-    const adapter = new BlvdAdapter(null, { browserService: service })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, robotsCache: allowRobots, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }) })
 
     await expect(adapter.checkPage1()).rejects.toThrow('net::ERR_CONNECTION_REFUSED')
   })
@@ -411,7 +414,7 @@ describe('BlvdAdapter.checkStructure timeout retry', () => {
       },
     }
 
-    const adapter = new BlvdAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, robotsCache: allowRobots, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }), navRetryBackoffMs: 0 })
     const result = await adapter.checkStructure()
 
     expect(gotoAttempts).toBe(2)
@@ -423,7 +426,7 @@ describe('BlvdAdapter.checkStructure timeout retry', () => {
 
   it('rethrows after exhausting all retry attempts', async () => {
     const service = makeTimeoutService({ 'blvd.com': new Error('page.goto: Timeout 30000ms exceeded.') })
-    const adapter = new BlvdAdapter(null, { browserService: service, navRetryBackoffMs: 0 })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, robotsCache: allowRobots, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }), navRetryBackoffMs: 0 })
     await expect(adapter.checkStructure()).rejects.toThrow('Timeout 30000ms exceeded')
   })
 })
@@ -464,7 +467,7 @@ describe('BlvdAdapter.scrape page 1 timeout retry', () => {
       },
     }
 
-    const adapter = new BlvdAdapter(null, { browserService: service, robotsCache, navRetryBackoffMs: 0 })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }), robotsCache, navRetryBackoffMs: 0 })
 
     // Should not throw — the first attempt's timeout is retried and the second succeeds.
     const result = await adapter.scrape()
@@ -478,7 +481,7 @@ describe('BlvdAdapter.scrape page 1 timeout retry', () => {
       clear(): void {},
     } as unknown as RobotsCache
     const service = makeTimeoutService({ 'blvd.com': new Error('page.goto: Timeout 30000ms exceeded.') })
-    const adapter = new BlvdAdapter(null, { browserService: service, robotsCache, navRetryBackoffMs: 0 })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }), robotsCache, navRetryBackoffMs: 0 })
     await expect(adapter.scrape()).rejects.toThrow('Timeout 30000ms exceeded')
   })
 })
@@ -511,7 +514,10 @@ describe('BlvdAdapter.scrape page 2+ error handling', () => {
                 return { status: () => 200 }
               },
               async setContent(): Promise<void> {},
-              async content(): Promise<string> { return '<html></html>' },
+              async content(): Promise<string> { return `<div class="track_vehicle" data-id="159531">
+                  <a class="more-van-details-btn" href="${validCard.href}"></a>
+                  <h3>${validCard.fullTitle}</h3><span class="newusedicon Used" data-title="Vehicle Condition"></span>
+                  </div><a>Next</a>` },
               url(): string { return '' },
               // Card-scrape calls pass an arg ({ sel, baseUrl }); the hasNext
               // check calls evaluate with no arg. Distinguish on that to return
@@ -529,7 +535,7 @@ describe('BlvdAdapter.scrape page 2+ error handling', () => {
       },
     }
 
-    const adapter = new BlvdAdapter(null, { browserService: service, robotsCache })
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0, pageFetcher: new PlaywrightPageFetcher(service, { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }), robotsCache })
     const context = {
       log: async (msg: string) => { reportedMessages.push(msg) },
       updateProgress: async () => {},
@@ -584,8 +590,8 @@ describe('BlvdAdapter.scrape robots.txt skip', () => {
       clear(): void {},
     } as unknown as RobotsCache
 
-    const adapter = new BlvdAdapter(null, {
-      browserService: makeNoCardService(),
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0,
+      pageFetcher: new PlaywrightPageFetcher(makeNoCardService()),
       robotsCache,
     })
 
@@ -645,14 +651,14 @@ describe('BlvdAdapter.scrape resource blocking', () => {
       clear(): void {},
     } as unknown as RobotsCache
 
-    const adapter = new BlvdAdapter(null, {
-      browserService: makeRecordingService(),
+    const adapter = new BlvdAdapter(null, { requestDelayMs: 0,
+      pageFetcher: new PlaywrightPageFetcher(makeRecordingService(), { blockResourceTypes: ['image', 'media', 'font', 'stylesheet'] }),
       robotsCache,
     })
 
     await adapter.scrape()
 
-    expect(newPageOptions).toHaveLength(1)
+    expect(newPageOptions).toHaveLength(2)
     expect(newPageOptions[0]?.blockResourceTypes).toEqual(
       expect.arrayContaining(['image', 'media', 'font', 'stylesheet']),
     )

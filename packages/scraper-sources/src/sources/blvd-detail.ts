@@ -1,3 +1,4 @@
+import type { CrawledHtmlPage } from '../crawlee/html-fetcher.js'
 import type { BrowserPage } from '../browser/index.js'
 import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 import { parseSaleStatus } from '../lib/sale-status.js'
@@ -245,4 +246,65 @@ export async function evaluateBlvdDetail(page: BrowserPage): Promise<RawDetail> 
       statusBannerText,
     }
   }, BASE_URL)
+}
+
+
+/** HTTP twin retained alongside the browser oracle; detail jobs remain browser-gated. */
+export function extractBlvdDetail($: CrawledHtmlPage['$']): RawDetail {
+  const specs: Record<string, string> = {}
+  $('table tr').each((_index, row) => {
+    const cells = $(row).find('td')
+    const label = cells.eq(0).text().trim()
+    const value = cells.eq(1).text().trim()
+    if (cells.length >= 2 && label && value) specs[label] = value
+  })
+  const descH2 = $('h2').toArray().find((h) => /Vehicle Description/i.test($(h).text()))
+  let descriptionText = ''
+  if (descH2) {
+    let node = $(descH2)
+    while (node.parent().length) {
+      node = node.parent()
+      const text = node.find('p').first().text()
+      if (text.length > 50) { descriptionText = text.trim(); break }
+    }
+  }
+  const nonVehiclePath = /\/(?:icon|logo|badge|banner|avatar|staff|team|person|social|sprite|header|footer|favicon|placeholder|tracking|pixel|spacer|arrow|bullet|star|rating|map|pin|marker)\b/i
+  const seen = new Set<string>()
+  const imageUrls: string[] = []
+  $('a[href*="_large.jpg"]').each((_index, anchor) => {
+    const href = $(anchor).attr('href') ?? ''
+    if (!href || nonVehiclePath.test(href)) return
+    const absolute = href.startsWith('http') ? href : `${BASE_URL}${href}`
+    if (!seen.has(absolute)) { seen.add(absolute); imageUrls.push(absolute) }
+  })
+  let galleryFound = imageUrls.length > 0
+  if (!galleryFound) {
+    const galleryRoot = $('[class*="gallery"], [class*="carousel"], [id*="gallery"], [id*="carousel"], [class*="photo-slider"], [class*="image-slider"], [class*="photo-gallery"]').first()
+    galleryFound = galleryRoot.length > 0
+    galleryRoot.find('img').each((_index, image) => {
+      const img = $(image)
+      const src = img.attr('data-src') ?? img.attr('src') ?? ''
+      if (!src || src.startsWith('data:') || src.length < 10 || nonVehiclePath.test(src)) return
+      const width = parseInt(img.attr('width') ?? '0', 10)
+      const height = parseInt(img.attr('height') ?? '0', 10)
+      if ((width > 0 && width < 200) || (height > 0 && height < 150)) return
+      const absolute = src.startsWith('http') ? src : `${BASE_URL}${src}`
+      if (!seen.has(absolute) && /\.(jpg|jpeg|webp|png)/i.test(absolute)) {
+        seen.add(absolute); imageUrls.push(absolute)
+      }
+    })
+  }
+  // Preserve text boundaries from line breaks/block elements in the browser oracle.
+  const sidebar = $('.sidebarfeature').first().clone()
+  sidebar.find('br').replaceWith(' ')
+  sidebar.find('p, div, li, address').each((_index, element) => { $(element).append(' ') })
+  const status = ['[class*="sold"]', '[class*="pending"]', '[class*="unavailable"]', '[class*="status-badge"]', '[class*="sale-status"]']
+    .map((selector) => $(selector).first()).find((element) => element.length > 0)
+  return {
+    specs, descriptionText, descriptionFound: descH2 !== undefined,
+    imageUrls, galleryFound,
+    dealerPhone: $('a[href^="tel:"]').first().text().trim(),
+    dealerAddressText: sidebar.text().replace(/\s+/g, ' ').trim(),
+    statusBannerText: status?.text().trim() ?? '',
+  }
 }

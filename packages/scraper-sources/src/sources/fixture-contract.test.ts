@@ -1,17 +1,22 @@
+import { createRequire } from 'node:module'
+import { createHash } from 'node:crypto'
+import type { CrawledHtmlPage } from '../crawlee/html-fetcher.js'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { PlaywrightBrowserService } from '../browser/index.js'
 import type { BrowserPage, BrowserSession } from '../browser/index.js'
-import { evaluateBlvdCards, parseCard as parseBlvdCard } from './blvd.js'
+import { extractBlvdCards, extractBlvdStructure, evaluateBlvdCards, parseCard as parseBlvdCard } from './blvd.js'
 import type { RawCard as BlvdRawCard } from './blvd.js'
-import { evaluateBlvdDetail, parseBlvdDetail } from './blvd-detail.js'
+import { extractBlvdDetail, evaluateBlvdDetail, parseBlvdDetail } from './blvd-detail.js'
 import type { RawDetail as BlvdRawDetail } from './blvd-detail.js'
 import { evaluateMobilityWorksCards, parseCard as parseMobilityWorksCard } from './mobilityworks.js'
 import type { RawCard as MobilityWorksRawCard } from './mobilityworks.js'
 import { evaluateMwDetail, parseMwDetail } from './mobilityworks-detail.js'
 import type { RawMwDetail } from './mobilityworks-detail.js'
+
+const { load } = createRequire(import.meta.url)('cheerio') as { load(html: string): CrawledHtmlPage['$'] }
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'contracts')
 
@@ -290,4 +295,52 @@ describe('offline source fixture contracts', () => {
       expect(html).not.toMatch(/mailto:|@[a-z0-9.-]+\.[a-z]{2,}/i)
     }
   })
+})
+
+
+describe('BLVD HTTP/browser extraction parity', () => {
+  for (const name of ['blvd-list-v1.html', 'blvd-list-v2-recrawl.html']) {
+    it(`preserves raw cards and structure hash for ${name}`, async () => {
+      const page = await openFixture(name)
+      try {
+        const $ = load(fixtureHtml(name))
+        expect(extractBlvdCards($)).toEqual(await evaluateBlvdCards(page))
+        const signature = await page.evaluate(function () {
+          const cards = document.querySelectorAll('div.track_vehicle')
+          const first = cards[0]
+          if (!first) return 'no-cards'
+          const parts: string[] = []
+          const stack: Array<[Element, number]> = [[first, 0]]
+          while (stack.length) {
+            const item = stack.pop()
+            if (!item || item[1] > 3) continue
+            parts.push(`${item[0].tagName}[${item[0].className}]`)
+            for (let i = item[0].children.length - 1; i >= 0; i--) {
+              const child = item[0].children[i]
+              if (child) stack.push([child, item[1] + 1])
+            }
+          }
+          return `count:${cards.length}|${parts.join(',')}`
+        })
+        expect(createHash('sha256').update(extractBlvdStructure($).signature).digest('hex'))
+          .toBe(createHash('sha256').update(signature).digest('hex'))
+      } finally {
+        await page.close()
+      }
+    })
+  }
+})
+
+
+describe('BLVD detail HTTP/browser extraction parity', () => {
+  for (const name of ['blvd-detail-v1.html', 'blvd-detail-reseller-v1.html', 'blvd-detail-edge-v1.html']) {
+    it(`preserves detail extraction for ${name}`, async () => {
+      const page = await openFixture(name)
+      try {
+        expect(extractBlvdDetail(load(fixtureHtml(name)))).toEqual(await evaluateBlvdDetail(page))
+      } finally {
+        await page.close()
+      }
+    })
+  }
 })

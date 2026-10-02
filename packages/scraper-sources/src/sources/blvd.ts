@@ -9,10 +9,20 @@ import type { ConversionType, Listing, ListingCondition } from '@wivwav/types'
 import type { JobContext } from '@wivwav/queue'
 import type { BrowserPage, BrowserService } from '../browser/index.js'
 import { report } from '../jobs/job-progress.js'
+import { jitteredSleep } from '../util/jitter-sleep.js'
 import { RobotsCache } from '../util/robots-cache.js'
 import { isNavigationTimeout, withNavigationRetry } from '../util/navigation-timeout.js'
 import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/types'
 import { parseVehicleTitle } from '../lib/parse-vehicle-title.js'
+import {
+  DefaultCrawleeHtmlFetcher,
+  type CrawledHtmlPage,
+  type PageFetcher,
+} from '../crawlee/html-fetcher.js'
+import { PlaywrightPageFetcher } from '../crawlee/playwright-page-fetcher.js'
+import { checkForBlock } from '../crawlee/bot-detector.js'
+
+type CheerioAPI = CrawledHtmlPage['$']
 
 const SOURCE_ID = 'blvd'
 const INITIAL_NAV_MAX_ATTEMPTS = 3
@@ -22,15 +32,27 @@ const LISTINGS_PATH = '/wheelchair-vans-for-sale'
 const FSBO_LISTINGS_PATH = '/wheelchair-vans-for-sale-by-owner'
 const LISTING_PATHS = [LISTINGS_PATH, FSBO_LISTINGS_PATH] as const
 const CARD_SEL = 'div.track_vehicle'
-const NAVIGATION_TIMEOUT_MS = 30_000
 
 interface BlvdConfig {
   maxPages?: number
   previousPage1Hash?: string | null
+  /**
+   * Local fallback only (#1041) — used when pageFetcher reports a block and
+   * a browser is available on this worker. No longer the primary fetch
+   * mechanism; see pageFetcher below.
+   */
   browserService?: BrowserService
+  /**
+   * Primary fetch mechanism. Defaults to a plain-HTTP Crawlee fetch — no
+   * Chromium required. When it reports a block (bot-detector.ts) and
+   * browserService is configured, BlvdAdapter retries once via
+   * PlaywrightPageFetcher wrapping it.
+   */
+  pageFetcher?: PageFetcher
   /** Inject a RobotsCache instance for testing. Defaults to a new RobotsCache(). */
   robotsCache?: RobotsCache
   /** Override retry backoff for testing — defaults to INITIAL_NAV_BACKOFF_MS. */
+  requestDelayMs?: number
   navRetryBackoffMs?: number
 }
 
@@ -105,6 +127,62 @@ export async function evaluateBlvdCards(page: BrowserPage): Promise<RawCard[]> {
   )
 }
 
+export function extractBlvdCards($: CheerioAPI): RawCard[] {
+  return $(CARD_SEL).toArray().map((element) => {
+    const card = $(element)
+    const fields: Record<string, string> = {}
+    card.find('div.vlistp').each((_index, label) => {
+      const next = $(label).next('h4')
+      if (next.length) fields[$(label).text().trim()] = next.text().trim()
+    })
+    const condition = card.find('.newusedicon[data-title="Vehicle Condition"]').first()
+    const src = card.find('img.img-responsive').first().attr('src') ?? ''
+    return {
+      href: card.find('a.more-van-details-btn').first().attr('href') ?? '',
+      fullTitle: card.find('h3').toArray().map((h) => $(h).text().trim())
+        .find((title) => /^\d{4}\s/.test(title)) ?? '',
+      conversion: card.find('h4.conversion').first().text().trim(),
+      condition: condition.length === 0 ? '' : condition.hasClass('Used') ? 'Used' : 'New',
+      miles: fields['Miles'] ?? '',
+      price: fields['Price'] ?? '',
+      seller: fields['Seller'] ?? '',
+      location: fields['Loc.'] ?? '',
+      imageUrl: src.startsWith('http') ? src : src ? `${BASE_URL}${src}` : '',
+      dataId: card.attr('data-id') ?? '',
+    }
+  })
+}
+
+export function extractBlvdStructure($: CheerioAPI): { signature: string; cardHtml: string } {
+  const cards = $(CARD_SEL)
+  const first = cards.first()
+  if (!first.length) return { signature: 'no-cards', cardHtml: '' }
+  const parts: string[] = []
+  const stack = [{ element: first, depth: 0 }]
+  while (stack.length > 0) {
+    const item = stack.pop()
+    if (!item || item.depth > 3) continue
+    parts.push(`${item.element.prop('tagName')?.toUpperCase()}[${item.element.attr('class') ?? ''}]`)
+    const children = item.element.children().toArray()
+    for (let i = children.length - 1; i >= 0; i--) {
+      const child = children[i]
+      if (child) stack.push({ element: $(child), depth: item.depth + 1 })
+    }
+  }
+  return { signature: `count:${cards.length}|${parts.join(',')}`, cardHtml: $.html(first) }
+}
+
+export function hasBlvdNextPage($: CheerioAPI): boolean {
+  return $('a').toArray().some((a) => $(a).text().trim() === 'Next')
+}
+
+export class BlvdBlockedError extends Error {
+  constructor(url: string, reason: string | null) {
+    super(`[blvd] Blocked fetching ${url}: ${reason ?? 'unknown'}; Chromium fallback unavailable or blocked`)
+    this.name = 'BlvdBlockedError'
+  }
+}
+
 export class BlvdAdapter implements SourceAdapter {
   readonly sourceId = SOURCE_ID
   readonly name = 'BLVD.com'
@@ -113,291 +191,217 @@ export class BlvdAdapter implements SourceAdapter {
   private readonly previousPage1Hash: string | null
   private readonly maxPages: number
   private readonly browserService: BrowserService | null
+  private readonly pageFetcher: PageFetcher
   private readonly robotsCache: RobotsCache
   private readonly navRetryBackoffMs: number
+  private readonly requestDelayMs: number
+  private hasFetched = false
 
   constructor(previousHash: string | null = null, config: BlvdConfig = {}) {
     this.previousHash = previousHash
     this.previousPage1Hash = config.previousPage1Hash ?? null
     this.maxPages = config.maxPages ?? Infinity
     this.browserService = config.browserService ?? null
+    this.pageFetcher = config.pageFetcher ?? new DefaultCrawleeHtmlFetcher()
     this.robotsCache = config.robotsCache ?? new RobotsCache()
     this.navRetryBackoffMs = config.navRetryBackoffMs ?? INITIAL_NAV_BACKOFF_MS
+    this.requestDelayMs = config.requestDelayMs ?? 1_000
   }
 
-  private async getBrowserService(): Promise<BrowserService> {
-    if (this.browserService) return this.browserService
-    const { PlaywrightBrowserService } = await import('../browser/index.js')
-    return new PlaywrightBrowserService()
+  private async fetchWithFallback(url: string, context?: JobContext): Promise<CrawledHtmlPage> {
+    if (!await this.robotsCache.isAllowed(url, 'WivWav/1.0')) {
+      throw new Error(`[blvd] robots.txt disallows ${url}`)
+    }
+    const robotsDelayMs = (await this.robotsCache.getCrawlDelay?.(url, 'WivWav/1.0') ?? 0) * 1_000
+    // ±20% jitter must never shorten the minimum published by robots.txt.
+    const delayMs = Math.max(this.requestDelayMs, robotsDelayMs * 1.25)
+    if (this.hasFetched) await jitteredSleep(delayMs)
+    this.hasFetched = true
+    const page = await this.pageFetcher.fetchOne(url)
+    const block = checkForBlock(page.statusCode, page.body)
+    if (!block.blocked) return page
+    if (!this.browserService) throw new BlvdBlockedError(url, block.reason)
+    await report(context, `[blvd] Block detected (${block.reason}); retrying with Chromium: ${url}`, {
+      stage: 'scraping', source: SOURCE_ID, reason: 'chromium_fallback',
+    })
+    await jitteredSleep(delayMs)
+    const fallback = await new PlaywrightPageFetcher(this.browserService, {
+      blockResourceTypes: ['image', 'media', 'font', 'stylesheet'],
+    }).fetchOne(url)
+    const fallbackBlock = checkForBlock(fallback.statusCode, fallback.body)
+    if (fallbackBlock.blocked) throw new BlvdBlockedError(url, fallbackBlock.reason)
+    return fallback
   }
 
   async checkPage1(): Promise<Page1CheckResult> {
-    const service = await this.getBrowserService()
-    const browser = await service.launch()
-    try {
-      const page = await browser.newPage()
-
-      const entries: string[] = []
-      for (const listingPath of LISTING_PATHS) {
-        try {
-          await page.goto(getPage1CheckUrl(listingPath), {
-            waitUntil: 'domcontentloaded',
-            timeout: 30_000,
-          })
-        } catch (err) {
-          if (isNavigationTimeout(err)) continue
-          throw err
-        }
-
-        // Hash "id:price" per card so a price change triggers a full crawl even when
-        // the set of listings on page 1 is unchanged.
-        const pathEntries = await page.evaluate(function (sel: string): string[] {
-          return Array.from(document.querySelectorAll(sel))
-            .map(function (card) {
-              const id = card.getAttribute('data-id') ?? ''
-              if (!id) return ''
-              let price = ''
-              card.querySelectorAll('div.vlistp').forEach(function (label) {
-                const h4 = label.nextElementSibling
-                if (label.textContent?.trim() === 'Price' && h4?.tagName === 'H4') {
-                  price = h4.textContent?.trim() ?? ''
-                }
-              })
-              return `${id}:${price}`
-            })
-            .filter(function (s) {
-              return s.length > 0
-            })
-        }, CARD_SEL)
-
-        entries.push(...pathEntries.map((entry) => `${listingPath}:${entry}`))
+    const entries: string[] = []
+    for (const listingPath of LISTING_PATHS) {
+      let page: CrawledHtmlPage
+      try {
+        page = await this.fetchWithFallback(getPage1CheckUrl(listingPath))
+      } catch (err) {
+        if (isNavigationTimeout(err)) continue
+        throw err
       }
-
-      const currentHash = hashPage1Entries(entries)
-      const changed = this.previousPage1Hash === null || this.previousPage1Hash !== currentHash
-      return { currentHash, changed }
-    } finally {
-      await browser.close()
+      for (const card of extractBlvdCards(page.$)) {
+        if (card.dataId) entries.push(`${listingPath}:${card.dataId}:${card.price}`)
+      }
     }
+    const currentHash = hashPage1Entries(entries)
+    return { currentHash, changed: this.previousPage1Hash === null || this.previousPage1Hash !== currentHash }
   }
 
   async checkStructure(): Promise<StructureCheckResult> {
-    const service = await this.getBrowserService()
-    const browser = await service.launch()
-    try {
-      const page = await browser.newPage()
-      await withNavigationRetry(
-        () =>
-          page.goto(`${BASE_URL}${LISTINGS_PATH}`, {
-            waitUntil: 'domcontentloaded',
-            timeout: 30_000,
-          }),
-        INITIAL_NAV_MAX_ATTEMPTS,
-        this.navRetryBackoffMs,
-      )
-
-      const { signature, cardHtml } = await page.evaluate(function (sel: string): {
-        signature: string
-        cardHtml: string
-      } {
-        const cards = document.querySelectorAll(sel)
-        const first = cards[0]
-        if (!first) return { signature: 'no-cards', cardHtml: '' }
-        // Iterative DFS — tsx's esbuild injects __name() for named function declarations,
-        // which is undefined in the Playwright browser sandbox where only the function body
-        // is serialized, not the module-level helper.
-        const parts: string[] = []
-        const stack: Array<[Element, number]> = [[first, 0]]
-        while (stack.length > 0) {
-          const item = stack.pop()!
-          const el = item[0]
-          const depth = item[1]
-          if (depth > 3) continue
-          parts.push(`${el.tagName}[${el.className}]`)
-          for (let i = el.children.length - 1; i >= 0; i--) {
-            stack.push([el.children[i]!, depth + 1])
-          }
-        }
-        return { signature: `count:${cards.length}|${parts.join(',')}`, cardHtml: first.outerHTML }
-      }, CARD_SEL)
-
-      const currentHash = createHash('sha256').update(signature).digest('hex')
-      const changed = this.previousHash !== null && this.previousHash !== currentHash
-      return {
-        changed,
-        currentHash,
-        previousHash: this.previousHash,
-        // Scoped to the listing card itself (not page.content()) so unrelated page-wide
-        // markup — e.g. cookie-consent widgets — doesn't crowd out the actual listing
-        // structure when the AI remap prompt truncates the sample.
-        ...(changed ? { sampleHtml: cardHtml } : {}),
-      }
-    } finally {
-      await browser.close()
+    const page = await withNavigationRetry(
+      () => this.fetchWithFallback(`${BASE_URL}${LISTINGS_PATH}`),
+      INITIAL_NAV_MAX_ATTEMPTS, this.navRetryBackoffMs,
+    )
+    const { signature, cardHtml } = extractBlvdStructure(page.$)
+    const currentHash = createHash('sha256').update(signature).digest('hex')
+    const changed = this.previousHash !== null && this.previousHash !== currentHash
+    return {
+      changed, currentHash, previousHash: this.previousHash,
+      ...(changed ? { sampleHtml: cardHtml } : {}),
     }
   }
 
   async scrape(context?: JobContext): Promise<ScrapeResult> {
-    const service = await this.getBrowserService()
-    const browser = await service.launch()
     const listings: Omit<Listing, 'id' | 'scrapedAt' | 'updatedAt'>[] = []
     const robots = this.robotsCache
 
-    try {
-      // Block image/media/font/stylesheet bytes: this single page is reused
-      // across every listing page, and loading those subresources accumulates
-      // in-flight requests until Chromium fails navigation with
-      // net::ERR_INSUFFICIENT_RESOURCES (historically around page 8). Card image
-      // URLs are read from the img src attribute, so the bytes are never needed.
-      const page = await browser.newPage({
-        blockResourceTypes: ['image', 'media', 'font', 'stylesheet'],
-      })
-      await report(context, '[blvd] Starting listing pagination', {
-        stage: 'scraping',
-        source: SOURCE_ID,
-        page: 1,
-        listings: 0,
-      })
+    await report(context, '[blvd] Starting listing pagination', {
+      stage: 'scraping',
+      source: SOURCE_ID,
+      page: 1,
+      listings: 0,
+    })
 
-      for (const listingPath of LISTING_PATHS) {
-        // Check robots.txt before scraping each path; skip and log when disallowed.
-        const pathUrl = `${BASE_URL}${listingPath}`
-        const allowed = await robots.isAllowed(pathUrl, 'WivWav/1.0')
-        if (!allowed) {
-          await report(context, `[blvd] robots.txt disallows ${pathUrl} — skipping path`, {
-            stage: 'scraping',
-            source: SOURCE_ID,
-            reason: 'robots_disallowed',
-          })
-          continue
-        }
+    for (const listingPath of LISTING_PATHS) {
+      // Check robots.txt before scraping each path; skip and log when disallowed.
+      const pathUrl = `${BASE_URL}${listingPath}`
+      const allowed = await robots.isAllowed(pathUrl, 'WivWav/1.0')
+      if (!allowed) {
+        await report(context, `[blvd] robots.txt disallows ${pathUrl} — skipping path`, {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          reason: 'robots_disallowed',
+        })
+        continue
+      }
 
-        let pageNum = 1
+      let pageNum = 1
 
-        while (pageNum <= this.maxPages) {
-          const url = getListingPageUrl(listingPath, pageNum)
+      while (pageNum <= this.maxPages) {
+        const url = getListingPageUrl(listingPath, pageNum)
 
-          await report(context, `[blvd] Loading listing page ${pageNum}: ${url}`, {
-            stage: 'scraping',
-            source: SOURCE_ID,
-            page: pageNum,
-            listings: listings.length,
-          })
+        await report(context, `[blvd] Loading listing page ${pageNum}: ${url}`, {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          page: pageNum,
+          listings: listings.length,
+        })
 
-          try {
-            if (pageNum === 1) {
-              await withNavigationRetry(
-                () =>
-                  page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS }),
-                INITIAL_NAV_MAX_ATTEMPTS,
-                this.navRetryBackoffMs,
-              )
-            } else {
-              await page.goto(url, {
-                waitUntil: 'domcontentloaded',
-                timeout: NAVIGATION_TIMEOUT_MS,
-              })
-            }
-          } catch (err) {
-            if (pageNum > 1) {
-              // Any nav failure this deep in pagination (timeout, net::ERR_ABORTED,
-              // a stealth-plugin evasion racing page teardown, etc.) should stop
-              // pagination gracefully rather than rethrow — rethrowing here aborts
-              // the whole run and discards every listing already collected across
-              // potentially dozens of prior pages. Page 1 stays strict (via
-              // withNavigationRetry, which only retries timeouts) since a page 1
-              // failure means zero listings for this path regardless.
-              const message = err instanceof Error ? err.message : String(err)
-              await report(
-                context,
-                `[blvd] Stopping pagination after error loading page ${pageNum}: ${url} (${message})`,
-                {
-                  stage: 'scraping',
-                  source: SOURCE_ID,
-                  page: pageNum,
-                  listings: listings.length,
-                  reason: isNavigationTimeout(err) ? 'page_timeout' : 'page_error',
-                },
-              )
-              break
-            }
-            throw err
-          }
-
-          const cards = await evaluateBlvdCards(page)
-
-          await report(context, `[blvd] Page ${pageNum} returned ${cards.length} card(s)`, {
-            stage: 'scraping',
-            source: SOURCE_ID,
-            page: pageNum,
-            cards: cards.length,
-            listings: listings.length,
-          })
-
-          if (cards.length === 0) {
-            await report(context, `[blvd] No cards found on page ${pageNum}; stopping pagination`, {
-              stage: 'scraping',
-              source: SOURCE_ID,
-              page: pageNum,
-              listings: listings.length,
-              reason: 'no_cards',
-            })
-            break
-          }
-
-          let parsedOnPage = 0
-          for (const card of cards) {
-            const listing = parseCard(card)
-            if (listing) {
-              listings.push(listing)
-              parsedOnPage++
-            }
-          }
-
-          await report(
-            context,
-            `[blvd] Parsed ${parsedOnPage}/${cards.length} card(s) on page ${pageNum}; ${listings.length} listing(s) total`,
-            {
-              stage: 'scraping',
-              source: SOURCE_ID,
-              page: pageNum,
-              cards: cards.length,
-              parsed: parsedOnPage,
-              listings: listings.length,
-            },
-          )
-
-          const hasNext = await page.evaluate(function () {
-            return Array.from(document.querySelectorAll('a')).some(function (a) {
-              return a.textContent?.trim() === 'Next'
-            })
-          })
-
-          if (!hasNext) {
+        let page: CrawledHtmlPage
+        try {
+          page = pageNum === 1
+            ? await withNavigationRetry(
+              () => this.fetchWithFallback(url, context),
+              INITIAL_NAV_MAX_ATTEMPTS, this.navRetryBackoffMs,
+            )
+            : await this.fetchWithFallback(url, context)
+        } catch (err) {
+          if (pageNum > 1 && !(err instanceof BlvdBlockedError)) {
+            // Any nav failure this deep in pagination (timeout, net::ERR_ABORTED,
+            // a stealth-plugin evasion racing page teardown, etc.) should stop
+            // pagination gracefully rather than rethrow — rethrowing here aborts
+            // the whole run and discards every listing already collected across
+            // potentially dozens of prior pages. Page 1 stays strict (via
+            // withNavigationRetry, which only retries timeouts) since a page 1
+            // failure means zero listings for this path regardless.
+            const message = err instanceof Error ? err.message : String(err)
             await report(
               context,
-              `[blvd] No next page after page ${pageNum}; pagination complete`,
+              `[blvd] Stopping pagination after error loading page ${pageNum}: ${url} (${message})`,
               {
                 stage: 'scraping',
                 source: SOURCE_ID,
                 page: pageNum,
                 listings: listings.length,
+                reason: isNavigationTimeout(err) ? 'page_timeout' : 'page_error',
               },
             )
             break
           }
-          pageNum++
+          throw err
         }
+
+        const cards = extractBlvdCards(page.$)
+
+        await report(context, `[blvd] Page ${pageNum} returned ${cards.length} card(s)`, {
+          stage: 'scraping',
+          source: SOURCE_ID,
+          page: pageNum,
+          cards: cards.length,
+          listings: listings.length,
+        })
+
+        if (cards.length === 0) {
+          await report(context, `[blvd] No cards found on page ${pageNum}; stopping pagination`, {
+            stage: 'scraping',
+            source: SOURCE_ID,
+            page: pageNum,
+            listings: listings.length,
+            reason: 'no_cards',
+          })
+          break
+        }
+
+        let parsedOnPage = 0
+        for (const card of cards) {
+          const listing = parseCard(card)
+          if (listing) {
+            listings.push(listing)
+            parsedOnPage++
+          }
+        }
+
+        await report(
+          context,
+          `[blvd] Parsed ${parsedOnPage}/${cards.length} card(s) on page ${pageNum}; ${listings.length} listing(s) total`,
+          {
+            stage: 'scraping',
+            source: SOURCE_ID,
+            page: pageNum,
+            cards: cards.length,
+            parsed: parsedOnPage,
+            listings: listings.length,
+          },
+        )
+
+        const hasNext = hasBlvdNextPage(page.$)
+
+        if (!hasNext) {
+          await report(
+            context,
+            `[blvd] No next page after page ${pageNum}; pagination complete`,
+            {
+              stage: 'scraping',
+              source: SOURCE_ID,
+              page: pageNum,
+              listings: listings.length,
+            },
+          )
+          break
+        }
+        pageNum++
       }
-
-      const fingerprintHash = createHash('sha256')
-        .update(listings.map((l) => l.vin ?? l.sourceUrl).join('|'))
-        .digest('hex')
-
-      return { listings, fingerprintHash }
-    } finally {
-      await browser.close()
     }
+
+    const fingerprintHash = createHash('sha256')
+      .update(listings.map((l) => l.vin ?? l.sourceUrl).join('|'))
+      .digest('hex')
+
+    return { listings, fingerprintHash }
   }
 }
 
