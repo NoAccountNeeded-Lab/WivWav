@@ -38,12 +38,33 @@ const DEFAULT_DETAIL_DELAY_MS = 300
 // endpoint per keyword against the single source of truth, rather than a
 // second hardcoded copy that could silently drift from what actually ships.
 export const MOTORS_CATEGORY_ID = '6001'
+// Keyword recall/precision as measured by ebay-motors.integration.test.ts's
+// discovery block against a live production response, 2026-10-02 (sample
+// size 3, aspect-verified via getItem, not title-only):
+//   wheelchair van             total=119  1/3 verified
+//   wheelchair accessible van  total=24   3/3 verified
+//   handicap accessible van    total=19   3/3 verified
+//   mobility van conversion    total=2    1/2 verified  (weak recall, kept — low cost)
+//   wav                        total=8    3/3 verified
+//   handicap van               total=137  1/3 verified  (highest recall of any keyword tried)
+//   disability van             total=136  3/3 verified  (high recall AND high precision)
+//   braunability               total=30   2/3 verified  (a real WAV conversion brand — see
+//                                                         inferConversionManufacturer in
+//                                                         mobility-van-sales.ts/ams-vans-
+//                                                         classifieds.ts for the same brand vocabulary)
+// Tried and NOT added: 'vantage mobility' (total=5, too little recall to
+// justify the extra search call), 'rollx vans' and 'driverge' (both
+// total=0 as exact phrases — see the discovery block for retrying a looser
+// phrasing if this is revisited).
 export const SEARCH_KEYWORDS = [
   'wheelchair van',
   'wheelchair accessible van',
   'handicap accessible van',
   'mobility van conversion',
   'wav',
+  'handicap van',
+  'disability van',
+  'braunability',
 ] as const
 
 const PRODUCTION_HOST = 'api.ebay.com'
