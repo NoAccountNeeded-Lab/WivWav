@@ -60,6 +60,11 @@ RUN groupadd --gid 10001 worker \
 
 COPY --from=builder --chown=worker:worker /prod/worker ./
 
+# Crawlee's Linux memory probe invokes ps (procps is absent from slim).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends procps \
+    && rm -rf /var/lib/apt/lists/*
+
 # Headless-shell-only footprint — no Firefox, WebKit, or full Chromium.
 RUN ./node_modules/.bin/playwright install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/* \
