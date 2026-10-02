@@ -186,6 +186,14 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         },
       },
       {
+        href: '/ops/ebay-motors-search',
+        title: 'eBay Motors keyword tester',
+        desc: 'Try different keywords and category IDs against the live Browse API search endpoint to judge recall and precision for WAV listings.',
+        shell: {
+          placement: 'advanced',
+        },
+      },
+      {
         href: '/admin/board',
         title: 'Bull Board diagnostics',
         desc: 'Open the full raw queue inspector for payloads, retry details, and stack traces.',
