@@ -34,8 +34,11 @@ const DEFAULT_DETAIL_DELAY_MS = 300
 // MOBILITY VENTURES WHEELCHAIR VAN VPG MV-1" with
 // localizedAspects["Disability Equipped"] = "YES") rather than parts/
 // accessories, against a live production Browse API response (#999).
-const MOTORS_CATEGORY_ID = '6001'
-const SEARCH_KEYWORDS = [
+// Exported so ebay-motors.integration.test.ts can exercise the real search
+// endpoint per keyword against the single source of truth, rather than a
+// second hardcoded copy that could silently drift from what actually ships.
+export const MOTORS_CATEGORY_ID = '6001'
+export const SEARCH_KEYWORDS = [
   'wheelchair van',
   'wheelchair accessible van',
   'handicap accessible van',
