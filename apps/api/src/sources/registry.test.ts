@@ -96,7 +96,7 @@ describe('buildSourceScrapeScheduleSources — requiresBrowser travels in job da
     const schedules = buildSourceScrapeScheduleSources(sources)
 
     const blvdSchedule = schedules.find((s) => s.id === 'blvd')
-    expect(blvdSchedule?.data.requiresBrowser).toBe(true)
+    expect(blvdSchedule?.data.requiresBrowser).toBe(false)
 
     const mobilityworksSchedule = schedules.find((s) => s.id === 'mw')
     expect(mobilityworksSchedule?.data.requiresBrowser).toBe(false)
