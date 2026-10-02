@@ -19,6 +19,7 @@ const robotsParser: (url: string, text: string) => Robot = require('robots-parse
 
 // The Robot interface returned by robots-parser
 interface Robot {
+  getCrawlDelay(ua?: string): number | undefined
   isAllowed(url: string, ua?: string): boolean | undefined
   isDisallowed(url: string, ua?: string): boolean | undefined
 }
@@ -42,6 +43,12 @@ export class RobotsCache {
     const robots = await this.getRobotsForUrl(url)
     if (robots === null) return true
     return robots.isAllowed(url, userAgent) !== false
+  }
+
+  /** Minimum seconds between requests, using the same cached robots document. */
+  async getCrawlDelay(url: string, userAgent = '*'): Promise<number> {
+    const robots = await this.getRobotsForUrl(url)
+    return Math.max(0, robots?.getCrawlDelay(userAgent) ?? 0)
   }
 
   /** Flush the cache (call between scrape runs if needed). */

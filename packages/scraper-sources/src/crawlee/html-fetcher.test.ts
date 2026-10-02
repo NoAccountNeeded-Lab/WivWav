@@ -177,3 +177,30 @@ describe('DefaultCrawleeHtmlFetcher', () => {
     ).rejects.toThrow('Crawlee skipped 1 robots-disallowed request(s)')
   })
 })
+
+
+describe('cross-fetch robots pacing', () => {
+  it('preserves the crawl-delay across separate fetchOne calls', async () => {
+    const times: number[] = []
+    class FakeCrawler {
+      constructor(private readonly options: CheerioCrawlerOptions = {}) {}
+      async run(): Promise<void> {
+        const context = {
+          request: { url: 'https://www.blvd.com/listings' },
+          response: { statusCode: 200 }, body: '<html></html>', $: (() => {}) as never,
+          enqueueLinks: async () => {},
+        } as unknown as Parameters<NonNullable<CheerioCrawlerOptions['requestHandler']>>[0]
+        for (const hook of this.options.preNavigationHooks ?? []) await hook(context, {})
+        times.push(Date.now())
+        await this.options.requestHandler?.(context)
+      }
+    }
+    const fetcher = new DefaultCrawleeHtmlFetcher({
+      createCrawler: FakeCrawler,
+      fetchRobots: async () => htmlResponse('User-agent: *\nCrawl-delay: 0.1\nAllow: /\n'),
+    })
+    await fetcher.fetchOne('https://www.blvd.com/listings')
+    await fetcher.fetchOne('https://www.blvd.com/listings')
+    expect((times[1] ?? 0) - (times[0] ?? 0)).toBeGreaterThanOrEqual(99)
+  })
+})

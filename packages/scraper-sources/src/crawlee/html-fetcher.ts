@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { jitteredSleep } from '../util/jitter-sleep.js'
 import { CheerioCrawler, Configuration, log as crawleeLog } from 'crawlee'
 import type { CheerioCrawlingContext, CheerioCrawlerOptions } from 'crawlee'
 
@@ -13,15 +14,7 @@ export interface CrawledHtmlPage {
   url: string
   body: string
   $: CheerioCrawlingContext['$']
-  /**
-   * null when Crawlee doesn't report one (shouldn't happen for a real HTTP
-   * fetch, but defensive for test doubles). 403/429 already reach this
-   * handler with their body by Crawlee's own default (only >=500 status
-   * codes are treated as request failures) — 503 is the one bot-management
-   * status in BOT_BLOCK_STATUS_CODES that needs the explicit
-   * ignoreHttpErrorStatusCodes opt-out below to avoid being routed to
-   * failedRequestHandler (no body available there) instead of here.
-   */
+  /** HTTP response status, or null for fetchers without response metadata. */
   statusCode: number | null
 }
 
@@ -63,6 +56,7 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
   private readonly createCrawler: CheerioCrawlerConstructor
   private readonly fetchRobots: typeof fetch
   private readonly maxConcurrency: number
+  private readonly lastNavigationAt = new Map<string, number>()
 
   constructor(config: CrawleeHtmlFetcherConfig = {}) {
     this.createCrawler = config.createCrawler ?? CheerioCrawler
@@ -95,13 +89,18 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
         navigationTimeoutSecs: 30,
         sameDomainDelaySecs: delay,
         respectRobotsTxtFile: { userAgent: WIVWAV_CRAWLER_USER_AGENT },
-        // 403/429 already reach requestHandler with a body by Crawlee's own
-        // default (only >=500 is treated as an error); 503 needs this to
-        // avoid being routed to failedRequestHandler instead, where no body
-        // is available for a bot-detector to inspect.
+        // HTTP 503 must reach the handler with its challenge body.
         ignoreHttpErrorStatusCodes: [503],
+        // Let the adapter inspect blocked bodies and choose its fallback.
+        // Crawlee otherwise throws on 403/429 before requestHandler runs.
+        sessionPoolOptions: { blockedStatusCodes: [] },
         preNavigationHooks: [
-          (_context, gotOptions) => {
+          async (context, gotOptions) => {
+            const origin = new URL(context.request.url).origin
+            const previous = this.lastNavigationAt.get(origin)
+            const remainingMs = previous === undefined ? 0 : delay * 1_000 - (Date.now() - previous)
+            if (remainingMs > 0) await jitteredSleep(remainingMs * 1.25)
+            this.lastNavigationAt.set(origin, Date.now())
             gotOptions.headers = {
               ...gotOptions.headers,
               'user-agent': WIVWAV_CRAWLER_USER_AGENT,
