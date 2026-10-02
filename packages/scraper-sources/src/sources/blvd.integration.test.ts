@@ -1,10 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { BlvdAdapter } from './blvd.js'
 
-// Integration tests — hit the real blvd.com via Playwright.
-// Run: pnpm --filter @wivwav/scraper test
+// Live tests use the default HTTP fetcher with no BrowserService.
+// Run: WIVWAV_LIVE_SCRAPER_TESTS=1 pnpm --filter @wivwav/scraper-sources exec vitest run src/sources/blvd.integration.test.ts
 
-describe('BlvdAdapter', () => {
+describe.skipIf(process.env['WIVWAV_LIVE_SCRAPER_TESTS'] !== '1')('BlvdAdapter', () => {
+  it('checkPage1 hashes both listing paths without Chromium', async () => {
+    const result = await new BlvdAdapter().checkPage1()
+    expect(result.currentHash).toMatch(/^[0-9a-f]{64}$/)
+    expect(result.changed).toBe(true)
+  }, 60_000)
+
   it('checkStructure returns a consistent hash', async () => {
     const adapter = new BlvdAdapter(null, { maxPages: 1 })
     const result = await adapter.checkStructure()
@@ -69,9 +75,10 @@ describe('BlvdAdapter', () => {
 
     expect(listings.length).toBeGreaterThan(30)
 
-    const vins = listings.map(l => l.vin)
-    const uniqueVins = new Set(vins)
-    expect(uniqueVins.size).toBe(vins.length)
+    // Records with malformed VINs deliberately retain null plus quality codes.
+    // Their BLVD record IDs still identify distinct listings.
+    const keys = listings.map(l => l.sourceRecordKey)
+    expect(new Set(keys).size).toBe(listings.length)
   }, 120_000)
 
   it('detects changed structure when hash differs', async () => {
