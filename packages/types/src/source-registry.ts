@@ -27,7 +27,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     cronExpression: '0 */6 * * *',
     timezone: 'America/New_York',
     pipeline: 'detail-pages',
-    requiresBrowser: true,
+    requiresBrowser: false,
   },
   {
     key: 'mobilityworks',
