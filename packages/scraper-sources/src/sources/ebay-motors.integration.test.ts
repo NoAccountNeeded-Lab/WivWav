@@ -167,17 +167,21 @@ describe.skipIf(!liveNetwork || !hasCredentials)('eBay Motors search keywords �
   // worth keeping for its precision). Read the printed table and use it to
   // decide SEARCH_KEYWORDS's contents by hand.
   //
-  // Round 1 (2026-10-02) already promoted 'handicap van', 'disability van',
-  // and 'braunability' into SEARCH_KEYWORDS (see its own comment for the
-  // numbers) — they're excluded here to avoid double-listing. 'rollx vans'
-  // and 'driverge' returned zero results as exact phrases and were dropped;
-  // a looser phrasing (just 'rollx', just 'driverge') is worth a future
-  // round if this list is revisited. 'vantage mobility' is kept below: low
-  // recall (5) wasn't enough to promote it, but it's cheap to keep
-  // re-checking in case that changes.
+  // Three rounds of this (2026-10-02) promoted 'handicap van', 'disability
+  // van', 'braunability', then 'wheelchair', 'handicap', and 'mobility'
+  // into SEARCH_KEYWORDS (see its own comment for the full numbers,
+  // including why a raw item-count/itemId diff isn't evidence of relevance
+  // on its own — 'ada van' looked promising by that measure and turned out
+  // to be noise once checked via getItem). Rejected after verification:
+  // 'vantage mobility' and 'wheelchair lift van' (confirmed zero net-new
+  // items beyond the production union, not just low recall), 'accessible'
+  // and 'conversion van' alone (0/10 verified — generic, unrelated
+  // matches). 'rollx vans' and 'driverge' returned zero results as exact
+  // phrases; a looser phrasing (just 'rollx', just 'driverge') is the one
+  // genuinely untried angle left if this is revisited.
   const CANDIDATE_ADDITIONS = [
-    'vantage mobility',
-    'wheelchair lift van',
+    'rollx',
+    'driverge',
   ] as const
 
   const CANDIDATE_SAMPLE_SIZE = 3
