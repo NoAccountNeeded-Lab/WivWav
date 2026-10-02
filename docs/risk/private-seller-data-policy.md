@@ -164,6 +164,7 @@ The following items require explicit product or legal approval before public bet
 | ZIP code from detail extraction | Low–Medium | Product/counsel to choose: suppress or retain in public API. |
 | Image retention for private-seller listings | Low | Product/counsel to confirm link-through vs. re-hosting approach. |
 | Retention/deletion policy for gone private-seller rows | Resolved | Implemented 2026-08-20 (#817): 30-day anonymize-in-place, see "Deletion and Staleness Behavior" above. |
+| eBay API License Agreement data-retention/caching terms (#999) | Low–Medium | eBay's public developer docs do not surface an explicit retention/caching duration for Browse API listing data — confirmed 2026-10-01. The ALA's full text may impose one; product/legal to review the ALA directly (or contact eBay Developer Support) and confirm WivWav's existing retention behavior (indefinite for active/gone-but-not-anonymized listings; 30-day anonymize-in-place for `sellerType: 'private'` rows, same as BLVD) is compliant. Not treated as a launch blocker absent a found restriction, consistent with how the BLVD scraping posture item above was resolved. |
 
 These deferrals are documented. No public display of private-seller listings should occur until the BLVD source posture is resolved (item 1 above).
 

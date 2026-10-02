@@ -186,10 +186,14 @@ pipeline above:
 - Every unique listing the Browse API search discovers costs a second call
   (`getItem`) — VIN, mileage, city/state, and the private/dealer seller
   signal only exist on that per-item detail call, not on the search
-  response. Before raising `MAX_ITEMS_PER_RUN` or the cron frequency in
-  `packages/scraper-sources/src/sources/ebay-motors.ts`, check the app's
-  Browse API daily call quota in the eBay developer portal — the real
-  per-run call volume is roughly double the item count.
+  response. eBay's default Browse API quota is **5,000 calls/day** per app
+  (confirmed via the developer portal, 2026-10-01); `MAX_ITEMS_PER_RUN` is
+  set to budget roughly half of that across the source's 4x/day cron,
+  leaving headroom for 429 retries. Before raising `MAX_ITEMS_PER_RUN` or
+  the cron frequency, re-check the actual quota and current utilization via
+  the Developer Analytics API's `rate_limit`/`user_rate_limit` resources (or
+  request a higher limit via the Application Growth Check) — don't assume
+  the default still applies.
 
 ## Migration ordering
 
