@@ -64,6 +64,60 @@ describe('DefaultCrawleeHtmlFetcher', () => {
     ])
   })
 
+  it('configures ignoreHttpErrorStatusCodes: [503] so a 503 reaches requestHandler instead of failedRequestHandler', async () => {
+    let capturedOptions: CheerioCrawlerOptions = {}
+    class FakeCrawler {
+      constructor(options?: CheerioCrawlerOptions) {
+        capturedOptions = options ?? {}
+      }
+
+      async run(): Promise<void> {}
+    }
+
+    const fetchRobots = vi.fn(async () => htmlResponse('User-agent: WivWav\nAllow: /\n'))
+    const fetcher = new DefaultCrawleeHtmlFetcher({ createCrawler: FakeCrawler, fetchRobots })
+
+    await fetcher.crawl(['https://www.blvd.com/wheelchair-vans-for-sale'], () => {})
+
+    expect(capturedOptions.ignoreHttpErrorStatusCodes).toEqual([503])
+  })
+
+  it('passes the response statusCode through to the handler (e.g. a 403 bot-block page)', async () => {
+    class BlockedStatusCrawler {
+      private readonly options: CheerioCrawlerOptions
+
+      constructor(options?: CheerioCrawlerOptions) {
+        this.options = options ?? {}
+      }
+
+      async run(): Promise<void> {
+        const requestHandler = this.options.requestHandler
+        if (!requestHandler) return
+        const context = {
+          request: { url: 'https://www.blvd.com/wheelchair-vans-for-sale', loadedUrl: undefined },
+          response: { statusCode: 403 },
+          body: '<html>Just a moment...</html>',
+          $: (() => {}) as never,
+          enqueueLinks: async () => {},
+        } as unknown as Parameters<NonNullable<CheerioCrawlerOptions['requestHandler']>>[0]
+        await requestHandler(context)
+      }
+    }
+
+    const fetchRobots = vi.fn(async () => htmlResponse('User-agent: WivWav\nAllow: /\n'))
+    const fetcher = new DefaultCrawleeHtmlFetcher({
+      createCrawler: BlockedStatusCrawler,
+      fetchRobots,
+    })
+
+    const handler = vi.fn()
+    await fetcher.crawl(['https://www.blvd.com/wheelchair-vans-for-sale'], handler)
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 403, body: '<html>Just a moment...</html>' }),
+    )
+  })
+
   it('throws when Crawlee exhausts retries for any request', async () => {
     class FailingCrawler {
       private readonly options: CheerioCrawlerOptions

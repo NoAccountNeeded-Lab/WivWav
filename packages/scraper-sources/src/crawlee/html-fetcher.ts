@@ -13,6 +13,16 @@ export interface CrawledHtmlPage {
   url: string
   body: string
   $: CheerioCrawlingContext['$']
+  /**
+   * null when Crawlee doesn't report one (shouldn't happen for a real HTTP
+   * fetch, but defensive for test doubles). 403/429 already reach this
+   * handler with their body by Crawlee's own default (only >=500 status
+   * codes are treated as request failures) — 503 is the one bot-management
+   * status in BOT_BLOCK_STATUS_CODES that needs the explicit
+   * ignoreHttpErrorStatusCodes opt-out below to avoid being routed to
+   * failedRequestHandler (no body available there) instead of here.
+   */
+  statusCode: number | null
 }
 
 export type CrawledHtmlPageHandler = (
@@ -23,6 +33,15 @@ export interface CrawleeHtmlFetcher {
   crawl(urls: string[], handler: CrawledHtmlPageHandler): Promise<void>
   fetchOne(url: string): Promise<CrawledHtmlPage>
 }
+
+/**
+ * Shared contract both the Crawlee-backed (DefaultCrawleeHtmlFetcher,
+ * above) and Playwright-backed (playwright-page-fetcher.ts) fetchers
+ * satisfy — a plain alias, not a second divergent interface, so a source
+ * adapter's config can say `pageFetcher: PageFetcher` without implying
+ * Crawlee specifically (#1041).
+ */
+export type PageFetcher = CrawleeHtmlFetcher
 
 export interface RobotsDelayProbe {
   delaySeconds: number | null
@@ -76,6 +95,11 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
         navigationTimeoutSecs: 30,
         sameDomainDelaySecs: delay,
         respectRobotsTxtFile: { userAgent: WIVWAV_CRAWLER_USER_AGENT },
+        // 403/429 already reach requestHandler with a body by Crawlee's own
+        // default (only >=500 is treated as an error); 503 needs this to
+        // avoid being routed to failedRequestHandler instead, where no body
+        // is available for a bot-detector to inspect.
+        ignoreHttpErrorStatusCodes: [503],
         preNavigationHooks: [
           (_context, gotOptions) => {
             gotOptions.headers = {
@@ -84,11 +108,12 @@ export class DefaultCrawleeHtmlFetcher implements CrawleeHtmlFetcher {
             }
           },
         ],
-        async requestHandler({ request, body, $, enqueueLinks }) {
+        async requestHandler({ request, response, body, $, enqueueLinks }) {
           const nextUrls = await handler({
             url: request.loadedUrl ?? request.url,
             body: typeof body === 'string' ? body : body.toString(),
             $,
+            statusCode: response.statusCode ?? null,
           })
           if (nextUrls && nextUrls.length > 0) {
             await enqueueLinks({

@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url)
 const cheerio = require('cheerio') as { load(html: string): CrawledHtmlPage['$'] }
 
 function pageFromHtml(url: string, html: string): CrawledHtmlPage {
-  return { url, body: html, $: cheerio.load(html) }
+  return { url, body: html, $: cheerio.load(html), statusCode: 200 }
 }
 
 // ─── parseMileage ────────────────────────────────────────────────────────────
