@@ -9,7 +9,6 @@ function makeQueue(overrides: Record<string, unknown> = {}): Queue {
     getJobSchedulers: vi.fn(async () => []),
     upsertJobScheduler: vi.fn(async () => ({})),
     removeJobScheduler: vi.fn(async () => false),
-    removeRepeatableByKey: vi.fn(async () => false),
     ...overrides,
   } as unknown as Queue
 }
@@ -73,39 +72,14 @@ describe('BullMQQueueAdapter repeatable jobs', () => {
     )
   })
 
-  it('falls back to legacy removal only when scheduler removal misses', async () => {
-    const removeJobScheduler = vi.fn(async () => false)
-    const removeRepeatableByKey = vi.fn(async () => true)
-    const adapter = new BullMQQueueAdapter(
-      makeQueue({
-        removeJobScheduler,
-        removeRepeatableByKey,
-      }),
-      getQueuePolicy('detail-crawl'),
-    )
-
-    const removed = await adapter.removeRepeatableByKey('legacy-hash')
-
-    expect(removed).toBe(true)
-    expect(removeJobScheduler).toHaveBeenCalledWith('legacy-hash')
-    expect(removeRepeatableByKey).toHaveBeenCalledWith('legacy-hash')
-  })
-
-  it('does not call legacy removal after scheduler removal succeeds', async () => {
+  it('delegates removal to the job scheduler API', async () => {
     const removeJobScheduler = vi.fn(async () => true)
-    const removeRepeatableByKey = vi.fn(async () => true)
-    const adapter = new BullMQQueueAdapter(
-      makeQueue({
-        removeJobScheduler,
-        removeRepeatableByKey,
-      }),
-      getQueuePolicy('detail-crawl'),
-    )
+    const adapter = new BullMQQueueAdapter(makeQueue({ removeJobScheduler }), getQueuePolicy('detail-crawl'))
 
     const removed = await adapter.removeRepeatableByKey('mw-crawl')
 
     expect(removed).toBe(true)
-    expect(removeRepeatableByKey).not.toHaveBeenCalled()
+    expect(removeJobScheduler).toHaveBeenCalledWith('mw-crawl')
   })
 })
 

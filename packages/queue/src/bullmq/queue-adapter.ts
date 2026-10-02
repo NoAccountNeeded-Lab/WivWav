@@ -110,11 +110,7 @@ export class BullMQQueueAdapter implements QueueAdapter {
   }
 
   async removeRepeatableByKey(key: string): Promise<boolean> {
-    const removed = await this.queue.removeJobScheduler(key)
-    if (removed) return true
-    // Legacy repeatable hashes can remain after upgrading to the Job Scheduler
-    // API. Keep the deprecated removal call only as a migration fallback.
-    return this.queue.removeRepeatableByKey(key)
+    return this.queue.removeJobScheduler(key)
   }
 
   async cleanFailed(limit = 1000): Promise<number> {
