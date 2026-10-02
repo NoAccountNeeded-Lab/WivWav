@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
@@ -112,6 +112,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
 
   const [rotateKey, setRotateKey] = useState<string | null>(null)
   const [rotateValue, setRotateValue] = useState('')
+  const rotateInputRef = useRef<HTMLInputElement>(null)
 
   const secrets = useMemo(
     () => entries.filter(entry => entry.type === 'secret').sort((a, b) => a.key.localeCompare(b.key)),
@@ -133,6 +134,10 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
       setLoading(false)
     }
   }, [apiBaseUrl])
+
+  useEffect(() => {
+    if (rotateKey !== null) rotateInputRef.current?.focus()
+  }, [rotateKey])
 
   useEffect(() => {
     void refreshConfig()
@@ -531,11 +536,11 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
                                   <input
                                     type="password"
                                     className={styles.input}
+                                    ref={rotateInputRef}
                                     value={rotateValue}
                                     onChange={event => setRotateValue(event.target.value)}
                                     placeholder="Write-only secret"
                                     autoComplete="new-password"
-                                    autoFocus
                                     onKeyDown={event => {
                                       if (event.key === 'Enter') void saveRotate(secret)
                                     }}
