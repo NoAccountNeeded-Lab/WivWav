@@ -29,6 +29,7 @@
     "@wivwav/logger": "workspace:*",
     "@wivwav/queue": "workspace:*",
     "@wivwav/types": "workspace:*",
+    "cheerio": "1.0.0-rc.12",
     "crawlee": "3.18.1",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
@@ -37,7 +38,6 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@wivwav/config": "workspace:*",
-    "cheerio": "1.0.0-rc.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
