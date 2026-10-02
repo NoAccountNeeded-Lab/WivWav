@@ -139,7 +139,7 @@ export async function registerSources(db: PrismaClient): Promise<RegisteredSourc
 export function buildSourceScrapeScheduleSources(sources: readonly RegisteredSource[]): Array<{
   id: string
   name: string
-  data: { sourceId: string }
+  data: { sourceId: string; requiresBrowser: boolean }
   pattern: string
   tz: string
   jobId: string
@@ -147,7 +147,14 @@ export function buildSourceScrapeScheduleSources(sources: readonly RegisteredSou
   return sources.map(({ definition, row }) => ({
     id: definition.schedulerKey ?? definition.key,
     name: definition.name,
-    data: { sourceId: row.id },
+    // requiresBrowser travels with the job data (not re-derived from
+    // sourceId at dispatch time) because sourceId is only a database row
+    // id — resolving it back to a registry entry requires an API round
+    // trip (see apps/worker/src/handlers/source-scrape.ts's
+    // getSourceProfile→findScraperSourceByName chain). Computing it once
+    // here, where the registry entry is already in scope, is simpler and
+    // avoids adding that round trip to the dispatch hot path (#1041).
+    data: { sourceId: row.id, requiresBrowser: definition.requiresBrowser },
     pattern: row.cronExpression,
     tz: row.timezone,
     jobId: definition.schedulerKey ?? definition.key,

@@ -34,10 +34,16 @@ const httpClient = new HttpClient({
 const gateway = new ScraperGatewayClient(httpClient)
 const httpEnrichGateway = new HttpEnrichGatewayClient(httpClient)
 
-// One shared Chromium instance/process for every dispatched job — mirrors
-// apps/scraper's single browserService, and keeps the worker's own
-// WORKER_MAX_CONCURRENT_JOBS the only concurrency knob that matters.
-const browserService = new PlaywrightBrowserService()
+// One shared Chromium instance/process for every dispatched job that needs
+// one — mirrors apps/scraper's single browserService, and keeps the
+// worker's own WORKER_MAX_CONCURRENT_JOBS the only concurrency knob that
+// matters. Only constructed when this worker actually declares chromium
+// capability (#1041) — a worker that opts out via
+// WORKER_CAPABILITIES=chromium=false never downloads/launches Chromium at
+// all, and the coordinator only ever dispatches it SOURCE_SCRAPE jobs whose
+// source registry entry says requiresBrowser: false (see
+// apps/api/src/worker-gateway/gateway-workers.ts).
+const browserService = config.capabilities.chromium ? new PlaywrightBrowserService() : undefined
 
 // Queue name literals mirror @wivwav/queue's QUEUES.{SOURCE_SCRAPE,DETAIL_CRAWL,
 // DETAIL_EXTRACT,...} (packages/queue/src/queues.ts) — not imported directly so
@@ -45,8 +51,18 @@ const browserService = new PlaywrightBrowserService()
 // the worker never talks to valkey, see #952's acceptance criteria).
 const handlers = new HandlerRegistry()
 handlers.register('source-scrape', createSourceScrapeHandler(gateway, browserService, logger))
-handlers.register('detail-crawl', createDetailCrawlHandler(gateway, browserService, logger))
-handlers.register('detail-extract', createDetailExtractHandler(gateway, browserService, logger))
+// DETAIL_CRAWL/DETAIL_EXTRACT always need a browser (their handlers take
+// BrowserService as a required parameter, unlike source-scrape) — the
+// coordinator's dispatcher never sends either job type to a non-chromium
+// worker (CHROMIUM_GATEWAY_QUEUES in gateway-workers.ts is unconditional for
+// both), so simply not registering a handler for them here is the correct,
+// safe behavior: if one were ever mis-dispatched here anyway, ws-client.ts's
+// existing "no handler registered" path (job-ack { accepted: false }) is
+// the right refusal, not a crash against an undefined BrowserService.
+if (browserService) {
+  handlers.register('detail-crawl', createDetailCrawlHandler(gateway, browserService, logger))
+  handlers.register('detail-extract', createDetailExtractHandler(gateway, browserService, logger))
+}
 
 // The 9 outbound-HTTP-only enrichment jobs (#963) — no Chromium/DOM
 // dependency, dispatched under the worker's `httpEnrich` capability lane
