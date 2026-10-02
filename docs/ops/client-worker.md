@@ -9,6 +9,10 @@ Operators should not need to know source IDs, queue names, or the worker
 protocol to start crawling. Start the worker, then use Ops to trigger or watch
 jobs.
 
+For how job dispatch, capability matching, and the per-source concurrency
+lock actually work under the hood, see
+`docs/ops/worker-fleet-architecture.md`.
+
 ## Local all-in-one startup
 
 Use this when the client machine should run the local API, local database, and
