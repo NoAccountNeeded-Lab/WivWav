@@ -3,6 +3,7 @@ import {
   LISTING_SYNC_REBUILD_JOB_ID,
   QUEUES,
   getStringField,
+  getBooleanField,
 } from '@wivwav/queue'
 import type { QueueFactory, WorkerAdapter } from '@wivwav/queue'
 import { sourceScrapeJobResultSchema } from '@wivwav/types/scraper-gateway'
@@ -10,8 +11,20 @@ import type { WivWavLogger } from '@wivwav/logger'
 import type { WorkerDispatcher } from './dispatcher.js'
 
 /**
- * The three Chromium/DOM jobs from phase 1 (#948/#953). All require a
- * chromium-capable worker.
+ * The three Chromium/DOM jobs from phase 1 (#948/#953).
+ *
+ * DETAIL_CRAWL and DETAIL_EXTRACT always require a chromium-capable worker —
+ * their handlers (apps/worker/src/handlers/{detail-crawl,detail-extract}.ts)
+ * take a BrowserService as a required, non-optional parameter today, so
+ * there's no per-source distinction to make for them yet (#1041).
+ *
+ * SOURCE_SCRAPE is different: per-source requirement data now travels in the
+ * job payload (`requiresBrowser`, set at enqueue time from
+ * ScraperSourceRegistryEntry — see apps/api/src/sources/registry.ts's
+ * buildSourceScrapeScheduleSources and the /sources/:id/run route in
+ * routes/admin.ts) and is read via getBooleanField below instead of this
+ * blanket table. This table is kept as the fallback for an old queued job
+ * from before #1041 whose payload predates the field.
  */
 export const CHROMIUM_GATEWAY_QUEUES: readonly string[] = [
   QUEUES.SOURCE_SCRAPE,
@@ -111,8 +124,15 @@ export function registerGatewayWorkers(
           )
         }
         const sourceId = getStringField(data, 'sourceId')
+        // SOURCE_SCRAPE's chromium requirement is per-source (see the
+        // CHROMIUM_GATEWAY_QUEUES doc comment); DETAIL_CRAWL/DETAIL_EXTRACT
+        // stay on the static table unconditionally.
+        const chromium =
+          queueName === QUEUES.SOURCE_SCRAPE
+            ? (getBooleanField(data, 'requiresBrowser') ?? CHROMIUM_GATEWAY_QUEUES.includes(queueName))
+            : CHROMIUM_GATEWAY_QUEUES.includes(queueName)
         const result = await dispatcher.dispatch(queueName, jobId, data, {
-          chromium: CHROMIUM_GATEWAY_QUEUES.includes(queueName),
+          chromium,
           httpEnrich: HTTP_ENRICH_GATEWAY_QUEUES.includes(queueName),
           sourceId,
         })

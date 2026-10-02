@@ -94,6 +94,73 @@ describe('registerGatewayWorkers', () => {
     })
   })
 
+  it('dispatches SOURCE_SCRAPE with chromium: true when the job data says requiresBrowser: true (#1041)', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher
+    registerGatewayWorkers(factory, dispatcher)
+
+    const processor = processors.get(QUEUES.SOURCE_SCRAPE)!
+    await processor({ sourceId: 'blvd-1', requiresBrowser: true }, fakeContext({ jobId: 'job-1' }))
+
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(
+      QUEUES.SOURCE_SCRAPE,
+      'job-1',
+      { sourceId: 'blvd-1', requiresBrowser: true },
+      { chromium: true, httpEnrich: false, sourceId: 'blvd-1' },
+    )
+  })
+
+  it('dispatches SOURCE_SCRAPE with chromium: false when the job data says requiresBrowser: false (#1041)', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher
+    registerGatewayWorkers(factory, dispatcher)
+
+    const processor = processors.get(QUEUES.SOURCE_SCRAPE)!
+    await processor(
+      { sourceId: 'mobilityworks-1', requiresBrowser: false },
+      fakeContext({ jobId: 'job-2' }),
+    )
+
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(
+      QUEUES.SOURCE_SCRAPE,
+      'job-2',
+      { sourceId: 'mobilityworks-1', requiresBrowser: false },
+      { chromium: false, httpEnrich: false, sourceId: 'mobilityworks-1' },
+    )
+  })
+
+  it('falls back to chromium: true for a SOURCE_SCRAPE job with no requiresBrowser field (pre-#1041 payload)', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher
+    registerGatewayWorkers(factory, dispatcher)
+
+    const processor = processors.get(QUEUES.SOURCE_SCRAPE)!
+    await processor({ sourceId: 'src-1' }, fakeContext({ jobId: 'job-3' }))
+
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(
+      QUEUES.SOURCE_SCRAPE,
+      'job-3',
+      { sourceId: 'src-1' },
+      { chromium: true, httpEnrich: false, sourceId: 'src-1' },
+    )
+  })
+
+  it('ignores a requiresBrowser: false field on DETAIL_CRAWL/DETAIL_EXTRACT — always chromium: true', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher
+    registerGatewayWorkers(factory, dispatcher)
+
+    const detailCrawl = processors.get(QUEUES.DETAIL_CRAWL)!
+    await detailCrawl({ sourceId: 'src-1', requiresBrowser: false }, fakeContext({ jobId: 'job-4' }))
+
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(
+      QUEUES.DETAIL_CRAWL,
+      'job-4',
+      { sourceId: 'src-1', requiresBrowser: false },
+      { chromium: true, httpEnrich: false, sourceId: 'src-1' },
+    )
+  })
+
   it('throws when the job context has no jobId (cannot build a correlation id)', async () => {
     const { factory, processors } = createFakeQueueFactory()
     const dispatcher = { dispatch: vi.fn(async () => undefined) } as unknown as WorkerDispatcher

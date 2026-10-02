@@ -86,6 +86,23 @@ describe('buildDetailScheduleSources — Freedom Motors and Superior Van registe
   })
 })
 
+describe('buildSourceScrapeScheduleSources — requiresBrowser travels in job data (#1041)', () => {
+  it('carries each registry entry\'s requiresBrowser flag into the scheduled job data', () => {
+    const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.map((definition) => ({
+      definition,
+      row: makeRow(definition.name, definition.key),
+    }))
+
+    const schedules = buildSourceScrapeScheduleSources(sources)
+
+    const blvdSchedule = schedules.find((s) => s.id === 'blvd')
+    expect(blvdSchedule?.data.requiresBrowser).toBe(true)
+
+    const mobilityworksSchedule = schedules.find((s) => s.id === 'mw')
+    expect(mobilityworksSchedule?.data.requiresBrowser).toBe(false)
+  })
+})
+
 describe('detail-crawl/detail-extract jobIds never collide with card-scrape jobIds or each other (#635 pattern)', () => {
   it('produces a fully distinct jobId per (source, job-kind) across the whole registry', () => {
     const sources: RegisteredSource[] = SCRAPER_SOURCE_REGISTRY.map((definition) => ({

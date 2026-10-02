@@ -30,7 +30,12 @@ function isSourceScrapePayload(payload: unknown): payload is SourceScrapePayload
  */
 export function createSourceScrapeHandler(
   gateway: ScraperGatewayClient,
-  browserService: PlaywrightBrowserService,
+  // Optional (#1041): a worker without chromium capability has no
+  // PlaywrightBrowserService to give — it can still run SOURCE_SCRAPE for
+  // sources whose adapter doesn't need one (the dispatcher only sends this
+  // worker jobs its registry entry's requiresBrowser allows, see
+  // apps/api/src/worker-gateway/gateway-workers.ts).
+  browserService: PlaywrightBrowserService | undefined,
   logger: WivWavLogger,
 ) {
   return async (payload: unknown, correlationId: string): Promise<SourceScrapeJobResult> => {
@@ -51,7 +56,7 @@ export function createSourceScrapeHandler(
 
     const adapter: SourceAdapter = module.createSourceAdapter(profile.fingerprintHash, {
       previousPage1Hash: profile.page1Hash,
-      browserService,
+      ...(browserService ? { browserService } : {}),
     })
 
     const runContext = new RunContext()

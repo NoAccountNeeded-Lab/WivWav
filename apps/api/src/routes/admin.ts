@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
-import { QUALITY_RULE_SEVERITY, SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
+import { QUALITY_RULE_SEVERITY, SCRAPER_SOURCE_REGISTRY, findScraperSourceByName } from '@wivwav/types'
 import {
   appendScheduleIntent,
   appendSourceControlAuditEntry,
@@ -259,7 +259,14 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       })
     }
     const q = queues.get(QUEUES.SOURCE_SCRAPE)!
-    const id = await q.add({ sourceId: source.id, traceId: req.id })
+    const registryEntry = findScraperSourceByName(source.name)
+    const id = await q.add({
+      sourceId: source.id,
+      traceId: req.id,
+      // See buildSourceScrapeScheduleSources's comment (apps/api/src/sources/registry.ts, #1041) —
+      // carried here rather than re-derived from sourceId at dispatch time.
+      ...(registryEntry ? { requiresBrowser: registryEntry.requiresBrowser } : {}),
+    })
     return reply.code(201).send({ data: { id } })
   })
 
@@ -700,7 +707,10 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
         jobId: schedulerKey,
         label: `${definition.name} scrape`,
         name: QUEUES.SOURCE_SCRAPE,
-        data: { sourceId: source.id },
+        // requiresBrowser travels with the job data rather than being
+        // re-derived from sourceId at dispatch time — see the comment on
+        // buildSourceScrapeScheduleSources in apps/api/src/sources/registry.ts (#1041).
+        data: { sourceId: source.id, requiresBrowser: definition.requiresBrowser },
         defaultPattern: source.cronExpression,
         tz: source.timezone,
         sourceScoped: true,

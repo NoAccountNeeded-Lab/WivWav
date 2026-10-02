@@ -4,3 +4,10 @@ export function getStringField(data: unknown, key: string): string | undefined {
   const value = (data as Record<string, unknown>)[key]
   return typeof value === 'string' ? value : undefined
 }
+
+/** Reads a boolean-typed field off an otherwise-untyped job payload, or undefined. */
+export function getBooleanField(data: unknown, key: string): boolean | undefined {
+  if (!data || typeof data !== 'object') return undefined
+  const value = (data as Record<string, unknown>)[key]
+  return typeof value === 'boolean' ? value : undefined
+}

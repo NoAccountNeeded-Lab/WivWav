@@ -8,6 +8,15 @@ export interface ScraperSourceRegistryEntry {
   cronExpression: string
   timezone: string
   pipeline: ScraperPipelineKind
+  /**
+   * Whether this source's SOURCE_SCRAPE job needs a chromium-capable worker.
+   * Drives per-source (not per-queue) capability requirements in
+   * apps/api/src/worker-gateway/gateway-workers.ts — see #1041. Does not
+   * apply to DETAIL_CRAWL/DETAIL_EXTRACT, which stay unconditionally
+   * chromium-gated regardless of this flag (their handlers require a
+   * BrowserService outright today).
+   */
+  requiresBrowser: boolean
 }
 
 export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
@@ -18,6 +27,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     cronExpression: '0 */6 * * *',
     timezone: 'America/New_York',
     pipeline: 'detail-pages',
+    requiresBrowser: true,
   },
   {
     key: 'mobilityworks',
@@ -27,6 +37,8 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     cronExpression: '0 */8 * * *',
     timezone: 'America/New_York',
     pipeline: 'detail-pages',
+    // Migrated off Playwright to Crawlee's CheerioCrawler — see mobilityworks.ts.
+    requiresBrowser: false,
   },
   {
     key: 'freedom-motors',
@@ -38,6 +50,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     // packages/scraper-sources/src/sources/declarative-detail.ts and
     // freedom-motors-detail-mappings.ts (#822).
     pipeline: 'detail-pages',
+    requiresBrowser: true,
   },
   {
     key: 'superior-van',
@@ -49,6 +62,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     // packages/scraper-sources/src/sources/declarative-detail.ts and
     // superior-van-detail-mappings.ts (#822 applied to a second site by #823).
     pipeline: 'detail-pages',
+    requiresBrowser: true,
   },
   {
     key: 'ams-vans-classifieds',
@@ -61,6 +75,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     // it directly (via https://www.amsvans.com/sitemap.xml for discovery)
     // instead of needing a separate list/detail-crawl split (#998).
     pipeline: 'scrape-only',
+    requiresBrowser: false,
   },
   {
     key: 'mobility-van-sales',
@@ -69,6 +84,7 @@ export const SCRAPER_SOURCE_REGISTRY: readonly ScraperSourceRegistryEntry[] = [
     cronExpression: '0 */12 * * *',
     timezone: 'America/New_York',
     pipeline: 'scrape-only',
+    requiresBrowser: false,
   },
 ] as const
 
