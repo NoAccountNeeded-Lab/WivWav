@@ -52,10 +52,32 @@ export const MOTORS_CATEGORY_ID = '6001'
 //                                                         inferConversionManufacturer in
 //                                                         mobility-van-sales.ts/ams-vans-
 //                                                         classifieds.ts for the same brand vocabulary)
-// Tried and NOT added: 'vantage mobility' (total=5, too little recall to
-// justify the extra search call), 'rollx vans' and 'driverge' (both
-// total=0 as exact phrases — see the discovery block for retrying a looser
-// phrasing if this is revisited).
+// Round 2 (2026-10-02), prompted by "are we just getting duplicates?":
+// measured overlap directly (unique itemId sets, not just title text) and
+// found the 8 keywords above overlap heavily — their union was only ~157
+// unique items despite summing to ~485 raw results, with most keywords
+// contributing zero items the others didn't already find. That round's
+// new candidates (ada van, wheelchair ramp van, wheelchair conversion,
+// side/rear entry wheelchair van, handicap conversion, vantage mobility
+// international, revability, eldorado national, startrans) added nothing
+// verified-new beyond that union; 'ada van' looked promising by raw
+// itemId diff but getItem on the net-new items showed no
+// Disability-Equipped aspect, no Features, empty description — generic
+// Dodge Grand Caravans that coincidentally matched the token "ada", not
+// real WAVs. Lesson: a raw item-count or itemId diff is not evidence of
+// relevance on its own — verify via getItem before trusting it.
+//
+// Round 3 (2026-10-02): single generic words, verified the same way
+// (getItem on each net-new item, not title/total alone):
+//   wheelchair   total=112  4/4 net-new verified real — Ram ProMaster and
+//                Chevy Silverado wheelchair conversions, vehicle types
+//                none of the phrase keywords above were catching
+//   handicap     total=151  2/2 net-new verified real — GMC Sierra, Ford
+//                Edge conversions, same story
+//   mobility     total=74   2/10 net-new verified real — noisier, but
+//                found a Chevy Traverse SUV conversion missed otherwise
+//   accessible, conversion van: 0/10 verified — pure noise (generic
+//     unrelated matches), tried and explicitly rejected
 export const SEARCH_KEYWORDS = [
   'wheelchair van',
   'wheelchair accessible van',
@@ -65,6 +87,9 @@ export const SEARCH_KEYWORDS = [
   'handicap van',
   'disability van',
   'braunability',
+  'wheelchair',
+  'handicap',
+  'mobility',
 ] as const
 
 const PRODUCTION_HOST = 'api.ebay.com'
