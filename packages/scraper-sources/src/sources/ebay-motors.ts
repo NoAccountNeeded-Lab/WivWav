@@ -40,6 +40,7 @@ const SEARCH_KEYWORDS = [
   'wheelchair accessible van',
   'handicap accessible van',
   'mobility van conversion',
+  'wav',
 ] as const
 
 const PRODUCTION_HOST = 'api.ebay.com'
