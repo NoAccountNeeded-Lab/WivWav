@@ -12,11 +12,18 @@ import type { EbayCredentials } from './factory.js'
 const SOURCE_ID = 'ebay-motors'
 const PAGE_SIZE = 200
 // Hard cap on unique items discovered per scrape() run. Each discovered item
-// costs one search-page call plus one getItem call (VIN/mileage/seller-type/
-// city-state live only on getItem — see buildListing's doc comment) — bounds
-// both wall-clock time and Browse API daily-quota usage. Revisit alongside
-// the cron frequency if the developer-portal quota changes.
-const MAX_ITEMS_PER_RUN = 1_000
+// costs one getItem call on top of the handful of search-page calls
+// (VIN/mileage/seller-type/city-state live only on getItem — see
+// buildListing's doc comment). eBay's default Browse API quota is 5,000
+// calls/day (confirmed via the developer portal, 2026-10-01; track actual
+// usage with the Developer Analytics API's rate_limit resource, and request
+// an increase via the Application Growth Check if this is ever raised).
+// This source's cron (source-registry.ts) runs 4x/day, so 700 here budgets
+// ~2,800 getItem calls/day plus a small constant for search pagination —
+// comfortably under half the daily quota, leaving headroom for 429 retries
+// and any other Browse API usage sharing the same app. Revisit this number
+// together with the cron frequency if either changes.
+const MAX_ITEMS_PER_RUN = 700
 const REQUEST_TIMEOUT_MS = 15_000
 const DEFAULT_PAGE_DELAY_MS = 500
 const DEFAULT_DETAIL_DELAY_MS = 300
