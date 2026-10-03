@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import {
@@ -20,7 +19,12 @@ import {
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { PhotoGallery } from '@/components/PhotoGallery'
+import { Link } from '@/navigation'
+import type { Translate } from '@/lib/intl'
+import { toIntlLocale } from '@/lib/intl'
+import { conditionLabel, rampLabel } from '../../listings/[id]/utils'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import styles from './page.module.css'
@@ -82,28 +86,34 @@ async function getListing(id: string): Promise<ListingDetail | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>
+}): Promise<Metadata> {
+  const { locale, id } = await params
+  const t = await getTranslations({ locale, namespace: 'FilterDetail' })
+  const detailT = await getTranslations({ locale, namespace: 'ListingDetail' })
   const listing = await getListing(id)
-  if (!listing) return { title: 'Listing not found' }
+  if (!listing) return { title: t('notFoundTitle') }
   const title = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
   return {
-    title: `${title} — WivWav`,
-    description: `${formatPrice(listing.priceCents)} · ${listing.location.city && listing.location.state ? `${listing.location.city}, ${listing.location.state} · ` : ''}Wheelchair accessible vehicle`,
+    title: t('metaTitle', { title }),
+    description: `${formatPrice(listing.priceCents, locale, detailT('callForPrice'))} · ${listing.location.city && listing.location.state ? `${listing.location.city}, ${listing.location.state} · ` : ''}${t('wavDescription')}`,
   }
 }
 
-function formatPrice(cents: number | null): string {
-  if (cents === null) return 'Call for price'
-  return `$${(cents / 100).toLocaleString()}`
+function formatPrice(cents: number | null, locale: string, callForPrice: string): string {
+  if (cents === null) return callForPrice
+  return `$${(cents / 100).toLocaleString(toIntlLocale(locale))}`
 }
 
 function formatEnum(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(toIntlLocale(locale), { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 interface WavFeatureEntry {
@@ -124,52 +134,50 @@ const WAV_FEATURE_ICONS: Record<string, LucideIcon> = {
   motorized_running_board: Car,
 }
 
-const WAV_FEATURE_LABELS: Record<string, string> = {
-  has_lift:                'Wheelchair Lift',
-  hand_controls:           'Hand Controls',
-  transfer_seat:           'Transfer Seat',
-  kneel_system:            'Kneel System',
-  lowered_floor:           'Lowered Floor',
-  power_ramp:              'Power Ramp',
-  tie_down_system:         'Tie-Down System',
-  automatic_door:          'Automatic Door',
-  motorized_running_board: 'Motorized Running Board',
-}
-
-function buildWavFeatures(listing: ListingDetail): WavFeatureEntry[] {
+function buildWavFeatures(
+  listing: ListingDetail,
+  t: Translate,
+  listingT: Translate,
+): WavFeatureEntry[] {
   const features: WavFeatureEntry[] = []
   const wav = listing.wav
 
   if (wav.conversionType !== 'unknown') {
     features.push({
       Icon: wav.conversionType === 'side_entry' ? Car : DoorOpen,
-      label: `${formatEnum(wav.conversionType)} Conversion`,
+      label:
+        wav.conversionType === 'side_entry'
+          ? t('sideEntryConversion')
+          : wav.conversionType === 'rear_entry'
+            ? t('rearEntryConversion')
+            : t('otherConversion', { type: formatEnum(wav.conversionType) }),
       ...(wav.conversionManufacturer ? { detail: wav.conversionManufacturer } : {}),
     })
   }
 
   if (wav.rampType !== 'unknown' && wav.rampType !== 'none') {
-    features.push({ Icon: ArrowDownFromLine, label: `${formatEnum(wav.rampType)} Ramp` })
+    features.push({ Icon: ArrowDownFromLine, label: rampLabel(wav.rampType, listingT) })
   }
 
   if (wav.floorLoweringInches !== null) {
     features.push({
       Icon: MoveDown,
-      label: 'Floor Lowering',
-      detail: `${wav.floorLoweringInches}" drop`,
+      label: t('floorLowering'),
+      detail: t('floorDrop', { inches: wav.floorLoweringInches }),
     })
   }
 
   for (const f of wav.wavFeatures) {
     const Icon = WAV_FEATURE_ICONS[f]
-    const label = WAV_FEATURE_LABELS[f]
-    if (Icon && label) features.push({ Icon, label })
+    if (Icon && listingT.has(`wavFeature_${f}`)) {
+      features.push({ Icon, label: listingT(`wavFeature_${f}`) })
+    }
   }
 
   if (wav.wheelchairCapacity !== null && wav.wheelchairCapacity > 0) {
     features.push({
       Icon: Users,
-      label: 'Wheelchair Positions',
+      label: t('wheelchairPositions'),
       detail: String(wav.wheelchairCapacity),
     })
   }
@@ -177,8 +185,16 @@ function buildWavFeatures(listing: ListingDetail): WavFeatureEntry[] {
   return features
 }
 
-export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export default async function ListingDetailPage({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>
+}) {
+  const { locale, id } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'FilterDetail' })
+  const listingT = await getTranslations({ locale, namespace: 'FiltersPage.listing' })
+  const detailT = await getTranslations({ locale, namespace: 'ListingDetail' })
   const listing = await getListing(id)
   if (!listing) notFound()
 
@@ -186,13 +202,13 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const loc = listing.location
   const dealer = listing.dealer
   const location = [loc.city, loc.state].filter(Boolean).join(', ')
-  const wavFeatures = buildWavFeatures(listing)
+  const wavFeatures = buildWavFeatures(listing, t, listingT)
 
   const vehicleSpecs = [
-    listing.color ? { label: 'Color', value: listing.color } : null,
-    listing.fuelType ? { label: 'Fuel type', value: listing.fuelType } : null,
-    listing.transmission ? { label: 'Transmission', value: listing.transmission } : null,
-    listing.vin ? { label: 'VIN', value: listing.vin } : null,
+    listing.color ? { label: t('specs.color'), value: listing.color } : null,
+    listing.fuelType ? { label: t('specs.fuelType'), value: listing.fuelType } : null,
+    listing.transmission ? { label: t('specs.transmission'), value: listing.transmission } : null,
+    listing.vin ? { label: t('specs.vin'), value: listing.vin } : null,
   ].filter((s): s is { label: string; value: string } => s !== null)
 
   const hasSeller = Boolean(location || dealer.name || dealer.phone || dealer.website)
@@ -201,7 +217,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     <main id="main-content" className={styles.page}>
       <Link href="/filters" className={styles.back}>
         <ChevronLeft size={16} aria-hidden />
-        Back to listings
+        {t('back')}
       </Link>
 
       <div className={styles.galleryWrap}>
@@ -210,7 +226,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       <div className={styles.header}>
         <h1 className={styles.title}>{vehicleTitle}</h1>
-        <div className={styles.price}>{formatPrice(listing.priceCents)}</div>
+        <div className={styles.price}>{formatPrice(listing.priceCents, locale, detailT('callForPrice'))}</div>
         {location && (
           <p className={styles.locationLine}>
             <MapPin size={14} aria-hidden />
@@ -219,32 +235,36 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
-      <div className={styles.statsStrip} role="list" aria-label="Key vehicle stats">
+      <div className={styles.statsStrip} role="list" aria-label={t('statsLabel')}>
         <div className={styles.stat} role="listitem">
           <span className={styles.statValue}>{listing.year}</span>
-          <span className={styles.statLabel}>Year</span>
+          <span className={styles.statLabel}>{t('year')}</span>
         </div>
         {listing.mileage !== null && (
           <div className={styles.stat} role="listitem">
-            <span className={styles.statValue}>{listing.mileage.toLocaleString()}</span>
+            <span className={styles.statValue}>{listing.mileage.toLocaleString(toIntlLocale(locale))}</span>
             <span className={styles.statLabel}>
-              <Gauge size={11} aria-hidden /> Miles
+              <Gauge size={11} aria-hidden /> {t('miles')}
             </span>
           </div>
         )}
         <div className={styles.stat} role="listitem">
-          <span className={styles.statValue}>{formatEnum(listing.condition)}</span>
-          <span className={styles.statLabel}>Condition</span>
+          <span className={styles.statValue}>{conditionLabel(listing.condition, listingT)}</span>
+          <span className={styles.statLabel}>{t('condition')}</span>
         </div>
         <div className={styles.stat} role="listitem">
-          <span className={styles.statValue}>{formatEnum(listing.sellerType)}</span>
-          <span className={styles.statLabel}>Seller</span>
+          <span className={styles.statValue}>{listing.sellerType === 'dealer'
+              ? t('sellerDealer')
+              : listing.sellerType === 'private'
+                ? t('sellerPrivate')
+                : formatEnum(listing.sellerType)}</span>
+          <span className={styles.statLabel}>{t('seller')}</span>
         </div>
       </div>
 
       {wavFeatures.length > 0 && (
         <section className={styles.section} aria-labelledby="wav-features-heading">
-          <h2 className={styles.sectionTitle} id="wav-features-heading">WAV Features</h2>
+          <h2 className={styles.sectionTitle} id="wav-features-heading">{t('wavFeaturesHeading')}</h2>
           <ul className={styles.wavFeatures}>
             {wavFeatures.map(({ Icon, label, detail }) => (
               <li key={label} className={styles.wavFeature}>
@@ -261,7 +281,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       {vehicleSpecs.length > 0 && (
         <section className={styles.section} aria-labelledby="vehicle-specs-heading">
-          <h2 className={styles.sectionTitle} id="vehicle-specs-heading">Vehicle details</h2>
+          <h2 className={styles.sectionTitle} id="vehicle-specs-heading">{t('vehicleDetails')}</h2>
           <dl className={styles.specGrid}>
             {vehicleSpecs.map(({ label, value }) => (
               <div key={label} className={styles.specItem}>
@@ -275,7 +295,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       {hasSeller && (
         <section className={styles.section} aria-labelledby="seller-heading">
-          <h2 className={styles.sectionTitle} id="seller-heading">Seller</h2>
+          <h2 className={styles.sectionTitle} id="seller-heading">{t('sellerHeading')}</h2>
           <ul className={styles.sellerList}>
             {dealer.name && (
               <li className={styles.sellerRow}>
@@ -309,7 +329,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       {listing.description && (
         <section className={styles.section} aria-labelledby="description-heading">
-          <h2 className={styles.sectionTitle} id="description-heading">Description</h2>
+          <h2 className={styles.sectionTitle} id="description-heading">{t('description')}</h2>
           <p className={styles.description}>{listing.description}</p>
         </section>
       )}
@@ -317,21 +337,21 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       {listing.vin && (
         <Link href={`/vin/${encodeURIComponent(listing.vin)}`} className={styles.secondaryCta}>
           <ShieldCheck size={16} aria-hidden />
-          View safety report
+          {t('viewSafetyReport')}
         </Link>
       )}
 
       <a href={listing.buyerUrl ?? listing.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.cta}>
         <ExternalLink size={16} aria-hidden />
-        {listing.sellerType === 'private' ? 'Contact seller' : 'View seller listing'}
+        {listing.sellerType === 'private' ? t('contactSeller') : t('viewSellerListing')}
       </a>
 
       <p className={styles.meta}>
         {listing.sourceListedAt != null
-          ? `Source listed ${formatDate(listing.sourceListedAt)}`
-          : `First saw ${formatDate(listing.listedAt)}`}
+          ? t('sourceListed', { date: formatDate(listing.sourceListedAt, locale) })
+          : t('firstSaw', { date: formatDate(listing.listedAt, locale) })}
         {listing.sourceUpdatedAt != null
-          ? ` · Source updated ${formatDate(listing.sourceUpdatedAt)}`
+          ? t('sourceUpdated', { date: formatDate(listing.sourceUpdatedAt, locale) })
           : ''}
       </p>
     </main>

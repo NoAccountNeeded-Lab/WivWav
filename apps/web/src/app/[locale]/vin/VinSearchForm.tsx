@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
+import { useRouter } from '@/navigation'
 import styles from './page.module.css'
 
 interface VinSearchFormProps {
@@ -12,6 +13,7 @@ interface VinSearchFormProps {
 
 export function VinSearchForm({ initialVin = '' }: VinSearchFormProps) {
   const router = useRouter()
+  const t = useTranslations('VinLookup.form')
   const [vin, setVin] = useState(initialVin)
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -23,7 +25,7 @@ export function VinSearchForm({ initialVin = '' }: VinSearchFormProps) {
 
   return (
     <form className={styles.searchForm} onSubmit={onSubmit}>
-      <label htmlFor="vin-search" className={styles.searchLabel}>Enter a VIN</label>
+      <label htmlFor="vin-search" className={styles.searchLabel}>{t('label')}</label>
       <div className={styles.searchRow}>
         <input
           id="vin-search"
@@ -34,11 +36,11 @@ export function VinSearchForm({ initialVin = '' }: VinSearchFormProps) {
           autoCapitalize="characters"
           autoComplete="off"
           maxLength={17}
-          placeholder="17-character VIN"
+          placeholder={t('placeholder')}
         />
         <button type="submit" className={styles.searchButton}>
           <Search size={18} aria-hidden />
-          Check VIN
+          {t('submit')}
         </button>
       </div>
     </form>
