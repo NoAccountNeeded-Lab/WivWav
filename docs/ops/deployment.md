@@ -20,14 +20,17 @@ There is no separate publish workflow and no staging registry:
 3. `publish` runs only for a push to `main`, and only after `docker-done`,
    `lint-typecheck`, `test`, `restore-drill`, and `e2e` have all succeeded. It
    loads the artifacts from step 1 — never rebuilding — tags and pushes each
-   one to GHCR by digest, then rewrites `docker-compose.prod.yml` with the
-   digests it just pushed and commits that file back to `main`
-   (`chore(deploy): pin published image digests ... [skip ci]`).
+   one to GHCR by digest, then renders `docker-compose.release.yml` from the
+   `docker-compose.prod.yml` template with the digests it just pushed. The
+   manifest is verified (no placeholder digests) and persisted as a workflow
+   artifact and as an asset of the `deploy-<commit-sha>` GitHub Release. It
+   is not committed back to `main`: branch and merge-queue protections stay
+   enabled. If rendering, verifying, or persisting fails, `publish` fails.
 
 If any of those five gates fails — Docker builds, lint/typecheck, unit and
 integration tests, the restore drill, or E2E smoke — `publish` does not run
 and nothing is pushed to GHCR. The digest recorded in
-`docker-compose.prod.yml` is always exactly the `docker` job's image the
+the release manifest is always exactly the `docker` job's image the
 other jobs exercised — never a respin built after the fact.
 
 ### What E2E does and doesn't prove about the published images
@@ -50,7 +53,7 @@ not (yet) a required merge-queue check.
 ### If E2E flakes on a `main` push
 
 `publish` simply does not run for that commit — no image is pushed and
-`docker-compose.prod.yml` is left pointing at the previous digest. Use
+no new release manifest is created (the previous `deploy-<sha>` release stays current). Use
 **Re-run failed jobs** on that workflow run to retry `e2e` (and `publish`
 once it turns green) without repeating the whole pipeline. This only works
 while the `docker` job's image artifacts are still present; they are
@@ -112,8 +115,8 @@ still read `process.env.NEXT_PUBLIC_API_URL` server-side (correctly, at
 request time) and E2E's compose stack still sets a matching runtime value —
 removing the `ARG` is unnecessary churn, not a follow-up requirement.
 
-**Audit: no real deployment has shipped yet.** `docker-compose.prod.yml`'s
-image references are still the placeholder
+**Audit (historical): no real deployment had shipped.** `docker-compose.prod.yml`'s
+image references were still the placeholder
 `@sha256:0000...0000` digest and there is no
 `chore(deploy): pin published image digests ...` commit in this repo's
 history — `publish` (see the pipeline above) has never completed a real
@@ -125,22 +128,27 @@ deploy, which this fix now precedes.
 
 ## Deploying
 
-`docker-compose.prod.yml` is the in-repo, digest-pinned production
-deployment definition. Every wivwav-owned image (`api`, `web`, `ops`,
-`scraper`, `migrate`) is referenced by `@sha256:...` digest, never by
-`:latest` or a branch/SHA tag, so a deploy is reproducible and a diff of that
-file is a complete, auditable record of what changed:
+`docker-compose.prod.yml` is a **template**: its wivwav image digests are
+all-zero placeholders and it is not deployable as committed (CI's
+`scripts/release-manifest.sh verify` rejects it). The deployable,
+digest-pinned definition is the `docker-compose.release.yml` asset of the
+`deploy-<commit-sha>` GitHub Release created by `publish`. Every wivwav-owned
+image is referenced by `@sha256:...` digest, never by `:latest` or a
+branch/SHA tag, so a deploy is reproducible:
 
 ```bash
-git pull                                            # get the latest pinned digests
-docker compose -f docker-compose.prod.yml \
-  --env-file .env.production pull
-docker compose -f docker-compose.prod.yml \
-  --env-file .env.production up -d --remove-orphans
+gh release download deploy-<commit-sha> -p docker-compose.release.yml
+bash scripts/release-manifest.sh verify docker-compose.release.yml
+docker compose -f docker-compose.release.yml --env-file .env.production config --quiet
+docker compose -f docker-compose.release.yml --env-file .env.production pull
+docker compose -f docker-compose.release.yml --env-file .env.production up -d --remove-orphans
 ```
 
-Compose resolves each service to its pinned digest; Docker only pulls layers
-it doesn't already have cached.
+(`gh release list` shows available commits; the same file is also a 90-day
+`release-manifest-<sha>` workflow artifact.) Compose resolves each service to
+its pinned digest; Docker only pulls layers it doesn't already have cached.
+`COMPOSE_VALIDATE=1 bash scripts/release-manifest.sh selftest` exercises
+render, verify, and `docker compose config`, and runs in CI on every PR.
 
 ## Third-party API credentials
 
@@ -217,9 +225,9 @@ start:
 
 ## Rollback compatibility
 
-Rolling back means redeploying a previous commit's pinned digests in
-`docker-compose.prod.yml` — `git revert` (or manually restoring the prior
-digest values) followed by the deploy steps above. This is **app-image
+Rolling back means redeploying a previous release's manifest: download
+`docker-compose.release.yml` from an earlier `deploy-<commit-sha>` release and
+run the deploy steps above against it. This is **app-image
 rollback only**; it does not run a migration in reverse.
 
 - Because migrations are additive/expand-first (see above), the schema
@@ -232,9 +240,9 @@ rollback only**; it does not run a migration in reverse.
   rollback plus data reconciliation) is required instead of an image
   rollback. Treat contract (destructive) migrations as one-way: only ship
   them once you've confirmed no rollback target still needs the old shape.
-- `migrate`'s container stays in `docker-compose.prod.yml`'s history via git,
-  so the schema state associated with any prior deploy is always
-  reconstructable from the commit that pinned it.
+- `migrate`'s image stays pinned in each prior release's manifest, so the
+  schema state associated with any prior deploy is always reconstructable
+  from the `deploy-<sha>` release that pinned it.
 
 ## Backups
 

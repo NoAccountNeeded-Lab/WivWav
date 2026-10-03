@@ -498,6 +498,16 @@ jobs:
       - name: Run restore drill
         run: bash scripts/restore-drill.sh
 
+  # Guards the release-manifest tooling: the committed docker-compose.prod.yml
+  # is a placeholder template and must never verify as deployable, while a
+  # rendered manifest must verify and pass `docker compose config`.
+  release-manifest:
+    name: Release manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: COMPOSE_VALIDATE=1 bash scripts/release-manifest.sh selftest
+
   # Publishes the exact images the jobs above just tested — never a rebuild.
   # Gated on every test job passing, and only runs for pushes to main, so a
   # failing job (docker build, lint/typecheck, test, restore drill, or E2E
@@ -508,7 +518,7 @@ jobs:
   publish:
     name: Publish images (digest-pinned)
     runs-on: ubuntu-latest
-    needs: [docker-done, lint-typecheck, test, restore-drill, e2e]
+    needs: [docker-done, lint-typecheck, test, restore-drill, e2e, release-manifest]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -558,7 +568,10 @@ jobs:
             echo "Published ${ref}@${digest}"
           done
 
-      - name: Pin published digests into the production deployment definition
+      # protected main cannot take a CI push (GH013), so the deployable manifest
+      # is persisted as a workflow artifact plus a GitHub Release asset instead
+      # of a commit. Every step below fails the job if it cannot complete.
+      - name: Render and verify the deployable release manifest
         env:
           API_DIGEST: ${{ steps.push.outputs.api }}
           WEB_DIGEST: ${{ steps.push.outputs.web }}
@@ -566,33 +579,26 @@ jobs:
           MIGRATE_DIGEST: ${{ steps.push.outputs.migrate }}
         run: |
           set -euo pipefail
-          sed -i \
-            -e "s|wivwav/api@sha256:[0-9a-f]\{64\}|wivwav/api@${API_DIGEST}|" \
-            -e "s|wivwav/web@sha256:[0-9a-f]\{64\}|wivwav/web@${WEB_DIGEST}|" \
-            -e "s|wivwav/ops@sha256:[0-9a-f]\{64\}|wivwav/ops@${OPS_DIGEST}|" \
-            -e "s|wivwav/migrate@sha256:[0-9a-f]\{64\}|wivwav/migrate@${MIGRATE_DIGEST}|" \
-            docker-compose.prod.yml
+          mkdir -p release
+          bash scripts/release-manifest.sh render release/docker-compose.release.yml \
+            "api=${API_DIGEST}" "web=${WEB_DIGEST}" "ops=${OPS_DIGEST}" "migrate=${MIGRATE_DIGEST}"
+          bash scripts/release-manifest.sh verify release/docker-compose.release.yml
 
-      # Best-effort: the images are already published above regardless of
-      # whether this commit lands. If branch protection rejects a direct
-      # push to main, warn loudly rather than fail a job whose real job
-      # (publish passing images) already succeeded — an operator can apply
-      # the printed digests to docker-compose.prod.yml by hand.
-      - name: Commit updated digests
+      - name: Upload release manifest artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-manifest-${{ github.sha }}
+          path: release/docker-compose.release.yml
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish release manifest as a GitHub Release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if git diff --quiet -- docker-compose.prod.yml; then
-            echo "docker-compose.prod.yml already pins these digests; nothing to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docker-compose.prod.yml
-          # [skip ci] plus GitHub's own suppression of workflow runs triggered by
-          # the GITHUB_TOKEN-authored push both prevent this commit from
-          # re-triggering ci.yml, so there's no publish-loop risk.
-          git commit -m "chore(deploy): pin published image digests for ${{ github.sha }} [skip ci]"
-          if ! git push origin HEAD:main; then
-            echo "::warning::Could not push digest update to main (branch protection?). Apply this diff manually:"
-            git diff HEAD~1 -- docker-compose.prod.yml
-          fi
+          gh release create "deploy-${{ github.sha }}" \
+            release/docker-compose.release.yml \
+            --target "${{ github.sha }}" \
+            --title "Deployable manifest ${{ github.sha }}" \
+            --notes "Digest-pinned production manifest for commit ${{ github.sha }}. Deploy with: docker compose -f docker-compose.release.yml --env-file .env.production up -d"
