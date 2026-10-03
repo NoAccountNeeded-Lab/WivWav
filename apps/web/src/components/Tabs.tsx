@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import styles from './Tabs.module.css'
 
 export interface TabDefinition {
@@ -17,6 +18,7 @@ interface TabsProps {
 }
 
 export function Tabs({ tabs, defaultTab, onTabSelect }: TabsProps) {
+  const t = useTranslations('ListingDetail')
   const [activeId, setActiveId] = useState(defaultTab ?? tabs[0]?.id ?? '')
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
@@ -40,7 +42,7 @@ export function Tabs({ tabs, defaultTab, onTabSelect }: TabsProps) {
       <div
         role="tablist"
         className={styles.tabList}
-        aria-label="Vehicle detail sections"
+        aria-label={t('tabListLabel')}
       >
         {tabs.map((tab, i) => (
           <button

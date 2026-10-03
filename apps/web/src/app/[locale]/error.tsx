@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { reportError } from '@/lib/error-reporter'
 
 /**
@@ -17,6 +18,8 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useTranslations('ErrorPage')
+
   useEffect(() => {
     if (process.env['NEXT_PUBLIC_SENTRY_ENABLED'] === 'true') {
       void import('@sentry/nextjs').then((Sentry) => {
@@ -41,15 +44,15 @@ export default function Error({
         backgroundColor: '#ffffff',
       }}
     >
-      <h2>An error occurred</h2>
-      <p id="error-description">Something went wrong.</p>
+      <h2>{t('heading')}</h2>
+      <p id="error-description">{t('description')}</p>
       <button
         type="button"
         aria-describedby="error-description"
         onClick={reset}
         style={{ outline: '2px solid #1a1a1a', outlineOffset: '2px' }}
       >
-        Try again
+        {t('tryAgain')}
       </button>
     </div>
   )

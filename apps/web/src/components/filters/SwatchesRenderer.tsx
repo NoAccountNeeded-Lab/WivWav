@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import type { CategoricalRendererProps } from './types'
 import styles from './SwatchesRenderer.module.css'
 
@@ -44,6 +45,7 @@ function needsBorder(value: string): boolean {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function SwatchesRenderer({ items, onToggle }: CategoricalRendererProps) {
+  const t = useTranslations('FilterControls')
   return (
     <div className={styles.grid}>
       {items.map((item) => (
@@ -53,9 +55,9 @@ export function SwatchesRenderer({ items, onToggle }: CategoricalRendererProps) 
           className={`${styles.swatch} ${item.active ? styles.active : ''}`}
           disabled={item.disabled}
           aria-pressed={item.active}
-          aria-label={`${item.label}: ${item.count.toLocaleString()} listing${item.count !== 1 ? 's' : ''}`}
+          aria-label={`${item.label}: ${t('listingCount', { count: item.count })}`}
           onClick={() => onToggle(item.value)}
-          title={`${item.label} (${item.count.toLocaleString()})`}
+          title={`${item.label} (${t('listingCount', { count: item.count })})`}
         >
           <span
             className={styles.dot}

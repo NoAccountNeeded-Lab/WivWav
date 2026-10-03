@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { useTranslations } from 'next-intl'
+import { Link } from '@/navigation'
 
 const s = {
   page: { maxWidth: 800, margin: '0 auto', padding: '1rem', fontFamily: 'system-ui, sans-serif', textAlign: 'center' as const } as React.CSSProperties,
@@ -9,12 +10,13 @@ const s = {
 }
 
 export default function ListingNotFound() {
+  const t = useTranslations('FilterNotFound')
   return (
     <main style={s.page}>
       <div style={s.wrapper}>
-        <h1 style={s.heading}>Listing unavailable</h1>
-        <p style={s.sub}>This listing may have been removed, the link may be incorrect, or the listing service may be temporarily rate-limited.</p>
-        <Link href="/filters" style={s.link}>Back to listings</Link>
+        <h1 style={s.heading}>{t('heading')}</h1>
+        <p style={s.sub}>{t('description')}</p>
+        <Link href="/filters" style={s.link}>{t('back')}</Link>
       </div>
     </main>
   )

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { useState } from 'react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { FacetModal } from './FacetModal'
 
 afterEach(() => {
@@ -24,7 +25,7 @@ function ModalFixture() {
 }
 
 function openModal() {
-  render(<ModalFixture />)
+  renderWithIntl(<ModalFixture />)
   const trigger = screen.getByRole('button', { name: 'Open facets' })
   trigger.focus()
   fireEvent.click(trigger)

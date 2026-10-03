@@ -11,6 +11,9 @@ const messages = {
     showFewer: 'Show fewer',
     showMore: 'Show {count} more',
   },
+  Common: {
+    close: 'Close',
+  },
 }
 
 function renderWithIntl(ui: ReactElement) {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useLastListingsVisit } from './ListingsVisitSession'
 import { isListingNewSinceLastVisit } from './new-badge-utils'
 import styles from './NewBadge.module.css'
@@ -18,6 +19,7 @@ interface NewBadgeProps {
  * previous session timestamp.
  */
 export function NewBadge({ listedAt }: NewBadgeProps) {
+  const t = useTranslations('NewBadge')
   const lastVisit = useLastListingsVisit()
   const isNew = isListingNewSinceLastVisit(listedAt, lastVisit)
 
@@ -25,7 +27,7 @@ export function NewBadge({ listedAt }: NewBadgeProps) {
 
   return (
     // Visible text "New" is read by screen readers; no aria-label needed
-    <span className={styles.badge}>New</span>
+    <span className={styles.badge}>{t('label')}</span>
   )
 }
 

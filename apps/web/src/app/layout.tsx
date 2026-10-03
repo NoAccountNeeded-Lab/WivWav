@@ -62,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // next-intl/server's getLocale()/getMessages(), which require that context.
   const locale = await getRequestLocale()
   const t = await getTranslations({ locale, namespace: 'Common' })
+  const errorT = await getTranslations({ locale, namespace: 'ErrorPage' })
   const messages = getMessagesForLocale(locale)
 
   return (
@@ -72,7 +73,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <GlobalErrorHandlers />
           <FetchErrorMonitor />
           <ConditionalSkipLink label={t('skipToMainContent')} hideLocalePaths />
-          <ErrorBoundary>
+          <ErrorBoundary
+            labels={{
+              heading: errorT('heading'),
+              description: errorT('description'),
+              reload: errorT('reloadPage'),
+            }}
+          >
             <main id="main-content" className="site-main">
               {children}
             </main>

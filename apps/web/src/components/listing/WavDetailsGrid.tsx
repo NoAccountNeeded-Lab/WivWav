@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
-import { WAV_FEATURES } from '@wivwav/types'
+import { useTranslations } from 'next-intl'
 import type { FieldResolutionState, RampType, WavFeature, WavFeatures } from '@wivwav/types'
 import { WavFeatureItem } from './WavFeatureItem'
 
@@ -50,44 +50,50 @@ function featureIcon(feature: WavFeature): React.ReactNode {
   }
 }
 
-function rampValue(rampType: RampType): string | null {
+type Translate = ReturnType<typeof useTranslations>
+
+function rampValue(rampType: RampType, t: Translate): string | null {
   switch (rampType) {
     case 'in_floor':
-      return 'In-floor ramp'
+      return t('inFloorRamp')
     case 'fold_out':
-      return 'Fold-out ramp'
+      return t('foldOutRamp')
     case 'fold_in':
-      return 'Fold-in ramp'
+      return t('foldInRamp')
     default:
       return null
   }
 }
 
-function buildRows(wav: WavFeatures, rampTypeStatus: FieldResolutionState | undefined): WavDetailRow[] {
-  const rows: WavDetailRow[] = (Object.keys(WAV_FEATURES) as WavFeature[])
-    .filter((feature) => wav.wavFeatures.includes(feature))
+function buildRows(
+  wav: WavFeatures,
+  rampTypeStatus: FieldResolutionState | undefined,
+  t: Translate,
+  featureT: Translate,
+): WavDetailRow[] {
+  const rows: WavDetailRow[] = [...wav.wavFeatures]
     .map((feature) => ({
       key: `feature:${feature}`,
       icon: featureIcon(feature),
-      label: WAV_FEATURES[feature],
-      value: 'Included',
+      label: featureT(`wavFeature_${feature}`),
+      value: t('included'),
     }))
 
   if (wav.floorLoweringInches !== null) {
     rows.push({
       key: 'floor-lowering',
       icon: <MoveDown size={16} aria-hidden />,
-      label: 'Floor lowering',
-      value: `${wav.floorLoweringInches} inches`,
+      label: t('floorLowering'),
+      value: t('inches', { inches: wav.floorLoweringInches }),
     })
   }
 
-  const ramp = rampValue(wav.rampType)
+  const ramp = rampValue(wav.rampType, t)
   if (ramp !== null) {
     rows.push({
       key: 'ramp-type',
       icon: <ArrowDownFromLine size={16} aria-hidden />,
-      label: 'Ramp type',
+      label: t('rampType'),
       value: ramp,
     })
   } else if (rampTypeStatus === 'conflicting') {
@@ -97,8 +103,8 @@ function buildRows(wav: WavFeatures, rampTypeStatus: FieldResolutionState | unde
     rows.push({
       key: 'ramp-type',
       icon: <AlertTriangle size={16} aria-hidden />,
-      label: 'Ramp type',
-      value: 'Needs verification — see source listing',
+      label: t('rampType'),
+      value: t('needsVerification'),
     })
   }
 
@@ -106,8 +112,8 @@ function buildRows(wav: WavFeatures, rampTypeStatus: FieldResolutionState | unde
     rows.push({
       key: 'wheelchair-capacity',
       icon: <Users size={16} aria-hidden />,
-      label: 'WC capacity',
-      value: `${wav.wheelchairCapacity} chair${wav.wheelchairCapacity === 1 ? '' : 's'}`,
+      label: t('wcCapacity'),
+      value: t('chairs', { count: wav.wheelchairCapacity }),
     })
   }
 
@@ -115,8 +121,8 @@ function buildRows(wav: WavFeatures, rampTypeStatus: FieldResolutionState | unde
     rows.push({
       key: 'conversion-status',
       icon: <ShieldCheck size={16} aria-hidden />,
-      label: 'Conversion status',
-      value: wav.conversionStatus === 'complete' ? 'Complete' : 'Proposed',
+      label: t('conversionStatus'),
+      value: wav.conversionStatus === 'complete' ? t('complete') : t('proposed'),
     })
   }
 
@@ -124,12 +130,14 @@ function buildRows(wav: WavFeatures, rampTypeStatus: FieldResolutionState | unde
 }
 
 export function WavDetailsGrid({ wav, rampTypeStatus, className }: WavDetailsGridProps) {
-  const rows = buildRows(wav, rampTypeStatus)
+  const t = useTranslations('WavDetails')
+  const featureT = useTranslations('FiltersPage.listing')
+  const rows = buildRows(wav, rampTypeStatus, t, featureT)
 
   if (rows.length === 0) return null
 
   return (
-    <div className={className} role="list" aria-label="WAV details and accessibility features">
+    <div className={className} role="list" aria-label={t('label')}>
       {rows.map((row) => (
         <WavFeatureItem key={row.key} icon={row.icon} label={row.label} value={row.value} />
       ))}
