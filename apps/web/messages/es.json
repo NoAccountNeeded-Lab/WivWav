@@ -28,7 +28,7 @@
     "noListingsYet": "Todavía no hay vehículos listados. Vuelva a consultar pronto.",
     "vehicleFilters": "Filtrar por tipo de vehículo y marca",
     "featureFilters": "Filtrar por función, ubicación, vendedor y tipo de combustible",
-    "rangeFilters": "Filtrar por precio, año y kilometraje"
+    "rangeFilters": "Filtrar por precio, año y millaje"
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
@@ -66,12 +66,9 @@
       "callForPrice": "Llame para precio",
       "rearEntry": "Entrada trasera",
       "sideEntry": "Entrada lateral",
-      "//inFloorRamp": "kept in English: industry-standard WAV conversion term used by dealers and recognized by Spanish-speaking buyers",
-      "inFloorRamp": "In-floor ramp",
-      "//foldOutRamp": "kept in English: industry-standard WAV conversion term used by dealers and recognized by Spanish-speaking buyers",
-      "foldOutRamp": "Fold-out ramp",
-      "//foldInRamp": "kept in English: industry-standard WAV conversion term used by dealers and recognized by Spanish-speaking buyers",
-      "foldInRamp": "Fold-in ramp",
+      "inFloorRamp": "Rampa en el piso",
+      "foldOutRamp": "Rampa desplegable",
+      "foldInRamp": "Rampa plegable hacia adentro",
       "hasLift": "Tiene elevador",
       "handControls": "Controles manuales",
       "//cpo": "kept in English: CPO (Certified Pre-Owned) is a US automotive industry term widely understood as-is",
@@ -98,8 +95,8 @@
       "dateFoundOldToNew": "Fecha de hallazgo: de más antiguo a más reciente",
       "priceLowToHigh": "Precio: de menor a mayor",
       "priceHighToLow": "Precio: de mayor a menor",
-      "mileageLowToHigh": "Kilometraje: de menor a mayor",
-      "mileageHighToLow": "Kilometraje: de mayor a menor",
+      "mileageLowToHigh": "Millaje: de menor a mayor",
+      "mileageHighToLow": "Millaje: de mayor a menor",
       "yearNewToOld": "Año: de más reciente a más antiguo",
       "yearOldToNew": "Año: de más antiguo a más reciente"
     }
@@ -114,7 +111,7 @@
     "mileageUnder": "Menos de {miles} mi",
     "removePrice": "precio",
     "removeYear": "año",
-    "removeMileage": "kilometraje",
+    "removeMileage": "millaje",
     "multiCount": "{count} {plural}",
     "params": {
       "make": {
@@ -229,7 +226,7 @@
     "rampTypeLabel": "Tipo de rampa",
     "hasLiftLabel": "Tiene elevador",
     "handControlsLabel": "Controles manuales",
-    "floorLoweringLabel": "Bajada de piso",
+    "floorLoweringLabel": "Piso rebajado",
     "wcCapacityLabel": "Capacidad para silla de ruedas",
     "transferSeatLabel": "Asiento de transferencia",
     "openInNewTab": "(se abre en nueva pestaña)",
@@ -332,7 +329,7 @@
     "lifespanMiles": "{miles} millas",
     "reliabilityScore": "Puntuación de confiabilidad",
     "jdPowerScore": "Puntuación de J.D. Power",
-    "mileageLifespan": "Kilometraje y vida útil",
+    "mileageLifespan": "Millaje y vida útil",
     "baseModelFacts": "Datos del modelo base",
     "reliabilitySources": "Fuentes de confiabilidad y vida útil",
     "statsSources": "Fuentes de estadísticas del vehículo",
@@ -485,14 +482,14 @@
     "via": "vía {source}"
   },
   "MileageGauge": {
-    "label": "Indicador de kilometraje: {mileage} millas en una escala de {scale} millas. Vida útil promedio de {make}: {lifespan} millas.",
+    "label": "Indicador de millaje: {mileage} millas en una escala de {scale} millas. Vida útil promedio de {make}: {lifespan} millas.",
     "miles": "{miles} mi",
     "thisVehicle": "<strong>{miles}</strong> — este vehículo",
     "avgLifespan": "<strong>{miles}</strong> — vida útil promedio de {make}",
     "lifeUsed": "{percent}% de la vida útil esperada utilizada",
     "strong": " — gran durabilidad por delante",
-    "solid": " — buen kilometraje restante",
-    "higher": " — vehículo de alto kilometraje"
+    "solid": " — buen millaje restante",
+    "higher": " — vehículo de alto millaje"
   },
   "NmedaDealers": {
     "qapCertified": "Certificado QAP",
@@ -533,22 +530,22 @@
     "originalMsrp": "PSF orig."
   },
   "VinHistoryTimeline": {
-    "label": "Historial de precio y kilometraje del VIN en {count, plural, =1 {# anuncio} other {# anuncios}}",
+    "label": "Historial de precio y millaje del VIN en {count, plural, =1 {# anuncio} other {# anuncios}}",
     "thisListing": "Este anuncio",
     "otherListing": "Otro anuncio",
     "miles": "{miles} mi",
     "thisListingPrice": "Precio de este anuncio",
     "otherListingPrice": "Precio de otro anuncio",
-    "thisListingMileage": "Kilometraje de este anuncio",
-    "otherListingMileage": "Kilometraje de otro anuncio",
+    "thisListingMileage": "Millaje de este anuncio",
+    "otherListingMileage": "Millaje de otro anuncio",
     "summary": "{observations, plural, =1 {# observación} other {# observaciones}} en {listings, plural, =1 {# anuncio} other {# anuncios}} para este VIN.",
-    "caption": "Historial de precio y kilometraje del VIN",
+    "caption": "Historial de precio y millaje del VIN",
     "date": "Fecha",
     "listing": "Anuncio",
     "metric": "Métrica",
     "value": "Valor",
     "price": "Precio",
-    "mileage": "Kilometraje"
+    "mileage": "Millaje"
   },
   "WavConversionInfo": {
     "title": "Conversión",
@@ -704,7 +701,7 @@
     },
     "data": {
       "heading": "Qué recopilamos",
-      "p1": "De cada página de anuncio que rastreamos, recopilamos los detalles del anuncio del vehículo que son visibles públicamente, como el precio, el kilometraje, la ubicación, los datos del vehículo (marca, modelo, año) y las fotos y la descripción del anuncio tal como se publican en la página. No creamos una cuenta, no iniciamos sesión ni accedemos a nada que no sea ya visible para cualquier visitante."
+      "p1": "De cada página de anuncio que rastreamos, recopilamos los detalles del anuncio del vehículo que son visibles públicamente, como el precio, el millaje, la ubicación, los datos del vehículo (marca, modelo, año) y las fotos y la descripción del anuncio tal como se publican en la página. No creamos una cuenta, no iniciamos sesión ni accedemos a nada que no sea ya visible para cualquier visitante."
     },
     "use": {
       "heading": "Qué hacemos con esa información",
@@ -766,7 +763,7 @@
     "thirdParty": {
       "heading": "Fuentes de datos de terceros",
       "p1": "Los datos de los anuncios en WivWav provienen de sitios web de anuncios de vehículos de acceso público, de la API Browse oficial de eBay y de la API pública de la Administración Nacional de Seguridad del Tráfico en las Carreteras de EE. UU. (NHTSA). Agregamos e indexamos esta información para que se pueda buscar. No controlamos las prácticas de privacidad de esas fuentes.",
-      "p2": "Algunas fuentes de anuncios incluyen anuncios de vehículos de particulares (“For Sale By Owner”, a la venta por el propietario). Cuando WivWav indexa el anuncio de un vendedor particular, almacenamos los datos del vehículo y de la ubicación que son de acceso público (como marca, modelo, año, precio, kilometraje, ciudad y estado) junto con las imágenes publicadas en la página del anuncio de origen. No mostramos ni indexamos el número de teléfono personal de un vendedor particular.",
+      "p2": "Algunas fuentes de anuncios incluyen anuncios de vehículos de particulares (“For Sale By Owner”, a la venta por el propietario). Cuando WivWav indexa el anuncio de un vendedor particular, almacenamos los datos del vehículo y de la ubicación que son de acceso público (como marca, modelo, año, precio, millaje, ciudad y estado) junto con las imágenes publicadas en la página del anuncio de origen. No mostramos ni indexamos el número de teléfono personal de un vendedor particular.",
       "p3": "Cuando el anuncio de un vendedor particular ya no se encuentra en su sitio de origen, borramos automáticamente el número de teléfono, el nombre, la descripción, el código postal y las imágenes del vendedor, y eliminamos la página extraída y las referencias de imágenes subyacentes, en un plazo de 30 días.",
       "p4": "Si usted es un vendedor particular y desea que su anuncio se elimine de WivWav antes, escriba a <mail>privacy@wivwav.com</mail> con la URL del anuncio y lo eliminaremos con prontitud.",
       "p5": "No compartimos datos de los visitantes con distribuidores ni con ningún tercero con fines de marketing."
