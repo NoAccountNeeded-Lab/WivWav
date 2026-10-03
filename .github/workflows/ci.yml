@@ -167,7 +167,9 @@ jobs:
   e2e:
     name: E2E smoke
     runs-on: ubuntu-latest
-    needs: docker-done
+    # No `needs: docker-done` (#1055): E2E builds its own migrate/api/web images
+    # below and never consumes the Docker jobs' output, so it starts in
+    # parallel with them. `publish` still waits on both `docker-done` and `e2e`.
     # PR pushes skip E2E entirely — the suite is slow and isn't a required
     # merge-queue check (see docs/design/merge-queue.md), so it only needs to
     # run once the PR actually enters the queue. It also reruns on the push
