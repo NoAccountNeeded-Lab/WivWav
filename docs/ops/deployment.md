@@ -15,8 +15,9 @@ There is no separate publish workflow and no staging registry:
 2. `lint-typecheck`, `test`, and `restore-drill` run independently, in
    parallel with the build. `restore-drill` proves a PostgreSQL backup
    actually restores — see `docs/data/backup-restore.md`. `e2e` (E2E smoke)
-   runs against the built `migrate`, `api`, and `web` images once
-   `docker-done` succeeds.
+   also starts in parallel with the build, building its own `migrate`, `api`,
+   and `web` images to run against; it does not wait for `docker-done`, but
+   `publish` still requires both.
 3. `publish` runs only for a push to `main`, and only after `docker-done`,
    `lint-typecheck`, `test`, `restore-drill`, and `e2e` have all succeeded. It
    loads the artifacts from step 1 — never rebuilding — tags and pushes each
