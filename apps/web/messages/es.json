@@ -25,7 +25,10 @@
     "heading": "Encuentre el vehículo accesible adecuado",
     "seeMatches": "Ver coincidencias →",
     "browseAll": "Ver todos los vehículos",
-    "noListingsYet": "Todavía no hay vehículos listados. Vuelva a consultar pronto."
+    "noListingsYet": "Todavía no hay vehículos listados. Vuelva a consultar pronto.",
+    "vehicleFilters": "Filtrar por tipo de vehículo y marca",
+    "featureFilters": "Filtrar por función, ubicación, vendedor y tipo de combustible",
+    "rangeFilters": "Filtrar por precio, año y kilometraje"
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
@@ -595,5 +598,258 @@
     "hint": "Pase el cursor o seleccione un estado para ver el número de anuncios",
     "fewer": "Menos",
     "more": "Más"
+  },
+  "VinLookup": {
+    "metaTitle": "Consulta de seguridad por VIN — WivWav",
+    "metaDescription": "Consulte un VIN para ver campañas de retiro de la NHTSA, tendencias de quejas y calificaciones de seguridad.",
+    "back": "Volver a los anuncios",
+    "eyebrow": "Consulta de seguridad de la NHTSA",
+    "title": "Consulte retiros, quejas y calificaciones de choque por VIN",
+    "lede": "Decodifique un número de identificación del vehículo y vea los datos de seguridad que WivWav ha reunido para ese modelo de vehículo.",
+    "helpHeading": "Lo que verá",
+    "noticeStrong": "Señales de seguridad antes de llamar al vendedor.",
+    "notice": "Los informes incluyen campañas de retiro de la NHTSA, patrones de quejas por componente y calificaciones de seguridad cuando están disponibles para el año, la marca y el modelo decodificados.",
+    "form": {
+      "label": "Ingrese un VIN",
+      "placeholder": "VIN de 17 caracteres",
+      "submit": "Consultar VIN"
+    }
+  },
+  "VinReport": {
+    "metaTitle": "Informe de seguridad de {vin} — WivWav",
+    "metaDescription": "Resumen de retiros, quejas y calificaciones de seguridad de la NHTSA para este VIN.",
+    "lookupFailed": "No se pudo consultar este VIN.",
+    "title": "Informe de seguridad por VIN",
+    "errorHeading": "Problema en la consulta",
+    "errorHint": "Verifique que el VIN tenga 17 caracteres y no contenga las letras I, O ni Q.",
+    "undecodedHeading": "Vehículo no decodificado",
+    "undecoded": "<strong>WivWav no pudo decodificar este VIN a través de la NHTSA.</strong> Revise el VIN por si tiene errores o pruebe con otro vehículo.",
+    "summary": "Resumen",
+    "decodedVehicle": "Vehículo decodificado",
+    "recallCampaigns": "Campañas de retiro",
+    "checked": "Consultado el {date}",
+    "overallRating": "Calificación general",
+    "ratingNote": "Calificación de seguridad de la NHTSA cuando está disponible",
+    "notRated": "Sin calificar",
+    "conversionHeading": "Contexto de la conversión WAV",
+    "conversion": "Este VIN coincide con un anuncio WAV con una conversión de <strong>{manufacturer}</strong>.",
+    "viewSource": "Ver el anuncio de origen.",
+    "noOpenRecalls": "<strong>No se encontraron retiros abiertos</strong> en los datos de seguridad de WivWav para este modelo de vehículo decodificado al {date}.",
+    "reported": "Reportado el {date}",
+    "remedy": "<strong>Reparación:</strong> {remedy}",
+    "complaintPatterns": "Patrones de quejas",
+    "noComplaints": "Aún no hay quejas de la NHTSA almacenadas para este modelo de vehículo decodificado.",
+    "complaintCount": "{count, plural, =1 {# queja} other {# quejas}}",
+    "exampleMiles": " ({miles} millas)",
+    "ratingsHeading": "Calificaciones de seguridad",
+    "noRatings": "Aún no hay una calificación de seguridad de la NHTSA almacenada para este modelo de vehículo decodificado.",
+    "ratingFallback": "Calificación de seguridad de la NHTSA",
+    "overall": "General",
+    "frontCrash": "Choque frontal",
+    "sideCrash": "Choque lateral",
+    "rollover": "Vuelco",
+    "back": "Volver a los anuncios",
+    "eyebrow": "Consulta de seguridad de la NHTSA"
+  },
+  "FilterDetail": {
+    "notFoundTitle": "Anuncio no encontrado",
+    "metaTitle": "{title} — WivWav",
+    "wavDescription": "Vehículo accesible para silla de ruedas",
+    "back": "Volver a los anuncios",
+    "statsLabel": "Datos clave del vehículo",
+    "year": "Año",
+    "miles": "Millas",
+    "condition": "Condición",
+    "seller": "Vendedor",
+    "sellerDealer": "Distribuidor",
+    "sellerPrivate": "Particular",
+    "wavFeaturesHeading": "Características WAV",
+    "vehicleDetails": "Detalles del vehículo",
+    "sellerHeading": "Vendedor",
+    "description": "Descripción",
+    "viewSafetyReport": "Ver informe de seguridad",
+    "contactSeller": "Contactar al vendedor",
+    "viewSellerListing": "Ver el anuncio del vendedor",
+    "sideEntryConversion": "Conversión de entrada lateral",
+    "rearEntryConversion": "Conversión de entrada trasera",
+    "otherConversion": "Conversión {type}",
+    "ramp": "Rampa {type}",
+    "floorLowering": "Piso rebajado",
+    "floorDrop": "{inches}\" de descenso",
+    "wheelchairPositions": "Plazas para sillas de ruedas",
+    "specs": {
+      "color": "Color",
+      "fuelType": "Tipo de combustible",
+      "transmission": "Transmisión",
+      "vin": "VIN"
+    },
+    "sourceListed": "Publicado en la fuente el {date}",
+    "firstSaw": "Visto por primera vez el {date}",
+    "sourceUpdated": " · Actualizado en la fuente el {date}"
+  },
+  "BotPage": {
+    "metaTitle": "Información sobre el rastreador de WivWav — Para propietarios de sitios",
+    "metaDescription": "Cómo se identifica el rastreador de WivWav, qué recopila y cómo controlarlo o bloquearlo.",
+    "sectionLabel": "Información del rastreador",
+    "heading": "Información sobre el rastreador de WivWav",
+    "updated": "Última actualización: septiembre de 2026",
+    "what": {
+      "heading": "¿Qué es WivWav?",
+      "p1": "WivWav es un índice de búsqueda gratuito de vehículos accesibles para sillas de ruedas (WAV, por sus siglas en inglés). Nuestro rastreador visita páginas de anuncios de acceso público en muchos sitios web independientes y permite a las personas buscar en todos ellos en un solo lugar, de la misma manera en que un motor de búsqueda general indexa páginas de toda la web."
+    },
+    "ua": {
+      "heading": "Nuestro user-agent",
+      "p1": "Nuestro rastreador se identifica con la siguiente cadena de user-agent:",
+      "p3": "Puede buscar esta cadena en los registros de su servidor para identificar nuestro tráfico. Si esta cadena cambia alguna vez, la actualizaremos primero en esta página."
+    },
+    "data": {
+      "heading": "Qué recopilamos",
+      "p1": "De cada página de anuncio que rastreamos, recopilamos los detalles del anuncio del vehículo que son visibles públicamente, como el precio, el kilometraje, la ubicación, los datos del vehículo (marca, modelo, año) y las fotos y la descripción del anuncio tal como se publican en la página. No creamos una cuenta, no iniciamos sesión ni accedemos a nada que no sea ya visible para cualquier visitante."
+    },
+    "use": {
+      "heading": "Qué hacemos con esa información",
+      "p1": "Los detalles recopilados se indexan para la búsqueda y se muestran a los usuarios de WivWav como datos resumidos y fragmentos breves en los resultados de búsqueda. Cada anuncio que mostramos enlaza de vuelta a la página original de su sitio: WivWav es una capa de descubrimiento que le envía visitantes, no un destino que reemplaza una visita a su sitio."
+    },
+    "robots": {
+      "heading": "Cumplimiento de robots.txt",
+      "p1": "Nuestro rastreador consulta <code>robots.txt</code> antes de solicitar cualquier página de su sitio y respeta todas las reglas <code>Disallow</code> que se apliquen, incluidas las reglas escritas específicamente para nuestro bot por su nombre (vea más abajo). Si el archivo <code>robots.txt</code> falta o no se puede leer, se considera totalmente abierto y nunca se usa como motivo para omitir la verificación."
+    },
+    "rate": {
+      "heading": "Frecuencia de rastreo",
+      "p1": "Espaciamos nuestras solicitudes de forma conservadora y añadimos retrasos aleatorios entre ellas, de modo que nuestro rastreador nunca envía un gran volumen de tráfico de golpe a un mismo sitio. También respetamos la directiva <code>Crawl-delay</code> declarada explícitamente por un sitio cuando existe."
+    },
+    "block": {
+      "heading": "Cómo bloquear únicamente a WivWav",
+      "p1": "Si desea excluir solo a nuestro rastreador sin afectar a los motores de búsqueda ni a otros bots, agregue a su archivo <code>robots.txt</code> un bloque dirigido al nombre de nuestro user-agent:",
+      "p3": "Verificamos esto en cada rastreo y dejaremos de solicitar su sitio una vez que esté en vigor. También puede limitar el bloqueo a rutas específicas en lugar de todo su sitio, indicándolas una por una con <code>Disallow</code>."
+    },
+    "noCircumvention": {
+      "heading": "Lo que nunca hacemos",
+      "p1": "Nuestro rastreador nunca inicia sesión, crea una cuenta ni acepta términos de servicio para acceder a una página. Si un sitio nos bloquea, ya sea mediante <code>robots.txt</code>, un bloqueo de IP, un CAPTCHA o cualquier otro control de acceso, nos detenemos y no intentamos eludirlo."
+    },
+    "funding": {
+      "heading": "Cómo se financia WivWav",
+      "p1": "Actualmente WivWav es de uso gratuito y sin anuncios. Si los costos de alojamiento e infraestructura lo exigen a medida que crece el servicio, podríamos introducir publicidad mínima y poco intrusiva para cubrir esos costos, y no como un modelo de negocio basado en competir con los sitios que indexamos."
+    },
+    "contact": {
+      "heading": "Preguntas, eliminación o informe de un problema",
+      "body": "Si desea que dejemos de rastrear su sitio, que corrijamos algo o tiene cualquier otra pregunta sobre nuestro rastreador, escriba a <mail>privacy@wivwav.com</mail> e indique la URL de su sitio. Responderemos y cumpliremos con prontitud."
+    }
+  },
+  "PrivacyPage": {
+    "metaTitle": "Política de privacidad — WivWav",
+    "metaDescription": "Cómo maneja WivWav los datos de los visitantes del sitio y de fuentes de terceros.",
+    "sectionLabel": "Política de privacidad",
+    "heading": "Política de privacidad",
+    "updated": "Última actualización: agosto de 2026",
+    "overview": {
+      "heading": "Resumen",
+      "p1": "WivWav es una herramienta de búsqueda gratuita y de acceso abierto para vehículos accesibles para sillas de ruedas. No se necesita cuenta ni inicio de sesión para usar el sitio. Esta política explica qué información se recopila, cómo se usa y cuáles son sus derechos como visitante."
+    },
+    "collected": {
+      "heading": "Datos recopilados de los visitantes",
+      "p1": "WivWav no exige registro ni inicio de sesión. No recopilamos a sabiendas información de identificación personal (PII), como su nombre, correo electrónico o número de teléfono.",
+      "p2": "La infraestructura estándar de servidores web y alojamiento puede registrar automáticamente lo siguiente con fines operativos y de seguridad:",
+      "list3": {
+        "i1": "Dirección IP (anonimizada o truncada cuando sea posible)",
+        "i2": "Tipo de navegador y sistema operativo",
+        "i3": "Páginas visitadas y marcas de tiempo",
+        "i4": "URL de referencia"
+      },
+      "p4": "Esta información se usa únicamente para operar y mejorar el servicio, y no se vende ni se comparte con redes publicitarias."
+    },
+    "cookies": {
+      "heading": "Cookies y almacenamiento local",
+      "p1": "WivWav usa el <code>localStorage</code> del navegador para recordar su preferencia opcional de tema (primavera, verano, otoño o invierno). Estos datos nunca salen de su dispositivo y no se transmiten a nuestros servidores.",
+      "p2": "No usamos cookies de seguimiento ni cookies publicitarias de terceros. Las cookies de sesión que establezcan los proveedores de infraestructura se usan solo para mantener la seguridad operativa y no se emplean para el seguimiento entre sitios."
+    },
+    "thirdParty": {
+      "heading": "Fuentes de datos de terceros",
+      "p1": "Los datos de los anuncios en WivWav provienen de sitios web de anuncios de vehículos de acceso público, de la API Browse oficial de eBay y de la API pública de la Administración Nacional de Seguridad del Tráfico en las Carreteras de EE. UU. (NHTSA). Agregamos e indexamos esta información para que se pueda buscar. No controlamos las prácticas de privacidad de esas fuentes.",
+      "p2": "Algunas fuentes de anuncios incluyen anuncios de vehículos de particulares (“For Sale By Owner”, a la venta por el propietario). Cuando WivWav indexa el anuncio de un vendedor particular, almacenamos los datos del vehículo y de la ubicación que son de acceso público (como marca, modelo, año, precio, kilometraje, ciudad y estado) junto con las imágenes publicadas en la página del anuncio de origen. No mostramos ni indexamos el número de teléfono personal de un vendedor particular.",
+      "p3": "Cuando el anuncio de un vendedor particular ya no se encuentra en su sitio de origen, borramos automáticamente el número de teléfono, el nombre, la descripción, el código postal y las imágenes del vendedor, y eliminamos la página extraída y las referencias de imágenes subyacentes, en un plazo de 30 días.",
+      "p4": "Si usted es un vendedor particular y desea que su anuncio se elimine de WivWav antes, escriba a <mail>privacy@wivwav.com</mail> con la URL del anuncio y lo eliminaremos con prontitud.",
+      "p5": "No compartimos datos de los visitantes con distribuidores ni con ningún tercero con fines de marketing."
+    },
+    "analytics": {
+      "heading": "Analítica",
+      "p1": "Si se usa analítica, está configurada para minimizar la recopilación de datos, por ejemplo, con anonimización de IP y sin seguimiento entre sitios. Esta política se actualizará para nombrar a cualquier proveedor de analítica antes de que se active."
+    },
+    "children": {
+      "heading": "Privacidad de los menores",
+      "p1": "WivWav no está dirigido a menores de 13 años. No recopilamos a sabiendas información personal de menores."
+    },
+    "changes": {
+      "heading": "Cambios en esta política",
+      "p1": "Podemos actualizar esta Política de privacidad de vez en cuando. La fecha de “Última actualización” en la parte superior de esta página refleja la revisión más reciente. El uso continuado del sitio después de los cambios implica la aceptación de la política actualizada."
+    },
+    "contact": {
+      "heading": "Contacto",
+      "body": "¿Tiene preguntas sobre esta Política de privacidad? Escriba a <mail>privacy@wivwav.com</mail>."
+    }
+  },
+  "TermsPage": {
+    "metaTitle": "Términos de servicio — WivWav",
+    "metaDescription": "Términos que rigen el uso de WivWav, una herramienta informativa para encontrar vehículos accesibles para sillas de ruedas.",
+    "sectionLabel": "Términos de servicio",
+    "heading": "Términos de servicio",
+    "updated": "Última actualización: junio de 2026",
+    "acceptance": {
+      "heading": "Aceptación de los términos",
+      "p1": "Al usar WivWav (“el Servicio”), usted acepta estos Términos de servicio. Si no está de acuerdo, no use el Servicio."
+    },
+    "informational": {
+      "heading": "Uso exclusivamente informativo",
+      "p1": "WivWav se proporciona <strong>únicamente con fines informativos</strong>. El Servicio agrega anuncios de vehículos disponibles públicamente en sitios web de distribuidores y fuentes de datos públicas. Nada en este sitio constituye:",
+      "list2": {
+        "i1": "Una recomendación profesional, un aval ni un asesoramiento profesional de ningún tipo",
+        "i2": "Una garantía de disponibilidad, estado, precio o idoneidad del vehículo para un fin específico",
+        "i3": "Una declaración de que algún anuncio está completo, es exacto o está actualizado"
+      },
+      "p3": "Verifique siempre los detalles del vehículo, las funciones de accesibilidad y el precio directamente con el distribuidor o el vendedor antes de tomar cualquier decisión de compra."
+    },
+    "accuracy": {
+      "heading": "Limitaciones en la exactitud de los datos",
+      "p1": "Los datos de los anuncios se obtienen automáticamente de sitios de distribuidores de terceros y de la API pública de la NHTSA. WivWav no verifica de forma independiente los detalles de los anuncios. Los datos pueden estar:",
+      "list2": {
+        "i1": "Desactualizados: es posible que los vehículos se hayan vendido o que el precio haya cambiado",
+        "i2": "Incompletos: es posible que no se capturen todas las funciones de accesibilidad",
+        "i3": "Incorrectos: la extracción de datos y el procesamiento automatizado pueden introducir errores"
+      },
+      "p3": "WivWav no ofrece garantías, expresas ni implícitas, sobre la exactitud, la integridad o la actualidad de la información presentada en el sitio."
+    },
+    "warranty": {
+      "heading": "Sin garantía",
+      "p1": "El Servicio se proporciona “tal cual” y “según disponibilidad”, sin garantía de ningún tipo. En la máxima medida permitida por la ley, WivWav renuncia a todas las garantías, incluidas las garantías implícitas de comerciabilidad, idoneidad para un fin determinado y no infracción."
+    },
+    "liability": {
+      "heading": "Limitación de responsabilidad",
+      "p1": "En la máxima medida permitida por la ley aplicable, WivWav y sus operadores no serán responsables de ningún daño indirecto, incidental, especial, consecuente o punitivo que surja del uso del Servicio, de la imposibilidad de usarlo o de cualquier información obtenida a través de él."
+    },
+    "use": {
+      "heading": "Uso permitido",
+      "p1": "Puede usar el Servicio para investigar de forma personal y no comercial vehículos accesibles para sillas de ruedas. No puede:",
+      "list2": {
+        "i1": "Extraer ni descargar de forma masiva contenido del sitio de maneras que perturben el Servicio",
+        "i2": "Usar el Servicio para crear un producto de agregación competidor sin autorización",
+        "i3": "Intentar eludir cualquier medida de seguridad"
+      }
+    },
+    "thirdParty": {
+      "heading": "Enlaces de terceros",
+      "p1": "El Servicio enlaza a sitios web de distribuidores y a fuentes de datos externas. No somos responsables del contenido, la exactitud ni las prácticas de privacidad de esos sitios de terceros. Visitarlos está sujeto a sus propios términos y políticas."
+    },
+    "changes": {
+      "heading": "Cambios en estos términos",
+      "p1": "Podemos actualizar estos Términos en cualquier momento. La fecha de “Última actualización” refleja la revisión más reciente. El uso continuado del Servicio después de los cambios implica la aceptación de los Términos actualizados."
+    },
+    "contact": {
+      "heading": "Contacto",
+      "body": "¿Tiene preguntas sobre estos Términos? Escriba a <mail>legal@wivwav.com</mail>."
+    }
+  },
+  "Metadata": {
+    "title": "WivWav — Encuentre vehículos accesibles para sillas de ruedas",
+    "description": "Busque miles de vehículos accesibles para sillas de ruedas de distribuidores y vendedores particulares en todo EE. UU. Filtre por tipo de conversión, elevador, rampa, controles manuales y más."
   }
 }

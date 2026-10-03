@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { Translate } from '@/lib/intl'
+import { toIntlLocale } from '@/lib/intl'
 import styles from './ActiveFilters.module.css'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ export function ActiveFilters() {
   const pills = buildPills(new URLSearchParams(searchParams.toString()), {
     t,
     featureLabel: (key) => (featureT.has(`wavFeature_${key}`) ? featureT(`wavFeature_${key}`) : null),
-    formatNumber: (value) => new Intl.NumberFormat(locale).format(value),
+    formatNumber: (value) => new Intl.NumberFormat(toIntlLocale(locale)).format(value),
   })
 
   if (pills.length === 0) return null

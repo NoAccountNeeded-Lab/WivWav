@@ -29,17 +29,17 @@ import { NextIntlClientProvider } from 'next-intl'
 import { routing } from '../../routing'
 import { getMessagesForLocale } from '../../messages'
 
-export const metadata: Metadata = {
-  title: 'WivWav — Find Wheelchair Accessible Vehicles',
-  description:
-    'Search thousands of wheelchair accessible vehicles from dealers and private sellers across the US. Filter by conversion type, lift, ramp, hand controls, and more.',
-}
-
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: '#5c35c6',
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale()
+  const t = await getTranslations({ locale, namespace: 'Metadata' })
+  return { title: t('title'), description: t('description') }
 }
 
 async function getRequestLocale() {

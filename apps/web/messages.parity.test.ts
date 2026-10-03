@@ -51,7 +51,8 @@ describe('message catalog parity', () => {
     expect(mismatched).toEqual([])
   })
 
-  it('does not define pseudo-locale keys that English lacks', () => {
-    expect([...zz.keys()].filter((k) => !en.has(k))).toEqual([])
+  it('keeps the dev-only ZZ pseudo-locale in step with English', () => {
+    expect([...zz.keys()].filter((k) => !en.has(k)), 'keys only in zz').toEqual([])
+    expect([...en.keys()].filter((k) => !zz.has(k)), 'keys missing from zz').toEqual([])
   })
 })
