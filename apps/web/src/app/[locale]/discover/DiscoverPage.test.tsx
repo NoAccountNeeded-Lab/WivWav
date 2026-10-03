@@ -51,4 +51,18 @@ describe('DiscoverPage', () => {
     expect(screen.getByRole('link', { name: 'Browse all vehicles' }).getAttribute('href'))
       .toBe('/en/results')
   })
+
+  it('renders the discover flow in Spanish', () => {
+    renderWithIntl(<DiscoverPage resultsPath="/es/results" />, 'es')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Encuentre el vehículo accesible adecuado' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('complementary', { name: 'Filtrar por precio, año y millaje' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ver coincidencias →' }).getAttribute('href')).toBe(
+      '/es/results?make=Ford',
+    )
+  })
 })

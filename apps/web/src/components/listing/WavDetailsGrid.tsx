@@ -71,6 +71,7 @@ function buildRows(
   featureT: Translate,
 ): WavDetailRow[] {
   const rows: WavDetailRow[] = [...wav.wavFeatures]
+    .filter((feature) => featureT.has(`wavFeature_${feature}`))
     .map((feature) => ({
       key: `feature:${feature}`,
       icon: featureIcon(feature),
