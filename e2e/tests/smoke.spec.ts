@@ -18,7 +18,7 @@ test('Discover can reach searchable results', async ({ page }) => {
   await page.goto('/en/discover')
 
   await expect(page.getByRole('heading', { name: /find the right accessible vehicle/i })).toBeVisible()
-  await page.getByRole('link', { name: /browse on my own/i }).click()
+  await page.getByRole('link', { name: /browse all vehicles/i }).click()
 
   await expect(page).toHaveURL(/\/en\/results/)
   await expect(page.getByText(/1 vehicle found/i)).toBeVisible()

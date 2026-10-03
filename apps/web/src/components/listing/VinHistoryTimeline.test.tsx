@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { VinHistoryEntry } from '@wivwav/types'
 import {
   buildVinHistoryChartData,
-  hasMultiListingVinHistory,
   VinHistoryTimeline,
 } from './VinHistoryTimeline'
+import { hasMultiListingVinHistory } from './vinHistory'
 
 afterEach(() => {
   cleanup()
