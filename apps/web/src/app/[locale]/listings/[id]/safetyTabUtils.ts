@@ -1,3 +1,6 @@
+import type { Translate } from '@/lib/intl'
+import { toIntlLocale } from '@/lib/intl'
+
 /** Number of days after which safety data is considered stale. */
 const STALE_THRESHOLD_DAYS = 90
 
@@ -17,9 +20,9 @@ export function isSafetyDataStale(freshnessDate: string | null): boolean {
  * Formats the freshness date for display.
  * Returns null when freshnessDate is null (caller must show a fallback).
  */
-export function formatFreshnessDate(freshnessDate: string | null): string | null {
+export function formatFreshnessDate(freshnessDate: string | null, locale: string): string | null {
   if (freshnessDate === null) return null
-  return new Date(freshnessDate).toLocaleDateString('en-US', {
+  return new Date(freshnessDate).toLocaleDateString(toIntlLocale(locale), {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -30,10 +33,9 @@ export function formatFreshnessDate(freshnessDate: string | null): string | null
  * Returns a human-readable label for a recall status.
  * Handles all three cases: open, remedied, and unknown.
  */
-export function recallStatusLabel(status: 'open' | 'remedied' | 'unknown'): string {
-  if (status === 'open') return 'Remedy open — schedule service'
-  if (status === 'remedied') return 'Fix procedure published'
-  return 'Fix not yet available'
+/** `t` is the `SafetyTab` translator. */
+export function recallStatusLabel(status: 'open' | 'remedied' | 'unknown', t: Translate): string {
+  return t(`recallStatus.${status}`)
 }
 
 /** Severity level driving the at-a-glance safety status badge's color/icon. */
@@ -53,27 +55,28 @@ export interface SafetyStatusSummary {
 export function safetyStatusSummary(
   openRecallCount: number,
   overallRating: number | null,
+  t: Translate,
 ): SafetyStatusSummary {
   if (openRecallCount > 0) {
     return {
       level: 'alert',
-      label: `${openRecallCount} open recall${openRecallCount > 1 ? 's' : ''}`,
+      label: t('openRecalls', { count: openRecallCount }),
     }
   }
 
   if (overallRating !== null && overallRating <= 2) {
     return {
       level: 'caution',
-      label: `No open recalls · ${overallRating}/5 NHTSA rating`,
+      label: t('noOpenRecallsRating', { rating: overallRating }),
     }
   }
 
   if (overallRating !== null) {
     return {
       level: 'good',
-      label: `No open recalls · ${overallRating}/5 NHTSA rating`,
+      label: t('noOpenRecallsRating', { rating: overallRating }),
     }
   }
 
-  return { level: 'good', label: 'No open recalls' }
+  return { level: 'good', label: t('noOpenRecalls') }
 }

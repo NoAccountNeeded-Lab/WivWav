@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FieldResolutionState, RampType, WavFeature, WavFeatures } from '@wivwav/types'
+import type { Translate } from '@/lib/intl'
 import { WavFeatureItem } from './WavFeatureItem'
 
 interface WavDetailsGridProps {
@@ -49,8 +50,6 @@ function featureIcon(feature: WavFeature): React.ReactNode {
       return <Settings2 size={16} aria-hidden />
   }
 }
-
-type Translate = ReturnType<typeof useTranslations>
 
 function rampValue(rampType: RampType, t: Translate): string | null {
   switch (rampType) {

@@ -3,16 +3,12 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertTriangle, Flag, MessageCircleQuestion } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import styles from './tabs.module.css'
 
 type ReportType = 'specs_incorrect' | 'sold_or_stale' | 'duplicate' | 'other'
 
-const REPORT_TYPES: Array<{ value: ReportType; label: string }> = [
-  { value: 'specs_incorrect', label: 'Specs incorrect' },
-  { value: 'sold_or_stale', label: 'Listing is sold or stale' },
-  { value: 'duplicate', label: 'Duplicate listing' },
-  { value: 'other', label: 'Other' },
-]
+const REPORT_TYPES: ReportType[] = ['specs_incorrect', 'sold_or_stale', 'duplicate', 'other']
 
 interface ReportListingFormProps {
   listingId: string
@@ -20,6 +16,7 @@ interface ReportListingFormProps {
 }
 
 export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormProps) {
+  const t = useTranslations('ReportListing')
   const formId = useId()
   const [isOpen, setIsOpen] = useState(false)
   const [reportType, setReportType] = useState<ReportType | ''>('')
@@ -49,9 +46,9 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
         reportType: 'sold_or_stale',
         notes: 'Buyer asked whether this listing is still available.',
       })
-      setStatus({ kind: 'success', message: 'Thanks. We flagged this listing for availability review.' })
+      setStatus({ kind: 'success', message: t('availabilitySuccess') })
     } catch {
-      setStatus({ kind: 'error', message: 'We could not flag availability. Try again in a moment.' })
+      setStatus({ kind: 'error', message: t('availabilityError') })
     } finally {
       setIsAvailabilitySubmitting(false)
     }
@@ -61,7 +58,7 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
     event.preventDefault()
     if (isSubmitting || isAvailabilitySubmitting) return
     if (!reportType) {
-      setStatus({ kind: 'error', message: 'Choose what looks wrong before submitting.' })
+      setStatus({ kind: 'error', message: t('chooseIssueError') })
       return
     }
 
@@ -72,18 +69,18 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
         reportType,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       })
-      setStatus({ kind: 'success', message: 'Thanks. We recorded this report for review.' })
+      setStatus({ kind: 'success', message: t('success') })
       setNotes('')
       setReportType('')
     } catch {
-      setStatus({ kind: 'error', message: 'We could not submit the report. Try again in a moment.' })
+      setStatus({ kind: 'error', message: t('error') })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <section className={styles.reportSection} aria-label="Report an issue">
+    <section className={styles.reportSection} aria-label={t('label')}>
       <button
         type="button"
         className={styles.availabilityReportButton}
@@ -91,7 +88,7 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
         onClick={submitAvailabilityReport}
       >
         <MessageCircleQuestion size={16} aria-hidden />
-        {isAvailabilitySubmitting ? 'Checking availability...' : 'Is this listing still available?'}
+        {isAvailabilitySubmitting ? t('checkingAvailability') : t('stillAvailable')}
       </button>
 
       <div className={styles.reportButtonWrap}>
@@ -100,18 +97,18 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
           className={styles.reportToggle}
           aria-expanded={isOpen}
           aria-controls={`${formId}-form`}
-          aria-label="Report an issue"
+          aria-label={t('label')}
           onClick={() => setIsOpen((open) => !open)}
         >
           <Flag size={18} aria-hidden />
         </button>
-        <span className={styles.reportTooltip} aria-hidden="true">Report an issue</span>
+        <span className={styles.reportTooltip} aria-hidden="true">{t('label')}</span>
       </div>
 
       {isOpen && (
         <form id={`${formId}-form`} className={styles.reportForm} onSubmit={submitReport}>
           <div className={styles.reportField}>
-            <label htmlFor={`${formId}-type`} className={styles.reportLabel}>What looks wrong?</label>
+            <label htmlFor={`${formId}-type`} className={styles.reportLabel}>{t('whatLooksWrong')}</label>
             <select
               id={`${formId}-type`}
               className={styles.reportSelect}
@@ -119,15 +116,15 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
               disabled={isSubmitting}
               onChange={(event) => setReportType(event.target.value as ReportType | '')}
             >
-              <option value="">Choose an issue</option>
+              <option value="">{t('chooseIssue')}</option>
               {REPORT_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>{type.label}</option>
+                <option key={type} value={type}>{t(`types.${type}`)}</option>
               ))}
             </select>
           </div>
 
           <div className={styles.reportField}>
-            <label htmlFor={`${formId}-notes`} className={styles.reportLabel}>Notes, optional</label>
+            <label htmlFor={`${formId}-notes`} className={styles.reportLabel}>{t('notesOptional')}</label>
             <textarea
               id={`${formId}-notes`}
               className={styles.reportTextarea}
@@ -140,7 +137,7 @@ export function ReportListingForm({ listingId, apiBaseUrl }: ReportListingFormPr
           </div>
 
           <button type="submit" className={styles.reportSubmit} disabled={isSubmitting || isAvailabilitySubmitting}>
-            {isSubmitting ? 'Submitting...' : 'Submit report'}
+            {isSubmitting ? t('submitting') : t('submit')}
           </button>
         </form>
       )}

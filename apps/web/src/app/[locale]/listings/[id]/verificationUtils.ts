@@ -1,3 +1,4 @@
+import { toIntlLocale } from '@/lib/intl'
 import type { ListingProvenance } from './types'
 
 /** Number of hours after which a listing is considered stale. */
@@ -39,7 +40,7 @@ export function isVerificationStale(
  * Formats a verification timestamp as a compact relative age.
  * Returns null when timestamp is null (caller must show a fallback).
  */
-export function formatVerificationDate(timestamp: string | null): string | null {
+export function formatVerificationDate(timestamp: string | null, locale: string): string | null {
   if (timestamp === null) return null
 
   const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 1000))
@@ -47,7 +48,7 @@ export function formatVerificationDate(timestamp: string | null): string | null 
   const ageHours = Math.round(ageMinutes / 60)
   const ageDays = Math.round(ageHours / 24)
 
-  const formatter = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
+  const formatter = new Intl.RelativeTimeFormat(toIntlLocale(locale), { numeric: 'auto' })
   if (ageSeconds < 60) return formatter.format(-ageSeconds, 'second')
   if (ageMinutes < 60) return formatter.format(-ageMinutes, 'minute')
   if (ageHours < 48) return formatter.format(-ageHours, 'hour')

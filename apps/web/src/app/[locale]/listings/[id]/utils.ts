@@ -1,6 +1,9 @@
-export function formatPrice(cents: number | null, locale = 'en-US'): string {
-  if (cents === null) return 'Call for price'
-  return `$${(cents / 100).toLocaleString(locale)}`
+import type { Translate } from '@/lib/intl'
+import { toIntlLocale } from '@/lib/intl'
+
+export function formatPrice(cents: number | null, locale: string, callForPrice: string): string {
+  if (cents === null) return callForPrice
+  return `$${(cents / 100).toLocaleString(toIntlLocale(locale))}`
 }
 
 export function formatEnum(value: string): string {
@@ -34,17 +37,19 @@ export function getExpectedLifespan(make: string): number {
   return LIFESPAN_MILES[make.toLowerCase()] ?? 200000
 }
 
-export function conditionLabel(c: string): string {
-  if (c === 'certified_pre_owned') return 'CPO'
-  if (c === 'used') return 'Used'
-  if (c === 'new') return 'New'
+/** `t` is the `FiltersPage.listing` translator. */
+export function conditionLabel(c: string, t: Translate): string {
+  if (c === 'certified_pre_owned') return t('cpo')
+  if (c === 'used') return t('conditionUsed')
+  if (c === 'new') return t('conditionNew')
   return formatEnum(c)
 }
 
-export function rampLabel(r: string): string {
-  if (r === 'in_floor') return 'In-floor ramp'
-  if (r === 'fold_out') return 'Fold-out ramp'
-  if (r === 'fold_in') return 'Fold-in ramp'
+/** `t` is the `FiltersPage.listing` translator. */
+export function rampLabel(r: string, t: Translate): string {
+  if (r === 'in_floor') return t('inFloorRamp')
+  if (r === 'fold_out') return t('foldOutRamp')
+  if (r === 'fold_in') return t('foldInRamp')
   return formatEnum(r)
 }
 
@@ -61,6 +66,6 @@ export function formatK(miles: number): string {
   return String(miles)
 }
 
-export function formatDate(iso: string, locale = 'en-US'): string {
-  return new Date(iso).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })
+export function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(toIntlLocale(locale), { year: 'numeric', month: 'short', day: 'numeric' })
 }

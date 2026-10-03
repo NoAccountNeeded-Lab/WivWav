@@ -1,4 +1,5 @@
 import { ShieldAlert, ShieldCheck } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { safetyStatusSummary } from '@/app/[locale]/listings/[id]/safetyTabUtils'
 import styles from './SafetyStatusBadge.module.css'
 
@@ -19,7 +20,8 @@ const LEVEL_CLASS = {
  * should see before scanning the denser detail underneath.
  */
 export function SafetyStatusBadge({ openRecallCount, overallRating }: SafetyStatusBadgeProps) {
-  const { level, label } = safetyStatusSummary(openRecallCount, overallRating)
+  const t = useTranslations('SafetyTab')
+  const { level, label } = safetyStatusSummary(openRecallCount, overallRating, t)
   const Icon = level === 'alert' ? ShieldAlert : ShieldCheck
 
   return (

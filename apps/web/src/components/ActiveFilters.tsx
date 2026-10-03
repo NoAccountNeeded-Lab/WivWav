@@ -3,6 +3,7 @@
 import { useTransition } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import type { Translate } from '@/lib/intl'
 import styles from './ActiveFilters.module.css'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -53,8 +54,6 @@ interface Pill {
   ariaLabel: string
   paramsToDelete: string[]
 }
-
-type Translate = ReturnType<typeof useTranslations>
 
 interface PillText {
   t: Translate

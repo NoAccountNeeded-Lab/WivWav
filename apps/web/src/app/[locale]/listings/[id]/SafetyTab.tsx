@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { Link } from '@/navigation'
 import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { RecallsList } from '@/components/listing/RecallsList'
 import { SafetyRatings } from '@/components/listing/SafetyRatings'
@@ -7,6 +8,8 @@ import { formatFreshnessDate, isSafetyDataStale } from './safetyTabUtils'
 import { SafetyRefreshButton } from '@/components/listing/SafetyRefreshButton'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { formatDate } from './utils'
+import type { Translate } from '@/lib/intl'
+import { toIntlLocale } from '@/lib/intl'
 import type { Investigation, ListingDetail, ManufacturerCommunication, SafetyData } from './types'
 import styles from './tabs.module.css'
 
@@ -16,12 +19,15 @@ interface SafetyTabProps {
   apiBaseUrl: string
 }
 
-export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
+export async function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
+  const t = await getTranslations('SafetyTab')
+  const commonT = await getTranslations('Common')
+  const locale = await getLocale()
   const openRecallCount = (safety?.recalls ?? []).filter((r) => r.status === 'open').length
 
   const rating = safety?.safetyRatings?.[0]
   const freshnessDate = safety?.safetyFreshnessDate ?? null
-  const formattedDate = formatFreshnessDate(freshnessDate)
+  const formattedDate = formatFreshnessDate(freshnessDate, locale)
   const isStale = isSafetyDataStale(freshnessDate)
 
   const investigations = safety?.investigations ?? []
@@ -35,18 +41,18 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
         <div className={styles.freshnessBanner} role="note">
           {formattedDate !== null ? (
             <>
-              <span>Safety data as of {formattedDate}</span>
+              <span>{t('dataAsOf', { date: formattedDate })}</span>
               {isStale && (
                 <span className={styles.staleWarning}>
                   <AlertTriangle size={12} aria-hidden />
-                  {' '}Data may be outdated
+                  {' '}{t('dataMayBeOutdated')}
                 </span>
               )}
             </>
           ) : (
             <span className={styles.staleWarning}>
               <AlertTriangle size={12} aria-hidden />
-              {' '}Safety data freshness unknown — verify with NHTSA
+              {' '}{t('freshnessUnknown')}
             </span>
           )}
           {(isStale || formattedDate === null) && (
@@ -66,7 +72,7 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
         <div className={styles.ctaWrap}>
           <Link href={`/vin/${encodeURIComponent(listing.vin)}`} className={styles.ctaSecondary}>
             <ShieldCheck size={16} aria-hidden />
-            View safety report
+            {t('viewSafetyReport')}
           </Link>
         </div>
       )}
@@ -76,14 +82,14 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
       <div className={styles.section}>
         <div className={styles.sectionLabelRow}>
           <AlertTriangle size={12} aria-hidden />
-          Recalls &amp; VIN history
+          {t('recallsAndVinHistory')}
           {/* role="status" lives on the SafetyStatusBadge above, which already
               announces this same open-recall count as the page's single
               at-a-glance summary — this in-section count stays a plain,
               non-live-region label so screen readers don't hear it twice. */}
           {openRecallCount > 0 && (
             <span className={styles.recallBadge}>
-              {openRecallCount} open
+              {t('openCount', { count: openRecallCount })}
             </span>
           )}
         </div>
@@ -92,35 +98,35 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
 
       {rating != null && (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>NHTSA safety ratings</div>
+          <div className={styles.sectionLabel}>{t('nhtsaRatings')}</div>
           <SafetyRatings rating={rating} />
         </div>
       )}
 
       {rating == null && safety !== null && (
         <p className={styles.placeholder}>
-          No NHTSA safety ratings available for this vehicle yet.
+          {t('noRatings')}
         </p>
       )}
 
       {complaints.length > 0 && (
         <div className={styles.section}>
           <div className={styles.sectionLabel}>
-            NHTSA complaints
+            {t('complaints')}
             <span className={styles.sectionCount}>{complaints.length}</span>
           </div>
-          <ul className={styles.safetyItemList} aria-label="NHTSA complaints">
+          <ul className={styles.safetyItemList} aria-label={t('complaints')}>
             {complaints.map((complaint) => (
               <li key={complaint.id} className={styles.safetyItem}>
                 <div>
                   <div className={styles.safetyItemTitle}>{complaint.component}</div>
                   {complaint.mileage != null && (
                     <div className={styles.safetyItemSub}>
-                      At {complaint.mileage.toLocaleString()} miles
+                      {t('atMiles', { miles: complaint.mileage.toLocaleString(toIntlLocale(locale)) })}
                     </div>
                   )}
                   <div className={styles.safetyItemSub}>
-                    <span>Reported {formatDate(complaint.reportedAt)}</span>
+                    <span>{t('reported', { date: formatDate(complaint.reportedAt, locale) })}</span>
                     <span
                       className={
                         complaint.crashInvolved
@@ -128,7 +134,7 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
                           : styles.safetyItemBadgeClosed
                       }
                     >
-                      {complaint.crashInvolved ? 'Crash involved' : 'No crash reported'}
+                      {complaint.crashInvolved ? t('crashInvolved') : t('noCrash')}
                     </span>
                   </div>
                   {complaint.summary && (
@@ -140,8 +146,8 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
                     rel="noopener noreferrer"
                     className={styles.safetyItemSource}
                   >
-                    NHTSA complaint #{complaint.nhtsaId}
-                    <span className="sr-only"> (opens in new tab)</span>
+                    {t('complaintNumber', { id: complaint.nhtsaId })}
+                    <span className="sr-only"> {commonT('openInNewTab')}</span>
                   </a>
                 </div>
               </li>
@@ -152,10 +158,10 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
 
       {investigations.length > 0 && (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>NHTSA investigations</div>
-          <ul className={styles.safetyItemList} aria-label="NHTSA investigations">
+          <div className={styles.sectionLabel}>{t('investigations')}</div>
+          <ul className={styles.safetyItemList} aria-label={t('investigations')}>
             {investigations.map((inv) => (
-              <InvestigationItem key={inv.id} investigation={inv} />
+              <InvestigationItem key={inv.id} investigation={inv} t={t} commonT={commonT} locale={locale} />
             ))}
           </ul>
         </div>
@@ -163,10 +169,10 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
 
       {manufacturerCommunications.length > 0 && (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>Technical service bulletins</div>
-          <ul className={styles.safetyItemList} aria-label="Technical service bulletins">
+          <div className={styles.sectionLabel}>{t('bulletins')}</div>
+          <ul className={styles.safetyItemList} aria-label={t('bulletins')}>
             {manufacturerCommunications.map((comm) => (
-              <ManufacturerCommunicationItem key={comm.id} communication={comm} />
+              <ManufacturerCommunicationItem key={comm.id} communication={comm} t={t} commonT={commonT} locale={locale} />
             ))}
           </ul>
         </div>
@@ -175,27 +181,38 @@ export function SafetyTab({ listing, safety, apiBaseUrl }: SafetyTabProps) {
   )
 }
 
-function InvestigationItem({ investigation }: { investigation: Investigation }) {
+interface ItemI18n {
+  t: Translate
+  commonT: Translate
+  locale: string
+}
+
+function InvestigationItem({
+  investigation,
+  t,
+  commonT,
+  locale,
+}: { investigation: Investigation } & ItemI18n) {
   const isOpen = investigation.closedDate === null
   return (
     <li className={styles.safetyItem}>
       <div>
         <div className={styles.safetyItemTitle}>
-          NHTSA #{investigation.nhtsaId} · {investigation.component}
+          {t('investigationTitle', { id: investigation.nhtsaId, component: investigation.component })}
         </div>
         <div className={styles.safetyItemSub}>
-          Opened {formatDate(investigation.openedDate)}
+          {t('opened', { date: formatDate(investigation.openedDate, locale) })}
           {isOpen ? (
-            <span className={styles.safetyItemBadgeOpen}>Open</span>
+            <span className={styles.safetyItemBadgeOpen}>{t('open')}</span>
           ) : (
-            <span className={styles.safetyItemBadgeClosed}>Closed</span>
+            <span className={styles.safetyItemBadgeClosed}>{t('closed')}</span>
           )}
         </div>
         {investigation.summary && (
           <div className={styles.safetyItemSub}>{investigation.summary}</div>
         )}
         {investigation.outcome && (
-          <div className={styles.safetyItemSub}>Outcome: {investigation.outcome}</div>
+          <div className={styles.safetyItemSub}>{t('outcome', { outcome: investigation.outcome })}</div>
         )}
         <a
           href={investigation.sourceUrl}
@@ -203,22 +220,27 @@ function InvestigationItem({ investigation }: { investigation: Investigation }) 
           rel="noopener noreferrer"
           className={styles.safetyItemSource}
         >
-          NHTSA source
-          <span className="sr-only"> (opens in new tab)</span>
+          {t('nhtsaSource')}
+          <span className="sr-only"> {commonT('openInNewTab')}</span>
         </a>
       </div>
     </li>
   )
 }
 
-function ManufacturerCommunicationItem({ communication }: { communication: ManufacturerCommunication }) {
+function ManufacturerCommunicationItem({
+  communication,
+  t,
+  commonT,
+  locale,
+}: { communication: ManufacturerCommunication } & ItemI18n) {
   return (
     <li className={styles.safetyItem}>
       <div>
         <div className={styles.safetyItemTitle}>
-          TSB #{communication.nhtsaId} · {communication.component}
+          {t('bulletinTitle', { id: communication.nhtsaId, component: communication.component })}
         </div>
-        <div className={styles.safetyItemSub}>Issued {formatDate(communication.issuedDate)}</div>
+        <div className={styles.safetyItemSub}>{t('issued', { date: formatDate(communication.issuedDate, locale) })}</div>
         {communication.summary && (
           <div className={styles.safetyItemSub}>{communication.summary}</div>
         )}
@@ -228,8 +250,8 @@ function ManufacturerCommunicationItem({ communication }: { communication: Manuf
           rel="noopener noreferrer"
           className={styles.safetyItemSource}
         >
-          NHTSA source
-          <span className="sr-only"> (opens in new tab)</span>
+          {t('nhtsaSource')}
+          <span className="sr-only"> {commonT('openInNewTab')}</span>
         </a>
       </div>
     </li>

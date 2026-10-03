@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { renderWithIntl } from '@/test-utils/intl'
 import { OverviewTab } from './OverviewTab'
 import { ReportListingForm } from './ReportListingForm'
 import type { ListingDetail } from './types'
@@ -13,7 +14,7 @@ afterEach(() => {
 
 function renderOpenForm(fetchMock: ReturnType<typeof vi.fn>) {
   vi.stubGlobal('fetch', fetchMock)
-  render(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />)
+  renderWithIntl(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />)
   fireEvent.click(screen.getByRole('button', { name: 'Report an issue' }))
 }
 
@@ -63,7 +64,7 @@ describe('ReportListingForm', () => {
   it('submits a one-click availability report', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
-    render(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />)
+    renderWithIntl(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Is this listing still available?' }))
 
@@ -141,7 +142,7 @@ describe('ReportListingForm', () => {
 
 describe('OverviewTab report warning badge', () => {
   it('shows a data accuracy warning when unresolved reports meet the threshold', () => {
-    render(
+    renderWithIntl(
       <OverviewTab
         listing={makeListing({ reportSummary: { unresolvedCount: 3, flagged: true } })}
         priceHistory={[]}
@@ -158,7 +159,7 @@ describe('OverviewTab listing date provenance', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-01T15:00:00.000Z'))
 
-    render(
+    renderWithIntl(
       <OverviewTab
         listing={makeListing({
           provenance: {
@@ -187,7 +188,7 @@ describe('OverviewTab listing date provenance', () => {
   })
 
   it('labels seller/source dates separately from the discovery date', () => {
-    render(
+    renderWithIntl(
       <OverviewTab
         listing={makeListing({
           listedAt: '2026-05-05T12:00:00.000Z',
@@ -219,7 +220,7 @@ describe('OverviewTab listing date provenance', () => {
   })
 
   it('labels listedAt as the first-seen date when source dates are unavailable', () => {
-    render(
+    renderWithIntl(
       <OverviewTab
         listing={makeListing({ listedAt: '2026-05-05T12:00:00.000Z' })}
         priceHistory={[]}
@@ -234,7 +235,7 @@ describe('OverviewTab listing date provenance', () => {
 
 describe('OverviewTab dealer reputation (#919)', () => {
   it('renders without a dealer-reputation section for a private-seller listing with no matched DealerProfile', () => {
-    render(
+    renderWithIntl(
       <OverviewTab
         listing={makeListing({ sellerType: 'private', dealer: { name: null, phone: null, website: null } })}
         priceHistory={[]}
@@ -249,7 +250,7 @@ describe('OverviewTab dealer reputation (#919)', () => {
   })
 
   it('shows a star rating, review count, and at least one review for a listing with an enriched DealerProfile', () => {
-    render(
+    renderWithIntl(
       <OverviewTab
         listing={makeListing()}
         priceHistory={[]}

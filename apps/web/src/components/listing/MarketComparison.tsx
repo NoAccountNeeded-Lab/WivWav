@@ -1,5 +1,7 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { formatPrice, formatDate } from '@/app/[locale]/listings/[id]/utils'
+import { toIntlLocale } from '@/lib/intl'
 import { pricePositionPercent } from '@/app/[locale]/listings/[id]/marketTabUtils'
 import type { MarketPricing, PricePoint } from '@/app/[locale]/listings/[id]/types'
 import styles from './MarketComparison.module.css'
@@ -16,6 +18,10 @@ interface MarketComparisonProps {
 const HIST_HEIGHTS = [20, 45, 75, 100, 80, 55, 30, 20, 12, 8]
 
 export function MarketComparison({ priceCents, make, model, marketPricing, priceHistory }: MarketComparisonProps) {
+  const t = useTranslations('MarketComparison')
+  const callForPrice = useTranslations('ListingDetail')('callForPrice')
+  const locale = useLocale()
+  const price = (cents: number | null) => formatPrice(cents, locale, callForPrice)
   const mp = marketPricing.priceCents
   if (!mp) return null
 
@@ -46,7 +52,7 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
       <div
         className={styles.bars}
         role="img"
-        aria-label={`Price distribution for ${make} ${model} WAVs. Median price: ${formatPrice(mp.p50)}.`}
+        aria-label={t('distributionLabel', { make, model, median: price(mp.p50) })}
       >
         {HIST_HEIGHTS.map((h, i) => (
           <div
@@ -61,11 +67,11 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
       </div>
 
       <div className={styles.labels} aria-hidden>
-        <span>{formatPrice(mp.p10)}</span>
-        <span>{formatPrice(mp.p25)}</span>
-        <span>{formatPrice(mp.p50)}</span>
-        <span>{formatPrice(mp.p75)}</span>
-        <span>{formatPrice(mp.p90)}+</span>
+        <span>{price(mp.p10)}</span>
+        <span>{price(mp.p25)}</span>
+        <span>{price(mp.p50)}</span>
+        <span>{price(mp.p75)}</span>
+        <span>{price(mp.p90)}+</span>
       </div>
 
       {/* Continuous position indicator — where this exact price falls between
@@ -74,7 +80,12 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
         <div
           className={styles.bandTrack}
           role="img"
-          aria-label={`This listing's price is ${formatPrice(priceCents)}, positioned at ${Math.round(positionPct)}% of the way from the 10th percentile (${formatPrice(mp.p10)}) to the 90th percentile (${formatPrice(mp.p90)}) among comparable listings.`}
+          aria-label={t('positionLabel', {
+            price: price(priceCents),
+            percent: Math.round(positionPct),
+            p10: price(mp.p10),
+            p90: price(mp.p90),
+          })}
         >
           <div className={styles.bandMarker} style={{ left: `${positionPct}%` }} />
         </div>
@@ -84,9 +95,9 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
         <div className={pctVsMedian >= 0 ? styles.noteBelow : styles.noteAbove}>
           {pctVsMedian >= 0 ? <TrendingDown size={13} aria-hidden /> : <TrendingUp size={13} aria-hidden />}
           {pctVsMedian >= 0
-            ? `${pctVsMedian}% below median`
-            : `${Math.abs(pctVsMedian)}% above median`}{' '}
-          — comparable {make} {model} WAVs list at {formatPrice(mp.p50)} median ({marketPricing.count} listings)
+            ? t('pctBelow', { percent: pctVsMedian })
+            : t('pctAbove', { percent: Math.abs(pctVsMedian) })}{' '}
+          — {t('comparable', { make, model, median: price(mp.p50), count: marketPricing.count })}
         </div>
       )}
 
@@ -94,7 +105,10 @@ export function MarketComparison({ priceCents, make, model, marketPricing, price
       {priceDrop !== null && priceDrop > 0 && lastPoint && (
         <div className={styles.priceDrop}>
           <TrendingDown size={13} aria-hidden />
-          Price reduced ${(priceDrop / 100).toLocaleString()} on {formatDate(lastPoint.recordedAt)}
+          {t('priceReduced', {
+            amount: `$${(priceDrop / 100).toLocaleString(toIntlLocale(locale))}`,
+            date: formatDate(lastPoint.recordedAt, locale),
+          })}
         </div>
       )}
     </div>
