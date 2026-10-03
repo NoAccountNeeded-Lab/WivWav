@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { VinHistoryEntry } from '@wivwav/types'
+import { hasMultiListingVinHistory } from './vinHistory'
 
 interface VinHistoryTimelineProps {
   history: VinHistoryEntry[]
@@ -68,10 +69,6 @@ function valueLabel(dataKey: string | undefined, value: number): string {
 
 function listingLabel(listingId: string, currentListingId: string): string {
   return listingId === currentListingId ? 'This listing' : 'Other listing'
-}
-
-export function hasMultiListingVinHistory(history: VinHistoryEntry[]): boolean {
-  return new Set(history.map((entry) => entry.listingId)).size > 1
 }
 
 export function buildVinHistoryChartData(history: VinHistoryEntry[], currentListingId: string): ChartDatum[] {
