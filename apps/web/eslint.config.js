@@ -16,6 +16,26 @@ export default [
         'warn',
         {
           mode: 'jsx-only',
+          // Message keys passed to a translator are not rendered copy. Translators
+          // are named `t` or `<scope>T` (e.g. `commonT`) by convention.
+          callees: {
+            exclude: [
+              't',
+              'i18n(ext)?',
+              'require',
+              'addEventListener',
+              'removeEventListener',
+              'getElementById',
+              'dispatch',
+              'includes',
+              'indexOf',
+              'endsWith',
+              'startsWith',
+              '\\w+T',
+              't\\.\\w+',
+              '\\w+T\\.\\w+',
+            ],
+          },
           'jsx-attributes': {
             exclude: [
               'className',
@@ -31,6 +51,9 @@ export default [
               'rel',
               'target',
               'role',
+              // Component configuration props that carry identifiers, not copy.
+              'defaultTab',
+              'categories',
               'style',
               'dataKey',
               'xAxisId',

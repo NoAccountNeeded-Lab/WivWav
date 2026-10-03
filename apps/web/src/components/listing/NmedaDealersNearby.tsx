@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Phone, ShieldCheck, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import type { Translate } from '@/lib/intl'
 import type { NmeaDealer } from '@/app/[locale]/listings/[id]/types'
 import styles from './NmedaDealersNearby.module.css'
 
@@ -11,13 +13,14 @@ interface NmedaDealersNearbyProps {
   hasCoordinates: boolean
 }
 
-function formatDistance(miles: number | null): string {
+function formatDistance(miles: number | null, t: Translate): string {
   if (miles === null) return ''
-  if (miles < 1) return '< 1 mi'
-  return `${miles} mi`
+  if (miles < 1) return t('lessThanOneMile')
+  return t('distance', { miles })
 }
 
 function DealerCard({ dealer }: { dealer: NmeaDealer }) {
+  const t = useTranslations('NmedaDealers')
   const location = [dealer.city, dealer.state].filter(Boolean).join(', ')
 
   return (
@@ -27,7 +30,7 @@ function DealerCard({ dealer }: { dealer: NmeaDealer }) {
         {dealer.qapCertified && (
           <span className={styles.qapBadge}>
             <ShieldCheck size={11} aria-hidden />
-            <span>QAP certified</span>
+            <span>{t('qapCertified')}</span>
           </span>
         )}
       </div>
@@ -35,7 +38,7 @@ function DealerCard({ dealer }: { dealer: NmeaDealer }) {
         <div className={styles.dealerMeta}>
           {location && <span>{location}</span>}
           {dealer.distanceMiles !== null && (
-            <span className={styles.distance}>{formatDistance(dealer.distanceMiles)}</span>
+            <span className={styles.distance}>{formatDistance(dealer.distanceMiles, t)}</span>
           )}
         </div>
       )}
@@ -44,7 +47,7 @@ function DealerCard({ dealer }: { dealer: NmeaDealer }) {
           <a
             href={`tel:${dealer.phone.replace(/[^+\d]/g, '')}`}
             className={styles.dealerAction}
-            aria-label={`Call ${dealer.name}`}
+            aria-label={t('call', { name: dealer.name })}
           >
             <Phone size={12} aria-hidden />
             {dealer.phone}
@@ -56,10 +59,10 @@ function DealerCard({ dealer }: { dealer: NmeaDealer }) {
             target="_blank"
             rel="noreferrer"
             className={styles.dealerAction}
-            aria-label={`Visit ${dealer.name} website (opens in new tab)`}
+            aria-label={t('visitWebsite', { name: dealer.name })}
           >
             <ExternalLink size={12} aria-hidden />
-            Website
+            {t('website')}
           </a>
         )}
       </div>
@@ -74,6 +77,7 @@ interface DealerModalProps {
 }
 
 function DealerModal({ dealers, onClose, triggerRef }: DealerModalProps) {
+  const t = useTranslations('NmedaDealers')
   const closeRef = useRef<HTMLButtonElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -132,7 +136,7 @@ function DealerModal({ dealers, onClose, triggerRef }: DealerModalProps) {
       className={styles.modalOverlay}
       role="dialog"
       aria-modal="true"
-      aria-label="All NMEDA certified dealers nearby"
+      aria-label={t('modalLabel')}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -141,18 +145,18 @@ function DealerModal({ dealers, onClose, triggerRef }: DealerModalProps) {
     >
       <div className={styles.modal}>
         <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>Certified Dealers Nearby</h3>
+          <h3 className={styles.modalTitle}>{t('title')}</h3>
           <button
             ref={closeRef}
             type="button"
             className={styles.modalClose}
-            aria-label="Close dealer list"
+            aria-label={t('closeList')}
             onClick={onClose}
           >
             <X size={16} aria-hidden />
           </button>
         </div>
-        <ul className={styles.dealerList} aria-label="All nearby NMEDA certified dealers">
+        <ul className={styles.dealerList} aria-label={t('allDealersLabel')}>
           {dealers.map((d) => (
             <DealerCard key={d.id} dealer={d} />
           ))}
@@ -164,7 +168,7 @@ function DealerModal({ dealers, onClose, triggerRef }: DealerModalProps) {
             rel="noreferrer"
             className={styles.fallbackLink}
           >
-            Full directory at nmeda.com
+            {t('fullDirectory')}
             <ExternalLink size={11} aria-hidden />
           </a>
         </p>
@@ -174,6 +178,7 @@ function DealerModal({ dealers, onClose, triggerRef }: DealerModalProps) {
 }
 
 export function NmedaDealersNearby({ dealers, hasCoordinates }: NmedaDealersNearbyProps) {
+  const t = useTranslations('NmedaDealers')
   const [showAll, setShowAll] = useState(false)
   const viewAllRef = useRef<HTMLButtonElement>(null)
 
@@ -187,20 +192,20 @@ export function NmedaDealersNearby({ dealers, hasCoordinates }: NmedaDealersNear
     <section className={styles.section} aria-labelledby="nmeda-dealers-heading">
       <div className={styles.sectionHeader}>
         <h2 id="nmeda-dealers-heading" className={styles.sectionTitle}>
-          Certified Dealers Nearby
+          {t('title')}
         </h2>
       </div>
 
       {dealers.length === 0 ? (
         <p className={styles.fallback}>
-          No certified dealers found nearby.{' '}
+          {t('none')}{' '}
           <a
             href="https://www.nmeda.com/find-a-dealer/"
             target="_blank"
             rel="noreferrer"
             className={styles.fallbackLink}
           >
-            Find a dealer at nmeda.com
+            {t('findDealer')}
             <ExternalLink size={11} aria-hidden />
           </a>
         </p>
@@ -220,7 +225,7 @@ export function NmedaDealersNearby({ dealers, hasCoordinates }: NmedaDealersNear
               onClick={() => setShowAll(true)}
               aria-haspopup="dialog"
             >
-              View all {dealers.length} dealers
+              {t('viewAll', { count: dealers.length })}
             </button>
           )}
         </>

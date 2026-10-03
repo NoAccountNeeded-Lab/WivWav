@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MarketComparison } from './MarketComparison'
 import type { MarketPricing } from '@/app/[locale]/listings/[id]/types'
@@ -15,7 +16,7 @@ const marketPricing: MarketPricing = {
 
 describe('MarketComparison', () => {
   it('renders a position indicator when a price and market band are present', () => {
-    render(
+    renderWithIntl(
       <MarketComparison
         priceCents={18_000_00}
         make="Toyota"
@@ -30,7 +31,7 @@ describe('MarketComparison', () => {
   })
 
   it('omits the position indicator when priceCents is null', () => {
-    render(
+    renderWithIntl(
       <MarketComparison
         priceCents={null}
         make="Toyota"
@@ -44,7 +45,7 @@ describe('MarketComparison', () => {
   })
 
   it('still renders the existing percentile labels alongside the new indicator', () => {
-    render(
+    renderWithIntl(
       <MarketComparison
         priceCents={18_000_00}
         make="Toyota"
@@ -62,7 +63,7 @@ describe('MarketComparison', () => {
   })
 
   it('renders nothing when marketPricing has no priceCents band', () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <MarketComparison
         priceCents={18_000_00}
         make="Toyota"

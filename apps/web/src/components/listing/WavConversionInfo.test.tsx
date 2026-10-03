@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WavConversionInfo } from './WavConversionInfo'
 
@@ -7,13 +8,13 @@ afterEach(() => cleanup())
 
 describe('WavConversionInfo', () => {
   it('shows the entry banner for a resolved conversion type', () => {
-    render(<WavConversionInfo conversionType="rear_entry" />)
+    renderWithIntl(<WavConversionInfo conversionType="rear_entry" />)
 
     expect(screen.getByText('Rear-entry conversion')).toBeTruthy()
   })
 
   it('shows an accessible "Entry type needs verification" state instead of a definitive claim when conflicting (#499)', () => {
-    render(
+    renderWithIntl(
       <WavConversionInfo
         conversionType="unknown"
         conversionTypeStatus="conflicting"
@@ -28,14 +29,14 @@ describe('WavConversionInfo', () => {
   })
 
   it('does not render a definitive entry banner while conflicting', () => {
-    render(<WavConversionInfo conversionType="unknown" conversionTypeStatus="conflicting" />)
+    renderWithIntl(<WavConversionInfo conversionType="unknown" conversionTypeStatus="conflicting" />)
 
     expect(screen.queryByText('Rear-entry conversion')).toBeNull()
     expect(screen.queryByText('Side-entry conversion')).toBeNull()
   })
 
   it('provides a source-link path without exposing internal evidence or claim text', () => {
-    render(
+    renderWithIntl(
       <WavConversionInfo
         conversionType="unknown"
         conversionTypeStatus="conflicting"
@@ -50,13 +51,13 @@ describe('WavConversionInfo', () => {
   })
 
   it('renders no needs-verification state when merely unresolved (not conflicting)', () => {
-    render(<WavConversionInfo conversionType="unknown" conversionTypeStatus="unknown" />)
+    renderWithIntl(<WavConversionInfo conversionType="unknown" conversionTypeStatus="unknown" />)
 
     expect(screen.queryByRole('note', { name: 'Entry type needs verification' })).toBeNull()
   })
 
   it('renders neither the entry banner nor a needs-verification state with no data at all', () => {
-    render(<WavConversionInfo conversionType="unknown" />)
+    renderWithIntl(<WavConversionInfo conversionType="unknown" />)
 
     expect(screen.queryByText('Rear-entry conversion')).toBeNull()
     expect(screen.queryByText('Side-entry conversion')).toBeNull()

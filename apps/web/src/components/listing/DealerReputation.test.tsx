@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DealerReputation } from './DealerReputation'
 import type { DealerProfile, DealerReview } from '@/app/[locale]/listings/[id]/types'
@@ -25,7 +26,7 @@ const baseReview: DealerReview = {
 
 describe('DealerReputation', () => {
   it('shows the star rating and review count for an enriched profile (#919)', () => {
-    render(<DealerReputation dealerProfile={baseProfile} reviews={[]} />)
+    renderWithIntl(<DealerReputation dealerProfile={baseProfile} reviews={[]} />)
 
     expect(screen.getByText('4.6')).toBeTruthy()
     expect(screen.getByText('(42 reviews)')).toBeTruthy()
@@ -33,7 +34,7 @@ describe('DealerReputation', () => {
   })
 
   it('shows at least one review with author, rating, snippet, and date', () => {
-    render(<DealerReputation dealerProfile={baseProfile} reviews={[baseReview]} />)
+    renderWithIntl(<DealerReputation dealerProfile={baseProfile} reviews={[baseReview]} />)
 
     expect(screen.getByText('J. Smith')).toBeTruthy()
     expect(screen.getByText(/Great experience buying a wheelchair van/)).toBeTruthy()
@@ -43,7 +44,7 @@ describe('DealerReputation', () => {
 
   it('truncates a long review to a snippet rather than rendering the full text', () => {
     const longReview: DealerReview = { ...baseReview, text: 'x'.repeat(400) }
-    render(<DealerReputation dealerProfile={baseProfile} reviews={[longReview]} />)
+    renderWithIntl(<DealerReputation dealerProfile={baseProfile} reviews={[longReview]} />)
 
     const rendered = screen.getByText(/x{50,}/).textContent ?? ''
     expect(rendered.length).toBeLessThan(400)
@@ -52,14 +53,14 @@ describe('DealerReputation', () => {
 
   it('labels a non-Google review source generically instead of assuming Google', () => {
     const dealerRaterReview: DealerReview = { ...baseReview, source: 'dealerrater' }
-    render(<DealerReputation dealerProfile={baseProfile} reviews={[dealerRaterReview]} />)
+    renderWithIntl(<DealerReputation dealerProfile={baseProfile} reviews={[dealerRaterReview]} />)
 
     expect(screen.getByText('via Dealerrater')).toBeTruthy()
   })
 
   it('renders nothing for a matched profile with no rating, reviews, or hours', () => {
     const emptyProfile: DealerProfile = { id: 'dp2', name: 'No Data Motors', rating: null, reviewCount: null, hours: null }
-    const { container } = render(<DealerReputation dealerProfile={emptyProfile} reviews={[]} />)
+    const { container } = renderWithIntl(<DealerReputation dealerProfile={emptyProfile} reviews={[]} />)
 
     expect(container.firstChild).toBeNull()
   })
@@ -71,7 +72,7 @@ describe('DealerReputation', () => {
       reviewCount: null,
       hours: { open_now: true, weekday_text: ['Monday: 9 AM – 6 PM', 'Tuesday: 9 AM – 6 PM'] },
     }
-    render(<DealerReputation dealerProfile={profileWithHours} reviews={[]} />)
+    renderWithIntl(<DealerReputation dealerProfile={profileWithHours} reviews={[]} />)
 
     expect(screen.getByText('Open now')).toBeTruthy()
     expect(screen.getByText('Monday: 9 AM – 6 PM')).toBeTruthy()
@@ -84,7 +85,7 @@ describe('DealerReputation', () => {
       reviewCount: null,
       hours: { some_future_field: 'unexpected' },
     }
-    const { container } = render(<DealerReputation dealerProfile={profileWithWeirdHours} reviews={[]} />)
+    const { container } = renderWithIntl(<DealerReputation dealerProfile={profileWithWeirdHours} reviews={[]} />)
 
     expect(screen.queryByText('Open now')).toBeNull()
     expect(screen.queryByText('Closed now')).toBeNull()
@@ -98,7 +99,7 @@ describe('DealerReputation', () => {
       reviewCount: null,
       hours: { weekday_text: ['Monday: 9 AM – 6 PM'] },
     }
-    const { rerender } = render(
+    const { rerender } = renderWithIntl(
       <DealerReputation dealerProfile={hoursOnlyProfile} reviews={[]} sectionLabelClassName="label" />,
     )
     expect(screen.getByRole('heading', { name: 'Hours' })).toBeTruthy()

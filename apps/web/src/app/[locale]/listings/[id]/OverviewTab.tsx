@@ -168,6 +168,7 @@ export function OverviewTab({
         )}
         {listing.color && (
           <span className={styles.chip}>
+            {/* eslint-disable-next-line i18next/no-literal-string -- decorative glyph, hidden from assistive tech */}
             <span aria-hidden>◆</span>
             {listing.color}
           </span>

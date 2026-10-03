@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PriceSparkline } from './PriceSparkline'
 import type { PricePoint } from '@/app/[locale]/listings/[id]/types'
@@ -12,13 +13,13 @@ function point(priceCents: number, recordedAt: string): PricePoint {
 
 describe('PriceSparkline', () => {
   it('renders nothing with fewer than two price points', () => {
-    const { container } = render(<PriceSparkline priceHistory={[]} />)
+    const { container } = renderWithIntl(<PriceSparkline priceHistory={[]} />)
     expect(container.textContent).toBe('')
     expect(container.querySelector('svg')).toBeNull()
   })
 
   it('describes a downward trend in its accessible label', () => {
-    render(
+    renderWithIntl(
       <PriceSparkline
         priceHistory={[point(25_000_00, '2026-01-01'), point(20_000_00, '2026-02-01')]}
       />,
@@ -27,7 +28,7 @@ describe('PriceSparkline', () => {
   })
 
   it('describes an upward trend in its accessible label', () => {
-    render(
+    renderWithIntl(
       <PriceSparkline
         priceHistory={[point(20_000_00, '2026-01-01'), point(25_000_00, '2026-02-01')]}
       />,
@@ -36,11 +37,25 @@ describe('PriceSparkline', () => {
   })
 
   it('describes a steady price when there is no change', () => {
-    render(
+    renderWithIntl(
       <PriceSparkline
         priceHistory={[point(20_000_00, '2026-01-01'), point(20_000_00, '2026-02-01')]}
       />,
     )
     expect(screen.getByRole('img', { name: /holding steady at \$20,000/ })).toBeTruthy()
+  })
+})
+
+describe('PriceSparkline (Spanish)', () => {
+  it('localizes the accessible trend label', () => {
+    renderWithIntl(
+      <PriceSparkline
+        priceHistory={[point(25_000_00, '2026-01-01'), point(20_000_00, '2026-02-01')]}
+      />,
+      'es',
+    )
+    expect(
+      screen.getByRole('img', { name: /Tendencia de precio en 2 puntos registrados, bajó a \$20,000 desde \$25,000/ }),
+    ).toBeTruthy()
   })
 })
