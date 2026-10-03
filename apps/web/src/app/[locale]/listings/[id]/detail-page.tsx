@@ -296,6 +296,7 @@ export default async function VehicleDetailPage({
   const locale = await getLocale()
   const t = await getTranslations('ListingDetail')
   const listingT = await getTranslations('FiltersPage.listing')
+  const photoEvidenceT = await getTranslations('PhotoEvidence')
   const listing = await getListing(id)
   if (!listing) notFound()
 
@@ -332,7 +333,7 @@ export default async function VehicleDetailPage({
   const dealerReviews = dealerProfile ? await getDealerReviews(dealerProfile.id) : []
 
   const vehicleTitle = `${listing.year} ${listing.make} ${listing.model}${listing.trim ? ` ${listing.trim}` : ''}`
-  const photoEvidence = buildPhotoEvidence(listing.images, listing.semanticEvidence)
+  const photoEvidence = buildPhotoEvidence(listing.images, listing.semanticEvidence, photoEvidenceT)
   const location = [listing.location.city, listing.location.state].filter(Boolean).join(', ')
   const matchedConversionProduct = conversionBrand
     ? matchConversionProduct(conversionBrand.products, {

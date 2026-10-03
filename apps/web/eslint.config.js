@@ -31,9 +31,24 @@ export default [
               'indexOf',
               'endsWith',
               'startsWith',
+              'searchParams\\.get',
+              'toggleArray',
+              'rendererFor',
               '\\w+T',
               't\\.\\w+',
               '\\w+T\\.\\w+',
+            ],
+          },
+          // Style and chart-config object keys (not copy).
+          'object-properties': {
+            exclude: [
+              '[A-Z_-]+',
+              'fill',
+              'stroke',
+              'cursor',
+              'notation',
+              'position',
+              'outline\\w*',
             ],
           },
           'jsx-attributes': {
@@ -54,6 +69,10 @@ export default [
               // Component configuration props that carry identifiers, not copy.
               'defaultTab',
               'categories',
+              'labelId',
+              'projection',
+              // Option and control values are machine identifiers; visible labels are children.
+              'value',
               'style',
               'dataKey',
               'xAxisId',

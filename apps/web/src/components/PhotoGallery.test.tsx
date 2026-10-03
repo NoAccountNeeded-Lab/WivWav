@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PhotoGallery } from './PhotoGallery'
 
@@ -15,13 +16,13 @@ const images = [
 
 describe('PhotoGallery — AI alt text', () => {
   it('falls back to the vehicle-title alt text when no per-image alt is provided', () => {
-    render(<PhotoGallery images={images} alt="2022 Toyota Sienna" />)
+    renderWithIntl(<PhotoGallery images={images} alt="2022 Toyota Sienna" />)
     const activeImg = screen.getByRole('img', { name: '2022 Toyota Sienna' })
     expect(activeImg).toBeDefined()
   })
 
   it('renders AI-derived alt text for an image that has it', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -33,7 +34,7 @@ describe('PhotoGallery — AI alt text', () => {
   })
 
   it('renders AI-derived alt text as the active slide changes', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -47,12 +48,12 @@ describe('PhotoGallery — AI alt text', () => {
 
 describe('PhotoGallery — category filter chips', () => {
   it('renders no filter chips when imageCategories is absent', () => {
-    render(<PhotoGallery images={images} alt="2022 Toyota Sienna" />)
+    renderWithIntl(<PhotoGallery images={images} alt="2022 Toyota Sienna" />)
     expect(screen.queryByRole('group', { name: 'Filter photos by category' })).toBeNull()
   })
 
   it('renders no filter chips when every imageCategories entry is empty', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -63,7 +64,7 @@ describe('PhotoGallery — category filter chips', () => {
   })
 
   it('renders an "All" chip plus one chip per distinct category, with All active by default', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -78,7 +79,7 @@ describe('PhotoGallery — category filter chips', () => {
   })
 
   it('shows only images matching the selected category chip', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -96,7 +97,7 @@ describe('PhotoGallery — category filter chips', () => {
   })
 
   it('restores the full image set when "All" is reselected', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -114,7 +115,7 @@ describe('PhotoGallery — category filter chips', () => {
   })
 
   it('announces the filtered photo count via an aria-live region for screen-reader users', () => {
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -133,7 +134,7 @@ describe('PhotoGallery — category filter chips', () => {
     // Navigate to the 3rd photo (index 2), then switch to a filter that only
     // matches 1 photo — the previously active index would be out of range
     // for one render if not clamped, which would blank every slide's alt.
-    render(
+    renderWithIntl(
       <PhotoGallery
         images={images}
         alt="2022 Toyota Sienna"
@@ -151,18 +152,18 @@ describe('PhotoGallery — category filter chips', () => {
 
 describe('PhotoGallery — unchanged legacy behavior without semantic evidence', () => {
   it('still shows empty/placeholder state for zero images', () => {
-    render(<PhotoGallery images={[]} alt="2022 Toyota Sienna" placeholderLabel="No photo available" />)
+    renderWithIntl(<PhotoGallery images={[]} alt="2022 Toyota Sienna" placeholderLabel="No photo available" />)
     expect(screen.getByRole('img', { name: 'No photo available' })).toBeDefined()
   })
 
   it('still shows single-image state without dots or arrows', () => {
-    render(<PhotoGallery images={[images[0]!]} alt="2022 Toyota Sienna" />)
+    renderWithIntl(<PhotoGallery images={[images[0]!]} alt="2022 Toyota Sienna" />)
     expect(screen.queryByRole('button', { name: 'Next photo' })).toBeNull()
     expect(screen.queryByLabelText('Photo navigation')).toBeNull()
   })
 
   it('still supports arrow-button navigation across all images', () => {
-    render(<PhotoGallery images={images} alt="2022 Toyota Sienna" />)
+    renderWithIntl(<PhotoGallery images={images} alt="2022 Toyota Sienna" />)
     expect(screen.getByLabelText('Photo 1 of 3').getAttribute('aria-current')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: 'Next photo' }))
     expect(screen.getByLabelText('Photo 2 of 3').getAttribute('aria-current')).toBe('true')

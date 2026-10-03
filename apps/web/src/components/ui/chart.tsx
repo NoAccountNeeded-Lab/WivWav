@@ -189,6 +189,7 @@ const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContent
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
           {payload.map((item, index) => {
+            // eslint-disable-next-line i18next/no-literal-string -- recharts payload lookup key, not rendered copy
             const key = `${nameKey ?? item.name ?? item.dataKey ?? 'value'}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
             const indicatorColor = color ?? (item.payload?.fill as string) ?? item.color
@@ -292,6 +293,7 @@ const ChartLegendContent = React.forwardRef<HTMLDivElement, ChartLegendContentPr
         )}
       >
         {payload.map((item, index) => {
+          // eslint-disable-next-line i18next/no-literal-string -- recharts payload lookup key, not rendered copy
           const key = `${nameKey ?? item.dataKey ?? 'value'}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 

@@ -1,3 +1,5 @@
+import type { Translate } from '@/lib/intl'
+
 export interface PhotoSemanticClaim {
   field: string
   claimedValue: string
@@ -23,14 +25,14 @@ export interface PhotoEvidenceResult {
 
 // #799 only allowlists rampType claims server-side today; this map is the
 // single place that grows as more claim types clear the calibration gate.
-const CATEGORY_BY_FIELD: Record<string, { id: string; label: string }> = {
-  rampType: { id: 'ramp', label: 'Ramp' },
+const CATEGORY_BY_FIELD: Record<string, { id: string; labelKey: string }> = {
+  rampType: { id: 'ramp', labelKey: 'categoryRamp' },
 }
 
-const ALT_TEXT_BY_CLAIM: Record<string, string> = {
-  'rampType:in_floor': 'In-floor wheelchair ramp',
-  'rampType:fold_out': 'Fold-out wheelchair ramp',
-  'rampType:fold_in': 'Fold-in wheelchair ramp',
+const ALT_TEXT_KEY_BY_CLAIM: Record<string, string> = {
+  'rampType:in_floor': 'altInFloor',
+  'rampType:fold_out': 'altFoldOut',
+  'rampType:fold_in': 'altFoldIn',
 }
 
 /**
@@ -44,9 +46,11 @@ const ALT_TEXT_BY_CLAIM: Record<string, string> = {
  * so callers can pass the result straight through to `PhotoGallery` without
  * a conditional and get the component's unmodified legacy behavior.
  */
+/** `t` is the `PhotoEvidence` translator. */
 export function buildPhotoEvidence(
   images: string[],
   semanticEvidence: PhotoSemanticEvidence[] | undefined,
+  t: Translate,
 ): PhotoEvidenceResult {
   const imageAlts: (string | null)[] = images.map(() => null)
   const imageCategories: (string[] | null)[] = images.map(() => null)
@@ -72,9 +76,10 @@ export function buildPhotoEvidence(
       const category = CATEGORY_BY_FIELD[claim.field]
       if (!category) continue
       if (!categoryIds.includes(category.id)) categoryIds.push(category.id)
-      categoryLabels[category.id] = category.label
+      categoryLabels[category.id] = t(category.labelKey)
 
-      const altPhrase = ALT_TEXT_BY_CLAIM[`${claim.field}:${claim.claimedValue}`]
+      const altKey = ALT_TEXT_KEY_BY_CLAIM[`${claim.field}:${claim.claimedValue}`]
+      const altPhrase = altKey ? t(altKey) : undefined
       if (altPhrase && !altPhrases.includes(altPhrase)) altPhrases.push(altPhrase)
     }
 

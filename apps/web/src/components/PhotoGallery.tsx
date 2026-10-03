@@ -2,6 +2,7 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageOff, Maximize2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import styles from './PhotoGallery.module.css'
 
 export interface PhotoCategory {
@@ -104,7 +105,7 @@ export function PhotoGallery({
   viewportClassName,
   imageClassName,
   dotsClassName,
-  placeholderLabel = 'No photo available',
+  placeholderLabel,
   showExpand = true,
   topOverlay,
   bottomOverlay,
@@ -112,6 +113,8 @@ export function PhotoGallery({
   imageCategories,
   categoryLabels,
 }: PhotoGalleryProps) {
+  const t = useTranslations('PhotoGallery')
+  const placeholderText = placeholderLabel ?? t('noPhoto')
   const [activeIndex, setActiveIndex] = useState(0)
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
@@ -233,17 +236,17 @@ export function PhotoGallery({
     <section
       className={[styles.gallery, className].filter(Boolean).join(' ')}
       aria-roledescription="carousel"
-      aria-label={`${alt} photos`}
+      aria-label={t('galleryLabel', { alt })}
     >
       {hasCategories && (
-        <div className={styles.filterChips} role="group" aria-label="Filter photos by category">
+        <div className={styles.filterChips} role="group" aria-label={t('filterGroup')}>
           <button
             type="button"
             className={`${styles.filterChip} ${activeCategory === null ? styles.filterChipActive : ''}`}
             aria-pressed={activeCategory === null}
             onClick={() => setActiveCategory(null)}
           >
-            All
+            {t('all')}
           </button>
           {categories.map((category) => (
             <button
@@ -261,7 +264,7 @@ export function PhotoGallery({
 
       {hasCategories && (
         <div className={styles.srOnly} aria-live="polite">
-          Showing {imageCount} of {images.length} photos
+          {t('showing', { count: imageCount, total: images.length })}
         </div>
       )}
 
@@ -295,10 +298,10 @@ export function PhotoGallery({
             ))}
           </div>
         ) : (
-          <div className={styles.placeholder} role="img" aria-label={placeholderLabel}>
+          <div className={styles.placeholder} role="img" aria-label={placeholderText}>
             <div className={styles.placeholderInner}>
               <ImageOff size={48} strokeWidth={1.5} aria-hidden />
-              <span>{placeholderLabel}</span>
+              <span>{placeholderText}</span>
             </div>
           </div>
         )}
@@ -310,7 +313,7 @@ export function PhotoGallery({
           <button
             className={styles.expandButton}
             type="button"
-            aria-label="Expand photo gallery"
+            aria-label={t('expand')}
             onClick={() => setIsExpanded(true)}
           >
             <Maximize2 size={18} aria-hidden />
@@ -322,7 +325,7 @@ export function PhotoGallery({
             <button
               className={`${styles.arrow} ${styles.arrowPrev}`}
               type="button"
-              aria-label="Previous photo"
+              aria-label={t('previous')}
               onClick={goToPrevious}
             >
               <ChevronLeft size={22} aria-hidden />
@@ -330,7 +333,7 @@ export function PhotoGallery({
             <button
               className={`${styles.arrow} ${styles.arrowNext}`}
               type="button"
-              aria-label="Next photo"
+              aria-label={t('next')}
               onClick={goToNext}
             >
               <ChevronRight size={22} aria-hidden />
@@ -340,14 +343,14 @@ export function PhotoGallery({
       </div>
 
       {hasMultipleImages && (
-        <div className={[styles.dots, dotsClassName].filter(Boolean).join(' ')} aria-label="Photo navigation">
+        <div className={[styles.dots, dotsClassName].filter(Boolean).join(' ')} aria-label={t('navigation')}>
           {visibleDotIndices.map((index) => (
             <button
               key={index}
               type="button"
               className={`${styles.dot} ${index === displayIndex ? styles.dotActive : ''}`}
               data-distance={Math.min(Math.abs(index - displayIndex), 3)}
-              aria-label={`Photo ${index + 1} of ${imageCount}`}
+              aria-label={t('photoOf', { index: index + 1, count: imageCount })}
               aria-current={index === displayIndex ? 'true' : undefined}
               onClick={() => goTo(index)}
             />
@@ -360,7 +363,7 @@ export function PhotoGallery({
           className={styles.lightbox}
           role="dialog"
           aria-modal="true"
-          aria-label={`${alt} expanded photos`}
+          aria-label={t('expandedLabel', { alt })}
           onTouchStart={handleLightboxTouchStart}
           onTouchEnd={handleLightboxTouchEnd}
         >
@@ -368,7 +371,7 @@ export function PhotoGallery({
             ref={expandedCloseRef}
             className={`${styles.lightboxButton} ${styles.lightboxClose}`}
             type="button"
-            aria-label="Close expanded photo gallery"
+            aria-label={t('closeExpanded')}
             onClick={closeExpanded}
           >
             <X size={24} aria-hidden />
@@ -378,7 +381,7 @@ export function PhotoGallery({
             <button
               className={`${styles.lightboxButton} ${styles.lightboxPrev}`}
               type="button"
-              aria-label="Previous photo"
+              aria-label={t('previous')}
               onClick={goToPrevious}
             >
               <ChevronLeft size={30} aria-hidden />
@@ -393,7 +396,7 @@ export function PhotoGallery({
               draggable={false}
             />
             <div className={styles.lightboxCount}>
-              Photo {displayIndex + 1} of {imageCount}
+              {t('photoOf', { index: displayIndex + 1, count: imageCount })}
             </div>
           </div>
 
@@ -401,7 +404,7 @@ export function PhotoGallery({
             <button
               className={`${styles.lightboxButton} ${styles.lightboxNext}`}
               type="button"
-              aria-label="Next photo"
+              aria-label={t('next')}
               onClick={goToNext}
             >
               <ChevronRight size={30} aria-hidden />
@@ -409,13 +412,13 @@ export function PhotoGallery({
           )}
 
           {hasMultipleImages && (
-            <div className={styles.lightboxDots} aria-label="Expanded photo navigation">
+            <div className={styles.lightboxDots} aria-label={t('expandedNavigation')}>
               {entries.map(({ index: originalIndex }, index) => (
                 <button
                   key={originalIndex}
                   type="button"
                   className={`${styles.lightboxDot} ${index === displayIndex ? styles.lightboxDotActive : ''}`}
-                  aria-label={`Photo ${index + 1} of ${imageCount}`}
+                  aria-label={t('photoOf', { index: index + 1, count: imageCount })}
                   aria-current={index === displayIndex ? 'true' : undefined}
                   onClick={() => goTo(index)}
                 />

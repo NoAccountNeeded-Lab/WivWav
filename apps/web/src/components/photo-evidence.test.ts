@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildPhotoEvidence, type PhotoSemanticEvidence } from './photo-evidence'
+import { createTestTranslator } from '@/test-utils/intl'
+import { buildPhotoEvidence as buildWithTranslator, type PhotoSemanticEvidence } from './photo-evidence'
 
 function rampEvidence(overrides: Partial<PhotoSemanticEvidence> = {}): PhotoSemanticEvidence {
   return {
@@ -10,6 +11,12 @@ function rampEvidence(overrides: Partial<PhotoSemanticEvidence> = {}): PhotoSema
     claims: [{ field: 'rampType', claimedValue: 'fold_out', confidence: 0.92 }],
     ...overrides,
   }
+}
+
+const t = createTestTranslator('PhotoEvidence', 'en')
+
+function buildPhotoEvidence(images: string[], evidence: PhotoSemanticEvidence[] | undefined) {
+  return buildWithTranslator(images, evidence, t)
 }
 
 describe('buildPhotoEvidence', () => {
@@ -77,5 +84,12 @@ describe('buildPhotoEvidence', () => {
     expect(result.imageCategories[0]).toEqual(['ramp'])
     expect(result.imageCategories[1]).toEqual(['ramp'])
     expect(Object.keys(result.categoryLabels)).toEqual(['ramp'])
+  })
+
+  it('localizes the category label and alt text for Spanish', () => {
+    const images = ['https://dealer.example.com/ramp.jpg']
+    const result = buildWithTranslator(images, [rampEvidence()], createTestTranslator('PhotoEvidence', 'es'))
+    expect(result.categoryLabels).toEqual({ ramp: 'Rampa' })
+    expect(result.imageAlts[0]).toBe('Rampa desplegable para silla de ruedas')
   })
 })

@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type KeyboardEvent } from 'react'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
+import { useTranslations } from 'next-intl'
 import type { BarDatum } from './category-facets'
 import { US_STATE_NAME_TO_ABBR, US_TERRITORY_ABBREVIATIONS } from '@/lib/us-states'
 import styles from './StateHeatMap.module.css'
@@ -27,10 +28,6 @@ export interface StateHeatMapProps {
   onToggle: (abbreviation: string) => void
 }
 
-function countLabel(count: number): string {
-  return `${count.toLocaleString()} ${count === 1 ? 'listing' : 'listings'}`
-}
-
 /** Sequential single-hue scale: 0 counts stay neutral, higher counts saturate toward the brand primary. */
 function fillFor(count: number, maxCount: number): string {
   if (count <= 0 || maxCount <= 0) return 'var(--clr-surface)'
@@ -41,6 +38,8 @@ function fillFor(count: number, maxCount: number): string {
 export default function StateHeatMap({ data, activeStates, onToggle }: StateHeatMapProps) {
   const [hovered, setHovered] = useState<HoveredState | null>(null)
   const statusId = useId()
+  const t = useTranslations('StateHeatMap')
+  const countLabel = (count: number): string => t('listingCount', { count })
 
   const countsByAbbr = useMemo(() => {
     const map = new Map<string, number>()
@@ -72,7 +71,7 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
         projection="geoAlbersUsa"
         className={styles.map}
         role="group"
-        aria-label="Map of the United States shaded by number of matching listings per state"
+        aria-label={t('mapLabel')}
         aria-describedby={statusId}
       >
         <Geographies geography={GEO_URL}>
@@ -106,7 +105,7 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
                   tabIndex={0}
                   role="button"
                   aria-pressed={active}
-                  aria-label={`${name}: ${countLabel(count)}${active ? ', selected' : ''}`}
+                  aria-label={`${name}: ${countLabel(count)}${active ? t('selected') : ''}`}
                   className={styles.state}
                   data-active={active}
                   data-max-count={isMaxCount}
@@ -127,18 +126,18 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
       </ComposableMap>
 
       <div id={statusId} className={styles.status} aria-live="polite">
-        {hovered ? `${hovered.name}: ${countLabel(hovered.count)}` : 'Hover or select a state to see listing counts'}
+        {hovered ? `${hovered.name}: ${countLabel(hovered.count)}` : t('hint')}
       </div>
 
       <div className={styles.legend} aria-hidden="true">
-        <span className={styles.legendLabel}>Fewer</span>
+        <span className={styles.legendLabel}>{t('fewer')}</span>
         <span
           className={styles.legendBar}
           style={{
             background: `linear-gradient(to right, var(--clr-surface), color-mix(in srgb, var(--clr-primary) 100%, var(--clr-surface)))`,
           }}
         />
-        <span className={styles.legendLabel}>More</span>
+        <span className={styles.legendLabel}>{t('more')}</span>
       </div>
     </div>
   )

@@ -196,7 +196,11 @@
       "maxLabel": "Maximum mileage",
       "ariaUnfiltered": "Mileage distribution histogram showing listing counts per 10,000-mile bracket, no mileage filter active",
       "ariaFiltered": "Mileage distribution histogram showing listing counts per 10,000-mile bracket, filtered to {max} miles or less",
-      "withoutMileage": "+ {count, number} without mileage listed"
+      "withoutMileage": "+ {count, number} without mileage listed",
+      "range": "{lo}k–{hi}k mi",
+      "zero": "0 mi",
+      "highPlus": "{value}k+ mi",
+      "high": "{value}k mi"
     }
   },
   "ListingDetail": {
@@ -558,5 +562,34 @@
     "confirmWithSeller": ". Confirm with the seller before purchase.",
     "entryTypeSide": "Side entry",
     "entryTypeRear": "Rear entry"
+  },
+  "PhotoGallery": {
+    "noPhoto": "No photo available",
+    "galleryLabel": "{alt} photos",
+    "filterGroup": "Filter photos by category",
+    "all": "All",
+    "showing": "Showing {count} of {total} photos",
+    "expand": "Expand photo gallery",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "navigation": "Photo navigation",
+    "photoOf": "Photo {index} of {count}",
+    "expandedLabel": "{alt} expanded photos",
+    "closeExpanded": "Close expanded photo gallery",
+    "expandedNavigation": "Expanded photo navigation"
+  },
+  "PhotoEvidence": {
+    "categoryRamp": "Ramp",
+    "altInFloor": "In-floor wheelchair ramp",
+    "altFoldOut": "Fold-out wheelchair ramp",
+    "altFoldIn": "Fold-in wheelchair ramp"
+  },
+  "StateHeatMap": {
+    "mapLabel": "Map of the United States shaded by number of matching listings per state",
+    "listingCount": "{count, plural, =1 {# listing} other {# listings}}",
+    "selected": ", selected",
+    "hint": "Hover or select a state to see listing counts",
+    "fewer": "Fewer",
+    "more": "More"
   }
 }

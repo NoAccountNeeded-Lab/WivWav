@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import StateHeatMap from './StateHeatMap'
 
@@ -51,7 +52,7 @@ afterEach(() => {
 describe('StateHeatMap', () => {
   it('renders a selectable region per state with its listing count in the accessible label', async () => {
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap
           data={[{ value: 'CA', count: 12 }, { value: 'TX', count: 4 }]}
           activeStates={[]}
@@ -66,7 +67,7 @@ describe('StateHeatMap', () => {
 
   it('marks currently active filter states as pressed', async () => {
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap
           data={[{ value: 'CA', count: 12 }, { value: 'TX', count: 4 }]}
           activeStates={['CA']}
@@ -87,7 +88,7 @@ describe('StateHeatMap', () => {
   it('invokes onToggle with the state abbreviation on click', async () => {
     const onToggle = vi.fn()
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap
           data={[{ value: 'CA', count: 12 }, { value: 'TX', count: 4 }]}
           activeStates={[]}
@@ -103,7 +104,7 @@ describe('StateHeatMap', () => {
   it('invokes onToggle on Enter and Space keydown for keyboard users', async () => {
     const onToggle = vi.fn()
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap
           data={[{ value: 'CA', count: 12 }, { value: 'TX', count: 4 }]}
           activeStates={[]}
@@ -122,7 +123,7 @@ describe('StateHeatMap', () => {
 
   it('shows the hovered state and count in the live status region', async () => {
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap
           data={[{ value: 'CA', count: 12 }, { value: 'TX', count: 4 }]}
           activeStates={[]}
@@ -142,7 +143,7 @@ describe('StateHeatMap', () => {
 
   it('treats a state with no matching listings as zero, not missing', async () => {
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap data={[{ value: 'CA', count: 12 }]} activeStates={[]} onToggle={vi.fn()} />,
       )
     })
@@ -152,7 +153,7 @@ describe('StateHeatMap', () => {
 
   it('marks each positive maximum-count state for contrasting focus styling', async () => {
     await act(async () => {
-      render(
+      renderWithIntl(
         <StateHeatMap
           data={[
             { value: 'CA', count: 12 },
@@ -171,7 +172,7 @@ describe('StateHeatMap', () => {
 
   it('does not mark zero-count states as maximum-count states', async () => {
     await act(async () => {
-      render(<StateHeatMap data={[]} activeStates={[]} onToggle={vi.fn()} />)
+      renderWithIntl(<StateHeatMap data={[]} activeStates={[]} onToggle={vi.fn()} />)
     })
 
     expect(
