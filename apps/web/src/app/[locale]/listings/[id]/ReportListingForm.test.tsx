@@ -276,3 +276,52 @@ describe('OverviewTab dealer reputation (#919)', () => {
     expect(screen.getByText(/Great experience buying a wheelchair van/)).toBeTruthy()
   })
 })
+
+describe('report and listing detail flows in Spanish', () => {
+  it('renders the report form controls with Spanish accessible names', () => {
+    renderWithIntl(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />, 'es')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reportar un problema' }))
+
+    expect(screen.getByLabelText('¿Qué parece estar mal?')).toBeTruthy()
+    expect(screen.getByLabelText('Notas, opcional')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Enviar reporte' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Anuncio duplicado' })).toBeTruthy()
+    expect(screen.queryByText('What looks wrong?')).toBeNull()
+  })
+
+  it('announces validation and submission errors in Spanish', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderWithIntl(<ReportListingForm listingId="listing-1" apiBaseUrl="https://api.example.com" />, 'es')
+    fireEvent.click(screen.getByRole('button', { name: 'Reportar un problema' }))
+
+    fireEvent.submit(screen.getByRole('button', { name: 'Enviar reporte' }).closest('form')!)
+    expect((await screen.findByRole('alert')).textContent).toBe('Elija qué parece estar mal antes de enviar.')
+
+    fireEvent.change(screen.getByLabelText('¿Qué parece estar mal?'), { target: { value: 'duplicate' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }))
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toBe(
+        'No pudimos enviar el reporte. Inténtelo de nuevo en un momento.',
+      ),
+    )
+  })
+
+  it('renders the overview tab call to action and price in Spanish', () => {
+    renderWithIntl(
+      <OverviewTab
+        listing={makeListing({ priceCents: null })}
+        priceHistory={[]}
+        apiBaseUrl="https://api.example.com"
+      />,
+      'es',
+    )
+
+    expect(screen.getByText('Llame para precio')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Ver el anuncio del vendedor/ })).toBeTruthy()
+    expect(screen.getByRole('note', { name: 'Estado de verificación del anuncio' })).toBeTruthy()
+    expect(screen.queryByText('View seller listing')).toBeNull()
+  })
+})
+

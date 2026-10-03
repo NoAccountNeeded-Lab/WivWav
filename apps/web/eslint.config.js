@@ -12,8 +12,12 @@ export default [
       i18next,
     },
     rules: {
+      // Blocking: user-visible literal strings in JSX must come from the message
+      // catalog (messages/*.json). Genuine identifiers go in the exclusions below;
+      // a one-off non-translatable string needs an eslint-disable-next-line with a
+      // `-- reason` comment.
       'i18next/no-literal-string': [
-        'warn',
+        'error',
         {
           mode: 'jsx-only',
           // Message keys passed to a translator are not rendered copy. Translators
@@ -70,6 +74,8 @@ export default [
               'defaultTab',
               'categories',
               'labelId',
+              'limitGroups',
+              'renderers',
               'projection',
               // Option and control values are machine identifiers; visible labels are children.
               'value',
