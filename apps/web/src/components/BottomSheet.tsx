@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import styles from './BottomSheet.module.css'
 
 export type SnapPoint = 'peek' | 'mid' | 'full'
@@ -54,6 +55,7 @@ function getBackdropOpacity(snap: SnapPoint, dragY: number | null, vh: number): 
 }
 
 export function BottomSheet({ children, defaultSnap = 'peek', snap: controlledSnap, onSnapChange }: BottomSheetProps) {
+  const t = useTranslations('ListingDetail')
   const [internalSnap, setInternalSnap] = useState<SnapPoint>(defaultSnap)
 
   const snap = controlledSnap ?? internalSnap
@@ -138,7 +140,7 @@ export function BottomSheet({ children, defaultSnap = 'peek', snap: controlledSn
         data-dragging={dragY !== null ? 'true' : undefined}
         style={dragY !== null ? { top: `${dragY}px` } : undefined}
         role="complementary"
-        aria-label="Vehicle details"
+        aria-label={t('sheetLabel')}
       >
         <div
           className={styles.handleArea}
@@ -148,7 +150,7 @@ export function BottomSheet({ children, defaultSnap = 'peek', snap: controlledSn
           onPointerCancel={onPointerUp}
           role="button"
           tabIndex={0}
-          aria-label={snap === 'peek' ? 'Expand vehicle details' : 'Collapse vehicle details'}
+          aria-label={snap === 'peek' ? t('expandSheet') : t('collapseSheet')}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleSnap() }
             if (e.key === 'ArrowUp') { e.preventDefault(); setSnap(snap === 'peek' ? 'mid' : 'full') }

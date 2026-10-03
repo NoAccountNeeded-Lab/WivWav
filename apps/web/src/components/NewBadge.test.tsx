@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderWithIntl } from '@/test-utils/intl'
 import { ListingsVisitSession } from './ListingsVisitSession'
 import { NewBadge, isListingNewSinceLastVisit } from './NewBadge'
 
@@ -21,7 +22,7 @@ beforeEach(() => {
 
 function renderBadge(listedAt: string, previousVisit?: string) {
   if (previousVisit) window.localStorage.setItem('wav-last-visit', previousVisit)
-  render(
+  renderWithIntl(
     <ListingsVisitSession>
       <NewBadge listedAt={listedAt} />
     </ListingsVisitSession>,

@@ -1,6 +1,8 @@
 {
   "Common": {
-    "skipToMainContent": "Skip to main content"
+    "skipToMainContent": "Skip to main content",
+    "openInNewTab": "(opens in new tab)",
+    "close": "Close"
   },
   "SiteHeader": {
     "homeAriaLabel": "WivWav — go to home",
@@ -10,7 +12,13 @@
     "languageSwitcherLabel": "Language"
   },
   "Footer": {
-    "informational": "Informational use only."
+    "informational": "Informational use only.",
+    "label": "Site footer",
+    "copyright": "© {year} WivWav.",
+    "legalLinks": "Legal links",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "crawler": "Crawler Information"
   },
   "DiscoverPage": {
     "sectionTitle": "Discover",
@@ -92,7 +100,61 @@
   "ActiveFilters": {
     "ariaLabel": "Active filters",
     "clearAll": "Clear all ×",
-    "clearAllAriaLabel": "Clear all filters"
+    "clearAllAriaLabel": "Clear all filters",
+    "removeFilter": "Remove {filter} filter",
+    "priceUpTo": "Up to {value}",
+    "yearUpTo": "Up to {year}",
+    "mileageUnder": "Under {miles} mi",
+    "removePrice": "price",
+    "removeYear": "year",
+    "removeMileage": "mileage",
+    "multiCount": "{count} {plural}",
+    "params": {
+      "make": {
+        "name": "make",
+        "plural": "makes"
+      },
+      "model": {
+        "name": "model",
+        "plural": "models"
+      },
+      "trim": {
+        "name": "trim",
+        "plural": "trims"
+      },
+      "condition": {
+        "name": "condition",
+        "plural": "conditions"
+      },
+      "conversionBrand": {
+        "name": "conversion brand",
+        "plural": "conversion brands"
+      },
+      "conversionType": {
+        "name": "entry type",
+        "plural": "entry types"
+      },
+      "color": {
+        "name": "color",
+        "plural": "colors"
+      },
+      "rampType": {
+        "name": "ramp type",
+        "plural": "ramp types"
+      },
+      "state": {
+        "name": "state",
+        "plural": "states"
+      },
+      "sellerType": {
+        "name": "seller type",
+        "plural": "seller types"
+      },
+      "fuelType": {
+        "name": "fuel type",
+        "plural": "fuel types"
+      }
+    }
   },
   "FilterControls": {
     "showFewer": "Show fewer",
@@ -159,6 +221,56 @@
     "floorLoweringLabel": "Floor lowering",
     "wcCapacityLabel": "WC capacity",
     "transferSeatLabel": "Transfer seat",
-    "openInNewTab": "(opens in new tab)"
+    "openInNewTab": "(opens in new tab)",
+    "loadingListing": "Loading listing",
+    "tabListLabel": "Vehicle detail sections",
+    "sheetLabel": "Vehicle details",
+    "expandSheet": "Expand vehicle details",
+    "collapseSheet": "Collapse vehicle details",
+    "disclaimerLabel": "About this listing data",
+    "disclaimer": {
+      "listing": {
+        "label": "Listing data",
+        "text": "Price, availability, and all seller-provided details come from the original source and may change. Verify with the seller before making decisions."
+      },
+      "safety": {
+        "label": "Safety ratings & recalls",
+        "text": "Sourced from NHTSA. Not provided by the seller."
+      },
+      "market": {
+        "label": "Market pricing",
+        "text": "Reflects WivWav index data only and may not represent current market conditions."
+      }
+    }
+  },
+  "ErrorPage": {
+    "heading": "An error occurred",
+    "description": "Something went wrong.",
+    "tryAgain": "Try again",
+    "reloadPage": "Reload page"
+  },
+  "FilterNotFound": {
+    "heading": "Listing unavailable",
+    "description": "This listing may have been removed, the link may be incorrect, or the listing service may be temporarily rate-limited.",
+    "back": "Back to listings"
+  },
+  "NewBadge": {
+    "label": "New"
+  },
+  "WavDetails": {
+    "label": "WAV details and accessibility features",
+    "included": "Included",
+    "floorLowering": "Floor lowering",
+    "inches": "{inches} inches",
+    "rampType": "Ramp type",
+    "inFloorRamp": "In-floor ramp",
+    "foldOutRamp": "Fold-out ramp",
+    "foldInRamp": "Fold-in ramp",
+    "needsVerification": "Needs verification — see source listing",
+    "wcCapacity": "WC capacity",
+    "chairs": "{count, plural, =1 {# chair} other {# chairs}}",
+    "conversionStatus": "Conversion status",
+    "complete": "Complete",
+    "proposed": "Proposed"
   }
 }

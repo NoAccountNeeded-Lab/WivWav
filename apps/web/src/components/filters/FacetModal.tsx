@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import styles from './FacetModal.module.css'
 
 interface FacetModalProps {
@@ -24,6 +25,7 @@ let openModalCount = 0
  * the close button; traps focus while open and restores it on close.
  */
 export function FacetModal({ title, onClose, children }: FacetModalProps) {
+  const t = useTranslations('Common')
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -92,7 +94,7 @@ export function FacetModal({ title, onClose, children }: FacetModalProps) {
             type="button"
             className={styles.close}
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('close')}
           >
             <X size={20} aria-hidden="true" />
           </button>

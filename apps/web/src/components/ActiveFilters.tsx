@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import styles from './ActiveFilters.module.css'
 
@@ -21,31 +22,19 @@ function parseCommaSep(v: string | null): string[] {
   return v.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
-const MULTI_PARAM_LABELS: Record<string, { singular: string; plural: string }> = {
-  make:           { singular: 'Make',       plural: 'Makes'       },
-  model:          { singular: 'Model',      plural: 'Models'      },
-  trim:           { singular: 'Trim',       plural: 'Trims'       },
-  condition:      { singular: 'Condition',  plural: 'Conditions'  },
-  conversionBrand: { singular: 'Conversion brand', plural: 'Conversion brands' },
-  conversionType: { singular: 'Entry type', plural: 'Entry types' },
-  color:          { singular: 'Color',      plural: 'Colors'      },
-  rampType:       { singular: 'Ramp type',  plural: 'Ramp types'  },
-  state:          { singular: 'State',      plural: 'States'      },
-  sellerType:     { singular: 'Seller type', plural: 'Seller types' },
-  fuelType:       { singular: 'Fuel type',   plural: 'Fuel types'   },
-}
-
-const WAV_FEATURE_LABELS: Record<string, string> = {
-  has_lift:                'Wheelchair Lift',
-  hand_controls:           'Hand Controls',
-  transfer_seat:           'Transfer Seat',
-  kneel_system:            'Kneel System',
-  lowered_floor:           'Lowered Floor',
-  power_ramp:              'Power Ramp',
-  tie_down_system:         'Tie-Down System',
-  automatic_door:          'Automatic Door',
-  motorized_running_board: 'Motorized Running Board',
-}
+const MULTI_PARAMS = [
+  'make',
+  'model',
+  'trim',
+  'condition',
+  'conversionBrand',
+  'conversionType',
+  'color',
+  'rampType',
+  'state',
+  'sellerType',
+  'fuelType',
+] as const
 
 const CONVERSION_BRAND_LABELS: Record<string, string> = {
   'ams-vans': 'AMS Vans',
@@ -65,7 +54,17 @@ interface Pill {
   paramsToDelete: string[]
 }
 
-function buildPills(params: URLSearchParams): Pill[] {
+type Translate = ReturnType<typeof useTranslations>
+
+interface PillText {
+  t: Translate
+  /** Resolves a WAV feature key to its localized label, or null when unknown. */
+  featureLabel: (key: string) => string | null
+  formatNumber: (value: number) => string
+}
+
+function buildPills(params: URLSearchParams, text: PillText): Pill[] {
+  const { t, featureLabel, formatNumber } = text
   const pills: Pill[] = []
 
   // Price
@@ -80,13 +79,13 @@ function buildPills(params: URLSearchParams): Pill[] {
     } else if (min !== null) {
       label = `${fmtDollars(min)}+`
     } else {
-      label = `Up to ${fmtDollars(max!)}`
+      label = t('priceUpTo', { value: fmtDollars(max!) })
     }
-    pills.push({ key: 'price', label, ariaLabel: 'Remove price filter', paramsToDelete: ['priceMin', 'priceMax'] })
+    pills.push({ key: 'price', label, ariaLabel: t('removeFilter', { filter: t('removePrice') }), paramsToDelete: ['priceMin', 'priceMax'] })
   }
 
   // Multi-value
-  for (const [param, labels] of Object.entries(MULTI_PARAM_LABELS)) {
+  for (const param of MULTI_PARAMS) {
     const values = parseCommaSep(params.get(param))
     if (values.length === 0) continue
     let label: string
@@ -101,12 +100,12 @@ function buildPills(params: URLSearchParams): Pill[] {
           : formatLabel(value))
         .join(', ')
     } else {
-      label = `${values.length} ${labels.plural}`
+      label = t('multiCount', { count: values.length, plural: t(`params.${param}.plural`) })
     }
     pills.push({
       key: param,
       label,
-      ariaLabel: `Remove ${labels.singular.toLowerCase()} filter`,
+      ariaLabel: t('removeFilter', { filter: t(`params.${param}.name`) }),
       paramsToDelete: [param],
     })
   }
@@ -116,12 +115,12 @@ function buildPills(params: URLSearchParams): Pill[] {
   if (wavFeaturesParam) {
     const featureKeys = parseCommaSep(wavFeaturesParam)
     for (const key of featureKeys) {
-      const label = WAV_FEATURE_LABELS[key] ?? formatLabel(key)
+      const label = featureLabel(key) ?? formatLabel(key)
       const remaining = featureKeys.filter((k) => k !== key)
       pills.push({
         key: `wavFeatures:${key}`,
         label,
-        ariaLabel: `Remove ${label.toLowerCase()} filter`,
+        ariaLabel: t('removeFilter', { filter: label.toLowerCase() }),
         paramsToDelete: remaining.length === 0 ? ['wavFeatures'] : [],
       })
     }
@@ -134,8 +133,8 @@ function buildPills(params: URLSearchParams): Pill[] {
     let label: string
     if (yearMin && yearMax) label = `${yearMin}–${yearMax}`
     else if (yearMin) label = `${yearMin}+`
-    else label = `Up to ${yearMax}`
-    pills.push({ key: 'year', label, ariaLabel: 'Remove year filter', paramsToDelete: ['yearMin', 'yearMax'] })
+    else label = t('yearUpTo', { year: yearMax ?? '' })
+    pills.push({ key: 'year', label, ariaLabel: t('removeFilter', { filter: t('removeYear') }), paramsToDelete: ['yearMin', 'yearMax'] })
   }
 
   // Mileage
@@ -144,8 +143,8 @@ function buildPills(params: URLSearchParams): Pill[] {
     const miles = parseInt(mileageMax, 10)
     pills.push({
       key: 'mileage',
-      label: `Under ${new Intl.NumberFormat('en-US').format(miles)} mi`,
-      ariaLabel: 'Remove mileage filter',
+      label: t('mileageUnder', { miles: formatNumber(miles) }),
+      ariaLabel: t('removeFilter', { filter: t('removeMileage') }),
       paramsToDelete: ['mileageMax'],
     })
   }
@@ -160,8 +159,15 @@ export function ActiveFilters() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
+  const t = useTranslations('ActiveFilters')
+  const featureT = useTranslations('FiltersPage.listing')
+  const locale = useLocale()
 
-  const pills = buildPills(new URLSearchParams(searchParams.toString()))
+  const pills = buildPills(new URLSearchParams(searchParams.toString()), {
+    t,
+    featureLabel: (key) => (featureT.has(`wavFeature_${key}`) ? featureT(`wavFeature_${key}`) : null),
+    formatNumber: (value) => new Intl.NumberFormat(locale).format(value),
+  })
 
   if (pills.length === 0) return null
 
@@ -195,7 +201,7 @@ export function ActiveFilters() {
     <ul
       className={styles.pills}
       role="list"
-      aria-label="Active filters"
+      aria-label={t('ariaLabel')}
       aria-live="polite"
     >
       {pills.map((pill) => (
@@ -216,10 +222,10 @@ export function ActiveFilters() {
           <button
             type="button"
             className={`${styles.pill} ${styles.clearAll}`}
-            aria-label="Clear all filters"
+            aria-label={t('clearAllAriaLabel')}
             onClick={clearAll}
           >
-            Clear all ×
+            {t('clearAll')}
           </button>
         </li>
       )}

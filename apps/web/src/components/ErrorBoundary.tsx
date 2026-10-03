@@ -7,6 +7,8 @@ interface Props {
   children: ReactNode
   /** Optional fallback UI. Defaults to a plain accessible error message. */
   fallback?: ReactNode
+  /** Localized copy for the default fallback (class components cannot use hooks). */
+  labels: { heading: string; description: string; reload: string }
 }
 
 interface State {
@@ -61,15 +63,15 @@ export class ErrorBoundary extends Component<Props, State> {
               outline: 'none',
             }}
           >
-            <h2>An error occurred</h2>
-            <p id="error-description">Something went wrong.</p>
+            <h2>{this.props.labels.heading}</h2>
+            <p id="error-description">{this.props.labels.description}</p>
             <button
               type="button"
               aria-describedby="error-description"
               onClick={() => window.location.reload()}
               style={{ outline: '2px solid #1a1a1a', outlineOffset: '2px' }}
             >
-              Reload page
+              {this.props.labels.reload}
             </button>
           </div>
         )

@@ -1,6 +1,8 @@
 {
   "Common": {
-    "skipToMainContent": "Saltar al contenido principal"
+    "skipToMainContent": "Saltar al contenido principal",
+    "openInNewTab": "(se abre en una pestaña nueva)",
+    "close": "Cerrar"
   },
   "SiteHeader": {
     "homeAriaLabel": "WivWav — ir al inicio",
@@ -10,7 +12,13 @@
     "languageSwitcherLabel": "Idioma"
   },
   "Footer": {
-    "informational": "Solo para fines informativos."
+    "informational": "Solo para fines informativos.",
+    "label": "Pie de página del sitio",
+    "copyright": "© {year} WivWav.",
+    "legalLinks": "Enlaces legales",
+    "privacy": "Política de privacidad",
+    "terms": "Términos de servicio",
+    "crawler": "Información del rastreador"
   },
   "DiscoverPage": {
     "sectionTitle": "Descubrir",
@@ -96,7 +104,61 @@
   "ActiveFilters": {
     "ariaLabel": "Filtros activos",
     "clearAll": "Borrar todo ×",
-    "clearAllAriaLabel": "Borrar todos los filtros"
+    "clearAllAriaLabel": "Borrar todos los filtros",
+    "removeFilter": "Quitar el filtro de {filter}",
+    "priceUpTo": "Hasta {value}",
+    "yearUpTo": "Hasta {year}",
+    "mileageUnder": "Menos de {miles} mi",
+    "removePrice": "precio",
+    "removeYear": "año",
+    "removeMileage": "kilometraje",
+    "multiCount": "{count} {plural}",
+    "params": {
+      "make": {
+        "name": "marca",
+        "plural": "marcas"
+      },
+      "model": {
+        "name": "modelo",
+        "plural": "modelos"
+      },
+      "trim": {
+        "name": "versión",
+        "plural": "versiones"
+      },
+      "condition": {
+        "name": "condición",
+        "plural": "condiciones"
+      },
+      "conversionBrand": {
+        "name": "marca de conversión",
+        "plural": "marcas de conversión"
+      },
+      "conversionType": {
+        "name": "tipo de entrada",
+        "plural": "tipos de entrada"
+      },
+      "color": {
+        "name": "color",
+        "plural": "colores"
+      },
+      "rampType": {
+        "name": "tipo de rampa",
+        "plural": "tipos de rampa"
+      },
+      "state": {
+        "name": "estado",
+        "plural": "estados"
+      },
+      "sellerType": {
+        "name": "tipo de vendedor",
+        "plural": "tipos de vendedor"
+      },
+      "fuelType": {
+        "name": "tipo de combustible",
+        "plural": "tipos de combustible"
+      }
+    }
   },
   "FilterControls": {
     "showFewer": "Mostrar menos",
@@ -163,6 +225,56 @@
     "floorLoweringLabel": "Bajada de piso",
     "wcCapacityLabel": "Capacidad para silla de ruedas",
     "transferSeatLabel": "Asiento de transferencia",
-    "openInNewTab": "(se abre en nueva pestaña)"
+    "openInNewTab": "(se abre en nueva pestaña)",
+    "loadingListing": "Cargando anuncio",
+    "tabListLabel": "Secciones de detalles del vehículo",
+    "sheetLabel": "Detalles del vehículo",
+    "expandSheet": "Expandir detalles del vehículo",
+    "collapseSheet": "Contraer detalles del vehículo",
+    "disclaimerLabel": "Acerca de los datos de este anuncio",
+    "disclaimer": {
+      "listing": {
+        "label": "Datos del anuncio",
+        "text": "El precio, la disponibilidad y todos los detalles proporcionados por el vendedor provienen de la fuente original y pueden cambiar. Verifique con el vendedor antes de tomar decisiones."
+      },
+      "safety": {
+        "label": "Calificaciones de seguridad y retiros",
+        "text": "Datos de la NHTSA. No los proporciona el vendedor."
+      },
+      "market": {
+        "label": "Precios del mercado",
+        "text": "Refleja únicamente los datos del índice de WivWav y puede no representar las condiciones actuales del mercado."
+      }
+    }
+  },
+  "ErrorPage": {
+    "heading": "Se produjo un error",
+    "description": "Algo salió mal.",
+    "tryAgain": "Intentar de nuevo",
+    "reloadPage": "Recargar la página"
+  },
+  "FilterNotFound": {
+    "heading": "Anuncio no disponible",
+    "description": "Es posible que este anuncio se haya eliminado, que el enlace sea incorrecto o que el servicio de anuncios esté limitado temporalmente.",
+    "back": "Volver a los anuncios"
+  },
+  "NewBadge": {
+    "label": "Nuevo"
+  },
+  "WavDetails": {
+    "label": "Detalles de la conversión y funciones de accesibilidad",
+    "included": "Incluido",
+    "floorLowering": "Piso rebajado",
+    "inches": "{inches} pulgadas",
+    "rampType": "Tipo de rampa",
+    "inFloorRamp": "Rampa en el piso",
+    "foldOutRamp": "Rampa desplegable",
+    "foldInRamp": "Rampa plegable hacia adentro",
+    "needsVerification": "Requiere verificación; consulte el anuncio original",
+    "wcCapacity": "Capacidad de sillas de ruedas",
+    "chairs": "{count, plural, =1 {# silla} other {# sillas}}",
+    "conversionStatus": "Estado de la conversión",
+    "complete": "Completa",
+    "proposed": "Propuesta"
   }
 }
