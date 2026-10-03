@@ -59,8 +59,12 @@ jobs:
           push: false
           load: ${{ matrix.service == 'api' || matrix.service == 'migrate' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
           tags: wivwav-ci-${{ matrix.service }}:${{ github.sha }}
+          # cache-to is skipped on merge_group (#1052): a gh-readonly-queue ref's
+          # cache can't be read by other refs, and exporting it cost ~73s of the
+          # web build's ~143s on the merge-queue critical path. main pushes still
+          # refresh the shared cache that cache-from reads.
           cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          cache-to: ${{ github.event_name != 'merge_group' && format('type=gha,mode=max,scope={0}', matrix.service) || '' }}
 
       # #658: the API and migration images must ship only what production
       # needs — no local secrets, no build/test-only tooling, and within an
@@ -204,7 +208,7 @@ jobs:
           load: true
           tags: wivwav-ci-migrate:${{ github.sha }}
           cache-from: type=gha,scope=migrate
-          cache-to: type=gha,mode=max,scope=migrate
+          cache-to: ${{ github.event_name != 'merge_group' && 'type=gha,mode=max,scope=migrate' || '' }}
 
       - name: Build runnable api image
         uses: docker/build-push-action@v7
@@ -216,7 +220,7 @@ jobs:
           load: true
           tags: wivwav-ci-api:${{ github.sha }}
           cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+          cache-to: ${{ github.event_name != 'merge_group' && 'type=gha,mode=max,scope=api' || '' }}
 
       - name: Build runnable web image
         uses: docker/build-push-action@v7
@@ -235,7 +239,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=http://127.0.0.1:53001
           cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          cache-to: ${{ github.event_name != 'merge_group' && 'type=gha,mode=max,scope=web' || '' }}
 
       - name: Cache Playwright Chromium
         id: playwright-cache
