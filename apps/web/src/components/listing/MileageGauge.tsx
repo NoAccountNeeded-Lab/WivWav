@@ -1,4 +1,6 @@
 import { Check } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { toIntlLocale } from '@/lib/intl'
 import { getExpectedLifespan, formatK } from '@/app/[locale]/listings/[id]/utils'
 import styles from './MileageGauge.module.css'
 
@@ -10,6 +12,10 @@ interface MileageGaugeProps {
 const MAX_GAUGE = 300000
 
 export function MileageGauge({ mileage, make }: MileageGaugeProps) {
+  const t = useTranslations('MileageGauge')
+  const locale = useLocale()
+  const fmt = (n: number) => n.toLocaleString(toIntlLocale(locale))
+  const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>
   const avgLifespan = getExpectedLifespan(make)
   const mileagePct = Math.min((mileage / MAX_GAUGE) * 100, 100)
   const lifespanPct = Math.min((avgLifespan / MAX_GAUGE) * 100, 100)
@@ -20,7 +26,12 @@ export function MileageGauge({ mileage, make }: MileageGaugeProps) {
       <div
         className={styles.track}
         role="img"
-        aria-label={`Mileage gauge: ${mileage.toLocaleString()} miles out of ${MAX_GAUGE.toLocaleString()} mile scale. Average lifespan for ${make}: ${avgLifespan.toLocaleString()} miles.`}
+        aria-label={t('label', {
+          mileage: fmt(mileage),
+          scale: fmt(MAX_GAUGE),
+          make,
+          lifespan: fmt(avgLifespan),
+        })}
       >
         <div className={styles.fill} style={{ width: `${mileagePct}%` }} />
         <div className={styles.marker} style={{ left: `${lifespanPct}%` }} />
@@ -38,25 +49,21 @@ export function MileageGauge({ mileage, make }: MileageGaugeProps) {
         <div className={styles.legendItem}>
           <div className={styles.dotOrange} />
           <span className={styles.legendText}>
-            <strong>{mileage.toLocaleString()} mi</strong> — this vehicle
+            {t.rich('thisVehicle', { miles: t('miles', { miles: fmt(mileage) }), strong })}
           </span>
         </div>
         <div className={styles.legendItem}>
           <div className={styles.dotGreen} />
           <span className={styles.legendText}>
-            <strong>{avgLifespan.toLocaleString()} mi</strong> — {make} avg lifespan
+            {t.rich('avgLifespan', { miles: t('miles', { miles: fmt(avgLifespan) }), make, strong })}
           </span>
         </div>
       </div>
 
       <div className={styles.note}>
         <Check size={13} aria-hidden />
-        {lifeUsedPct}% of expected life used
-        {lifeUsedPct < 50
-          ? ' — strong longevity ahead'
-          : lifeUsedPct < 80
-            ? ' — solid remaining mileage'
-            : ' — higher mileage vehicle'}
+        {t('lifeUsed', { percent: lifeUsedPct })}
+        {lifeUsedPct < 50 ? t('strong') : lifeUsedPct < 80 ? t('solid') : t('higher')}
       </div>
     </div>
   )

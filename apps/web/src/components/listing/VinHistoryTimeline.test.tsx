@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
+import { createTestTranslator, renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { VinHistoryEntry } from '@wivwav/types'
 import {
@@ -28,7 +29,12 @@ describe('hasMultiListingVinHistory', () => {
 
 describe('buildVinHistoryChartData', () => {
   it('should split current-listing and other-listing observations into separate series', () => {
-    const data = buildVinHistoryChartData(multiListingHistory, 'listing-1')
+    const data = buildVinHistoryChartData(
+      multiListingHistory,
+      'listing-1',
+      createTestTranslator('VinHistoryTimeline', 'en'),
+      'en',
+    )
 
     expect(data[0]).toMatchObject({
       listingLabel: 'This listing',
@@ -45,7 +51,7 @@ describe('buildVinHistoryChartData', () => {
 
 describe('VinHistoryTimeline', () => {
   it('should render an accessible multi-listing timeline summary', () => {
-    render(<VinHistoryTimeline history={multiListingHistory} currentListingId="listing-1" />)
+    renderWithIntl(<VinHistoryTimeline history={multiListingHistory} currentListingId="listing-1" />)
 
     expect(screen.getByRole('img', { name: 'VIN price and mileage history across 2 listings' })).toBeDefined()
     expect(screen.getByText('4 observations across 2 listings for this VIN.')).toBeDefined()
@@ -55,7 +61,7 @@ describe('VinHistoryTimeline', () => {
   })
 
   it('should not render for a single-listing VIN history', () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <VinHistoryTimeline history={multiListingHistory.slice(0, 2)} currentListingId="listing-1" />,
     )
 

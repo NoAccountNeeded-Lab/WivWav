@@ -1,5 +1,6 @@
 import { DollarSign, ExternalLink, Globe, MapPin, Phone } from 'lucide-react'
 import type { ListingDealer, ListingLocation } from '@wivwav/types'
+import { useTranslations } from 'next-intl'
 import styles from './DealerCard.module.css'
 
 interface DealerCardProps {
@@ -19,14 +20,16 @@ interface DealerCardProps {
 }
 
 export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabel, showLocation = true }: DealerCardProps) {
+  const t = useTranslations('DealerCard')
+  const commonT = useTranslations('Common')
   const locationStr = [location.city, location.state].filter(Boolean).join(', ')
 
   return (
     <div>
       <div className={styles.header}>
-        <h3 className={styles.name}>{dealer.name ?? 'Dealer'}</h3>
+        <h3 className={styles.name}>{dealer.name ?? t('dealer')}</h3>
         <div className={styles.type}>
-          {sellerType === 'dealer' ? 'Dealership' : 'Private seller'}
+          {sellerType === 'dealer' ? t('dealership') : t('privateSeller')}
         </div>
       </div>
 
@@ -34,7 +37,7 @@ export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabe
         {showLocation && locationStr && (
           <li className={styles.contactRow}>
             <MapPin size={16} className={styles.contactIcon} aria-hidden />
-            <span className="sr-only">Location: </span>
+            <span className="sr-only">{t('location')} </span>
             {locationStr}
             {location.zip ? ` ${location.zip}` : ''}
           </li>
@@ -75,8 +78,8 @@ export function DealerCard({ dealer, location, sellerType, listingUrl, priceLabe
               rel="noopener noreferrer"
               className={styles.listingLink}
             >
-              View listing
-              <span className="sr-only"> (opens in new tab)</span>
+              {t('viewListing')}
+              <span className="sr-only"> {commonT('openInNewTab')}</span>
             </a>
           </li>
         )}

@@ -1,4 +1,6 @@
 import { AlertTriangle, DoorOpen, ExternalLink, ShieldCheck, Truck } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import type { Translate } from '@/lib/intl'
 import type { FieldResolutionState } from '@wivwav/types'
 import { abbreviate } from '@/app/[locale]/listings/[id]/utils'
 import type { ConversionBrandDetail, ConversionProduct } from './conversionBrand'
@@ -21,16 +23,17 @@ interface WavConversionInfoProps {
   sourceUrl?: string | null | undefined
 }
 
-function conversionTypeLabel(value: string): string | null {
-  if (value === 'side_entry') return 'Side entry'
-  if (value === 'rear_entry') return 'Rear entry'
+function conversionTypeLabel(value: string, t: Translate): string | null {
+  if (value === 'side_entry') return t('entryTypeSide')
+  if (value === 'rear_entry') return t('entryTypeRear')
   return null
 }
 
-function rampTypeLabel(value: string): string | null {
-  if (value === 'in_floor') return 'In-floor ramp'
-  if (value === 'fold_out') return 'Fold-out ramp'
-  if (value === 'fold_in') return 'Fold-in ramp'
+/** `t` is the `FiltersPage.listing` translator. */
+function rampTypeLabel(value: string, t: Translate): string | null {
+  if (value === 'in_floor') return t('inFloorRamp')
+  if (value === 'fold_out') return t('foldOutRamp')
+  if (value === 'fold_in') return t('foldInRamp')
   return null
 }
 
@@ -42,16 +45,19 @@ export function WavConversionInfo({
   conversionTypeStatus,
   sourceUrl,
 }: WavConversionInfoProps) {
+  const t = useTranslations('WavConversionInfo')
+  const listingT = useTranslations('FiltersPage.listing')
+  const commonT = useTranslations('Common')
   const isSide = conversionType === 'side_entry'
   const isRear = conversionType === 'rear_entry'
   const hasType = isSide || isRear
   const isConflicting = conversionTypeStatus === 'conflicting'
   const displayName = conversionBrand?.name ?? conversionManufacturer
   const productSpecs = [
-    matchedProduct ? conversionTypeLabel(matchedProduct.conversionType) : null,
-    matchedProduct ? rampTypeLabel(matchedProduct.rampType) : null,
+    matchedProduct ? conversionTypeLabel(matchedProduct.conversionType, t) : null,
+    matchedProduct ? rampTypeLabel(matchedProduct.rampType, listingT) : null,
     matchedProduct?.floorLoweringInches != null
-      ? `${matchedProduct.floorLoweringInches} inch lowered floor`
+      ? t('loweredFloor', { inches: matchedProduct.floorLoweringInches })
       : null,
   ].filter(Boolean)
 
@@ -61,12 +67,12 @@ export function WavConversionInfo({
         <section className={styles.conversionSection} aria-labelledby="conversion-heading">
           <div className={styles.sectionHeader}>
             <h2 id="conversion-heading" className={styles.sectionTitle}>
-              Conversion
+              {t('title')}
             </h2>
             {conversionBrand?.nmedaCertified && (
               <span className={styles.nmedaBadge}>
                 <ShieldCheck size={13} aria-hidden />
-                NMEDA QAP
+                {t('nmeda')}
               </span>
             )}
           </div>
@@ -79,7 +85,7 @@ export function WavConversionInfo({
               <div className={styles.convBody}>
                 <div className={styles.convName}>{displayName}</div>
                 <div className={styles.convSub}>
-                  {conversionBrand ? 'WAV conversion brand' : 'WAV conversion manufacturer'}
+                  {conversionBrand ? t('brand') : t('manufacturer')}
                 </div>
               </div>
             </div>
@@ -87,10 +93,10 @@ export function WavConversionInfo({
 
           {matchedProduct && (
             <div className={styles.productBox}>
-              <div className={styles.productLabel}>Matched product</div>
+              <div className={styles.productLabel}>{t('matchedProduct')}</div>
               <div className={styles.productName}>{matchedProduct.name}</div>
               {productSpecs.length > 0 && (
-                <ul className={styles.specList} aria-label="Conversion product specs">
+                <ul className={styles.specList} aria-label={t('specsLabel')}>
                   {productSpecs.map((spec) => (
                     <li key={spec}>{spec}</li>
                   ))}
@@ -106,7 +112,7 @@ export function WavConversionInfo({
               target="_blank"
               rel="noreferrer"
             >
-              Brand website
+              {t('brandWebsite')}
               <ExternalLink size={13} aria-hidden />
             </a>
           )}
@@ -120,35 +126,35 @@ export function WavConversionInfo({
           </span>
           <div>
             <div className={styles.entryLabel}>
-              {isSide ? 'Side-entry conversion' : 'Rear-entry conversion'}
+              {isSide ? t('sideEntry') : t('rearEntry')}
             </div>
             <div className={styles.entrySub}>
-              {isSide ? 'Driver or passenger side access' : 'Rear ramp or lift access'}
+              {isSide ? t('sideAccess') : t('rearAccess')}
             </div>
           </div>
         </div>
       )}
 
       {isConflicting && (
-        <div className={styles.needsVerificationBanner} role="note" aria-label="Entry type needs verification">
+        <div className={styles.needsVerificationBanner} role="note" aria-label={t('needsVerification')}>
           <span className={styles.needsVerificationIcon} aria-hidden>
             <AlertTriangle size={20} />
           </span>
           <div>
-            <div className={styles.needsVerificationLabel}>Entry type needs verification</div>
+            <div className={styles.needsVerificationLabel}>{t('needsVerification')}</div>
             <div className={styles.needsVerificationSub}>
-              The listing source has conflicting information about side vs. rear entry
+              {t('conflictingInfo')}
               {sourceUrl ? (
                 <>
                   {' — '}
                   <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.needsVerificationLink}>
-                    check the original listing
+                    {t('checkOriginal')}
                     <ExternalLink size={11} aria-hidden />
-                    <span className="sr-only"> (opens in new tab)</span>
+                    <span className="sr-only"> {commonT('openInNewTab')}</span>
                   </a>
                 </>
               ) : (
-                '. Confirm with the seller before purchase.'
+                t('confirmWithSeller')
               )}
             </div>
           </div>

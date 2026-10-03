@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import styles from './SafetyRefreshButton.module.css'
 
 interface RefreshResult {
@@ -19,6 +20,7 @@ interface SafetyRefreshButtonProps {
 
 export function SafetyRefreshButton({ listingId, apiBaseUrl }: SafetyRefreshButtonProps) {
   const router = useRouter()
+  const t = useTranslations('SafetyRefresh')
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'rate-limited' | 'error'>('idle')
   const [retryAfterMinutes, setRetryAfterMinutes] = useState<number | null>(null)
 
@@ -48,8 +50,8 @@ export function SafetyRefreshButton({ listingId, apiBaseUrl }: SafetyRefreshButt
   if (state === 'rate-limited') {
     return (
       <span className={styles.staleWarning}>
-        Refresh requested recently
-        {retryAfterMinutes != null ? ` — check back in ~${retryAfterMinutes}m` : ''}
+        {t('rateLimited')}
+        {retryAfterMinutes != null ? t('checkBack', { minutes: retryAfterMinutes }) : ''}
       </span>
     )
   }
@@ -58,19 +60,20 @@ export function SafetyRefreshButton({ listingId, apiBaseUrl }: SafetyRefreshButt
     return (
       <span className={styles.refreshingText}>
         <RefreshCw size={11} aria-hidden className={state === 'loading' ? styles.spinning : undefined} />
-        {state === 'loading' ? ' Refreshing…' : ' Refresh queued'}
+        {' '}
+        {state === 'loading' ? t('refreshing') : t('queued')}
       </span>
     )
   }
 
   if (state === 'error') {
-    return <span className={styles.staleWarning}>Refresh failed — try again later</span>
+    return <span className={styles.staleWarning}>{t('failed')}</span>
   }
 
   return (
     <button type="button" onClick={handleRefresh} className={styles.refreshButton}>
       <RefreshCw size={11} aria-hidden />
-      Refresh safety data
+      {t('button')}
     </button>
   )
 }

@@ -457,5 +457,110 @@
     "statusChanged": "El estado de la conversión cambió de <strong>{from}</strong> a <strong>{to}</strong>",
     "featureAdded": "Se agregó <strong>{feature}</strong>",
     "featureRemoved": "Se quitó <strong>{feature}</strong>"
+  },
+  "DealerCard": {
+    "dealer": "Distribuidor",
+    "dealership": "Concesionario",
+    "privateSeller": "Vendedor particular",
+    "location": "Ubicación:",
+    "viewListing": "Ver anuncio"
+  },
+  "DealerReputation": {
+    "reviews": "Reseñas",
+    "ratingAndHours": "Calificación y horario",
+    "rating": "Calificación",
+    "hours": "Horario",
+    "stars": "{rating} de 5 estrellas",
+    "reviewCount": "({count, plural, =1 {# reseña} other {# reseñas}})",
+    "openNow": "Abierto ahora",
+    "closedNow": "Cerrado ahora",
+    "viaGoogle": "vía Google",
+    "via": "vía {source}"
+  },
+  "MileageGauge": {
+    "label": "Indicador de kilometraje: {mileage} millas en una escala de {scale} millas. Vida útil promedio de {make}: {lifespan} millas.",
+    "miles": "{miles} mi",
+    "thisVehicle": "<strong>{miles}</strong> — este vehículo",
+    "avgLifespan": "<strong>{miles}</strong> — vida útil promedio de {make}",
+    "lifeUsed": "{percent}% de la vida útil esperada utilizada",
+    "strong": " — gran durabilidad por delante",
+    "solid": " — buen kilometraje restante",
+    "higher": " — vehículo de alto kilometraje"
+  },
+  "NmedaDealers": {
+    "qapCertified": "Certificado QAP",
+    "lessThanOneMile": "< 1 mi",
+    "distance": "{miles} mi",
+    "call": "Llamar a {name}",
+    "visitWebsite": "Visitar el sitio web de {name} (se abre en una pestaña nueva)",
+    "website": "Sitio web",
+    "modalLabel": "Todos los distribuidores certificados por NMEDA cercanos",
+    "title": "Distribuidores certificados cercanos",
+    "closeList": "Cerrar la lista de distribuidores",
+    "allDealersLabel": "Todos los distribuidores certificados por NMEDA cercanos",
+    "fullDirectory": "Directorio completo en nmeda.com",
+    "none": "No se encontraron distribuidores certificados cercanos.",
+    "findDealer": "Encuentre un distribuidor en nmeda.com",
+    "viewAll": "Ver los {count} distribuidores"
+  },
+  "SafetyRatings": {
+    "overall": "General",
+    "frontCrash": "Choque frontal",
+    "sideCrash": "Choque lateral",
+    "rollover": "Vuelco",
+    "overallCard": "Calificación general de seguridad de la NHTSA",
+    "frontCard": "Calificación de choque frontal",
+    "outOfFive": "/5"
+  },
+  "SafetyRefresh": {
+    "rateLimited": "Actualización solicitada recientemente",
+    "checkBack": " — vuelva a consultar en ~{minutes} min",
+    "refreshing": "Actualizando…",
+    "queued": "Actualización en cola",
+    "failed": "Falló la actualización — inténtelo más tarde",
+    "button": "Actualizar datos de seguridad"
+  },
+  "PriceHistoryChart": {
+    "label": "Gráfico del historial de precios",
+    "askingPrice": "Precio solicitado",
+    "originalMsrp": "PSF orig."
+  },
+  "VinHistoryTimeline": {
+    "label": "Historial de precio y kilometraje del VIN en {count, plural, =1 {# anuncio} other {# anuncios}}",
+    "thisListing": "Este anuncio",
+    "otherListing": "Otro anuncio",
+    "miles": "{miles} mi",
+    "thisListingPrice": "Precio de este anuncio",
+    "otherListingPrice": "Precio de otro anuncio",
+    "thisListingMileage": "Kilometraje de este anuncio",
+    "otherListingMileage": "Kilometraje de otro anuncio",
+    "summary": "{observations, plural, =1 {# observación} other {# observaciones}} en {listings, plural, =1 {# anuncio} other {# anuncios}} para este VIN.",
+    "caption": "Historial de precio y kilometraje del VIN",
+    "date": "Fecha",
+    "listing": "Anuncio",
+    "metric": "Métrica",
+    "value": "Valor",
+    "price": "Precio",
+    "mileage": "Kilometraje"
+  },
+  "WavConversionInfo": {
+    "title": "Conversión",
+    "nmeda": "NMEDA QAP",
+    "brand": "Marca de conversión WAV",
+    "manufacturer": "Fabricante de conversión WAV",
+    "matchedProduct": "Producto coincidente",
+    "specsLabel": "Especificaciones del producto de conversión",
+    "loweredFloor": "Piso rebajado {inches} pulgadas",
+    "brandWebsite": "Sitio web de la marca",
+    "sideEntry": "Conversión de entrada lateral",
+    "rearEntry": "Conversión de entrada trasera",
+    "sideAccess": "Acceso por el lado del conductor o del pasajero",
+    "rearAccess": "Acceso por rampa o elevador trasero",
+    "needsVerification": "El tipo de entrada requiere verificación",
+    "conflictingInfo": "La fuente del anuncio tiene información contradictoria sobre la entrada lateral o trasera",
+    "checkOriginal": "consulte el anuncio original",
+    "confirmWithSeller": ". Confirme con el vendedor antes de comprar.",
+    "entryTypeSide": "Entrada lateral",
+    "entryTypeRear": "Entrada trasera"
   }
 }

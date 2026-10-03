@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import type { SafetyRating } from '@/app/[locale]/listings/[id]/types'
 import styles from './SafetyRatings.module.css'
 
@@ -5,14 +6,15 @@ interface SafetyRatingsProps {
   rating: SafetyRating
 }
 
-const RATING_ROWS: { key: keyof SafetyRating; label: string }[] = [
-  { key: 'overallRating', label: 'Overall' },
-  { key: 'frontCrashRating', label: 'Front crash' },
-  { key: 'sideCrashRating', label: 'Side crash' },
-  { key: 'rolloverRating', label: 'Rollover' },
+const RATING_ROWS: { key: keyof SafetyRating; labelKey: string }[] = [
+  { key: 'overallRating', labelKey: 'overall' },
+  { key: 'frontCrashRating', labelKey: 'frontCrash' },
+  { key: 'sideCrashRating', labelKey: 'sideCrash' },
+  { key: 'rolloverRating', labelKey: 'rollover' },
 ]
 
 export function SafetyRatings({ rating }: SafetyRatingsProps) {
+  const t = useTranslations('SafetyRatings')
   return (
     <div>
       <div className={styles.scoreRow}>
@@ -20,23 +22,23 @@ export function SafetyRatings({ rating }: SafetyRatingsProps) {
           <div className={styles.scoreCard}>
             <div className={styles.score}>
               {rating.overallRating}
-              <span className={styles.denom}>/5</span>
+              <span className={styles.denom}>{t('outOfFive')}</span>
             </div>
-            <div className={styles.scoreLabel}>NHTSA overall safety rating</div>
+            <div className={styles.scoreLabel}>{t('overallCard')}</div>
           </div>
         )}
         {rating.frontCrashRating != null && (
           <div className={styles.scoreCard}>
             <div className={styles.score}>
               {rating.frontCrashRating}
-              <span className={styles.denom}>/5</span>
+              <span className={styles.denom}>{t('outOfFive')}</span>
             </div>
-            <div className={styles.scoreLabel}>Front crash rating</div>
+            <div className={styles.scoreLabel}>{t('frontCard')}</div>
           </div>
         )}
       </div>
 
-      {RATING_ROWS.map(({ key, label }) => {
+      {RATING_ROWS.map(({ key, labelKey }) => {
         const raw = rating[key]
         if (raw === null || raw === undefined) return null
         const value = typeof raw === 'number' ? raw : null
@@ -44,7 +46,7 @@ export function SafetyRatings({ rating }: SafetyRatingsProps) {
         const displayVal = key === 'rolloverRating' ? (rating.rolloverRatingText ?? value) : value
         return (
           <div key={key} className={styles.barRow}>
-            <div className={styles.barLabel}>{label}</div>
+            <div className={styles.barLabel}>{t(labelKey)}</div>
             <div className={styles.barTrack}>
               <div className={styles.barFill} style={{ width: `${(value / 5) * 100}%` }} />
             </div>

@@ -453,5 +453,110 @@
     "statusChanged": "Conversion status changed from <strong>{from}</strong> to <strong>{to}</strong>",
     "featureAdded": "<strong>{feature}</strong> added",
     "featureRemoved": "<strong>{feature}</strong> removed"
+  },
+  "DealerCard": {
+    "dealer": "Dealer",
+    "dealership": "Dealership",
+    "privateSeller": "Private seller",
+    "location": "Location:",
+    "viewListing": "View listing"
+  },
+  "DealerReputation": {
+    "reviews": "Reviews",
+    "ratingAndHours": "Rating & hours",
+    "rating": "Rating",
+    "hours": "Hours",
+    "stars": "{rating} out of 5 stars",
+    "reviewCount": "({count, plural, =1 {# review} other {# reviews}})",
+    "openNow": "Open now",
+    "closedNow": "Closed now",
+    "viaGoogle": "via Google",
+    "via": "via {source}"
+  },
+  "MileageGauge": {
+    "label": "Mileage gauge: {mileage} miles out of {scale} mile scale. Average lifespan for {make}: {lifespan} miles.",
+    "miles": "{miles} mi",
+    "thisVehicle": "<strong>{miles}</strong> — this vehicle",
+    "avgLifespan": "<strong>{miles}</strong> — {make} avg lifespan",
+    "lifeUsed": "{percent}% of expected life used",
+    "strong": " — strong longevity ahead",
+    "solid": " — solid remaining mileage",
+    "higher": " — higher mileage vehicle"
+  },
+  "NmedaDealers": {
+    "qapCertified": "QAP certified",
+    "lessThanOneMile": "< 1 mi",
+    "distance": "{miles} mi",
+    "call": "Call {name}",
+    "visitWebsite": "Visit {name} website (opens in new tab)",
+    "website": "Website",
+    "modalLabel": "All NMEDA certified dealers nearby",
+    "title": "Certified Dealers Nearby",
+    "closeList": "Close dealer list",
+    "allDealersLabel": "All nearby NMEDA certified dealers",
+    "fullDirectory": "Full directory at nmeda.com",
+    "none": "No certified dealers found nearby.",
+    "findDealer": "Find a dealer at nmeda.com",
+    "viewAll": "View all {count} dealers"
+  },
+  "SafetyRatings": {
+    "overall": "Overall",
+    "frontCrash": "Front crash",
+    "sideCrash": "Side crash",
+    "rollover": "Rollover",
+    "overallCard": "NHTSA overall safety rating",
+    "frontCard": "Front crash rating",
+    "outOfFive": "/5"
+  },
+  "SafetyRefresh": {
+    "rateLimited": "Refresh requested recently",
+    "checkBack": " — check back in ~{minutes}m",
+    "refreshing": "Refreshing…",
+    "queued": "Refresh queued",
+    "failed": "Refresh failed — try again later",
+    "button": "Refresh safety data"
+  },
+  "PriceHistoryChart": {
+    "label": "Price history chart",
+    "askingPrice": "Asking price",
+    "originalMsrp": "Orig. MSRP"
+  },
+  "VinHistoryTimeline": {
+    "label": "VIN price and mileage history across {count, plural, =1 {# listing} other {# listings}}",
+    "thisListing": "This listing",
+    "otherListing": "Other listing",
+    "miles": "{miles} mi",
+    "thisListingPrice": "This listing price",
+    "otherListingPrice": "Other listing price",
+    "thisListingMileage": "This listing mileage",
+    "otherListingMileage": "Other listing mileage",
+    "summary": "{observations, plural, =1 {# observation} other {# observations}} across {listings, plural, =1 {# listing} other {# listings}} for this VIN.",
+    "caption": "VIN price and mileage history",
+    "date": "Date",
+    "listing": "Listing",
+    "metric": "Metric",
+    "value": "Value",
+    "price": "Price",
+    "mileage": "Mileage"
+  },
+  "WavConversionInfo": {
+    "title": "Conversion",
+    "nmeda": "NMEDA QAP",
+    "brand": "WAV conversion brand",
+    "manufacturer": "WAV conversion manufacturer",
+    "matchedProduct": "Matched product",
+    "specsLabel": "Conversion product specs",
+    "loweredFloor": "{inches} inch lowered floor",
+    "brandWebsite": "Brand website",
+    "sideEntry": "Side-entry conversion",
+    "rearEntry": "Rear-entry conversion",
+    "sideAccess": "Driver or passenger side access",
+    "rearAccess": "Rear ramp or lift access",
+    "needsVerification": "Entry type needs verification",
+    "conflictingInfo": "The listing source has conflicting information about side vs. rear entry",
+    "checkOriginal": "check the original listing",
+    "confirmWithSeller": ". Confirm with the seller before purchase.",
+    "entryTypeSide": "Side entry",
+    "entryTypeRear": "Rear entry"
   }
 }

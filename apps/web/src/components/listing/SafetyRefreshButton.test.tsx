@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SafetyRefreshButton } from './SafetyRefreshButton'
 
@@ -19,7 +20,7 @@ beforeEach(() => {
 })
 
 function renderButton() {
-  render(<SafetyRefreshButton listingId="listing-1" apiBaseUrl="https://api.example.test" />)
+  renderWithIntl(<SafetyRefreshButton listingId="listing-1" apiBaseUrl="https://api.example.test" />)
 }
 
 describe('SafetyRefreshButton', () => {

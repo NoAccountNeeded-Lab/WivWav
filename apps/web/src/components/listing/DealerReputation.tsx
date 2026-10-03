@@ -1,4 +1,7 @@
 import { Star } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { toIntlLocale } from '@/lib/intl'
+import type { Translate } from '@/lib/intl'
 import type { DealerProfile, DealerReview } from '@/app/[locale]/listings/[id]/types'
 import styles from './DealerReputation.module.css'
 
@@ -39,19 +42,20 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, max).trimEnd()}…`
 }
 
-function formatReviewDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+function formatReviewDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(toIntlLocale(locale), { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function sourceLabel(source: string): string {
-  if (source === 'google') return 'via Google'
-  return `via ${source.charAt(0).toUpperCase()}${source.slice(1)}`
+function sourceLabel(source: string, t: Translate): string {
+  if (source === 'google') return t('viaGoogle')
+  return t('via', { source: `${source.charAt(0).toUpperCase()}${source.slice(1)}` })
 }
 
 function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
+  const t = useTranslations('DealerReputation')
   const stars = [1, 2, 3, 4, 5]
   return (
-    <span className={styles.starRow} role="img" aria-label={`${rating} out of 5 stars`}>
+    <span className={styles.starRow} role="img" aria-label={t('stars', { rating })}>
       {stars.map((n) => (
         <Star
           key={n}
@@ -70,6 +74,8 @@ export function DealerReputation({
   sectionClassName,
   sectionLabelClassName,
 }: DealerReputationProps) {
+  const t = useTranslations('DealerReputation')
+  const locale = useLocale()
   const { rating, reviewCount } = dealerProfile
   const hours = parseHours(dealerProfile.hours)
   const hasRating = rating !== null && reviewCount !== null && reviewCount > 0
@@ -80,12 +86,12 @@ export function DealerReputation({
   // user navigating by headings shouldn't land on "Reviews" when the section
   // only has hours (e.g. rating/reviews not yet enriched for this dealer).
   const sectionHeading = reviews.length > 0
-    ? 'Reviews'
+    ? t('reviews')
     : hasRating && hours !== null
-      ? 'Rating & hours'
+      ? t('ratingAndHours')
       : hasRating
-        ? 'Rating'
-        : 'Hours'
+        ? t('rating')
+        : t('hours')
 
   return (
     <div className={sectionClassName}>
@@ -96,14 +102,14 @@ export function DealerReputation({
             <StarRow rating={rating} size={16} />
             <span className={styles.ratingValue}>{rating.toFixed(1)}</span>
             <span className={styles.reviewCount}>
-              ({reviewCount} review{reviewCount === 1 ? '' : 's'})
+              {t('reviewCount', { count: reviewCount })}
             </span>
           </div>
         )}
 
         {hours !== null && hours.open_now !== undefined && (
           <div className={hours.open_now ? styles.openBadge : styles.closedBadge}>
-            {hours.open_now ? 'Open now' : 'Closed now'}
+            {hours.open_now ? t('openNow') : t('closedNow')}
           </div>
         )}
 
@@ -125,9 +131,9 @@ export function DealerReputation({
                 </div>
                 <p className={styles.reviewText}>{truncate(review.text, MAX_SNIPPET_LENGTH)}</p>
                 <div className={styles.reviewMeta}>
-                  <span>{formatReviewDate(review.publishedAt)}</span>
+                  <span>{formatReviewDate(review.publishedAt, locale)}</span>
                   <span aria-hidden>·</span>
-                  <span>{sourceLabel(review.source)}</span>
+                  <span>{sourceLabel(review.source, t)}</span>
                 </div>
               </li>
             ))}

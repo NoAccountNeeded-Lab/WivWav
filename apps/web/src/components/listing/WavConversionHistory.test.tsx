@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
+import { renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WavConversionHistory, buildConversionChangelog } from './WavConversionHistory'
 import type { ConversionHistoryEntry } from '@/app/[locale]/listings/[id]/types'
@@ -80,7 +81,7 @@ describe('buildConversionChangelog', () => {
 
 describe('WavConversionHistory', () => {
   it('renders nothing for a listing with only one snapshot', () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <WavConversionHistory history={[entry({ id: '1', recordedAt: '2026-01-01T00:00:00Z' })]} />,
     )
 
@@ -88,13 +89,13 @@ describe('WavConversionHistory', () => {
   })
 
   it('renders nothing when there is no history at all', () => {
-    const { container } = render(<WavConversionHistory history={[]} />)
+    const { container } = renderWithIntl(<WavConversionHistory history={[]} />)
 
     expect(container.firstChild).toBeNull()
   })
 
   it('renders a changelog entry describing a conversion-status change', () => {
-    render(
+    renderWithIntl(
       <WavConversionHistory
         history={[
           entry({ id: '1', recordedAt: '2026-01-01T00:00:00Z', conversionStatus: 'proposed' }),
@@ -109,7 +110,7 @@ describe('WavConversionHistory', () => {
   })
 
   it('renders a changelog entry describing a WAV feature addition', () => {
-    render(
+    renderWithIntl(
       <WavConversionHistory
         history={[
           entry({ id: '1', recordedAt: '2026-01-01T00:00:00Z', wavFeatures: [] }),

@@ -10,6 +10,8 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts'
+import { useLocale, useTranslations } from 'next-intl'
+import { toIntlLocale } from '@/lib/intl'
 import type { PricePoint } from '@/app/[locale]/listings/[id]/types'
 
 interface PriceHistoryChartProps {
@@ -17,12 +19,12 @@ interface PriceHistoryChartProps {
   originalMsrpCents?: number | null | undefined
 }
 
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+function formatShortDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(toIntlLocale(locale), { month: 'short', day: 'numeric' })
 }
 
-function formatDollar(cents: number): string {
-  return `$${(cents / 100).toLocaleString('en-US')}`
+function formatDollar(cents: number, locale: string): string {
+  return `$${(cents / 100).toLocaleString(toIntlLocale(locale))}`
 }
 
 interface TooltipPayload {
@@ -33,9 +35,10 @@ interface TooltipPayload {
 interface CustomTooltipProps {
   active?: boolean
   payload?: TooltipPayload[]
+  locale: string
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, locale }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   const entry = payload[0]
   if (entry?.value === undefined) return null
@@ -53,17 +56,19 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
         {entry.payload?.label}
       </div>
       <div style={{ fontWeight: 600, color: 'var(--color-text, #0f172a)' }}>
-        {formatDollar(entry.value)}
+        {formatDollar(entry.value, locale)}
       </div>
     </div>
   )
 }
 
 export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHistoryChartProps) {
+  const t = useTranslations('PriceHistoryChart')
+  const locale = useLocale()
   if (priceHistory.length < 2) return null
 
   const data = priceHistory.map((pt) => ({
-    label: formatShortDate(pt.recordedAt),
+    label: formatShortDate(pt.recordedAt, locale),
     priceCents: pt.priceCents,
   }))
 
@@ -76,7 +81,7 @@ export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHist
 
   return (
     <div
-      aria-label="Price history chart"
+      aria-label={t('label')}
       role="img"
       style={{ width: '100%', height: 180 }}
     >
@@ -98,13 +103,13 @@ export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHist
               Math.max(0, Math.floor((minVal - padding) / 100) * 100),
               Math.ceil((maxVal + padding) / 100) * 100,
             ]}
-            tickFormatter={(v: number) => `$${(v / 100).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })}`}
+            tickFormatter={(v: number) => `$${(v / 100).toLocaleString(toIntlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 })}`}
             tick={{ fontSize: 11, fill: 'var(--color-text-secondary, #64748b)' }}
             axisLine={false}
             tickLine={false}
             width={56}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip locale={locale} />} />
           <Line
             type="monotone"
             dataKey="priceCents"
@@ -112,7 +117,7 @@ export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHist
             strokeWidth={2}
             dot={{ r: 3, fill: 'var(--color-primary-solid, #0d9488)', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
-            name="Asking price"
+            name={t('askingPrice')}
             isAnimationActive={false}
           />
           {originalMsrpCents != null && (
@@ -121,7 +126,7 @@ export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHist
               stroke="var(--color-text-secondary, #64748b)"
               strokeDasharray="5 3"
               label={{
-                value: 'Orig. MSRP',
+                value: t('originalMsrp'),
                 position: 'insideBottomRight',
                 fontSize: 10,
                 fill: 'var(--color-text-secondary, #64748b)',
