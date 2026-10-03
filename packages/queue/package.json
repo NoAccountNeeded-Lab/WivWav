@@ -26,16 +26,16 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@bull-board/api": "^9.10.2",
+    "@bull-board/ui": "^9.10.2",
     "@wivwav/logger": "workspace:*",
-    "@bull-board/api": "^9.10.1",
-    "@bull-board/ui": "^9.10.1",
-    "bullmq": "^6.3.9"
+    "bullmq": "^6.3.11"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.6.4",
     "@wivwav/config": "workspace:*",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
