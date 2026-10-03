@@ -1,6 +1,9 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ShieldCheck, Star } from 'lucide-react'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/navigation'
+import type { Translate } from '@/lib/intl'
+import { toIntlLocale } from '@/lib/intl'
 import { getServerApiBaseUrl } from '@/lib/api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { VinSearchForm } from '../VinSearchForm'
@@ -66,69 +69,88 @@ interface ApiError {
   message: string
 }
 
-async function getVinReport(vin: string): Promise<{ data: VinSafetyReport | null; error: ApiError | null }> {
+async function getVinReport(
+  vin: string,
+  lookupFailedMessage: string,
+): Promise<{ data: VinSafetyReport | null; error: ApiError | null }> {
   const res = await apiFetch(`${getServerApiBaseUrl()}/v1/vin/${encodeURIComponent(vin)}/safety`, {
     next: { revalidate: 86400 },
   })
   const json = (await res.json()) as { data?: VinSafetyReport; error?: ApiError }
 
-  if (!res.ok) return { data: null, error: json.error ?? { code: 'VIN_LOOKUP_FAILED', message: 'Could not check this VIN.' } }
+  if (!res.ok) return { data: null, error: json.error ?? { code: 'VIN_LOOKUP_FAILED', message: lookupFailedMessage } }
   return { data: json.data ?? null, error: null }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ vin: string }> }): Promise<Metadata> {
-  const { vin } = await params
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; vin: string }>
+}): Promise<Metadata> {
+  const { locale, vin } = await params
+  const t = await getTranslations({ locale, namespace: 'VinReport' })
   return {
-    title: `${vin.toUpperCase()} Safety Report — WivWav`,
-    description: 'NHTSA recall, complaint, and safety rating summary for this VIN.',
+    title: t('metaTitle', { vin: vin.toUpperCase() }),
+    description: t('metaDescription'),
   }
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(toIntlLocale(locale), {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
-function formatRating(value: number | null): string {
-  return value === null ? 'Not rated' : `${value}/5`
+function formatRating(value: number | null, t: Translate): string {
+  return value === null ? t('notRated') : `${value}/5`
 }
 
 function vehicleName(decoded: DecodedVin): string {
   return `${decoded.year} ${decoded.make} ${decoded.model}${decoded.trim ? ` ${decoded.trim}` : ''}`
 }
 
-export default async function VinReportPage({ params }: { params: Promise<{ vin: string }> }) {
-  const { vin } = await params
+export default async function VinReportPage({
+  params,
+}: {
+  params: Promise<{ locale: string; vin: string }>
+}) {
+  const { locale, vin } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'VinReport' })
+  const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>
   const normalizedVin = vin.toUpperCase()
-  const { data: report, error } = await getVinReport(normalizedVin)
+  const { data: report, error } = await getVinReport(normalizedVin, t('lookupFailed'))
 
   return (
     <main id="main-content" className={styles.page}>
       <Link href="/filters" className={styles.back}>
         <ChevronLeft size={16} aria-hidden />
-        Back to listings
+        {t('back')}
       </Link>
 
       <header className={styles.header}>
-        <p className={styles.eyebrow}>NHTSA Safety Lookup</p>
-        <h1 className={styles.title}>VIN safety report</h1>
+        <p className={styles.eyebrow}>{t('eyebrow')}</p>
+        <h1 className={styles.title}>{t('title')}</h1>
         <p className={styles.lede}>{normalizedVin}</p>
         <VinSearchForm initialVin={normalizedVin} />
       </header>
 
       {error && (
         <section className={styles.section} aria-labelledby="vin-error-heading">
-          <h2 className={styles.sectionTitle} id="vin-error-heading">Lookup issue</h2>
+          <h2 className={styles.sectionTitle} id="vin-error-heading">{t('errorHeading')}</h2>
           <div className={`${styles.notice} ${styles.warningNotice}`}>
-            <strong>{error.message}</strong> Check that the VIN is 17 characters and does not contain I, O, or Q.
+            <strong>{error.message}</strong> {t('errorHint')}
           </div>
         </section>
       )}
 
       {report && !report.decoded && (
         <section className={styles.section} aria-labelledby="vin-unknown-heading">
-          <h2 className={styles.sectionTitle} id="vin-unknown-heading">No decoded vehicle</h2>
+          <h2 className={styles.sectionTitle} id="vin-unknown-heading">{t('undecodedHeading')}</h2>
           <div className={styles.notice}>
-            <strong>WivWav could not decode this VIN through NHTSA.</strong> Check the VIN for typos or try another vehicle.
+            {t.rich('undecoded', { strong })}
           </div>
         </section>
       )}
@@ -136,10 +158,10 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
       {report?.decoded && (
         <>
           <section className={styles.section} aria-labelledby="summary-heading">
-            <h2 className={styles.sectionTitle} id="summary-heading">Summary</h2>
+            <h2 className={styles.sectionTitle} id="summary-heading">{t('summary')}</h2>
             <div className={styles.summaryGrid}>
               <div className={styles.summaryItem}>
-                <span className={styles.summaryLabel}>Decoded vehicle</span>
+                <span className={styles.summaryLabel}>{t('decodedVehicle')}</span>
                 <span className={styles.summaryValue}>
                   <ShieldCheck size={18} aria-hidden />
                   {vehicleName(report.decoded)}
@@ -147,33 +169,33 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
                 {report.decoded.bodyType && <span className={styles.summaryDetail}>{report.decoded.bodyType}</span>}
               </div>
               <div className={styles.summaryItem}>
-                <span className={styles.summaryLabel}>Recall campaigns</span>
+                <span className={styles.summaryLabel}>{t('recallCampaigns')}</span>
                 <span className={styles.summaryValue}>
                   {report.recalls.length > 0 ? <AlertTriangle size={18} aria-hidden /> : <CheckCircle2 size={18} aria-hidden />}
                   {report.recalls.length}
                 </span>
-                <span className={styles.summaryDetail}>Checked {formatDate(report.checkedAt)}</span>
+                <span className={styles.summaryDetail}>{t('checked', { date: formatDate(report.checkedAt, locale) })}</span>
               </div>
               <div className={styles.summaryItem}>
-                <span className={styles.summaryLabel}>Overall rating</span>
+                <span className={styles.summaryLabel}>{t('overallRating')}</span>
                 <span className={styles.summaryValue}>
                   <Star size={18} aria-hidden />
-                  {report.safetyRatings[0] ? formatRating(report.safetyRatings[0].overallRating) : 'Not rated'}
+                  {report.safetyRatings[0] ? formatRating(report.safetyRatings[0].overallRating, t) : t('notRated')}
                 </span>
-                <span className={styles.summaryDetail}>NHTSA safety rating when available</span>
+                <span className={styles.summaryDetail}>{t('ratingNote')}</span>
               </div>
             </div>
           </section>
 
           {report.conversionManufacturer && (
             <section className={styles.section} aria-labelledby="conversion-heading">
-              <h2 className={styles.sectionTitle} id="conversion-heading">WAV conversion context</h2>
+              <h2 className={styles.sectionTitle} id="conversion-heading">{t('conversionHeading')}</h2>
               <div className={styles.notice}>
-                This VIN matches a WAV listing with a <strong>{report.conversionManufacturer}</strong> conversion.
+                {t.rich('conversion', { manufacturer: report.conversionManufacturer, strong })}
                 {report.sourceListingId && (
                   <>
                     {' '}
-                    <Link className={styles.link} href={`/filters/${report.sourceListingId}`}>View the source listing.</Link>
+                    <Link className={styles.link} href={`/filters/${report.sourceListingId}`}>{t('viewSource')}</Link>
                   </>
                 )}
               </div>
@@ -181,10 +203,10 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
           )}
 
           <section className={styles.section} aria-labelledby="recalls-heading">
-            <h2 className={styles.sectionTitle} id="recalls-heading">Recall campaigns</h2>
+            <h2 className={styles.sectionTitle} id="recalls-heading">{t('recallCampaigns')}</h2>
             {report.recalls.length === 0 ? (
               <div className={styles.notice}>
-                <strong>No open recalls found</strong> in WivWav safety data for this decoded vehicle model as of {formatDate(report.checkedAt)}.
+                {t.rich('noOpenRecalls', { date: formatDate(report.checkedAt, locale), strong })}
               </div>
             ) : (
               <ul className={styles.recallList}>
@@ -194,9 +216,9 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
                       <h3 className={styles.itemTitle}>{recall.component}</h3>
                       <span className={styles.badge}>{recall.nhtsaCampaignId}</span>
                     </div>
-                    <p className={styles.itemMeta}>Reported {formatDate(recall.reportedAt)}</p>
+                    <p className={styles.itemMeta}>{t('reported', { date: formatDate(recall.reportedAt, locale) })}</p>
                     <p className={styles.itemText}>{recall.summary}</p>
-                    {recall.remedy && <p className={styles.itemText}><strong>Remedy:</strong> {recall.remedy}</p>}
+                    {recall.remedy && <p className={styles.itemText}>{t.rich('remedy', { remedy: recall.remedy, strong })}</p>}
                   </li>
                 ))}
               </ul>
@@ -204,22 +226,24 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
           </section>
 
           <section className={styles.section} aria-labelledby="complaints-heading">
-            <h2 className={styles.sectionTitle} id="complaints-heading">Complaint patterns</h2>
+            <h2 className={styles.sectionTitle} id="complaints-heading">{t('complaintPatterns')}</h2>
             {report.complaintGroups.length === 0 ? (
-              <div className={styles.notice}>No NHTSA complaints are stored for this decoded vehicle model yet.</div>
+              <div className={styles.notice}>{t('noComplaints')}</div>
             ) : (
               <ul className={styles.complaintList}>
                 {report.complaintGroups.map((group) => (
                   <li key={group.component} className={styles.complaintItem}>
                     <div className={styles.itemHeader}>
                       <h3 className={styles.itemTitle}>{group.component}</h3>
-                      <span className={styles.badge}>{group.count} complaint{group.count === 1 ? '' : 's'}</span>
+                      <span className={styles.badge}>{t('complaintCount', { count: group.count })}</span>
                     </div>
                     <ul className={styles.exampleList}>
                       {group.examples.map((example) => (
                         <li key={example.id}>
                           {example.summary}
-                          {example.mileage !== null ? ` (${example.mileage.toLocaleString()} miles)` : ''}
+                          {example.mileage !== null
+            ? t('exampleMiles', { miles: example.mileage.toLocaleString(toIntlLocale(locale)) })
+            : ''}
                         </li>
                       ))}
                     </ul>
@@ -230,19 +254,19 @@ export default async function VinReportPage({ params }: { params: Promise<{ vin:
           </section>
 
           <section className={styles.section} aria-labelledby="ratings-heading">
-            <h2 className={styles.sectionTitle} id="ratings-heading">Safety ratings</h2>
+            <h2 className={styles.sectionTitle} id="ratings-heading">{t('ratingsHeading')}</h2>
             {report.safetyRatings.length === 0 ? (
-              <div className={styles.notice}>No NHTSA safety rating is stored for this decoded vehicle model yet.</div>
+              <div className={styles.notice}>{t('noRatings')}</div>
             ) : (
               <ul className={styles.ratingList}>
                 {report.safetyRatings.map((rating) => (
                   <li key={rating.id} className={styles.ratingItem}>
-                    <h3 className={styles.itemTitle}>{rating.description ?? 'NHTSA safety rating'}</h3>
+                    <h3 className={styles.itemTitle}>{rating.description ?? t('ratingFallback')}</h3>
                     <div className={styles.ratingGrid}>
-                      <RatingMetric label="Overall" value={formatRating(rating.overallRating)} />
-                      <RatingMetric label="Front crash" value={formatRating(rating.frontCrashRating)} />
-                      <RatingMetric label="Side crash" value={formatRating(rating.sideCrashRating)} />
-                      <RatingMetric label="Rollover" value={rating.rolloverRatingText ?? formatRating(rating.rolloverRating)} />
+                      <RatingMetric label={t('overall')} value={formatRating(rating.overallRating, t)} />
+                      <RatingMetric label={t('frontCrash')} value={formatRating(rating.frontCrashRating, t)} />
+                      <RatingMetric label={t('sideCrash')} value={formatRating(rating.sideCrashRating, t)} />
+                      <RatingMetric label={t('rollover')} value={rating.rolloverRatingText ?? formatRating(rating.rolloverRating, t)} />
                     </div>
                   </li>
                 ))}

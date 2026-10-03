@@ -45,7 +45,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
       </Suspense>
 
       <div className={styles.filterGrid}>
-        <aside aria-label="Filter by vehicle type and brand">
+        <aside aria-label={t('vehicleFilters')}>
           <Suspense>
             <CategoryBarChart
               showMap={false}
@@ -57,7 +57,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
           </Suspense>
         </aside>
 
-        <aside aria-label="Filter by feature, location, seller, and fuel type">
+        <aside aria-label={t('featureFilters')}>
           <Suspense>
             <CategoryBarChart
               showMap={false}
@@ -69,7 +69,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
           </Suspense>
         </aside>
 
-        <aside aria-label="Filter by price, year, and mileage">
+        <aside aria-label={t('rangeFilters')}>
           <Suspense><PriceHistogram /></Suspense>
           <Suspense><YearHistogram /></Suspense>
           <Suspense><MileageHistogram /></Suspense>

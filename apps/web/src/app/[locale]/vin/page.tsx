@@ -1,35 +1,43 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ChevronLeft } from 'lucide-react'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/navigation'
 import { VinSearchForm } from './VinSearchForm'
 import styles from './page.module.css'
 
-export const metadata: Metadata = {
-  title: 'VIN Safety Lookup — WivWav',
-  description: 'Check a VIN for NHTSA recall campaigns, complaint trends, and safety ratings.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'VinLookup' })
+  return { title: t('metaTitle'), description: t('metaDescription') }
 }
 
-export default function VinLookupPage() {
+export default async function VinLookupPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'VinLookup' })
+
   return (
     <main id="main-content" className={styles.page}>
       <Link href="/filters" className={styles.back}>
         <ChevronLeft size={16} aria-hidden />
-        Back to listings
+        {t('back')}
       </Link>
 
       <header className={styles.header}>
-        <p className={styles.eyebrow}>NHTSA Safety Lookup</p>
-        <h1 className={styles.title}>Check recalls, complaints, and crash ratings by VIN</h1>
-        <p className={styles.lede}>
-          Decode a vehicle identification number and see the safety data WivWav has collected for that vehicle model.
-        </p>
+        <p className={styles.eyebrow}>{t('eyebrow')}</p>
+        <h1 className={styles.title}>{t('title')}</h1>
+        <p className={styles.lede}>{t('lede')}</p>
         <VinSearchForm />
       </header>
 
       <section className={styles.section} aria-labelledby="vin-help-heading">
-        <h2 className={styles.sectionTitle} id="vin-help-heading">What you will see</h2>
+        <h2 className={styles.sectionTitle} id="vin-help-heading">{t('helpHeading')}</h2>
         <div className={styles.notice}>
-          <strong>Safety signals before you call the seller.</strong> Reports include NHTSA recall campaigns, complaint patterns by component, and safety ratings when they are available for the decoded year, make, and model.
+          <strong>{t('noticeStrong')}</strong> {t('notice')}
         </div>
       </section>
     </main>
