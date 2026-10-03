@@ -8,10 +8,12 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { DealerCard } from '@/components/listing/DealerCard'
 import { DealerReputation } from '@/components/listing/DealerReputation'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { PriceSparkline } from '@/components/listing/PriceSparkline'
+import { toIntlLocale } from '@/lib/intl'
 import { ReportListingForm } from './ReportListingForm'
 import {
   conditionLabel,
@@ -44,11 +46,14 @@ export function OverviewTab({
   dealerProfile = null,
   dealerReviews = [],
 }: OverviewTabProps) {
+  const t = useTranslations('OverviewTab')
+  const listingT = useTranslations('FiltersPage.listing')
+  const locale = useLocale()
   const ageTimestamp = listing.sourceListedAt ?? listing.listedAt
   const days = daysSince(ageTimestamp)
   const ageLabel = listing.sourceListedAt != null
-    ? days === 0 ? 'On source today' : `${days} day${days === 1 ? '' : 's'} on source`
-    : days === 0 ? 'Found today' : `Found ${days} day${days === 1 ? '' : 's'} ago`
+    ? days === 0 ? t('onSourceToday') : t('onSourceDays', { days })
+    : days === 0 ? t('foundToday') : t('foundDaysAgo', { days })
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
@@ -57,53 +62,67 @@ export function OverviewTab({
   const crossListings = listing.crossListings ?? []
 
   const verificationTimestamp = getVerificationTimestamp(listing.provenance)
-  const verificationDateLabel = formatVerificationDate(verificationTimestamp)
+  const verificationDateLabel = formatVerificationDate(verificationTimestamp, locale)
   const isStale = isVerificationStale(verificationTimestamp)
 
+  const commonT = useTranslations('Common')
+  const metaParts = [
+    ...(listing.sourceListedAt != null
+      ? [t('sourceListed', { date: formatDate(listing.sourceListedAt, locale) })]
+      : []),
+    ...(listing.sourceUpdatedAt != null
+      ? [t('sourceUpdated', { date: formatDate(listing.sourceUpdatedAt, locale) })]
+      : []),
+    t('firstSaw', { date: formatDate(listing.listedAt, locale) }),
+  ]
+
   const sourceLink = listing.buyerUrl ?? listing.sourceUrl
-  const sourceName = listing.provenance?.sourceName ?? 'source'
+  const sourceName = listing.provenance?.sourceName ?? t('sourceFallback')
 
   return (
     <div className={styles.tabContent}>
       {/* Verification banner */}
-      <div className={styles.verificationBanner} role="note" aria-label="Listing verification status">
+      <div className={styles.verificationBanner} role="note" aria-label={t('verificationLabel')}>
         {verificationDateLabel !== null ? (
           <>
-            <span>Last verified {verificationDateLabel}</span>
+            <span>{t('lastVerified', { date: verificationDateLabel })}</span>
             {isStale && (
               <span className={styles.verificationStaleWarning}>
                 <AlertTriangle size={12} aria-hidden />
-                {' '}This listing may no longer be available — verify with the dealer
+                {' '}{t('staleWarning')}
               </span>
             )}
           </>
         ) : (
           <span className={styles.verificationStaleWarning}>
             <AlertTriangle size={12} aria-hidden />
-            {' '}Verification date unavailable — confirm with the seller
+            {' '}{t('verificationUnavailable')}
           </span>
         )}
       </div>
 
       {listing.reportSummary?.flagged && (
-        <div className={styles.reportWarning} role="note" aria-label="Data accuracy warning">
+        <div className={styles.reportWarning} role="note" aria-label={t('reportWarningLabel')}>
           <AlertTriangle size={14} aria-hidden />
-          <span>Data accuracy flagged by users</span>
+          <span>{t('reportWarning')}</span>
         </div>
       )}
 
       {/* Price block */}
       <div className={styles.priceBlock}>
-        <div className={styles.price}>{formatPrice(listing.priceCents)}</div>
+        <div className={styles.price}>{formatPrice(listing.priceCents, locale, listingT('callForPrice'))}</div>
         {listing.priceCents !== null && (
           <div className={styles.priceMo}>
-            Est. ${estimateMonthly(listing.priceCents).toLocaleString()}/mo
+            {t('estMonthly', { amount: `$${estimateMonthly(listing.priceCents).toLocaleString(toIntlLocale(locale))}` })}
           </div>
         )}
         {priceDropAmount !== null && lastPoint ? (
           <div className={styles.priceDrop}>
             <TrendingDown size={12} aria-hidden />
-            Reduced ${(priceDropAmount / 100).toLocaleString()} on {formatDate(lastPoint.recordedAt)}
+            {t('reducedOn', {
+              amount: `$${(priceDropAmount / 100).toLocaleString(toIntlLocale(locale))}`,
+              date: formatDate(lastPoint.recordedAt, locale),
+            })}
             <PriceSparkline priceHistory={priceHistory} />
           </div>
         ) : (
@@ -117,7 +136,7 @@ export function OverviewTab({
 
       {/* Condition + days pills */}
       <div className={styles.pills}>
-        <span className={styles.conditionPill}>{conditionLabel(listing.condition)}</span>
+        <span className={styles.conditionPill}>{conditionLabel(listing.condition, listingT)}</span>
         <span className={styles.daysPill}>{ageLabel}</span>
       </div>
 
@@ -126,7 +145,7 @@ export function OverviewTab({
         {listing.mileage !== null && (
           <span className={styles.chip}>
             <Gauge size={11} aria-hidden />
-            {listing.mileage.toLocaleString()} mi
+            {t('miles', { miles: listing.mileage.toLocaleString(toIntlLocale(locale)) })}
           </span>
         )}
         {listing.engine && (
@@ -194,7 +213,7 @@ export function OverviewTab({
           className={styles.ctaPrimary}
         >
           <ExternalLink size={16} aria-hidden />
-          {listing.sellerType === 'private' ? 'Contact seller' : 'View seller listing'}
+          {listing.sellerType === 'private' ? t('contactSeller') : t('viewSellerListing')}
         </a>
       </div>
 
@@ -203,7 +222,7 @@ export function OverviewTab({
       {/* Seller description snippet — capped at 300 chars by the API; source link directs to full copy */}
       {listing.description && (
         <div className={styles.section}>
-          <h3 className={styles.sectionLabel}>From the listing</h3>
+          <h3 className={styles.sectionLabel}>{t('fromListing')}</h3>
           <p className={styles.descriptionSnippet}>{listing.description}</p>
           <a
             href={sourceLink}
@@ -212,15 +231,15 @@ export function OverviewTab({
             className={styles.descriptionSourceLink}
           >
             <ExternalLink size={11} aria-hidden />
-            View full listing on {sourceName}
-            <span className="sr-only"> (opens in new tab)</span>
+            {t('viewFullListing', { source: sourceName })}
+            <span className="sr-only"> {commonT('openInNewTab')}</span>
           </a>
         </div>
       )}
 
       {crossListings.length > 0 && (
         <section className={styles.section} aria-labelledby="also-available-at">
-          <h3 id="also-available-at" className={styles.sectionLabel}>Also available at</h3>
+          <h3 id="also-available-at" className={styles.sectionLabel}>{t('alsoAvailable')}</h3>
           <div className={styles.alternateDealers}>
             {crossListings.map((crossListing) => (
               <DealerCard
@@ -229,7 +248,7 @@ export function OverviewTab({
                 location={crossListing.location}
                 sellerType={crossListing.sellerType}
                 listingUrl={crossListing.buyerUrl ?? crossListing.sourceUrl}
-                priceLabel={formatPrice(crossListing.priceCents)}
+                priceLabel={formatPrice(crossListing.priceCents, locale, listingT('callForPrice'))}
               />
             ))}
           </div>
@@ -242,13 +261,7 @@ export function OverviewTab({
       </div>
 
       <p className={styles.footerMeta}>
-        {listing.sourceListedAt != null && (
-          <>Source listed {formatDate(listing.sourceListedAt)} · </>
-        )}
-        {listing.sourceUpdatedAt != null && (
-          <>Source updated {formatDate(listing.sourceUpdatedAt)} · </>
-        )}
-        First saw {formatDate(listing.listedAt)}
+        {metaParts.join(t('metaSeparator'))}
       </p>
     </div>
   )

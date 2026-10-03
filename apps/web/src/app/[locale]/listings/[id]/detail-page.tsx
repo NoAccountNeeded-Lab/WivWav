@@ -281,7 +281,7 @@ export async function generateMetadata({
     : ''
   return {
     title: `${title} — WivWav`,
-    description: `${formatPrice(listing.priceCents, locale)} · ${locationStr}Wheelchair accessible vehicle`,
+    description: `${formatPrice(listing.priceCents, locale, t('callForPrice'))} · ${locationStr}${t('wavDescription')}`,
   }
 }
 
@@ -294,6 +294,8 @@ export default async function VehicleDetailPage({
 }) {
   const { id } = await params
   const locale = await getLocale()
+  const t = await getTranslations('ListingDetail')
+  const listingT = await getTranslations('FiltersPage.listing')
   const listing = await getListing(id)
   if (!listing) notFound()
 
@@ -346,7 +348,7 @@ export default async function VehicleDetailPage({
   const tabs = [
     {
       id: 'wav',
-      label: 'WAV',
+      label: t('tabs.wav'),
       icon: <Accessibility size={14} aria-hidden />,
       content: (
         <WavTab
@@ -361,7 +363,7 @@ export default async function VehicleDetailPage({
     },
     {
       id: 'vehicle',
-      label: 'Vehicle',
+      label: t('tabs.vehicle'),
       icon: <Gauge size={14} aria-hidden />,
       content: (
         <VehicleTab
@@ -375,7 +377,7 @@ export default async function VehicleDetailPage({
     },
     {
       id: 'overview',
-      label: 'Overview',
+      label: t('tabs.overview'),
       icon: <Info size={14} aria-hidden />,
       content: (
         <OverviewTab
@@ -389,7 +391,7 @@ export default async function VehicleDetailPage({
     },
     {
       id: 'market',
-      label: 'Market',
+      label: t('tabs.market'),
       icon: <TrendingUp size={14} aria-hidden />,
       content: (
         <MarketTab
@@ -405,7 +407,10 @@ export default async function VehicleDetailPage({
     },
     {
       id: 'safety',
-      label: openRecallCount > 0 ? `Safety (${openRecallCount})` : 'Safety',
+      label:
+        openRecallCount > 0
+          ? t('tabs.safetyWithCount', { count: openRecallCount })
+          : t('tabs.safety'),
       icon: <ShieldCheck size={14} aria-hidden />,
       content: <SafetyTab listing={listing} safety={safety} apiBaseUrl={getPublicApiBaseUrl()} />,
     },
@@ -419,9 +424,9 @@ export default async function VehicleDetailPage({
         <div className={styles.headerText}>
           <h1 className={styles.headerTitle}>{vehicleTitle}</h1>
           <p className={styles.headerMeta}>
-            <span className={styles.headerPrice}>{formatPrice(listing.priceCents, locale)}</span>
+            <span className={styles.headerPrice}>{formatPrice(listing.priceCents, locale, t('callForPrice'))}</span>
             {listing.condition && (
-              <span className={styles.headerDot}>{conditionLabel(listing.condition)}</span>
+              <span className={styles.headerDot}>{conditionLabel(listing.condition, listingT)}</span>
             )}
             {location && <span className={styles.headerDot}>{location}</span>}
           </p>

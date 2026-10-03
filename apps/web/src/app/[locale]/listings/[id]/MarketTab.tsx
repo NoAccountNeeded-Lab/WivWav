@@ -1,4 +1,5 @@
 import type { VinHistoryEntry } from '@wivwav/types'
+import { useTranslations } from 'next-intl'
 import { MarketComparison } from '@/components/listing/MarketComparison'
 import { PriceHistoryChart } from '@/components/listing/PriceHistoryChart'
 import { SimilarListings } from '@/components/listing/SimilarListings'
@@ -27,6 +28,7 @@ export function MarketTab({
   modelMsrp,
   vehiclePathPrefix,
 }: MarketTabProps) {
+  const t = useTranslations('MarketTab')
   const hasMarket = marketPricing && marketPricing.count >= 3 && marketPricing.priceCents
   const hasVinHistory = hasMultiListingVinHistory(vinHistory)
 
@@ -36,14 +38,14 @@ export function MarketTab({
 
       {hasVinHistory && (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>VIN history across listings</div>
+          <div className={styles.sectionLabel}>{t('vinHistory')}</div>
           <VinHistoryTimeline history={vinHistory} currentListingId={listing.id} />
         </div>
       )}
 
       {priceHistory.length >= 2 && (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>Price history</div>
+          <div className={styles.sectionLabel}>{t('priceHistory')}</div>
           <PriceHistoryChart
             priceHistory={priceHistory}
             originalMsrpCents={modelMsrp?.originalMsrpCents}
@@ -53,7 +55,7 @@ export function MarketTab({
 
       {hasMarket ? (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>Price vs. market</div>
+          <div className={styles.sectionLabel}>{t('priceVsMarket')}</div>
           <MarketComparison
             priceCents={listing.priceCents}
             make={listing.make}
@@ -63,20 +65,20 @@ export function MarketTab({
           />
           {marketPricing.medianDaysListed != null && (
             <div className={styles.marketStat}>
-              <span className={styles.marketStatVal}>{marketPricing.medianDaysListed} days</span>
-              <span className={styles.marketStatLabel}>median source listing age</span>
+              <span className={styles.marketStatVal}>{t('days', { count: marketPricing.medianDaysListed })}</span>
+              <span className={styles.marketStatLabel}>{t('medianAge')}</span>
             </div>
           )}
         </div>
       ) : (
         <p className={styles.placeholder}>
-          Not enough comparable listings to show market data yet.
+          {t('notEnough')}
         </p>
       )}
 
       {similar.length > 0 && (
         <div className={styles.section}>
-          <div className={styles.sectionLabel}>Similar WAVs</div>
+          <div className={styles.sectionLabel}>{t('similar')}</div>
           <SimilarListings
             listings={similar}
             make={listing.make}

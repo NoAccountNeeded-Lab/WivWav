@@ -1,3 +1,5 @@
+import { useLocale, useTranslations } from 'next-intl'
+import { toIntlLocale } from '@/lib/intl'
 import { MileageGauge } from '@/components/listing/MileageGauge'
 import { deriveListingSpecs } from '@/components/listing/vehicleSpecs'
 import type { ListingDetail, ModelMsrp, ModelResearch, ModelResearchSource, VehicleStats } from './types'
@@ -13,24 +15,13 @@ interface VehicleTabProps {
 }
 
 /** Format cents as a currency string for MSRP display. */
-function formatMsrp(cents: number, currency: string): string {
+function formatMsrp(cents: number, currency: string, locale: string): string {
   const dollars = cents / 100
   try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(dollars)
+    return new Intl.NumberFormat(toIntlLocale(locale), { style: 'currency', currency, maximumFractionDigits: 0 }).format(dollars)
   } catch {
-    return `$${dollars.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    return `$${dollars.toLocaleString(toIntlLocale(locale), { maximumFractionDigits: 0 })}`
   }
-}
-
-/** Human-readable label for each research claim field. */
-const CLAIM_LABELS: Record<string, string> = {
-  fuelEconomyCity: 'Fuel economy (city)',
-  fuelEconomyHwy: 'Fuel economy (hwy)',
-  fuelEconomyCombined: 'Fuel economy (combined)',
-  engineDescription: 'Engine',
-  drivetrain: 'Drivetrain',
-  fuelType: 'Fuel type',
-  transmission: 'Transmission',
 }
 
 /** Fields shown in the model facts section (ordered). */
@@ -51,6 +42,9 @@ export function VehicleTab({
   modelMsrp,
   bodyType,
 }: VehicleTabProps) {
+  const t = useTranslations('VehicleTab')
+  const locale = useLocale()
+  const commonT = useTranslations('Common')
   // Build a map from sourceId → source for inline citation links
   const sourceMap = new Map<string, ModelResearchSource>(
     (modelResearch?.sources ?? []).map((s) => [s.id, s]),
@@ -63,15 +57,15 @@ export function VehicleTab({
   })
 
   const researchedFields = new Set(researchClaims.map((c) => c.field))
-  const listingSpecs = deriveListingSpecs(listing, bodyType, researchedFields)
-  const visibleStats = deriveVisibleVehicleStats(vehicleStats)
+  const listingSpecs = deriveListingSpecs(listing, bodyType, researchedFields, t)
+  const visibleStats = deriveVisibleVehicleStats(vehicleStats, t, locale)
   const showVehicleStats = deriveShowVehicleStats(vehicleStats)
 
   return (
     <div className={styles.tabContent}>
       {listing.mileage !== null && (
         <div className={styles.section}>
-          <h3 className={styles.sectionLabel}>Mileage &amp; lifespan</h3>
+          <h3 className={styles.sectionLabel}>{t('mileageLifespan')}</h3>
           <MileageGauge mileage={listing.mileage} make={listing.make} />
         </div>
       )}
@@ -79,13 +73,13 @@ export function VehicleTab({
       {/* Model facts — cited from EPA / NHTSA */}
       {researchClaims.length > 0 && (
         <div className={styles.section}>
-          <h3 className={styles.sectionLabel}>Base model facts</h3>
+          <h3 className={styles.sectionLabel}>{t('baseModelFacts')}</h3>
           <dl className={styles.specList}>
             {researchClaims.map((claim) => {
               const src = claim.sourceId ? sourceMap.get(claim.sourceId) : undefined
               return (
                 <div key={claim.id} className={styles.specRow}>
-                  <dt className={styles.specLabel}>{CLAIM_LABELS[claim.field] ?? claim.field}</dt>
+                  <dt className={styles.specLabel}>{t.has(`claims.${claim.field}`) ? t(`claims.${claim.field}`) : claim.field}</dt>
                   <dd className={styles.specValueCited}>
                     {claim.claimText}
                     {src && (
@@ -96,7 +90,7 @@ export function VehicleTab({
                         className={styles.citationLink}
                       >
                         {src.sourceName}
-                        <span className="sr-only"> (opens in new tab)</span>
+                        <span className="sr-only"> {commonT('openInNewTab')}</span>
                       </a>
                     )}
                   </dd>
@@ -109,7 +103,7 @@ export function VehicleTab({
 
       {showVehicleStats && vehicleStats && (
         <div className={styles.section}>
-          <h3 className={styles.sectionLabel}>Reliability &amp; lifespan sources</h3>
+          <h3 className={styles.sectionLabel}>{t('reliabilitySources')}</h3>
           {visibleStats.length > 0 && (
             <dl className={styles.specList}>
               {visibleStats.map((stat) => (
@@ -121,7 +115,7 @@ export function VehicleTab({
             <p className={styles.sourceMethodology}>{vehicleStats.methodology}</p>
           )}
           {vehicleStats.sources.length > 0 && (
-            <ul className={styles.sourceList} aria-label="Vehicle stats sources">
+            <ul className={styles.sourceList} aria-label={t('statsSources')}>
               {vehicleStats.sources.map((source) => (
                 <li key={source.url}>
                   <a
@@ -131,7 +125,7 @@ export function VehicleTab({
                     className={styles.citationLink}
                   >
                     {source.name}
-                    <span className="sr-only"> (opens in new tab)</span>
+                    <span className="sr-only"> {commonT('openInNewTab')}</span>
                   </a>
                 </li>
               ))}
@@ -143,12 +137,12 @@ export function VehicleTab({
       {/* Original MSRP — model-level, source-backed */}
       {modelMsrp?.originalMsrpCents != null && (
         <div className={styles.section}>
-          <h3 className={styles.sectionLabel}>Original MSRP</h3>
+          <h3 className={styles.sectionLabel}>{t('originalMsrp')}</h3>
           <dl className={styles.specList}>
             <div className={styles.specRow}>
-              <dt className={styles.specLabel}>Base MSRP</dt>
+              <dt className={styles.specLabel}>{t('baseMsrp')}</dt>
               <dd className={styles.specValueCited}>
-                {formatMsrp(modelMsrp.originalMsrpCents, modelMsrp.currency)}
+                {formatMsrp(modelMsrp.originalMsrpCents, modelMsrp.currency, locale)}
                 <a
                   href={modelMsrp.source.url}
                   target="_blank"
@@ -156,15 +150,15 @@ export function VehicleTab({
                   className={styles.citationLink}
                 >
                   {modelMsrp.source.name}
-                  <span className="sr-only"> (opens in new tab)</span>
+                  <span className="sr-only"> {commonT('openInNewTab')}</span>
                 </a>
               </dd>
             </div>
             {modelMsrp.destinationFeeCents != null && (
               <div className={styles.specRow}>
-                <dt className={styles.specLabel}>Destination fee</dt>
+                <dt className={styles.specLabel}>{t('destinationFee')}</dt>
                 <dd className={styles.specValue}>
-                  {formatMsrp(modelMsrp.destinationFeeCents, modelMsrp.currency)}
+                  {formatMsrp(modelMsrp.destinationFeeCents, modelMsrp.currency, locale)}
                 </dd>
               </div>
             )}
@@ -174,7 +168,7 @@ export function VehicleTab({
 
       {/* Specs table — listing-level data */}
       <div className={styles.section}>
-        <h3 className={styles.sectionLabel}>Listing specifications</h3>
+        <h3 className={styles.sectionLabel}>{t('listingSpecs')}</h3>
         <dl className={styles.specList}>
           {listingSpecs.map((spec) => (
             <SpecRow key={spec.label} label={spec.label} value={spec.value} mono={spec.mono === true} />

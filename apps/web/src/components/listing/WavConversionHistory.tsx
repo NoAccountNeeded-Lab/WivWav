@@ -1,4 +1,4 @@
-import { WAV_FEATURES } from '@wivwav/types'
+import { useLocale, useTranslations } from 'next-intl'
 import { formatDate } from '@/app/[locale]/listings/[id]/utils'
 import type { ConversionHistoryEntry } from '@/app/[locale]/listings/[id]/types'
 import styles from './WavConversionHistory.module.css'
@@ -18,16 +18,6 @@ interface ConversionChange {
   statusChange: { from: string; to: string } | null
   featuresAdded: string[]
   featuresRemoved: string[]
-}
-
-function conversionStatusLabel(status: string): string {
-  if (status === 'complete') return 'Complete'
-  if (status === 'proposed') return 'Proposed'
-  return 'Unknown'
-}
-
-function featureLabel(feature: string): string {
-  return (WAV_FEATURES as Record<string, string>)[feature] ?? feature
 }
 
 function sameFeatureSet(a: string[], b: string[]): boolean {
@@ -83,35 +73,46 @@ export function buildConversionChangelog(history: ConversionHistoryEntry[]): Con
 }
 
 export function WavConversionHistory({ history }: WavConversionHistoryProps) {
+  const t = useTranslations('WavConversionHistory')
+  const featureT = useTranslations('FiltersPage.listing')
+  const locale = useLocale()
   const changes = buildConversionChangelog(history)
 
   if (changes.length === 0) return null
 
+  const statusLabel = (status: string) =>
+    status === 'complete' || status === 'proposed' ? t(`status.${status}`) : t('status.unknown')
+  const featureLabel = (feature: string) =>
+    featureT.has(`wavFeature_${feature}`) ? featureT(`wavFeature_${feature}`) : feature
+  const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>
+
   return (
     <section className={styles.historySection} aria-labelledby="conversion-history-heading">
       <h2 id="conversion-history-heading" className={styles.sectionTitle}>
-        Conversion history
+        {t('title')}
       </h2>
       <ul className={styles.changeList}>
         {changes.map((change) => (
           <li key={change.id} className={styles.changeItem}>
-            <div className={styles.changeDate}>{formatDate(change.recordedAt)}</div>
+            <div className={styles.changeDate}>{formatDate(change.recordedAt, locale)}</div>
             <div className={styles.changeLines}>
               {change.statusChange && (
                 <div className={styles.changeLine}>
-                  Conversion status changed from{' '}
-                  <strong>{conversionStatusLabel(change.statusChange.from)}</strong> to{' '}
-                  <strong>{conversionStatusLabel(change.statusChange.to)}</strong>
+                  {t.rich('statusChanged', {
+                    from: statusLabel(change.statusChange.from),
+                    to: statusLabel(change.statusChange.to),
+                    strong,
+                  })}
                 </div>
               )}
               {change.featuresAdded.map((feature) => (
                 <div key={`added-${feature}`} className={styles.changeLine}>
-                  <strong>{featureLabel(feature)}</strong> added
+                  {t.rich('featureAdded', { feature: featureLabel(feature), strong })}
                 </div>
               ))}
               {change.featuresRemoved.map((feature) => (
                 <div key={`removed-${feature}`} className={styles.changeLine}>
-                  <strong>{featureLabel(feature)}</strong> removed
+                  {t.rich('featureRemoved', { feature: featureLabel(feature), strong })}
                 </div>
               ))}
             </div>

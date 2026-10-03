@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ModelResearch, ModelResearchClaim, VehicleStats } from './types.js'
+import { createTestTranslator } from '@/test-utils/intl'
 import { deriveShowVehicleStats, deriveVisibleVehicleStats } from './vehicleTabUtils.js'
 
 // ── Logic extracted from VehicleTab ──────────────────────────────────────────
@@ -202,19 +203,23 @@ describe('deriveShowListingTransmission', () => {
 
 // ── deriveVisibleVehicleStats ────────────────────────────────────────────────
 
+const t = createTestTranslator('VehicleTab', 'en')
+
 describe('deriveVisibleVehicleStats', () => {
   it('returns empty array when vehicleStats is null', () => {
-    expect(deriveVisibleVehicleStats(null)).toEqual([])
+    expect(deriveVisibleVehicleStats(null, t, 'en')).toEqual([])
   })
 
   it('does not invent score rows when all stats are null', () => {
-    expect(deriveVisibleVehicleStats(makeVehicleStats())).toEqual([])
+    expect(deriveVisibleVehicleStats(makeVehicleStats(), t, 'en')).toEqual([])
   })
 
   it('formats only source-provided stat values', () => {
     expect(
       deriveVisibleVehicleStats(
         makeVehicleStats({ avgLifespanMiles: 200000, reliabilityScore: null, jdPowerScore: 82 }),
+        t,
+        'en',
       ),
     ).toEqual([
       { label: 'Average lifespan', value: '200,000 miles' },
@@ -224,13 +229,25 @@ describe('deriveVisibleVehicleStats', () => {
 
   it('includes a Reliability score row when reliabilityScore is non-null', () => {
     expect(
-      deriveVisibleVehicleStats(makeVehicleStats({ reliabilityScore: 4.2 })),
+      deriveVisibleVehicleStats(makeVehicleStats({ reliabilityScore: 4.2 }), t, 'en'),
     ).toEqual([{ label: 'Reliability score', value: '4.2' }])
   })
 
   it('formats avgLifespanMiles with locale thousands separator', () => {
-    const result = deriveVisibleVehicleStats(makeVehicleStats({ avgLifespanMiles: 300000 }))
+    const result = deriveVisibleVehicleStats(makeVehicleStats({ avgLifespanMiles: 300000 }), t, 'en')
     expect(result).toEqual([{ label: 'Average lifespan', value: '300,000 miles' }])
+  })
+})
+
+describe('deriveVisibleVehicleStats (Spanish)', () => {
+  it('localizes labels and number formatting', () => {
+    expect(
+      deriveVisibleVehicleStats(
+        makeVehicleStats({ avgLifespanMiles: 300000 }),
+        createTestTranslator('VehicleTab', 'es'),
+        'es',
+      ),
+    ).toEqual([{ label: 'Vida útil promedio', value: '300,000 millas' }])
   })
 })
 

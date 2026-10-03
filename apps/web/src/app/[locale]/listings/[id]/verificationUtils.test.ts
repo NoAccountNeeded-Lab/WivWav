@@ -110,15 +110,24 @@ describe('isVerificationStale', () => {
 
 describe('formatVerificationDate', () => {
   it('returns null when timestamp is null', () => {
-    expect(formatVerificationDate(null)).toBeNull()
+    expect(formatVerificationDate(null, 'en')).toBeNull()
   })
 
   it('returns a human-readable date string for a valid ISO timestamp', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-18T13:30:00.000Z'))
 
-    const result = formatVerificationDate('2026-06-18T10:30:00.000Z')
+    const result = formatVerificationDate('2026-06-18T10:30:00.000Z', 'en')
     expect(result).toBe('3 hours ago')
+
+    vi.useRealTimers()
+  })
+
+  it('formats relative age in Spanish', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-18T13:30:00.000Z'))
+
+    expect(formatVerificationDate('2026-06-18T10:30:00.000Z', 'es')).toBe('hace 3 horas')
 
     vi.useRealTimers()
   })
@@ -127,7 +136,7 @@ describe('formatVerificationDate', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-16T12:00:00.000Z'))
 
-    const result = formatVerificationDate('2024-01-15T12:00:00.000Z')
+    const result = formatVerificationDate('2024-01-15T12:00:00.000Z', 'en')
     expect(result).not.toBeNull()
     expect((result as string).length).toBeGreaterThan(0)
 

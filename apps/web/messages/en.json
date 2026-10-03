@@ -241,7 +241,16 @@
         "label": "Market pricing",
         "text": "Reflects WivWav index data only and may not represent current market conditions."
       }
-    }
+    },
+    "tabs": {
+      "wav": "WAV",
+      "vehicle": "Vehicle",
+      "overview": "Overview",
+      "market": "Market",
+      "safety": "Safety",
+      "safetyWithCount": "Safety ({count})"
+    },
+    "wavDescription": "Wheelchair accessible vehicle"
   },
   "ErrorPage": {
     "heading": "An error occurred",
@@ -272,5 +281,177 @@
     "conversionStatus": "Conversion status",
     "complete": "Complete",
     "proposed": "Proposed"
+  },
+  "SafetyTab": {
+    "recallStatus": {
+      "open": "Remedy open — schedule service",
+      "remedied": "Fix procedure published",
+      "unknown": "Fix not yet available"
+    },
+    "openRecalls": "{count, plural, =1 {# open recall} other {# open recalls}}",
+    "noOpenRecalls": "No open recalls",
+    "noOpenRecallsRating": "No open recalls · {rating}/5 NHTSA rating",
+    "dataAsOf": "Safety data as of {date}",
+    "dataMayBeOutdated": "Data may be outdated",
+    "freshnessUnknown": "Safety data freshness unknown — verify with NHTSA",
+    "viewSafetyReport": "View safety report",
+    "recallsAndVinHistory": "Recalls & VIN history",
+    "openCount": "{count} open",
+    "nhtsaRatings": "NHTSA safety ratings",
+    "noRatings": "No NHTSA safety ratings available for this vehicle yet.",
+    "complaints": "NHTSA complaints",
+    "atMiles": "At {miles} miles",
+    "reported": "Reported {date}",
+    "crashInvolved": "Crash involved",
+    "noCrash": "No crash reported",
+    "complaintNumber": "NHTSA complaint #{id}",
+    "investigations": "NHTSA investigations",
+    "investigationTitle": "NHTSA #{id} · {component}",
+    "opened": "Opened {date}",
+    "open": "Open",
+    "closed": "Closed",
+    "outcome": "Outcome: {outcome}",
+    "nhtsaSource": "NHTSA source",
+    "bulletins": "Technical service bulletins",
+    "bulletinTitle": "TSB #{id} · {component}",
+    "issued": "Issued {date}"
+  },
+  "VehicleTab": {
+    "averageLifespan": "Average lifespan",
+    "lifespanMiles": "{miles} miles",
+    "reliabilityScore": "Reliability score",
+    "jdPowerScore": "J.D. Power score",
+    "mileageLifespan": "Mileage & lifespan",
+    "baseModelFacts": "Base model facts",
+    "reliabilitySources": "Reliability & lifespan sources",
+    "statsSources": "Vehicle stats sources",
+    "originalMsrp": "Original MSRP",
+    "baseMsrp": "Base MSRP",
+    "destinationFee": "Destination fee",
+    "listingSpecs": "Listing specifications",
+    "claims": {
+      "fuelEconomyCity": "Fuel economy (city)",
+      "fuelEconomyHwy": "Fuel economy (hwy)",
+      "fuelEconomyCombined": "Fuel economy (combined)",
+      "engineDescription": "Engine",
+      "drivetrain": "Drivetrain",
+      "fuelType": "Fuel type",
+      "transmission": "Transmission"
+    },
+    "specs": {
+      "bodyType": "Body type",
+      "engine": "Engine",
+      "transmission": "Transmission",
+      "fuelType": "Fuel type",
+      "exteriorColor": "Exterior color",
+      "condition": "Condition",
+      "vin": "VIN",
+      "stockNumber": "Seller stock number"
+    }
+  },
+  "OverviewTab": {
+    "verificationLabel": "Listing verification status",
+    "lastVerified": "Last verified {date}",
+    "staleWarning": "This listing may no longer be available — verify with the dealer",
+    "verificationUnavailable": "Verification date unavailable — confirm with the seller",
+    "reportWarningLabel": "Data accuracy warning",
+    "reportWarning": "Data accuracy flagged by users",
+    "estMonthly": "Est. {amount}/mo",
+    "reducedOn": "Reduced {amount} on {date}",
+    "onSourceToday": "On source today",
+    "onSourceDays": "{days, plural, =1 {# day} other {# days}} on source",
+    "foundToday": "Found today",
+    "foundDaysAgo": "Found {days, plural, =1 {# day} other {# days}} ago",
+    "miles": "{miles} mi",
+    "contactSeller": "Contact seller",
+    "viewSellerListing": "View seller listing",
+    "fromListing": "From the listing",
+    "viewFullListing": "View full listing on {source}",
+    "sourceFallback": "source",
+    "alsoAvailable": "Also available at",
+    "sourceListed": "Source listed {date}",
+    "sourceUpdated": "Source updated {date}",
+    "firstSaw": "First saw {date}",
+    "metaSeparator": " · "
+  },
+  "ReportListing": {
+    "label": "Report an issue",
+    "types": {
+      "specs_incorrect": "Specs incorrect",
+      "sold_or_stale": "Listing is sold or stale",
+      "duplicate": "Duplicate listing",
+      "other": "Other"
+    },
+    "availabilitySuccess": "Thanks. We flagged this listing for availability review.",
+    "availabilityError": "We could not flag availability. Try again in a moment.",
+    "chooseIssueError": "Choose what looks wrong before submitting.",
+    "success": "Thanks. We recorded this report for review.",
+    "error": "We could not submit the report. Try again in a moment.",
+    "checkingAvailability": "Checking availability...",
+    "stillAvailable": "Is this listing still available?",
+    "whatLooksWrong": "What looks wrong?",
+    "chooseIssue": "Choose an issue",
+    "notesOptional": "Notes, optional",
+    "submitting": "Submitting...",
+    "submit": "Submit report"
+  },
+  "MarketTab": {
+    "vinHistory": "VIN history across listings",
+    "priceHistory": "Price history",
+    "priceVsMarket": "Price vs. market",
+    "days": "{count, plural, =1 {# day} other {# days}}",
+    "medianAge": "median source listing age",
+    "notEnough": "Not enough comparable listings to show market data yet.",
+    "similar": "Similar WAVs"
+  },
+  "MarketComparison": {
+    "distributionLabel": "Price distribution for {make} {model} WAVs. Median price: {median}.",
+    "positionLabel": "This listing's price is {price}, positioned at {percent}% of the way from the 10th percentile ({p10}) to the 90th percentile ({p90}) among comparable listings.",
+    "pctBelow": "{percent}% below median",
+    "pctAbove": "{percent}% above median",
+    "comparable": "comparable {make} {model} WAVs list at {median} median ({count, plural, =1 {# listing} other {# listings}})",
+    "priceReduced": "Price reduced {amount} on {date}"
+  },
+  "SimilarListings": {
+    "daysOnSource": "{days}d on source",
+    "onSourceToday": "On source today",
+    "foundDaysAgo": "Found {days}d ago",
+    "foundToday": "Found today",
+    "miles": "{miles} mi",
+    "new": "New",
+    "seeAll": "See all similar {make} {model} listings →"
+  },
+  "RecallsList": {
+    "vin": "VIN",
+    "notAvailable": "Safety data not yet available for this vehicle. Check back after the next NHTSA sync.",
+    "noOpenRecalls": "No open recalls found for {year} {make} {model}",
+    "openRecalls": "{count, plural, =1 {# open recall} other {# open recalls}}",
+    "historical": "{count} historical",
+    "openGroup": "Open recalls",
+    "openListLabel": "Open recall campaigns",
+    "closedGroup": "Closed recalls",
+    "noActionNeeded": " — no action needed",
+    "closedListLabel": "Closed recall campaigns",
+    "noRecords": "No recall records found for this vehicle model.",
+    "campaign": "NHTSA #{id}",
+    "issued": "Issued {date}",
+    "remedy": "Remedy: {remedy}"
+  },
+  "PriceSparkline": {
+    "steady": "holding steady at {price}",
+    "down": "down to {price} from {from}",
+    "up": "up to {price} from {from}",
+    "label": "Price trend across {count} recorded points, {trend}"
+  },
+  "WavConversionHistory": {
+    "title": "Conversion history",
+    "status": {
+      "complete": "Complete",
+      "proposed": "Proposed",
+      "unknown": "Unknown"
+    },
+    "statusChanged": "Conversion status changed from <strong>{from}</strong> to <strong>{to}</strong>",
+    "featureAdded": "<strong>{feature}</strong> added",
+    "featureRemoved": "<strong>{feature}</strong> removed"
   }
 }

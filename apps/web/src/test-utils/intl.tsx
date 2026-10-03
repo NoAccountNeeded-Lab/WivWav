@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react'
 import { render, type RenderResult } from '@testing-library/react'
-import { NextIntlClientProvider } from 'next-intl'
+import { NextIntlClientProvider, createTranslator } from 'next-intl'
+import type { Translate } from '@/lib/intl'
 import { getMessagesForLocale } from '../../messages'
 
 export type TestLocale = 'en' | 'es'
@@ -25,4 +26,13 @@ export function renderWithIntl(ui: ReactElement, locale: TestLocale = 'en'): Ren
   return render(ui, {
     wrapper: ({ children }) => <IntlTestProvider locale={locale}>{children}</IntlTestProvider>,
   })
+}
+
+/** A translator for `namespace` backed by the real catalog, for testing pure helpers. */
+export function createTestTranslator(namespace: string, locale: TestLocale = 'en'): Translate {
+  return createTranslator({
+    locale,
+    messages: getMessagesForLocale(locale),
+    namespace,
+  }) as unknown as Translate
 }

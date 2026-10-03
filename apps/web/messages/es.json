@@ -245,7 +245,16 @@
         "label": "Precios del mercado",
         "text": "Refleja únicamente los datos del índice de WivWav y puede no representar las condiciones actuales del mercado."
       }
-    }
+    },
+    "tabs": {
+      "wav": "WAV",
+      "vehicle": "Vehículo",
+      "overview": "Resumen",
+      "market": "Mercado",
+      "safety": "Seguridad",
+      "safetyWithCount": "Seguridad ({count})"
+    },
+    "wavDescription": "Vehículo accesible para silla de ruedas"
   },
   "ErrorPage": {
     "heading": "Se produjo un error",
@@ -276,5 +285,177 @@
     "conversionStatus": "Estado de la conversión",
     "complete": "Completa",
     "proposed": "Propuesta"
+  },
+  "SafetyTab": {
+    "recallStatus": {
+      "open": "Reparación abierta: programe el servicio",
+      "remedied": "Procedimiento de reparación publicado",
+      "unknown": "Reparación aún no disponible"
+    },
+    "openRecalls": "{count, plural, =1 {# retiro abierto} other {# retiros abiertos}}",
+    "noOpenRecalls": "Sin retiros abiertos",
+    "noOpenRecallsRating": "Sin retiros abiertos · calificación NHTSA {rating}/5",
+    "dataAsOf": "Datos de seguridad al {date}",
+    "dataMayBeOutdated": "Es posible que los datos estén desactualizados",
+    "freshnessUnknown": "Se desconoce la actualidad de los datos de seguridad; verifique con la NHTSA",
+    "viewSafetyReport": "Ver informe de seguridad",
+    "recallsAndVinHistory": "Retiros e historial del VIN",
+    "openCount": "{count} abiertos",
+    "nhtsaRatings": "Calificaciones de seguridad de la NHTSA",
+    "noRatings": "Aún no hay calificaciones de seguridad de la NHTSA para este vehículo.",
+    "complaints": "Quejas ante la NHTSA",
+    "atMiles": "A {miles} millas",
+    "reported": "Reportada el {date}",
+    "crashInvolved": "Con accidente",
+    "noCrash": "Sin accidente reportado",
+    "complaintNumber": "Queja NHTSA n.º {id}",
+    "investigations": "Investigaciones de la NHTSA",
+    "investigationTitle": "NHTSA n.º {id} · {component}",
+    "opened": "Abierta el {date}",
+    "open": "Abierta",
+    "closed": "Cerrada",
+    "outcome": "Resultado: {outcome}",
+    "nhtsaSource": "Fuente NHTSA",
+    "bulletins": "Boletines de servicio técnico",
+    "bulletinTitle": "TSB n.º {id} · {component}",
+    "issued": "Emitido el {date}"
+  },
+  "VehicleTab": {
+    "averageLifespan": "Vida útil promedio",
+    "lifespanMiles": "{miles} millas",
+    "reliabilityScore": "Puntuación de confiabilidad",
+    "jdPowerScore": "Puntuación de J.D. Power",
+    "mileageLifespan": "Kilometraje y vida útil",
+    "baseModelFacts": "Datos del modelo base",
+    "reliabilitySources": "Fuentes de confiabilidad y vida útil",
+    "statsSources": "Fuentes de estadísticas del vehículo",
+    "originalMsrp": "PSF original",
+    "baseMsrp": "PSF base",
+    "destinationFee": "Cargo de entrega",
+    "listingSpecs": "Especificaciones del anuncio",
+    "claims": {
+      "fuelEconomyCity": "Rendimiento de combustible (ciudad)",
+      "fuelEconomyHwy": "Rendimiento de combustible (carretera)",
+      "fuelEconomyCombined": "Rendimiento de combustible (combinado)",
+      "engineDescription": "Motor",
+      "drivetrain": "Tracción",
+      "fuelType": "Tipo de combustible",
+      "transmission": "Transmisión"
+    },
+    "specs": {
+      "bodyType": "Tipo de carrocería",
+      "engine": "Motor",
+      "transmission": "Transmisión",
+      "fuelType": "Tipo de combustible",
+      "exteriorColor": "Color exterior",
+      "condition": "Condición",
+      "vin": "VIN",
+      "stockNumber": "Número de inventario del vendedor"
+    }
+  },
+  "OverviewTab": {
+    "verificationLabel": "Estado de verificación del anuncio",
+    "lastVerified": "Última verificación {date}",
+    "staleWarning": "Es posible que este anuncio ya no esté disponible; verifique con el distribuidor",
+    "verificationUnavailable": "Fecha de verificación no disponible; confirme con el vendedor",
+    "reportWarningLabel": "Advertencia sobre la exactitud de los datos",
+    "reportWarning": "Los usuarios señalaron problemas de exactitud en los datos",
+    "estMonthly": "Est. {amount}/mes",
+    "reducedOn": "Rebajado {amount} el {date}",
+    "onSourceToday": "En la fuente desde hoy",
+    "onSourceDays": "{days, plural, =1 {# día} other {# días}} en la fuente",
+    "foundToday": "Encontrado hoy",
+    "foundDaysAgo": "Encontrado hace {days, plural, =1 {# día} other {# días}}",
+    "miles": "{miles} mi",
+    "contactSeller": "Contactar al vendedor",
+    "viewSellerListing": "Ver el anuncio del vendedor",
+    "fromListing": "Del anuncio",
+    "viewFullListing": "Ver el anuncio completo en {source}",
+    "sourceFallback": "la fuente",
+    "alsoAvailable": "También disponible en",
+    "sourceListed": "Publicado en la fuente el {date}",
+    "sourceUpdated": "Actualizado en la fuente el {date}",
+    "firstSaw": "Visto por primera vez el {date}",
+    "metaSeparator": " · "
+  },
+  "ReportListing": {
+    "label": "Reportar un problema",
+    "types": {
+      "specs_incorrect": "Especificaciones incorrectas",
+      "sold_or_stale": "El anuncio está vendido o desactualizado",
+      "duplicate": "Anuncio duplicado",
+      "other": "Otro"
+    },
+    "availabilitySuccess": "Gracias. Marcamos este anuncio para revisar su disponibilidad.",
+    "availabilityError": "No pudimos marcar la disponibilidad. Inténtelo de nuevo en un momento.",
+    "chooseIssueError": "Elija qué parece estar mal antes de enviar.",
+    "success": "Gracias. Registramos este reporte para su revisión.",
+    "error": "No pudimos enviar el reporte. Inténtelo de nuevo en un momento.",
+    "checkingAvailability": "Comprobando disponibilidad...",
+    "stillAvailable": "¿Sigue disponible este anuncio?",
+    "whatLooksWrong": "¿Qué parece estar mal?",
+    "chooseIssue": "Elija un problema",
+    "notesOptional": "Notas, opcional",
+    "submitting": "Enviando...",
+    "submit": "Enviar reporte"
+  },
+  "MarketTab": {
+    "vinHistory": "Historial del VIN en distintos anuncios",
+    "priceHistory": "Historial de precios",
+    "priceVsMarket": "Precio frente al mercado",
+    "days": "{count, plural, =1 {# día} other {# días}}",
+    "medianAge": "antigüedad mediana del anuncio en la fuente",
+    "notEnough": "Todavía no hay suficientes anuncios comparables para mostrar datos del mercado.",
+    "similar": "WAV similares"
+  },
+  "MarketComparison": {
+    "distributionLabel": "Distribución de precios de {make} {model} WAV. Precio mediano: {median}.",
+    "positionLabel": "El precio de este anuncio es {price}, ubicado al {percent}% del camino entre el percentil 10 ({p10}) y el percentil 90 ({p90}) de los anuncios comparables.",
+    "pctBelow": "{percent}% por debajo de la mediana",
+    "pctAbove": "{percent}% por encima de la mediana",
+    "comparable": "los {make} {model} WAV comparables se anuncian a una mediana de {median} ({count, plural, =1 {# anuncio} other {# anuncios}})",
+    "priceReduced": "Precio rebajado {amount} el {date}"
+  },
+  "SimilarListings": {
+    "daysOnSource": "{days} d en la fuente",
+    "onSourceToday": "En la fuente desde hoy",
+    "foundDaysAgo": "Encontrado hace {days} d",
+    "foundToday": "Encontrado hoy",
+    "miles": "{miles} mi",
+    "new": "Nuevo",
+    "seeAll": "Ver todos los anuncios similares de {make} {model} →"
+  },
+  "RecallsList": {
+    "vin": "VIN",
+    "notAvailable": "Los datos de seguridad de este vehículo aún no están disponibles. Vuelva a consultar después de la próxima sincronización con la NHTSA.",
+    "noOpenRecalls": "No se encontraron retiros abiertos para {year} {make} {model}",
+    "openRecalls": "{count, plural, =1 {# retiro abierto} other {# retiros abiertos}}",
+    "historical": "{count} históricos",
+    "openGroup": "Retiros abiertos",
+    "openListLabel": "Campañas de retiro abiertas",
+    "closedGroup": "Retiros cerrados",
+    "noActionNeeded": " — no requiere acción",
+    "closedListLabel": "Campañas de retiro cerradas",
+    "noRecords": "No se encontraron registros de retiros para este modelo de vehículo.",
+    "campaign": "NHTSA n.º {id}",
+    "issued": "Emitido el {date}",
+    "remedy": "Reparación: {remedy}"
+  },
+  "PriceSparkline": {
+    "steady": "se mantiene estable en {price}",
+    "down": "bajó a {price} desde {from}",
+    "up": "subió a {price} desde {from}",
+    "label": "Tendencia de precio en {count} puntos registrados, {trend}"
+  },
+  "WavConversionHistory": {
+    "title": "Historial de la conversión",
+    "status": {
+      "complete": "Completa",
+      "proposed": "Propuesta",
+      "unknown": "Desconocido"
+    },
+    "statusChanged": "El estado de la conversión cambió de <strong>{from}</strong> a <strong>{to}</strong>",
+    "featureAdded": "Se agregó <strong>{feature}</strong>",
+    "featureRemoved": "Se quitó <strong>{feature}</strong>"
   }
 }

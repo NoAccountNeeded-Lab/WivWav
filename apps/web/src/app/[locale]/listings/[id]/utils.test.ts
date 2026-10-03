@@ -11,11 +11,16 @@ import {
   getExpectedLifespan,
   rampLabel,
 } from './utils'
+import { createTestTranslator } from '@/test-utils/intl'
+
+const t = createTestTranslator('FiltersPage.listing', 'en')
+const tEs = createTestTranslator('FiltersPage.listing', 'es')
 
 describe('formatPrice', () => {
   it('formats cents as dollars and handles null', () => {
-    expect(formatPrice(2_599_900)).toBe('$25,999')
-    expect(formatPrice(null)).toBe('Call for price')
+    expect(formatPrice(2_599_900, 'en', 'Call for price')).toBe('$25,999')
+    expect(formatPrice(null, 'en', 'Call for price')).toBe('Call for price')
+    expect(formatPrice(null, 'es', 'Llame para conocer el precio')).toBe('Llame para conocer el precio')
   })
 })
 
@@ -25,17 +30,18 @@ describe('formatEnum / labels', () => {
   })
 
   it('maps known conditions and falls back to formatEnum', () => {
-    expect(conditionLabel('certified_pre_owned')).toBe('CPO')
-    expect(conditionLabel('used')).toBe('Used')
-    expect(conditionLabel('new')).toBe('New')
-    expect(conditionLabel('salvage_title')).toBe('Salvage Title')
+    expect(conditionLabel('certified_pre_owned', t)).toBe('CPO')
+    expect(conditionLabel('used', t)).toBe('Used')
+    expect(conditionLabel('new', t)).toBe('New')
+    expect(conditionLabel('new', tEs)).toBe('Nuevo')
+    expect(conditionLabel('salvage_title', t)).toBe('Salvage Title')
   })
 
   it('maps known ramp types and falls back to formatEnum', () => {
-    expect(rampLabel('in_floor')).toBe('In-floor ramp')
-    expect(rampLabel('fold_out')).toBe('Fold-out ramp')
-    expect(rampLabel('fold_in')).toBe('Fold-in ramp')
-    expect(rampLabel('power_lift')).toBe('Power Lift')
+    expect(rampLabel('in_floor', t)).toBe('In-floor ramp')
+    expect(rampLabel('fold_out', t)).toBe('Fold-out ramp')
+    expect(rampLabel('fold_in', t)).toBe('Fold-in ramp')
+    expect(rampLabel('power_lift', t)).toBe('Power Lift')
   })
 })
 
@@ -82,6 +88,7 @@ describe('abbreviate / formatK / formatDate', () => {
   })
 
   it('formats dates for the locale', () => {
-    expect(formatDate('2026-03-14T12:00:00Z')).toBe('Mar 14, 2026')
+    expect(formatDate('2026-03-14T12:00:00Z', 'en')).toBe('Mar 14, 2026')
+    expect(formatDate('2026-03-14T12:00:00Z', 'es')).toBe('14 mar 2026')
   })
 })

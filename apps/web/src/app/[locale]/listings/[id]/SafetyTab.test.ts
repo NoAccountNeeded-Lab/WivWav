@@ -9,6 +9,9 @@ import {
   recallStatusLabel,
   safetyStatusSummary,
 } from './safetyTabUtils.js'
+import { createTestTranslator } from '@/test-utils/intl'
+
+const t = createTestTranslator('SafetyTab', 'en')
 
 // ── isSafetyDataStale ─────────────────────────────────────────────────────────
 
@@ -51,11 +54,11 @@ describe('isSafetyDataStale', () => {
 
 describe('formatFreshnessDate', () => {
   it('returns null when freshnessDate is null', () => {
-    expect(formatFreshnessDate(null)).toBeNull()
+    expect(formatFreshnessDate(null, 'en')).toBeNull()
   })
 
   it('returns a human-readable date string for a valid ISO date', () => {
-    const result = formatFreshnessDate('2026-05-01T00:00:00.000Z')
+    const result = formatFreshnessDate('2026-05-01T00:00:00.000Z', 'en')
     // Should contain year, month name, and day
     expect(result).toMatch(/2026/)
     expect(result).toMatch(/May|April/) // timezone-dependent, both acceptable
@@ -63,7 +66,7 @@ describe('formatFreshnessDate', () => {
   })
 
   it('returns a non-empty string for any valid date', () => {
-    const result = formatFreshnessDate('2024-01-15T12:00:00.000Z')
+    const result = formatFreshnessDate('2024-01-15T12:00:00.000Z', 'en')
     expect(result).not.toBeNull()
     expect((result as string).length).toBeGreaterThan(0)
   })
@@ -73,15 +76,15 @@ describe('formatFreshnessDate', () => {
 
 describe('recallStatusLabel', () => {
   it('returns open remedy label for open status', () => {
-    expect(recallStatusLabel('open')).toBe('Remedy open — schedule service')
+    expect(recallStatusLabel('open', t)).toBe('Remedy open — schedule service')
   })
 
   it('returns remedied label for remedied status', () => {
-    expect(recallStatusLabel('remedied')).toBe('Fix procedure published')
+    expect(recallStatusLabel('remedied', t)).toBe('Fix procedure published')
   })
 
   it('returns status unknown label when status is unknown', () => {
-    expect(recallStatusLabel('unknown')).toBe('Fix not yet available')
+    expect(recallStatusLabel('unknown', t)).toBe('Fix not yet available')
   })
 })
 
@@ -89,28 +92,45 @@ describe('recallStatusLabel', () => {
 
 describe('safetyStatusSummary', () => {
   it('prioritizes an open recall over rating, even when the rating is good', () => {
-    expect(safetyStatusSummary(2, 5)).toEqual({ level: 'alert', label: '2 open recalls' })
+    expect(safetyStatusSummary(2, 5, t)).toEqual({ level: 'alert', label: '2 open recalls' })
   })
 
   it('uses singular wording for exactly one open recall', () => {
-    expect(safetyStatusSummary(1, null)).toEqual({ level: 'alert', label: '1 open recall' })
+    expect(safetyStatusSummary(1, null, t)).toEqual({ level: 'alert', label: '1 open recall' })
   })
 
   it('flags a low rating as caution when there are no open recalls', () => {
-    expect(safetyStatusSummary(0, 2)).toEqual({
+    expect(safetyStatusSummary(0, 2, t)).toEqual({
       level: 'caution',
       label: 'No open recalls · 2/5 NHTSA rating',
     })
   })
 
   it('reports good status with the rating when no open recalls and a solid rating', () => {
-    expect(safetyStatusSummary(0, 4)).toEqual({
+    expect(safetyStatusSummary(0, 4, t)).toEqual({
       level: 'good',
       label: 'No open recalls · 4/5 NHTSA rating',
     })
   })
 
   it('reports good status without a rating clause when no rating is available', () => {
-    expect(safetyStatusSummary(0, null)).toEqual({ level: 'good', label: 'No open recalls' })
+    expect(safetyStatusSummary(0, null, t)).toEqual({ level: 'good', label: 'No open recalls' })
+  })
+})
+
+describe('localized safety helpers (Spanish)', () => {
+  const es = createTestTranslator('SafetyTab', 'es')
+
+  it('translates recall status labels', () => {
+    expect(recallStatusLabel('remedied', es)).toBe('Procedimiento de reparación publicado')
+  })
+
+  it('pluralizes the open recall summary in Spanish', () => {
+    expect(safetyStatusSummary(2, 5, es)).toEqual({ level: 'alert', label: '2 retiros abiertos' })
+    expect(safetyStatusSummary(1, null, es)).toEqual({ level: 'alert', label: '1 retiro abierto' })
+  })
+
+  it('formats the freshness date with the Spanish month name', () => {
+    expect(formatFreshnessDate('2026-05-01T12:00:00.000Z', 'es')).toContain('mayo')
   })
 })

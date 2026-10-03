@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { createTestTranslator } from '@/test-utils/intl'
 import { deriveListingSpecs } from './vehicleSpecs.js'
+
+const t = createTestTranslator('VehicleTab', 'en')
 
 const listing = {
   engine: '3.5L V6',
@@ -13,7 +16,7 @@ const listing = {
 
 describe('deriveListingSpecs', () => {
   it('includes populated listing and model fields', () => {
-    expect(deriveListingSpecs(listing, 'Minivan', new Set())).toEqual([
+    expect(deriveListingSpecs(listing, 'Minivan', new Set(), t)).toEqual([
       { label: 'Body type', value: 'Minivan' },
       { label: 'Engine', value: '3.5L V6' },
       { label: 'Transmission', value: 'Automatic' },
@@ -30,6 +33,7 @@ describe('deriveListingSpecs', () => {
       listing,
       null,
       new Set(['engineDescription', 'transmission', 'fuelType']),
+      t,
     )
 
     expect(result.map((spec) => spec.label)).not.toContain('Engine')
@@ -50,8 +54,24 @@ describe('deriveListingSpecs', () => {
       },
       null,
       new Set(),
+      t,
     )
 
     expect(result).toEqual([{ label: 'Condition', value: 'used' }])
+  })
+
+  it('localizes row labels in Spanish', () => {
+    const result = deriveListingSpecs(listing, 'Minivan', new Set(), createTestTranslator('VehicleTab', 'es'))
+
+    expect(result.map((spec) => spec.label)).toEqual([
+      'Tipo de carrocería',
+      'Motor',
+      'Transmisión',
+      'Tipo de combustible',
+      'Color exterior',
+      'Condición',
+      'VIN',
+      'Número de inventario del vendedor',
+    ])
   })
 })
