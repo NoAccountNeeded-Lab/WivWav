@@ -52,16 +52,17 @@ interface TooltipProps {
   active?: boolean
   payload?: Array<{ payload: BucketDatum }>
   formatListingCount: (count: number) => string
+  formatRange: (lo: number, hi: number) => string
 }
 
-function MileageTooltip({ active, payload, formatListingCount }: TooltipProps) {
+function MileageTooltip({ active, payload, formatListingCount, formatRange }: TooltipProps) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   if (!d) return null
   return (
     <div className={styles.tooltip}>
       <span className={styles.tooltipRange}>
-        {fmtMiles(d.lo)}k–{fmtMiles(d.hi)}k mi
+        {formatRange(d.lo, d.hi)}
       </span>
       <span className={styles.tooltipCount}>{formatListingCount(d.count)}</span>
     </div>
@@ -183,7 +184,15 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
 
   const formatListingCount = useCallback((count: number) => t('listingCount', { count }), [t])
 
-  const highLabel = displayMax >= rangeMax ? `${fmtMiles(rangeMax)}k+ mi` : `${fmtMiles(displayMax)}k mi`
+  const formatRange = useCallback(
+    (lo: number, hi: number) => t('mileage.range', { lo: fmtMiles(lo), hi: fmtMiles(hi) }),
+    [t],
+  )
+
+  const highLabel =
+    displayMax >= rangeMax
+      ? t('mileage.highPlus', { value: fmtMiles(rangeMax) })
+      : t('mileage.high', { value: fmtMiles(displayMax) })
 
   if (!data.length) return null
 
@@ -196,7 +205,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
       <div className={styles.chartWrapper} role="img" aria-label={ariaLabel}>
         <ResponsiveContainer width="100%" height={80}>
           <BarChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap="10%">
-            <Tooltip content={<MileageTooltip formatListingCount={formatListingCount} />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
+            <Tooltip content={<MileageTooltip formatListingCount={formatListingCount} formatRange={formatRange} />} cursor={{ fill: 'var(--clr-border)', opacity: 0.5 }} />
             <Bar
               dataKey="count"
               radius={[2, 2, 0, 0]}
@@ -228,7 +237,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
       </div>
 
       <div className={styles.sliderLabels}>
-        <span className={styles.sliderLow}>0 mi</span>
+        <span className={styles.sliderLow}>{t('mileage.zero')}</span>
         {matchingCount !== null && (
           <span className={styles.sliderCount}>
             {t('listingCount', { count: matchingCount })}

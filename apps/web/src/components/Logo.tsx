@@ -6,9 +6,10 @@ interface LogoProps {
 
 export function Logo({ className }: LogoProps) {
   return (
+    /* eslint-disable i18next/no-literal-string -- WivWav brand wordmark; not translated */
     <span className={`${styles.logo}${className ? ` ${className}` : ''}`}>
-      {/* eslint-disable-next-line i18next/no-literal-string -- WivWav brand wordmark; not translated */}
       Wiv<span className={styles.accent}>Wav</span>
     </span>
+    /* eslint-enable i18next/no-literal-string */
   )
 }

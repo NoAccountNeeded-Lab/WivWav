@@ -200,7 +200,11 @@
       "maxLabel": "Millaje máximo",
       "ariaUnfiltered": "Histograma de distribución de millaje que muestra recuentos de anuncios por tramo de 10,000 millas, sin filtro de millaje activo",
       "ariaFiltered": "Histograma de distribución de millaje que muestra recuentos de anuncios por tramo de 10,000 millas, filtrado hasta {max} millas o menos",
-      "withoutMileage": "+ {count, number} sin millaje publicado"
+      "withoutMileage": "+ {count, number} sin millaje publicado",
+      "range": "{lo}k–{hi}k mi",
+      "zero": "0 mi",
+      "highPlus": "{value}k+ mi",
+      "high": "{value}k mi"
     }
   },
   "ListingDetail": {
@@ -562,5 +566,34 @@
     "confirmWithSeller": ". Confirme con el vendedor antes de comprar.",
     "entryTypeSide": "Entrada lateral",
     "entryTypeRear": "Entrada trasera"
+  },
+  "PhotoGallery": {
+    "noPhoto": "No hay fotos disponibles",
+    "galleryLabel": "Fotos de {alt}",
+    "filterGroup": "Filtrar fotos por categoría",
+    "all": "Todas",
+    "showing": "Mostrando {count} de {total} fotos",
+    "expand": "Ampliar la galería de fotos",
+    "previous": "Foto anterior",
+    "next": "Foto siguiente",
+    "navigation": "Navegación de fotos",
+    "photoOf": "Foto {index} de {count}",
+    "expandedLabel": "Fotos ampliadas de {alt}",
+    "closeExpanded": "Cerrar la galería de fotos ampliada",
+    "expandedNavigation": "Navegación de fotos ampliadas"
+  },
+  "PhotoEvidence": {
+    "categoryRamp": "Rampa",
+    "altInFloor": "Rampa para silla de ruedas en el piso",
+    "altFoldOut": "Rampa desplegable para silla de ruedas",
+    "altFoldIn": "Rampa plegable hacia adentro para silla de ruedas"
+  },
+  "StateHeatMap": {
+    "mapLabel": "Mapa de Estados Unidos sombreado según el número de anuncios coincidentes por estado",
+    "listingCount": "{count, plural, =1 {# anuncio} other {# anuncios}}",
+    "selected": ", seleccionado",
+    "hint": "Pase el cursor o seleccione un estado para ver el número de anuncios",
+    "fewer": "Menos",
+    "more": "Más"
   }
 }

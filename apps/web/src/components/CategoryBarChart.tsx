@@ -326,7 +326,7 @@ export function CategoryBarChart({
 
   const showFeatures = !limitGroups || limitGroups.includes('features')
 
-  const r = (id: string): CategoricalRendererType => renderers[id] ?? 'bars'
+  const rendererFor = (id: string): CategoricalRendererType => renderers[id] ?? 'bars'
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -355,7 +355,7 @@ export function CategoryBarChart({
               labelId={`cat-bar-${groups[0].id}`}
               items={groups[0].items}
               onToggle={(v) => toggleArray(groups[0]!.param, v)}
-              renderer={r(groups[0].id)}
+              renderer={rendererFor(groups[0].id)}
             />
           )}
           <YearHistogram />
@@ -366,7 +366,7 @@ export function CategoryBarChart({
               labelId={`cat-bar-${groups[1].id}`}
               items={groups[1].items}
               onToggle={(v) => toggleArray(groups[1]!.param, v)}
-              renderer={r(groups[1].id)}
+              renderer={rendererFor(groups[1].id)}
             />
           )}
           <MileageHistogram />
@@ -377,7 +377,7 @@ export function CategoryBarChart({
               labelId={`cat-bar-${g.id}`}
               items={g.items}
               onToggle={(v) => toggleArray(g.param, v)}
-              renderer={r(g.id)}
+              renderer={rendererFor(g.id)}
             />
           ))}
         </>
@@ -389,7 +389,7 @@ export function CategoryBarChart({
             labelId={`cat-bar-${g.id}`}
             items={g.items}
             onToggle={(v) => toggleArray(g.param, v)}
-            renderer={r(g.id)}
+            renderer={rendererFor(g.id)}
           />
         ))
       )}
@@ -400,7 +400,7 @@ export function CategoryBarChart({
           labelId="cat-bar-features"
           items={featureItems}
           onToggle={handleFeatureToggle}
-          renderer={r('features')}
+          renderer={rendererFor('features')}
         />
       )}
     </div>
