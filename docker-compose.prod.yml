@@ -1,18 +1,18 @@
-# Production deployment definition — digest-pinned.
+# Production deployment TEMPLATE — digest-pinned once rendered.
 #
-# Every wivwav-owned image below is referenced by immutable digest, never by a
-# mutable tag (`:latest` or `:<sha>`). The digests here are exactly the ones
-# the CI test jobs ran against: `.github/workflows/ci.yml`'s `publish` job
-# builds each final image once, runs the full test suite against that build,
-# and only on a fully green run does it push the resulting digests to GHCR
-# and rewrite this file (commit message `chore(deploy): pin published image
-# digests ...`). Never hand-edit the digests below — let CI own them.
+# The all-zero digests below are placeholders: protected main cannot take a CI
+# push, so this file is NOT deployable as committed. The `publish` job in
+# .github/workflows/ci.yml pushes each tested image to GHCR by immutable digest,
+# renders a copy of this file with those digests (scripts/release-manifest.sh),
+# verifies it, and persists it as the `docker-compose.release.yml` asset of the
+# `deploy-<commit-sha>` GitHub Release (and a workflow artifact). Deploy that
+# file, never this one. Never hand-edit the digests below.
 #
 # See docs/ops/deployment.md for migration-before-rollout ordering and
-# rollback compatibility expectations before applying an update with this file.
+# rollback compatibility expectations before applying an update.
 #
-# Usage:
-#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+# Usage (release manifest, not this template):
+#   docker compose -f docker-compose.release.yml --env-file .env.production up -d
 #
 name: wivwav
 
