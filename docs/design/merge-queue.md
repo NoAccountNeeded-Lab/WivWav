@@ -66,6 +66,16 @@ When GitHub adds a PR to the queue it creates a temporary
 required jobs (`docker`, `lint-typecheck`, `test`) run exactly as they do on a
 normal PR — no merge-queue-specific job logic was needed.
 
+### Keeping the queue fast
+
+A lone PR merges right after the last required check finishes, so the
+`Docker builds` check is the critical path. The `docker/build-push-action`
+steps in `ci.yml` skip `cache-to` on `merge_group` runs (#1052): a
+`gh-readonly-queue/*` ref's Actions cache is not readable by other refs, and
+exporting it was about half of the web image build time. `cache-from` is kept
+everywhere, and `pull_request` and `push` to `main` still export, so
+`main` keeps the shared cache that queue runs read.
+
 ## New merge path
 
 `gh pr merge --rebase` alone fails on a ruleset-protected branch: GitHub
