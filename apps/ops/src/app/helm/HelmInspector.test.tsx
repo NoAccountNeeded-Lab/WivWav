@@ -148,7 +148,9 @@ describe('inspector content', () => {
   it('explains when a selected source is not in the source list', async () => {
     setUrl('source=ghost')
     renderHelm()
-    expect(await screen.findByText(/Source ghost is not in the loaded source list/)).toBeTruthy()
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findAllByText(/Source ghost is not in the loaded source list/)).toHaveLength(4)
+    expect(within(dialog).getByRole('button', { name: 'Run source now' }).getAttribute('aria-disabled')).toBe('true')
   })
 })
 

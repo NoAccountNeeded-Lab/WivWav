@@ -7,6 +7,7 @@ import { logKey } from '../helm-url'
 import type { HelmLogEntry } from '../use-source-evidence'
 import { SourceEvidenceGroups } from './EvidenceGroups'
 import { Facts, InspectorSection, TechnicalDetails } from './InspectorSections'
+import { SourceActions } from './SourceActions'
 import { useSourceScope } from './SourceEvidenceScope'
 import styles from './helm-inspector.module.css'
 
@@ -66,6 +67,7 @@ export function LogView() {
         )}
         <SourceEvidenceGroups />
       </InspectorSection>
+      <InspectorSection title="Actions"><SourceActions sourceId={entry.sourceId} /></InspectorSection>
     </>
   )
 }

@@ -8,6 +8,8 @@ import { Notice } from '../primitives'
 import { SeverityMark } from '../severity'
 import { isAcknowledged } from '../../ops/problem-presentation'
 import { Facts, InspectorSection, TechnicalDetails } from './InspectorSections'
+import { ProblemActions } from './ProblemActions'
+import { SourceActions } from './SourceActions'
 import styles from './helm-inspector.module.css'
 
 export function problemTitle(fingerprint: string, brief: ReturnType<typeof briefProblem> | null): string {
@@ -71,6 +73,12 @@ export function ProblemView() {
         <TechnicalDetails>
           <pre className={styles.pre}>{JSON.stringify(problem, null, 2)}</pre>
         </TechnicalDetails>
+      </InspectorSection>
+      <InspectorSection title="Actions">
+        <ProblemActions problem={problem} />
+        {brief.scope.kind === 'source'
+          ? <SourceActions sourceId={brief.scope.sourceId} />
+          : <p className={styles.reason}>This problem is global, so there is no source to run. Use the related ops page above to act on it.</p>}
       </InspectorSection>
     </>
   )

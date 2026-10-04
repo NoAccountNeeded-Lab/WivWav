@@ -6,6 +6,7 @@ import { useHelm } from '../helm-context'
 import { Notice } from '../primitives'
 import { SourceEvidenceGroups } from './EvidenceGroups'
 import { Facts, InspectorSection } from './InspectorSections'
+import { SourceActions } from './SourceActions'
 import { useSelectedProblem } from './ProblemView'
 import type { SourceRow } from '../../ops/overview-helpers'
 import styles from './helm-inspector.module.css'
@@ -66,6 +67,9 @@ export function SourceView() {
       <InspectorSection title="Evidence">
         <SourceEvidenceGroups />
         <p className={styles.reason}><Link href={`/ops/sources/${encodeURIComponent(sourceId)}`}>Open the legacy source pipeline page</Link></p>
+      </InspectorSection>
+      <InspectorSection title="Actions">
+        <SourceActions sourceId={sourceId} />
       </InspectorSection>
     </>
   )

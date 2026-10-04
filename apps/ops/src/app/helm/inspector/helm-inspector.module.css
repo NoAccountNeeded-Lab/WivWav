@@ -94,7 +94,7 @@
 
 .iconButton:hover,
 .crumbButton:hover,
-.actionButton:hover:not(:disabled) {
+.actionButton:hover:not([aria-disabled="true"]) {
   background: color-mix(in srgb, var(--clr-primary) 10%, transparent);
 }
 
@@ -108,19 +108,19 @@
   outline-offset: 2px;
 }
 
-.actionButton:disabled {
+.actionButton[aria-disabled="true"] {
   cursor: not-allowed;
   color: var(--clr-text-muted);
   border-style: dashed;
 }
 
-.actionButton[data-variant="primary"]:not(:disabled) {
+.actionButton[data-variant="primary"]:not([aria-disabled="true"]) {
   background: var(--clr-primary);
   border-color: var(--clr-primary);
   color: var(--clr-bg);
 }
 
-.actionButton[data-variant="danger"]:not(:disabled) {
+.actionButton[data-variant="danger"]:not([aria-disabled="true"]) {
   border-color: var(--clr-danger);
   color: var(--clr-danger-text);
 }

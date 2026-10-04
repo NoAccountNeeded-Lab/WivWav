@@ -7,6 +7,7 @@ import { parseRunRef } from '../helm-url'
 import { findParentNode, findRunNode } from './EvidenceLists'
 import { SourceEvidenceGroups } from './EvidenceGroups'
 import { Facts, InspectorSection, TechnicalDetails } from './InspectorSections'
+import { SourceActions } from './SourceActions'
 import { useSourceScope } from './SourceEvidenceScope'
 import { formatRunCount, jobRunStatusLabel } from '../../ops/sources/[id]/source-job-run-helpers'
 import type { RunRow } from '../../ops/overview-helpers'
@@ -80,6 +81,7 @@ export function RunView() {
           </p>
         </InspectorSection>
         <InspectorSection title="Evidence"><SourceEvidenceGroups /></InspectorSection>
+        <InspectorSection title="Actions"><SourceActions sourceId={run.sourceId} /></InspectorSection>
       </>
     )
   }
@@ -111,6 +113,7 @@ export function RunView() {
         <SourceEvidenceGroups />
         <TechnicalDetails><pre className={styles.pre}>{JSON.stringify({ ...node, children: node.children.map(child => child.id) }, null, 2)}</pre></TechnicalDetails>
       </InspectorSection>
+      <InspectorSection title="Actions"><SourceActions sourceId={node.sourceId} /></InspectorSection>
     </>
   )
 }

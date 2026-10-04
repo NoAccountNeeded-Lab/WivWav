@@ -2,6 +2,7 @@ import type { HelmCountReading, HelmSummary } from '@wivwav/types'
 import { OpsStatusChip } from '@/components/OpsStatusChip'
 import type { Freshness } from './helm-freshness'
 import { FreshnessChip, Notice, Timestamp } from './primitives'
+import { SearchRebuildPanel } from './SearchRebuildPanel'
 import styles from './helm-sections.module.css'
 
 interface InventorySectionProps {
@@ -77,6 +78,7 @@ export function InventorySection({ summary, freshness, error }: InventorySection
           </ul>
         </>
       )}
+      <SearchRebuildPanel />
     </>
   )
 }
