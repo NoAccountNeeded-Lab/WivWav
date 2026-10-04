@@ -29,6 +29,17 @@ manual full sync only when the containment runbook allows publication.
 
 `/ops/sources` → "Run Now" next to the source. Progress appears on `/ops/runs` and in the queue activity panel on `/ops/queues`.
 
+## Investigate and recover a failing source in Helm
+
+`/helm` (alongside legacy `/ops`) shows live inventory, pipeline flow, problems and activity, and refreshes every 15 seconds while the tab is visible.
+
+1. **Problems** → **Inspect** a problem. The inspector shows What happened, Impact, Evidence and Actions; the URL is shareable and keeps the problem → source → run → log path.
+2. In the source's Actions: **Run source now**, **Run detail crawl** or **Run detail extraction** (each targets only that source; a disabled control states why). **Rebuild search index…** in Inventory is global and asks for confirmation.
+3. Each action shows its queue job id and a queued/running/completed/failed/unavailable outcome. **Completed does not mean recovered**: Helm reports recovery only when fresh evidence collected after the job finished confirms it (a successful run, a clean source and no reported problem with the domain signals available), and says "Recovery unconfirmed" when the evidence or its signals are unavailable.
+4. **Acknowledge** marks a problem reviewed. It does not repair anything and the problem stays listed.
+
+Inventory counts are listing rows or search documents, never unique vehicles, and are four separate readings (not an atomic snapshot). A failed reading is shown as unavailable, never zero.
+
 ## Inspect a job or retry a failure
 
 `/ops/queues` → click a queue name to expand live job activity. For full payloads and stack traces, use the **Bull Board** link (top-right of the Queues page).
