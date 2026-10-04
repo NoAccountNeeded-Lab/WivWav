@@ -3,6 +3,7 @@
 import { HelmHeader } from './HelmHeader'
 import { HelmNav } from './HelmNav'
 import { HelmOverview } from './HelmOverview'
+import { InspectorHost } from './inspector/InspectorHost'
 import { HelmProvider } from './helm-context'
 import { useActionTracker } from './use-action-tracker'
 import { useHelmData } from './use-helm-data'
@@ -21,15 +22,15 @@ export function HelmWorkspace({ apiBaseUrl, environment }: HelmWorkspaceProps) {
 
   return (
     <HelmProvider value={{ apiBaseUrl, data, nav, tracker }}>
-      <div className={styles.page}>
-        <HelmHeader environment={environment} />
-        <HelmNav />
-        <div className={styles.workspace}>
+      <InspectorHost
+        header={<HelmHeader environment={environment} />}
+        nav={<HelmNav />}
+        main={(
           <main id="main-content" className={styles.main}>
             <HelmOverview />
           </main>
-        </div>
-      </div>
+        )}
+      />
     </HelmProvider>
   )
 }

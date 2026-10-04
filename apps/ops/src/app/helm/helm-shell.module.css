@@ -1,11 +1,22 @@
 /* /helm page frame: header, section navigation, workspace split. */
 
 .page {
+  background: var(--clr-bg);
+  color: var(--clr-text);
+}
+
+.pageBody {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 100dvh;
-  background: var(--clr-bg);
-  color: var(--clr-text);
+}
+
+/* Wide screens: the inspector panel scrolls independently of the overview. */
+@media (min-width: 80rem) {
+  .pageBody {
+    height: 100dvh;
+    min-height: 0;
+  }
 }
 
 .header {
