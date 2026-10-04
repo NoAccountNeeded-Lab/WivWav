@@ -79,8 +79,9 @@ The coordinator's gateway processor then writes `requiresBrowser: true` and a
 (`JobContext.updateData`) and requeues via `RetryJobSignal` (no attempt
 consumed). Keeping the requirement in the job payload, rather than an
 in-memory pin, means it survives a coordinator restart, is tied to the job's
-stable id by construction, and is deleted with the job on completion,
-failure or cancellation, so there is no separate pin state to clean up. The
+stable id by construction, and is discarded when the job is removed or
+trimmed by the queue's retention policy, so there is no separate pin state to
+clean up (the dispatcher keeps nothing after a dispatch settles). The
 redispatch reuses the same correlation id with a fresh `dispatchId`, so a
 late report from the original worker is rejected as stale (as is any report
 from a worker that disconnected, whose in-flight dispatches are failed
@@ -92,6 +93,16 @@ explicit error); an escalated job with no Chromium-capable worker keeps
 requeueing only up to `ESCALATION_WAIT_LIMIT_MS` (60 minutes), logging each
 wait, then fails. After escalation, a block on the Chromium worker still ends
 in the explicit `BlvdBlockedError`.
+
+Caveats: the wait limit is measured from the first escalation, so any
+requeue (including a source-concurrency-lock wait or a Chromium worker
+disconnecting) past the limit fails the job; the 15s `RetryJobSignal` delay
+rate-limits the whole `SOURCE_SCRAPE` consumer, so a long wait for a browser
+worker briefly delays other sources' dispatch too. A failed job retried
+manually from Bull Board keeps its payload and so counts as already
+escalated (fail-closed: it cannot escalate again and its wait bound is
+already spent) — re-enqueue a fresh job instead. Each handoff leaves one
+`failed` `ScraperRun` row whose message starts with `Escalated to`.
 
 ## Capability matching
 

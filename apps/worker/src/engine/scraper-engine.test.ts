@@ -68,6 +68,17 @@ describe('ScraperEngine capability escalation (#1043)', () => {
     },
   )
 
+  it('still escalates when run bookkeeping itself fails', async () => {
+    const signal = new EscalateCapabilitySignal('chromium', 'blocked')
+    const { engine, runs } = buildEngine({
+      scrape: vi.fn(async () => {
+        throw signal
+      }),
+    })
+    runs.fail.mockRejectedValueOnce(new Error('gateway down'))
+    await expect(engine.runSource('src-1')).rejects.toBe(signal)
+  })
+
   it('still marks the source errored for an ordinary scrape failure', async () => {
     const { engine, sources } = buildEngine({
       scrape: vi.fn(async () => {

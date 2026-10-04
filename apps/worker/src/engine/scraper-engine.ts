@@ -285,14 +285,23 @@ export class ScraperEngine {
         // source, markActive/markChecked, mark listings gone, or upsert
         // anything — nothing has been committed at this point, and the retry on
         // the capable worker redoes the whole crawl under the same queue job.
-        await report(context, `[source-scrape] ${adapter.name} needs ${err.capability}; handing job to a capable worker: ${err.reason}`, {
-          stage: 'blocked',
-          reason: 'capability_escalation',
-          capability: err.capability,
-          current: 0,
-          total: 0,
-        })
-        await this.runs.fail(run.id, `Escalated to ${err.capability}-capable worker: ${err.reason}`)
+        // Bookkeeping is best-effort: a gateway hiccup here must never replace
+        // the escalation with an ordinary error (which would retry without it).
+        try {
+          await report(context, `[source-scrape] ${adapter.name} needs ${err.capability}; handing job to a capable worker: ${err.reason}`, {
+            stage: 'blocked',
+            reason: 'capability_escalation',
+            capability: err.capability,
+            current: 0,
+            total: 0,
+          })
+          await this.runs.fail(run.id, `Escalated to ${err.capability}-capable worker: ${err.reason}`)
+        } catch (bookkeepingErr) {
+          context?.logger?.warn(
+            { err: bookkeepingErr },
+            '[source-scrape] failed to record capability escalation; escalating anyway',
+          )
+        }
         throw err
       }
       const message = err instanceof Error ? err.message : String(err)

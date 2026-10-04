@@ -103,6 +103,28 @@ describe('BullMQQueueFactory – job lifecycle logging', () => {
     await factory.close()
   })
 
+  it('updateData merges the patch into the persisted job payload (#1043)', async () => {
+    const factory = new BullMQQueueFactory(TEST_CONNECTION)
+    let ctxUpdate: ((patch: Record<string, unknown>) => Promise<void>) | undefined
+    factory.createWorker('test-queue', async (_data, ctx) => {
+      ctxUpdate = ctx.updateData
+    })
+    const job = { ...makeFakeJob({ sourceId: 's', requiresBrowser: false }), updateData: vi.fn(async () => {}) }
+    await capturedProcessor!(job)
+    await ctxUpdate!({ requiresBrowser: true, capabilityEscalation: { capability: 'chromium' } })
+    expect(job.updateData).toHaveBeenCalledWith({
+      sourceId: 's',
+      requiresBrowser: true,
+      capabilityEscalation: { capability: 'chromium' },
+    })
+
+    const bare = { ...makeFakeJob(null), updateData: vi.fn(async () => {}) }
+    await capturedProcessor!(bare)
+    await ctxUpdate!({ a: 1 })
+    expect(bare.updateData).toHaveBeenCalledWith({ a: 1 })
+    await factory.close()
+  })
+
   it('logs "job completed" at info level with durationMs on success', async () => {
     const { logger, calls } = makeLogger()
     const factory = new BullMQQueueFactory(TEST_CONNECTION)
