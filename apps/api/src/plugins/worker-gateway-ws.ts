@@ -184,6 +184,7 @@ export async function workerGatewayRoutes(
       body.success,
       body.errorMessage,
       body.result,
+      body.escalation,
     )
     return reply.send({ data: { acknowledged: known } })
   })

@@ -1,6 +1,10 @@
 import { RetryJobSignal } from '@wivwav/queue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WorkerDispatcher, NO_WORKER_RETRY_DELAY_MS } from './dispatcher.js'
+import {
+  WorkerDispatcher,
+  NO_WORKER_RETRY_DELAY_MS,
+  CapabilityEscalationError,
+} from './dispatcher.js'
 import { WorkerRegistry, type RegisteredWorker } from './registry.js'
 
 function connectWorker(
@@ -347,5 +351,75 @@ describe('WorkerDispatcher timeout', () => {
     await vi.advanceTimersByTimeAsync(5000)
     await settled
     expect(worker.inFlight.size).toBe(0)
+  })
+})
+
+describe('WorkerDispatcher capability escalation (#1043)', () => {
+  const escalation = { capability: 'chromium' as const, reason: 'blocked over http' }
+
+  it('rejects the pending dispatch with CapabilityEscalationError and frees the source lock', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry, {
+      capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 2 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const pending = dispatcher.dispatch('source-scrape', '1', {}, { chromium: false, sourceId: 'blvd' })
+    const assertion = expect(pending).rejects.toBeInstanceOf(CapabilityEscalationError)
+    await Promise.resolve()
+
+    const known = dispatcher.complete(
+      'source-scrape:1', dispatchIdFrom(worker), false, 'x', undefined, escalation,
+    )
+    expect(known).toBe(true)
+    await assertion
+    await expect(pending).rejects.toMatchObject({ escalation })
+    expect(worker.inFlight.size).toBe(0)
+    // Lock released: the source can be dispatched again immediately.
+    expect(registry.tryAcquireSourceLock('blvd', 'other')).toBe(true)
+  })
+
+  it('is not a RetryJobSignal and not a plain failure', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry)
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const pending = dispatcher.dispatch('source-scrape', '1', {}, { chromium: false })
+    const caught = pending.catch((e: unknown) => e)
+    await Promise.resolve()
+    dispatcher.complete('source-scrape:1', dispatchIdFrom(worker), false, undefined, undefined, escalation)
+    const err = await caught
+    expect(err).not.toBeInstanceOf(RetryJobSignal)
+    expect((err as Error).name).toBe('CapabilityEscalationError')
+  })
+
+  it('ignores an escalation from a stale dispatchId (superseded attempt)', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry)
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const pending = dispatcher.dispatch('source-scrape', '1', {}, { chromium: false })
+    await Promise.resolve()
+    const known = dispatcher.complete(
+      'source-scrape:1', 'stale-dispatch-id', false, undefined, undefined, escalation,
+    )
+    expect(known).toBe(false)
+    // Current attempt unaffected and still completable.
+    dispatcher.complete('source-scrape:1', dispatchIdFrom(worker), true)
+    await expect(pending).resolves.toBeUndefined()
+  })
+
+  it('rejects an escalation reported after the worker disconnected', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry)
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const pending = dispatcher.dispatch('source-scrape', '1', {}, { chromium: false })
+    const caught = pending.catch((e: unknown) => e)
+    await Promise.resolve()
+    const dispatchId = dispatchIdFrom(worker)
+    registry.unregister('conn-1')
+    dispatcher.failConnection('conn-1', 'worker disconnected')
+    expect(await caught).toBeInstanceOf(RetryJobSignal)
+
+    expect(
+      dispatcher.complete('source-scrape:1', dispatchId, false, undefined, undefined, escalation),
+    ).toBe(false)
   })
 })
