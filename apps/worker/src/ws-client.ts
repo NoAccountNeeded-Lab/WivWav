@@ -258,7 +258,12 @@ export class WsClient {
             dispatchId,
             success: false,
             errorMessage: err.message,
-            escalation: { capability: err.capability, reason: err.reason },
+            // The coordinator schema requires a non-empty reason; an empty one
+            // would 400 and leave the dispatch hanging until its timeout.
+            escalation: {
+              capability: err.capability,
+              reason: err.reason.length > 0 ? err.reason : 'unspecified',
+            },
           })
         }
         const errorMessage = err instanceof Error ? err.message : String(err)

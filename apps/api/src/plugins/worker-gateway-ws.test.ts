@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import websocketPlugin from '@fastify/websocket'
 import { describe, expect, it, vi } from 'vitest'
+import { ZodError } from 'zod'
 import { adminAuthPlugin } from './admin-auth.js'
 import { workerGatewayRoutes } from './worker-gateway-ws.js'
 import { WorkerRegistry } from '../worker-gateway/registry.js'
@@ -218,6 +219,51 @@ describe('POST /jobs/complete', () => {
       capability: 'chromium',
       reason: 'blocked over http',
     })
+    await app.close()
+  })
+
+  it('rejects a malformed escalation (success: true plus escalation) with a 400 error envelope', async () => {
+    const { app, dispatcher, ready } = buildTestApp(INTERNAL_API_SECRET)
+    // Mirrors the ZodError branch of the real error handler in app.ts (not
+    // installed by this plugin-level harness); the route under test is what
+    // must reject the body by throwing the ZodError.
+    app.setErrorHandler((error: Error, _request, reply) => {
+      if (error instanceof ZodError) {
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_REQUEST',
+            message: error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        })
+      }
+      return reply.code(500).send({ error: { code: 'INTERNAL', message: error.message } })
+    })
+    await ready
+    const completeSpy = vi.spyOn(dispatcher, 'complete')
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/jobs/complete',
+      headers: {
+        authorization: `Bearer ${INTERNAL_API_SECRET}`,
+        'content-type': 'application/json',
+      },
+      payload: {
+        correlationId: 'q:1',
+        dispatchId: 'd1',
+        success: true,
+        escalation: { capability: 'chromium', reason: 'blocked over http' },
+      },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: expect.stringContaining('escalation: escalation requires success to be false'),
+      },
+    })
+    expect(completeSpy).not.toHaveBeenCalled()
     await app.close()
   })
 

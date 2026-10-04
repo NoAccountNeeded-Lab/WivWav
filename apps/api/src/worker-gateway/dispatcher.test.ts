@@ -216,6 +216,41 @@ describe('WorkerDispatcher.dispatch', () => {
     await expect(promise).rejects.toThrow('worker disconnected')
   })
 
+  it('failConnection() leaves no pending timers once the in-flight dispatch is failed', async () => {
+    vi.useFakeTimers()
+    try {
+      const registry = new WorkerRegistry()
+      connectWorker(registry)
+      const dispatcher = new WorkerDispatcher(registry, 1000)
+      const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+      const settled = promise.catch((e: unknown) => e)
+      await Promise.resolve()
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+      dispatcher.failConnection('conn-1', 'worker disconnected')
+      expect(await settled).toBeInstanceOf(RetryJobSignal)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('failConnection() after the registry already unregistered the connection still clears timers', async () => {
+    vi.useFakeTimers()
+    try {
+      const registry = new WorkerRegistry()
+      connectWorker(registry)
+      const dispatcher = new WorkerDispatcher(registry, 1000)
+      const settled = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true }).catch((e: unknown) => e)
+      await Promise.resolve()
+      registry.unregister('conn-1')
+      dispatcher.failConnection('conn-1', 'worker disconnected')
+      expect(await settled).toBeInstanceOf(RetryJobSignal)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('failConnection() only affects dispatches on the given connection, not other workers', async () => {
     const registry = new WorkerRegistry()
     connectWorker(registry, { connectionId: 'conn-1' })

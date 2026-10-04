@@ -165,6 +165,55 @@ describe('WsClient', () => {
     client.stop()
   })
 
+  it('substitutes a non-empty reason when the escalation signal carries an empty one', async () => {
+    const { client, handlers, gateway } = buildClient()
+    handlers.register('source-scrape', async () => {
+      throw new EscalateCapabilitySignal('chromium', '')
+    })
+    client.start()
+    const socket = FakeSocket.instances[0]!
+    socket.openNow()
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'source-scrape:8',
+      dispatchId: 'd8',
+      queueName: 'source-scrape',
+      payload: { sourceId: 's1' },
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(gateway.completeJob).toHaveBeenCalledWith(
+      expect.objectContaining({ escalation: { capability: 'chromium', reason: 'unspecified' } }),
+    )
+    client.stop()
+  })
+
+  it('logs job.complete-report-failed and keeps running when the escalation report itself rejects', async () => {
+    const logger = createNoopLogger()
+    const errorSpy = vi.spyOn(logger, 'error')
+    const { client, handlers, gateway } = buildClient({ logger })
+    gateway.completeJob.mockRejectedValueOnce(new Error('coordinator unreachable'))
+    handlers.register('source-scrape', async () => {
+      throw new EscalateCapabilitySignal('chromium', 'blocked over http')
+    })
+    client.start()
+    const socket = FakeSocket.instances[0]!
+    socket.openNow()
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'source-scrape:9',
+      dispatchId: 'd9',
+      queueName: 'source-scrape',
+      payload: { sourceId: 's1' },
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'job.complete-report-failed', correlationId: 'source-scrape:9' }),
+      expect.any(String),
+    )
+    expect(gateway.completeJob).toHaveBeenCalledTimes(1)
+    client.stop()
+  })
+
   it('refuses a dispatch for an unknown queue', () => {
     const { client } = buildClient()
     client.start()

@@ -347,6 +347,70 @@ describe('SOURCE_SCRAPE capability escalation (#1043)', () => {
     expect(updateData).not.toHaveBeenCalled()
   })
 
+  it('persists the requirement before throwing the requeue signal', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValueOnce(new CapabilityEscalationError(escalation))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    const order: string[] = []
+    const updateData = vi.fn(async () => {
+      await Promise.resolve()
+      order.push('updateData-resolved')
+    })
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'blvd', requiresBrowser: false }, fakeContext({ updateData }))
+      .catch((e: unknown) => {
+        order.push('threw')
+        return e
+      })
+    expect(err).toBeInstanceOf(RetryJobSignal)
+    expect(order).toEqual(['updateData-resolved', 'threw'])
+  })
+
+  it('uses the short escalation requeue delay (1s), distinct from the 15s no-worker delay', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValueOnce(new CapabilityEscalationError(escalation))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!(
+        { sourceId: 'blvd', requiresBrowser: false },
+        fakeContext({ updateData: async () => {} }),
+      )
+      .catch((e: unknown) => e)
+    expect((err as RetryJobSignal).delayMs).toBe(1_000)
+  })
+
+  it.each([
+    ['missing at', { capability: 'chromium', reason: 'blocked' }],
+    ['non-numeric at', { capability: 'chromium', reason: 'blocked', at: 'yesterday' }],
+  ])('a corrupt escalation record (%s) fails closed on the next no-worker requeue', async (_name, record) => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValue(new RetryJobSignal(15_000, 'no eligible worker connected'))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch), undefined, {
+      now: () => ESCALATION_WAIT_LIMIT_MS + 1,
+    })
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'blvd', capabilityEscalation: record }, fakeContext())
+      .catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(RetryJobSignal)
+    expect((err as Error).message).toContain('none completed it')
+  })
+
+  it.each([QUEUES.DETAIL_CRAWL, QUEUES.DETAIL_EXTRACT])(
+    '%s never escalates: a reported escalation surfaces as a plain error without persisting or requeueing',
+    async (queue) => {
+      const { factory, processors } = createFakeQueueFactory()
+      const dispatch = vi.fn().mockRejectedValue(new CapabilityEscalationError(escalation))
+      registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+      const updateData = vi.fn(async () => {})
+      const err = await processors
+        .get(queue)!({ sourceId: 's' }, fakeContext({ updateData }))
+        .catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(CapabilityEscalationError)
+      expect(err).not.toBeInstanceOf(RetryJobSignal)
+      expect(updateData).not.toHaveBeenCalled()
+    },
+  )
+
   it('fails when the backend cannot persist the requirement rather than looping', async () => {
     const { factory, processors } = createFakeQueueFactory()
     const dispatch = vi.fn().mockRejectedValue(new CapabilityEscalationError(escalation))
