@@ -44,6 +44,7 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 | POST   | /webhooks/stripe                | Stripe tier-upgrade webhook. Verifies `Stripe-Signature` (HMAC-SHA256, 5-minute replay tolerance) against `STRIPE_WEBHOOK_SECRET`; `503` if that secret isn't configured, `400` on a missing/invalid signature. On `checkout.session.completed`/`customer.subscription.updated`, updates every active key for the matching owner email (`metadata.ownerEmail`, falling back to `customer_details.email`/`customer_email`) to the event's `metadata.tier` (default `PRO`). Not an API-key or bearer-secret route — authenticates via the signed payload only. Returns `204`. |
 | GET    | /admin/queues                  | All queue names with stats           |
 | GET    | /admin/queues/:name            | Single queue stats + recent jobs     |
+| GET    | /admin/workers                 | Read-only snapshot of connected remote workers (#1038): `{ data: [{ workerId, workerName, capabilities: { chromium, httpEnrich, maxConcurrentJobs }, inFlightCount, lastHeartbeatAt }] }`. Empty list when none are connected or the worker gateway is disabled. `lastHeartbeatAt` is when the coordinator last received the worker's own `heartbeat` message — not a liveness guarantee; connection eviction is driven by WS ping/pong. |
 | POST   | /admin/queues/:name/jobs       | Enqueue a job                        |
 | POST   | /admin/queues/:name/pause      | Pause a queue                        |
 | POST   | /admin/queues/:name/resume     | Resume a queue                       |
