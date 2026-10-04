@@ -66,4 +66,87 @@ describe('usePolledResource', () => {
 
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
+
+  describe('guarded polling options', () => {
+    function setVisibility(state: 'visible' | 'hidden') {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+
+    afterEach(() => {
+      vi.useRealTimers()
+      setVisibility('visible')
+    })
+
+    it('should keep the legacy behaviour of polling while hidden and overlapping when no options are given', async () => {
+      vi.useFakeTimers()
+      setVisibility('hidden')
+      const fetcher = vi.fn(async () => new Promise<{ data: string | null }>(() => { /* never settles */ }))
+      renderHook(() => usePolledResource('guard-legacy', fetcher, 1_000))
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
+
+      expect(fetcher).toHaveBeenCalledTimes(4)
+    })
+
+    it('should not start a new load while the previous one is still in flight', async () => {
+      vi.useFakeTimers()
+      let release: (value: { data: string }) => void = () => undefined
+      const fetcher = vi.fn(() => new Promise<{ data: string }>(resolve => { release = resolve }))
+      const { result } = renderHook(() => usePolledResource('guard-overlap', fetcher, 1_000, { preventOverlap: true }))
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+      await act(async () => { await result.current.retry() })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+
+      await act(async () => { release({ data: 'done' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
+    it('should release the in-flight guard when the fetcher throws', async () => {
+      vi.useFakeTimers()
+      const fetcher = vi.fn()
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValue({ data: 'ok' })
+      const unhandled = vi.fn()
+      process.on('unhandledRejection', unhandled)
+      renderHook(() => usePolledResource('guard-throw', fetcher, 1_000, { preventOverlap: true }))
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_100) })
+      process.off('unhandledRejection', unhandled)
+
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
+    it('should skip interval ticks while hidden and refetch immediately when the tab becomes visible', async () => {
+      vi.useFakeTimers()
+      const fetcher = vi.fn(async () => ({ data: 'tick' }))
+      renderHook(() => usePolledResource('guard-visible', fetcher, 1_000, { visibleOnly: true }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+
+      setVisibility('hidden')
+      await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+
+      setVisibility('visible')
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
+    it('should retain the last successful data when a later guarded load fails', async () => {
+      vi.useFakeTimers()
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce({ data: 'good' })
+        .mockResolvedValue({ data: null, error: 'API returned 503' })
+      const { result } = renderHook(() => usePolledResource('guard-stale', fetcher, 1_000, { visibleOnly: true, preventOverlap: true }))
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_100) })
+
+      expect(result.current.data).toBe('good')
+      expect(result.current.error).toBe('API returned 503')
+      expect(result.current.updatedAt).not.toBeNull()
+    })
+  })
 })

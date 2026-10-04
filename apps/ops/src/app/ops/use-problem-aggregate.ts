@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import type { ProblemAggregateResponse } from '@wivwav/types'
 import { fetchJson } from '@/lib/fetch-json'
-import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
+import { usePolledResource, type PolledResourceOptions, type PolledResourceState } from '@/lib/use-polled-resource'
 import { toAttentionResourceInput } from './overview-helpers'
 import type { OverviewResources } from './use-overview-resources'
 
@@ -23,7 +23,12 @@ const REFRESH_MS = 30_000
  * itself server-side, so the caller only ever needs to report the five
  * domain resources.
  */
-export function useProblemAggregate(apiBaseUrl: string, resources: OverviewResources): PolledResourceState<ProblemAggregateResponse> {
+export function useProblemAggregate(
+  apiBaseUrl: string,
+  resources: OverviewResources,
+  config: PolledResourceOptions & { refreshMs?: number } = {},
+): PolledResourceState<ProblemAggregateResponse> {
+  const { refreshMs = REFRESH_MS, ...pollOptions } = config
   const { health, queues, sources, runs, schedules, now } = resources
 
   return usePolledResource<ProblemAggregateResponse>(
@@ -43,6 +48,7 @@ export function useProblemAggregate(apiBaseUrl: string, resources: OverviewResou
         body: JSON.stringify(body),
       })
     }, [apiBaseUrl, now, health, queues, sources, runs, schedules]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
 }

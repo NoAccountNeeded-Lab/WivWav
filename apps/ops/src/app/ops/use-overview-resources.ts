@@ -3,11 +3,16 @@
 import { useCallback, useMemo } from 'react'
 import type { HealthResponse } from '@wivwav/types'
 import { fetchJson } from '@/lib/fetch-json'
-import { usePolledResource, type PolledResourceState } from '@/lib/use-polled-resource'
+import { usePolledResource, type PolledResourceOptions, type PolledResourceState } from '@/lib/use-polled-resource'
 import type { QueueRow, RunRow, ScheduleEntry, SourceRow } from './overview-helpers'
 import type { ListingRefreshStatus } from './refresh-listings/listing-refresh-workflow'
 
 const REFRESH_MS = 30_000
+
+export interface OverviewResourcesConfig extends PolledResourceOptions {
+  /** Poll cadence for all six resources; defaults to the legacy 30s. */
+  refreshMs?: number
+}
 
 export interface OverviewResources {
   health: PolledResourceState<HealthResponse>
@@ -38,36 +43,43 @@ export interface OverviewResources {
  * to feed `useProblemAggregate`) so the fetch/poll wiring for those five
  * resources isn't duplicated between the two pages.
  */
-export function useOverviewResources(apiBaseUrl: string): OverviewResources {
+export function useOverviewResources(apiBaseUrl: string, config: OverviewResourcesConfig = {}): OverviewResources {
+  const { refreshMs = REFRESH_MS, ...pollOptions } = config
   const health = usePolledResource<HealthResponse>(
     'ops-overview:health',
     useCallback(() => fetchJson<HealthResponse>(`${apiBaseUrl}/health`), [apiBaseUrl]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
   const queues = usePolledResource<QueueRow[]>(
     'ops-overview:queues',
     useCallback(() => fetchJson<QueueRow[]>(`${apiBaseUrl}/admin/queues`), [apiBaseUrl]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
   const sources = usePolledResource<SourceRow[]>(
     'ops-overview:sources',
     useCallback(() => fetchJson<SourceRow[]>(`${apiBaseUrl}/admin/sources`), [apiBaseUrl]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
   const runs = usePolledResource<RunRow[]>(
     'ops-overview:runs',
     useCallback(() => fetchJson<RunRow[]>(`${apiBaseUrl}/admin/runs`), [apiBaseUrl]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
   const schedules = usePolledResource<ScheduleEntry[]>(
     'ops-overview:schedules',
     useCallback(() => fetchJson<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`), [apiBaseUrl]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
   const listingRefresh = usePolledResource<ListingRefreshStatus>(
     'ops-overview:listing-refresh',
     useCallback(() => fetchJson<ListingRefreshStatus>(`${apiBaseUrl}/admin/listing-refresh/status`), [apiBaseUrl]),
-    REFRESH_MS,
+    refreshMs,
+    pollOptions,
   )
 
   const latestUpdatedAtMs = Math.max(

@@ -19,6 +19,13 @@ export interface PolledResourceState<T> {
   setData: Dispatch<SetStateAction<T | null>>
 }
 
+export interface PolledResourceOptions {
+  /** Skip interval ticks while the tab is hidden and refetch as soon as it is visible again. */
+  visibleOnly?: boolean
+  /** Drop a load (interval tick, retry, or visibility refetch) while a previous one is still in flight. */
+  preventOverlap?: boolean
+}
+
 /**
  * Fetches a single resource on mount, polls it on an interval, and exposes
  * independent loading/error/refreshing state so each caller (e.g. one
@@ -34,6 +41,7 @@ export function usePolledResource<T>(
   key: string,
   fetcher: () => Promise<{ data: T | null; error?: string }>,
   intervalMs: number,
+  options: PolledResourceOptions = {},
 ): PolledResourceState<T> {
   const cached = getWarmCacheEntry<T>(key)
   const [data, setData] = useState<T | null>(cached?.data ?? null)
@@ -48,9 +56,22 @@ export function usePolledResource<T>(
   const fetcherRef = useRef(fetcher)
   fetcherRef.current = fetcher
 
+  // Same ref pattern as the fetcher: the options bag is usually an inline
+  // object literal and must not restart the interval when it changes identity.
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+  const inFlightRef = useRef(false)
+
   const load = useCallback(async () => {
+    if (optionsRef.current.preventOverlap && inFlightRef.current) return
+    inFlightRef.current = true
     setIsRefreshing(true)
-    const result = await fetcherRef.current()
+    let result: { data: T | null; error?: string }
+    try {
+      result = await fetcherRef.current()
+    } finally {
+      inFlightRef.current = false
+    }
     if (result.data !== null) {
       setData(result.data)
       setWarmCacheEntry(key, result.data)
@@ -65,8 +86,18 @@ export function usePolledResource<T>(
 
   useEffect(() => {
     void load()
-    const id = window.setInterval(() => void load(), intervalMs)
-    return () => window.clearInterval(id)
+    const isHidden = () => optionsRef.current.visibleOnly === true && document.visibilityState === 'hidden'
+    const id = window.setInterval(() => {
+      if (!isHidden()) void load()
+    }, intervalMs)
+    const onVisibilityChange = () => {
+      if (optionsRef.current.visibleOnly && document.visibilityState === 'visible') void load()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [load, intervalMs])
 
   return { data, error, isLoading, isRefreshing, updatedAt, retry: load, setData }
