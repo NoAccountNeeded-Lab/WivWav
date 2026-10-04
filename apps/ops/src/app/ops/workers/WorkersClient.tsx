@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
@@ -39,26 +39,38 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
+  const requestSeq = useRef(0)
+  const mounted = useRef(true)
+
   const refresh = useCallback(async () => {
+    const seq = ++requestSeq.current
+    // Drops a response that was superseded by a newer request or arrived after unmount.
+    const isStale = () => !mounted.current || seq !== requestSeq.current
     setIsRefreshing(true)
     try {
       const res = await fetch(`${apiBaseUrl}/admin/workers`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: ConnectedWorker[] }
+      if (isStale()) return
       setWorkers(body.data)
       setError(null)
       setUpdatedAt(new Date())
     } catch (err) {
+      if (isStale()) return
       setError(err instanceof Error ? err.message : 'Failed to load workers')
     } finally {
-      setIsRefreshing(false)
+      if (!isStale()) setIsRefreshing(false)
     }
   }, [apiBaseUrl])
 
   useEffect(() => {
+    mounted.current = true
     void refresh()
     const interval = window.setInterval(() => void refresh(), REFRESH_MS)
-    return () => window.clearInterval(interval)
+    return () => {
+      mounted.current = false
+      window.clearInterval(interval)
+    }
   }, [refresh])
 
   return (
@@ -92,12 +104,17 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
           ping/pong, so a disconnected worker can take roughly 30–60 seconds to disappear from this list.
         </p>
 
-        {error ? (
-          <p className={styles.error}>
+        {error && (
+          <p className={styles.error} role="alert">
             Connected workers could not load: {error}. Check that the API is running, then refresh this page.
+            {workers ? ' The list below is the last successful result and may be out of date.' : ''}
           </p>
-        ) : !workers ? (
-          <p className={styles.empty}>Loading connected workers. If this takes more than a few seconds, confirm the API is running and refresh.</p>
+        )}
+
+        {!workers ? (
+          error ? null : (
+            <p className={styles.empty}>Loading connected workers. If this takes more than a few seconds, confirm the API is running and refresh.</p>
+          )
         ) : workers.length === 0 ? (
           <p className={styles.empty}>No workers are connected. Start a worker (for example with make worker), then refresh.</p>
         ) : (

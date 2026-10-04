@@ -9,7 +9,7 @@ export default function WorkersLoading() {
       backHref="/ops"
       backLabel="← Operations"
     >
-      <OpsTableSkeleton columns={5} />
+      <OpsTableSkeleton columns={4} />
     </OpsRouteLoading>
   )
 }
