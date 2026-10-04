@@ -2,10 +2,24 @@ import { randomUUID } from 'node:crypto'
 import { RetryJobSignal } from '@wivwav/queue'
 import { buildCorrelationId } from '@wivwav/types/worker-protocol'
 import type { WivWavLogger } from '@wivwav/logger'
+import type { WorkerJobEscalation } from '@wivwav/types/worker-protocol'
 import type { WorkerRegistry } from './registry.js'
 
 /** How long a gateway processor rate-limits its queue when no worker qualifies. */
 export const NO_WORKER_RETRY_DELAY_MS = 15_000
+
+/**
+ * Rejection a dispatch settles with when the worker reported a capability
+ * escalation (#1043) instead of an outcome. The gateway processor — not the
+ * dispatcher — decides what to do with it (persist the requirement, requeue,
+ * or fail if the job was already escalated), so this carries only the request.
+ */
+export class CapabilityEscalationError extends Error {
+  constructor(readonly escalation: WorkerJobEscalation) {
+    super(`worker requested capability '${escalation.capability}': ${escalation.reason}`)
+    this.name = 'CapabilityEscalationError'
+  }
+}
 
 interface PendingDispatch {
   resolve: (result: unknown) => void
@@ -147,6 +161,7 @@ export class WorkerDispatcher {
     success: boolean,
     errorMessage?: string,
     result?: unknown,
+    escalation?: WorkerJobEscalation,
   ): boolean {
     const entry = this.pending.get(correlationId)
     if (!entry) return false
@@ -159,7 +174,11 @@ export class WorkerDispatcher {
     }
     this.settle(
       correlationId,
-      success ? undefined : new Error(errorMessage ?? 'worker reported failure'),
+      escalation !== undefined && !success
+        ? new CapabilityEscalationError(escalation)
+        : success
+          ? undefined
+          : new Error(errorMessage ?? 'worker reported failure'),
       result,
     )
     return true
@@ -177,10 +196,14 @@ export class WorkerDispatcher {
 
   /** A connection dropped: fail every dispatch in flight on it, without penalty — see class docstring. */
   failConnection(connectionId: string, reason: string): void {
-    for (const worker of [this.registry.get(connectionId)]) {
-      for (const correlationId of worker?.inFlight ?? []) {
-        this.settle(correlationId, new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, reason))
-      }
+    // Keyed off our own pending map, not the registry: the WS close handler
+    // unregisters the connection *before* calling this, so a registry lookup
+    // would find nothing and leave the dispatch hanging until its timeout.
+    const affected = [...this.pending.entries()]
+      .filter(([, entry]) => entry.connectionId === connectionId)
+      .map(([correlationId]) => correlationId)
+    for (const correlationId of affected) {
+      this.settle(correlationId, new RetryJobSignal(NO_WORKER_RETRY_DELAY_MS, reason))
     }
   }
 
@@ -196,7 +219,14 @@ export class WorkerDispatcher {
     this.releaseLockIfHeld(entry.sourceId, correlationId)
     this.registry.get(entry.connectionId)?.inFlight.delete(correlationId)
     if (error) {
-      this.logger?.warn({ correlationId, err: error }, '[worker-gateway] dispatch failed')
+      if (error instanceof CapabilityEscalationError) {
+        this.logger?.info(
+          { correlationId, capability: error.escalation.capability, reason: error.escalation.reason },
+          '[worker-gateway] worker requested capability escalation',
+        )
+      } else {
+        this.logger?.warn({ correlationId, err: error }, '[worker-gateway] dispatch failed')
+      }
       entry.reject(error)
     } else {
       this.logger?.info({ correlationId }, '[worker-gateway] dispatch completed')

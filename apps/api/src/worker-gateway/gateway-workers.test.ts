@@ -1,4 +1,4 @@
-import { QUEUES } from '@wivwav/queue'
+import { QUEUES, RetryJobSignal } from '@wivwav/queue'
 import type {
   JobContext,
   JobProcessor,
@@ -8,8 +8,12 @@ import type {
 } from '@wivwav/queue'
 import { SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { GATEWAY_QUEUES, registerGatewayWorkers } from './gateway-workers.js'
-import type { WorkerDispatcher } from './dispatcher.js'
+import {
+  ESCALATION_WAIT_LIMIT_MS,
+  GATEWAY_QUEUES,
+  registerGatewayWorkers,
+} from './gateway-workers.js'
+import { CapabilityEscalationError, WorkerDispatcher } from './dispatcher.js'
 import { WorkerRegistry } from './registry.js'
 import type { RegisteredWorker } from './registry.js'
 
@@ -283,4 +287,226 @@ describe('per-source chromium gating end to end with WorkerRegistry.pickWorker (
       expect(registry.pickWorker(await requirementsFor(key))).toBeUndefined()
     },
   )
+})
+
+describe('SOURCE_SCRAPE capability escalation (#1043)', () => {
+  const escalation = { capability: 'chromium' as const, reason: 'blocked over http' }
+
+  function escalatingDispatcher(dispatch = vi.fn()) {
+    return { dispatch } as unknown as WorkerDispatcher & { dispatch: typeof dispatch }
+  }
+
+  it('persists the chromium requirement into the job payload and requeues without consuming an attempt', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValueOnce(new CapabilityEscalationError(escalation))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch), undefined, { now: () => 1000 })
+    const updateData = vi.fn(async () => {})
+
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'blvd', requiresBrowser: false }, fakeContext({ updateData }))
+      .catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(RetryJobSignal)
+    expect(updateData).toHaveBeenCalledTimes(1)
+    expect(updateData).toHaveBeenCalledWith({
+      requiresBrowser: true,
+      capabilityEscalation: { capability: 'chromium', reason: 'blocked over http', at: 1000 },
+    })
+  })
+
+  it('re-dispatches an escalated job (same job id) requiring chromium even if requiresBrowser is stale', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn(async () => ({ listingsChanged: false }))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    const data = {
+      sourceId: 'blvd',
+      requiresBrowser: false,
+      capabilityEscalation: { capability: 'chromium', reason: 'x', at: Date.now() },
+    }
+    await processors.get(QUEUES.SOURCE_SCRAPE)!(data, fakeContext({ jobId: 'job-9' }))
+    expect(dispatch).toHaveBeenCalledWith(QUEUES.SOURCE_SCRAPE, 'job-9', data, {
+      chromium: true, httpEnrich: false, sourceId: 'blvd',
+    })
+  })
+
+  it('a second escalation request after escalating fails clearly instead of redispatching', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValue(new CapabilityEscalationError(escalation))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    const updateData = vi.fn(async () => {})
+    const data = {
+      sourceId: 'blvd',
+      capabilityEscalation: { capability: 'chromium', reason: 'first', at: Date.now() },
+    }
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!(data, fakeContext({ updateData }))
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(RetryJobSignal)
+    expect((err as Error).message).toContain('already escalated')
+    expect(updateData).not.toHaveBeenCalled()
+  })
+
+  it('fails when the backend cannot persist the requirement rather than looping', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValue(new CapabilityEscalationError(escalation))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'blvd', requiresBrowser: false }, fakeContext())
+      .catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(RetryJobSignal)
+    expect((err as Error).message).toContain('cannot persist')
+  })
+
+  it('keeps requeueing an escalated job while waiting for a capable worker, then fails past the wait limit', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValue(new RetryJobSignal(15_000, 'no eligible worker connected'))
+    let now = 10_000
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch), undefined, { now: () => now })
+    const data = {
+      sourceId: 'blvd',
+      capabilityEscalation: { capability: 'chromium', reason: 'blocked', at: 10_000 },
+    }
+    const processor = processors.get(QUEUES.SOURCE_SCRAPE)!
+
+    now = 10_000 + ESCALATION_WAIT_LIMIT_MS
+    await expect(processor(data, fakeContext())).rejects.toBeInstanceOf(RetryJobSignal)
+
+    now = 10_000 + ESCALATION_WAIT_LIMIT_MS + 1
+    const err = await processor(data, fakeContext()).catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(RetryJobSignal)
+    expect((err as Error).message).toContain('none completed it')
+  })
+
+  it('does not bound ordinary (never-escalated) no-worker waits', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValue(new RetryJobSignal(15_000, 'no eligible worker connected'))
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch), undefined, { now: () => 1e15 })
+    await expect(
+      processors.get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'blvd', requiresBrowser: false }, fakeContext()),
+    ).rejects.toBeInstanceOf(RetryJobSignal)
+  })
+
+  it('a legacy payload with no requiresBrowser field still dispatches conservatively with chromium: true', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn(async () => undefined)
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    await processors.get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'legacy' }, fakeContext())
+    expect(dispatch).toHaveBeenCalledWith(QUEUES.SOURCE_SCRAPE, 'job-1', { sourceId: 'legacy' }, {
+      chromium: true, httpEnrich: false, sourceId: 'legacy',
+    })
+  })
+
+  it.each([QUEUES.DETAIL_CRAWL, QUEUES.DETAIL_EXTRACT])('%s stays unconditionally browser-gated', async (queue) => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn(async () => undefined)
+    registerGatewayWorkers(factory, escalatingDispatcher(dispatch))
+    await processors.get(queue)!({ sourceId: 's', requiresBrowser: false }, fakeContext())
+    expect(dispatch).toHaveBeenCalledWith(queue, 'job-1', expect.anything(), expect.objectContaining({ chromium: true }))
+  })
+})
+
+describe('two-worker BLVD handoff (real dispatcher + registry)', () => {
+  function connect(registry: WorkerRegistry, id: string, chromium: boolean): RegisteredWorker {
+    const worker: RegisteredWorker = {
+      connectionId: `conn-${id}`,
+      workerId: id,
+      workerName: id,
+      capabilities: { chromium, httpEnrich: false, maxConcurrentJobs: 2 },
+      inFlight: new Set(),
+      lastHeartbeatAt: new Date(),
+      send: vi.fn(),
+    }
+    registry.register(worker)
+    return worker
+  }
+  const lastDispatch = (w: RegisteredWorker) =>
+    (w.send as unknown as { mock: { calls: [{ dispatchId: string; correlationId: string }][] } }).mock.calls.at(-1)![0]
+
+  /** Mimics BullMQ: the persisted payload is what each re-run of the processor sees. */
+  function harness() {
+    const { factory, processors, added } = createFakeQueueFactory()
+    const registry = new WorkerRegistry()
+    const dispatcher = new WorkerDispatcher(registry, 10_000)
+    registerGatewayWorkers(factory, dispatcher)
+    let payload: Record<string, unknown> = { sourceId: 'blvd', requiresBrowser: false }
+    const context = () =>
+      fakeContext({
+        jobId: 'job-77',
+        updateData: async (patch) => {
+          payload = { ...payload, ...patch }
+        },
+      })
+    const run = () => processors.get(QUEUES.SOURCE_SCRAPE)!(payload, context())
+    return { registry, dispatcher, run, added, payload: () => payload }
+  }
+
+  it('hands a blocked job from the chromium-free worker to the capable worker once, same job identity, one follow-on enqueue', async () => {
+    const { registry, dispatcher, run, added, payload } = harness()
+    const free = connect(registry, 'free', false)
+    const capable = connect(registry, 'capable', true)
+
+    // Attempt 1 lands on the chromium-free worker (requiresBrowser: false), which escalates.
+    const first = run().catch((e: unknown) => e)
+    await Promise.resolve()
+    expect(free.send).toHaveBeenCalledTimes(1)
+    expect(capable.send).not.toHaveBeenCalled()
+    const d1 = lastDispatch(free)
+    expect(
+      dispatcher.complete(d1.correlationId, d1.dispatchId, false, 'x', undefined, {
+        capability: 'chromium', reason: 'blocked over http',
+      }),
+    ).toBe(true)
+    expect(await first).toBeInstanceOf(RetryJobSignal)
+    expect(payload()['requiresBrowser']).toBe(true)
+    expect(added).toHaveLength(0) // nothing published for an escalation
+
+    // The stale worker cannot complete the old attempt any more.
+    expect(dispatcher.complete(d1.correlationId, d1.dispatchId, true, undefined, { listingsChanged: true })).toBe(false)
+
+    // Attempt 2 (same job id => same correlation id) goes to the capable worker only.
+    const second = run()
+    await Promise.resolve()
+    expect(free.send).toHaveBeenCalledTimes(1)
+    expect(capable.send).toHaveBeenCalledTimes(1)
+    const d2 = lastDispatch(capable)
+    expect(d2.correlationId).toBe(d1.correlationId)
+    expect(d2.dispatchId).not.toBe(d1.dispatchId)
+    dispatcher.complete(d2.correlationId, d2.dispatchId, true, undefined, { listingsChanged: true })
+    await second
+
+    // Follow-ons enqueued exactly once, only after the real completion.
+    expect(added.map((a) => a.queue).sort()).toEqual([QUEUES.LISTING_RESOLVE, QUEUES.LISTING_SYNC].sort())
+    // A late duplicate from the capable worker is rejected (already settled).
+    expect(dispatcher.complete(d2.correlationId, d2.dispatchId, true)).toBe(false)
+  })
+
+  it('with no capable worker connected, the escalated job requeues without dispatching and stays bounded', async () => {
+    const { registry, dispatcher, run, payload } = harness()
+    const free = connect(registry, 'free', false)
+    const first = run().catch((e: unknown) => e)
+    await Promise.resolve()
+    const d1 = lastDispatch(free)
+    dispatcher.complete(d1.correlationId, d1.dispatchId, false, undefined, undefined, {
+      capability: 'chromium', reason: 'blocked',
+    })
+    await first
+
+    await expect(run()).rejects.toBeInstanceOf(RetryJobSignal)
+    expect(free.send).toHaveBeenCalledTimes(1) // never falls back to the chromium-free worker
+    expect((payload()['capabilityEscalation'] as { at: number }).at).toBeGreaterThan(0)
+  })
+
+  it('a worker disconnecting mid-attempt requeues without consuming an attempt and rejects its late completion', async () => {
+    const { registry, dispatcher, run } = harness()
+    const capable = connect(registry, 'capable', true)
+    const attempt = run().catch((e: unknown) => e)
+    await Promise.resolve()
+    const d = lastDispatch(capable)
+    // Same order as the WS close handler: unregister, then failConnection.
+    registry.unregister('conn-capable')
+    dispatcher.failConnection('conn-capable', 'worker disconnected before reporting completion')
+    expect(await attempt).toBeInstanceOf(RetryJobSignal)
+    expect(dispatcher.complete(d.correlationId, d.dispatchId, true, undefined, { listingsChanged: true })).toBe(false)
+  })
 })

@@ -4,10 +4,12 @@ import {
   QUEUES,
   getStringField,
   getBooleanField,
+  RetryJobSignal,
 } from '@wivwav/queue'
-import type { QueueFactory, WorkerAdapter } from '@wivwav/queue'
+import type { JobContext, QueueFactory, WorkerAdapter } from '@wivwav/queue'
 import { sourceScrapeJobResultSchema } from '@wivwav/types/scraper-gateway'
 import type { WivWavLogger } from '@wivwav/logger'
+import { CapabilityEscalationError } from './dispatcher.js'
 import type { WorkerDispatcher } from './dispatcher.js'
 
 /**
@@ -74,6 +76,122 @@ const GATEWAY_LOCK_DURATION_MS = 5 * 60_000
  */
 const GATEWAY_WORKER_CONCURRENCY = 50
 
+/**
+ * How long an escalated SOURCE_SCRAPE job may wait for a Chromium-capable
+ * worker before it fails (#1043). Without a bound, an escalated job with no
+ * capable worker would requeue forever, which is the unbounded loop the
+ * issue forbids. Generous because a laptop worker may simply be offline.
+ */
+export const ESCALATION_WAIT_LIMIT_MS = 60 * 60_000
+
+/** Short requeue delay after an escalation, so a capable worker picks it up promptly. */
+const ESCALATION_REQUEUE_DELAY_MS = 1_000
+
+/**
+ * Durable escalation record. Stored in the job's own persisted payload (via
+ * `JobContext.updateData`) rather than in coordinator memory: it therefore
+ * survives a coordinator restart, is keyed by the job's stable identity by
+ * construction, is bounded by the job's lifetime, and is removed with the job on
+ * completion, failure or cancellation — no separate pin table to leak or clean.
+ */
+interface CapabilityEscalationRecord {
+  capability: 'chromium'
+  reason: string
+  /** Epoch ms of the first escalation; anchors the wait bound. */
+  at: number
+}
+
+function readEscalationRecord(data: unknown): CapabilityEscalationRecord | undefined {
+  if (typeof data !== 'object' || data === null) return undefined
+  const raw = (data as Record<string, unknown>)['capabilityEscalation']
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const record = raw as Record<string, unknown>
+  if (record['capability'] !== 'chromium') return undefined
+  return {
+    capability: 'chromium',
+    reason: typeof record['reason'] === 'string' ? record['reason'] : 'unspecified',
+    at: typeof record['at'] === 'number' ? record['at'] : 0,
+  }
+}
+
+interface EscalationOptions {
+  /** Overridable for tests. */
+  waitLimitMs?: number
+  now?: () => number
+}
+
+/**
+ * Dispatches a SOURCE_SCRAPE job and translates a worker's capability
+ * escalation (#1043): persist the chromium requirement into the job payload and
+ * requeue without consuming an attempt; the next dispatch then reads
+ * `requiresBrowser: true`. A job that already escalated fails with an explicit
+ * error instead of escalating again, and an escalated job that cannot find a
+ * capable worker within the wait limit fails rather than requeueing forever.
+ */
+async function dispatchSourceScrape(
+  dispatcher: WorkerDispatcher,
+  jobId: string,
+  data: unknown,
+  context: JobContext,
+  chromium: boolean,
+  sourceId: string | undefined,
+  options: EscalationOptions,
+  logger?: WivWavLogger,
+): Promise<unknown> {
+  const now = options.now ?? Date.now
+  const waitLimitMs = options.waitLimitMs ?? ESCALATION_WAIT_LIMIT_MS
+  const existing = readEscalationRecord(data)
+  const requirements = { chromium: existing !== undefined || chromium, httpEnrich: false, sourceId }
+  try {
+    return await dispatcher.dispatch(QUEUES.SOURCE_SCRAPE, jobId, data, requirements)
+  } catch (err) {
+    if (err instanceof CapabilityEscalationError) {
+      if (existing !== undefined || requirements.chromium) {
+        throw new Error(
+          `[worker-gateway] source-scrape job ${jobId} requested '${err.escalation.capability}' ` +
+            `again after it was already ${existing !== undefined ? 'escalated' : 'dispatched to a chromium-capable worker'}: ` +
+            `${err.escalation.reason}; failing instead of re-dispatching`,
+          { cause: err },
+        )
+      }
+      if (context.updateData === undefined) {
+        throw new Error(
+          `[worker-gateway] source-scrape job ${jobId} requested '${err.escalation.capability}' ` +
+            'but this queue backend cannot persist the requirement; failing',
+          { cause: err },
+        )
+      }
+      const record: CapabilityEscalationRecord = {
+        capability: err.escalation.capability,
+        reason: err.escalation.reason,
+        at: now(),
+      }
+      await context.updateData({ requiresBrowser: true, capabilityEscalation: record })
+      logger?.warn(
+        { jobId, sourceId, capability: record.capability, reason: record.reason },
+        '[worker-gateway] source-scrape escalated to a chromium-capable worker',
+      )
+      throw new RetryJobSignal(ESCALATION_REQUEUE_DELAY_MS, 'escalated to chromium-capable worker')
+    }
+    if (err instanceof RetryJobSignal && existing !== undefined) {
+      const waitedMs = now() - existing.at
+      if (waitedMs > waitLimitMs) {
+        throw new Error(
+          `[worker-gateway] source-scrape job ${jobId} was escalated to a chromium-capable ` +
+            `worker ${Math.round(waitedMs / 1000)}s ago (${existing.reason}) but none completed it ` +
+            `within ${Math.round(waitLimitMs / 1000)}s; failing`,
+          { cause: err },
+        )
+      }
+      logger?.warn(
+        { jobId, sourceId, waitedMs, waitLimitMs, reason: err.message },
+        '[worker-gateway] escalated source-scrape still waiting for a chromium-capable worker',
+      )
+    }
+    throw err
+  }
+}
+
 async function handleSourceScrapeCompletion(
   listingSyncQueue: ReturnType<QueueFactory['createQueue']>,
   listingResolveQueue: ReturnType<QueueFactory['createQueue']>,
@@ -109,6 +227,7 @@ export function registerGatewayWorkers(
   queueFactory: QueueFactory,
   dispatcher: WorkerDispatcher,
   logger?: WivWavLogger,
+  escalationOptions: EscalationOptions = {},
 ): WorkerAdapter[] {
   const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
   const listingResolveQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
@@ -131,11 +250,23 @@ export function registerGatewayWorkers(
           queueName === QUEUES.SOURCE_SCRAPE
             ? (getBooleanField(data, 'requiresBrowser') ?? CHROMIUM_GATEWAY_QUEUES.includes(queueName))
             : CHROMIUM_GATEWAY_QUEUES.includes(queueName)
-        const result = await dispatcher.dispatch(queueName, jobId, data, {
-          chromium,
-          httpEnrich: HTTP_ENRICH_GATEWAY_QUEUES.includes(queueName),
-          sourceId,
-        })
+        const result =
+          queueName === QUEUES.SOURCE_SCRAPE
+            ? await dispatchSourceScrape(
+                dispatcher,
+                jobId,
+                data,
+                context,
+                chromium,
+                sourceId,
+                escalationOptions,
+                logger,
+              )
+            : await dispatcher.dispatch(queueName, jobId, data, {
+                chromium,
+                httpEnrich: HTTP_ENRICH_GATEWAY_QUEUES.includes(queueName),
+                sourceId,
+              })
         if (queueName === QUEUES.SOURCE_SCRAPE) {
           await handleSourceScrapeCompletion(
             listingSyncQueue,

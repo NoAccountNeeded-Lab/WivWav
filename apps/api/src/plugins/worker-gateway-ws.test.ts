@@ -193,6 +193,34 @@ describe('worker gateway WS protocol', () => {
 })
 
 describe('POST /jobs/complete', () => {
+  it('forwards a capability escalation to the dispatcher (#1043)', async () => {
+    const { app, dispatcher, ready } = buildTestApp(INTERNAL_API_SECRET)
+    await ready
+    const completeSpy = vi.spyOn(dispatcher, 'complete')
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/jobs/complete',
+      headers: {
+        authorization: `Bearer ${INTERNAL_API_SECRET}`,
+        'content-type': 'application/json',
+      },
+      payload: {
+        correlationId: 'q:1',
+        dispatchId: 'd1',
+        success: false,
+        escalation: { capability: 'chromium', reason: 'blocked over http' },
+      },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(completeSpy).toHaveBeenCalledWith('q:1', 'd1', false, undefined, undefined, {
+      capability: 'chromium',
+      reason: 'blocked over http',
+    })
+    await app.close()
+  })
+
   it("settles the dispatcher's pending promise for a successful completion", async () => {
     const { app, dispatcher, ready } = buildTestApp(INTERNAL_API_SECRET)
     await ready
@@ -209,7 +237,7 @@ describe('POST /jobs/complete', () => {
     })
 
     expect(response.statusCode).toBe(200)
-    expect(completeSpy).toHaveBeenCalledWith('q:1', 'd1', true, undefined, undefined)
+    expect(completeSpy).toHaveBeenCalledWith('q:1', 'd1', true, undefined, undefined, undefined)
     await app.close()
   })
 
