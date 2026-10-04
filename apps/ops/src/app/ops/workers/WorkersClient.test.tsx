@@ -66,6 +66,21 @@ describe('WorkersClient', () => {
     expect(await screen.findByText(/could not load: API returned 401/)).toBeDefined()
   })
 
+  it('keeps the last good rows visible when a refetch fails', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [WORKER] }))
+      .mockResolvedValue({ ok: false, status: 503 } as Response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<WorkersClient apiBaseUrl="" />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+
+    expect(screen.getByText(/API returned 503/)).toBeDefined()
+    expect(screen.getByText('Desk laptop')).toBeDefined()
+  })
+
   it('polls and drops a worker that disconnects between refreshes', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn()

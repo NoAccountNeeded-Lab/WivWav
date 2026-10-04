@@ -25,6 +25,7 @@ const SECTION_TITLES: ReadonlyArray<{ prefix: string, title: string }> = [
   { prefix: '/ops/sources/', title: 'Source pipeline' },
   { prefix: '/ops/sources', title: 'Source health' },
   { prefix: '/ops/queues', title: 'Advanced queue diagnostics' },
+  { prefix: '/ops/workers', title: 'Connected workers' },
   { prefix: '/ops/config', title: 'AI provider settings' },
   { prefix: '/ops/logs', title: 'Logs' },
   { prefix: '/ops/runs', title: 'Listing import activity' },
