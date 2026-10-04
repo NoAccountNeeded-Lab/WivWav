@@ -22,6 +22,14 @@ describe('buildFlowStages', () => {
     expect(stages.find(stage => stage.definition.id === 'search')?.state).toBe('unavailable')
   })
 
+  it('a partial queue report is unavailable, never idle or working, and keeps the reported work', () => {
+    const idle = buildFlowStages([q('geocode')]).find(stage => stage.definition.id === 'enrichment')
+    expect(idle).toMatchObject({ state: 'unavailable', work: 0, failed: 0 })
+    expect(idle?.missingQueues).toEqual(['vin-enrich', 'deduplicate', 'dealer-enrich', 'listing-resolve'])
+    const busy = buildFlowStages([q('geocode', { waiting: 5 })]).find(stage => stage.definition.id === 'enrichment')
+    expect(busy).toMatchObject({ state: 'unavailable', work: 5 })
+  })
+
   it('prefers exceptions over paused over working', () => {
     expect(buildFlowStages([q('source-scrape', { waiting: 2 }, true)])[0]?.state).toBe('paused')
     expect(buildFlowStages([q('source-scrape', { waiting: 2 })])[0]?.state).toBe('working')

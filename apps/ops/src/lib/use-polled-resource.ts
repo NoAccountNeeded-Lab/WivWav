@@ -12,7 +12,16 @@ export interface PolledResourceState<T> {
   isLoading: boolean
   /** True while a fetch is in flight, including background revalidation of cached data. */
   isRefreshing: boolean
+  /** When the response arrived (display semantics; a slow request may have started long before). */
   updatedAt: Date | null
+  /**
+   * When the request that produced `data` was *started*. Judge freshness
+   * against a reference time with this, not `updatedAt`: a request begun
+   * before the reference can finish after it carrying older data. Retained
+   * across failed fetches, reset on key change, null for warm-cache data
+   * (its originating request is unknown).
+   */
+  requestStartedAt?: Date | null
   /** Re-fetches immediately, independent of the polling interval. */
   retry: () => void
   /** Escape hatch for callers that need optimistic local mutation (e.g. after a POST action). */
@@ -33,6 +42,7 @@ interface KeyedState<T> {
   isLoading: boolean
   isRefreshing: boolean
   updatedAt: Date | null
+  requestStartedAt: Date | null
 }
 
 function initialState<T>(key: string): KeyedState<T> {
@@ -44,6 +54,7 @@ function initialState<T>(key: string): KeyedState<T> {
     isLoading: cached === undefined,
     isRefreshing: false,
     updatedAt: cached?.updatedAt ?? null,
+    requestStartedAt: null,
   }
 }
 
@@ -106,6 +117,7 @@ export function usePolledResource<T>(
     if (optionsRef.current.preventOverlap && inFlightRef.current?.key === key) return
     const token = { key }
     inFlightRef.current = token
+    const startedAt = new Date()
     patch(key, { isRefreshing: true })
     let result: { data: T | null; error?: string }
     try {
@@ -118,7 +130,7 @@ export function usePolledResource<T>(
     if (!mountedRef.current || keyRef.current !== key) return
     if (result.data !== null) {
       setWarmCacheEntry(key, result.data)
-      patch(key, { data: result.data, error: null, updatedAt: new Date(), isLoading: false, isRefreshing: false })
+      patch(key, { data: result.data, error: null, updatedAt: new Date(), requestStartedAt: startedAt, isLoading: false, isRefreshing: false })
     } else {
       patch(key, { ...(result.error ? { error: result.error } : {}), isLoading: false, isRefreshing: false })
     }
@@ -157,6 +169,7 @@ export function usePolledResource<T>(
     isLoading: current.isLoading,
     isRefreshing: current.isRefreshing,
     updatedAt: current.updatedAt,
+    requestStartedAt: current.requestStartedAt,
     retry: load,
     setData,
   }

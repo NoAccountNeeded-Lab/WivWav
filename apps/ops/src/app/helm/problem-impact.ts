@@ -76,8 +76,8 @@ function impactFor(code: string, source: SourceRow | null, sourceId: string | nu
       return {
         known: true,
         text: source
-          ? `${name} may not be getting fresh listings. Its ${source.listingCount.toLocaleString()} stored listings can go stale until a scrape succeeds.`
-          : `${name} may not be getting fresh listings. Source details are not loaded, so the affected listing count is unknown.`,
+          ? `${name} may not be getting fresh listings. Its listings can go stale until a scrape succeeds. The source's listing counter reads ${source.listingCount.toLocaleString()}; that is a stored counter, not a count of affected vehicles.`
+          : `${name} may not be getting fresh listings. Source details are not loaded, so the source's listing counter is unknown.`,
       }
     case 'source_needs_remap':
       return { known: true, text: `${name} cannot extract listings reliably until its mapping is repaired. Existing listings are not updated meanwhile.` }

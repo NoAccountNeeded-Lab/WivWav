@@ -56,6 +56,41 @@ describe('usePolledResource', () => {
     expect(result.current.data).toEqual({ name: 'first' })
   })
 
+  it('stamps requestStartedAt at request start, so a slow old response is not fresher than a later reference time', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-04T10:00:00Z'))
+    let release: (value: { data: string }) => void = () => {}
+    const fetcher = vi.fn(() => new Promise<{ data: string }>(resolve => { release = resolve }))
+    const { result } = renderHook(() => usePolledResource('req-start', fetcher, 600_000))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const reference = Date.parse('2026-10-04T10:00:30Z')
+    vi.setSystemTime(new Date('2026-10-04T10:01:00Z'))
+    await act(async () => { release({ data: 'old' }) })
+
+    expect(result.current.data).toBe('old')
+    expect(result.current.updatedAt?.getTime()).toBeGreaterThan(reference)
+    expect(result.current.requestStartedAt?.getTime()).toBe(Date.parse('2026-10-04T10:00:00Z'))
+    expect(result.current.requestStartedAt!.getTime()).toBeLessThan(reference)
+    vi.useRealTimers()
+  })
+
+  it('retains requestStartedAt of the last success on failure and resets it per key', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce({ data: 'good' })
+      .mockResolvedValue({ data: null, error: 'boom' })
+    const { result, rerender } = renderHook(({ k }) => usePolledResource(k, fetcher, 600_000), { initialProps: { k: 'req-a' } })
+    await waitFor(() => expect(result.current.data).toBe('good'))
+    const started = result.current.requestStartedAt
+    expect(started).not.toBeNull()
+
+    await act(async () => { await result.current.retry() })
+    expect(result.current.error).toBe('boom')
+    expect(result.current.requestStartedAt).toBe(started)
+
+    rerender({ k: 'req-b' })
+    expect(result.current.requestStartedAt).toBeNull()
+  })
+
   it('should re-fetch immediately when retry is called', async () => {
     const fetcher = vi.fn(async () => ({ data: { count: 1 } }))
     const { result } = renderHook(() => usePolledResource('key-e', fetcher, 30_000))

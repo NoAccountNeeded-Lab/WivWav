@@ -95,6 +95,18 @@ describe('fetchQueueJob', () => {
     expect(await fetchQueueJob('/api/bff', 'q', '9')).toEqual({ ok: true, value: { job: null } })
   })
 
+  it('maps not-yet-started BullMQ states to queued', async () => {
+    for (const status of ['prioritized', 'paused', 'waiting-children']) {
+      stubFetch(queueBody([{ id: '9', status }]))
+      expect(await fetchQueueJob('/api/bff', 'q', '9')).toMatchObject({ ok: true, value: { job: { status: 'queued' } } })
+    }
+  })
+
+  it('an unknown job state is an explicit failure, not a missing job', async () => {
+    stubFetch(queueBody([{ id: '9', status: 'mystery' }]))
+    expect(await fetchQueueJob('/api/bff', 'q', '9')).toMatchObject({ ok: false, code: 'UNSUPPORTED_JOB_STATE' })
+  })
+
   it('fails when the queue body has no jobs array', async () => {
     stubFetch(respond(200, { data: {} }))
     expect(await fetchQueueJob('/api/bff', 'q', '9')).toMatchObject({ ok: false, code: 'UNEXPECTED_RESPONSE' })

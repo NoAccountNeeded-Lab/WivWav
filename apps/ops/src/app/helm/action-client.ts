@@ -122,8 +122,12 @@ export interface JobSnapshot {
 
 function mapJobStatus(status: unknown): TrackedJobStatus | null {
   switch (status) {
+    // BullMQ states beyond the adapter's declared union that are all "not started yet".
     case 'waiting':
     case 'delayed':
+    case 'prioritized':
+    case 'paused':
+    case 'waiting-children':
       return 'queued'
     case 'active':
       return 'running'
@@ -139,7 +143,9 @@ function mapJobStatus(status: unknown): TrackedJobStatus | null {
 /**
  * Looks one job up in `GET /admin/queues/:name`. `{ job: null }` means the
  * queue answered but the job is not in its retained list (removed or aged
- * out) — callers must treat that as *unavailable*, never as done.
+ * out) — callers must treat that as *unavailable*, never as done. A job in a
+ * state this client does not know is an `UNSUPPORTED_JOB_STATE` failure, not
+ * a missing job.
  */
 export async function fetchQueueJob(apiBaseUrl: string, queue: string, jobId: string): Promise<ActionResult<{ job: JobSnapshot | null }>> {
   const result = await request(`${apiBaseUrl}/admin/queues/${encodeURIComponent(queue)}`, { method: 'GET' })
@@ -149,7 +155,14 @@ export async function fetchQueueJob(apiBaseUrl: string, queue: string, jobId: st
   for (const raw of jobs) {
     if (!isRecord(raw) || String(raw['id']) !== jobId) continue
     const status = mapJobStatus(raw['status'])
-    if (!status) return { ok: true, value: { job: null } }
+    if (!status) {
+      return {
+        ok: false,
+        status: null,
+        code: 'UNSUPPORTED_JOB_STATE',
+        message: `Job ${jobId} is in an unrecognised queue state (${typeof raw['status'] === 'string' ? raw['status'] : 'missing'}), so its outcome cannot be determined`,
+      }
+    }
     return {
       ok: true,
       value: {

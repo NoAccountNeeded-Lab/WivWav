@@ -57,7 +57,7 @@ export interface FlowQueueFigure {
 export interface FlowStageModel {
   definition: FlowStageDefinition
   state: FlowStageState
-  /** waiting + active + delayed across the stage's reported queues; null when no queue was reported. */
+  /** waiting + active + delayed across the stage's reported queues (partial when `missingQueues` is non-empty); null when no queue was reported. */
   work: number | null
   failed: number | null
   queues: FlowQueueFigure[]
@@ -84,13 +84,16 @@ export function buildFlowStages(queues: QueueRow[] | null): FlowStageModel[] {
     }
     const work = figures.reduce((sum, figure) => sum + figure.waiting + figure.active + figure.delayed, 0)
     const failed = figures.reduce((sum, figure) => sum + figure.failed, 0)
+    // A partial report never reads as working/idle: the missing queues are unknown, not empty.
     const state: FlowStageState = failed > 0
       ? 'exceptions'
       : figures.some(figure => figure.paused)
         ? 'paused'
-        : work > 0
-          ? 'working'
-          : 'idle'
+        : missingQueues.length > 0
+          ? 'unavailable'
+          : work > 0
+            ? 'working'
+            : 'idle'
     return { definition, state, work, failed, queues: figures, missingQueues }
   })
 }

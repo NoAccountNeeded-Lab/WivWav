@@ -59,12 +59,19 @@ export function computeHelmStatus(input: HelmStatusInput): HelmStatus {
   const open = input.problems ? unacknowledgedProblems(input.problems) : []
   const critical = open.filter(problem => problem.severity === 'critical').length
   const warning = open.filter(problem => problem.severity === 'warning').length
+  // Acknowledged means reviewed, not repaired: still-reported problems keep the status off "healthy".
+  const acknowledged = (input.problems?.length ?? 0) - open.length
+  const acknowledgedReason = `${acknowledged} acknowledged ${acknowledged === 1 ? 'problem' : 'problems'} still reported (reviewed, not resolved)`
+  const reasons = acknowledged > 0 ? [acknowledgedReason, ...gaps] : gaps
 
   if (critical > 0) {
-    return { level: 'critical', label: `${critical} critical ${critical === 1 ? 'problem' : 'problems'}`, reasons: gaps }
+    return { level: 'critical', label: `${critical} critical ${critical === 1 ? 'problem' : 'problems'}`, reasons }
   }
   if (warning > 0) {
-    return { level: 'warning', label: `${warning} ${warning === 1 ? 'warning' : 'warnings'}`, reasons: gaps }
+    return { level: 'warning', label: `${warning} ${warning === 1 ? 'warning' : 'warnings'}`, reasons }
+  }
+  if (acknowledged > 0) {
+    return { level: 'warning', label: `${acknowledged} acknowledged ${acknowledged === 1 ? 'problem' : 'problems'} still reported`, reasons }
   }
   if (gaps.length > 0) {
     return { level: 'unknown', label: 'Status unknown', reasons: gaps }

@@ -46,6 +46,21 @@ describe('computeHelmStatus', () => {
     const open = computeHelmStatus(input({ problems: [problem({ severity: 'critical' })], availability: { ...ALL_AVAILABLE, loki: 'unavailable' } }))
     expect(open.level).toBe('critical')
     expect(open.reasons.length).toBeGreaterThan(0)
-    expect(computeHelmStatus(input({ problems: [problem({ acknowledgedAt: '2026-10-04T10:00:00Z' })] })).level).toBe('healthy')
+  })
+
+  it('acknowledged-only problems that are still reported are never healthy', () => {
+    const acked = computeHelmStatus(input({ problems: [problem({ severity: 'critical', acknowledgedAt: '2026-10-04T10:00:00Z' })] }))
+    expect(acked.level).toBe('warning')
+    expect(acked.label).toMatch(/1 acknowledged problem still reported/)
+    expect(acked.reasons[0]).toMatch(/reviewed, not resolved/)
+  })
+
+  it('unacknowledged severity keeps priority and still lists acknowledged ones as a reason', () => {
+    const status = computeHelmStatus(input({ problems: [
+      problem({ fingerprint: 'a', severity: 'critical' }),
+      problem({ fingerprint: 'b', severity: 'critical', acknowledgedAt: '2026-10-04T10:00:00Z' }),
+    ] }))
+    expect(status.level).toBe('critical')
+    expect(status.reasons.join(' ')).toMatch(/1 acknowledged problem still reported/)
   })
 })

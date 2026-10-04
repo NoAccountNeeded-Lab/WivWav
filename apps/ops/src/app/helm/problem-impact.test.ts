@@ -9,7 +9,7 @@ describe('briefProblem', () => {
     const brief = briefProblem(problem(), ctx())
     expect(brief.scope).toMatchObject({ kind: 'source', sourceId: 's1', sourceName: 'BLVD' })
     expect(brief.impact.known).toBe(true)
-    expect(brief.impact.text).toMatch(/120 stored listings/)
+    expect(brief.impact.text).toMatch(/listing counter reads 120.*not a count of affected vehicles/)
   })
 
   it('keeps global enrichment problems global with no source id', () => {
@@ -28,6 +28,6 @@ describe('briefProblem', () => {
 
   it('does not invent a listing count when the source list is not loaded', () => {
     const brief = briefProblem(problem(), { health: null, sources: null })
-    expect(brief.impact.text).toMatch(/affected listing count is unknown/)
+    expect(brief.impact.text).toMatch(/listing counter is unknown/)
   })
 })

@@ -18,8 +18,15 @@ export interface EvidenceSlot<T> {
   data: T | null
   /** Current error for this resource; a slot with an error is never fresh. */
   error: string | null
-  /** Client clock of the last successful fetch. */
+  /** Client clock when the last successful response arrived (display only; a request may have started long before). */
   updatedAtMs: number | null
+  /**
+   * Client clock when the request that produced `data` was *started*. When
+   * present it is what freshness is judged on: a request that began before
+   * the job finished can carry pre-job data even if it completes after.
+   * Absent only for callers that cannot supply it; then `updatedAtMs` is used.
+   */
+  requestStartedAtMs?: number | null
 }
 
 export interface PipelineEvidence {
@@ -53,9 +60,6 @@ export interface RecoveryVerdict {
 /** How long after completion we keep waiting for fresh evidence before calling it unavailable. */
 export const EVIDENCE_DEADLINE_MS = 3 * 60_000
 
-/** Tolerated difference between the job's and the run's server timestamps. */
-const SERVER_SKEW_MS = 30_000
-
 /** Signals that can make a domain (source/queue/service) problem vanish without it being fixed. */
 const DOMAIN_SIGNALS = ['health', 'bullmq', 'db'] as const
 
@@ -63,8 +67,9 @@ type SlotState = 'fresh' | 'pending' | 'failed'
 
 function slotState<T>(slot: EvidenceSlot<T>, sinceMs: number): SlotState {
   if (slot.error !== null) return 'failed'
-  if (slot.data === null || slot.updatedAtMs === null) return 'pending'
-  return slot.updatedAtMs > sinceMs ? 'fresh' : 'pending'
+  const stampMs = slot.requestStartedAtMs !== undefined ? slot.requestStartedAtMs : slot.updatedAtMs
+  if (slot.data === null || stampMs === null) return 'pending'
+  return stampMs > sinceMs ? 'fresh' : 'pending'
 }
 
 function parseMs(value: string | null): number | null {
@@ -116,15 +121,24 @@ function assessSourceRun(action: TrackedAction, evidence: RecoveryEvidence, nowM
   ])
   if (gate) return gate
 
+  // Job and run timestamps are both server-side, so a run must not start before the job exists.
   const createdAt = action.jobCreatedAtMs
+  if (createdAt === null) {
+    return verdict('unavailable', 'Recovery cannot be confirmed: the job’s creation time is unknown, so no scrape run can be attributed to it.')
+  }
   const run = (evidence.runs.data ?? [])
-    .filter(row => row.sourceId === sourceId && (createdAt === null || (parseMs(row.startedAt) ?? 0) >= createdAt - SERVER_SKEW_MS))
+    .filter(row => row.sourceId === sourceId && (parseMs(row.startedAt) ?? -Infinity) >= createdAt)
     .sort((a, b) => (parseMs(b.startedAt) ?? 0) - (parseMs(a.startedAt) ?? 0))[0]
   if (!run) {
     return verdict('unavailable', 'Recovery cannot be confirmed: no scrape run was recorded for this source after the job was created.')
   }
   const runDescription = `Latest run for this source since the job was created (not matched to the job by id): started ${run.startedAt}`
-  if (run.finishedAt === null) return verdict('waiting-evidence', 'The scrape run is still in progress.', [runDescription])
+  if (run.finishedAt === null) {
+    if (nowMs - since > EVIDENCE_DEADLINE_MS) {
+      return verdict('unavailable', 'Recovery cannot be confirmed: the scrape run was still in progress when the evidence deadline passed.', [runDescription])
+    }
+    return verdict('waiting-evidence', 'The scrape run is still in progress.', [runDescription])
+  }
   if (run.success !== true) {
     return verdict('not-recovered', 'Not recovered: the latest run did not succeed.', [runDescription, run.errorMessage ?? 'The run reported no success.'])
   }
@@ -151,6 +165,12 @@ function assessSourceRun(action: TrackedAction, evidence: RecoveryEvidence, nowM
     return verdict('unavailable', 'Recovery cannot be confirmed: problem signals that could hide the problem are unavailable.', [
       runDescription,
       `Unavailable: ${missingSignals.join(', ')}. The problem not appearing is not proof it is fixed.`,
+    ])
+  }
+  if (action.baseline.problemFingerprints.length === 0) {
+    return verdict('no-claim', 'Completed. No problem was recorded for this source before the run, so no recovery is claimed.', [
+      runDescription,
+      `finished successfully at ${run.finishedAt}.`,
     ])
   }
   return verdict('recovered', 'Recovered: fresh evidence confirms the source is working again.', [
@@ -182,7 +202,7 @@ function assessSourceStage(action: TrackedAction, evidence: RecoveryEvidence, no
   }
   const completedAt = parseMs(stage.lastCompletedAt)
   const jobCreated = action.jobCreatedAtMs
-  if (completedAt === null || (jobCreated !== null && completedAt < jobCreated - SERVER_SKEW_MS)) {
+  if (completedAt === null || jobCreated === null || completedAt < jobCreated) {
     return verdict('unavailable', 'Recovery cannot be confirmed: the stage shows no completion since this job was created.', reasons)
   }
   return verdict('recovered', 'Recovered: fresh pipeline evidence shows the stage completing with no failures.', [...reasons, `Last completion ${stage.lastCompletedAt}.`])
@@ -212,9 +232,19 @@ function assessSearchRebuild(action: TrackedAction, evidence: RecoveryEvidence, 
   if (summary.availability.search === 'unavailable' || indexed.value === null) {
     return verdict('unavailable', 'Recovery cannot be confirmed: the search index reading is still unavailable.', reasons)
   }
+  const collectedAt = parseMs(indexed.collectedAt ?? summary.collectedAt)
+  const finishedAt = action.jobFinishedAtMs
+  if (collectedAt === null || finishedAt === null || collectedAt <= finishedAt) {
+    return verdict('unavailable', 'Recovery cannot be confirmed: the search reading was not collected after the rebuild job finished.', reasons)
+  }
   const eligible = summary.counts.eligible.value
   if (indexed.value > 0 || eligible === 0) {
-    return verdict('recovered', 'Recovered: the search index is reachable and holds documents again.', reasons)
+    return verdict('recovered', indexed.value > 0
+      ? 'Recovered: fresh evidence confirms the search index is reachable and non-empty.'
+      : 'Recovered: fresh evidence confirms the search index is reachable; no listings are eligible.', [
+      ...reasons,
+      'This is not proof the index was fully rebuilt or that its documents match the eligible listings.',
+    ])
   }
   return verdict('not-recovered', 'Not recovered: the rebuild completed but the search index is still empty while eligible listings exist.', reasons)
 }
