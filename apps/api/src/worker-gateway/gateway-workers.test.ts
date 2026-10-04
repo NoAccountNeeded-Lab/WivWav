@@ -509,4 +509,61 @@ describe('two-worker BLVD handoff (real dispatcher + registry)', () => {
     expect(await attempt).toBeInstanceOf(RetryJobSignal)
     expect(dispatcher.complete(d.correlationId, d.dispatchId, true, undefined, { listingsChanged: true })).toBe(false)
   })
+
+  it('survives a coordinator restart: a fresh dispatcher/registry honours the persisted requirement, with no leftover pin state', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const registry = new WorkerRegistry()
+    const dispatcher = new WorkerDispatcher(registry, 10_000)
+    registerGatewayWorkers(factory, dispatcher)
+    const free = connect(registry, 'free', false)
+    const capable = connect(registry, 'capable', true)
+    // Persisted payload as left behind by an escalation before the "restart".
+    const persisted = {
+      sourceId: 'blvd',
+      requiresBrowser: true,
+      capabilityEscalation: { capability: 'chromium', reason: 'blocked', at: Date.now() },
+    }
+    const run = processors.get(QUEUES.SOURCE_SCRAPE)!(persisted, fakeContext({ jobId: 'job-77' }))
+    await Promise.resolve()
+    expect(free.send).not.toHaveBeenCalled()
+    const d = lastDispatch(capable)
+    dispatcher.complete(d.correlationId, d.dispatchId, true, undefined, { listingsChanged: false })
+    await run
+    // Nothing retained in the dispatcher after settle (pin cleanup is the job payload's lifetime).
+    expect(capable.inFlight.size).toBe(0)
+    expect(registry.tryAcquireSourceLock('blvd', 'x')).toBe(true)
+  })
+
+  it('a cancelled job (payload write fails) surfaces the error instead of requeueing', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn().mockRejectedValue(
+      new CapabilityEscalationError({ capability: 'chromium', reason: 'blocked' }),
+    )
+    registerGatewayWorkers(factory, { dispatch } as unknown as WorkerDispatcher)
+    const updateData = vi.fn(async () => {
+      throw new Error('Missing key for job job-1')
+    })
+    const err = await processors
+      .get(QUEUES.SOURCE_SCRAPE)!({ sourceId: 'blvd', requiresBrowser: false }, fakeContext({ updateData }))
+      .catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(RetryJobSignal)
+    expect((err as Error).message).toContain('Missing key')
+  })
+
+  it('a worker draining for shutdown refuses the escalated redispatch without consuming an attempt or clearing the requirement', async () => {
+    const { factory, processors } = createFakeQueueFactory()
+    const registry = new WorkerRegistry()
+    const dispatcher = new WorkerDispatcher(registry, 10_000)
+    registerGatewayWorkers(factory, dispatcher)
+    const capable = connect(registry, 'capable', true)
+    const persisted = {
+      sourceId: 'blvd',
+      capabilityEscalation: { capability: 'chromium', reason: 'blocked', at: Date.now() },
+    }
+    const run = processors.get(QUEUES.SOURCE_SCRAPE)!(persisted, fakeContext({ jobId: 'job-5' })).catch((e: unknown) => e)
+    await Promise.resolve()
+    const d = lastDispatch(capable)
+    dispatcher.refuse(d.correlationId, d.dispatchId, 'worker is draining for shutdown')
+    expect(await run).toBeInstanceOf(RetryJobSignal)
+  })
 })
