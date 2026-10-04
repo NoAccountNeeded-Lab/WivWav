@@ -26,6 +26,27 @@ export interface PolledResourceOptions {
   preventOverlap?: boolean
 }
 
+interface KeyedState<T> {
+  key: string
+  data: T | null
+  error: string | null
+  isLoading: boolean
+  isRefreshing: boolean
+  updatedAt: Date | null
+}
+
+function initialState<T>(key: string): KeyedState<T> {
+  const cached = getWarmCacheEntry<T>(key)
+  return {
+    key,
+    data: cached?.data ?? null,
+    error: null,
+    isLoading: cached === undefined,
+    isRefreshing: false,
+    updatedAt: cached?.updatedAt ?? null,
+  }
+}
+
 /**
  * Fetches a single resource on mount, polls it on an interval, and exposes
  * independent loading/error/refreshing state so each caller (e.g. one
@@ -43,12 +64,11 @@ export function usePolledResource<T>(
   intervalMs: number,
   options: PolledResourceOptions = {},
 ): PolledResourceState<T> {
-  const cached = getWarmCacheEntry<T>(key)
-  const [data, setData] = useState<T | null>(cached?.data ?? null)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(cached === undefined)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(cached?.updatedAt ?? null)
+  // All per-resource state is tagged with the key it belongs to, so a key
+  // change never exposes the previous entity's data or loading flags.
+  const [state, setState] = useState<KeyedState<T>>(() => initialState<T>(key))
+  if (state.key !== key) setState(initialState<T>(key))
+  const current = state.key === key ? state : initialState<T>(key)
 
   // Fetcher identity is expected to change across renders (it closes over
   // apiBaseUrl etc.), so it's tracked in a ref rather than an effect dep to
@@ -60,29 +80,60 @@ export function usePolledResource<T>(
   // object literal and must not restart the interval when it changes identity.
   const optionsRef = useRef(options)
   optionsRef.current = options
-  const inFlightRef = useRef(false)
+  // Tracks the key being rendered and whether the component is mounted, so
+  // completions that arrive for a superseded key or after unmount are dropped.
+  // Effect cleanup does not invalidate in-flight loads: the StrictMode mount
+  // replay would otherwise orphan the only request while the overlap guard
+  // skipped its replacement.
+  const keyRef = useRef(key)
+  keyRef.current = key
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  // One token per in-flight load; the overlap guard only blocks a load for the same key.
+  const inFlightRef = useRef<{ key: string } | null>(null)
+
+  const patch = useCallback((loadKey: string, changes: Partial<Omit<KeyedState<T>, 'key'>>) => {
+    setState(prev => (prev.key === loadKey ? { ...prev, ...changes } : prev))
+  }, [])
 
   const load = useCallback(async () => {
-    if (optionsRef.current.preventOverlap && inFlightRef.current) return
-    inFlightRef.current = true
-    setIsRefreshing(true)
+    if (optionsRef.current.preventOverlap && inFlightRef.current?.key === key) return
+    const token = { key }
+    inFlightRef.current = token
+    patch(key, { isRefreshing: true })
     let result: { data: T | null; error?: string }
     try {
       result = await fetcherRef.current()
+    } catch (err) {
+      result = { data: null, error: err instanceof Error ? err.message : 'Request failed' }
     } finally {
-      inFlightRef.current = false
+      if (inFlightRef.current === token) inFlightRef.current = null
     }
+    if (!mountedRef.current || keyRef.current !== key) return
     if (result.data !== null) {
-      setData(result.data)
       setWarmCacheEntry(key, result.data)
-      setError(null)
-      setUpdatedAt(new Date())
-    } else if (result.error) {
-      setError(result.error)
+      patch(key, { data: result.data, error: null, updatedAt: new Date(), isLoading: false, isRefreshing: false })
+    } else {
+      patch(key, { ...(result.error ? { error: result.error } : {}), isLoading: false, isRefreshing: false })
     }
-    setIsLoading(false)
-    setIsRefreshing(false)
-  }, [key])
+  }, [key, patch])
+
+  const setData = useCallback<Dispatch<SetStateAction<T | null>>>(
+    action => {
+      setState(prev => {
+        if (prev.key !== keyRef.current) return prev
+        const next = typeof action === 'function' ? (action as (p: T | null) => T | null)(prev.data) : action
+        return { ...prev, data: next }
+      })
+    },
+    [],
+  )
 
   useEffect(() => {
     void load()
@@ -100,5 +151,13 @@ export function usePolledResource<T>(
     }
   }, [load, intervalMs])
 
-  return { data, error, isLoading, isRefreshing, updatedAt, retry: load, setData }
+  return {
+    data: current.data,
+    error: current.error,
+    isLoading: current.isLoading,
+    isRefreshing: current.isRefreshing,
+    updatedAt: current.updatedAt,
+    retry: load,
+    setData,
+  }
 }

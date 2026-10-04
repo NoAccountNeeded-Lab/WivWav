@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { usePolledResource } from './use-polled-resource'
-import { clearWarmCache, setWarmCacheEntry } from './warm-data-cache'
+import { clearWarmCache, getWarmCacheEntry, setWarmCacheEntry } from './warm-data-cache'
 
 afterEach(() => {
   clearWarmCache()
@@ -104,19 +105,121 @@ describe('usePolledResource', () => {
       expect(fetcher).toHaveBeenCalledTimes(2)
     })
 
-    it('should release the in-flight guard when the fetcher throws', async () => {
+    it('should turn a first-load fetcher rejection into an error and settle loading flags', async () => {
       vi.useFakeTimers()
-      const fetcher = vi.fn()
-        .mockRejectedValueOnce(new Error('network down'))
-        .mockResolvedValue({ data: 'ok' })
+      const fetcher = vi.fn().mockRejectedValue(new Error('network down'))
       const unhandled = vi.fn()
       process.on('unhandledRejection', unhandled)
-      renderHook(() => usePolledResource('guard-throw', fetcher, 1_000, { preventOverlap: true }))
+      const { result } = renderHook(() => usePolledResource('guard-throw-first', fetcher, 1_000, { preventOverlap: true }))
 
-      await act(async () => { await vi.advanceTimersByTimeAsync(1_100) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
       process.off('unhandledRejection', unhandled)
 
+      expect(result.current.error).toBe('network down')
+      expect(result.current.isLoading).toBe(false)
+      expect(result.current.isRefreshing).toBe(false)
+      expect(result.current.data).toBeNull()
+      expect(unhandled).not.toHaveBeenCalled()
+    })
+
+    it('should release the in-flight guard and keep stale data when a later fetcher throws', async () => {
+      vi.useFakeTimers()
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce({ data: 'good' })
+        .mockRejectedValueOnce('plain string')
+        .mockResolvedValue({ data: 'later' })
+      const unhandled = vi.fn()
+      process.on('unhandledRejection', unhandled)
+      const { result } = renderHook(() => usePolledResource('guard-throw-later', fetcher, 1_000, { preventOverlap: true }))
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+      expect(result.current.data).toBe('good')
+      expect(result.current.error).toBe('Request failed')
+      expect(result.current.isRefreshing).toBe(false)
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+      process.off('unhandledRejection', unhandled)
+      expect(fetcher).toHaveBeenCalledTimes(3)
+      expect(result.current.data).toBe('later')
+      expect(result.current.error).toBeNull()
+      expect(unhandled).not.toHaveBeenCalled()
+    })
+
+    it('should fetch a new key immediately and ignore the old key completion while its guarded request is pending', async () => {
+      vi.useFakeTimers()
+      const resolvers: Record<string, (value: { data: string }) => void> = {}
+      const fetcher = vi.fn((k: string) => new Promise<{ data: string }>(resolve => { resolvers[k] = resolve }))
+      const { result, rerender } = renderHook(
+        ({ k }) => usePolledResource(k, () => fetcher(k), 30_000, { preventOverlap: true }),
+        { initialProps: { k: 'entity-a' } },
+      )
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+
+      rerender({ k: 'entity-b' })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
       expect(fetcher).toHaveBeenCalledTimes(2)
+      expect(fetcher).toHaveBeenLastCalledWith('entity-b')
+      expect(result.current.data).toBeNull()
+      expect(result.current.isLoading).toBe(true)
+
+      await act(async () => { resolvers['entity-a']?.({ data: 'A-data' }) })
+      expect(result.current.data).toBeNull()
+      expect(result.current.isLoading).toBe(true)
+
+      await act(async () => { resolvers['entity-b']?.({ data: 'B-data' }) })
+      expect(result.current.data).toBe('B-data')
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    it('should not let an old key completion release the new key guard', async () => {
+      vi.useFakeTimers()
+      const resolvers: Record<string, (value: { data: string }) => void> = {}
+      const fetcher = vi.fn((k: string) => new Promise<{ data: string }>(resolve => { resolvers[k] = resolve }))
+      const { result, rerender } = renderHook(
+        ({ k }) => usePolledResource(k, () => fetcher(k), 1_000, { preventOverlap: true }),
+        { initialProps: { k: 'guard-a' } },
+      )
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      rerender({ k: 'guard-b' })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+
+      await act(async () => { resolvers['guard-a']?.({ data: 'A' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
+      await act(async () => { await result.current.retry() })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+
+      await act(async () => { resolvers['guard-b']?.({ data: 'B' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+      expect(fetcher).toHaveBeenCalledTimes(3)
+    })
+
+    it('should still apply the only in-flight load when StrictMode replays the mount effect', async () => {
+      let release: (value: { data: string }) => void = () => undefined
+      const fetcher = vi.fn(() => new Promise<{ data: string }>(resolve => { release = resolve }))
+      const { result } = renderHook(
+        () => usePolledResource('guard-strict', fetcher, 30_000, { preventOverlap: true }),
+        { wrapper: StrictMode },
+      )
+
+      expect(fetcher).toHaveBeenCalledTimes(1)
+      await act(async () => { release({ data: 'applied' }) })
+
+      expect(result.current.data).toBe('applied')
+      expect(result.current.isLoading).toBe(false)
+      expect(result.current.isRefreshing).toBe(false)
+    })
+
+    it('should not update state after unmount', async () => {
+      let release: (value: { data: string }) => void = () => undefined
+      const fetcher = vi.fn(() => new Promise<{ data: string }>(resolve => { release = resolve }))
+      const { unmount } = renderHook(() => usePolledResource('guard-unmount', fetcher, 30_000, { preventOverlap: true }))
+      unmount()
+      await act(async () => { release({ data: 'late' }) })
+
+      expect(getWarmCacheEntry('guard-unmount')).toBeUndefined()
     })
 
     it('should skip interval ticks while hidden and refetch immediately when the tab becomes visible', async () => {
