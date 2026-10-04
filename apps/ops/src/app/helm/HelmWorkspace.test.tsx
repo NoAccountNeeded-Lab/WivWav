@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearWarmCache } from '@/lib/warm-data-cache'
 import { HelmWorkspace } from './HelmWorkspace'
 import { aggregate, summary } from './fixtures'
 import { defaultWorld, installFetch, setUrl, setVisibility, type World } from './test-harness'
+
+// Full-suite parallel runs can starve jsdom; the default 1s async wait is too tight.
+configure({ asyncUtilTimeout: 5_000 })
 
 vi.mock('next/navigation', async () => (await import('./test-harness')).navigationMock)
 

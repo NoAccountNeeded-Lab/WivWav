@@ -131,7 +131,7 @@
 .definition summary {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
+  min-height: 3rem;
   cursor: pointer;
   color: var(--clr-primary);
   font-weight: 600;
