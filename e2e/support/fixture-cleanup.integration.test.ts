@@ -97,6 +97,30 @@ describe('deleteSmokeFixtureRows', () => {
     expect(await db.scraperRun.count({ where: { sourceId: otherSourceId } })).toBe(1)
   })
 
+  it('covers every blocking foreign key into listings, sources and listing images', async () => {
+    // Guards against a new child table silently breaking cleanup with an FK error.
+    const rows = await pool.query<{ child: string }>(
+      `SELECT DISTINCT conrelid::regclass::text AS child
+         FROM pg_constraint
+        WHERE contype = 'f'
+          AND confdeltype IN ('a', 'r')
+          AND confrelid::regclass::text IN ('listings', 'sources', 'listing_image')
+          AND conrelid::regclass::text <> 'listings'
+        ORDER BY 1`,
+    )
+    expect(rows.rows.map((row) => row.child)).toEqual([
+      'listing_conversion_history',
+      'listing_field_claim',
+      'listing_image',
+      'listing_image_semantic_analysis',
+      'listing_mileage_history',
+      'listing_observation',
+      'listing_price_history',
+      'listing_reports',
+      'vehicle_identity_decision',
+    ])
+  })
+
   it('is idempotent', async () => {
     await deleteSmokeFixtureRows(db)
     await expect(deleteSmokeFixtureRows(db)).resolves.toBeUndefined()
