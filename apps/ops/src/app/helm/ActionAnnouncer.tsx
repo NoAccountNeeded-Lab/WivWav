@@ -27,7 +27,7 @@ export function ActionAnnouncer() {
       seen.current.set(action.id, signature)
       const subject = `${action.label}${action.sourceName ? `: ${action.sourceName}` : ''}`
       const verdictText = verdict && verdict.state !== 'pending-job' ? `. ${recoveryStateLabel(verdict.state)}. ${verdict.headline}` : ''
-      lines.push(`${subject}. ${outcomeLabel(action.outcome)}${verdictText}`)
+      lines.push(`${subject}. ${action.failure ? 'Request rejected, no job ran' : outcomeLabel(action.outcome)}${verdictText}`)
     }
     if (lines.length > 0) setMessage(lines.join(' '))
   }, [tracker])

@@ -30,7 +30,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,
-  expect: { timeout: 30_000 },
+  // Job tracking polls every 10s and evidence refreshes every 15s, so allow a few cycles.
+  expect: { timeout: 60_000 },
   reporter: [['list']],
   use: {
     baseURL: EXISTING_URL ?? `http://127.0.0.1:${PORT}`,

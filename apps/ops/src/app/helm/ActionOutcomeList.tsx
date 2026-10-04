@@ -26,7 +26,7 @@ export function ActionOutcomeList({ actions, label, onOpenSource }: { actions: T
         <li key={action.id} className={styles.listItem} data-action-kind={action.kind}>
           <p className={styles.prose}>
             <strong>{action.label}{action.sourceName ? `: ${action.sourceName}` : ''}</strong>{' '}
-            <OpsStatusChip variant={OUTCOME_VARIANT[action.outcome]} label={outcomeLabel(action.outcome)} />
+            <OpsStatusChip variant={OUTCOME_VARIANT[action.outcome]} label={action.failure ? 'Request rejected' : outcomeLabel(action.outcome)} />
           </p>
           {action.failure ? (
             <p className={styles.reason} role="alert">

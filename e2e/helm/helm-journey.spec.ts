@@ -86,7 +86,15 @@ test('source failure journey: enqueue failure → completed without recovery →
   // Tracking survives closing the inspector and shows under Activity.
   await inspector.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByRole('complementary')).toHaveCount(0)
-  await expect(page.getByRole('list', { name: 'Tracked actions' })).toContainText('Recovery confirmed')
+  const tracked = page.getByRole('list', { name: 'Tracked actions' })
+  await expect(tracked).toContainText('Recovery confirmed')
+  // The rejected first attempt is listed as "no job", never as a failed job or a failed recovery.
+  await expect(tracked).toContainText('The request was not accepted (HTTP 503 SERVICE_UNAVAILABLE)')
+  await expect(tracked).toContainText('Request rejected')
+  await expect(tracked).toContainText('No job was queued')
+  await expect(tracked).not.toContainText(/the job failed/i)
+  // Progress was announced through the single polite live region.
+  await expect(page.getByTestId('action-announcer')).toContainText('Recovery confirmed')
 })
 
 test('a problem that vanishes while a signal is unavailable is not reported as recovery', async ({ page }) => {

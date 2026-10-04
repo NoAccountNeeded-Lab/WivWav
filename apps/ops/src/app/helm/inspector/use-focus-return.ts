@@ -11,14 +11,18 @@ import { useEffect, useRef } from 'react'
  * between selections while open keeps the original one, and an inspector
  * that is open on first render never takes focus from the page.
  */
+/** The focused element worth returning to; `null` on the server, where `HTMLElement` does not exist. */
+function currentOpener(): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  const active = document.activeElement
+  return active instanceof HTMLElement && active !== document.body ? active : null
+}
+
 export function useFocusReturn(open: boolean, fallbackId: string): void {
   const opener = useRef<HTMLElement | null>(null)
   const wasOpen = useRef(false)
 
-  if (open && !wasOpen.current) {
-    const active = typeof document === 'undefined' ? null : document.activeElement
-    opener.current = active instanceof HTMLElement && active !== document.body ? active : null
-  }
+  if (open && !wasOpen.current) opener.current = currentOpener()
 
   useEffect(() => {
     if (open) {

@@ -142,13 +142,14 @@ describe('enqueue failures', () => {
     expect(world.calls.filter(call => call.path === '/admin/queues/source-scrape')).toHaveLength(0)
   })
 
-  it('lists a rejected request under Activity as "No job ran", never as a failed job', async () => {
+  it('lists a rejected request under Activity as "Request rejected", never as a failed job', async () => {
     world.posts['POST /admin/sources/s1/run'] = () => ({ status: 503, body: { error: { code: 'SERVICE_UNAVAILABLE', message: 'Queue service is unavailable' } } })
     const dialog = await openSourceInspector()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Run source now' }))
     await advance(0)
     const tracked = screen.getByRole('list', { name: 'Tracked actions' })
     expect(tracked.textContent).toMatch(/The request was not accepted \(HTTP 503 SERVICE_UNAVAILABLE\)/)
+    expect(tracked.textContent).toMatch(/Request rejected/)
     expect(tracked.textContent).toMatch(/No job was queued/)
     expect(tracked.textContent).not.toMatch(/the job failed/i)
     expect(tracked.textContent).not.toMatch(/Not recovered/)
