@@ -124,6 +124,8 @@ export async function workerGatewayRoutes(
           workerName: message.workerName,
           capabilities: message.capabilities,
           inFlight: new Set(),
+    jobs: new Map(),
+    recentJobs: [],
           lastHeartbeatAt: new Date(),
           send: (outbound: CoordinatorToWorkerMessage) => {
             socket.send(JSON.stringify(outbound))

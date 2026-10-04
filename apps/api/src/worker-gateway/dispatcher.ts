@@ -4,6 +4,7 @@ import { buildCorrelationId } from '@wivwav/types/worker-protocol'
 import type { WivWavLogger } from '@wivwav/logger'
 import type { WorkerJobEscalation } from '@wivwav/types/worker-protocol'
 import type { WorkerRegistry } from './registry.js'
+import { MAX_RECENT_JOBS } from './registry.js'
 
 /** How long a gateway processor rate-limits its queue when no worker qualifies. */
 export const NO_WORKER_RETRY_DELAY_MS = 15_000
@@ -26,6 +27,8 @@ interface PendingDispatch {
   reject: (err: Error) => void
   connectionId: string
   sourceId: string | undefined
+  queueName: string
+  dispatchedAt: Date
   timer: NodeJS.Timeout
   /**
    * Fresh per dispatch attempt (see worker-protocol.ts's `job-dispatch`
@@ -112,15 +115,19 @@ export class WorkerDispatcher {
       }, this.timeoutMs)
       timer.unref()
 
+      const dispatchedAt = new Date()
       this.pending.set(correlationId, {
         resolve,
         reject,
         connectionId: worker.connectionId,
         sourceId,
+        queueName,
+        dispatchedAt,
         timer,
         dispatchId,
       })
       worker.inFlight.add(correlationId)
+      worker.jobs.set(correlationId, { queueName, dispatchedAt })
       this.logger?.info(
         {
           correlationId,
@@ -217,7 +224,31 @@ export class WorkerDispatcher {
     this.pending.delete(correlationId)
     clearTimeout(entry.timer)
     this.releaseLockIfHeld(entry.sourceId, correlationId)
-    this.registry.get(entry.connectionId)?.inFlight.delete(correlationId)
+    // Every settle path funnels here (completion, refusal, timeout,
+    // disconnect, send failure, re-dispatch supersede): move the job from
+    // in-flight detail into the worker's bounded outcome history (#1067).
+    // A refusal/timeout records as a failure with its message — that is
+    // operational signal for the ops workers page, not just a boolean.
+    const worker = this.registry.get(entry.connectionId)
+    // failConnection runs after the WS close handler unregisters, so a
+    // dropped connection finds nothing here — and its ops row is already
+    // gone, so there is nothing to record against.
+    if (worker) {
+      worker.inFlight.delete(correlationId)
+      worker.jobs.delete(correlationId)
+      // A capability escalation is a requeue, not a failure (mirrors the
+      // log branch below): flag it so ops never renders it as a job error.
+      const escalated = error instanceof CapabilityEscalationError
+      worker.recentJobs.unshift({
+        queueName: entry.queueName,
+        correlationId,
+        success: error === undefined,
+        ...(escalated ? { escalated: true as const } : {}),
+        ...(error ? { errorMessage: error.message } : {}),
+        finishedAt: new Date(),
+      })
+      if (worker.recentJobs.length > MAX_RECENT_JOBS) worker.recentJobs.length = MAX_RECENT_JOBS
+    }
     if (error) {
       if (error instanceof CapabilityEscalationError) {
         this.logger?.info(
