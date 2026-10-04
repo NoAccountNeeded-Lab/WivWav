@@ -6,9 +6,12 @@ import type {
   QueueFactory,
   WorkerAdapter,
 } from '@wivwav/queue'
+import { SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
 import { describe, expect, it, vi } from 'vitest'
 import { GATEWAY_QUEUES, registerGatewayWorkers } from './gateway-workers.js'
 import type { WorkerDispatcher } from './dispatcher.js'
+import { WorkerRegistry } from './registry.js'
+import type { RegisteredWorker } from './registry.js'
 
 /**
  * Captures each queue's registered processor and every `add()` call, so
@@ -225,4 +228,50 @@ describe('registerGatewayWorkers', () => {
 
     expect(added).toHaveLength(0)
   })
+})
+
+describe('per-source chromium gating end to end with WorkerRegistry.pickWorker (#1040)', () => {
+  const chromiumFreeWorker: RegisteredWorker = {
+    connectionId: 'light',
+    workerId: 'w-light',
+    workerName: 'volunteer',
+    capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 2 },
+    inFlight: new Set(),
+    lastHeartbeatAt: new Date(),
+    send: vi.fn(),
+  }
+
+  /** Runs the real gateway processor with the job data the API enqueues for a source. */
+  async function requirementsFor(key: string) {
+    const definition = SCRAPER_SOURCE_REGISTRY.find((entry) => entry.key === key)
+    if (definition === undefined) throw new Error(`unknown source ${key}`)
+    const { factory, processors } = createFakeQueueFactory()
+    const dispatch = vi.fn(async () => undefined)
+    registerGatewayWorkers(factory, { dispatch } as unknown as WorkerDispatcher)
+    const processor = processors.get(QUEUES.SOURCE_SCRAPE)!
+    await processor(
+      { sourceId: key, requiresBrowser: definition.requiresBrowser },
+      fakeContext({ jobId: `job-${key}` }),
+    )
+    const call = dispatch.mock.calls[0] as unknown as [string, string, unknown, { chromium: boolean }]
+    return call[3]
+  }
+
+  it.each(['ebay-motors', 'mobilityworks', 'ams-vans-classifieds', 'mobility-van-sales'])(
+    'selects a chromium=false worker for a %s source-scrape job',
+    async (key) => {
+      const registry = new WorkerRegistry()
+      registry.register(chromiumFreeWorker)
+      expect(registry.pickWorker(await requirementsFor(key))?.connectionId).toBe('light')
+    },
+  )
+
+  it.each(['freedom-motors', 'superior-van'])(
+    'rejects a chromium=false worker for a %s source-scrape job',
+    async (key) => {
+      const registry = new WorkerRegistry()
+      registry.register(chromiumFreeWorker)
+      expect(registry.pickWorker(await requirementsFor(key))).toBeUndefined()
+    },
+  )
 })
