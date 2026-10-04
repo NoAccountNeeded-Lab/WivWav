@@ -64,6 +64,35 @@ single-executable-app support, or `pkg`) is a feasible alternative for a
    (`packages/scraper-sources/src/sources/*.ts`, via the registry key) and
    runs it, then reports the result back over HTTP.
 
+## Capability escalation (#1043)
+
+A `SOURCE_SCRAPE` job dispatched to a Chromium-free worker may discover it
+needs a browser (BLVD: HTTP fetch detected a bot block and the worker has no
+`browserService`). The adapter throws `EscalateCapabilitySignal`
+(`packages/queue`, distinct from `RetryJobSignal` and ordinary errors); the
+scraper engine closes the run row but never marks the source errored,
+completes the run, or commits listings; the worker reports
+`escalation: { capability: 'chromium', reason }` on the completion callback.
+
+The coordinator's gateway processor then writes `requiresBrowser: true` and a
+`capabilityEscalation` record into the **job's own persisted payload**
+(`JobContext.updateData`) and requeues via `RetryJobSignal` (no attempt
+consumed). Keeping the requirement in the job payload, rather than an
+in-memory pin, means it survives a coordinator restart, is tied to the job's
+stable id by construction, and is deleted with the job on completion,
+failure or cancellation, so there is no separate pin state to clean up. The
+redispatch reuses the same correlation id with a fresh `dispatchId`, so a
+late report from the original worker is rejected as stale (as is any report
+from a worker that disconnected, whose in-flight dispatches are failed
+without penalty).
+
+Bounds: a job escalates at most once (a second escalation request, or an
+escalation from a job that already required Chromium, fails the job with an
+explicit error); an escalated job with no Chromium-capable worker keeps
+requeueing only up to `ESCALATION_WAIT_LIMIT_MS` (60 minutes), logging each
+wait, then fails. After escalation, a block on the Chromium worker still ends
+in the explicit `BlvdBlockedError`.
+
 ## Capability matching
 
 Each worker advertises capabilities in its `hello` message —
