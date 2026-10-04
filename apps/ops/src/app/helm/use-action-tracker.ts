@@ -43,8 +43,14 @@ const LABEL: Record<ActionKind, string> = {
   'search-rebuild': 'Rebuild search index',
 }
 
-function slotOf<T>(resource: { data: T | null; error: string | null; updatedAt: Date | null }): EvidenceSlot<T> {
-  return { data: resource.data, error: resource.error, updatedAtMs: resource.updatedAt?.getTime() ?? null }
+function slotOf<T>(resource: { data: T | null; error: string | null; updatedAt: Date | null; requestStartedAt?: Date | null }): EvidenceSlot<T> {
+  return {
+    data: resource.data,
+    error: resource.error,
+    updatedAtMs: resource.updatedAt?.getTime() ?? null,
+    // Freshness is judged on when the request began, not when it answered.
+    requestStartedAtMs: resource.requestStartedAt?.getTime() ?? null,
+  }
 }
 
 let actionCounter = 0
@@ -77,7 +83,7 @@ export function useActionTracker(apiBaseUrl: string, data: HelmData): ActionTrac
       runs: slotOf(resources.runs),
       sources: slotOf(resources.sources),
       summary: slotOf(summary),
-      pipeline: pipelines[action.id] ?? { data: null, error: null, updatedAtMs: null },
+      pipeline: pipelines[action.id] ?? { data: null, error: null, updatedAtMs: null, requestStartedAtMs: null },
     }
   }, [data, pipelines])
 
@@ -88,12 +94,13 @@ export function useActionTracker(apiBaseUrl: string, data: HelmData): ActionTrac
 
   const refreshPipeline = useCallback(async (action: TrackedAction) => {
     if (action.sourceId === null) return
+    const startedAtMs = Date.now()
     const result = await fetchJson<SourcePipelineData>(`${apiBaseUrl}/admin/sources/${encodeURIComponent(action.sourceId)}/pipeline`)
     setPipelines(prev => {
       const before = prev[action.id]
       const slot: EvidenceSlot<PipelineEvidence> = result.data
-        ? { data: { sourceId: action.sourceId as string, stages: result.data.stages }, error: null, updatedAtMs: Date.now() }
-        : { data: before?.data ?? null, error: result.error ?? 'Pipeline unavailable', updatedAtMs: before?.updatedAtMs ?? null }
+        ? { data: { sourceId: action.sourceId as string, stages: result.data.stages }, error: null, updatedAtMs: Date.now(), requestStartedAtMs: startedAtMs }
+        : { data: before?.data ?? null, error: result.error ?? 'Pipeline unavailable', updatedAtMs: before?.updatedAtMs ?? null, requestStartedAtMs: before?.requestStartedAtMs ?? null }
       return { ...prev, [action.id]: slot }
     })
   }, [apiBaseUrl])
