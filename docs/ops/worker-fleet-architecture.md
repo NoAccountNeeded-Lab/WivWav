@@ -77,47 +77,31 @@ understands.
 `pickWorker` filters to workers matching the job's required capabilities,
 then picks whichever has the fewest jobs in flight.
 
-## ⚠️ Known gap: chromium is gated per QUEUE, not per SOURCE
+## Chromium is gated per SOURCE (SOURCE_SCRAPE), per QUEUE (detail jobs)
 
-`CHROMIUM_GATEWAY_QUEUES` (`gateway-workers.ts`) marks **every**
-`SOURCE_SCRAPE`, `DETAIL_CRAWL`, and `DETAIL_EXTRACT` job as requiring
-`chromium: true`, regardless of which source the job is actually for:
+Resolved in #1040/#1041. `ScraperSourceRegistryEntry.requiresBrowser`
+(`packages/types/src/source-registry.ts`) says whether a source's
+`SOURCE_SCRAPE` job needs Chromium. The flag travels in the job payload
+(`requiresBrowser`, set when the job is enqueued) and `gateway-workers.ts`
+uses it as the job's `chromium` requirement. A payload without the field
+(a job queued before #1041) falls back to the old queue-level default,
+`chromium: true`.
 
-```ts
-chromium: CHROMIUM_GATEWAY_QUEUES.includes(queueName),
-```
-
-But as of 2026-10, only 3 of the 8 registered source adapters actually
-launch a browser:
-
-| Source | Mechanism | Needs Chromium? |
+| Source | Mechanism | `requiresBrowser` |
 | --- | --- | --- |
-| BLVD | Playwright (`service.launch()` in `blvd.ts`) | **Yes** |
-| Freedom Motors | Playwright (`freedom-motors.ts`) | **Yes** |
-| Superior Van | Playwright (`superior-van.ts`) | **Yes** |
-| MobilityWorks | Crawlee `CheerioCrawler` — migrated off Playwright; `browserService` config is `@deprecated` (`mobilityworks.ts`) | No |
-| AMS Vans Classifieds | plain `fetch()` (`ams-vans-classifieds.ts`) | No |
-| MobilityVanSales | Node's `http`/`https` modules directly (`mobility-van-sales.ts`) | No |
-| eBay Motors | plain `fetch()` against the official Browse API (`ebay-motors.ts`) | No |
+| BLVD | Fetch-first with an optional Playwright fallback (#1041) | false |
+| Freedom Motors | Playwright (`freedom-motors.ts`) | **true** |
+| Superior Van | Playwright (`superior-van.ts`) | **true** |
+| MobilityWorks | Crawlee `CheerioCrawler` (`mobilityworks.ts`) | false |
+| AMS Vans Classifieds | plain `fetch()` (`ams-vans-classifieds.ts`) | false |
+| MobilityVanSales | Node `http`/`https` (`mobility-van-sales.ts`) | false |
+| eBay Motors | plain `fetch()` against the Browse API (`ebay-motors.ts`) | false |
 
-(Three different non-browser HTTP mechanisms already exist in this
-codebase — Crawlee, native `fetch`, and raw Node `http`/`https` — which is
-its own small inconsistency, separate from the chromium-gating issue.)
-
-A worker that sets `WORKER_CAPABILITIES=chromium=false` (to skip the
-~300MB Playwright Chromium download it doesn't want) is correctly excluded
-from BLVD/Freedom Motors/Superior Van jobs today — but it's *also* excluded
-from every other source-scrape job, including the four that never touch a
-browser, because the requirement is set by queue name, not by the
-dispatched source's actual needs.
-
-**Fix shape** (not yet implemented): look up whether the dispatched
-`sourceId`'s registry entry actually needs a browser — e.g. a
-`requiresBrowser: boolean` field on `ScraperSourceRegistryEntry`
-(`packages/types/src/source-registry.ts`), consulted in
-`gateway-workers.ts`'s processor instead of the blanket
-`CHROMIUM_GATEWAY_QUEUES.includes(queueName)` check. This is a prerequisite
-for a genuinely Chromium-free worker build to ever receive real work.
+A worker with `WORKER_CAPABILITIES=chromium=false` is therefore eligible
+for every `requiresBrowser: false` source and is excluded only from
+Freedom Motors and Superior Van. `DETAIL_CRAWL` and `DETAIL_EXTRACT` stay
+unconditionally chromium-gated: their handlers take a `BrowserService`
+outright. `httpEnrich` gating is queue-level and unchanged.
 
 ## Per-source concurrency lock
 
