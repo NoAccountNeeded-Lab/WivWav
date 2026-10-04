@@ -81,6 +81,48 @@ describe('WorkersClient', () => {
     expect(screen.getByText('Desk laptop')).toBeDefined()
   })
 
+  it('does not announce the periodic "Updated" timestamp as a live region', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER] })))
+
+    render(<WorkersClient apiBaseUrl="" />)
+    await screen.findByText('Desk laptop')
+
+    expect(screen.getByText(/^Updated /)).toBeDefined()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('announces a load failure through an alert', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 }) as Response))
+
+    render(<WorkersClient apiBaseUrl="" />)
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/API returned 500/)
+  })
+
+  it('treats a malformed 200 body as an error and keeps the last good rows', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [WORKER] }))
+      .mockResolvedValue(jsonResponse({ data: [{ workerId: 'worker-2' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<WorkersClient apiBaseUrl="" />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+
+    expect(screen.getByRole('alert').textContent).toMatch(/unexpected response/)
+    expect(screen.getByText('Desk laptop')).toBeDefined()
+    expect(screen.queryByText('worker-2')).toBeNull()
+  })
+
+  it('rejects a body whose data is not an array', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: null })))
+
+    render(<WorkersClient apiBaseUrl="" />)
+
+    expect(await screen.findByText(/unexpected response/)).toBeDefined()
+  })
+
   it('polls and drops a worker that disconnects between refreshes', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn()

@@ -847,6 +847,46 @@ describe('GET /openapi.json', () => {
   })
 })
 
+describe('GET /admin/workers (#1038)', () => {
+  it('rejects a missing or wrong bearer with 401 UNAUTHORIZED when an admin secret is configured', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
+    const app = await appPromise
+
+    const missing = await app.inject({ method: 'GET', url: '/admin/workers' })
+    expect(missing.statusCode).toBe(401)
+    expect(missing.json()).toMatchObject({ error: { code: 'UNAUTHORIZED' } })
+
+    const wrong = await app.inject({
+      method: 'GET',
+      url: '/admin/workers',
+      headers: { authorization: 'Bearer wrong-value' },
+    })
+    expect(wrong.statusCode).toBe(401)
+    expect(wrong.json()).toMatchObject({ error: { code: 'UNAUTHORIZED' } })
+
+    await app.close()
+  })
+
+  it('returns an empty list with a valid bearer when WORKER_GATEWAY_ENABLED is off', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/workers',
+      headers: { authorization: 'Bearer shared-secret-value' },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual({ data: [] })
+
+    await app.close()
+  })
+})
+
 describe('worker gateway registration (#948/#951)', () => {
   it('registers no /internal/workers or /internal/scraper routes when WORKER_GATEWAY_ENABLED is unset (default false)', async () => {
     const { app: appPromise } = buildTestApp()
