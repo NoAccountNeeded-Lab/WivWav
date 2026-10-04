@@ -240,6 +240,42 @@ describe('workerJobCompleteRequestSchema', () => {
     })
     expect(issuePaths(result)).toContain('dispatchId')
   })
+
+  it('should parse an escalation outcome without an errorMessage', () => {
+    const body = {
+      correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
+      success: false,
+      escalation: { capability: 'chromium', reason: 'blocked over http' },
+    }
+    expect(workerJobCompleteRequestSchema.parse(body)).toEqual(body)
+  })
+
+  it('should reject an escalation combined with success: true', () => {
+    const result = workerJobCompleteRequestSchema.safeParse({
+      correlationId: 'q:1',
+      dispatchId: 'dispatch-1',
+      success: true,
+      escalation: { capability: 'chromium', reason: 'blocked' },
+    })
+    expect(issuePaths(result)).toContain('escalation')
+  })
+
+  it('should reject an unknown escalation capability or empty reason', () => {
+    const base = { correlationId: 'q:1', dispatchId: 'dispatch-1', success: false }
+    expect(
+      workerJobCompleteRequestSchema.safeParse({
+        ...base,
+        escalation: { capability: 'gpu', reason: 'x' },
+      }).success,
+    ).toBe(false)
+    expect(
+      workerJobCompleteRequestSchema.safeParse({
+        ...base,
+        escalation: { capability: 'chromium', reason: '' },
+      }).success,
+    ).toBe(false)
+  })
 })
 
 describe('buildCorrelationId', () => {

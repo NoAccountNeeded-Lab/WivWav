@@ -59,6 +59,11 @@ export class BullMQQueueFactory implements QueueFactory {
               await job.log(message)
             },
             updateProgress: (progress) => job.updateProgress(progress),
+            updateData: async (patch) => {
+              const current =
+                typeof job.data === 'object' && job.data !== null ? job.data : {}
+              await job.updateData({ ...current, ...patch } as T)
+            },
           })
           logger?.info({ durationMs: Date.now() - start }, 'job completed')
         } catch (err) {

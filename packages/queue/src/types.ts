@@ -47,6 +47,13 @@ export interface JobContext {
   log(message: string): Promise<void>
   updateProgress(progress: JobProgress): Promise<void>
   /**
+   * Shallow-merges `patch` into the job's persisted payload (#1043) so state
+   * the processor must remember across a requeue — e.g. a capability
+   * escalation — survives a process restart and is deleted with the job.
+   * Absent on backends/test doubles that cannot persist job data.
+   */
+  updateData?(patch: Record<string, unknown>): Promise<void>
+  /**
    * Id of the current job's `JobRun` lineage row (#933), when run tracking
    * is enabled for this queue — set by `withJobRunTracking` in
    * `apps/scraper/src/lib/job-run-tracking.ts`. Undefined/null when tracking

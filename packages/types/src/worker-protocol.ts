@@ -98,10 +98,24 @@ export const coordinatorToWorkerMessageSchema = z.discriminatedUnion('type', [
 export type CoordinatorToWorkerMessage = z.infer<typeof coordinatorToWorkerMessageSchema>
 
 /**
+ * Capability-escalation outcome (#1043): the worker could not finish the job
+ * but a worker with `capability` could (e.g. BLVD blocked over plain HTTP on a
+ * Chromium-free worker). Not a failure — the coordinator re-dispatches the same
+ * queue job (same correlation id) to a capable worker without marking the
+ * source errored or consuming a retry attempt. Only valid with `success: false`.
+ */
+export const workerJobEscalationSchema = z.object({
+  capability: z.literal('chromium'),
+  reason: z.string().min(1),
+})
+export type WorkerJobEscalation = z.infer<typeof workerJobEscalationSchema>
+
+/**
  * Worker → coordinator (HTTP, not WS): final outcome of a dispatched job.
  * Settles the coordinator's in-memory correlation promise so the originating
- * queue job completes (success) or fails and retries (failure). `errorMessage`
- * is required on failure — a bare "it failed" gives operators nothing.
+ * queue job completes (success) or fails and retries (failure), or — with
+ * `escalation` (#1043) — is re-dispatched to a more capable worker. `errorMessage`
+ * is required on failure unless `escalation` is set — a bare "it failed" gives operators nothing.
  *
  * `result` is an opaque, queue-specific outcome payload the gateway processor
  * for that queue may act on — e.g. `SOURCE_SCRAPE` reports
@@ -119,8 +133,19 @@ export const workerJobCompleteRequestSchema = z
     success: z.boolean(),
     errorMessage: z.string().optional(),
     result: z.unknown().optional(),
+    escalation: workerJobEscalationSchema.optional(),
   })
   .superRefine((body, ctx) => {
+    if (body.escalation !== undefined) {
+      if (body.success) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['escalation'],
+          message: 'escalation requires success to be false',
+        })
+      }
+      return
+    }
     if (!body.success && (body.errorMessage === undefined || body.errorMessage.length === 0)) {
       ctx.addIssue({
         code: 'custom',
