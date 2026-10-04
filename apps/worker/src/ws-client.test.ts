@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createNoopLogger } from '@wivwav/logger'
 import { WsClient, type WsClientOptions } from './ws-client.js'
 import { HandlerRegistry } from './handler-registry.js'
+import { EscalateCapabilitySignal } from '@wivwav/scraper-sources'
 
 class FakeSocket extends EventEmitter {
   static instances: FakeSocket[] = []
@@ -132,6 +133,35 @@ describe('WsClient', () => {
       success: false,
       errorMessage: 'boom',
     })
+    client.stop()
+  })
+
+  it('reports a capability escalation (not a failure) when the handler throws EscalateCapabilitySignal', async () => {
+    const { client, handlers, gateway } = buildClient()
+    handlers.register('source-scrape', async () => {
+      throw new EscalateCapabilitySignal('chromium', 'blocked over http')
+    })
+    client.start()
+    const socket = FakeSocket.instances[0]!
+    socket.openNow()
+
+    socket.receive({
+      type: 'job-dispatch',
+      correlationId: 'source-scrape:7',
+      dispatchId: 'd7',
+      queueName: 'source-scrape',
+      payload: { sourceId: 's1' },
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(gateway.completeJob).toHaveBeenCalledTimes(1)
+    expect(gateway.completeJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: 'source-scrape:7',
+        dispatchId: 'd7',
+        success: false,
+        escalation: { capability: 'chromium', reason: 'blocked over http' },
+      }),
+    )
     client.stop()
   })
 

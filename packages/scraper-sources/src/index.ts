@@ -15,3 +15,10 @@ export * from './sources/factory.js'
 export * from './sources/adapters.js'
 export * from './jobs/job-progress.js'
 export * from './util/jitter-sleep.js'
+// Re-exported so apps/worker can recognize an escalation without depending on
+// @wivwav/queue directly (#1043); the subpath never loads bullmq.
+export {
+  EscalateCapabilitySignal,
+  isEscalateCapabilitySignal,
+} from '@wivwav/queue/escalate-capability-signal'
+export type { EscalatedCapability } from '@wivwav/queue/escalate-capability-signal'

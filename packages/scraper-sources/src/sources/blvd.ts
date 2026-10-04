@@ -21,6 +21,10 @@ import {
 } from '../crawlee/html-fetcher.js'
 import { PlaywrightPageFetcher } from '../crawlee/playwright-page-fetcher.js'
 import { checkForBlock } from '../crawlee/bot-detector.js'
+import {
+  EscalateCapabilitySignal,
+  isEscalateCapabilitySignal,
+} from '@wivwav/queue/escalate-capability-signal'
 
 type CheerioAPI = CrawledHtmlPage['$']
 
@@ -49,6 +53,15 @@ interface BlvdConfig {
    * PlaywrightPageFetcher wrapping it.
    */
   pageFetcher?: PageFetcher
+  /**
+   * When true and HTTP reports a block on a worker with no browserService,
+   * throw EscalateCapabilitySignal('chromium') so the coordinator can hand the
+   * job to a Chromium-capable worker (#1043) instead of failing. Callers must
+   * set this to false once a job has already been escalated, so a block after
+   * escalation fails instead of looping. Defaults to false: callers that cannot
+   * honour an escalation (in-process runs) keep the explicit BlvdBlockedError.
+   */
+  allowCapabilityEscalation?: boolean
   /** Inject a RobotsCache instance for testing. Defaults to a new RobotsCache(). */
   robotsCache?: RobotsCache
   /** Override retry backoff for testing — defaults to INITIAL_NAV_BACKOFF_MS. */
@@ -195,6 +208,7 @@ export class BlvdAdapter implements SourceAdapter {
   private readonly robotsCache: RobotsCache
   private readonly navRetryBackoffMs: number
   private readonly requestDelayMs: number
+  private readonly allowCapabilityEscalation: boolean
   private hasFetched = false
 
   constructor(previousHash: string | null = null, config: BlvdConfig = {}) {
@@ -206,6 +220,7 @@ export class BlvdAdapter implements SourceAdapter {
     this.robotsCache = config.robotsCache ?? new RobotsCache()
     this.navRetryBackoffMs = config.navRetryBackoffMs ?? INITIAL_NAV_BACKOFF_MS
     this.requestDelayMs = config.requestDelayMs ?? 1_000
+    this.allowCapabilityEscalation = config.allowCapabilityEscalation ?? false
   }
 
   private async fetchWithFallback(url: string, context?: JobContext): Promise<CrawledHtmlPage> {
@@ -220,7 +235,15 @@ export class BlvdAdapter implements SourceAdapter {
     const page = await this.pageFetcher.fetchOne(url)
     const block = checkForBlock(page.statusCode, page.body)
     if (!block.blocked) return page
-    if (!this.browserService) throw new BlvdBlockedError(url, block.reason)
+    if (!this.browserService) {
+      if (this.allowCapabilityEscalation) {
+        throw new EscalateCapabilitySignal(
+          'chromium',
+          `[blvd] blocked over HTTP fetching ${url}: ${block.reason ?? 'unknown'}`,
+        )
+      }
+      throw new BlvdBlockedError(url, block.reason)
+    }
     await report(context, `[blvd] Block detected (${block.reason}); retrying with Chromium: ${url}`, {
       stage: 'scraping', source: SOURCE_ID, reason: 'chromium_fallback',
     })
@@ -310,7 +333,7 @@ export class BlvdAdapter implements SourceAdapter {
             )
             : await this.fetchWithFallback(url, context)
         } catch (err) {
-          if (pageNum > 1 && !(err instanceof BlvdBlockedError)) {
+          if (pageNum > 1 && !(err instanceof BlvdBlockedError) && !isEscalateCapabilitySignal(err)) {
             // Any nav failure this deep in pagination (timeout, net::ERR_ABORTED,
             // a stealth-plugin evasion racing page teardown, etc.) should stop
             // pagination gracefully rather than rethrow — rethrowing here aborts

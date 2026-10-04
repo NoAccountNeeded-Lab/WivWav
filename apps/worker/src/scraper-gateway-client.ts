@@ -17,6 +17,7 @@ import type {
   SourceMappingsResponse,
 } from '@wivwav/types/scraper-gateway'
 import type { FieldMapping } from '@wivwav/types'
+import type { WorkerJobEscalation } from '@wivwav/types/worker-protocol'
 import type { HttpClient } from './http-client.js'
 
 /** Extra profile fields the worker needs to construct a SourceAdapter (#952) — see docker/worker's Dockerfile comment and apps/api's `GET /sources/:id/profile` route. */
@@ -169,6 +170,7 @@ export class ScraperGatewayClient {
     success: boolean
     errorMessage?: string
     result?: unknown
+    escalation?: WorkerJobEscalation
   }): Promise<{ acknowledged: boolean }> {
     return this.http.post('/internal/workers/jobs/complete', body)
   }

@@ -5,6 +5,13 @@ export interface SourceAdapterFactoryConfig {
   previousPage1Hash?: string | null
   browserService?: BrowserService
   /**
+   * Whether an adapter that is blocked and has no browser may throw
+   * `EscalateCapabilitySignal` so the coordinator re-dispatches the job to a
+   * Chromium-capable worker (#1043). Adapters that don't support escalation
+   * ignore it. False once a job has already been escalated.
+   */
+  allowCapabilityEscalation?: boolean
+  /**
    * eBay Developer Program credentials for the Browse API (#999). Resolved
    * from `ConfigService` by the caller (apps/worker's source-scrape handler,
    * via the gateway) and injected here rather than read directly by the

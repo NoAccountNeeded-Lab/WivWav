@@ -12,6 +12,15 @@ export interface SourceScrapePayload {
   sourceId: string
 }
 
+/**
+ * True when the coordinator already handed this job to a Chromium-capable
+ * worker (#1043): it stamps `capabilityEscalation` into the persisted job
+ * payload. Such a job must never escalate again — a further block fails.
+ */
+function wasEscalated(payload: SourceScrapePayload): boolean {
+  return (payload as { capabilityEscalation?: unknown }).capabilityEscalation !== undefined
+}
+
 function isSourceScrapePayload(payload: unknown): payload is SourceScrapePayload {
   return (
     typeof payload === 'object' &&
@@ -60,6 +69,8 @@ export function createSourceScrapeHandler(
     const adapter: SourceAdapter = module.createSourceAdapter(profile.fingerprintHash, {
       previousPage1Hash: profile.page1Hash,
       ...(browserService ? { browserService } : {}),
+      // Only a not-yet-escalated job may ask for a more capable worker.
+      allowCapabilityEscalation: !wasEscalated(payload),
       ...(ebayCredentials ? { ebayCredentials } : {}),
     })
 
