@@ -368,6 +368,8 @@ export interface ListingRepository {
   findHistoryByVin(vin: string): Promise<VinHistoryRow[]>
   findVehicleModelWithSafetyData(vehicleModelId: string): Promise<VehicleModelWithSafetyData | null>
   findManyActive(skip: number, take: number): Promise<Listing[]>
+  /** All listing rows, any status. */
+  countStored(): Promise<number>
   countObservedActive(): Promise<number>
   countActive(): Promise<number>
   countActiveWithCoordinates(): Promise<number>
@@ -636,6 +638,10 @@ export class PrismaListingRepository implements ListingRepository {
       LIMIT ${take}
       OFFSET ${skip}
     `
+  }
+
+  countStored(): Promise<number> {
+    return this.db.listing.count()
   }
 
   countObservedActive(): Promise<number> {

@@ -173,6 +173,14 @@ describe('PrismaListingRepository public eligibility', () => {
     }))
   })
 
+  it('counts every stored listing row regardless of status', async () => {
+    const db = buildDb({ count: vi.fn(async () => 40) })
+    const repo = new PrismaListingRepository(db as never)
+
+    await expect(repo.countStored()).resolves.toBe(40)
+    expect(db.listing.count).toHaveBeenCalledWith()
+  })
+
   it('counts observed active rows separately from eligible vehicle groups', async () => {
     const db = buildDb({ count: vi.fn(async () => 12) })
     const repo = new PrismaListingRepository(db as never)

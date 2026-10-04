@@ -52,6 +52,7 @@ import { ConfigService } from './services/config-service.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
 import { adminPrivateSellerRetentionRoutes } from './routes/admin-private-seller-retention.js'
+import { internalOpsHelmSummaryRoutes } from './routes/internal-ops-helm-summary.js'
 import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.js'
 import { internalOpsProblemAggregateRoutes } from './routes/internal-ops-problem-aggregate.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
@@ -428,6 +429,11 @@ export async function buildApp(
       await internalOpsScope.register(internalOpsWorkerControlRoutes, {
         prefix: '/workers',
         registry: workerRegistry,
+      })
+      await internalOpsScope.register(internalOpsHelmSummaryRoutes, {
+        prefix: '/helm-summary',
+        listings: listingRepo,
+        meili,
       })
       await internalOpsScope.register(internalOpsProblemAckRoutes, {
         prefix: '/problem-ack',
