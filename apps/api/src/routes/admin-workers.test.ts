@@ -27,6 +27,19 @@ function worker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker {
     workerName: 'Desk laptop',
     capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 3 },
     inFlight: new Set(['c1', 'c2']),
+    jobs: new Map([
+      ['c1', { queueName: 'detail-crawl', dispatchedAt: new Date('2026-10-03T12:01:00.000Z') }],
+      ['c2', { queueName: 'source-scrape', dispatchedAt: new Date('2026-10-03T12:02:00.000Z') }],
+    ]),
+    recentJobs: [
+      {
+        queueName: 'source-scrape',
+        correlationId: 'c0',
+        success: false,
+        errorMessage: 'worker reported failure',
+        finishedAt: new Date('2026-10-03T11:59:00.000Z'),
+      },
+    ],
     lastHeartbeatAt: new Date('2026-10-03T12:00:00.000Z'),
     send: vi.fn(),
     ...overrides,
@@ -64,6 +77,27 @@ describe('GET /admin/workers', () => {
           workerName: 'Desk laptop',
           capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 3 },
           inFlightCount: 2,
+          inFlightJobs: [
+            {
+              queueName: 'detail-crawl',
+              correlationId: 'c1',
+              dispatchedAt: '2026-10-03T12:01:00.000Z',
+            },
+            {
+              queueName: 'source-scrape',
+              correlationId: 'c2',
+              dispatchedAt: '2026-10-03T12:02:00.000Z',
+            },
+          ],
+          recentJobs: [
+            {
+              queueName: 'source-scrape',
+              correlationId: 'c0',
+              success: false,
+              errorMessage: 'worker reported failure',
+              finishedAt: '2026-10-03T11:59:00.000Z',
+            },
+          ],
           lastHeartbeatAt: '2026-10-03T12:00:00.000Z',
         },
       ],

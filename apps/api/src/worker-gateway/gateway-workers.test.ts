@@ -241,6 +241,8 @@ describe('per-source chromium gating end to end with WorkerRegistry.pickWorker (
     workerName: 'volunteer',
     capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 2 },
     inFlight: new Set(),
+    jobs: new Map(),
+    recentJobs: [],
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
   }
@@ -478,6 +480,8 @@ describe('two-worker BLVD handoff (real dispatcher + registry)', () => {
       workerName: id,
       capabilities: { chromium, httpEnrich: false, maxConcurrentJobs: 2 },
       inFlight: new Set(),
+    jobs: new Map(),
+    recentJobs: [],
       lastHeartbeatAt: new Date(),
       send: vi.fn(),
     }

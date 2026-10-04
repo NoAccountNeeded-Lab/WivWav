@@ -17,6 +17,8 @@ function connectWorker(
     workerName: 'laptop',
     capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
     inFlight: new Set(),
+    jobs: new Map(),
+    recentJobs: [],
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
     ...overrides,
@@ -94,6 +96,29 @@ describe('WorkerDispatcher.dispatch', () => {
     await Promise.resolve()
     dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), true)
     await expect(promise).resolves.toBeUndefined()
+  })
+
+  it('tracks in-flight job detail and records the outcome in recentJobs (#1067)', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry)
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+    await Promise.resolve()
+    expect([...worker.jobs.entries()]).toEqual([
+      ['detail-crawl:1', { queueName: 'detail-crawl', dispatchedAt: expect.any(Date) }],
+    ])
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), false, 'boom')
+    await expect(promise).rejects.toThrow('boom')
+    expect(worker.jobs.size).toBe(0)
+    expect(worker.inFlight.size).toBe(0)
+    expect(worker.recentJobs).toHaveLength(1)
+    expect(worker.recentJobs[0]).toMatchObject({
+      queueName: 'detail-crawl',
+      correlationId: 'detail-crawl:1',
+      success: false,
+      errorMessage: 'boom',
+    })
+    expect(worker.recentJobs[0]?.finishedAt).toBeInstanceOf(Date)
   })
 
   it('resolves with the worker-reported result', async () => {
@@ -456,5 +481,28 @@ describe('WorkerDispatcher capability escalation (#1043)', () => {
     expect(
       dispatcher.complete('source-scrape:1', dispatchId, false, undefined, undefined, escalation),
     ).toBe(false)
+  })
+
+  it('records an escalation as escalated, not failed, in recentJobs (#1067)', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry, {
+      capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 2 },
+    })
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const pending = dispatcher.dispatch('source-scrape', '1', {}, { chromium: false })
+    const assertion = expect(pending).rejects.toBeInstanceOf(CapabilityEscalationError)
+    await Promise.resolve()
+
+    dispatcher.complete(
+      'source-scrape:1', dispatchIdFrom(worker), false, 'x', undefined, escalation,
+    )
+    await assertion
+    expect(worker.recentJobs).toHaveLength(1)
+    expect(worker.recentJobs[0]).toMatchObject({
+      queueName: 'source-scrape',
+      correlationId: 'source-scrape:1',
+      success: false,
+      escalated: true,
+    })
   })
 })

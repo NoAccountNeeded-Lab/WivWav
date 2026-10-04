@@ -1,11 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
 import workerStyles from './WorkersClient.module.css'
 import { ACTION_ICONS } from '../action-icons'
+
+interface InFlightJob {
+  queueName: string
+  correlationId: string
+  dispatchedAt: string
+}
+
+interface RecentJob {
+  queueName: string
+  correlationId: string
+  success: boolean
+  escalated?: boolean
+  errorMessage?: string
+  finishedAt: string
+}
 
 interface ConnectedWorker {
   workerId: string
@@ -16,6 +31,8 @@ interface ConnectedWorker {
     maxConcurrentJobs: number
   }
   inFlightCount: number
+  inFlightJobs: InFlightJob[]
+  recentJobs: RecentJob[]
   lastHeartbeatAt: string
 }
 
@@ -37,12 +54,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isInFlightJob(row: unknown): row is InFlightJob {
+  if (!isRecord(row)) return false
+  return (
+    typeof row.queueName === 'string' &&
+    typeof row.correlationId === 'string' &&
+    typeof row.dispatchedAt === 'string'
+  )
+}
+
+function isRecentJob(row: unknown): row is RecentJob {
+  if (!isRecord(row)) return false
+  return (
+    typeof row.queueName === 'string' &&
+    typeof row.correlationId === 'string' &&
+    typeof row.success === 'boolean' &&
+    (row.escalated === undefined || typeof row.escalated === 'boolean') &&
+    (row.errorMessage === undefined || typeof row.errorMessage === 'string') &&
+    typeof row.finishedAt === 'string'
+  )
+}
+
 function isConnectedWorker(row: unknown): row is ConnectedWorker {
   if (!isRecord(row) || !isRecord(row.capabilities)) return false
   return (
     typeof row.workerId === 'string' &&
     typeof row.workerName === 'string' &&
     typeof row.inFlightCount === 'number' &&
+    Array.isArray(row.inFlightJobs) &&
+    (row.inFlightJobs as unknown[]).every(isInFlightJob) &&
+    Array.isArray(row.recentJobs) &&
+    (row.recentJobs as unknown[]).every(isRecentJob) &&
     typeof row.lastHeartbeatAt === 'string' &&
     typeof row.capabilities.chromium === 'boolean' &&
     typeof row.capabilities.httpEnrich === 'boolean' &&
@@ -62,6 +104,16 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [expandedRows, setExpandedRows] = useState<ReadonlySet<string>>(new Set())
+
+  const toggleRow = useCallback((key: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   const requestSeq = useRef(0)
   const mounted = useRef(true)
@@ -150,35 +202,128 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
                   <th scope="col">Worker</th>
                   <th scope="col">Capabilities</th>
                   <th scope="col">In-flight / max jobs</th>
+                  <th scope="col">Current job</th>
                   <th scope="col">Last heartbeat received</th>
+                  <th scope="col"><span className="sr-only">Details</span></th>
                 </tr>
               </thead>
               <tbody>
-                {workers.map((worker, index) => (
+                {workers.map((worker, index) => {
                   // A reconnecting worker briefly has two sockets sharing one workerId.
-                  <tr key={`${worker.workerId}-${index}`}>
-                    <td>
-                      <span className={workerStyles.workerName}>{worker.workerName}</span>
-                      <span className={workerStyles.workerId}>{worker.workerId}</span>
-                    </td>
-                    <td>
-                      <div className={workerStyles.badges}>
-                        <span className={styles.badge} data-variant={worker.capabilities.chromium ? 'success' : 'muted'}>
-                          chromium: {worker.capabilities.chromium ? 'yes' : 'no'}
-                        </span>
-                        <span className={styles.badge} data-variant={worker.capabilities.httpEnrich ? 'success' : 'muted'}>
-                          httpEnrich: {worker.capabilities.httpEnrich ? 'yes' : 'no'}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      {worker.inFlightCount} / {worker.capabilities.maxConcurrentJobs}
-                    </td>
-                    <td>
-                      <RelativeTimestamp value={worker.lastHeartbeatAt} />
-                    </td>
-                  </tr>
-                ))}
+                  const rowKey = `${worker.workerId}-${index}`
+                  const expanded = expandedRows.has(rowKey)
+                  const expandable = worker.inFlightJobs.length > 0 || worker.recentJobs.length > 0
+                  const detailRowId = `worker-details-${rowKey}`
+                  const [current, ...rest] = worker.inFlightJobs
+                  return (
+                    <Fragment key={rowKey}>
+                      <tr>
+                        <td>
+                          <span className={workerStyles.workerName}>{worker.workerName}</span>
+                          <span className={workerStyles.workerId}>{worker.workerId}</span>
+                        </td>
+                        <td>
+                          <div className={workerStyles.badges}>
+                            <span className={styles.badge} data-variant={worker.capabilities.chromium ? 'success' : 'muted'}>
+                              chromium: {worker.capabilities.chromium ? 'yes' : 'no'}
+                            </span>
+                            <span className={styles.badge} data-variant={worker.capabilities.httpEnrich ? 'success' : 'muted'}>
+                              httpEnrich: {worker.capabilities.httpEnrich ? 'yes' : 'no'}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          {worker.inFlightCount} / {worker.capabilities.maxConcurrentJobs}
+                        </td>
+                        <td>
+                          {current ? (
+                            <>
+                              <span>{current.queueName}</span>{' '}
+                              <span className={workerStyles.muted}>
+                                · <RelativeTimestamp value={current.dispatchedAt} />
+                              </span>
+                              {rest.length > 0 ? (
+                                <span className={workerStyles.muted}> +{rest.length} more</span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span className={workerStyles.muted}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <RelativeTimestamp value={worker.lastHeartbeatAt} />
+                        </td>
+                        <td className={workerStyles.expandCell}>
+                          {expandable ? (
+                            <button
+                              type="button"
+                              className={workerStyles.expandBtn}
+                              aria-label={expanded ? `Collapse job details for ${worker.workerName}` : `Expand job details for ${worker.workerName}`}
+                              aria-expanded={expanded}
+                              aria-controls={detailRowId}
+                              onClick={() => toggleRow(rowKey)}
+                            >
+                              {expanded ? '▲' : '▼'}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                      {expandable ? (
+                        <tr key={`${rowKey}-details`} id={detailRowId} className={workerStyles.detailRow} hidden={!expanded}>
+                          <td colSpan={6}>
+                            <div className={workerStyles.jobDetails}>
+                              <div>
+                                <p className={workerStyles.jobSectionLabel}>Running now</p>
+                                {worker.inFlightJobs.length > 0 ? (
+                                  <ul className={workerStyles.jobList}>
+                                    {worker.inFlightJobs.map((job) => (
+                                      <li key={job.correlationId} className={workerStyles.jobItem}>
+                                        <strong>{job.queueName}</strong>
+                                        <span className={workerStyles.corrId}>{job.correlationId}</span>
+                                        <span className={workerStyles.muted}>
+                                          running since <RelativeTimestamp value={job.dispatchedAt} />
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className={workerStyles.muted}>Idle — nothing dispatched.</p>
+                                )}
+                              </div>
+                              <div>
+                                <p className={workerStyles.jobSectionLabel}>Recent jobs</p>
+                                {worker.recentJobs.length > 0 ? (
+                                  <ul className={workerStyles.jobList}>
+                                    {worker.recentJobs.map((job, jobIndex) => (
+                                      <li key={`${job.correlationId}-${job.finishedAt}-${jobIndex}`} className={workerStyles.jobItem}>
+                                        <span
+                                          className={styles.badge}
+                                          data-variant={job.escalated ? 'warning' : job.success ? 'success' : 'danger'}
+                                        >
+                                          {job.escalated ? 'escalated' : job.success ? 'ok' : 'failed'}
+                                        </span>
+                                        <span>{job.queueName}</span>
+                                        <span className={workerStyles.corrId}>{job.correlationId}</span>
+                                        <span className={workerStyles.muted}>
+                                          <RelativeTimestamp value={job.finishedAt} />
+                                        </span>
+                                        {job.errorMessage ? (
+                                          <span className={workerStyles.corrId}>{job.errorMessage}</span>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className={workerStyles.muted}>No finished jobs recorded yet.</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>

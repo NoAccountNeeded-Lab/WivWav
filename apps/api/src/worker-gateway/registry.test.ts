@@ -8,6 +8,8 @@ function makeWorker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker
     workerName: 'laptop',
     capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
     inFlight: new Set(),
+    jobs: new Map(),
+    recentJobs: [],
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
     ...overrides,
@@ -34,6 +36,8 @@ describe('WorkerRegistry.pickWorker', () => {
       makeWorker({
         capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 1 },
         inFlight: new Set(['q:1']),
+    jobs: new Map(),
+    recentJobs: [],
       }),
     )
     expect(registry.pickWorker({ chromium: true })).toBeUndefined()

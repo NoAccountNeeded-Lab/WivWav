@@ -12,9 +12,44 @@ export interface RegisteredWorker {
   capabilities: WorkerCapabilities
   /** Correlation ids currently dispatched to this connection. */
   inFlight: Set<string>
+  /**
+   * Per-job detail for each in-flight correlation id. Kept beside `inFlight`
+   * (rather than replacing it) so dispatch pick/load math keeps reading the
+   * Set; `#1067` surfaces this map on GET /admin/workers.
+   */
+  jobs: Map<string, InFlightJobDetail>
+  /**
+   * Most recent settled outcomes for this connection, newest first, bounded
+   * to MAX_RECENT_JOBS. Recorded for completions, refusals, and timeouts —
+   * every settle path except a connection drop, whose registry entry (and
+   * ops row) is already gone by the time the drop is processed.
+   */
+  recentJobs: RecentJobOutcome[]
   lastHeartbeatAt: Date
   send(message: CoordinatorToWorkerMessage): void
 }
+
+export interface InFlightJobDetail {
+  queueName: string
+  dispatchedAt: Date
+}
+
+export interface RecentJobOutcome {
+  queueName: string
+  correlationId: string
+  success: boolean
+  /**
+   * Set for a capability escalation (#1043): the attempt did not complete,
+   * but the job was requeued (not failed). Operators read this as "needs a
+   * more capable worker", never as a job error.
+   */
+  escalated?: boolean
+  errorMessage?: string
+  finishedAt: Date
+}
+
+/** Cap on per-worker outcome history — operators need the last few, not a log. */
+export const MAX_RECENT_JOBS = 5
 
 /**
  * In-memory registry of connected workers plus the per-source concurrency
