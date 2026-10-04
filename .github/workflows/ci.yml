@@ -120,6 +120,12 @@ jobs:
             fi
           fi
 
+          # #811: compiled tests/fixtures must not ship in the API image.
+          if [ "${{ matrix.service }}" = "api" ]; then
+            echo "== Checking for compiled tests and fixtures =="
+            bash scripts/check-no-test-artifacts.sh manifest manifest.txt
+          fi
+
           echo "== Checking the container runs as non-root =="
           uid=$(docker inspect --format '{{.Config.User}}' "$image")
           if [ -z "$uid" ] || [ "$uid" = "root" ] || [ "$uid" = "0" ]; then
@@ -315,6 +321,10 @@ jobs:
 
       - name: Build api
         run: pnpm build --filter=@wivwav/api...
+
+      # #811: production build output must not contain compiled tests or fixtures.
+      - name: Inspect build output for test artifacts
+        run: bash scripts/check-no-test-artifacts.sh dirs apps/api/dist packages/*/dist
 
       - name: Lint
         run: pnpm lint
