@@ -14,8 +14,21 @@ const FOCUSABLE = [
   'textarea:not([disabled])', 'summary', '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
+/** A control inside a closed <details> cannot take focus, except that details' own <summary>. */
+function isHiddenByClosedDetails(element: HTMLElement): boolean {
+  for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+    if (ancestor instanceof HTMLDetailsElement && !ancestor.open) {
+      const ownSummary = element.tagName === 'SUMMARY' && element.parentElement === ancestor
+      if (!ownSummary) return true
+    }
+  }
+  return false
+}
+
 function focusableWithin(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(element => element.getAttribute('aria-hidden') !== 'true')
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    element => element.getAttribute('aria-hidden') !== 'true' && !isHiddenByClosedDetails(element),
+  )
 }
 
 /**

@@ -17,7 +17,7 @@ const OUTCOME_VARIANT = {
  * the workspace-level tracker, so they keep updating when the inspector moves
  * to a different selection.
  */
-export function ActionOutcomeList({ actions, label }: { actions: TrackedAction[]; label: string }) {
+export function ActionOutcomeList({ actions, label, onOpenSource }: { actions: TrackedAction[]; label: string; onOpenSource?: (sourceId: string) => void }) {
   const { tracker } = useHelm()
   if (actions.length === 0) return null
   return (
@@ -39,8 +39,13 @@ export function ActionOutcomeList({ actions, label }: { actions: TrackedAction[]
               {action.checkError ? ` ${action.checkError}` : ''}
             </p>
           )}
-          {action.jobId && <RecoveryBadge verdict={tracker.verdictFor(action)} />}
+          {action.jobId ? <RecoveryBadge verdict={tracker.verdictFor(action)} /> : null}
           <div className={styles.actionRow}>
+            {onOpenSource && action.sourceId && (
+              <button type="button" className={styles.actionButton} onClick={() => onOpenSource(action.sourceId as string)}>
+                Open {action.sourceName ?? 'source'}
+              </button>
+            )}
             <button type="button" className={styles.actionButton} onClick={() => tracker.dismiss(action.id)}>
               Dismiss
             </button>

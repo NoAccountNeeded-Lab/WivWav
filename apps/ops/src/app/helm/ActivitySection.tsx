@@ -4,11 +4,10 @@ import { useMemo } from 'react'
 import { OpsStatusChip } from '@/components/OpsStatusChip'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import { RecentRunsChart } from './RecentRunsChart'
-import { RecoveryBadge } from './RecoveryBadge'
+import { ActionOutcomeList } from './ActionOutcomeList'
 import { buildRecentRunWindow } from './flow-model'
 import { FreshnessChip } from './primitives'
 import { useHelm } from './helm-context'
-import { outcomeLabel } from './tracked-action'
 import styles from './helm-sections.module.css'
 
 const RECENT_RUN_BARS = 30
@@ -35,30 +34,7 @@ export function ActivitySection() {
         {tracker.actions.length === 0 ? (
           <p className={styles.empty}>No actions started in this session. Use the inspector to run a source or rebuild search.</p>
         ) : (
-          <ul className={styles.rowList} aria-label="Tracked actions">
-            {tracker.actions.map(action => (
-              <li key={action.id} className={styles.row}>
-                <h4 className={styles.rowTitle}>
-                  <span>{action.label}{action.sourceName ? `: ${action.sourceName}` : ''}</span>
-                  <OpsStatusChip
-                    variant={action.outcome === 'completed' ? 'success' : action.outcome === 'failed' ? 'danger' : action.outcome === 'unavailable' ? 'muted' : 'neutral'}
-                    label={outcomeLabel(action.outcome)}
-                  />
-                </h4>
-                <RecoveryBadge verdict={tracker.verdictFor(action)} />
-                <div className={styles.rowActions}>
-                  {action.sourceId && (
-                    <button type="button" className={styles.rowButton} onClick={() => nav.openSource(action.sourceId as string)}>
-                      Open {action.sourceName ?? 'source'}
-                    </button>
-                  )}
-                  <button type="button" className={styles.rowButton} onClick={() => tracker.dismiss(action.id)}>
-                    Dismiss
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <ActionOutcomeList actions={tracker.actions} label="Tracked actions" onOpenSource={nav.openSource} />
         )}
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
+import { ActionAnnouncer } from '../ActionAnnouncer'
 import { useHelm } from '../helm-context'
 import { sectionElementId } from '../HelmNav'
 import { hasSelection } from '../helm-url'
@@ -73,6 +74,7 @@ export function InspectorHost({ header, nav: navigation, main }: InspectorHostPr
           ) : main}
         </div>
       </div>
+      <ActionAnnouncer />
       {dialogOpen && (
         <InspectorDialog titleId={INSPECTOR_TITLE_ID} onClose={nav.closeInspector}>
           <InspectorContent onClose={nav.closeInspector} />

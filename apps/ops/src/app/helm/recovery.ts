@@ -49,6 +49,7 @@ export type RecoveryState =
   | 'not-recovered'
   | 'unavailable'
   | 'no-claim'
+  | 'not-started'
 
 export interface RecoveryVerdict {
   state: RecoveryState
@@ -105,6 +106,9 @@ function gateEvidence(
 
 function jobGate(action: TrackedAction): RecoveryVerdict | null {
   if (isPendingOutcome(action.outcome)) return verdict('pending-job', 'Waiting for the job to finish.')
+  if (action.jobId === null) {
+    return verdict('not-started', 'The request was not accepted, so no job ran and nothing changed.', action.detail ? [action.detail] : [])
+  }
   if (action.outcome === 'failed') return verdict('not-recovered', 'Not recovered: the job failed.', [action.detail ?? 'The job failed without a reason.'])
   if (action.outcome === 'unavailable') return verdict('unavailable', 'Recovery cannot be confirmed: the job outcome is unavailable.', action.detail ? [action.detail] : [])
   return null
@@ -268,5 +272,6 @@ export function recoveryStateLabel(state: RecoveryState): string {
     case 'not-recovered': return 'Not recovered'
     case 'unavailable': return 'Recovery unconfirmed'
     case 'no-claim': return 'Completed, no recovery claimed'
+    case 'not-started': return 'No job ran'
   }
 }

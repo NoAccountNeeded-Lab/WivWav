@@ -101,6 +101,14 @@ describe('assessRecovery: source run', () => {
   })
 })
 
+describe('assessRecovery: rejected request', () => {
+  it('says no job ran when the enqueue request was rejected', () => {
+    const verdict = assessRecovery(action({ jobId: null, outcome: 'failed', detail: 'Queue service is unavailable', terminalObservedAtMs: null }), evidence(), NOW)
+    expect(verdict.state).toBe('not-started')
+    expect(verdict.headline).toMatch(/no job ran/)
+  })
+})
+
 describe('assessRecovery: source stages', () => {
   const crawl = (over = {}) => action({ kind: 'detail-crawl', queue: 'detail-crawl', baseline: { problemFingerprints: [], stage: { failedCount: 2, stalled: false }, search: null }, ...over })
 

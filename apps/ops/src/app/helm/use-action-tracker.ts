@@ -13,7 +13,8 @@ import { applyJobObservation, isPendingOutcome, type ActionBaseline, type Action
 import type { HelmData } from './use-helm-data'
 import type { SourcePipelineData } from './use-source-evidence'
 
-const TRACK_INTERVAL_MS = 5_000
+/** GET /admin/queues/:name loads every retained job and its logs, so job tracking stays modest. */
+const TRACK_INTERVAL_MS = 10_000
 
 export interface ActionSource {
   id: string

@@ -19,7 +19,12 @@ export function HelmHeader({ environment }: { environment: string }) {
         </li>
       </ul>
       <span className={styles.headerSpacer} />
-      <button type="button" className={styles.headerButton} onClick={data.refreshAll} disabled={data.isRefreshing}>
+      <button
+        type="button"
+        className={styles.headerButton}
+        aria-disabled={data.isRefreshing ? 'true' : undefined}
+        onClick={() => { if (!data.isRefreshing) data.refreshAll() }}
+      >
         <RefreshCw size={16} aria-hidden="true" />
         {data.isRefreshing ? 'Refreshing…' : 'Refresh'}
       </button>

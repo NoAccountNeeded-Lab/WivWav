@@ -197,13 +197,51 @@ describe('narrow dialog focus management', () => {
     expect(document.querySelector('[inert]')).toBeNull()
   })
 
-  it('falls back to the section heading when the opener is gone', async () => {
+  it('falls back to the section heading when the inspector was opened from a shared URL', async () => {
     setUrl('section=problems&source=s1')
     renderHelm()
     const dialog = await screen.findByRole('dialog')
+    expect(document.activeElement?.id).toBe('helm-inspector-title')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement?.id).toBe('helm-section-problems')
+  })
+
+  it('falls back to the section heading when the opener was removed while the inspector was open', async () => {
+    setUrl('section=problems')
+    renderHelm()
+    const opener = await screen.findByRole('button', { name: /Inspect BLVD source is in error/ })
+    opener.focus()
+    fireEvent.click(opener)
+    const dialog = await screen.findByRole('dialog')
+    // The problem leaves the list, so the button that opened the dialog really unmounts.
+    world.aggregate = aggregate([])
+    fireEvent.click(screen.getByRole('button', { name: /Refresh/ }))
+    await waitFor(() => expect(opener.isConnected).toBe(false))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement?.id).toBe('helm-section-problems')
+  })
+
+  it('does not take focus on first load when nothing is selected', async () => {
+    renderHelm()
+    await screen.findByRole('list', { name: 'Inventory counts' })
     expect(document.activeElement).toBe(document.body)
+  })
+
+  it('keeps Tab inside the dialog when the last DOM control sits in a collapsed evidence group', async () => {
+    setUrl(`source=s1&log=${encodeURIComponent('missing|x|y')}`)
+    renderHelm()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('Recent logs')
+    // This layout ends with collapsed groups whose list buttons cannot take focus.
+    fireEvent.click(within(dialog).getByText('Run tree'))
+    fireEvent.click(within(dialog).getByText('Run tree')) // collapse again
+    const summaries = within(dialog).getAllByText(/Source pipeline|Run tree|Recent logs/).map(element => element.closest('summary') as HTMLElement)
+    const lastSummary = summaries[summaries.length - 1] as HTMLElement
+    lastSummary.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+    expect(document.activeElement?.textContent).toBe('Copy link')
   })
 })
 

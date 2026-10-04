@@ -27,8 +27,8 @@ async function advance(ms: number) {
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     return
   }
-  for (let remaining = ms; remaining > 0; remaining -= 1_000) {
-    await act(async () => { await vi.advanceTimersByTimeAsync(Math.min(1_000, remaining)) })
+  for (let remaining = ms; remaining > 0; remaining -= 2_500) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(Math.min(2_500, remaining)) })
   }
 }
 
@@ -138,8 +138,20 @@ describe('enqueue failures', () => {
     expect(alert.textContent).toMatch(/HTTP 409 SOURCE_DISABLED/)
     expect(alert.textContent).toMatch(/paused and cannot be run/)
     expect(alert.textContent).toMatch(/No job was queued/)
-    await advance(30_000)
+    await advance(60_000)
     expect(world.calls.filter(call => call.path === '/admin/queues/source-scrape')).toHaveLength(0)
+  })
+
+  it('lists a rejected request under Activity as "No job ran", never as a failed job', async () => {
+    world.posts['POST /admin/sources/s1/run'] = () => ({ status: 503, body: { error: { code: 'SERVICE_UNAVAILABLE', message: 'Queue service is unavailable' } } })
+    const dialog = await openSourceInspector()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run source now' }))
+    await advance(0)
+    const tracked = screen.getByRole('list', { name: 'Tracked actions' })
+    expect(tracked.textContent).toMatch(/The request was not accepted \(HTTP 503 SERVICE_UNAVAILABLE\)/)
+    expect(tracked.textContent).toMatch(/No job was queued/)
+    expect(tracked.textContent).not.toMatch(/the job failed/i)
+    expect(tracked.textContent).not.toMatch(/Not recovered/)
   })
 
   it('reports a rate-limited rebuild as a failure, not a queued job', async () => {
@@ -170,7 +182,7 @@ describe('completion is not recovery', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Run source now' }))
     await advance(0)
     jobIs('active')
-    await advance(5_000)
+    await advance(10_000)
     expect(within(dialog).getByRole('list', { name: 'Actions for this source' }).textContent).toMatch(/Running/)
     return dialog
   }
@@ -184,7 +196,7 @@ describe('completion is not recovery', () => {
   it('a completed job with the problem still reported is "Not recovered"', async () => {
     const dialog = await runToCompletion()
     finishJob() // problem still in the aggregate
-    await advance(30_000)
+    await advance(60_000)
     const list = within(dialog).getByRole('list', { name: 'Actions for this source' })
     expect(list.textContent).toMatch(/Completed/)
     expect(list.textContent).toMatch(/Not recovered/)
@@ -196,7 +208,7 @@ describe('completion is not recovery', () => {
     const dialog = await runToCompletion()
     finishJob()
     world.aggregate = aggregate([])
-    await advance(30_000)
+    await advance(60_000)
     const list = within(dialog).getByRole('list', { name: 'Actions for this source' })
     expect(list.textContent).toMatch(/Recovery confirmed/)
     expect(list.textContent).toMatch(/not matched to the job by id/)
@@ -206,17 +218,30 @@ describe('completion is not recovery', () => {
     const dialog = await runToCompletion()
     finishJob()
     world.aggregate = aggregate([], { db: 'unavailable' })
-    await advance(30_000)
+    await advance(60_000)
     const list = within(dialog).getByRole('list', { name: 'Actions for this source' })
     expect(list.textContent).toMatch(/Recovery unconfirmed/)
     expect(list.textContent).toMatch(/not proof it is fixed/)
     expect(list.textContent).not.toMatch(/Recovery confirmed/)
   })
 
+  it('announces outcome and recovery changes in one polite live region', async () => {
+    const dialog = await runToCompletion()
+    const announcer = screen.getByTestId('action-announcer')
+    expect(announcer.getAttribute('role')).toBe('status')
+    expect(announcer.getAttribute('aria-live')).toBe('polite')
+    expect(announcer.textContent).toMatch(/Run source now: BLVD\. Running/)
+    finishJob()
+    world.aggregate = aggregate([])
+    await advance(60_000)
+    expect(announcer.textContent).toMatch(/Run source now: BLVD\. Completed\. Recovery confirmed/)
+    expect(within(dialog).getAllByRole('status').length).toBeGreaterThan(0)
+  })
+
   it('shows a failed job with its reason and no recovery', async () => {
     const dialog = await runToCompletion()
     jobIs('failed', { finishedAt: iso(500), failedReason: 'Navigation timeout' })
-    await advance(5_000)
+    await advance(10_000)
     const list = within(dialog).getByRole('list', { name: 'Actions for this source' })
     expect(list.textContent).toMatch(/Failed/)
     expect(list.textContent).toMatch(/Navigation timeout/)
@@ -226,7 +251,7 @@ describe('completion is not recovery', () => {
   it('reports status unavailable, not completed, when the job disappears from the queue list', async () => {
     const dialog = await runToCompletion()
     world.jobs['source-scrape'] = []
-    await advance(5_000)
+    await advance(10_000)
     const list = within(dialog).getByRole('list', { name: 'Actions for this source' })
     expect(list.textContent).toMatch(/Status unavailable/)
     expect(list.textContent).toMatch(/not in the source-scrape retained job list/)
@@ -240,7 +265,7 @@ describe('completion is not recovery', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     finishJob()
     world.aggregate = aggregate([])
-    await advance(30_000)
+    await advance(60_000)
     const tracked = screen.getByRole('list', { name: 'Tracked actions' })
     expect(tracked.textContent).toMatch(/Run source now: BLVD/)
     expect(tracked.textContent).toMatch(/Completed/)
@@ -251,7 +276,7 @@ describe('completion is not recovery', () => {
     await runToCompletion()
     const before = world.calls.filter(call => call.path === '/admin/queues/source-scrape').length
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
-    await advance(30_000)
+    await advance(60_000)
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
     expect(world.calls.filter(call => call.path === '/admin/queues/source-scrape').length).toBe(before)
   })
@@ -278,7 +303,7 @@ describe('search rebuild', () => {
     await advance(0)
     expect(posts('/admin/sync')).toHaveLength(1)
     world.jobs['listing-sync'] = [{ id: 'listing-sync-rebuild', status: 'completed', createdAt: iso(-500), finishedAt: iso(500) }]
-    await advance(40_000)
+    await advance(70_000)
     const list = screen.getByRole('list', { name: 'Search rebuild requests' })
     expect(list.textContent).toMatch(/job <code>|job listing-sync-rebuild/)
     expect(list.textContent).toMatch(/Completed/)
@@ -295,7 +320,7 @@ describe('search rebuild', () => {
     await advance(0)
     world.jobs['listing-sync'] = [{ id: 'listing-sync-rebuild', status: 'completed', createdAt: iso(-500), finishedAt: iso(500) }]
     world.summary = { ...summary({ indexed: 70 }), counts: { ...summary({ indexed: 70 }).counts, indexed: { value: 70, availability: 'available', collectedAt: iso(5_000) } } }
-    await advance(40_000)
+    await advance(70_000)
     expect(screen.getByRole('list', { name: 'Search rebuild requests' }).textContent).toMatch(/Recovery confirmed/)
   })
 })
