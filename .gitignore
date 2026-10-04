@@ -39,6 +39,7 @@ coverage/
 
 # Playwright
 test-results/
+test-results-helm/
 playwright-report/
 
 # Storybook build output (regenerable via `pnpm build-storybook`)

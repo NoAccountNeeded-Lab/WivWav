@@ -7,7 +7,8 @@
     "e2e": "playwright test --config playwright.config.ts",
     "test:integration": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf test-results playwright-report"
+    "clean": "rm -rf test-results test-results-helm playwright-report",
+    "e2e:helm": "playwright test --config playwright.helm.config.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

@@ -7,5 +7,5 @@
     // browser, not Node, and reference window/getComputedStyle.
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["playwright.config.ts", "support/**/*.ts", "tests/**/*.ts"]
+  "include": ["playwright.config.ts", "playwright.helm.config.ts", "support/**/*.ts", "tests/**/*.ts", "helm/**/*.ts"]
 }
