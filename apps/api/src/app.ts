@@ -65,6 +65,7 @@ import { internalScraperRoutes } from './routes/internal-scraper.js'
 import { internalHttpEnrichRoutes } from './routes/internal-http-enrich.js'
 import { workerGatewayRoutes } from './plugins/worker-gateway-ws.js'
 import { WorkerRegistry } from './worker-gateway/registry.js'
+import { adminWorkersRoutes } from './routes/admin-workers.js'
 import { WorkerDispatcher } from './worker-gateway/dispatcher.js'
 import { registerGatewayWorkers } from './worker-gateway/gateway-workers.js'
 
@@ -463,8 +464,21 @@ export async function buildApp(
   // sole BullMQ consumer for the three browser-job queues and dispatches them
   // to connected apps/worker runners. apps/scraper no longer has fallback
   // consumers, so disabling this flag pauses browser-job processing.
+  // The registry exists regardless of the flag so GET /admin/workers (#1038)
+  // returns an empty list, not a 404, when the gateway is disabled.
+  const workerRegistry = new WorkerRegistry()
+  await app.register(
+    async (adminWorkersScope) => {
+      await adminAuthPlugin(adminWorkersScope, {
+        internalApiSecret: config.INTERNAL_API_SECRET,
+        nodeEnv: config.NODE_ENV,
+      })
+      await adminWorkersScope.register(adminWorkersRoutes, { registry: workerRegistry })
+    },
+    { prefix: '/admin/workers' },
+  )
+
   if (config.WORKER_GATEWAY_ENABLED) {
-    const workerRegistry = new WorkerRegistry()
     const workerDispatcher = new WorkerDispatcher(
       workerRegistry,
       config.WORKER_JOB_TIMEOUT_MS,
