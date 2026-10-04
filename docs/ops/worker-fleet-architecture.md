@@ -101,7 +101,9 @@ A worker with `WORKER_CAPABILITIES=chromium=false` is therefore eligible
 for every `requiresBrowser: false` source and is excluded only from
 Freedom Motors and Superior Van. `DETAIL_CRAWL` and `DETAIL_EXTRACT` stay
 unconditionally chromium-gated: their handlers take a `BrowserService`
-outright. `httpEnrich` gating is queue-level and unchanged.
+outright, so a worker with `chromium=false` is still excluded from
+`DETAIL_CRAWL` and `DETAIL_EXTRACT` jobs. `httpEnrich` gating is queue-level
+and unchanged.
 
 ## Per-source concurrency lock
 

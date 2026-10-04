@@ -7,7 +7,7 @@ import type {
   WorkerAdapter,
 } from '@wivwav/queue'
 import { SCRAPER_SOURCE_REGISTRY } from '@wivwav/types'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GATEWAY_QUEUES, registerGatewayWorkers } from './gateway-workers.js'
 import type { WorkerDispatcher } from './dispatcher.js'
 import { WorkerRegistry } from './registry.js'
@@ -241,19 +241,28 @@ describe('per-source chromium gating end to end with WorkerRegistry.pickWorker (
     send: vi.fn(),
   }
 
+  const dispatch = vi.fn<WorkerDispatcher['dispatch']>()
+  let sourceScrapeProcessor: JobProcessor | undefined
+
+  beforeEach(() => {
+    dispatch.mockReset()
+    dispatch.mockResolvedValue(undefined)
+    const { factory, processors } = createFakeQueueFactory()
+    registerGatewayWorkers(factory, { dispatch } as unknown as WorkerDispatcher)
+    sourceScrapeProcessor = processors.get(QUEUES.SOURCE_SCRAPE)
+  })
+
   /** Runs the real gateway processor with the job data the API enqueues for a source. */
   async function requirementsFor(key: string) {
     const definition = SCRAPER_SOURCE_REGISTRY.find((entry) => entry.key === key)
     if (definition === undefined) throw new Error(`unknown source ${key}`)
-    const { factory, processors } = createFakeQueueFactory()
-    const dispatch = vi.fn(async () => undefined)
-    registerGatewayWorkers(factory, { dispatch } as unknown as WorkerDispatcher)
-    const processor = processors.get(QUEUES.SOURCE_SCRAPE)!
-    await processor(
+    if (sourceScrapeProcessor === undefined) throw new Error('SOURCE_SCRAPE processor not registered')
+    await sourceScrapeProcessor(
       { sourceId: key, requiresBrowser: definition.requiresBrowser },
       fakeContext({ jobId: `job-${key}` }),
     )
-    const call = dispatch.mock.calls[0] as unknown as [string, string, unknown, { chromium: boolean }]
+    const call = dispatch.mock.calls[0]
+    if (call === undefined) throw new Error('dispatch was not called')
     return call[3]
   }
 
