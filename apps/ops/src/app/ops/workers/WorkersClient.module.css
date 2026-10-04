@@ -1,0 +1,29 @@
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  color: var(--clr-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.workerName {
+  font-weight: 700;
+}
+
+.workerId {
+  display: block;
+  margin-top: 0.125rem;
+  color: var(--clr-text-muted);
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}

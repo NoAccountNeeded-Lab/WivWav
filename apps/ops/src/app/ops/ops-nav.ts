@@ -170,6 +170,14 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         },
       },
       {
+        href: '/ops/workers',
+        title: 'Connected workers',
+        desc: 'See which remote crawler workers are connected, their capabilities, current job load, and last heartbeat received.',
+        shell: {
+          placement: 'advanced',
+        },
+      },
+      {
         href: '/ops/config',
         title: 'AI provider settings',
         desc: 'Edit AI providers, model names, API key config IDs, and encrypted provider secrets.',
