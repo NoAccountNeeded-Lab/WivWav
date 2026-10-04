@@ -13,6 +13,11 @@ export type {
 } from './types.js'
 
 export { RetryJobSignal } from './retry-signal.js'
+export {
+  EscalateCapabilitySignal,
+  isEscalateCapabilitySignal,
+} from './escalate-capability-signal.js'
+export type { EscalatedCapability } from './escalate-capability-signal.js'
 export { getStringField, getBooleanField } from './job-data.js'
 export { QUEUES } from './queues.js'
 export type { QueueName } from './queues.js'

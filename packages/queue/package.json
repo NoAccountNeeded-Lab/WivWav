@@ -13,6 +13,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./escalate-capability-signal": {
+      "import": "./dist/escalate-capability-signal.js",
+      "types": "./dist/escalate-capability-signal.d.ts"
+    },
     "./bullmq/board": {
       "import": "./dist/bullmq/board.js",
       "types": "./dist/bullmq/board.d.ts"
