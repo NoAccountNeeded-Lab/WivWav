@@ -1,4 +1,5 @@
 import { apiBaseUrl, composeDown, runDockerCompose, webBaseUrl } from './compose.js'
+import { cleanupReusedStackFixture } from './fixture-cleanup.js'
 import {
   poll,
   seedSmokeFixture,
@@ -49,8 +50,16 @@ export default async function globalSetup(): Promise<void> {
     await waitForSyncJobToComplete(syncJobId)
     await waitForFixtureInSearch()
   } catch (error) {
-    if (!skipCompose && process.env['WIVWAV_E2E_KEEP_STACK'] !== '1') {
-      composeDown()
+    if (process.env['WIVWAV_E2E_KEEP_STACK'] !== '1') {
+      if (skipCompose) {
+        // Global teardown does not run when setup throws, and a reused stack
+        // has no volumes to drop, so remove any fixture seeded before the failure.
+        await cleanupReusedStackFixture().catch((cleanupError: unknown) => {
+          console.error('E2E fixture cleanup after setup failure failed:', cleanupError)
+        })
+      } else {
+        composeDown()
+      }
     }
     throw error
   }
