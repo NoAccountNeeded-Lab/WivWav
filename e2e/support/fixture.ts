@@ -1,22 +1,13 @@
 import type { Prisma } from '@wivwav/db'
-import { PrismaClient } from '@wivwav/db'
-import { PrismaPg } from '@prisma/adapter-pg'
-import { Pool } from 'pg'
-import { apiBaseUrl, databaseUrl, e2eEnv } from './compose.js'
+import { apiBaseUrl, e2eEnv } from './compose.js'
+import { fixtureListingId, fixtureSourceId as sourceId, withE2eDb } from './fixture-db.js'
 
-export const fixtureListingId = 'e2e-smoke-listing-1'
+export { fixtureListingId }
 
-const sourceId = 'e2e-smoke-source'
 const sourceRecordKey = 'e2e-smoke-listing-1'
 const listedAt = new Date('2026-01-15T12:00:00.000Z')
 
 export async function seedSmokeFixture(): Promise<void> {
-  process.env['DATABASE_URL'] = databaseUrl()
-
-  const pool = new Pool({ connectionString: databaseUrl(), max: 1 })
-  const adapter = new PrismaPg(pool)
-  const db = new PrismaClient({ adapter })
-
   const listingData = {
     id: fixtureListingId,
     sourceId,
@@ -77,7 +68,7 @@ export async function seedSmokeFixture(): Promise<void> {
     processingLockedAt: null,
   } satisfies Prisma.ListingUncheckedCreateInput
 
-  try {
+  await withE2eDb(async (db) => {
     await db.source.upsert({
       where: { id: sourceId },
       create: {
@@ -102,10 +93,7 @@ export async function seedSmokeFixture(): Promise<void> {
       create: listingData,
       update: listingData,
     })
-  } finally {
-    await db.$disconnect()
-    await pool.end()
-  }
+  })
 }
 
 /**
