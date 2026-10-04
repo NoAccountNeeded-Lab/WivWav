@@ -16,8 +16,10 @@ WORKDIR /app
 # workspace packages it actually depends on (see apps/worker/package.json):
 # @wivwav/config, @wivwav/types, @wivwav/logger, @wivwav/scraper-sources.
 # @wivwav/scraper-sources itself depends on @wivwav/queue (for the JobContext
-# *type* only — see apps/worker/src/engine/scraper-engine.ts's docstring) and
-# @wivwav/logger, so those are copied too; @wivwav/db never appears below.
+# *type*, see apps/worker/src/engine/scraper-engine.ts's docstring, plus a small
+# runtime import of the bullmq-free `@wivwav/queue/escalate-capability-signal`
+# subpath for the capability-escalation signal, #1043) and @wivwav/logger, so
+# those are copied too; @wivwav/db never appears below.
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY scripts/check-node-version.mjs ./scripts/
 COPY packages/config/package.json ./packages/config/
