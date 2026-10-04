@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { Meilisearch } from 'meilisearch'
+import type { IndexStats, Meilisearch } from 'meilisearch'
 import { INDEX_NAME } from '@wivwav/search'
 import type { ListingRepository } from '../repositories/index.js'
 import { collectHelmSummary } from '../services/helm-summary.js'
@@ -31,7 +31,14 @@ export const internalOpsHelmSummaryRoutes: FastifyPluginAsync<InternalOpsHelmSum
         const rows = await listings.getPublicationCountsBySource()
         return rows.reduce((sum, row) => sum + row.eligibleActive, 0)
       },
-      countIndexed: async () => (await meili.index(INDEX_NAME).getStats()).numberOfDocuments,
+      // Index.getStats() takes no signal; the same GET via httpRequest does.
+      countIndexed: async signal =>
+        (
+          await meili.httpRequest.get<IndexStats>({
+            path: `indexes/${INDEX_NAME}/stats`,
+            extraRequestInit: { signal },
+          })
+        ).numberOfDocuments,
     })
     return reply.send({ data })
   })

@@ -27,7 +27,7 @@ async function buildTestApp(fakes: Fakes = {}) {
           countObservedActive: fakes.active ?? (async () => 0),
           getPublicationCountsBySource: (fakes.bySource ?? (async () => [])) as never,
         },
-        meili: { index: () => ({ getStats: fakes.indexed ?? (async () => ({ numberOfDocuments: 0 })) }) } as never,
+        meili: { httpRequest: { get: fakes.indexed ?? (async () => ({ numberOfDocuments: 0 })) } } as never,
       })
     },
     { prefix: '/internal/ops' },
