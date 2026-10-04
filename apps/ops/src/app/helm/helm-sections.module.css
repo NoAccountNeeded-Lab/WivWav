@@ -1,0 +1,446 @@
+/* Section content for /helm. Tokens are the ops --clr-* set (themes.css). */
+
+.section {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--clr-border);
+  scroll-margin-top: 5rem;
+}
+
+.section[data-current="true"] > .sectionHeader h2 {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3rem;
+  text-decoration-color: var(--clr-primary);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 1.125rem;
+  color: var(--clr-text);
+}
+
+.sectionHeader h2:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 4px;
+}
+
+.note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--clr-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.notice[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--clr-warning) 55%, var(--clr-border));
+}
+
+.notice[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--clr-danger) 55%, var(--clr-border));
+}
+
+.notice svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  gap: 0.375rem;
+  align-content: start;
+  min-width: 0;
+  padding: 0.875rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+}
+
+.cardLabel {
+  margin: 0;
+  color: var(--clr-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.cardValue {
+  margin: 0;
+  color: var(--clr-text);
+  font-family: var(--font);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardValue[data-unavailable="true"] {
+  font-family: var(--font-ui);
+  font-size: 1.125rem;
+  color: var(--clr-warning-text);
+}
+
+.cardMeta {
+  margin: 0;
+  color: var(--clr-text-muted);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+}
+
+.definition {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--clr-text-secondary);
+}
+
+.definition summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  cursor: pointer;
+  color: var(--clr-primary);
+  font-weight: 600;
+}
+
+.definition summary:focus-visible,
+.rowButton:focus-visible,
+.linkButton:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
+.definition p {
+  margin: 0.25rem 0 0;
+  line-height: 1.45;
+}
+
+.availabilityRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Flow ─────────────────────────────────────────────────────────────── */
+
+.stageList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  min-width: 0;
+  padding: 0.875rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+}
+
+.stage[data-state="exceptions"] {
+  border-color: color-mix(in srgb, var(--clr-danger) 55%, var(--clr-border));
+}
+
+.stage[data-state="paused"] {
+  border-color: color-mix(in srgb, var(--clr-warning) 55%, var(--clr-border));
+}
+
+/* Decorative connector between stage cards; the lineage caveat explains it is not a serial path. */
+.stage:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -1.1rem;
+  width: 0.9rem;
+  border-top: 2px dashed var(--clr-border-strong);
+}
+
+@media (max-width: 40rem) {
+  .stage:not(:last-child)::after {
+    display: none;
+  }
+}
+
+.stageName {
+  margin: 0;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+}
+
+.stageFacts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.125rem 0.75rem;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+}
+
+.stageFacts dt {
+  color: var(--clr-text-secondary);
+}
+
+.stageFacts dd {
+  margin: 0;
+  color: var(--clr-text);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+.chartBlock {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.chartTitle {
+  margin: 0;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+}
+
+.barRows {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr) 4.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+}
+
+.barLabel {
+  overflow-wrap: anywhere;
+  color: var(--clr-text);
+}
+
+.barTrack {
+  height: 0.75rem;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--clr-border) 70%, transparent);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 0.375rem;
+  background: var(--clr-primary);
+}
+
+.barValue {
+  color: var(--clr-text);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+}
+
+.dataTable caption {
+  padding: 0.25rem 0;
+  color: var(--clr-text-secondary);
+  text-align: left;
+}
+
+.dataTable th,
+.dataTable td {
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--clr-border);
+  text-align: left;
+  color: var(--clr-text);
+}
+
+.dataTable td[data-numeric="true"] {
+  font-family: var(--font);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Problems and activity rows ───────────────────────────────────────── */
+
+.rowList {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  gap: 0.375rem;
+  min-width: 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--clr-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+}
+
+.row[data-severity="critical"] {
+  border-left-color: var(--clr-danger);
+}
+
+.row[data-severity="warning"] {
+  border-left-color: var(--clr-warning);
+}
+
+.row[data-selected="true"] {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+}
+
+.rowTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.rowFacts {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  color: var(--clr-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.rowFacts strong {
+  color: var(--clr-text);
+}
+
+.rowButton,
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 3rem;
+  min-width: 3rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.rowButton:hover,
+.linkButton:hover {
+  background: color-mix(in srgb, var(--clr-primary) 10%, transparent);
+}
+
+.rowButton:disabled {
+  cursor: not-allowed;
+  color: var(--clr-text-muted);
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px dashed var(--clr-border-strong);
+  border-radius: var(--radius);
+  color: var(--clr-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--clr-text);
+}
+
+.toggleRow input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.chartWide {
+  width: 100%;
+  max-width: 48rem;
+}
+
+.mono {
+  font-family: var(--font);
+  overflow-wrap: anywhere;
+}
