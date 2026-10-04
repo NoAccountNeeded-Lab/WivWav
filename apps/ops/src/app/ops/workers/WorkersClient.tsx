@@ -33,6 +33,30 @@ function fmtTime(date: Date): string {
   }).format(date)
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isConnectedWorker(row: unknown): row is ConnectedWorker {
+  if (!isRecord(row) || !isRecord(row.capabilities)) return false
+  return (
+    typeof row.workerId === 'string' &&
+    typeof row.workerName === 'string' &&
+    typeof row.inFlightCount === 'number' &&
+    typeof row.lastHeartbeatAt === 'string' &&
+    typeof row.capabilities.chromium === 'boolean' &&
+    typeof row.capabilities.httpEnrich === 'boolean' &&
+    typeof row.capabilities.maxConcurrentJobs === 'number'
+  )
+}
+
+function parseWorkers(body: unknown): ConnectedWorker[] {
+  if (!isRecord(body) || !Array.isArray(body.data) || !body.data.every(isConnectedWorker)) {
+    throw new Error('API returned an unexpected response')
+  }
+  return body.data
+}
+
 export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
   const [workers, setWorkers] = useState<ConnectedWorker[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -50,9 +74,9 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
     try {
       const res = await fetch(`${apiBaseUrl}/admin/workers`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
-      const body = (await res.json()) as { data: ConnectedWorker[] }
+      const rows = parseWorkers(await res.json())
       if (isStale()) return
-      setWorkers(body.data)
+      setWorkers(rows)
       setError(null)
       setUpdatedAt(new Date())
     } catch (err) {
@@ -87,7 +111,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
         </div>
 
         <div className={styles.controlsBar}>
-          <span className={styles.refreshMeta} role="status">
+          <span className={styles.refreshMeta}>
             {updatedAt ? `Updated ${fmtTime(updatedAt)}` : 'Loading…'}
           </span>
           <div className={styles.controlsBarRight}>
