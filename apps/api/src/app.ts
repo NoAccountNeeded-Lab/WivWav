@@ -176,6 +176,16 @@ export async function buildApp(
     // behaviour instead of turning a Redis hiccup into a 500 on every request.
     skipOnError: true,
     ...(redis ? { redis } : {}),
+    // Worker channels (#1065): /internal/workers/* and /internal/scraper/*
+    // are bearer-secret authenticated (adminAuthPlugin) machine routes. The
+    // keyGenerator below falls back to source IP for non-API-key callers, so
+    // all write-backs from one worker share a single 100/min bucket and
+    // enrich bursts 429 — including /jobs/complete, leaving jobs unreported.
+    // IP throttling adds no protection where the secret is the gate, so these
+    // prefixes bypass the limiter. Public /v1/ and other IP-keyed limits are
+    // unchanged.
+    allowList: (req) =>
+      req.url.startsWith('/internal/workers') || req.url.startsWith('/internal/scraper'),
     keyGenerator: (req) => {
       const resolved = getResolvedApiKey(req)
       return resolved?.id ? `key:${resolved.id}` : req.ip

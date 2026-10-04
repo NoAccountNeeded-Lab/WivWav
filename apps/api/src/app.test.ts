@@ -924,6 +924,29 @@ describe('worker gateway registration (#948/#951)', () => {
     await app.close()
   })
 
+  it('does not rate-limit bearer-authenticated /internal/scraper bursts (#1065)', async () => {
+    // Regression test: worker write-backs share one source IP and are not
+    // API-key callers, so the global limiter's IP fallback throttled them —
+    // enrich bursts 429'd, including /jobs/complete. The allowList on the
+    // registration exempts the secret-authenticated internal prefixes.
+    const { app: appPromise } = buildTestApp({
+      config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32), RATE_LIMIT_MAX: 3 },
+    })
+    const app = await appPromise
+
+    for (let i = 0; i < 5; i++) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/internal/scraper/runs',
+        headers: { authorization: `Bearer ${'a'.repeat(32)}` },
+        payload: { sourceId: 'src-1' },
+      })
+      expect(response.statusCode).toBe(200)
+    }
+
+    await app.close()
+  })
+
   it('registers the /internal/workers WS route (auth-guarded) when WORKER_GATEWAY_ENABLED is true', async () => {
     const { app: appPromise } = buildTestApp({
       config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32) },
