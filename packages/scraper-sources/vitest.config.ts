@@ -12,6 +12,23 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '**/dist/**'],
   },
   resolve: {
-    alias: wivwavSourceAliases(WORKSPACE_ROOT, ['types', 'queue', 'logger']),
+    // The subpath alias must precede the bare '@wivwav/queue' one (Vite
+    // substitutes by prefix) — see the escalation signal subpath (#1043).
+    alias: wivwavSourceAliases(
+      WORKSPACE_ROOT,
+      ['types', 'queue', 'logger'],
+      [
+        {
+          find: '@wivwav/queue/escalate-capability-signal',
+          replacement: path.resolve(
+            WORKSPACE_ROOT,
+            'packages',
+            'queue',
+            'src',
+            'escalate-capability-signal.ts',
+          ),
+        },
+      ],
+    ),
   },
 })

@@ -5,6 +5,7 @@ import {
   type WorkerToCoordinatorMessage,
 } from '@wivwav/types/worker-protocol'
 import type { WivWavLogger } from '@wivwav/logger'
+import { isEscalateCapabilitySignal } from '@wivwav/scraper-sources'
 import type { HandlerRegistry } from './handler-registry.js'
 import type { ScraperGatewayClient } from './scraper-gateway-client.js'
 
@@ -245,6 +246,21 @@ export class WsClient {
         this.options.gateway.completeJob({ correlationId, dispatchId, success: true, result }),
       )
       .catch((err: unknown) => {
+        if (isEscalateCapabilitySignal(err)) {
+          // Not a failure (#1043): ask the coordinator to re-dispatch this
+          // same job to a worker with the missing capability.
+          logger.warn(
+            { event: 'job.escalate', correlationId, queueName, capability: err.capability, reason: err.reason },
+            `[ws-client] ${queueName} needs ${err.capability}; escalating to coordinator`,
+          )
+          return this.options.gateway.completeJob({
+            correlationId,
+            dispatchId,
+            success: false,
+            errorMessage: err.message,
+            escalation: { capability: err.capability, reason: err.reason },
+          })
+        }
         const errorMessage = err instanceof Error ? err.message : String(err)
         logger.error(
           { event: 'job.failed', correlationId, queueName, err: errorMessage },

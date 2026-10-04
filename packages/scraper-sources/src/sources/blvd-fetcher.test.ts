@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { CrawledHtmlPage, PageFetcher } from '../crawlee/html-fetcher.js'
 import { MockBrowserService } from '../browser/mock-browser-service.js'
 import { RobotsCache } from '../util/robots-cache.js'
-import { BlvdAdapter, hasBlvdNextPage, extractBlvdStructure, hashPage1Entries } from './blvd.js'
+import { EscalateCapabilitySignal } from '@wivwav/queue/escalate-capability-signal'
+import { BlvdAdapter, BlvdBlockedError, hasBlvdNextPage, extractBlvdStructure, hashPage1Entries } from './blvd.js'
 
 const { load } = createRequire(import.meta.url)('cheerio') as { load(html: string): CrawledHtmlPage['$'] }
 const html = readFileSync(new URL('./fixtures/contracts/blvd-list-v1.html', import.meta.url), 'utf8')
@@ -49,6 +50,44 @@ describe('BLVD pluggable fetching', () => {
   it('fails clearly when blocked and no fallback browser is configured', async () => {
     const adapter = new BlvdAdapter(null, { ...options, pageFetcher: makeFetcher('', 429) })
     await expect(adapter.scrape()).rejects.toThrow('Chromium fallback unavailable or blocked')
+  })
+
+  it('default config keeps the explicit blocked error even without a browser (no escalation)', async () => {
+    const adapter = new BlvdAdapter(null, { ...options, pageFetcher: makeFetcher('', 403) })
+    await expect(adapter.scrape()).rejects.toBeInstanceOf(BlvdBlockedError)
+  })
+
+  it.each(['checkPage1', 'checkStructure', 'scrape'] as const)(
+    'escalates to chromium instead of failing when blocked, browserless and escalation is allowed (%s)',
+    async (method) => {
+      const adapter = new BlvdAdapter(null, {
+        ...options, pageFetcher: makeFetcher('', 403), allowCapabilityEscalation: true,
+      })
+      const err = await adapter[method]().catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(EscalateCapabilitySignal)
+      expect(err).not.toBeInstanceOf(BlvdBlockedError)
+      expect((err as EscalateCapabilitySignal).capability).toBe('chromium')
+    },
+  )
+
+  it('prefers the local browser fallback over escalation when a browser is configured', async () => {
+    const browserService = new MockBrowserService(new Map(), html)
+    const adapter = new BlvdAdapter(null, {
+      ...options, pageFetcher: makeFetcher('', 403), browserService, allowCapabilityEscalation: true,
+    })
+    await expect(adapter.scrape()).resolves.toBeDefined()
+  })
+
+  it('a block on a later page escalates rather than yielding a partial listing set', async () => {
+    const pageFetcher = makeFetcher()
+    pageFetcher.fetchOne = vi.fn(async (url: string) => {
+      const body = url.includes('?page=') ? '' : `${html}<a>Next</a>`
+      return { url, body, $: load(body), statusCode: url.includes('?page=') ? 403 : 200 }
+    })
+    const adapter = new BlvdAdapter(null, {
+      ...options, maxPages: 2, pageFetcher, allowCapabilityEscalation: true,
+    })
+    await expect(adapter.scrape()).rejects.toBeInstanceOf(EscalateCapabilitySignal)
   })
 
   it('rejects a still-blocked browser response without looping', async () => {
