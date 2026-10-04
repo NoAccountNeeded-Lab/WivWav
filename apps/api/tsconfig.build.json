@@ -8,6 +8,7 @@
     "src/**/__tests__/**",
     "src/**/test-support/**",
     "src/**/test-helpers/**",
-    "src/**/fixtures/**"
+    "src/**/fixtures/**",
+    "src/pipeline/fixture-to-facets.catalog.ts"
   ]
 }

@@ -14,10 +14,10 @@ RUN npm install -g corepack@latest && corepack enable
 FROM base AS builder
 # apps/api's test suite imports @wivwav/scraper-sources (a devDependency, see
 # apps/api/package.json) to cross-check a seeded field mapping against that
-# package's canonical constant (#968). tsc compiles test files into dist
-# alongside production code (same as every other *.test.ts here), so the
-# builder stage still needs scraper-sources' types even though the deploy
-# stage below never ships it. Skip the browser download for this
+# package's canonical constant (#968). Builds use tsconfig.build.json, which
+# excludes tests and fixtures from dist (#811); the builder stage still needs
+# scraper-sources installed for the test tier even though the deploy stage
+# below never ships it. Skip the browser download for this
 # devDependency-only need — apps/api never runs Playwright.
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app

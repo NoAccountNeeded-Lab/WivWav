@@ -12,6 +12,6 @@ export default defineConfig({
   envDir: false,
   test: {
     include: ['src/**/*.{test,spec}.ts'],
-    exclude: [...configDefaults.exclude, 'src/**/*.integration.test.ts'],
+    exclude: [...configDefaults.exclude, '**/dist/**', 'src/**/*.integration.test.ts'],
   },
 })

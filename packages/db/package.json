@@ -17,7 +17,7 @@
     }
   },
   "scripts": {
-    "build": "tsc && cp -r src/generated dist/",
+    "build": "tsc -p tsconfig.build.json && cp -r src/generated dist/",
     "clean": "rm -rf dist",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",

@@ -14,6 +14,7 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: ['**/node_modules/**', '**/e2e/**'],
+    // Generated output (.next, dist) must never be rediscovered as tests (#811).
+    exclude: ['**/node_modules/**', '**/e2e/**', '**/dist/**', '**/.next/**'],
   },
 })
