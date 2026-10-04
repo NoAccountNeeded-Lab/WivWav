@@ -84,7 +84,18 @@ const GATEWAY_WORKER_CONCURRENCY = 50
  */
 export const ESCALATION_WAIT_LIMIT_MS = 60 * 60_000
 
-/** Short requeue delay after an escalation, so a capable worker picks it up promptly. */
+/**
+ * Short requeue delay after an escalation, so a capable worker picks it up
+ * promptly (1s). Later "no capable worker" requeues use the 15s
+ * `NO_WORKER_RETRY_DELAY_MS` from the dispatcher.
+ *
+ * Both delays are applied by the queue factory as a `worker.rateLimit(delayMs)`
+ * on the whole SOURCE_SCRAPE consumer (not just this job), so an escalated job
+ * that waits up to `ESCALATION_WAIT_LIMIT_MS` (60 minutes) for a browser worker
+ * throttles every other source-scrape dispatch to one attempt per delay for that
+ * whole time. Browser jobs with no capable worker already behave this way; the
+ * existing queue API has no per-job delay, so this is intentionally unchanged.
+ */
 const ESCALATION_REQUEUE_DELAY_MS = 1_000
 
 /**
@@ -101,6 +112,12 @@ interface CapabilityEscalationRecord {
   at: number
 }
 
+/**
+ * Lenient on purpose: a record whose `at` is missing or not a number is read as
+ * `at: 0`, which makes the wait bound (`now - at`) already exceeded, so a
+ * corrupt record fails closed on the next "no capable worker" requeue rather
+ * than waiting unbounded.
+ */
 function readEscalationRecord(data: unknown): CapabilityEscalationRecord | undefined {
   if (typeof data !== 'object' || data === null) return undefined
   const raw = (data as Record<string, unknown>)['capabilityEscalation']
@@ -166,6 +183,14 @@ async function dispatchSourceScrape(
         reason: err.escalation.reason,
         at: now(),
       }
+      // If this write rejects, the rejection propagates as an ordinary error:
+      // the job consumes an attempt and BullMQ retries it (attempts is bounded,
+      // 3 by default), which re-dispatches to a Chromium-free worker that blocks
+      // and escalates again. A persistent persist failure therefore costs at
+      // most the job's remaining attempts of blocked scrapes before it fails
+      // with the persist error. The queue package has no established
+      // unrecoverable/no-retry error pattern, so this is bounded and
+      // documented rather than special-cased (#1043).
       await context.updateData({ requiresBrowser: true, capabilityEscalation: record })
       logger?.warn(
         { jobId, sourceId, capability: record.capability, reason: record.reason },

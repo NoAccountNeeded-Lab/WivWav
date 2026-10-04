@@ -87,6 +87,25 @@ late report from the original worker is rejected as stale (as is any report
 from a worker that disconnected, whose in-flight dispatches are failed
 without penalty).
 
+Delays: the first escalation requeue uses a short `ESCALATION_REQUEUE_DELAY_MS`
+(1s) so a capable worker picks the job up promptly; every later "no capable
+worker" requeue of the escalated job uses the dispatcher's 15s
+`NO_WORKER_RETRY_DELAY_MS`.
+
+What an escalation does and does not interrupt: BLVD throws the signal from
+its fetch path, and a block on a later page already propagated out of the page
+loop before #1043 (`BlvdBlockedError` was re-thrown there; the signal is simply
+kept propagating the same way). The scraper engine performs no writes until
+`adapter.scrape()` returns the whole listing array, so an escalation never
+follows partial writes and the full re-run from page 1 on the capable worker is
+idempotent.
+
+Only `SOURCE_SCRAPE` escalates. If a worker reports an escalation for another
+gateway queue (detail crawl/extract, which are already Chromium-gated) the
+dispatch rejects with a `CapabilityEscalationError` that the processor does not
+translate: it is an ordinary job failure (attempt consumed), never persisted or
+requeued.
+
 Bounds: a job escalates at most once (a second escalation request, or an
 escalation from a job that already required Chromium, fails the job with an
 explicit error); an escalated job with no Chromium-capable worker keeps
@@ -94,11 +113,26 @@ requeueing only up to `ESCALATION_WAIT_LIMIT_MS` (60 minutes), logging each
 wait, then fails. After escalation, a block on the Chromium worker still ends
 in the explicit `BlvdBlockedError`.
 
+Persist failure: if `updateData` rejects (for example the job was removed
+mid-flight), the requirement is not stored and the error propagates as an
+ordinary failure. The job consumes an attempt and BullMQ retries it (bounded by
+the queue's `attempts`, 3 by default); the retry may land on a Chromium-free
+worker that blocks and escalates again, so a persistent persist failure costs at
+most the remaining attempts before the job fails with the persist error. The
+queue package has no unrecoverable/no-retry error pattern to short-circuit this,
+so the behavior is bounded and documented rather than special-cased. A
+corrupt `capabilityEscalation` record (missing or non-numeric `at`) is read as
+`at: 0`, so the wait bound counts as already spent and the job fails closed on
+its next no-capable-worker requeue.
+
 Caveats: the wait limit is measured from the first escalation, so any
 requeue (including a source-concurrency-lock wait or a Chromium worker
-disconnecting) past the limit fails the job; the 15s `RetryJobSignal` delay
-rate-limits the whole `SOURCE_SCRAPE` consumer, so a long wait for a browser
-worker briefly delays other sources' dispatch too. A failed job retried
+disconnecting) past the limit fails the job; each `RetryJobSignal` requeue
+(1s after the escalation, 15s while waiting) is applied as a rate limit on the
+whole `SOURCE_SCRAPE` consumer, not just the waiting job, so an escalated job
+waiting for a browser worker can throttle every other source's dispatch for up to
+the 60-minute wait limit. Browser jobs with no capable worker already behave this
+way; the queue API has no per-job delay, so this is intentionally unchanged. A failed job retried
 manually from Bull Board keeps its payload and so counts as already
 escalated (fail-closed: it cannot escalate again and its wait bound is
 already spent) — re-enqueue a fresh job instead. Each handoff leaves one
