@@ -3,11 +3,9 @@ import { getSecurityHeadersConfig } from './src/lib/security-headers'
 
 const config: NextConfig = {
   output: 'standalone',
-  // ScrapeRunChart is the only @wivwav/charts export ops uses today; the
-  // package also barrels BarChart/DonutChart/RangeSlider, which pull in
-  // recharts/@radix-ui/react-slider. Without per-import rewriting those
-  // would ride along in the lazy-loaded overview chunk that exists
-  // specifically to keep heavy client code off the initial bundle.
+  // @wivwav/charts also barrels BarChart/DonutChart/RangeSlider, which pull in
+  // recharts/@radix-ui/react-slider. Per-import rewriting keeps the unused ones
+  // out of the lazy-loaded chunks; /helm uses StackedBarList and ScrapeRunChart.
   experimental: {
     optimizePackageImports: ['@wivwav/charts'],
   },

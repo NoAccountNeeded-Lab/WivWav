@@ -12,3 +12,6 @@ export type { ScrapeRunChartProps, ScrapeRunPoint } from './ScrapeRunChart'
 
 export { StatCard } from './StatCard'
 export type { StatCardProps } from './StatCard'
+
+export { StackedBarList } from './StackedBarList'
+export type { StackedBarListProps, StackedBarRow, StackedBarSeries } from './StackedBarList'

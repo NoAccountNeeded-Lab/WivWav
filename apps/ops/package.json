@@ -19,7 +19,8 @@
     "next": "^16.3.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-resizable-panels": "^4.14.1"
+    "react-resizable-panels": "^4.14.1",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
