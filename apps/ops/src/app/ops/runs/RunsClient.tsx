@@ -54,11 +54,10 @@ function isFilter(value: string | null): value is Filter {
 
 /** Deep link to `/ops/logs` scoped to this run's source and time window (E6/#761). Runs
  *  have no `jobId` of their own (`scraper_runs` predates BullMQ job tracking), so the
- *  source-scrape service + sourceId + [startedAt, finishedAt] window is the strongest
+ *  sourceId + [startedAt, finishedAt] window is the strongest
  *  correlation available — the same allow-listed fields #757's `get_correlation` uses. */
 function runLogsHref(run: RunRow): string {
   const params = new URLSearchParams()
-  params.set('service', 'scraper')
   params.set('search', run.sourceId)
   params.set('start', run.startedAt)
   params.set('end', run.finishedAt ?? new Date().toISOString())

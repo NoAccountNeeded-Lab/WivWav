@@ -116,7 +116,7 @@ describe('RunsClient', () => {
     const logsLink = within(dialog).getByRole('link', { name: 'Logs for this run' })
     const href = logsLink.getAttribute('href')
     expect(href).toContain('/ops/logs?')
-    expect(href).toContain('service=scraper')
+    expect(href).not.toContain('service=')
     expect(href).toContain(`search=${FAILED_RUN.sourceId}`)
     expect(href).toContain(`start=${encodeURIComponent(FAILED_RUN.startedAt)}`)
     expect(href).toContain(`end=${encodeURIComponent(FAILED_RUN.finishedAt)}`)

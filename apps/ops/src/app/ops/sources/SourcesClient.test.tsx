@@ -51,7 +51,7 @@ describe('SourcesClient last-error deep links', () => {
     expect(runLink.getAttribute('href')).toBe('/ops/runs?sourceId=source-1&filter=failed')
 
     const logsLink = screen.getByRole('link', { name: 'View logs' })
-    expect(logsLink.getAttribute('href')).toBe('/ops/logs?service=scraper&search=source-1')
+    expect(logsLink.getAttribute('href')).toBe('/ops/logs?search=source-1')
   })
 
   it('renders no "View run"/"View logs" links for a healthy source with no errorMessage (hidden, not broken)', async () => {
