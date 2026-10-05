@@ -31,9 +31,27 @@ export interface StackedBarListProps {
   className?: string
 }
 
-const ROW_HEIGHT = 44
+const LINE_HEIGHT = 15
+const ROW_BASE = 28
+const MAX_LINE_CHARS = 26
 const AXIS_HEIGHT = 28
 const LABEL_WIDTH = 168
+
+/** Wraps between " · " segments so each line is a whole figure and nothing is clipped in the label column. */
+function wrap(text: string): string[] {
+  const lines: string[] = []
+  let current = ''
+  for (const segment of text.split(' · ')) {
+    if (current !== '' && `${current} · ${segment}`.length > MAX_LINE_CHARS) {
+      lines.push(current)
+      current = segment
+    } else {
+      current = current === '' ? segment : `${current} · ${segment}`
+    }
+  }
+  if (current !== '') lines.push(current)
+  return lines
+}
 
 interface TickProps {
   x?: number | string
@@ -50,17 +68,21 @@ interface TickProps {
 export function StackedBarList({ rows, series, 'aria-label': ariaLabel, unit, className }: StackedBarListProps) {
   const byLabel = React.useMemo(() => new Map(rows.map(row => [row.label, row])), [rows])
   const data = React.useMemo(() => rows.map(row => ({ ...row.values, label: row.label })), [rows])
-  const height = rows.length * ROW_HEIGHT + AXIS_HEIGHT
+  const lineCount = React.useMemo(() => Math.max(1, ...rows.map(row => wrap(row.valueText).length)), [rows])
+  const rowHeight = ROW_BASE + lineCount * LINE_HEIGHT
+  const height = rows.length * rowHeight + AXIS_HEIGHT
 
   const renderTick = (props: TickProps) => {
     const x = Number(props.x ?? 0)
     const y = Number(props.y ?? 0)
     const label = String(props.payload?.value ?? '')
-    const row = byLabel.get(label)
+    const lines = wrap(byLabel.get(label)?.valueText ?? '')
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={-8} y={-3} textAnchor="end" fontSize={13} fontWeight={600} fill="var(--clr-text, #0f172a)">{label}</text>
-        <text x={-8} y={13} textAnchor="end" fontSize={12} fill="var(--clr-text-secondary, #475569)">{row?.valueText ?? ''}</text>
+        <text x={-8} y={-(lines.length * LINE_HEIGHT) / 2 + 3} textAnchor="end" fontSize={13} fontWeight={600} fill="var(--clr-text, #0f172a)">{label}</text>
+        {lines.map((line, index) => (
+          <text key={index} x={-8} y={-(lines.length * LINE_HEIGHT) / 2 + 3 + (index + 1) * LINE_HEIGHT} textAnchor="end" fontSize={12} fill="var(--clr-text-secondary, #475569)">{line}</text>
+        ))}
       </g>
     )
   }

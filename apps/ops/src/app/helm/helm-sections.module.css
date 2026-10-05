@@ -117,7 +117,7 @@
 
 .cardMeta {
   margin: 0;
-  color: var(--clr-text-muted);
+  color: var(--clr-text-secondary);
   font-family: var(--font-ui);
   font-size: 0.75rem;
 }
@@ -523,4 +523,11 @@
   color: var(--clr-text);
   font-family: var(--font-ui);
   font-size: 0.875rem;
+}
+
+.rawName {
+  color: var(--clr-text-secondary);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 400;
 }

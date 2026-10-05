@@ -33,7 +33,8 @@
 .chip[data-variant="danger"] {
   --chip-bg: color-mix(in srgb, var(--clr-danger) 12%, transparent);
   --chip-border: color-mix(in srgb, var(--clr-danger) 34%, var(--clr-border));
-  --chip-text: var(--clr-danger-text);
+  /* Pure danger text on its own 12% tint measured 4.25:1 (grafana dark); blending toward body text clears 4.5:1 in dark and light themes. */
+  --chip-text: color-mix(in srgb, var(--clr-danger-text) 75%, var(--clr-text));
 }
 
 .chip[data-variant="neutral"] {

@@ -28,11 +28,13 @@ export interface FakeApi {
   problemReported: boolean
   freshRun: boolean
   dbSignalAvailable: boolean
+  /** `GET /admin/queues`: the normal mixed set, or a 503 (unavailable). */
+  queueData: 'mixed' | 'unavailable'
   calls: { method: string; path: string; body: unknown }[]
 }
 
 export function newFakeApi(): FakeApi {
-  return { runBehaviour: 'reject', jobStatus: 'active', jobFinishedAtMs: null, sourceHealthy: false, problemReported: true, freshRun: false, dbSignalAvailable: true, calls: [] }
+  return { runBehaviour: 'reject', jobStatus: 'active', jobFinishedAtMs: null, sourceHealthy: false, problemReported: true, freshRun: false, dbSignalAvailable: true, queueData: 'mixed', calls: [] }
 }
 
 function problem() {
@@ -51,8 +53,13 @@ export function sourceRows(api: FakeApi) {
 
 function runRows(api: FakeApi) {
   const failed = { id: 'r1', sourceId: 's1', sourceName: 'BLVD', startedAt: iso(-3_600_000), finishedAt: iso(-3_590_000), success: false, listingsFound: 0, listingsNew: 0, listingsUpdated: 0, errorMessage: 'selector .price missing' }
-  if (!api.freshRun) return [failed]
-  return [{ id: 'r2', sourceId: 's1', sourceName: 'BLVD', startedAt: iso(-2_000), finishedAt: iso(-1_000), success: true, listingsFound: 84, listingsNew: 2, listingsUpdated: 6, errorMessage: null }, failed]
+  // A second source with a mixed history so the per-source views have something to compare.
+  const lakeside = [
+    { id: 'l2', sourceId: 's3', sourceName: 'Lakeside', startedAt: iso(-1_800_000), finishedAt: iso(-1_790_000), success: true, listingsFound: 40, listingsNew: 1, listingsUpdated: 2, errorMessage: null },
+    { id: 'l1', sourceId: 's3', sourceName: 'Lakeside', startedAt: iso(-7_200_000), finishedAt: iso(-7_190_000), success: true, listingsFound: 55, listingsNew: 3, listingsUpdated: 4, errorMessage: null },
+  ]
+  if (!api.freshRun) return [failed, ...lakeside]
+  return [{ id: 'r2', sourceId: 's1', sourceName: 'BLVD', startedAt: iso(-2_000), finishedAt: iso(-1_000), success: true, listingsFound: 84, listingsNew: 2, listingsUpdated: 6, errorMessage: null }, failed, ...lakeside]
 }
 
 const SERVICES = { postgres: { status: 'up' }, meilisearch: { status: 'up' }, valkey: { status: 'up' }, ollama: { status: 'up' }, scraper: { status: 'up' } }
@@ -85,9 +92,13 @@ async function handle(api: FakeApi, route: Route) {
 
   if (path === '/health') return ok({ status: 'ok', timestamp: iso(), services: SERVICES })
   if (path === '/admin/queues') {
+    if (api.queueData === 'unavailable') return respond(route, 503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'Queue service is unavailable' } })
+    // Waiting + running work on two queues, one retry-style delayed job on detail-crawl, and 18 delayed-only queues outside the Helm stages.
     return ok([
       { name: 'source-scrape', paused: false, stats: { waiting: 0, active: api.jobStatus === 'active' ? 1 : 0, completed: 10, failed: 1, delayed: 0 } },
-      { name: 'detail-crawl', paused: false, stats: { waiting: 7, active: 1, completed: 40, failed: 0, delayed: 0 } },
+      { name: 'detail-crawl', paused: false, stats: { waiting: 7, active: 1, completed: 40, failed: 0, delayed: 1 } },
+      { name: 'geocode', paused: false, stats: { waiting: 2, active: 0, completed: 12, failed: 0, delayed: 0 } },
+      ...Array.from({ length: 18 }, (_, index) => ({ name: `reference-sync-${index + 1}`, paused: false, stats: { waiting: 0, active: 0, completed: 3, failed: 0, delayed: 1 } })),
     ])
   }
   if (path === '/admin/sources') return ok(sourceRows(api))

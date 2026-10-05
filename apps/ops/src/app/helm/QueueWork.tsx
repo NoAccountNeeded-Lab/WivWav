@@ -106,7 +106,7 @@ export function QueueWork({ queues, freshness, asOf }: QueueWorkProps) {
             <tbody>
               {model.rows.map(row => (
                 <tr key={row.queue}>
-                  <th scope="row">{row.label}{row.label !== row.queue && <span className={styles.cardMeta}> {row.queue}</span>}{row.paused && ' (paused)'}</th>
+                  <th scope="row">{row.label}{row.label !== row.queue && <span className={styles.rawName}> {row.queue}</span>}{row.paused && ' (paused)'}</th>
                   <td>{model.stages.find(stage => stage.id === row.stageId)?.label ?? ''}</td>
                   <td data-numeric="true">{row.waiting.toLocaleString()}</td>
                   <td data-numeric="true">{row.running.toLocaleString()}</td>
