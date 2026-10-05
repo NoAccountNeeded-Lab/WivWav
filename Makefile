@@ -1,7 +1,7 @@
 COMPOSE = docker compose
 
 .PHONY: up build disk-check down dev test test-integration typecheck lint build-app clean format logs \
-        worker worker-remote worker-logs \
+        worker worker-build worker-count-check worker-remote worker-logs obs \
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report restore-drill \
         db-push db-generate db-migrate db-seed db-studio \
@@ -12,14 +12,18 @@ COMPOSE = docker compose
 # Images the default stack builds. Built one at a time: four parallel
 # 'pnpm install' runs filled the Docker VM disk (ENOSPC) and strain its RAM.
 BUILD_SERVICES = migrate api ops web
+BUILD_PROFILES ?= --profile ai --profile obs
 # Minimum free space (GB) in the Docker VM before 'up'/'build' start building.
 MIN_FREE_GB ?= 10
+N ?= 1
 
 ## disk-check  Fail fast, before any build starts, when the Docker VM has less
 ##             than MIN_FREE_GB (default 10) free. Override with
 ##             'make build MIN_FREE_GB=5'.
 disk-check:
-	@free=$$(docker run --rm alpine df -Pk / | awk 'NR==2 {print int($$4/1048576)}'); \
+	@disk=$$(docker run --rm alpine df -Pk /) || exit $$?; \
+	free=$$(printf '%s\n' "$$disk" | awk 'NR==2 {print int($$4/1048576)}'); \
+	case "$$free" in ''|*[!0-9]*) echo "Could not determine Docker VM free space." >&2; exit 1 ;; esac; \
 	if [ "$$free" -lt "$(MIN_FREE_GB)" ]; then \
 		echo "Docker VM has $${free}GB free (need $(MIN_FREE_GB)GB). Run 'make prune' to reclaim space, or lower the bar with MIN_FREE_GB=<n>." >&2; \
 		exit 1; \
@@ -40,11 +44,11 @@ up: disk-check
 ##        starting containers, after a free-disk check. Prunes dangling images
 ##        afterward, even when a build fails, so repeated rebuilds don't fill
 ##        the Docker VM disk (each rebuild leaves the old, now-untagged layers
-##        behind). Run 'make prune' for a deeper clean of build cache/volumes.
+##        behind). Run 'make prune' for a deeper clean of unused build cache.
 build: disk-check
 	@status=0; \
 	for s in $(BUILD_SERVICES); do \
-		$(COMPOSE) --profile ai --profile obs build $$s || { status=$$?; break; }; \
+		$(COMPOSE) $(BUILD_PROFILES) build $$s || { status=$$?; break; }; \
 	done; \
 	docker image prune -f; \
 	exit $$status
@@ -57,25 +61,45 @@ down:
 logs:
 	$(COMPOSE) logs -f
 
-## worker Start the local API dependencies plus the Chromium-capable job runner.
+## worker-build Rebuild the local worker stack sequentially without starting it.
+worker-build:
+	$(MAKE) build BUILD_SERVICES="migrate api ops job-runner" BUILD_PROFILES="--profile worker"
+
+## worker-count-check Validate N before building or starting workers.
+worker-count-check:
+	@case "$(N)" in ''|*[!0-9]*|0*) \
+		echo "N must be a positive integer (example: make worker N=3)." >&2; exit 1 ;; \
+	esac
+
+## worker Rebuild and start the local API, Ops, and Chromium-capable job runner.
 ##        The worker connects to the API, waits for jobs, and keeps running
 ##        with Docker restart policy enabled. Also starts Ops so an operator
 ##        can click Run Now without a second setup command.
-worker:
-	$(COMPOSE) --profile worker up -d ops job-runner
+##        Set the replica count with 'make worker N=3' (default 1).
+worker: worker-count-check
+	$(MAKE) worker-build
+	$(COMPOSE) --profile worker up -d --no-build --scale job-runner=$(N) ops job-runner
 
-## worker-remote Start only the job runner and point it at a remote coordinator.
+## worker-remote Rebuild/start N job runners for a remote coordinator.
 ##               Required env:
 ##                 WORKER_COORDINATOR_URL=https://api.example.com
 ##                 WORKER_TOKEN=<worker bearer token>
-worker-remote:
+worker-remote: worker-count-check
 	@[ -n "$$WORKER_COORDINATOR_URL" ] || (echo "Set WORKER_COORDINATOR_URL to the coordinator API URL." >&2; exit 1)
 	@[ -n "$$WORKER_TOKEN" ] || (echo "Set WORKER_TOKEN to the worker bearer token." >&2; exit 1)
-	$(COMPOSE) --profile worker up -d --no-deps job-runner
+	$(MAKE) build BUILD_SERVICES=job-runner BUILD_PROFILES="--profile worker"
+	$(COMPOSE) --profile worker up -d --no-build --no-deps --scale job-runner=$(N) job-runner
 
 ## worker-logs Tail just the job-runner logs. Press Ctrl-C to stop following.
 worker-logs:
 	$(COMPOSE) --profile worker logs -f job-runner
+
+## obs    Rebuild the local API dependencies, then start Loki, Alloy,
+##        Prometheus, and Grafana. Missing upstream images are pulled.
+##        Wait for health checks before returning. Grafana: http://localhost:3003
+obs:
+	$(MAKE) build BUILD_SERVICES="migrate api" BUILD_PROFILES="--profile obs"
+	$(COMPOSE) --profile obs up -d --no-build --wait loki alloy prometheus grafana
 
 ## prune  Reclaim disk space: dangling images plus unused build cache. Run
 ##        this if 'docker system df' shows the Docker VM disk getting full.
