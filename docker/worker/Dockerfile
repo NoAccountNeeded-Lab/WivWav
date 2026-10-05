@@ -39,12 +39,15 @@ COPY packages/scraper-sources ./packages/scraper-sources
 COPY apps/worker ./apps/worker
 RUN pnpm --filter @wivwav/worker... run build
 
-# Materialize a portable production-only app.
+# Materialize a portable production-only app. `typescript` is only an optional
+# peer of valibot (via @bull-board/api); pnpm still installs it, so strip it
+# before the guard below (same approach as docker/api/Dockerfile).
 RUN pnpm --config.inject-workspace-packages=true \
       --filter @wivwav/worker \
       --prod \
       --ignore-scripts \
       deploy /prod/worker \
+    && find /prod/worker/node_modules/.pnpm -maxdepth 1 -type d -name 'typescript@*' -exec rm -rf '{}' + \
     && find /prod/worker/node_modules -xtype l -delete \
     && ! find /prod/worker/node_modules/.pnpm -maxdepth 1 -type d \
       \( -name 'typescript@*' -o -name 'vitest@*' -o -name 'eslint@*' \
