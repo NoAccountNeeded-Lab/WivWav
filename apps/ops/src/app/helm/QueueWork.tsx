@@ -77,7 +77,7 @@ export function QueueWork({ queues, freshness, asOf }: QueueWorkProps) {
       <ViewSwitch label="Queue chart view" views={VIEWS} value={view} onChange={next => setView(next as QueueView)} />
       <p className={styles.note}>{active.question}</p>
 
-      {rows.length === 0 || (view === 'queue' && model.busy.length === 0) ? (
+      {totals.waiting + totals.running === 0 ? (
         <p className={styles.empty}>No queue has work waiting or running.</p>
       ) : (
         <div className={styles.chartFrame}>

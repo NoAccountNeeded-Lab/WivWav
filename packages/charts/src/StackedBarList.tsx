@@ -34,8 +34,25 @@ export interface StackedBarListProps {
 const LINE_HEIGHT = 15
 const ROW_BASE = 28
 const MAX_LINE_CHARS = 26
+const MAX_LABEL_CHARS = 20
 const AXIS_HEIGHT = 28
 const LABEL_WIDTH = 168
+
+/** Word-wraps a bold row label so a long name stays inside the label column. */
+function wrapLabel(text: string): string[] {
+  const lines: string[] = []
+  let current = ''
+  for (const word of text.split(' ')) {
+    if (current !== '' && `${current} ${word}`.length > MAX_LABEL_CHARS) {
+      lines.push(current)
+      current = word
+    } else {
+      current = current === '' ? word : `${current} ${word}`
+    }
+  }
+  if (current !== '') lines.push(current)
+  return lines.length > 0 ? lines : ['']
+}
 
 /** Wraps between " · " segments so each line is a whole figure and nothing is clipped in the label column. */
 function wrap(text: string): string[] {
@@ -68,20 +85,24 @@ interface TickProps {
 export function StackedBarList({ rows, series, 'aria-label': ariaLabel, unit, className }: StackedBarListProps) {
   const byLabel = React.useMemo(() => new Map(rows.map(row => [row.label, row])), [rows])
   const data = React.useMemo(() => rows.map(row => ({ ...row.values, label: row.label })), [rows])
-  const lineCount = React.useMemo(() => Math.max(1, ...rows.map(row => wrap(row.valueText).length)), [rows])
-  const rowHeight = ROW_BASE + lineCount * LINE_HEIGHT
+  const lineCount = React.useMemo(() => Math.max(2, ...rows.map(row => wrapLabel(row.label).length + wrap(row.valueText).length)), [rows])
+  const rowHeight = ROW_BASE - LINE_HEIGHT + lineCount * LINE_HEIGHT
   const height = rows.length * rowHeight + AXIS_HEIGHT
 
   const renderTick = (props: TickProps) => {
     const x = Number(props.x ?? 0)
     const y = Number(props.y ?? 0)
     const label = String(props.payload?.value ?? '')
+    const labelLines = wrapLabel(label)
     const lines = wrap(byLabel.get(label)?.valueText ?? '')
+    const top = -((labelLines.length + lines.length) * LINE_HEIGHT) / 2 + 11
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={-8} y={-(lines.length * LINE_HEIGHT) / 2 + 3} textAnchor="end" fontSize={13} fontWeight={600} fill="var(--clr-text, #0f172a)">{label}</text>
+        {labelLines.map((line, index) => (
+          <text key={`l${index}`} x={-8} y={top + index * LINE_HEIGHT} textAnchor="end" fontSize={13} fontWeight={600} fill="var(--clr-text, #0f172a)">{line}</text>
+        ))}
         {lines.map((line, index) => (
-          <text key={index} x={-8} y={-(lines.length * LINE_HEIGHT) / 2 + 3 + (index + 1) * LINE_HEIGHT} textAnchor="end" fontSize={12} fill="var(--clr-text-secondary, #475569)">{line}</text>
+          <text key={`v${index}`} x={-8} y={top + (labelLines.length + index) * LINE_HEIGHT} textAnchor="end" fontSize={12} fill="var(--clr-text-secondary, #475569)">{line}</text>
         ))}
       </g>
     )

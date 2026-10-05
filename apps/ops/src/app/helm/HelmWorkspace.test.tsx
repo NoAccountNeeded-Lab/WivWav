@@ -134,6 +134,10 @@ describe('Flow and charts', () => {
     renderHelm()
     await screen.findByText(/Nothing is waiting or running/)
     expect(screen.getByText('No queue has work waiting or running.')).toBeTruthy()
+    // The by-stage view must not draw empty bars either.
+    fireEvent.click(screen.getByRole('button', { name: 'By stage' }))
+    expect(screen.getByText('No queue has work waiting or running.')).toBeTruthy()
+    expect(screen.queryByRole('figure', { name: /Work in the queues right now/ })).toBeNull()
   })
 
   it('marks queues unknown rather than empty when queue data is unavailable', async () => {

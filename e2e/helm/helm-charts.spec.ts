@@ -69,7 +69,7 @@ test('the by-stage view reconciles with the queue view and survives a refresh', 
   await page.getByRole('button', { name: 'By stage' }).click()
   await expect(page.getByText('Which part of the pipeline has work waiting?')).toBeVisible()
   const chart = queueChart(page).locator('svg.recharts-surface')
-  await expect(chart.locator('text', { hasText: 'Detail crawl and extraction' })).toBeVisible()
+  await expect(chart.locator('text', { hasText: 'Detail crawl and' })).toBeVisible()
   // detail-extract is not reported by the fake API, so the stage says so instead of reading as complete.
   await expect(chart.locator('text', { hasText: 'at least 7 waiting' })).toBeVisible()
   await expect(chart.locator('text', { hasText: '1 queue not reported' })).toBeVisible()
@@ -79,7 +79,7 @@ test('the by-stage view reconciles with the queue view and survives a refresh', 
   await page.getByRole('button', { name: /refresh/i }).first().click()
   await expect.poll(() => api.calls.filter(call => call.path === '/admin/queues').length).toBeGreaterThan(before)
   await expect(page.getByRole('button', { name: 'By stage' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(chart.locator('text', { hasText: 'Detail crawl and extraction' })).toBeVisible()
+  await expect(chart.locator('text', { hasText: 'Detail crawl and' })).toBeVisible()
 })
 
 test('the chart is keyboard reachable and shows a tooltip with the exact numbers', async ({ page }) => {
@@ -155,4 +155,21 @@ test('axe finds no WCAG A/AA violations on the open chart sections, and screensh
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   await page.screenshot({ path: '/tmp/helm-chart-flow-narrow.png', fullPage: true })
   await queueChart(page).screenshot({ path: '/tmp/helm-chart-queues-narrow.png' })
+})
+
+test('no chart label or figure is clipped at phone width', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/helm?section=flow')
+  await page.getByRole('button', { name: 'By stage' }).click()
+  for (const chart of [queueChart(page), historyChart(page)]) {
+    const svg = chart.locator('svg.recharts-surface')
+    await expect(svg).toBeVisible()
+    const frame = await svg.boundingBox()
+    const texts = await svg.locator('text').all()
+    expect(texts.length).toBeGreaterThan(0)
+    for (const text of texts) {
+      const box = await text.boundingBox()
+      expect(box?.x ?? 0, `${await text.textContent()} starts inside the chart`).toBeGreaterThanOrEqual((frame?.x ?? 0) - 1)
+    }
+  }
 })

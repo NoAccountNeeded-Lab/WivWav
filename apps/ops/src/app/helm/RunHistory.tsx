@@ -70,7 +70,8 @@ export function RunHistory({ history, error, onInspectRun }: RunHistoryProps) {
     values: { failed: source.failed, succeeded: source.succeeded, unknown: source.unknown },
     valueText: `${sourceRunText(source)} · latest ${RESULT_LABEL[runResult(source.latest)].toLowerCase()}`,
   }))
-  const selected = history.sources.find(source => source.sourceId === chosen) ?? history.sources[0]!
+  const selected = history.sources.find(source => source.sourceId === chosen) ?? history.sources[0]
+  if (selected === undefined) return null
 
   return (
     <div className={styles.chartBlock}>
