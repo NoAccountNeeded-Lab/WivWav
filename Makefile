@@ -1,6 +1,6 @@
 COMPOSE = docker compose
 
-.PHONY: up build down dev test test-integration typecheck lint build-app clean format logs \
+.PHONY: up build disk-check down dev test test-integration typecheck lint build-app clean format logs \
         worker worker-remote worker-logs \
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report restore-drill \
@@ -9,20 +9,45 @@ COMPOSE = docker compose
 
 # ── Docker stack ──────────────────────────────────────────────────────────────
 
+# Images the default stack builds. Built one at a time: four parallel
+# 'pnpm install' runs filled the Docker VM disk (ENOSPC) and strain its RAM.
+BUILD_SERVICES = migrate api ops web
+# Minimum free space (GB) in the Docker VM before 'up'/'build' start building.
+MIN_FREE_GB ?= 10
+
+## disk-check  Fail fast, before any build starts, when the Docker VM has less
+##             than MIN_FREE_GB (default 10) free. Override with
+##             'make build MIN_FREE_GB=5'.
+disk-check:
+	@free=$$(docker run --rm alpine df -Pk / | awk 'NR==2 {print int($$4/1048576)}'); \
+	if [ "$$free" -lt "$(MIN_FREE_GB)" ]; then \
+		echo "Docker VM has $${free}GB free (need $(MIN_FREE_GB)GB). Run 'make prune' to reclaim space, or lower the bar with MIN_FREE_GB=<n>." >&2; \
+		exit 1; \
+	fi
+
 ## up     Start the complete Docker stack in the background — infra, api, web,
-##        ops, Ollama, and observability (Loki, Alloy, Grafana). Images are
-##        built automatically on first run; use 'make build' to force a rebuild.
+##        ops, Ollama, and observability (Loki, Alloy, Grafana). Images that
+##        are missing are built first, one at a time, after a free-disk check;
+##        existing images are not rebuilt (use 'make build' to force that).
 ##        Grafana UI: http://localhost:3003
-up:
+up: disk-check
+	@for s in $(BUILD_SERVICES); do \
+		docker image inspect "wivwav-$$s" >/dev/null 2>&1 || $(COMPOSE) --profile ai --profile obs build $$s || exit 1; \
+	done
 	$(COMPOSE) --profile ai --profile obs up -d --remove-orphans
 
-## build  Rebuild all Docker images without starting containers. Prunes
-##        dangling images afterward so repeated rebuilds don't fill the
-##        Docker VM disk (each rebuild leaves the old, now-untagged layers
+## build  Rebuild the default-stack Docker images one at a time, without
+##        starting containers, after a free-disk check. Prunes dangling images
+##        afterward, even when a build fails, so repeated rebuilds don't fill
+##        the Docker VM disk (each rebuild leaves the old, now-untagged layers
 ##        behind). Run 'make prune' for a deeper clean of build cache/volumes.
-build:
-	$(COMPOSE) --profile ai --profile obs build
-	docker image prune -f
+build: disk-check
+	@status=0; \
+	for s in $(BUILD_SERVICES); do \
+		$(COMPOSE) --profile ai --profile obs build $$s || { status=$$?; break; }; \
+	done; \
+	docker image prune -f; \
+	exit $$status
 
 ## down   Stop all running containers and remove orphaned ones.
 down:

@@ -75,6 +75,11 @@ values for anything beyond local dev.
 make down      # stop all containers
 ```
 
+`make up` and `make build` build the api, ops, migrate and web images one at a
+time and first check that the Docker VM has at least 10 GB free (override with
+`make build MIN_FREE_GB=5`). If the check fails, run `make prune` and retry;
+parallel `pnpm install` builds can otherwise fail with `ENOSPC` on small VMs.
+
 Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/admin/*` routes directly. See `docs/api-routes.md#admin-auth-boundary-fail-closed`.
 
 ### Start a crawler worker
