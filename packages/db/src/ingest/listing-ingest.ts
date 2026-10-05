@@ -36,6 +36,23 @@ function sameObservedValue(left: unknown, right: unknown): boolean {
   return left === right
 }
 
+/**
+ * Resolves the worker-supplied `runId` to a `lastRunId` that satisfies
+ * `listings_lastRunId_fkey` (#1073). The id originates as a `ScraperRun` id
+ * and dual-write (`scraper-run-state.ts`) guarantees a matching `JobRun` row
+ * for new runs — but a stale or foreign id must degrade to null lineage,
+ * never fail the listing write with P2003. Lineage is observability; the
+ * listing itself is the payload.
+ */
+async function resolveLastRunId(
+  tx: ListingIngestTx,
+  runId: string | null | undefined,
+): Promise<string | null> {
+  if (runId == null) return null
+  const run = await tx.jobRun.findUnique({ where: { id: runId }, select: { id: true } })
+  return run?.id ?? null
+}
+
 function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) {
   return {
     sourceUrl: listing.sourceUrl,
@@ -131,6 +148,7 @@ export async function ingestListing(
     listing.buyerUrl === listing.sourceUrl
       ? existing.buyerUrl
       : listing.buyerUrl
+  const lastRunId = await resolveLastRunId(tx, listing.runId)
   const after = sourceObservation(listing, buyerUrl)
 
   if (existing !== null) {
@@ -197,7 +215,7 @@ export async function ingestListing(
         listedAt: listing.listedAt,
         sourceListedAt: listing.sourceListedAt ?? null,
         sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
-        lastRunId: listing.runId ?? null,
+        lastRunId,
       },
     })
     if (listing.priceCents != null) {
@@ -338,7 +356,7 @@ export async function ingestListing(
       qualityCheckedAt: listing.qualityCheckedAt ?? null,
       ...(resetDetail ? { detailScrapedAt: null } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
-      ...(listing.runId != null ? { lastRunId: listing.runId } : {}),
+      ...(lastRunId != null ? { lastRunId } : {}),
     },
   })
 

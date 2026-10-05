@@ -121,6 +121,13 @@ function makeDb(
       create: vi.fn().mockResolvedValue({ id: 'list-created' }),
       update: vi.fn().mockResolvedValue({}),
     },
+    // #1073: resolves any run id to an existing JobRun row by default;
+    // override per-test to simulate a stale/foreign id.
+    jobRun: {
+      findUnique: vi
+        .fn()
+        .mockImplementation(async ({ where }: { where: { id: string } }) => ({ id: where.id })),
+    },
     listingPriceHistory: {
       create: vi.fn().mockResolvedValue({}),
     },
@@ -151,6 +158,11 @@ function makeStatefulDb() {
         state = { ...state, ...data }
         return state
       }),
+    },
+    jobRun: {
+      findUnique: vi
+        .fn()
+        .mockImplementation(async ({ where }: { where: { id: string } }) => ({ id: where.id })),
     },
     listingPriceHistory: {
       create: vi.fn().mockResolvedValue({}),
@@ -888,6 +900,37 @@ describe('ingestListing', () => {
 
       expect(result.outcome).toBe('unchanged')
       expect(db.listing.update).not.toHaveBeenCalled()
+    })
+
+    // #1073: a stale/foreign runId (no matching JobRun row) must degrade to
+    // null lineage, never fail the listing write with P2003.
+    it('nulls lastRunId on create when the runId has no JobRun row', async () => {
+      const db = makeDb(null)
+      db.jobRun.findUnique.mockResolvedValue(null)
+      const result = await ingestListing(db as never, makeListing({ runId: 'stale-run' }))
+
+      expect(result.outcome).toBe('created')
+      expect(db.listing.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ lastRunId: null }),
+        }),
+      )
+    })
+
+    it('leaves prior lastRunId untouched on update when the runId has no JobRun row', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 2500000 })
+      db.jobRun.findUnique.mockResolvedValue(null)
+      const result = await ingestListing(
+        db as never,
+        makeListing({ priceCents: 3000000, runId: 'stale-run' }),
+      )
+
+      expect(result.outcome).toBe('updated')
+      expect(db.listing.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ lastRunId: expect.anything() }),
+        }),
+      )
     })
   })
 })
