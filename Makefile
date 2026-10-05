@@ -1,7 +1,7 @@
 COMPOSE = docker compose
 
 .PHONY: up build disk-check down dev test test-integration typecheck lint build-app clean format logs \
-        worker worker-build worker-count-check worker-remote worker-logs obs \
+        worker worker-down worker-build worker-count-check worker-remote worker-logs obs \
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report restore-drill \
         db-push db-generate db-migrate db-seed db-studio \
@@ -90,6 +90,12 @@ worker-remote: worker-count-check
 	@[ -n "$$WORKER_TOKEN" ] || (echo "Set WORKER_TOKEN to the worker bearer token." >&2; exit 1)
 	$(MAKE) build BUILD_SERVICES=job-runner BUILD_PROFILES="--profile worker"
 	$(COMPOSE) --profile worker up -d --no-build --no-deps --scale job-runner=$(N) job-runner
+
+## worker-down Stop and remove only the job-runner workers (all replicas). Leaves
+##             the API, Ops, and backing services running; use 'make down' to
+##             stop everything.
+worker-down:
+	$(COMPOSE) --profile worker rm -sf job-runner
 
 ## worker-logs Tail just the job-runner logs. Press Ctrl-C to stop following.
 worker-logs:
