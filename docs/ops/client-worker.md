@@ -22,7 +22,8 @@ local worker together.
 make worker
 ```
 
-That command starts the Docker `job-runner` service with the `worker` profile
+That command rebuilds migrate, API, Ops, and job-runner one at a time, then
+starts the Docker `job-runner` service with the `worker` profile
 and starts Ops so an operator can trigger jobs from the browser. Docker Compose
 also starts the API dependencies the worker needs:
 
@@ -35,6 +36,27 @@ also starts the API dependencies the worker needs:
 
 The worker uses the API's local development secret by default, connects to
 `http://api:3001`, advertises Chromium capability, and waits for jobs.
+
+Rerun `make worker` after code changes to rebuild and refresh the containers.
+Unchanged Docker build layers are cached. Use `make worker-build` to build
+without starting containers. Builds require 10 GB free in the Docker VM by
+default; run `make prune` if the disk-space check fails.
+
+Choose how many worker containers to run with `make worker N=3` (`N` is the count).
+The default is one. Rerunning with another count scales the existing fleet
+up or down; each container registers a distinct worker ID. Scaling down can
+interrupt running jobs, so wait for workers to be idle first.
+
+To collect application logs and metrics after starting the worker:
+
+```bash
+make obs
+```
+
+This rebuilds the local API dependencies and starts Loki, Alloy, Prometheus,
+and Grafana, waiting for their health checks. Then refresh
+`http://localhost:3002/ops/logs`, or open Grafana at `http://localhost:3003`.
+The observability services use prebuilt upstream images, pulled if missing.
 
 To watch it connect and pick up jobs:
 
@@ -59,10 +81,15 @@ WORKER_TOKEN=<worker bearer token> \
 make worker-remote
 ```
 
-`make worker-remote` starts the same Docker `job-runner` service but skips local
+`make worker-remote` validates the required variables, rebuilds only job-runner,
+then starts the same Docker service but skips local
 API dependencies. The worker dials the coordinator URL over WebSocket and sends
 all job results back over authenticated HTTP. It does not receive a database
 URL, Valkey URL, or Meilisearch key.
+
+Rerun the same command with the required variables after worker code changes.
+`N=3` also works with `make worker-remote`.
+`make obs` is for the local API stack; it does not collect remote coordinator logs.
 
 For production-like hosts, leave Docker's restart policy enabled. The service is
 configured with `restart: unless-stopped`, so it comes back after a reboot once

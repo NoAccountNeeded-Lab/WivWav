@@ -449,7 +449,7 @@ export function LogsClient({ apiBaseUrl, initialSearch = '', initialService, ini
           <div className={logsStyles.unavailable} role="status">
             <strong>Log backend unavailable.</strong>
             {' '}Start the observability stack, then refresh this page to query application logs:{' '}
-            <code className={logsStyles.mono}>docker compose --profile obs up</code>
+            <code className={logsStyles.mono}>make obs</code>
           </div>
         ) : error ? (
           <p className={styles.error} role="alert">Logs could not load: {error}. Check the API and observability stack, then refresh.</p>
