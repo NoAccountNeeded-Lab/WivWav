@@ -84,10 +84,14 @@
 
 @media (min-width: 80rem) {
   .backdrop {
-    position: static;
+    /* Sticky inside the inspector grid slot so the close button and actions
+       stay in view when the page is scrolled; offset by the sticky header
+       (OpsHeader min-height 3.5rem + 1px border). */
+    position: sticky;
     inset: auto;
+    top: 3.5625rem;
     z-index: auto;
-    height: 100%;
+    height: calc(100dvh - 3.5625rem);
   }
 
   .backdropButton {
