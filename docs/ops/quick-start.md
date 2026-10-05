@@ -91,7 +91,12 @@ local client/operator machine that should connect and wait for jobs, run:
 make worker
 ```
 
-That starts the Docker `job-runner` service with the API dependencies it needs.
+That rebuilds migrate, API, Ops, and job-runner sequentially, then starts the
+Docker `job-runner` service with the API dependencies it needs. Rerun
+`make worker` after code changes; unchanged build layers are cached.
+Use `make worker N=3` for three worker containers (default: one).
+Rerunning with a lower count removes extra workers; wait for jobs to finish
+before scaling down.
 It also starts Ops at `http://localhost:3002/ops/sources` so an operator can
 trigger a source without another setup command. Use `make worker-logs` to watch
 the worker connect and pick up jobs. For remote coordinator setup and the
@@ -100,7 +105,18 @@ MobilityVanSales Run Now flow, see
 
 ## Observability stack
 
-Included in `make up`; or start alongside a running API with `docker compose --profile obs up`.
+Included in `make up`; or start it after the worker with:
+
+```bash
+make worker
+make obs
+```
+
+`make obs` can also run on its own. It rebuilds migrate and API sequentially
+after the Docker disk-space check, pulls missing prebuilt observability images,
+and starts Loki, Alloy, Prometheus, and Grafana with the API dependencies.
+It waits for health checks before returning. Refresh `/ops/logs` afterward
+to query application logs. It does not start Web, Ops, AI, or the worker itself.
 
 | Service       | URL                        | Notes                                           |
 | ------------- | -------------------------- | ----------------------------------------------- |
