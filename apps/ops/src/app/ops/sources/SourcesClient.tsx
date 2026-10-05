@@ -215,7 +215,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
                       {' · '}
                       <Link href={`/ops/runs?sourceId=${encodeURIComponent(s.id)}&filter=failed`}>View run</Link>
                       {' · '}
-                      <Link href={`/ops/logs?service=scraper&search=${encodeURIComponent(s.id)}`}>View logs</Link>
+                      <Link href={`/ops/logs?search=${encodeURIComponent(s.id)}`}>View logs</Link>
                     </>
                   ) : undefined}
                   feedbackIsError={Boolean(rs?.isError || s.errorMessage)}
