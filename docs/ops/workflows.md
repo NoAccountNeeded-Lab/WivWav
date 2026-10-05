@@ -38,6 +38,8 @@ manual full sync only when the containment runbook allows publication.
 3. Each action shows its queue job id and a queued/running/completed/failed/unavailable outcome. **Completed does not mean recovered**: Helm reports recovery only when fresh evidence collected after the job finished confirms it (a successful run, a clean source and no reported problem with the domain signals available), and says "Recovery unconfirmed" when the evidence or its signals are unavailable.
 4. **Acknowledge** marks a problem reviewed. It does not repair anything and the problem stays listed.
 
+**Flow** answers "where is work waiting right now?": a bar per queue for waiting and running jobs, with a **By stage** alternate that adds up to the same totals. Delayed jobs are counted separately (the API does not say whether they are scheduled or retrying, so they are never called backlog or stuck), and no queue history is recorded. Every queue, with exact numbers, is under **Queue details**. **Activity** shows which sources failed in the latest 100 scrape runs, with a per-source listings-found view. See `docs/ops/helm-data-display.md`.
+
 Inventory counts are listing rows or search documents, never unique vehicles, and are four separate readings (not an atomic snapshot). A failed reading is shown as unavailable, never zero.
 
 ## Inspect a job or retry a failure
