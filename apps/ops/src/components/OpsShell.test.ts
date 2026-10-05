@@ -42,3 +42,11 @@ describe('OpsShell scroll container', () => {
     expect(headerBlock).not.toMatch(/position:\s*sticky/)
   })
 })
+
+describe('OpsShell inspector slot (#1077)', () => {
+  const css = readFileSync(path.join(import.meta.dirname, 'OpsShell.module.css'), 'utf8')
+
+  it('hides the inert placeholder once a portaled panel is a sibling, so it cannot push the panel below the table', () => {
+    expect(css).toMatch(/\.placeholder:not\(:only-child\)\s*\{[^}]*display:\s*none/)
+  })
+})

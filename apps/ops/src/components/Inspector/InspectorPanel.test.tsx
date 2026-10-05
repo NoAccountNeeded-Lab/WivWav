@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InspectorPanel } from './InspectorPanel'
+import { InspectorPortal } from './InspectorPortal'
+import { OPS_INSPECTOR_SLOT_ID } from './inspector-slot'
 
 afterEach(() => {
   cleanup()
@@ -147,5 +151,49 @@ describe('InspectorPanel', () => {
     expect(focusSpy).not.toHaveBeenCalled()
 
     focusSpy.mockRestore()
+  })
+})
+
+// #1077: jsdom cannot resolve media queries, so assert the two layout modes
+// against the stylesheet source (same tripwire approach as OpsShell.test.ts).
+describe('InspectorPanel layout modes (#1077)', () => {
+  const css = readFileSync(path.join(import.meta.dirname, 'InspectorPanel.module.css'), 'utf8')
+  const base = css.split('@media')[0] ?? ''
+  const wide = css.match(/@media \(min-width: 80rem\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? ''
+
+  it('renders as a fixed full-viewport overlay below 80rem', () => {
+    const backdrop = base.match(/\.backdrop\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(backdrop).toMatch(/position:\s*fixed/)
+    expect(backdrop).toMatch(/inset:\s*0/)
+  })
+
+  it('docks as a sticky, viewport-height column at and above 80rem so actions stay visible after scrolling', () => {
+    const backdrop = wide.match(/\.backdrop\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(backdrop).toMatch(/position:\s*sticky/)
+    expect(backdrop).toMatch(/height:\s*calc\(100dvh/)
+  })
+})
+
+describe('InspectorPanel inside the OpsShell inspector slot (#1077)', () => {
+  it('renders as a sibling of the placeholder inside the slot', () => {
+    const slot = document.createElement('div')
+    slot.id = OPS_INSPECTOR_SLOT_ID
+    const placeholder = document.createElement('div')
+    placeholder.setAttribute('aria-hidden', 'true')
+    slot.appendChild(placeholder)
+    document.body.appendChild(slot)
+
+    render(
+      <InspectorPortal>
+        <InspectorPanel isOpen title="Run" onClose={vi.fn()}>
+          <p>Body</p>
+        </InspectorPanel>
+      </InspectorPortal>,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: 'Run' })
+    expect(slot.contains(dialog)).toBe(true)
+    expect(slot.children.length).toBe(2)
+    slot.remove()
   })
 })

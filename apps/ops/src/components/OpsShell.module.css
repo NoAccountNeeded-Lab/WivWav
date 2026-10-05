@@ -91,3 +91,10 @@
 .placeholder {
   min-height: 100%;
 }
+
+/* A portaled consumer (InspectorPortal, #1077) appends its panel as a sibling
+   of the inert placeholder. Without this the 100%-tall placeholder is laid out
+   first and pushes the panel below the table. */
+.placeholder:not(:only-child) {
+  display: none;
+}
