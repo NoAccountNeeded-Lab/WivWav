@@ -22,6 +22,7 @@ function createFakeDb() {
   const rawPages: Record<string, unknown>[] = []
   const listingObservations: Record<string, unknown>[] = []
   const scraperRuns: Record<string, unknown>[] = []
+  const jobRuns: Record<string, unknown>[] = []
   const sources: Record<string, unknown>[] = []
   const configEntries: Record<string, unknown>[] = []
   let idCounter = 0
@@ -53,7 +54,21 @@ function createFakeDb() {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         // Mirrors Prisma schema defaults (schema.prisma's Listing.status
         // @default(active)) that a real create() applies but this fake's
-        // literal `data` spread would otherwise omit.
+        // literal `data` spread would otherwise omit. Also enforces
+        // listings_lastRunId_fkey like Postgres (P2003) so a regression that
+        // threads a non-JobRun id through as lastRunId fails here, not just
+        // in production.
+        if (
+          data['lastRunId'] != null &&
+          !jobRuns.some((r) => r['id'] === data['lastRunId'])
+        ) {
+          throw Object.assign(
+            new Error(
+              'Foreign key constraint violated on the constraint: `listings_lastRunId_fkey`',
+            ),
+            { code: 'P2003' },
+          )
+        }
         const row = { id: nextId('listing'), updatedAt: new Date(), status: 'active', ...data }
         listings.push(row)
         return row
@@ -153,6 +168,30 @@ function createFakeDb() {
         return row
       },
     },
+    // #1073: startScraperRun dual-writes a JobRun row sharing the ScraperRun
+    // id, and ingestListing resolves listing.runId against this table. The
+    // fake enforces the FK the same way: a create carrying an unknown
+    // lastRunId throws, mirroring P2003.
+    jobRun: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        jobRuns.find((r) => r['id'] === where.id) ?? null,
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = { id: nextId('jobrun'), ...data }
+        jobRuns.push(row)
+        return row
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { id: string }
+        data: Record<string, unknown>
+      }) => {
+        const row = jobRuns.find((r) => r['id'] === where.id)
+        if (row) Object.assign(row, data)
+        return { count: row ? 1 : 0 }
+      },
+    },
     source: {
       findUnique: async ({ where }: { where: { id: string } }) =>
         sources.find((s) => s['id'] === where.id) ?? null,
@@ -179,7 +218,7 @@ function createFakeDb() {
     },
   }
 
-  return { db, listings, rawPages, listingObservations, scraperRuns, sources, configEntries }
+  return { db, listings, rawPages, listingObservations, scraperRuns, jobRuns, sources, configEntries }
 }
 
 function buildTestApp() {
@@ -247,6 +286,47 @@ const validListingPayload = {
   soldAt: null,
   listedAt: '2026-08-01T00:00:00.000Z',
 }
+
+describe('POST /runs dual-write (#1073)', () => {
+  it('creates a JobRun row sharing the ScraperRun id so upserts satisfy the FK', async () => {
+    const { app, ready, scraperRuns, jobRuns } = buildTestApp()
+    await ready
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      payload: { sourceId: 'src-1' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const { id } = response.json<{ data: { id: string } }>().data
+    expect(scraperRuns.some((r) => r['id'] === id)).toBe(true)
+    const jobRun = jobRuns.find((r) => r['id'] === id)
+    expect(jobRun).toMatchObject({ id, jobType: 'source-scrape', sourceId: 'src-1' })
+  })
+
+  it('upserts a listing with the started run id without a P2003', async () => {
+    const { app, ready, listings } = buildTestApp()
+    await ready
+
+    const started = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      payload: { sourceId: 'src-1' },
+    })
+    const { id: runId } = started.json<{ data: { id: string } }>().data
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/listings/upsert',
+      payload: { ...validListingPayload, runId },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().data).toMatchObject({ outcome: 'created' })
+    expect(listings[0]?.['lastRunId']).toBe(runId)
+  })
+})
 
 describe('POST /listings/upsert', () => {
   it('creates a new listing on first submission', async () => {

@@ -101,50 +101,7 @@ function buildTestApp(overrides?: {
     search,
     app: buildApp(
       { ...baseConfig, NODE_ENV: 'test', ...overrides?.config },
-      {
-        $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
-        listing: {
-          findMany: vi.fn(async () => []),
-          count: vi.fn(async () => 0),
-          findUnique: vi.fn(async () => null),
-          findFirst: vi.fn(async () => null),
-        },
-        listingPriceHistory: {
-          findMany: vi.fn(async () => []),
-        },
-        vehicleModel: {
-          findUnique: vi.fn(async () => null),
-          findFirst: vi.fn(async () => null),
-        },
-        recall: { findMany: vi.fn(async () => []) },
-        complaint: { findMany: vi.fn(async () => []) },
-        vehicleStats: { findFirst: vi.fn(async () => null) },
-        vehicleModelResearch: { findFirst: vi.fn(async () => null) },
-        source: {
-          findMany: vi.fn(async () => []),
-          findUnique: vi.fn(async () => null),
-          count: vi.fn(async () => 0),
-        },
-        scraperRun: {
-          findMany: vi.fn(async () => []),
-          findFirst: vi.fn(async () => null),
-          create: vi.fn(async () => ({ id: 'run-1' })),
-        },
-        apiKey: {
-          findFirst: overrides?.apiKey?.findFirst ?? vi.fn(async () => null),
-          create: vi.fn(
-            async (args: { data: { ownerEmail: string; tier: string; rateLimitRpm: number } }) => ({
-              id: 'key-created',
-              ownerEmail: args.data.ownerEmail,
-              tier: args.data.tier,
-              rateLimitRpm: args.data.rateLimitRpm,
-              createdAt: new Date('2026-07-14T00:00:00.000Z'),
-              revokedAt: null,
-            }),
-          ),
-          updateMany: vi.fn(async () => ({ count: 0 })),
-        },
-      } as never,
+      makeMockDb(overrides),
       {} as never,
       {} as never,
       search as never,
@@ -153,6 +110,69 @@ function buildTestApp(overrides?: {
       undefined,
     ),
   }
+}
+
+/**
+ * Shared Prisma mock for app-level tests. Includes `$transaction` (callback
+ * passthrough against this same mock) and the `jobRun` table because
+ * `POST /internal/scraper/runs` dual-writes a JobRun row alongside the
+ * ScraperRun row (#1073) — without them the route 500s.
+ */
+function makeMockDb(overrides?: {
+  apiKey?: { findFirst?: ReturnType<typeof vi.fn> }
+  config?: Partial<Config>
+}) {
+  const dbMock = {
+    $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
+    listing: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+      findUnique: vi.fn(async () => null),
+      findFirst: vi.fn(async () => null),
+    },
+    listingPriceHistory: {
+      findMany: vi.fn(async () => []),
+    },
+    vehicleModel: {
+      findUnique: vi.fn(async () => null),
+      findFirst: vi.fn(async () => null),
+    },
+    recall: { findMany: vi.fn(async () => []) },
+    complaint: { findMany: vi.fn(async () => []) },
+    vehicleStats: { findFirst: vi.fn(async () => null) },
+    vehicleModelResearch: { findFirst: vi.fn(async () => null) },
+    source: {
+      findMany: vi.fn(async () => []),
+      findUnique: vi.fn(async () => null),
+      count: vi.fn(async () => 0),
+    },
+    scraperRun: {
+      findMany: vi.fn(async () => []),
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: 'run-1' })),
+    },
+    jobRun: {
+      create: vi.fn(async () => ({ id: 'run-1' })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
+    apiKey: {
+      findFirst: overrides?.apiKey?.findFirst ?? vi.fn(async () => null),
+      create: vi.fn(
+        async (args: { data: { ownerEmail: string; tier: string; rateLimitRpm: number } }) => ({
+          id: 'key-created',
+          ownerEmail: args.data.ownerEmail,
+          tier: args.data.tier,
+          rateLimitRpm: args.data.rateLimitRpm,
+          createdAt: new Date('2026-07-14T00:00:00.000Z'),
+          revokedAt: null,
+        }),
+      ),
+      updateMany: vi.fn(async () => ({ count: 0 })),
+    },
+  }
+  return Object.assign(dbMock, {
+    $transaction: async (fn: (tx: unknown) => unknown) => fn(dbMock),
+  }) as never
 }
 
 /** The web app's own browser origin — matches baseConfig.CORS_ORIGIN so /v1/ requests pass the trusted-origin bypass without needing a provisioned API key. */
