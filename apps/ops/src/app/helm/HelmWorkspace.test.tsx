@@ -88,31 +88,75 @@ describe('Inventory', () => {
 })
 
 describe('Flow and charts', () => {
-  it('shows connected stages with work, exceptions and the lineage caveat, plus backlog numbers', async () => {
+  it('shows connected stages with waiting, running, delayed and the lineage caveat', async () => {
     renderHelm()
     const stages = await screen.findByRole('list', { name: /Pipeline stages/ })
     expect(within(stages).getAllByRole('listitem')).toHaveLength(4)
     expect(screen.getByText(/does not pass through these stages in one serial line/)).toBeTruthy()
-    const detail = within(stages).getByText('Detail processing').closest('li') as HTMLElement
-    expect(detail.textContent).toMatch(/10 waiting, active or delayed/)
-    const table = screen.getByRole('table', { name: /Backlog by queue/ })
-    expect(within(table).getByText('detail-crawl')).toBeTruthy()
-    expect(screen.getByText(/Not a trend/)).toBeTruthy()
+    const detail = within(stages).getByText('Detail crawl and extraction').closest('li') as HTMLElement
+    expect(detail.textContent).toMatch(/Waiting and running10Delayed0/)
   })
 
-  it('marks backlog unknown rather than empty when queues are unavailable', async () => {
+  it('leads with waiting and running, keeps delayed-only queues out of the chart, and collapses the details table', async () => {
+    world.queues = [
+      ...Array.from({ length: 18 }, (_, index) => ({ name: `maintenance-${index}`, paused: false, stats: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 1 } })),
+      { name: 'detail-crawl', paused: false, stats: { waiting: 7, active: 1, completed: 40, failed: 2, delayed: 0 } },
+      { name: 'geocode', paused: false, stats: { waiting: 0, active: 0, completed: 3, failed: 0, delayed: 0 } },
+    ]
+    renderHelm()
+    const summary = await screen.findByText(/7 waiting/, { selector: 'strong' })
+    expect(summary.closest('p')?.textContent).toMatch(/7 waiting and 1 running across 1 of 20 queues/)
+    expect(summary.closest('p')?.textContent).toMatch(/18 delayed jobs are held for later \(scheduled or retrying; the API does not say which\) and not counted as waiting/)
+    expect(screen.getByText(/No queue history is recorded/)).toBeTruthy()
+    expect(screen.getByText(/18 queues have only delayed jobs; 1 is empty/)).toBeTruthy()
+    const details = screen.getByText(/Queue details \(20 queues\)/).closest('details') as HTMLDetailsElement
+    expect(details.open).toBe(false)
+    const table = within(details).getByRole('table')
+    expect(within(table).getAllByRole('row').length).toBe(1 + 20 + 1)
+    const cells = Array.from(within(table).getByText('Detail crawl').closest('tr')!.querySelectorAll('td')).map(cell => cell.textContent)
+    expect(cells).toEqual(['Detail crawl and extraction', '7', '1', '0', '2'])
+  })
+
+  it('switches to the stage view without losing the numbers, and keeps the choice across a refresh', async () => {
+    renderHelm()
+    const group = await screen.findByRole('group', { name: 'Queue chart view' })
+    expect(within(group).getByRole('button', { name: 'By queue' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(group).getByRole('button', { name: 'By stage' }))
+    expect(within(group).getByRole('button', { name: 'By stage' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Which part of the pipeline has work waiting?')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: /refresh/i })[0] as HTMLElement)
+    await screen.findByText(/Which part of the pipeline has work waiting\?/)
+    expect(within(screen.getByRole('group', { name: 'Queue chart view' })).getByRole('button', { name: 'By stage' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('says nothing is waiting when every count is zero', async () => {
+    world.queues = [{ name: 'source-scrape', paused: false, stats: { waiting: 0, active: 0, completed: 3, failed: 0, delayed: 0 } }]
+    renderHelm()
+    await screen.findByText(/Nothing is waiting or running/)
+    expect(screen.getByText('No queue has work waiting or running.')).toBeTruthy()
+  })
+
+  it('marks queues unknown rather than empty when queue data is unavailable', async () => {
     world.queues = 'fail'
     renderHelm()
-    await screen.findByText(/backlog is unknown \(not zero\)/)
+    await screen.findByText(/what is waiting is unknown \(not zero\)/)
+    expect(screen.queryByText(/Nothing is waiting or running/)).toBeNull()
     for (const item of within(screen.getByRole('list', { name: /Pipeline stages/ })).getAllByRole('listitem')) {
       expect(item.textContent).toMatch(/Unavailable/)
     }
   })
 
-  it('labels the recent run window and offers the numbers', async () => {
+  it('labels the run window, names the failing source and offers a per-source view and numbers', async () => {
     renderHelm()
-    await screen.findByText(/Latest 1 of the 1 most recent scrape runs across all sources/, { selector: 'p' })
-    expect(screen.getByText('Show numbers for these runs')).toBeTruthy()
+    await screen.findByText(/The 1 most recent scrape runs across all sources/, { selector: 'p' })
+    expect(screen.getByText('Which sources keep failing?')).toBeTruthy()
+    const details = screen.getByText(/Run details by source \(1 sources\)/).closest('details') as HTMLDetailsElement
+    expect(details.open).toBe(false)
+    expect(within(details).getByRole('button', { name: /Inspect latest run of/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Listings found per run' }))
+    expect(screen.getByText('Is one source finding fewer listings than its earlier runs?')).toBeTruthy()
+    expect(screen.getByLabelText('Source')).toBeTruthy()
+    expect(screen.getByText(/not total inventory/)).toBeTruthy()
   })
 })
 

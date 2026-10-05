@@ -3,20 +3,19 @@
 import { useMemo } from 'react'
 import { OpsStatusChip } from '@/components/OpsStatusChip'
 import { RelativeTimestamp } from '@/lib/relative-time'
-import { RecentRunsChart } from './RecentRunsChart'
+import { RunHistory } from './RunHistory'
 import { ActionOutcomeList } from './ActionOutcomeList'
-import { buildRecentRunWindow } from './flow-model'
+import { buildRunHistory } from './run-history-model'
 import { FreshnessChip } from './primitives'
 import { useHelm } from './helm-context'
 import styles from './helm-sections.module.css'
 
-const RECENT_RUN_BARS = 30
 const RECENT_RUN_ROWS = 8
 
 export function ActivitySection() {
   const { data, nav, tracker } = useHelm()
   const runs = data.resources.runs.data
-  const window = useMemo(() => buildRecentRunWindow(runs, RECENT_RUN_BARS), [runs])
+  const history = useMemo(() => buildRunHistory(runs), [runs])
   const recent = useMemo(
     () => [...(runs ?? [])].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)).slice(0, RECENT_RUN_ROWS),
     [runs],
@@ -27,7 +26,7 @@ export function ActivitySection() {
       <div className={styles.sectionHeader}>
         <FreshnessChip freshness={data.freshness.runs} />
       </div>
-      <RecentRunsChart window={window} />
+      <RunHistory history={history} error={data.resources.runs.error} onInspectRun={nav.openRun} />
 
       <div className={styles.chartBlock}>
         <h3 className={styles.chartTitle}>Actions you started</h3>

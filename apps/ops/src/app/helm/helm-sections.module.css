@@ -444,3 +444,83 @@
   font-family: var(--font);
   overflow-wrap: anywhere;
 }
+
+/* ── View switch, chart frame, scrollable tables ──────────────────────── */
+
+.viewSwitch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.viewButton {
+  min-height: 2.75rem;
+  padding: 0.25rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.viewButton[aria-pressed="true"] {
+  border-color: var(--clr-primary);
+  background: color-mix(in srgb, var(--clr-primary) 18%, var(--clr-surface));
+  font-weight: 600;
+}
+
+.viewButton:focus-visible,
+.chartFrame svg:focus-visible,
+.tableScroll:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
+.chartFrame {
+  width: 100%;
+  max-width: 48rem;
+  min-width: 0;
+}
+
+.queueSummary {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.selectLabel {
+  display: grid;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+}
+
+.select {
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+}

@@ -2,6 +2,7 @@
 
 import { OpsStatusChip } from '@/components/OpsStatusChip'
 import { Notice } from './primitives'
+import { buildQueueWork } from './queue-work-model'
 import { useHelm } from './helm-context'
 import { unacknowledgedProblems } from '../ops/problem-presentation'
 import styles from './helm-sections.module.css'
@@ -15,7 +16,8 @@ export function OverviewSection() {
   const { status } = data
   const open = unacknowledgedProblems(data.problems.data?.problems ?? [])
   const queues = data.resources.queues.data
-  const backlog = queues ? queues.reduce((sum, queue) => sum + queue.stats.waiting + queue.stats.active + queue.stats.delayed, 0) : null
+  const queueWork = buildQueueWork(queues)
+  const backlog = queueWork ? queueWork.totals.waiting + queueWork.totals.running : null
   return (
     <div className={shell.statusBanner} data-level={status.level}>
       <p className={shell.statusHeadline} role="status">
@@ -40,9 +42,9 @@ export function OverviewSection() {
           <p className={styles.cardValue} data-unavailable={data.problems.data ? undefined : 'true'}>{data.problems.data ? open.length.toLocaleString() : 'Unavailable'}</p>
         </li>
         <li className={styles.card}>
-          <h3 className={styles.cardLabel}>Queue backlog</h3>
+          <h3 className={styles.cardLabel}>Jobs waiting or running</h3>
           <p className={styles.cardValue} data-unavailable={backlog === null ? 'true' : undefined}>{backlog === null ? 'Unavailable' : backlog.toLocaleString()}</p>
-          <p className={styles.cardMeta}>waiting + active + delayed jobs</p>
+          <p className={styles.cardMeta}>{queueWork ? `${queueWork.totals.waiting.toLocaleString()} waiting, ${queueWork.totals.running.toLocaleString()} running; ${queueWork.totals.delayed.toLocaleString()} delayed (not counted)` : 'queue data unavailable'}</p>
         </li>
       </ul>
     </div>

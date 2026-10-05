@@ -1,7 +1,7 @@
 import { OpsStatusChip, type OpsStatusVariant } from '@/components/OpsStatusChip'
 import type { QueueRow } from '../ops/overview-helpers'
-import { BacklogBars } from './BacklogBars'
-import { buildBacklogRows, buildFlowStages, flowStateLabel, FLOW_LINEAGE_CAVEAT, type FlowStageState } from './flow-model'
+import { QueueWork } from './QueueWork'
+import { buildFlowStages, flowStateLabel, FLOW_LINEAGE_CAVEAT, type FlowStageState } from './flow-model'
 import type { Freshness } from './helm-freshness'
 import { FreshnessChip, Notice } from './primitives'
 import styles from './helm-sections.module.css'
@@ -35,10 +35,12 @@ export function FlowSection({ queues, freshness, updatedAt }: FlowSectionProps) 
             <OpsStatusChip variant={STATE_VARIANT[stage.state]} label={flowStateLabel(stage.state)} />
             <p className={styles.note}>{stage.definition.description}</p>
             <dl className={styles.stageFacts}>
-              <dt>Work</dt>
-              <dd>{stage.work === null ? 'unknown' : `${stage.work.toLocaleString()} waiting, active or delayed`}</dd>
+              <dt>Waiting and running</dt>
+              <dd>{stage.ready === null ? 'unknown' : `${stage.missingQueues.length > 0 ? 'at least ' : ''}${stage.ready.toLocaleString()}`}</dd>
+              <dt>Delayed</dt>
+              <dd>{stage.delayed === null ? 'unknown' : `${stage.missingQueues.length > 0 ? 'at least ' : ''}${stage.delayed.toLocaleString()}`}</dd>
               <dt>Exceptions</dt>
-              <dd>{stage.failed === null ? 'unknown' : `${stage.failed.toLocaleString()} failed`}</dd>
+              <dd>{stage.failed === null ? 'unknown' : `${stage.failed.toLocaleString()} failed (retained)`}</dd>
             </dl>
             {stage.missingQueues.length > 0 && (
               <p className={styles.cardMeta}>Not reported: {stage.missingQueues.join(', ')}</p>
@@ -46,7 +48,7 @@ export function FlowSection({ queues, freshness, updatedAt }: FlowSectionProps) 
           </li>
         ))}
       </ul>
-      <BacklogBars rows={buildBacklogRows(queues)} asOf={updatedAt} />
+      <QueueWork queues={queues} freshness={freshness} asOf={updatedAt} />
     </>
   )
 }
