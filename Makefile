@@ -53,9 +53,10 @@ build: disk-check
 	docker image prune -f; \
 	exit $$status
 
-## down   Stop all running containers and remove orphaned ones.
+## down   Stop all running containers (including the worker profile: job-runner
+##        and its ops container) and remove orphaned ones.
 down:
-	$(COMPOSE) --profile ai --profile obs down --remove-orphans
+	$(COMPOSE) --profile ai --profile obs --profile worker down --remove-orphans
 
 ## logs   Tail live logs from all running containers. Press Ctrl-C to stop.
 logs:
