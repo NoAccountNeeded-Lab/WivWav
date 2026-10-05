@@ -38,7 +38,10 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.pageHeading}>{t('heading')}</h1>
+      {/* NavigationFocusReset adds tabindex="-1" to the h1 before this boundary hydrates. */}
+      <h1 className={styles.pageHeading} suppressHydrationWarning>
+        {t('heading')}
+      </h1>
 
       <Suspense>
         <DiscoverActions resultsPath={resultsPath} />
