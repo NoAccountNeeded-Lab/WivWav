@@ -8,6 +8,9 @@ import { report } from './job-progress.js'
 
 const BATCH_SIZE = 1000
 const TASK_TIMEOUT_MS = 15_000
+/** Upper bound for the snapshot transaction that wraps a full rebuild (a rebuild normally takes seconds). */
+const SNAPSHOT_TXN_TIMEOUT_MS = 10 * 60_000
+const SNAPSHOT_TXN_MAX_WAIT_MS = 10_000
 
 /** Prefix for versioned rebuild-target indexes, e.g. "listings_v1751234567890". */
 const VERSIONED_INDEX_PREFIX = `${INDEX_NAME}_v`
@@ -35,7 +38,7 @@ type GroupKeyPosition = {
  * tuple to stay bounded and deterministic across the full catalog.
  */
 async function fetchOrderedIdPage(
-  db: PrismaClient,
+  db: Prisma.TransactionClient,
   after: GroupKeyPosition | undefined,
 ): Promise<GroupKeyPosition[]> {
   const cursorClause = after
@@ -161,9 +164,34 @@ export async function rebuildMeilisearchIndex(
   }
 }
 
+/**
+ * Runs the full rebuild against ONE consistent Postgres snapshot. The count,
+ * every id page, and every full-row fetch must see the same data: other jobs
+ * (listing-resolve, vin-enrich) rewrite `vehicleId` continuously, which moves
+ * a row to a different position in the `(groupKey, id)` scan. Without a
+ * snapshot, a row can be read twice or skipped mid-scan and the group count
+ * drifts from the count taken at the start, so the fail-closed reconciliation
+ * below blocks a rebuild that had no real indexing problem (#1100).
+ */
 async function runFullRebuild(
   context: JobContext | undefined,
   db: PrismaClient,
+  client: Meilisearch,
+  index: ReturnType<Meilisearch['index']>,
+): Promise<void> {
+  await db.$transaction(
+    (tx) => runFullRebuildInSnapshot(context, tx, client, index),
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      timeout: SNAPSHOT_TXN_TIMEOUT_MS,
+      maxWait: SNAPSHOT_TXN_MAX_WAIT_MS,
+    },
+  )
+}
+
+async function runFullRebuildInSnapshot(
+  context: JobContext | undefined,
+  db: Prisma.TransactionClient,
   client: Meilisearch,
   index: ReturnType<Meilisearch['index']>,
 ): Promise<void> {
@@ -197,9 +225,9 @@ async function runFullRebuild(
 
     if (idRows.length > 0) {
       const idsInOrder = idRows.map((r) => r.id)
-      // Re-check eligibility: a row can flip status/publicationStatus in the
-      // gap between this fetch and the id scan above, and this fetch must
-      // not silently include it just because it was eligible a moment ago.
+      // Re-check eligibility. Inside the snapshot transaction this cannot
+      // differ from the id scan above, but keeping the filter means this fetch
+      // never includes a row the scan's own criteria would exclude.
       const fullRows = await db.listing.findMany({
         where: {
           id: { in: idsInOrder },
