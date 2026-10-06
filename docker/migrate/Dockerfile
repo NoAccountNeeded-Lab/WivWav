@@ -34,9 +34,12 @@ RUN pnpm --filter @wivwav/db generate
 # client) is copied via the package's `files` allowlist
 # (dist, prisma/, prisma.config.ts); nothing else from the repo, and no
 # package-local `.env` file, is retained.
+# The deploy step deliberately does not mount the pnpm store cache: the cache
+# mount lives on a different filesystem than the image layer (btrfs vs overlay
+# on OrbStack), and importing from it intermittently failed with
+# ERR_PNPM_EXDEV (cross-device link not permitted). #1092.
 FROM builder AS deploy
-RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
-    pnpm --filter @wivwav/db deploy --legacy /app/deploy/db
+RUN pnpm --filter @wivwav/db deploy --legacy /app/deploy/db
 
 FROM base AS runner
 WORKDIR /app

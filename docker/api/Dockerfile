@@ -47,7 +47,6 @@ COPY packages/queue ./packages/queue
 COPY packages/search ./packages/search
 COPY packages/agents ./packages/agents
 COPY packages/scraper-sources ./packages/scraper-sources
-COPY apps/api ./apps/api
 RUN pnpm --filter @wivwav/types build
 RUN pnpm --filter @wivwav/observability build
 RUN pnpm --filter @wivwav/logger build
@@ -57,6 +56,9 @@ RUN pnpm --filter @wivwav/queue build
 RUN pnpm --filter @wivwav/search build
 RUN pnpm --filter @wivwav/agents build
 RUN pnpm --filter @wivwav/scraper-sources build
+# App source is copied after the package builds so an apps/api-only edit
+# reuses the cached package build layers.
+COPY apps/api ./apps/api
 RUN pnpm --filter @wivwav/api build
 
 # `pnpm deploy` resolves @wivwav/api's production dependency closure only —
@@ -75,9 +77,12 @@ RUN pnpm --filter @wivwav/api build
 # thing `--no-optional` used to target — and their uniquely named CLI-only
 # Studio/PGlite packages are instead stripped explicitly below, preserving
 # sharp without shipping those orphaned CLI packages.
+# The deploy step deliberately does not mount the pnpm store cache: the cache
+# mount lives on a different filesystem than the image layer (btrfs vs overlay
+# on OrbStack), and importing from it intermittently failed with
+# ERR_PNPM_EXDEV (cross-device link not permitted). #1092.
 FROM builder AS deploy
-RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
-    pnpm --filter @wivwav/api deploy --prod --ignore-scripts --legacy /app/deploy/api \
+RUN pnpm --filter @wivwav/api deploy --prod --ignore-scripts --legacy /app/deploy/api \
     && find /app/deploy/api/node_modules/.pnpm -maxdepth 1 -type d \
       \( -name 'typescript@*' -o -name 'prisma@*' \
          -o -name '@prisma+dev@*' -o -name '@prisma+studio-core@*' \
