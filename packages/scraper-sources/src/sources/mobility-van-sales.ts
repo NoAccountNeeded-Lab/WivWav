@@ -7,6 +7,7 @@ import type { JobContext } from '@wivwav/queue'
 import { report } from '../jobs/job-progress.js'
 import { RobotsCache } from '../util/robots-cache.js'
 import { jitteredSleep } from '../util/jitter-sleep.js'
+import { withTransientNetworkRetry } from '../util/network-retry.js'
 import { normalizeVin, isValidVin, checkDigitValid } from '@wivwav/types'
 import { isVehicleImageUrl } from './image-filter.js'
 import { parseVehicleTitle } from '../lib/parse-vehicle-title.js'
@@ -520,7 +521,9 @@ async function fetchWithTlsBypass(
   let currentUrl = startUrl
 
   for (let redirect = 0; redirect <= maxRedirects; redirect++) {
-    const result = await fetchOnce(currentUrl, headers, timeoutMs)
+    // One dropped connection or stall must not fail a 100+ request run, so each
+    // request is retried a bounded number of times on transient network errors.
+    const result = await withTransientNetworkRetry(() => fetchOnce(currentUrl, headers, timeoutMs))
     if (result.status >= 300 && result.status < 400 && result.location) {
       const redirectUrl = new URL(result.location, currentUrl)
       // Because TLS validation is bypassed for TLS_BYPASS_HOSTNAME, an on-path
@@ -556,6 +559,9 @@ function fetchOnce(
       {
         headers,
         method: 'GET',
+        // Fresh socket per request: the default keep-alive agent can reuse a
+        // socket the server already closed, which surfaces as `socket hang up`.
+        agent: false,
         ...(bypassTls ? { rejectUnauthorized: false } : {}),
       },
       (res) => {
