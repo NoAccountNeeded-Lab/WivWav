@@ -18,10 +18,12 @@ RUN --mount=type=cache,id=wivwav-pnpm,target=/pnpm/store \
 COPY packages/config ./packages/config
 COPY packages/types ./packages/types
 COPY packages/charts ./packages/charts
-COPY apps/ops ./apps/ops
 RUN pnpm --filter @wivwav/types build
 RUN pnpm --filter @wivwav/charts build
-RUN pnpm --filter @wivwav/ops build
+# App source is copied after the package builds (see docker/web/Dockerfile).
+COPY apps/ops ./apps/ops
+RUN --mount=type=cache,id=wivwav-next-ops,target=/app/apps/ops/.next/cache \
+  pnpm --filter @wivwav/ops build
 
 FROM base AS runner
 WORKDIR /app

@@ -47,14 +47,18 @@ COPY packages/observability ./packages/observability
 COPY packages/db ./packages/db
 COPY packages/logger ./packages/logger
 COPY packages/search ./packages/search
-COPY apps/web ./apps/web
 RUN pnpm --filter @wivwav/types build
 RUN pnpm --filter @wivwav/observability build
 RUN pnpm --filter @wivwav/logger build
 RUN pnpm --filter @wivwav/db generate
 RUN pnpm --filter @wivwav/db build
 RUN pnpm --filter @wivwav/search build
-RUN --mount=type=secret,id=sentry_auth_token,required=false \
+# App source is copied after the package builds so an apps/web-only edit
+# reuses the cached package build layers. The .next/cache mount lets Next
+# reuse its incremental build cache; it is not part of the standalone output.
+COPY apps/web ./apps/web
+RUN --mount=type=cache,id=wivwav-next-web,target=/app/apps/web/.next/cache \
+  --mount=type=secret,id=sentry_auth_token,required=false \
   if [ -s /run/secrets/sentry_auth_token ]; then export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token)"; fi; \
   pnpm --filter @wivwav/web build
 

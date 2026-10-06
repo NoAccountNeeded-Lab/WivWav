@@ -1,6 +1,6 @@
 COMPOSE = docker compose
 
-.PHONY: up build disk-check down dev test test-integration typecheck lint build-app clean format logs \
+.PHONY: up build disk-check reclaim down dev test test-integration typecheck lint build-app clean format logs \
         worker worker-down worker-build worker-count-check worker-remote worker-logs obs \
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report restore-drill \
@@ -15,19 +15,27 @@ BUILD_SERVICES = migrate api ops web
 BUILD_PROFILES ?= --profile ai --profile obs
 # Minimum free space (GB) in the Docker VM before 'up'/'build' start building.
 MIN_FREE_GB ?= 10
+# Minimum free space (GB) on the host disk. The Docker VM's disk image is a
+# sparse file on the host, so the VM can report plenty of free space while the
+# host is full, and builds then fail in confusing ways (ENOSPC, EXDEV, I/O errors).
+MIN_HOST_FREE_GB ?= 15
+# BuildKit cache (GB) kept after cleanup; the rest is pruned.
+CACHE_KEEP_GB ?= 6
 N ?= 1
 
 ## disk-check  Fail fast, before any build starts, when the Docker VM has less
-##             than MIN_FREE_GB (default 10) free. Override with
-##             'make build MIN_FREE_GB=5'.
+##             than MIN_FREE_GB (default 10) free, or the host disk has less
+##             than MIN_HOST_FREE_GB (default 15). When short, it first reclaims
+##             space (dangling images, build cache above CACHE_KEEP_GB, then all
+##             unused build cache) and re-checks. Override with
+##             'make build MIN_FREE_GB=5 MIN_HOST_FREE_GB=8'.
 disk-check:
-	@disk=$$(docker run --rm alpine df -Pk /) || exit $$?; \
-	free=$$(printf '%s\n' "$$disk" | awk 'NR==2 {print int($$4/1048576)}'); \
-	case "$$free" in ''|*[!0-9]*) echo "Could not determine Docker VM free space." >&2; exit 1 ;; esac; \
-	if [ "$$free" -lt "$(MIN_FREE_GB)" ]; then \
-		echo "Docker VM has $${free}GB free (need $(MIN_FREE_GB)GB). Run 'make prune' to reclaim space, or lower the bar with MIN_FREE_GB=<n>." >&2; \
-		exit 1; \
-	fi
+	@MIN_FREE_GB=$(MIN_FREE_GB) MIN_HOST_FREE_GB=$(MIN_HOST_FREE_GB) CACHE_KEEP_GB=$(CACHE_KEEP_GB) scripts/disk-check.sh
+
+## reclaim  Safe cleanup: dangling images and BuildKit cache above CACHE_KEEP_GB.
+##          Never touches volumes or containers.
+reclaim:
+	@CACHE_KEEP_GB=$(CACHE_KEEP_GB) scripts/reclaim.sh
 
 ## up     Start the complete Docker stack in the background — infra, api, web,
 ##        ops, Ollama, and observability (Loki, Alloy, Grafana). Images that
@@ -39,18 +47,23 @@ up: disk-check
 		docker image inspect "wivwav-$$s" >/dev/null 2>&1 || $(COMPOSE) --profile ai --profile obs build $$s || exit 1; \
 	done
 	$(COMPOSE) --profile ai --profile obs up -d --remove-orphans
+	@scripts/open-when-ready.sh http://localhost:3000 >/dev/null 2>&1 &
 
 ## build  Rebuild the default-stack Docker images one at a time, without
-##        starting containers, after a free-disk check. Prunes dangling images
-##        afterward, even when a build fails, so repeated rebuilds don't fill
-##        the Docker VM disk (each rebuild leaves the old, now-untagged layers
-##        behind). Run 'make prune' for a deeper clean of unused build cache.
+##        starting containers, after a free-disk check (which reclaims space
+##        itself when it is short). Reports when the build is done, then cleans
+##        up in the background (dangling images, build cache above
+##        CACHE_KEEP_GB) even when a build fails, so repeated rebuilds don't
+##        fill the Docker VM disk (each rebuild leaves the old, now-untagged
+##        layers behind) and you aren't waiting on cleanup. Run 'make prune'
+##        for a deeper clean of unused build cache.
 build: disk-check
 	@status=0; \
 	for s in $(BUILD_SERVICES); do \
 		$(COMPOSE) $(BUILD_PROFILES) build $$s || { status=$$?; break; }; \
 	done; \
-	docker image prune -f; \
+	if [ $$status -eq 0 ]; then echo "Build complete. Cleaning up in the background."; fi; \
+	( CACHE_KEEP_GB=$(CACHE_KEEP_GB) scripts/reclaim.sh >/dev/null 2>&1 & ); \
 	exit $$status
 
 ## down   Stop all running containers (including the worker profile: job-runner
@@ -80,6 +93,7 @@ worker-count-check:
 worker: worker-count-check
 	$(MAKE) worker-build
 	$(COMPOSE) --profile worker up -d --no-build --scale job-runner=$(N) ops job-runner
+	@scripts/open-when-ready.sh http://localhost:3002 >/dev/null 2>&1 &
 
 ## worker-remote Rebuild/start N job runners for a remote coordinator.
 ##               Required env:
@@ -107,6 +121,7 @@ worker-logs:
 obs:
 	$(MAKE) build BUILD_SERVICES="migrate api" BUILD_PROFILES="--profile obs"
 	$(COMPOSE) --profile obs up -d --no-build --wait loki alloy prometheus grafana
+	@scripts/open-when-ready.sh http://localhost:3003 >/dev/null 2>&1 &
 
 ## prune  Reclaim disk space: dangling images plus unused build cache. Run
 ##        this if 'docker system df' shows the Docker VM disk getting full.
@@ -130,6 +145,7 @@ dev:
 	@[ -f packages/db/.env ] || cp packages/db/.env.example packages/db/.env
 	pnpm db:migrate
 	pnpm --filter "./packages/*" build
+	@scripts/open-when-ready.sh http://localhost:4000 >/dev/null 2>&1 &
 	pnpm dev
 
 # ── Quality checks ────────────────────────────────────────────────────────────
