@@ -76,6 +76,47 @@ export interface RawCard {
   transmission: string       // e.g. "8-Speed Automatic w/OD"
 }
 
+/**
+ * Structure fingerprint, run inside the page via `page.evaluate`: it is
+ * serialized by Playwright, so it must stay self-contained (no outer-scope
+ * references and no nested named functions — tsx's `__name()` helper does not
+ * exist in the browser sandbox).
+ *
+ * The signature is the sorted, de-duplicated set of `TAG[classes]` across ALL
+ * cards (depth <= 3), with per-listing/state classes removed (`post-<id>`,
+ * `status-*`, `instock`, `sale`, `first`, `product_cat-*`, ...) and the optional
+ * `onsale` badge skipped. It deliberately excludes the card count and anything
+ * that varies with inventory, so it flips only when the layout itself changes.
+ * Hashing the first card's raw class list (the earlier approach) flipped on
+ * every inventory change and left the source stuck in `needs_remapping` (#1096).
+ */
+export function readStructureSignature(sel: string): { signature: string; cardHtml: string } {
+  const cards = document.querySelectorAll(sel)
+  if (cards.length === 0) return { signature: 'no-cards', cardHtml: '' }
+  const noise = /^(post-\d+|status-.*|instock|outofstock|onbackorder|sale|first|last|featured|purchasable|taxable|virtual|downloadable|shipping-taxable|has-post-thumbnail|product_cat-.*|product_tag-.*|product-type-.*)$/
+  const seen: Record<string, boolean> = {}
+  for (let c = 0; c < cards.length; c++) {
+    const stack: Array<[Element, number]> = [[cards[c]!, 0]]
+    while (stack.length > 0) {
+      const item = stack.pop()!
+      const el = item[0]
+      const depth = item[1]
+      if (depth > 3) continue
+      const tokens: string[] = []
+      const classes = String(el.className).split(/\s+/)
+      for (let i = 0; i < classes.length; i++) {
+        if (classes[i] && !noise.test(classes[i]!)) tokens.push(classes[i]!)
+      }
+      if (tokens.length === 1 && tokens[0] === 'onsale') continue
+      seen[`${el.tagName}[${tokens.join(' ')}]`] = true
+      for (let i = el.children.length - 1; i >= 0; i--) {
+        stack.push([el.children[i]!, depth + 1])
+      }
+    }
+  }
+  return { signature: `v2|${Object.keys(seen).sort().join(',')}`, cardHtml: cards[0]!.outerHTML }
+}
+
 export class FreedomMotorsAdapter implements SourceAdapter {
   readonly sourceId = SOURCE_ID
   readonly name = 'Freedom Motors'
@@ -151,27 +192,7 @@ export class FreedomMotorsAdapter implements SourceAdapter {
       )
       await page.waitForSelector(CARD_SEL, { timeout: 15_000 }).catch(() => {})
 
-      const { signature, cardHtml } = await page.evaluate(function (sel: string): { signature: string; cardHtml: string } {
-        const cards = document.querySelectorAll(sel)
-        const first = cards[0]
-        if (!first) return { signature: 'no-cards', cardHtml: '' }
-        // Iterative DFS — tsx's esbuild injects __name() for named function declarations,
-        // which is undefined in the Playwright browser sandbox where only the function body
-        // is serialized, not the module-level helper.
-        const parts: string[] = []
-        const stack: Array<[Element, number]> = [[first, 0]]
-        while (stack.length > 0) {
-          const item = stack.pop()!
-          const el = item[0]
-          const depth = item[1]
-          if (depth > 3) continue
-          parts.push(`${el.tagName}[${el.className}]`)
-          for (let i = el.children.length - 1; i >= 0; i--) {
-            stack.push([el.children[i]!, depth + 1])
-          }
-        }
-        return { signature: `count:${cards.length}|${parts.join(',')}`, cardHtml: first.outerHTML }
-      }, CARD_SEL)
+      const { signature, cardHtml } = await page.evaluate(readStructureSignature, CARD_SEL)
 
       const currentHash = createHash('sha256').update(signature).digest('hex')
       const changed = this.previousHash !== null && this.previousHash !== currentHash

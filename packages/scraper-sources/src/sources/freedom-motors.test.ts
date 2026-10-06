@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 
 import {
@@ -8,6 +8,7 @@ import {
   hashPage1Entries,
   isNavigationTimeout,
   FreedomMotorsAdapter,
+  readStructureSignature,
 } from './freedom-motors.js'
 import type { RawCard } from './freedom-motors.js'
 import type { BrowserService, BrowserSession, BrowserPage, BrowserResponse } from '../browser/types.js'
@@ -472,5 +473,69 @@ describe('FreedomMotorsAdapter.scrape resource blocking', () => {
     expect(newPageOptions[0]).toMatchObject({
       blockResourceTypes: expect.arrayContaining(['image', 'media', 'font', 'stylesheet']),
     })
+  })
+})
+
+// ─── readStructureSignature (in-page fingerprint, #1096) ─────────────────────
+
+interface FakeEl { tagName: string; className: string; children: FakeEl[]; outerHTML: string }
+
+function el(tagName: string, className: string, children: FakeEl[] = []): FakeEl {
+  return { tagName, className, children, outerHTML: `<${tagName.toLowerCase()} class="${className}">` }
+}
+
+/** One WooCommerce-style card. `postId`/`onSale`/`stock` are per-listing state. */
+function card(opts: { postId: number; onSale?: boolean; stock?: string; imageClass?: string; withAttributes?: boolean }): FakeEl {
+  const { postId, onSale = false, stock = 'instock', imageClass = 'image_container', withAttributes = true } = opts
+  const imageChildren = [...(onSale ? [el('SPAN', 'onsale')] : []), el('IMG', 'attachment-woocommerce_thumbnail')]
+  const details = [
+    el('A', '', [el('H2', 'woocommerce-loop-product__title')]),
+    ...(withAttributes ? [el('DIV', 'product_attributes', [el('UL', 'product-attributes', [el('LI', 'attribute', [el('SPAN', ''), el('B', '')])])])] : []),
+  ]
+  return el('LI', `product type-product post-${postId} status-publish ${stock} product_cat-sport-utility ${onSale ? 'sale' : ''} has-post-thumbnail`, [
+    el('DIV', 'image_title_details_container', [el('A', imageClass, imageChildren), el('DIV', 'title_details_container w-100', details)]),
+  ])
+}
+
+function signatureFor(cards: FakeEl[]): string {
+  vi.stubGlobal('document', { querySelectorAll: () => cards })
+  try {
+    return readStructureSignature('li.product').signature
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}
+
+describe('readStructureSignature', () => {
+  it('is identical when only per-listing state, card order, or card count differ', () => {
+    const page1 = [card({ postId: 67893, onSale: true }), card({ postId: 68479 }), card({ postId: 70001, stock: 'outofstock' })]
+    const page2 = [card({ postId: 73529 }), card({ postId: 73530, onSale: true })]
+    expect(signatureFor(page1)).toBe(signatureFor(page2))
+    expect(signatureFor(page1)).toBe(signatureFor([...page1].reverse()))
+    expect(signatureFor(page1)).toBe(signatureFor([card({ postId: 1 })]))
+  })
+
+  it('changes when a layout element the scraper depends on is renamed or removed', () => {
+    const baseline = signatureFor([card({ postId: 1 })])
+    expect(signatureFor([card({ postId: 1, imageClass: 'image_wrapper' })])).not.toBe(baseline)
+    expect(signatureFor([card({ postId: 1, withAttributes: false })])).not.toBe(baseline)
+  })
+
+  it('reports no-cards when the grid is empty, with an empty sample', () => {
+    vi.stubGlobal('document', { querySelectorAll: () => [] })
+    try {
+      expect(readStructureSignature('li.product')).toEqual({ signature: 'no-cards', cardHtml: '' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('returns the first card html as the remap sample', () => {
+    vi.stubGlobal('document', { querySelectorAll: () => [card({ postId: 5 }), card({ postId: 6 })] })
+    try {
+      expect(readStructureSignature('li.product').cardHtml).toContain('post-5')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
