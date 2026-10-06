@@ -10,6 +10,7 @@ vi.mock('@wivwav/db', async (importActual) => {
     // `$queryRaw` itself is mocked per-test, so these just need to not throw.
     Prisma: {
       ...actual.Prisma,
+      TransactionIsolationLevel: { RepeatableRead: 'RepeatableRead' },
       sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
       empty: { strings: [''], values: [] },
     },
@@ -53,6 +54,7 @@ describe('runMeilisearchSyncJob', () => {
     $queryRaw: ReturnType<typeof vi.fn>
     listing: { findMany: ReturnType<typeof vi.fn> }
     $disconnect: ReturnType<typeof vi.fn>
+    $transaction: ReturnType<typeof vi.fn>
   }
 
   beforeEach(() => {
@@ -79,6 +81,8 @@ describe('runMeilisearchSyncJob', () => {
         findMany: vi.fn().mockResolvedValueOnce(listingRowsFor(['listing-1', 'listing-2', 'listing-3'], null)),
       },
       $disconnect: vi.fn(async () => undefined),
+      // Interactive transaction: run the callback against this same mock client.
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(db)),
     }
 
     vi.mocked(getDb).mockReturnValue(db as never)
@@ -108,6 +112,19 @@ describe('runMeilisearchSyncJob', () => {
     expect(context.log).toHaveBeenCalledWith(
       expect.stringContaining('3 eligible active vehicle group(s) in DB'),
     )
+  })
+
+  it('reads the whole rebuild from one REPEATABLE READ snapshot with an explicit timeout (#1100)', async () => {
+    await runMeilisearchSyncJob()
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1)
+    const options = db.$transaction.mock.calls[0]![1] as { isolationLevel: string; timeout: number; maxWait: number }
+    expect(options.isolationLevel).toBe('RepeatableRead')
+    // Prisma's default interactive-transaction timeout is 5s; a rebuild must not be cut off by it.
+    expect(options.timeout).toBeGreaterThan(5_000)
+    expect(options.maxWait).toBeGreaterThan(0)
+    // The count and the id pages run through the transaction client, not outside it.
+    expect(db.$queryRaw.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
   it('reports stage complete with matching counts on a clean rebuild', async () => {
