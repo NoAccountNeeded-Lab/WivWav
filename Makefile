@@ -145,7 +145,7 @@ dev:
 	@[ -f packages/db/.env ] || cp packages/db/.env.example packages/db/.env
 	pnpm db:migrate
 	pnpm --filter "./packages/*" build
-	@scripts/open-when-ready.sh http://localhost:4000 >/dev/null 2>&1 &
+	@scripts/open-when-ready.sh --if-down http://localhost:4000 >/dev/null 2>&1 &
 	pnpm dev
 
 # ── Quality checks ────────────────────────────────────────────────────────────

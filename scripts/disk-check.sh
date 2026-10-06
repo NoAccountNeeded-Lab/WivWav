@@ -31,16 +31,24 @@ check() {
 	fi
 }
 
+# Let a background reclaim from the previous build finish first (it can free
+# the space this check is about to measure).
+LOCK=${TMPDIR:-/tmp}/wivwav-reclaim.lock
+i=0
+while [ -d "$LOCK" ] && kill -0 "$(cat "$LOCK/pid" 2>/dev/null)" 2>/dev/null && [ "$i" -lt 60 ]; do
+	sleep 1; i=$((i + 1))
+done
+
 check; rc=$?
 [ "$rc" -eq 0 ] && exit 0
 [ "$rc" -eq 2 ] && exit 1
 
 echo "Low disk space: reclaiming dangling images and build cache above ${CACHE_KEEP_GB}GB, then retrying..." >&2
-"$(dirname "$0")/reclaim.sh"
+"$(dirname "$0")/reclaim.sh" || echo "Cleanup failed; see the message above." >&2
 check && exit 0
 
 echo "Still short: clearing all unused build cache (next build will be slower), then retrying..." >&2
-"$(dirname "$0")/reclaim.sh" --all-cache
+"$(dirname "$0")/reclaim.sh" --all-cache || echo "Cleanup failed; see the message above." >&2
 check && exit 0
 
 echo "Not enough free space after cleanup. Free disk space, or lower the bar with MIN_FREE_GB=<n> / MIN_HOST_FREE_GB=<n>." >&2
