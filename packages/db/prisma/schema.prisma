@@ -137,6 +137,8 @@ enum OpsProblemSource {
 /// A specific physical vehicle, anchored by VIN when available.
 /// Only created for listings with a valid, normalized 17-character VIN.
 /// Non-VIN listings remain listing-only until high-confidence matching is available.
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model Vehicle {
   id             String        @id @default(cuid())
   vin            String?       @unique
@@ -254,6 +256,8 @@ model OpsProblemState {
   @@map("ops_problem_state")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model Listing {
   id         String @id @default(cuid())
   sourceId   String
@@ -452,6 +456,8 @@ model ListingReport {
 /// is the sole writer and skips the insert when the incoming claim matches
 /// the slot's latest row, so re-ingesting an unchanged observation is
 /// idempotent and never duplicates a claim.
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model ListingFieldClaim {
   id        String  @id @default(cuid())
   listingId String
@@ -519,6 +525,8 @@ model ListingObservation {
   @@map("listing_observation")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model ListingPriceHistory {
   id         String   @id @default(cuid())
   listingId  String
@@ -533,6 +541,8 @@ model ListingPriceHistory {
   @@map("listing_price_history")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model ListingMileageHistory {
   id         String   @id @default(cuid())
   listingId  String
@@ -648,6 +658,8 @@ model JobRun {
 
 // ── Research platform ──────────────────────────────────────────────────────
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model VehicleModel {
   id       String  @id @default(cuid())
   make     String
@@ -736,6 +748,8 @@ model Recall {
   @@map("recalls")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model Complaint {
   id             String       @id @default(cuid())
   nhtsaId        String       @unique
@@ -753,6 +767,8 @@ model Complaint {
   @@map("complaints")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model SafetyRating {
   id              String       @id @default(cuid())
   vehicleModelId  String
@@ -822,6 +838,8 @@ model ConversionBrand {
   @@map("conversion_brands")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model ConversionProduct {
   id                  String          @id @default(cuid())
   brandId             String
@@ -838,6 +856,8 @@ model ConversionProduct {
   @@map("conversion_products")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model VehicleStats {
   id                String   @id @default(cuid())
   make              String
@@ -858,6 +878,8 @@ model VehicleStats {
   @@map("vehicle_stats")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model NmeaDealer {
   id           String   @id @default(cuid())
   name         String
@@ -879,6 +901,8 @@ model NmeaDealer {
 
 // ── Dealer enrichment ─────────────────────────────────────────────────────
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model DealerProfile {
   id            String   @id @default(cuid())
   name          String
@@ -898,6 +922,8 @@ model DealerProfile {
   @@map("dealer_profiles")
 }
 
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model DealerReview {
   id          String        @id @default(cuid())
   dealerId    String
@@ -932,6 +958,8 @@ enum ImageKind {
 /// `exactHash`  = hex SHA-256 of the response body (identical bytes).
 /// `pHash`      = 64-bit difference-hash as a hex string (perceptual similarity).
 /// Both fields are null until the image has been successfully downloaded and analysed.
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model ListingImage {
   id             String    @id @default(cuid())
   listingId      String
@@ -1121,6 +1149,8 @@ model ConfigEntry {
 }
 
 /// Original MSRP stored at the model/trim level. Source: fueleconomy.gov.
+/// #1116 numeric/range CHECKs live in migration
+/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
 model VehicleModelPricing {
   id                  String       @id @default(cuid())
   vehicleModelId      String
