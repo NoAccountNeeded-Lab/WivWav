@@ -396,12 +396,21 @@ model Listing {
   @@unique([sourceId, sourceRecordKey])
   @@index([lastRunId])
   @@index([sourceUrl])
+  /// VIN lookups (`findByVin`, `findListingsByVin`, `findHistoryByVin`)
+  /// always imply `vin IS NOT NULL`; the migration narrows this index with
+  /// `WHERE "vin" IS NOT NULL` (see partial_nullable_listing_indexes) so
+  /// VIN-less rows skip it on ingest.
   @@index([vin])
   @@index([vehicleId, status])
   @@index([vehicleId, listedAt])
   @@index([make, model])
   @@index([listedAt])
   @@index([publicationStatus])
+  /// Row locks are transient (see apps/api/src/jobs/listing-lock.ts), so this
+  /// column is NULL for ~all rows; the migration narrows this index with
+  /// `WHERE "processingLockedAt" IS NOT NULL` (see
+  /// partial_nullable_listing_indexes) to keep the staleness probe cheap
+  /// without indexing every unlocked row.
   @@index([processingLockedAt])
   @@index([dealerProfileId])
   @@index([sourceId, status, missingFromCompleteCount], map: "listings_possibly_gone_missing_count_idx")
