@@ -44,10 +44,12 @@ export {
   upsertImageCluster,
   findListingImages,
   findImagesByExactHash,
+  findImagesWithinHammingDistance,
   findPlaceholderClusters,
   findCrossVehicleClusters,
 } from './lib/listing-image.js'
-export type { ListingImageInput, ImageClusterInput } from './lib/listing-image.js'
+export type { ListingImageInput, ImageClusterInput, NearDuplicateImage, NearDuplicateQueryOptions } from './lib/listing-image.js'
+export { pHashHexToInt, pHashIntToHex } from './lib/phash-int.js'
 export {
   appendScheduleIntent,
   appendSourceControlAuditEntry,
