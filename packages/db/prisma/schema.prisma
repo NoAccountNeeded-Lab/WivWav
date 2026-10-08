@@ -931,6 +931,10 @@ enum ImageKind {
 /// Raw image bytes are never persisted — only hashes derived from a bounded download.
 /// `exactHash`  = hex SHA-256 of the response body (identical bytes).
 /// `pHash`      = 64-bit difference-hash as a hex string (perceptual similarity).
+/// `pHashInt`   = signed 64-bit integer view of `pHash` (two's-complement
+///                reinterpretation of the same 64 bits) for Hamming-distance
+///                SQL predicates (`bit_count(("listing_image"."pHashInt" # $1)::bit(64))`).
+///                Always derived from `pHash` (dual-write); null iff `pHash` is null.
 /// Both fields are null until the image has been successfully downloaded and analysed.
 model ListingImage {
   id             String    @id @default(cuid())
@@ -958,6 +962,11 @@ model ListingImage {
   exactHash      String?
   /// 64-bit difference-hash as a 16-char hex string. Null if download failed/skipped.
   pHash          String?
+  /// Signed-int64 view of `pHash` for Hamming-distance SQL queries.
+  /// Two's-complement reinterpretation of the same 64 bits (values with the
+  /// high bit set store negative). Dual-written from `pHash`; the hex column
+  /// remains the display/debug source of truth. Null iff `pHash` is null.
+  pHashInt       BigInt?
 
   /// Monotonically-increasing version so re-analysis can detect stale rows.
   analysisVersion Int       @default(1)
@@ -984,6 +993,7 @@ model ListingImage {
   @@index([listingId])
   @@index([exactHash])
   @@index([pHash])
+  @@index([pHashInt])
   @@index([clusterId])
   @@index([normalizedUrl])
   @@map("listing_image")
