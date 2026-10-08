@@ -314,4 +314,18 @@ describe('clusterStoredNearDuplicates (SQL batch parity)', () => {
       rawSpy.mockRestore()
     }
   })
+
+  it('only clusters candidate rows, ignoring identical hashes in other listings', async () => {
+    const hash = '00000000000000ff'
+    const { ids: mine } = await createListingWithImages(2, () => hash)
+    const { ids: other } = await createListingWithImages(2, () => hash)
+    const candidates = mine.map((id) => ({ id, pHash: hash }))
+
+    const clusters = await clusterStoredNearDuplicates(db, candidates)
+
+    expect(clusters).toHaveLength(1)
+    expect(clusters[0]!.map((c) => c.id).sort()).toEqual([...mine].sort())
+    expect(clusters[0]![0]!.id).toBe(mine[0])
+    for (const id of other) expect(clusters[0]!.some((c) => c.id === id)).toBe(false)
+  })
 })

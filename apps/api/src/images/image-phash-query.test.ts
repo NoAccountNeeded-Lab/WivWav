@@ -79,24 +79,31 @@ describe('clusterStoredNearDuplicates', () => {
     expect(finder).toHaveBeenCalledTimes(2)
   })
 
-  it('ignores already-assigned rows returned by the lookup', async () => {
+  it('restricts lookups to the candidate ids and ignores rows outside them', async () => {
     const candidates = [
       { id: 'a', pHash: '0000000000000000' },
       { id: 'b', pHash: '0000000000000001' },
     ]
-    finder
-      .mockResolvedValueOnce([row('a', '0000000000000000'), row('b', '0000000000000001'), row('ghost', '0000000000000000')])
-      .mockResolvedValueOnce([row('b', '0000000000000001')])
+    // The lookup returns b before a (identical-hash tiebreak) plus a ghost row.
+    finder.mockResolvedValueOnce([
+      row('b', '0000000000000001'),
+      row('ghost', '0000000000000000'),
+      row('a', '0000000000000000'),
+    ])
 
     const clusters = await clusterStoredNearDuplicates(makeDb(), candidates)
 
-    // `ghost` has no candidate entry but carries a stored hex, so it joins by
-    // its stored hash rather than being dropped.
+    expect(finder).toHaveBeenCalledWith(
+      expect.anything(),
+      '0000000000000000',
+      PHASH_NEAR_DUPLICATE_THRESHOLD,
+      { ids: ['a', 'b'] },
+    )
+    // Seed first; `ghost` is not a candidate so it never joins.
     expect(clusters).toEqual([
       [
         { id: 'a', pHash: '0000000000000000' },
         { id: 'b', pHash: '0000000000000001' },
-        { id: 'ghost', pHash: '0000000000000000' },
       ],
     ])
     expect(finder).toHaveBeenCalledTimes(1)

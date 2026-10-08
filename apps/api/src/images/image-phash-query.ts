@@ -44,7 +44,10 @@ export function findNearDuplicateImages(
     db,
     pHashHex,
     options.threshold ?? PHASH_NEAR_DUPLICATE_THRESHOLD,
-    { ...(options.limit !== undefined ? { limit: options.limit } : {}) },
+    {
+      ...(options.limit !== undefined ? { limit: options.limit } : {}),
+      ...(options.ids !== undefined ? { ids: options.ids } : {}),
+    },
   )
 }
 
@@ -57,10 +60,12 @@ export function findNearDuplicateImages(
  * Produces the same cluster assignments as the in-memory implementation for
  * the same candidate order (see the parity test).
  *
- * @param candidates - Images with a hex pHash, in clustering order. Every
- *   candidate is expected to have a stored row; a neighbor row missing from
- *   `candidates` (e.g. inserted concurrently) joins by its stored hex when
- *   available and is otherwise skipped.
+ * Lookups are restricted to the candidate ids, so rows outside the candidate
+ * set (other listings, images already claimed by exact-hash clusters) never
+ * join a cluster — matching the in-memory pass, which only sees its inputs.
+ *
+ * @param candidates - Images with a hex pHash, in clustering order. Each
+ *   cluster lists its seed first, then the remaining members by distance.
  */
 export async function clusterStoredNearDuplicates(
   db: PrismaClient,
@@ -69,23 +74,21 @@ export async function clusterStoredNearDuplicates(
 ): Promise<NearDuplicateCandidate[][]> {
   const threshold = options.threshold ?? PHASH_NEAR_DUPLICATE_THRESHOLD
   const byId = new Map(candidates.map((c) => [c.id, c]))
+  const ids = candidates.map((c) => c.id)
   const assigned = new Set<string>()
   const clusters: NearDuplicateCandidate[][] = []
 
   for (const seed of candidates) {
     if (assigned.has(seed.id)) continue
-    const neighbors = await findImagesWithinHammingDistance(db, seed.pHash, threshold)
-    const members: NearDuplicateCandidate[] = []
+    const neighbors = await findImagesWithinHammingDistance(db, seed.pHash, threshold, { ids })
+    const members: NearDuplicateCandidate[] = [seed]
+    assigned.add(seed.id)
     for (const n of neighbors) {
       if (assigned.has(n.id)) continue
       const known = byId.get(n.id)
-      if (known !== undefined) {
-        assigned.add(n.id)
-        members.push(known)
-      } else if (n.pHash !== null) {
-        assigned.add(n.id)
-        members.push({ id: n.id, pHash: n.pHash })
-      }
+      if (known === undefined) continue
+      assigned.add(n.id)
+      members.push(known)
     }
     clusters.push(members)
   }

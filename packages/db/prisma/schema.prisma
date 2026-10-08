@@ -1031,7 +1031,6 @@ model ListingImage {
   @@index([listingId])
   @@index([exactHash])
   @@index([pHash])
-  @@index([pHashInt])
   @@index([clusterId])
   @@index([normalizedUrl])
   @@map("listing_image")
