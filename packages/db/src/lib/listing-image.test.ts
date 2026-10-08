@@ -3,6 +3,7 @@ import type { PrismaClient } from '../generated/prisma/index.js'
 import {
   findCrossVehicleClusters,
   findImagesByExactHash,
+  findImagesWithinHammingDistance,
   findListingImages,
   findPlaceholderClusters,
   ImageKind,
@@ -13,7 +14,8 @@ import {
 function makeDb() {
   const listingImage = { upsert: vi.fn().mockResolvedValue({ id: 'i' }), findMany: vi.fn().mockResolvedValue([]) }
   const imageCluster = { upsert: vi.fn().mockResolvedValue({ id: 'c' }), findMany: vi.fn().mockResolvedValue([]) }
-  return { db: { listingImage, imageCluster } as unknown as PrismaClient, listingImage, imageCluster }
+  const $queryRaw = vi.fn().mockResolvedValue([])
+  return { db: { listingImage, imageCluster, $queryRaw } as unknown as PrismaClient, listingImage, imageCluster, $queryRaw }
 }
 
 describe('upsertListingImage', () => {
@@ -32,6 +34,7 @@ describe('upsertListingImage', () => {
       heightPx: null,
       exactHash: null,
       pHash: null,
+      pHashInt: null,
       analysisVersion: 1,
       clusterId: null,
     })
@@ -39,14 +42,36 @@ describe('upsertListingImage', () => {
     expect(arg.update.kind).toBe(ImageKind.vehicle_photo)
   })
 
+  it('dual-writes pHashInt derived from pHash', async () => {
+    const { db, listingImage } = makeDb()
+    await upsertListingImage(db, {
+      listingId: 'L', originalUrl: 'u', normalizedUrl: 'n', position: 0,
+      pHash: 'ffffffffffffffff',
+    })
+    const arg = listingImage.upsert.mock.calls[0]?.[0]
+    expect(arg.create.pHash).toBe('ffffffffffffffff')
+    expect(arg.create.pHashInt).toBe(BigInt(-1))
+    expect(arg.update.pHashInt).toBe(BigInt(-1))
+  })
+
+  it('rejects a malformed pHash instead of persisting a disagreeing pair', async () => {
+    const { db } = makeDb()
+    await expect(
+      upsertListingImage(db, {
+        listingId: 'L', originalUrl: 'u', normalizedUrl: 'n', position: 0,
+        pHash: 'not-a-hash',
+      }),
+    ).rejects.toThrow()
+  })
+
   it('passes explicit values through', async () => {
     const { db, listingImage } = makeDb()
     await upsertListingImage(db, {
       listingId: 'L', originalUrl: 'u', normalizedUrl: 'n', position: 0,
-      widthPx: 640, heightPx: 480, exactHash: 'e', pHash: 'p', analysisVersion: 3, clusterId: 'c1',
+      widthPx: 640, heightPx: 480, exactHash: 'e', pHash: '0000000000000001', analysisVersion: 3, clusterId: 'c1',
     })
     expect(listingImage.upsert.mock.calls[0]?.[0].update).toMatchObject({
-      widthPx: 640, heightPx: 480, exactHash: 'e', pHash: 'p', analysisVersion: 3, clusterId: 'c1',
+      widthPx: 640, heightPx: 480, exactHash: 'e', pHash: '0000000000000001', pHashInt: BigInt(1), analysisVersion: 3, clusterId: 'c1',
     })
   })
 })
@@ -62,6 +87,36 @@ describe('upsertImageCluster', () => {
     expect(arg.where).toEqual({ clusterType_representativeHash: { clusterType: 'exact', representativeHash: 'h' } })
     expect(arg.create).toMatchObject({ reasonCode: null, analysisVersion: 1, isPlaceholder: true })
     expect(arg.update).toMatchObject({ listingCount: 2, reasonCode: null })
+  })
+})
+
+describe('findImagesWithinHammingDistance', () => {
+  it('issues a single bit_count/xor query with the signed hash int and threshold', async () => {
+    const { db, $queryRaw } = makeDb()
+    await findImagesWithinHammingDistance(db, 'ffffffffffffffff', 10)
+
+    expect($queryRaw).toHaveBeenCalledTimes(1)
+    const [strings, ...values] = $queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]]
+    const sql = strings.join('?')
+    expect(sql).toContain('bit_count')
+    expect(sql).toContain('"listing_image"."pHashInt"')
+    expect(sql).toContain('"listing_image"."pHashInt" IS NOT NULL')
+    // Signed reinterpretation of 0xffff…: both xor operands carry it.
+    expect(values).toEqual([BigInt(-1), BigInt(-1), 10, null])
+  })
+
+  it('passes limit through as a bound parameter', async () => {
+    const { db, $queryRaw } = makeDb()
+    await findImagesWithinHammingDistance(db, '0000000000000001', 10, { limit: 25 })
+
+    const [, ...values] = $queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]]
+    expect(values).toEqual([BigInt(1), BigInt(1), 10, 25])
+  })
+
+  it('rejects a malformed query hash before touching the database', async () => {
+    const { db, $queryRaw } = makeDb()
+    await expect(findImagesWithinHammingDistance(db, 'xyz', 10)).rejects.toThrow()
+    expect($queryRaw).not.toHaveBeenCalled()
   })
 })
 

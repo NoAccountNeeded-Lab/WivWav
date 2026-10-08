@@ -11,6 +11,7 @@
 
 import type { PrismaClient, ListingImage, ImageCluster } from '../generated/prisma/index.js'
 import { ImageKind } from '../generated/prisma/index.js'
+import { pHashHexToInt } from './phash-int.js'
 
 export { ImageKind }
 
@@ -43,11 +44,17 @@ export interface ImageClusterInput {
 /**
  * Idempotently upsert a listing image record.
  * Natural key: (listingId, originalUrl).
+ *
+ * `pHashInt` is always derived from `pHash` (dual-write, #1115) — there is
+ * no separate input for it, so the two columns cannot disagree. Null `pHash`
+ * stores null `pHashInt`. Throws on a malformed `pHash` hex string rather
+ * than persisting a pair that disagrees.
  */
 export async function upsertListingImage(
   db: PrismaClient,
   input: ListingImageInput,
 ): Promise<ListingImage> {
+  const pHash = input.pHash ?? null
   const data = {
     normalizedUrl: input.normalizedUrl,
     position: input.position,
@@ -55,7 +62,8 @@ export async function upsertListingImage(
     widthPx: input.widthPx ?? null,
     heightPx: input.heightPx ?? null,
     exactHash: input.exactHash ?? null,
-    pHash: input.pHash ?? null,
+    pHash,
+    pHashInt: pHash === null ? null : pHashHexToInt(pHash),
     analysisVersion: input.analysisVersion ?? 1,
     clusterId: input.clusterId ?? null,
   }
@@ -109,6 +117,63 @@ export async function upsertImageCluster(
     },
     update: data,
   })
+}
+
+/**
+ * One row returned by {@link findImagesWithinHammingDistance}.
+ */
+export interface NearDuplicateImage {
+  id: string
+  listingId: string
+  pHash: string | null
+  pHashInt: bigint | null
+  /** Hamming distance from the query hash (0 = identical bits). */
+  hammingDistance: number
+}
+
+export interface NearDuplicateQueryOptions {
+  /** Maximum rows to return, nearest first. Defaults to unlimited. */
+  limit?: number
+}
+
+/**
+ * Return all images whose stored pHash is within `threshold` bits of
+ * `pHashHex` — a single SQL query, without loading the image set into
+ * application memory (#1115).
+ *
+ * Predicate: `bit_count(("listing_image"."pHashInt" # $hash)::bit(64))`.
+ * Postgres `bigint` is signed while a dHash is unsigned; both sides use the
+ * same two's-complement reinterpretation (`pHashHexToInt`), so XOR/popcount
+ * over the bit patterns is exact. Rows with null `pHashInt` (never hashed,
+ * or a legacy malformed hex the backfill skipped) never match.
+ *
+ * `threshold` is a required positional so the single source of truth stays
+ * with the caller (`PHASH_NEAR_DUPLICATE_THRESHOLD` via
+ * `findNearDuplicateImages` in apps/api). Results are ordered by ascending
+ * distance, then id for a stable tiebreak.
+ */
+export async function findImagesWithinHammingDistance(
+  db: PrismaClient,
+  pHashHex: string,
+  threshold: number,
+  options: NearDuplicateQueryOptions = {},
+): Promise<NearDuplicateImage[]> {
+  const hashInt = pHashHexToInt(pHashHex)
+  // `LIMIT NULL` is equivalent to no limit in Postgres, which keeps this a
+  // single query shape regardless of whether the caller bounds the result.
+  const limit: number | null = options.limit ?? null
+  return db.$queryRaw<NearDuplicateImage[]>`
+    SELECT
+      "listing_image"."id",
+      "listing_image"."listingId",
+      "listing_image"."pHash",
+      "listing_image"."pHashInt",
+      bit_count(("listing_image"."pHashInt" # ${hashInt})::bit(64))::integer AS "hammingDistance"
+    FROM "listing_image"
+    WHERE "listing_image"."pHashInt" IS NOT NULL
+      AND bit_count(("listing_image"."pHashInt" # ${hashInt})::bit(64)) <= ${threshold}
+    ORDER BY "hammingDistance" ASC, "listing_image"."id" ASC
+    LIMIT ${limit}`
 }
 
 /**
