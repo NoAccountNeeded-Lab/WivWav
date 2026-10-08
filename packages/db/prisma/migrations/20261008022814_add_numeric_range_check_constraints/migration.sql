@@ -10,11 +10,18 @@
 -- Predicates reject impossible values only, not business rules (e.g. price
 -- may be 0 for POA listings; the app layer enforces tighter plausibility
 -- such as 1990..currentYear+2 in listing-validator.ts):
---   money/counts/dimensions >= 0; year BETWEEN 1900 AND 2100;
+--   money/counts/dimensions >= 0;
 --   lat BETWEEN -90 AND 90; lng BETWEEN -180 AND 180;
 --   claim confidence BETWEEN 0 AND 1; dealer rating BETWEEN 0 AND 5;
 --   star ratings (dealer review, NHTSA safety) BETWEEN 1 AND 5.
 -- NULL values pass CHECKs, so nullable columns need no special handling.
+--
+-- Deliberately NO year-range CHECK: the ingestion quality pipeline is
+-- store-then-quarantine for implausible years — validateListing flags
+-- out-of-range years as error-severity `implausible_year` and
+-- decidePublication quarantines the stored row. A DB CHECK would reject
+-- the row at INSERT time and break that contract (fixture-to-facets
+-- `quarantined-bad-year`, year 1800). Year plausibility stays app-layer only.
 --
 -- Pre-migration audit on the dev database (2026-10-08, 7673 listings):
 -- zero violating rows for every predicate below.
@@ -26,7 +33,6 @@
 -- ── listings ─────────────────────────────────────────────────────────────
 ALTER TABLE "listings" ADD CONSTRAINT "listings_priceCents_nonnegative" CHECK ("priceCents" >= 0) NOT VALID;
 ALTER TABLE "listings" ADD CONSTRAINT "listings_mileage_nonnegative" CHECK ("mileage" >= 0) NOT VALID;
-ALTER TABLE "listings" ADD CONSTRAINT "listings_year_range" CHECK ("year" BETWEEN 1900 AND 2100) NOT VALID;
 ALTER TABLE "listings" ADD CONSTRAINT "listings_lat_range" CHECK ("lat" BETWEEN -90 AND 90) NOT VALID;
 ALTER TABLE "listings" ADD CONSTRAINT "listings_lng_range" CHECK ("lng" BETWEEN -180 AND 180) NOT VALID;
 ALTER TABLE "listings" ADD CONSTRAINT "listings_wheelchairCapacity_nonnegative" CHECK ("wheelchairCapacity" >= 0) NOT VALID;
@@ -41,9 +47,7 @@ ALTER TABLE "listing_mileage_history" ADD CONSTRAINT "listing_mileage_history_mi
 ALTER TABLE "listing_field_claim" ADD CONSTRAINT "listing_field_claim_confidence_range" CHECK ("confidence" BETWEEN 0 AND 1) NOT VALID;
 
 -- ── vehicle / vehicle_models / vehicle_stats / vehicle_model_pricing ────
-ALTER TABLE "vehicle" ADD CONSTRAINT "vehicle_year_range" CHECK ("year" BETWEEN 1900 AND 2100) NOT VALID;
-ALTER TABLE "vehicle_models" ADD CONSTRAINT "vehicle_models_year_range" CHECK ("year" BETWEEN 1900 AND 2100) NOT VALID;
-ALTER TABLE "vehicle_stats" ADD CONSTRAINT "vehicle_stats_year_range" CHECK ("year" BETWEEN 1900 AND 2100) NOT VALID;
+-- (no year CHECKs: store-then-quarantine contract, see header)
 ALTER TABLE "vehicle_stats" ADD CONSTRAINT "vehicle_stats_avgLifespanMiles_nonnegative" CHECK ("avgLifespanMiles" >= 0) NOT VALID;
 ALTER TABLE "vehicle_model_pricing" ADD CONSTRAINT "vehicle_model_pricing_originalMsrpCents_nonnegative" CHECK ("originalMsrpCents" >= 0) NOT VALID;
 ALTER TABLE "vehicle_model_pricing" ADD CONSTRAINT "vehicle_model_pricing_destinationFeeCents_nonnegative" CHECK ("destinationFeeCents" >= 0) NOT VALID;
@@ -74,7 +78,6 @@ ALTER TABLE "listing_image" ADD CONSTRAINT "listing_image_heightPx_nonnegative" 
 -- ── validate existing rows ───────────────────────────────────────────────
 ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_priceCents_nonnegative";
 ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_mileage_nonnegative";
-ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_year_range";
 ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_lat_range";
 ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_lng_range";
 ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_wheelchairCapacity_nonnegative";
@@ -83,9 +86,6 @@ ALTER TABLE "listings" VALIDATE CONSTRAINT "listings_missingFromCompleteCount_no
 ALTER TABLE "listing_price_history" VALIDATE CONSTRAINT "listing_price_history_priceCents_nonnegative";
 ALTER TABLE "listing_mileage_history" VALIDATE CONSTRAINT "listing_mileage_history_mileage_nonnegative";
 ALTER TABLE "listing_field_claim" VALIDATE CONSTRAINT "listing_field_claim_confidence_range";
-ALTER TABLE "vehicle" VALIDATE CONSTRAINT "vehicle_year_range";
-ALTER TABLE "vehicle_models" VALIDATE CONSTRAINT "vehicle_models_year_range";
-ALTER TABLE "vehicle_stats" VALIDATE CONSTRAINT "vehicle_stats_year_range";
 ALTER TABLE "vehicle_stats" VALIDATE CONSTRAINT "vehicle_stats_avgLifespanMiles_nonnegative";
 ALTER TABLE "vehicle_model_pricing" VALIDATE CONSTRAINT "vehicle_model_pricing_originalMsrpCents_nonnegative";
 ALTER TABLE "vehicle_model_pricing" VALIDATE CONSTRAINT "vehicle_model_pricing_destinationFeeCents_nonnegative";

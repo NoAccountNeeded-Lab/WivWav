@@ -19,7 +19,11 @@ const MIGRATION_SQL = readFileSync(
 const EXPECTED_PREDICATES = [
   'CHECK ("priceCents" >= 0)',
   'CHECK ("mileage" >= 0)',
-  'CHECK ("year" BETWEEN 1900 AND 2100)',
+  // No year CHECK by design: the ingestion quality pipeline is
+  // store-then-quarantine for implausible years (validateListing flags
+  // `implausible_year` as error-severity, decidePublication quarantines the
+  // stored row). A DB CHECK would reject the row at INSERT time — see the
+  // `quarantined-bad-year` (1800) row in fixture-to-facets.catalog.ts.
   'CHECK ("lat" BETWEEN -90 AND 90)',
   'CHECK ("lng" BETWEEN -180 AND 180)',
   'CHECK ("wheelchairCapacity" >= 0)',
@@ -49,10 +53,14 @@ describe('numeric check-constraint migration', () => {
     }
   })
 
+  it('should not define any year CHECK (store-then-quarantine contract)', () => {
+    expect(MIGRATION_SQL).not.toContain('CHECK ("year"')
+  })
+
   it('should add each constraint NOT VALID and validate it', () => {
     const adds = MIGRATION_SQL.match(/ADD CONSTRAINT "\S+" CHECK \(/g) ?? []
     const validates = MIGRATION_SQL.match(/VALIDATE CONSTRAINT "\S+"/g) ?? []
-    expect(adds.length).toBe(32)
+    expect(adds.length).toBe(28)
     expect(validates.length).toBe(adds.length)
     expect(MIGRATION_SQL).toContain('NOT VALID')
   })

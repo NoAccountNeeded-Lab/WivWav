@@ -137,8 +137,8 @@ enum OpsProblemSource {
 /// A specific physical vehicle, anchored by VIN when available.
 /// Only created for listings with a valid, normalized 17-character VIN.
 /// Non-VIN listings remain listing-only until high-confidence matching is available.
-/// #1116 numeric/range CHECKs live in migration
-/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
+/// (No #1116 CHECKs on this model: year plausibility is store-then-quarantine
+/// by design — see migration 20261008022814_add_numeric_range_check_constraints.)
 model Vehicle {
   id             String        @id @default(cuid())
   vin            String?       @unique
@@ -658,8 +658,8 @@ model JobRun {
 
 // ── Research platform ──────────────────────────────────────────────────────
 
-/// #1116 numeric/range CHECKs live in migration
-/// 20261008022814_add_numeric_range_check_constraints (not representable in Prisma).
+/// (No #1116 CHECKs on this model: year plausibility is store-then-quarantine
+/// by design — see migration 20261008022814_add_numeric_range_check_constraints.)
 model VehicleModel {
   id       String  @id @default(cuid())
   make     String
