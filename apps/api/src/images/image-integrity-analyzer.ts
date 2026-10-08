@@ -147,37 +147,28 @@ export function analyzeImages(images: AnalyzerImage[]): AnalysisResult {
   }
 
   // ── Pass 2: near-duplicate clusters (dHash Hamming ≤ threshold) ──────────
-  // Greedy algorithm: iterate unassigned images with a pHash; for each one,
-  // check whether it falls within the threshold of an existing near cluster's
-  // representative hash; if so, add it; otherwise start a new cluster.
+  // Greedy clustering driven by an in-memory neighbor lookup — the same
+  // assignments the historical inline loop produced; SQL-backed callers use
+  // `greedyNearDuplicateClusters` with a DB lookup instead (#1115).
 
-  const unassigned = hashable.filter((img) => !assignedToExact.has(img.id) && img.pHash !== null)
+  const unassigned = hashable.filter(
+    (img): img is AnalyzerImage & { pHash: string } =>
+      !assignedToExact.has(img.id) && img.pHash !== null,
+  )
 
-  // Near clusters represented by their representative hash and member list.
-  const nearClusters: { repHash: string; members: AnalyzerImage[] }[] = []
+  const nearClusters = greedyNearDuplicateClusters(unassigned, (repHash) =>
+    unassigned.filter((img) => hammingDistance(img.pHash, repHash) <= NEAR_DUPLICATE_HAMMING_THRESHOLD),
+  )
 
-  for (const img of unassigned) {
-    let matched = false
-    for (const nc of nearClusters) {
-      if (hammingDistance(img.pHash!, nc.repHash) <= NEAR_DUPLICATE_HAMMING_THRESHOLD) {
-        nc.members.push(img)
-        matched = true
-        break
-      }
-    }
-    if (!matched) {
-      nearClusters.push({ repHash: img.pHash!, members: [img] })
-    }
-  }
-
-  for (const nc of nearClusters) {
-    if (nc.members.length < 2) {
+  for (const members of nearClusters) {
+    if (members.length < 2) {
       // Unique image — not a cluster.
       continue
     }
-    const cluster = buildCluster(`near:${nc.repHash}`, 'near', nc.repHash, nc.members)
+    const repHash = members[0]!.pHash
+    const cluster = buildCluster(`near:${repHash}`, 'near', repHash, members)
     clusters.push(cluster)
-    for (const m of nc.members) {
+    for (const m of members) {
       resultImages.set(m.id, {
         id: m.id,
         kind: cluster.isPlaceholder ? 'placeholder' : 'vehicle_photo',
@@ -198,6 +189,53 @@ export function analyzeImages(images: AnalyzerImage[]): AnalysisResult {
     images: Array.from(resultImages.values()),
     clusters,
   }
+}
+
+/**
+ * Minimal shape for near-duplicate clustering: an id plus a hex pHash.
+ * Both in-memory `AnalyzerImage` records and DB rows map onto this.
+ */
+export interface NearDuplicateCandidate {
+  id: string
+  pHash: string
+}
+
+/**
+ * Greedy near-duplicate clustering (analyzer pass 2) driven by a neighbor
+ * lookup instead of a hard-coded in-memory scan.
+ *
+ * For each candidate in order: skip it when already assigned; otherwise ask
+ * `findWithinThreshold` for everything within the threshold of its pHash,
+ * form a cluster with the candidate as representative (first member), and
+ * assign all returned members. Singletons are kept — callers filter
+ * `members.length < 2` the same way pass 2 always has.
+ *
+ * Equivalent to the original inline greedy: an image joins the earliest
+ * cluster whose representative is within the threshold of it, because a
+ * member is always assigned at the moment its earliest within-threshold
+ * representative forms (any earlier assignment would itself be an earlier
+ * within-threshold representative). The lookup may return already-assigned
+ * rows (e.g. a SQL query has no exclusion list); they are ignored here.
+ *
+ * @param candidates - Images with a non-null pHash, in clustering order.
+ * @param findWithinThreshold - All records (assigned or not) within the
+ *   threshold of `repHash`, representative-first/insertion-ordered.
+ */
+export function greedyNearDuplicateClusters<T extends NearDuplicateCandidate>(
+  candidates: T[],
+  findWithinThreshold: (repHash: string) => T[],
+): T[][] {
+  const assigned = new Set<string>()
+  const clusters: T[][] = []
+
+  for (const seed of candidates) {
+    if (assigned.has(seed.id)) continue
+    const members = findWithinThreshold(seed.pHash).filter((m) => !assigned.has(m.id))
+    for (const m of members) assigned.add(m.id)
+    clusters.push(members)
+  }
+
+  return clusters
 }
 
 /** Build a ClusterRecord from a group of member images, computing all counts. */

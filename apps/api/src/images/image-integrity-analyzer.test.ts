@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import {
   analyzeImages,
+  greedyNearDuplicateClusters,
   heroEligibleImages,
   classifyReuseContext,
+  NEAR_DUPLICATE_HAMMING_THRESHOLD,
   PLACEHOLDER_LISTING_THRESHOLD,
   type AnalyzerImage,
   type ClusterRecord,
 } from './image-integrity-analyzer.js'
+import { hammingDistance } from './image-hasher.js'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -102,6 +105,56 @@ describe('analyzeImages — near-duplicate detection', () => {
     // Should only produce an exact cluster, not also a near cluster
     expect(result.clusters.filter((c) => c.clusterType === 'near')).toHaveLength(0)
     expect(result.clusters.filter((c) => c.clusterType === 'exact')).toHaveLength(1)
+  })
+})
+
+// ── greedyNearDuplicateClusters (pass-2 core, #1115) ──────────────────────────
+
+describe('greedyNearDuplicateClusters', () => {
+  const lookup = (pool: { id: string; pHash: string }[]) => (repHash: string) =>
+    pool.filter((c) => hammingDistance(c.pHash, repHash) <= NEAR_DUPLICATE_HAMMING_THRESHOLD)
+
+  it('anchors membership to the representative, not chain members', () => {
+    // dist(A,B)=5, dist(B,C)=6, dist(A,C)=11 > threshold: C must NOT join
+    // A's cluster even though it is near B (the historical inline loop only
+    // ever compared against representatives).
+    const pool = [
+      { id: 'a', pHash: '0000000000000000' },
+      { id: 'b', pHash: '000000000000001f' },
+      { id: 'c', pHash: '00000000000007ff' },
+    ]
+    expect(hammingDistance(pool[0]!.pHash, pool[1]!.pHash)).toBe(5)
+    expect(hammingDistance(pool[1]!.pHash, pool[2]!.pHash)).toBe(6)
+    expect(hammingDistance(pool[0]!.pHash, pool[2]!.pHash)).toBe(11)
+
+    const clusters = greedyNearDuplicateClusters(pool, lookup(pool))
+
+    expect(clusters.map((m) => m.map((c) => c.id))).toEqual([['a', 'b'], ['c']])
+  })
+
+  it('assigns each image to the earliest within-threshold representative', () => {
+    // B is within the threshold of both A and C (dist 5 and 6), but A and C
+    // are 11 apart, so C seeds its own cluster. B joins A, the earliest rep.
+    const pool = [
+      { id: 'a', pHash: '0000000000000000' },
+      { id: 'c', pHash: '00000000000007ff' },
+      { id: 'b', pHash: '000000000000001f' },
+    ]
+    expect(hammingDistance(pool[0]!.pHash, pool[1]!.pHash)).toBe(11)
+    const clusters = greedyNearDuplicateClusters(pool, lookup(pool))
+
+    expect(clusters.map((m) => m.map((c) => c.id))).toEqual([['a', 'b'], ['c']])
+  })
+
+  it('ignores already-assigned rows returned by the lookup', () => {
+    const pool = [
+      { id: 'a', pHash: '0000000000000000' },
+      { id: 'b', pHash: '0000000000000001' },
+    ]
+    // A lookup with no exclusion list returns everything every time.
+    const clusters = greedyNearDuplicateClusters(pool, () => pool)
+
+    expect(clusters.map((m) => m.map((c) => c.id))).toEqual([['a', 'b']])
   })
 })
 
