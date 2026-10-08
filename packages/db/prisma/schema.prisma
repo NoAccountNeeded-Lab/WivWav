@@ -405,6 +405,19 @@ model Listing {
   @@index([processingLockedAt])
   @@index([dealerProfileId])
   @@index([sourceId, status, missingFromCompleteCount], map: "listings_possibly_gone_missing_count_idx")
+  /// Covers the `listing-resolve` drain (`resolveSourceBacklog` in
+  /// apps/api/src/jobs/listing-resolve.ts: sourceId + publicationStatus =
+  /// 'pending', ORDER BY id). The migration narrows it with
+  /// `WHERE status <> 'gone'` — not representable here — so resolved rows
+  /// leave the index instead of accumulating in it.
+  @@index([sourceId, publicationStatus, id], map: "listings_resolve_drain_idx")
+  /// Covers market-analytics representative-listing CTEs
+  /// (apps/api/src/repositories/market-repository.ts: status = 'active' AND
+  /// publicationStatus = 'eligible' AND make/model). The (status,
+  /// publicationStatus) prefix also serves status+publicationStatus-only
+  /// scans (search reconciliation, publication counts), subsuming the
+  /// removed single-column indexes.
+  @@index([status, publicationStatus, make, model], map: "listings_market_status_pub_make_model_idx")
   @@index([status, conversionTypeResolution])
   @@index([status, rampTypeResolution])
   /// Supports the #817 private-seller retention sweep's candidate query:
