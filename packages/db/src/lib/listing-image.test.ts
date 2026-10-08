@@ -101,8 +101,9 @@ describe('findImagesWithinHammingDistance', () => {
     expect(sql).toContain('bit_count')
     expect(sql).toContain('"listing_image"."pHashInt"')
     expect(sql).toContain('"listing_image"."pHashInt" IS NOT NULL')
+    // Bind order: hash, ids (twice: IS NULL guard + ANY), hash, threshold, limit.
     // Signed reinterpretation of 0xffff…: both xor operands carry it.
-    expect(values).toEqual([BigInt(-1), BigInt(-1), 10, null])
+    expect(values).toEqual([BigInt(-1), null, null, BigInt(-1), 10, null])
   })
 
   it('passes limit through as a bound parameter', async () => {
@@ -110,7 +111,16 @@ describe('findImagesWithinHammingDistance', () => {
     await findImagesWithinHammingDistance(db, '0000000000000001', 10, { limit: 25 })
 
     const [, ...values] = $queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]]
-    expect(values).toEqual([BigInt(1), BigInt(1), 10, 25])
+    expect(values).toEqual([BigInt(1), null, null, BigInt(1), 10, 25])
+  })
+
+  it('passes ids through as a bound parameter for both the guard and the ANY filter', async () => {
+    const { db, $queryRaw } = makeDb()
+    const ids = ['img-a', 'img-b']
+    await findImagesWithinHammingDistance(db, '0000000000000001', 10, { ids })
+
+    const [, ...values] = $queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]]
+    expect(values).toEqual([BigInt(1), ids, ids, BigInt(1), 10, null])
   })
 
   it('rejects a malformed query hash before touching the database', async () => {
