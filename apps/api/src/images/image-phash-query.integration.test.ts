@@ -225,9 +225,7 @@ describe('findNearDuplicateImages (SQL Hamming lookup)', () => {
   it('backfills pHashInt from hex for legacy rows and skips malformed hashes', async () => {
     const { listingId } = await createListingWithImages(1, () => '0000000000000001')
     // Simulate pre-dual-write rows: valid hex, malformed hex, and null.
-    await db.$executeRawUnsafe(
-      `UPDATE "listing_image" SET "pHashInt" = NULL WHERE "listing_image"."listingId" = '${listingId}'`,
-    )
+    await db.$executeRaw`UPDATE "listing_image" SET "pHashInt" = NULL WHERE "listing_image"."listingId" = ${listingId}`
     await db.listingImage.create({
       data: {
         listingId,

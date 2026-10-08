@@ -16,6 +16,7 @@
 import {
   findImagesWithinHammingDistance,
   type NearDuplicateImage,
+  type NearDuplicateQueryOptions as DbNearDuplicateQueryOptions,
   type PrismaClient,
 } from '@wivwav/db'
 import { PHASH_NEAR_DUPLICATE_THRESHOLD } from './image-hasher.js'
@@ -23,11 +24,9 @@ import type { NearDuplicateCandidate } from './image-integrity-analyzer.js'
 
 export type { NearDuplicateImage }
 
-export interface NearDuplicateQueryOptions {
+export interface NearDuplicateQueryOptions extends DbNearDuplicateQueryOptions {
   /** Hamming-distance threshold. Defaults to PHASH_NEAR_DUPLICATE_THRESHOLD. */
   threshold?: number
-  /** Maximum rows to return, nearest first. Defaults to unlimited. */
-  limit?: number
 }
 
 /**
