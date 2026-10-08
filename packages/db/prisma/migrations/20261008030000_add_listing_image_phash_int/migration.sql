@@ -11,5 +11,6 @@ CREATE INDEX "listing_image_pHashInt_idx" ON "listing_image"("pHashInt");
 UPDATE "listing_image"
 SET "pHashInt" = (('x' || "listing_image"."pHash")::bit(64)::bigint)
 WHERE "listing_image"."pHash" IS NOT NULL
+  AND "listing_image"."pHash" ~ '^[0-9a-fA-F]{16}$'
   AND "listing_image"."pHashInt" IS NULL;
 
