@@ -1,9 +1,6 @@
 -- AlterTable
 ALTER TABLE "listing_image" ADD COLUMN     "pHashInt" BIGINT;
 
--- CreateIndex
-CREATE INDEX "listing_image_pHashInt_idx" ON "listing_image"("pHashInt");
-
 -- Backfill `pHashInt` for rows written before the app-side dual-write landed.
 -- Same conversion the app performs (`pHashHexToInt`): unsigned 16-char hex
 -- reinterpreted as signed int64 (hashes with the high bit set store negative;

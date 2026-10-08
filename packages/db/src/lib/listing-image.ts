@@ -134,6 +134,11 @@ export interface NearDuplicateImage {
 export interface NearDuplicateQueryOptions {
   /** Maximum rows to return, nearest first. Defaults to unlimited. */
   limit?: number
+  /**
+   * Restrict matches to these image ids (e.g. one listing's analyzer
+   * candidates). Omit to search the whole table; an empty array matches nothing.
+   */
+  ids?: string[]
 }
 
 /**
@@ -147,10 +152,16 @@ export interface NearDuplicateQueryOptions {
  * over the bit patterns is exact. Rows with null `pHashInt` (never hashed,
  * or a legacy malformed hex the backfill skipped) never match.
  *
+ * There is no index that can serve this predicate (a btree on `pHashInt`
+ * cannot evaluate XOR/popcount), so the query is a sequential scan of rows
+ * with a non-null `pHashInt`; pass `ids` to bound it. Chunk-bucketed
+ * candidate lookup is the scalable follow-up.
+ *
  * `threshold` is a required positional so the single source of truth stays
  * with the caller (`PHASH_NEAR_DUPLICATE_THRESHOLD` via
  * `findNearDuplicateImages` in apps/api). Results are ordered by ascending
- * distance, then id for a stable tiebreak.
+ * distance, then id for a stable tiebreak — so the query hash's own row is
+ * not guaranteed to come first among identical hashes.
  */
 export async function findImagesWithinHammingDistance(
   db: PrismaClient,
@@ -162,6 +173,7 @@ export async function findImagesWithinHammingDistance(
   // `LIMIT NULL` is equivalent to no limit in Postgres, which keeps this a
   // single query shape regardless of whether the caller bounds the result.
   const limit: number | null = options.limit ?? null
+  const ids: string[] | null = options.ids ?? null
   return db.$queryRaw<NearDuplicateImage[]>`
     SELECT
       "listing_image"."id",
@@ -171,6 +183,7 @@ export async function findImagesWithinHammingDistance(
       bit_count(("listing_image"."pHashInt" # ${hashInt})::bit(64))::integer AS "hammingDistance"
     FROM "listing_image"
     WHERE "listing_image"."pHashInt" IS NOT NULL
+      AND (${ids}::text[] IS NULL OR "listing_image"."id" = ANY(${ids}::text[]))
       AND bit_count(("listing_image"."pHashInt" # ${hashInt})::bit(64)) <= ${threshold}
     ORDER BY "hammingDistance" ASC, "listing_image"."id" ASC
     LIMIT ${limit}`
