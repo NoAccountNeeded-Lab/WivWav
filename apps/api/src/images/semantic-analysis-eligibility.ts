@@ -19,6 +19,8 @@ export interface EligibleSemanticAnalysisImage {
   listingId: string
   originalUrl: string
   normalizedUrl: string
+  /** 0-based gallery position within the listing. */
+  position: number
 }
 
 export interface FindEligibleImagesOptions {
@@ -52,6 +54,7 @@ export async function findEligibleImagesForSemanticAnalysis(
       listingId: true,
       originalUrl: true,
       normalizedUrl: true,
+      position: true,
     },
     orderBy: { id: 'asc' },
     ...(options.limit !== undefined ? { take: options.limit } : {}),
