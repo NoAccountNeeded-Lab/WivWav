@@ -64,6 +64,7 @@
     "listing": {
       "privateSeller": "Private seller",
       "callForPrice": "Call for price",
+      "milesUnit": "miles",
       "rearEntry": "Rear entry",
       "sideEntry": "Side entry",
       "inFloorRamp": "In-floor ramp",

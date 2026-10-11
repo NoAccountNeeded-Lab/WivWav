@@ -24,6 +24,7 @@ vi.mock('next-intl/server', () => ({
       'pagination.ariaLabel': 'Pagination',
       'pagination.previous': 'Previous',
       'pagination.next': 'Next',
+      'listing.milesUnit': 'miles',
     }
     return labels[key] ?? key
   },
@@ -43,6 +44,7 @@ vi.mock('@/components/SearchFilters', () => ({
 vi.mock('@/components/ActiveFilters', () => ({
   ActiveFilters: () => <div aria-label="Active filters" />,
 }))
+vi.mock('@/components/NewBadge', () => ({ NewBadge: () => null }))
 vi.mock('@/components/ListingsVisitSession', () => ({
   ListingsVisitSession: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
@@ -100,5 +102,39 @@ describe('ListingsResults empty states', () => {
     expect(screen.getByTestId('category-bar-chart')).toBeTruthy()
     expect(screen.getByText('No vehicles match your current filters.')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Clear all filters' })).toBeTruthy()
+  })
+})
+
+describe('ListingsResults icon-first card and pagination', () => {
+  it('uses decorative icons with accessible text for meta values and named icon-only pagination', async () => {
+    fetchListingsMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: 'l1', year: 2020, make: 'Ford', model: 'Transit', trim: null, priceCents: 3000000,
+            mileage: 42000, city: 'Austin', state: 'TX', condition: 'used', sellerType: 'dealer',
+            images: [], wavFeatures: [], listedAt: '2026-01-01T00:00:00Z',
+          },
+        ],
+        pagination: { page: 2, perPage: 24, total: 72, totalPages: 3 },
+      }),
+    })
+    const { ListingsResults } = await import('./page')
+    const element = await ListingsResults({
+      searchParams: Promise.resolve({ page: '2' }),
+      locale: 'en',
+      resultsPath: '/en/filters',
+    })
+    const { container } = render(element)
+
+    expect(screen.getByText('42,000')).toBeTruthy()
+    expect(screen.getByText('miles').className).toContain('sr-only')
+    expect(screen.getByText('Austin, TX')).toBeTruthy()
+    for (const svg of container.querySelectorAll('svg')) {
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
+    }
+    expect(screen.getByRole('link', { name: 'Previous' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Next' })).toBeTruthy()
   })
 })

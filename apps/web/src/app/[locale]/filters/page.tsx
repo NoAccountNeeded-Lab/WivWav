@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { Car } from 'lucide-react'
+import { Car, ChevronLeft, ChevronRight, Gauge, MapPin } from 'lucide-react'
 import { SortSelect } from '@/components/SearchFilters'
 import { CategoryBarChart } from '@/components/CategoryBarChart'
 import { ActiveFilters } from '@/components/ActiveFilters'
@@ -100,7 +100,7 @@ function formatPrice(cents: number | null, locale: string, callForPrice: string)
 
 function formatMileage(miles: number | null, locale: string): string | null {
   if (miles === null) return null
-  return `${new Intl.NumberFormat(locale).format(miles)} mi`
+  return new Intl.NumberFormat(locale).format(miles)
 }
 
 function formatCondition(cond: string, labels: Pick<ListingLabels, 'cpo' | 'conditionUsed' | 'conditionNew' | 'conditionUnknown'>): string {
@@ -114,6 +114,7 @@ function formatCondition(cond: string, labels: Pick<ListingLabels, 'cpo' | 'cond
 
 interface ListingLabels {
   callForPrice: string
+  milesUnit: string
   cpo: string
   conditionUsed: string
   conditionNew: string
@@ -205,8 +206,19 @@ function ListingCard({
           <h2 className={styles.cardTitle}>{title}</h2>
 
           <p className={styles.cardMeta}>
-            {mileage && <span className={styles.metaItem}>{mileage}</span>}
-            {location && <span className={styles.metaItem}>{location}</span>}
+            {mileage && (
+              <span className={styles.metaItem}>
+                <Gauge size={14} className={styles.metaIcon} aria-hidden />
+                {mileage}
+                <span className="sr-only"> {labels.milesUnit}</span>
+              </span>
+            )}
+            {location && (
+              <span className={styles.metaItem}>
+                <MapPin size={14} className={styles.metaIcon} aria-hidden />
+                {location}
+              </span>
+            )}
             <span className={styles.metaItem}>{formatCondition(l.condition, labels)}</span>
             {l.sellerType === 'private' && (
               <span className={styles.metaItem}>{labels.privateSeller}</span>
@@ -254,15 +266,16 @@ function PaginationNav({
   return (
     <nav aria-label={labels.paginationAriaLabel} className={styles.pagination}>
       {page > 1 ? (
-        <Link href={buildHref(page - 1)} className={styles.paginationBtn}>
-          {labels.previous}
+        <Link href={buildHref(page - 1)} className={styles.paginationBtn} aria-label={labels.previous}>
+          <ChevronLeft size={20} aria-hidden />
         </Link>
       ) : (
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
+          aria-label={labels.previous}
         >
-          {labels.previous}
+          <ChevronLeft size={20} aria-hidden />
         </span>
       )}
 
@@ -271,15 +284,16 @@ function PaginationNav({
       </span>
 
       {page < totalPages ? (
-        <Link href={buildHref(page + 1)} className={styles.paginationBtn}>
-          {labels.next}
+        <Link href={buildHref(page + 1)} className={styles.paginationBtn} aria-label={labels.next}>
+          <ChevronRight size={20} aria-hidden />
         </Link>
       ) : (
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
+          aria-label={labels.next}
         >
-          {labels.next}
+          <ChevronRight size={20} aria-hidden />
         </span>
       )}
     </nav>
@@ -329,6 +343,7 @@ async function getPageLabels(): Promise<PageLabels> {
     pageOf: (page, totalPages) => t('pagination.pageOf', { page, totalPages }),
     listing: {
       callForPrice: t('listing.callForPrice'),
+      milesUnit: t('listing.milesUnit'),
       cpo: t('listing.cpo'),
       conditionUsed: t('listing.conditionUsed'),
       conditionNew: t('listing.conditionNew'),
