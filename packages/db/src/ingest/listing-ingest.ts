@@ -288,7 +288,15 @@ export async function ingestListing(
   })
   const cameBack = existing.status === 'gone' || existing.status === 'possibly_gone'
 
+  // Detail extraction owns `images`, but a row created before the card had
+  // images (or whose detail selector misses) would otherwise stay image-less
+  // forever (#1105). Seed from the card; never overwrite.
+  const seedImages = existing.images.length === 0 && listing.images.length > 0
+
   if (changedFields.length === 0) {
+    if (seedImages) {
+      await tx.listing.update({ where: { id: existing.id }, data: { images: listing.images } })
+    }
     return { listingId: existing.id, outcome: 'unchanged', changedFields: [] }
   }
 
@@ -347,12 +355,7 @@ export async function ingestListing(
       ...(locationChanged ? { lat: null, lng: null } : {}),
       dealerName: listing.dealer.name,
       cardImages: listing.images,
-      // Detail extraction owns `images`, but a row created before the card
-      // had images (or whose detail selector misses) would otherwise stay
-      // image-less forever (#1105). Seed from the card; never overwrite.
-      ...(existing.images.length === 0 && listing.images.length > 0
-        ? { images: listing.images }
-        : {}),
+      ...(seedImages ? { images: listing.images } : {}),
       ...(listing.sourceListedAt != null ? { sourceListedAt: listing.sourceListedAt } : {}),
       ...(listing.sourceUpdatedAt != null ? { sourceUpdatedAt: listing.sourceUpdatedAt } : {}),
       scrapedAt: new Date(),
