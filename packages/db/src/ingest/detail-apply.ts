@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '../generated/prisma/index.js'
+import { httpsImageUrls } from './https-images.js'
 import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
 
 /**
@@ -239,7 +240,7 @@ export function buildListingDetailUpdateData(
             detail.evidence.description === 'authoritative_empty' ? null : detail.description,
         }
       : {}),
-    ...(imagesObserved ? { images: detail.images } : {}),
+    ...(imagesObserved ? { images: httpsImageUrls(detail.images) } : {}),
     ...(detail.zip && { zip: detail.zip }),
     ...(detail.dealerPhone && { dealerPhone: detail.dealerPhone }),
     ...(enrichment.dealerWebsite && { dealerWebsite: enrichment.dealerWebsite }),
