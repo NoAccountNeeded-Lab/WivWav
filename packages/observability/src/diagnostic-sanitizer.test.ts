@@ -263,3 +263,30 @@ describe('review regressions round 2 (#776 codex)', () => {
   })
 })
 
+describe('review regressions round 3 (#776 codex)', () => {
+  it('1: whitespace/newlines around separators and JSON-parsed fragments', () => {
+    expect(sanitizeString('[INFO] {"token":\n"LEAK1"}')).not.toContain('LEAK1')
+    expect(sanitizeString('token \n = \n LEAK2 ok')).not.toContain('LEAK2')
+    expect(sanitizeString('x {"a\\u0074oken":"LEAK3","n":1} y')).not.toContain('LEAK3')
+    expect(sanitizeString('x {"n":1, "m":"bob@example.com"} [retry]')).toBe('x {"n":1,"m":"[EMAIL]"} [retry]')
+    const t = Date.now()
+    sanitizeString('{'.repeat(60_000))
+    sanitizeString('{[]'.repeat(20_000))
+    expect(Date.now() - t).toBeLessThan(1500)
+  })
+
+  it('2: single-quoted strings do not end a balanced value early', () => {
+    expect(sanitizeString("config={ a: '}', b: 'LEAK1' } t")).not.toContain('LEAK1')
+    expect(sanitizeString("config={ a: 'it\\'s }', b: 'LEAK2' } t")).not.toContain('LEAK2')
+  })
+
+  it('3: object keys are percent-decoded before classification', () => {
+    expect(sanitize({ '%74oken': 'LEAK', 'api%5Fkey': 'LEAK', 'bad%': 'LEAK', ok: 1 })).toEqual({ ok: 1 })
+  })
+
+  it('4: escapes remaining after the decode limit fail closed', () => {
+    expect(sanitizeString('?%25252574oken=LEAK')).not.toContain('LEAK')
+    expect(sanitize({ '%25252574oken': 'LEAK' })).toEqual({})
+  })
+})
+
