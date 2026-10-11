@@ -24,6 +24,8 @@ export interface FetchWithRetryOptions {
   minTimeout?: number
   /** Maximum delay cap in milliseconds. Defaults to 10_000. */
   maxTimeout?: number
+  /** Fetch implementation; defaults to the global `fetch`. Used by safe-fetch. */
+  fetchImpl?: typeof fetch
 }
 
 function parseRetryAfterMs(headers: Headers): number | null {
@@ -45,12 +47,13 @@ export async function fetchWithRetry(
   const retries = options.retries ?? 3
   const minTimeout = options.minTimeout ?? 500
   const maxTimeout = options.maxTimeout ?? 10_000
+  const doFetch = options.fetchImpl ?? fetch
 
   return pRetry(
     async (attempt) => {
       let res: Response
       try {
-        res = await fetch(url, init)
+        res = await doFetch(url, init)
       } catch (err) {
         // Network-level failure: throw so p-retry handles it
         throw err instanceof Error ? err : new Error(String(err))

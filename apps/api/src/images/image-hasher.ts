@@ -6,7 +6,7 @@
  *   - Explicit timeout (default 10 s)
  *   - Maximum response body size (default 10 MiB) — enforced via streaming
  *   - Content-type must be an image/* MIME type
- *   - Retry on 5xx / network failure (via fetchWithRetry)
+ *   - Retry on 5xx / network failure (via safeFetch, SSRF-guarded (#1136))
  *   - Rate limiting: callers are responsible for concurrency; this module has
  *     no internal queue.
  *
@@ -29,7 +29,7 @@
 
 import { createHash } from 'node:crypto'
 import sharp from 'sharp'
-import { fetchWithRetry } from '../util/fetch-with-retry.js'
+import { safeFetch } from '../util/safe-fetch.js'
 
 export const PHASH_NEAR_DUPLICATE_THRESHOLD = 10 // Hamming distance ≤ 10 → near-duplicate
 
@@ -93,7 +93,7 @@ export async function hashImage(
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      res = await fetchWithRetry(
+      res = await safeFetch(
         url,
         { signal: controller.signal },
         { retries, minTimeout: 500, maxTimeout: 5_000 },
