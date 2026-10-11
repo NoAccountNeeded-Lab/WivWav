@@ -14,8 +14,8 @@ function makeDb() {
 }
 
 const eligibleImages = [
-  { id: 'img-1', listingId: 'listing-1', originalUrl: 'u1', normalizedUrl: 'u1' },
-  { id: 'img-2', listingId: 'listing-2', originalUrl: 'u2', normalizedUrl: 'u2' },
+  { id: 'img-1', listingId: 'listing-1', originalUrl: 'u1', normalizedUrl: 'u1', position: 0 },
+  { id: 'img-2', listingId: 'listing-2', originalUrl: 'u2', normalizedUrl: 'u2', position: 0 },
 ]
 
 beforeEach(() => {

@@ -26,6 +26,12 @@
  *   --apply run) is not re-enqueued; the worker also re-checks eligibility
  *   and currency at process time as a second guard.
  *
+ * WARNING: the worker that consumes this queue currently uses the Noop
+ *   provider (no real vision model is wired). Applying now stores empty
+ *   `success` rows and marks every image analyzed, so a later real run
+ *   would skip them. To try real analysis from a laptop use
+ *   `semantic-image-analyze-local.ts` (#1112) instead.
+ *
  * --source <sourceId>
  *   Scope the run to a single source for phased rollout.
  *
@@ -112,6 +118,7 @@ function printReport(report: SemanticImageAnalyzeBackfillReport, applied: boolea
     console.log('Run with --apply to enqueue jobs (optionally --source <sourceId> / --limit N).')
   } else {
     console.log(`Jobs enqueued onto "${QUEUES.IMAGE_SEMANTIC_ANALYZE}": ${report.enqueued}`)
+    console.log('Note: the worker uses the Noop provider, so these jobs store empty results (see header, #1112).')
   }
 
   console.log('\n=== Done ===\n')

@@ -51,6 +51,23 @@ export const IMAGE_LABELS: readonly ImageLabel[] = [
   'dealer_branding',
 ]
 
+export const VIEW_ANGLES = ['front', 'rear', 'side', 'interior', 'detail', 'other'] as const
+export type ViewAngle = (typeof VIEW_ANGLES)[number]
+export const PHOTO_QUALITIES = ['good', 'poor', 'watermark_or_placeholder'] as const
+export type PhotoQuality = (typeof PHOTO_QUALITIES)[number]
+
+/**
+ * Extra, cheap-to-ask details used for local evaluation (#1112). Not part of
+ * the stored contract: `validateImageAnalysisResult` does not carry them, so
+ * persisting them needs a schema change that is a separate decision.
+ */
+export interface ImageAnalysisExtras {
+  color: string | null
+  conversionManufacturer: string | null
+  viewAngle: ViewAngle | null
+  photoQuality: PhotoQuality | null
+}
+
 export interface ImageAnalysisInput {
   imageBytes: Uint8Array
   contentType: string
@@ -68,6 +85,20 @@ export interface ImageAnalysisResult {
   labels: Array<{ label: ImageLabel; confidence: number }>
   /** Populated only for labels that map to a resolver-governed field (ramp/lift → rampType, etc). */
   fieldClaims: Array<{ field: ClaimField; claimedValue: string; confidence: number }>
+  /** Optional extras from providers that ask for them; never persisted. */
+  extras?: ImageAnalysisExtras
+}
+
+/** What one provider call consumed, when the provider can report it. */
+export interface AnalysisUsage {
+  /** Model the provider actually used (may differ from the configured one). */
+  model: string | null
+  /** API-equivalent cost reported by the provider; null when it reports none. */
+  costUsd: number | null
+  inputTokens: number | null
+  outputTokens: number | null
+  cachedInputTokens: number | null
+  durationMs: number | null
 }
 
 export interface ImageAnalysisProvider {
@@ -75,6 +106,13 @@ export interface ImageAnalysisProvider {
   /** Model identifier this provider reports (for audit); null if none. */
   readonly model: string | null
   analyze(input: ImageAnalysisInput): Promise<ImageAnalysisResult>
+  /** Usage of the most recent `analyze` call, for providers that can report it. */
+  getLastUsage?(): AnalysisUsage | null
+  /**
+   * Analyzes several photos (of one listing) in a single call, returning one
+   * result per input in order. Optional: callers fall back to `analyze`.
+   */
+  analyzeBatch?(inputs: ImageAnalysisInput[]): Promise<ImageAnalysisResult[]>
 }
 
 /**

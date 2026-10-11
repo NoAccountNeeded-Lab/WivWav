@@ -1,6 +1,6 @@
 COMPOSE = docker compose
 
-.PHONY: up build disk-check reclaim down dev test test-integration typecheck lint build-app clean format logs \
+.PHONY: up build disk-check reclaim analyze-images prep-images try-image-analysis down dev test test-integration typecheck lint build-app clean format logs \
         worker worker-down worker-build worker-count-check worker-remote worker-logs obs \
         check-affected typecheck-affected lint-affected test-affected \
         sdlc-report restore-drill \
@@ -31,6 +31,53 @@ N ?= 1
 ##             'make build MIN_FREE_GB=5 MIN_HOST_FREE_GB=8'.
 disk-check:
 	@MIN_FREE_GB=$(MIN_FREE_GB) MIN_HOST_FREE_GB=$(MIN_HOST_FREE_GB) CACHE_KEEP_GB=$(CACHE_KEEP_GB) scripts/disk-check.sh
+
+## analyze-images  Try photo analysis from this laptop using your claude/codex
+##                 subscription login (no Docker, no queue, no API key). Dry run by
+##                 default: calls the model, checks each result, stores nothing, and
+##                 prints a JSON report path. Options:
+##                   make analyze-images URL=<image-url>             one photo, no database
+##                   make analyze-images LIMIT=5 SOURCE=<sourceId>    eligible photos from the database
+##                   make analyze-images PROVIDER=codex-cli MODEL=<name>
+##                   make analyze-images DRY_RUN=1                    only list the photos it would send
+##                                                                    (no download, no model call)
+##                   make analyze-images PERSIST=1                    also store results (see
+##                                                                    apps/api/src/jobs/semantic-image-analyze-local.ts)
+##                 LIMIT caps how many photos are processed (default 5, also when storing);
+##                 LIMIT=0 means every eligible photo. PER_LISTING caps photos taken from one
+##                 listing, in gallery order (default 4; 0 = all). A listing's photos share one
+##                 model call, which is much cheaper per photo. MAX_EDGE is the longest photo
+##                 edge sent to the model in pixels (default 1024; 0 = original size).
+##                 Photos come last: by default only listings with an unknown conversion or
+##                 ramp type are analyzed, and listings still waiting on their detail crawl
+##                 are skipped. INCLUDE_RESOLVED=1 / INCLUDE_UNFINISHED=1 lift each rule. Eligible photos need listing_image
+##                 rows: run 'make prep-images' first.
+PROVIDER ?= claude-cli
+LIMIT ?= 5
+analyze-images:
+	@cd apps/api && node --import tsx src/jobs/semantic-image-analyze-local.ts --provider $(PROVIDER) --limit $(LIMIT) \
+		$(if $(URL),--url '$(URL)') $(if $(SOURCE),--source $(SOURCE)) $(if $(MODEL),--model $(MODEL)) $(if $(PERSIST),--persist) $(if $(DRY_RUN),--plan) $(if $(PER_LISTING),--per-listing $(PER_LISTING)) $(if $(MAX_EDGE),--max-edge $(MAX_EDGE)) $(if $(INCLUDE_RESOLVED),--include-resolved) $(if $(INCLUDE_UNFINISHED),--include-unfinished)
+
+## prep-images  Step before analyze-images: download each listing's photos, hash them,
+##              and fill listing_image (flags placeholder/reused photos). Writes to the
+##              dev database; makes outbound requests to the source sites, so keep it
+##              small: 'make prep-images SOURCE=<sourceId> PREP_LIMIT=20' (listings).
+##              PREP_LIMIT=0 means every listing. DRY_RUN=1 runs the report mode: it still
+##              downloads and hashes the photos but writes nothing to the database.
+PREP_LIMIT ?= 20
+prep-images:
+	@cd apps/api && node --import tsx src/jobs/image-integrity-backfill.ts $(if $(DRY_RUN),--report,--apply) \
+		$(if $(filter-out 0,$(PREP_LIMIT)),--limit $(PREP_LIMIT)) $(if $(SOURCE),--source $(SOURCE))
+
+## try-image-analysis  One command for a first test: prep-images, then analyze-images (dry run,
+##                     stores nothing). SOURCE is required so it can't run wide:
+##                     'make try-image-analysis SOURCE=<sourceId> [PREP_LIMIT=10 LIMIT=10 PROVIDER=codex-cli]'
+##                     Prep downloads photos from the source site each time; to re-run just the
+##                     model on photos already prepped, use 'make analyze-images'.
+try-image-analysis:
+	@test -n "$(SOURCE)" || { echo "SOURCE=<sourceId> is required (keeps the run small)"; exit 1; }
+	@$(MAKE) --no-print-directory prep-images
+	@$(MAKE) --no-print-directory analyze-images
 
 ## reclaim  Safe cleanup: dangling images and BuildKit cache above CACHE_KEEP_GB.
 ##          Never touches volumes or containers.
