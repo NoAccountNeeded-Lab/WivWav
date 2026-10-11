@@ -58,6 +58,5 @@
 }
 
 .chip.active .count {
-  color: var(--clr-primary);
-  opacity: 0.75;
+  color: var(--clr-primary-dark);
 }
