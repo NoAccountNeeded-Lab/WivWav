@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { WorkerRegistry, type RegisteredWorker } from './registry.js'
+import { WorkerRegistry, newWorkerStats, type RegisteredWorker } from './registry.js'
 
 function makeWorker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker {
   return {
@@ -10,6 +10,7 @@ function makeWorker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker
     inFlight: new Set(),
     jobs: new Map(),
     recentJobs: [],
+    stats: newWorkerStats(),
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
     ...overrides,
@@ -38,6 +39,7 @@ describe('WorkerRegistry.pickWorker', () => {
         inFlight: new Set(['q:1']),
     jobs: new Map(),
     recentJobs: [],
+    stats: newWorkerStats(),
       }),
     )
     expect(registry.pickWorker({ chromium: true })).toBeUndefined()

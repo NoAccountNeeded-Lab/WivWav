@@ -14,7 +14,7 @@ import {
   registerGatewayWorkers,
 } from './gateway-workers.js'
 import { CapabilityEscalationError, WorkerDispatcher } from './dispatcher.js'
-import { WorkerRegistry } from './registry.js'
+import { WorkerRegistry, newWorkerStats } from './registry.js'
 import type { RegisteredWorker } from './registry.js'
 
 /**
@@ -243,6 +243,7 @@ describe('per-source chromium gating end to end with WorkerRegistry.pickWorker (
     inFlight: new Set(),
     jobs: new Map(),
     recentJobs: [],
+    stats: newWorkerStats(),
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
   }
@@ -482,6 +483,7 @@ describe('two-worker BLVD handoff (real dispatcher + registry)', () => {
       inFlight: new Set(),
     jobs: new Map(),
     recentJobs: [],
+    stats: newWorkerStats(),
       lastHeartbeatAt: new Date(),
       send: vi.fn(),
     }

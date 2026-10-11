@@ -7,7 +7,7 @@ import {
 } from '@wivwav/types/worker-protocol'
 import type { CoordinatorToWorkerMessage } from '@wivwav/types/worker-protocol'
 import type { WivWavLogger } from '@wivwav/logger'
-import type { WorkerRegistry } from '../worker-gateway/registry.js'
+import { newWorkerStats, type WorkerRegistry } from '../worker-gateway/registry.js'
 import type { WorkerDispatcher } from '../worker-gateway/dispatcher.js'
 
 export interface WorkerGatewayPluginOptions {
@@ -126,6 +126,7 @@ export async function workerGatewayRoutes(
           inFlight: new Set(),
     jobs: new Map(),
     recentJobs: [],
+          stats: newWorkerStats(),
           lastHeartbeatAt: new Date(),
           send: (outbound: CoordinatorToWorkerMessage) => {
             socket.send(JSON.stringify(outbound))

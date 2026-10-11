@@ -25,6 +25,8 @@ export interface RegisteredWorker {
    * ops row) is already gone by the time the drop is processed.
    */
   recentJobs: RecentJobOutcome[]
+  /** In-memory counters since this connection was registered (#1140). */
+  stats: WorkerStats
   lastHeartbeatAt: Date
   send(message: CoordinatorToWorkerMessage): void
 }
@@ -45,7 +47,26 @@ export interface RecentJobOutcome {
    */
   escalated?: boolean
   errorMessage?: string
+  /** `finishedAt - dispatchedAt`, when the dispatch time was known. */
+  durationMs?: number
   finishedAt: Date
+}
+
+/** Settled-job counters; an escalated attempt is counted apart from failures and has no duration. */
+export interface QueueStats {
+  completed: number
+  failed: number
+  totalDurationMs: number
+}
+
+export interface WorkerStats extends QueueStats {
+  connectedAt: Date
+  escalated: number
+  queues: Map<string, QueueStats>
+}
+
+export function newWorkerStats(connectedAt: Date = new Date()): WorkerStats {
+  return { connectedAt, completed: 0, failed: 0, escalated: 0, totalDurationMs: 0, queues: new Map() }
 }
 
 /** Cap on per-worker outcome history — operators need the last few, not a log. */
