@@ -234,18 +234,34 @@ export class WorkerDispatcher {
     // dropped connection finds nothing here — and its ops row is already
     // gone, so there is nothing to record against.
     if (worker) {
+      const dispatchedAt = worker.jobs.get(correlationId)?.dispatchedAt
       worker.inFlight.delete(correlationId)
       worker.jobs.delete(correlationId)
       // A capability escalation is a requeue, not a failure (mirrors the
       // log branch below): flag it so ops never renders it as a job error.
       const escalated = error instanceof CapabilityEscalationError
+      const finishedAt = new Date()
+      const durationMs = dispatchedAt ? finishedAt.getTime() - dispatchedAt.getTime() : undefined
+      const { stats } = worker
+      if (escalated) {
+        stats.escalated++
+      } else {
+        const q = stats.queues.get(entry.queueName) ?? { completed: 0, failed: 0, totalDurationMs: 0 }
+        stats.queues.set(entry.queueName, q)
+        for (const t of [stats, q]) {
+          if (error) t.failed++
+          else t.completed++
+          t.totalDurationMs += durationMs ?? 0
+        }
+      }
       worker.recentJobs.unshift({
         queueName: entry.queueName,
         correlationId,
         success: error === undefined,
         ...(escalated ? { escalated: true as const } : {}),
         ...(error ? { errorMessage: error.message } : {}),
-        finishedAt: new Date(),
+        ...(durationMs !== undefined ? { durationMs } : {}),
+        finishedAt,
       })
       if (worker.recentJobs.length > MAX_RECENT_JOBS) worker.recentJobs.length = MAX_RECENT_JOBS
     }

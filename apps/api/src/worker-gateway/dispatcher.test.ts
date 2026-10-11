@@ -5,7 +5,7 @@ import {
   NO_WORKER_RETRY_DELAY_MS,
   CapabilityEscalationError,
 } from './dispatcher.js'
-import { WorkerRegistry, type RegisteredWorker } from './registry.js'
+import { WorkerRegistry, newWorkerStats, type RegisteredWorker } from './registry.js'
 
 function connectWorker(
   registry: WorkerRegistry,
@@ -19,6 +19,7 @@ function connectWorker(
     inFlight: new Set(),
     jobs: new Map(),
     recentJobs: [],
+    stats: newWorkerStats(),
     lastHeartbeatAt: new Date(),
     send: vi.fn(),
     ...overrides,
@@ -119,6 +120,9 @@ describe('WorkerDispatcher.dispatch', () => {
       errorMessage: 'boom',
     })
     expect(worker.recentJobs[0]?.finishedAt).toBeInstanceOf(Date)
+    expect(worker.recentJobs[0]?.durationMs).toBeGreaterThanOrEqual(0)
+    expect(worker.stats).toMatchObject({ completed: 0, failed: 1, escalated: 0 })
+    expect(worker.stats.queues.get('detail-crawl')).toMatchObject({ completed: 0, failed: 1 })
   })
 
   it('resolves with the worker-reported result', async () => {
@@ -504,5 +508,7 @@ describe('WorkerDispatcher capability escalation (#1043)', () => {
       success: false,
       escalated: true,
     })
+    expect(worker.stats).toMatchObject({ completed: 0, failed: 0, escalated: 1 })
+    expect(worker.stats.queues.size).toBe(0)
   })
 })
