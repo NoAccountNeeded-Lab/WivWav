@@ -72,6 +72,7 @@ function makeDb(
         state: string | null
         dealerName: string | null
         cardImages: string[]
+        images: string[]
         sourceListedAt: Date | null
         sourceUpdatedAt: Date | null
         qualityIssueCodes: string[]
@@ -108,6 +109,7 @@ function makeDb(
         state: fixture.location.state,
         dealerName: fixture.dealer.name,
         cardImages: fixture.images,
+        images: fixture.images,
         sourceListedAt: fixture.sourceListedAt ?? null,
         sourceUpdatedAt: fixture.sourceUpdatedAt ?? null,
         qualityIssueCodes: [],
@@ -590,6 +592,26 @@ describe('ingestListing', () => {
           data: expect.objectContaining({ color: 'White' }),
         }),
       )
+    })
+
+    it('seeds empty images from new card images but never overwrites detail images (#1105)', async () => {
+      const card = ['https://example.com/card.jpg']
+      const empty = makeDb({ id: 'list-1', priceCents: 3000000, cardImages: [], images: [] })
+      await ingestListing(empty as never, makeListing({ priceCents: 3000000, images: card }))
+      expect(empty.listing.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ cardImages: card, images: card }),
+        }),
+      )
+
+      const detailed = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        cardImages: [],
+        images: ['https://example.com/detail.jpg'],
+      })
+      await ingestListing(detailed as never, makeListing({ priceCents: 3000000, images: card }))
+      expect(detailed.listing.update.mock.calls[0]![0].data).not.toHaveProperty('images')
     })
 
     it('still applies a genuine color correction from the card payload', async () => {

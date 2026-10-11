@@ -135,6 +135,7 @@ export async function ingestListing(
       state: true,
       dealerName: true,
       cardImages: true,
+      images: true,
       sourceListedAt: true,
       sourceUpdatedAt: true,
       qualityIssueCodes: true,
@@ -346,6 +347,12 @@ export async function ingestListing(
       ...(locationChanged ? { lat: null, lng: null } : {}),
       dealerName: listing.dealer.name,
       cardImages: listing.images,
+      // Detail extraction owns `images`, but a row created before the card
+      // had images (or whose detail selector misses) would otherwise stay
+      // image-less forever (#1105). Seed from the card; never overwrite.
+      ...(existing.images.length === 0 && listing.images.length > 0
+        ? { images: listing.images }
+        : {}),
       ...(listing.sourceListedAt != null ? { sourceListedAt: listing.sourceListedAt } : {}),
       ...(listing.sourceUpdatedAt != null ? { sourceUpdatedAt: listing.sourceUpdatedAt } : {}),
       scrapedAt: new Date(),
