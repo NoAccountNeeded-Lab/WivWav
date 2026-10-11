@@ -16,7 +16,8 @@ vi.mock('../images/semantic-image-analysis.js', async (importOriginal) => ({
 
 import { CliOutputError } from '../images/cli-output-parsers.js'
 
-const { filterPhotoCandidates, parseArgs, runLocalAnalysis, selectPhotos, summarizeUsage } = await import('./semantic-image-analyze-local.js')
+const { filterPhotoCandidates, runLocalAnalysis, selectImages, selectPhotos, summarizeUsage } = await import('./semantic-image-analyze-local.js')
+const { parseArgs } = await import('./semantic-image-analyze-local-cli.js')
 
 const GOOD: ImageAnalysisResult = { schemaVersion: '1', altText: 'a', summary: null, labels: [{ label: 'ramp', confidence: 0.9 }], fieldClaims: [] }
 const images = [
@@ -337,5 +338,30 @@ describe('summarizeUsage', () => {
 
   it('handles an empty run', () => {
     expect(summarizeUsage([])).toMatchObject({ photos: 0, calls: 0, costUsd: null, avgSecondsPerPhoto: 0 })
+  })
+})
+
+describe('argvFromEnv', () => {
+  it('maps ANALYZE_* variables to flags and keeps a quote in the URL intact', async () => {
+    const { argvFromEnv } = await import('./semantic-image-analyze-local-cli.js')
+    expect(argvFromEnv({ ANALYZE_PROVIDER: 'claude-cli', ANALYZE_URL: "https://x/it's", ANALYZE_PERSIST: '1' })).toEqual([
+      '--provider', 'claude-cli', '--url', "https://x/it's", '--persist',
+    ])
+    expect(argvFromEnv({})).toEqual([])
+  })
+})
+
+describe('selectImages', () => {
+  const db = { listing: { findMany: listingFindMany }, listingImageSemanticAnalysis: { findMany: analysisFindMany } } as never
+  const options = { provider: provider(), limit: undefined, perListing: undefined, onlyGaps: true, requireFinishedStages: true, persist: false, plan: false, outPath: '/tmp/x.json' }
+
+  it('returns the eligible photos and does not look up stored rows unless persisting', async () => {
+    expect((await selectImages(db, options)).map((i) => i.id)).toEqual(['i1', 'i2'])
+    expect(analysisFindMany).not.toHaveBeenCalled()
+  })
+
+  it('drops photos that already have a stored row when persisting, before the limit', async () => {
+    analysisFindMany.mockResolvedValue([{ listingImageId: 'i1' }])
+    expect((await selectImages(db, { ...options, persist: true, limit: 1 })).map((i) => i.id)).toEqual(['i2'])
   })
 })
