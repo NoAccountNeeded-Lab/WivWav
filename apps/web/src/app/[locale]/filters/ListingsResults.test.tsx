@@ -137,4 +137,34 @@ describe('ListingsResults icon-first card and pagination', () => {
     expect(screen.getByRole('link', { name: 'Previous' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Next' })).toBeTruthy()
   })
+
+  it('names disabled icon-only pagination controls with visible-to-AT text', async () => {
+    fetchListingsMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: 'l1', year: 2020, make: 'Ford', model: 'Transit', trim: null, priceCents: 3000000,
+            mileage: 42000, city: 'Austin', state: 'TX', condition: 'used', sellerType: 'dealer',
+            images: [], wavFeatures: [], listedAt: '2026-01-01T00:00:00Z',
+          },
+        ],
+        pagination: { page: 1, perPage: 24, total: 72, totalPages: 3 },
+      }),
+    })
+    const { ListingsResults } = await import('./page')
+    const element = await ListingsResults({
+      searchParams: Promise.resolve({ page: '1' }),
+      locale: 'en',
+      resultsPath: '/en/filters',
+    })
+    const { container } = render(element)
+
+    const disabled = container.querySelectorAll('[aria-disabled="true"]')
+    // First page: only Previous is disabled; its name must come from text,
+    // since aria-label on a role-less span is ignored by assistive tech.
+    expect(disabled).toHaveLength(1)
+    expect(disabled[0]!.textContent).toBe('Previous')
+    expect(disabled[0]!.hasAttribute('aria-label')).toBe(false)
+  })
 })
