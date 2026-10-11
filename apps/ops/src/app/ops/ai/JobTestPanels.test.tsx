@@ -137,13 +137,14 @@ function sharedScenarios(opts: {
         data: { ..._dataOf(opts.okBody), _meta: { provider: 'ollama', model: 'm1', baseUrl: 'http://x:1' } },
       }),
     )
+    vi.spyOn(Date, 'now').mockReturnValue(1_000)
     opts.render()
     fireEvent.click(screen.getByRole('button', { name: 'Run test' }))
     expect(await screen.findByText('Provider')).toBeTruthy()
     expect(screen.getByText('ollama')).toBeTruthy()
     expect(screen.getByText('m1')).toBeTruthy()
     expect(screen.getByText('http://x:1')).toBeTruthy()
-    expect(screen.getByText(/^\d[\d,]* ms$/)).toBeTruthy()
+    expect(screen.getByText(`${(0).toLocaleString()} ms`)).toBeTruthy()
   })
 }
 
