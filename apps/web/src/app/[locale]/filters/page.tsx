@@ -273,9 +273,9 @@ function PaginationNav({
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
-          aria-label={labels.previous}
         >
           <ChevronLeft size={20} aria-hidden />
+          <span className="sr-only">{labels.previous}</span>
         </span>
       )}
 
@@ -291,9 +291,9 @@ function PaginationNav({
         <span
           className={`${styles.paginationBtn} ${styles.paginationBtnDisabled}`}
           aria-disabled="true"
-          aria-label={labels.next}
         >
           <ChevronRight size={20} aria-hidden />
+          <span className="sr-only">{labels.next}</span>
         </span>
       )}
     </nav>
