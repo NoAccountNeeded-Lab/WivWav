@@ -901,7 +901,7 @@ describe('GET /admin/workers (#1038)', () => {
       headers: { authorization: 'Bearer shared-secret-value' },
     })
     expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({ data: [] })
+    expect(response.json()).toMatchObject({ data: [], summary: { workers: 0, queues: [] } })
 
     await app.close()
   })
