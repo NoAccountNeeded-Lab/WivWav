@@ -40,8 +40,8 @@ const DEFAULT_MAPPINGS_BY_KEY: Partial<Record<string, FieldMapping[]>> = {
   'freedom-motors': [
     {
       targetField: 'images',
-      selector: '.images .woocommerce-product-gallery__image img.wp-post-image',
-      attribute: 'data-large_image',
+      selector: '.images .woocommerce-product-gallery__image[data-popup-type="image"]',
+      attribute: 'data-popup-src',
       transform: null,
     },
     {

@@ -82,6 +82,16 @@ describe('declarative detail extractor — Freedom Motors seeded mappings (fm-v1
   }, 30_000)
 })
 
+describe('declarative detail extractor — Freedom Motors seeded mappings (fm-v3: popup gallery, #1105)', () => {
+  it('extracts full-size data-popup-src gallery URLs in order, not 600x450 thumbnails', async () => {
+    const result = await extract('freedom-motors-detail-v3-popup-gallery.html', FREEDOM_MOTORS_DETAIL_MAPPINGS)
+    expect(result.images).toHaveLength(4)
+    expect(result.images[0]).toBe('https://www.freedommotors.com/wp-content/uploads/2026/03/c1008a43c84e40ebba0bccdd03fa549e.jpg')
+    expect(result.images.every((u) => !u.includes('-600x450'))).toBe(true)
+    expect(result.color).toBe('Mosaic Black Metallic')
+  }, 30_000)
+})
+
 describe('declarative detail extractor — Freedom Motors seeded mappings (fm-v2: missing Fuel Type)', () => {
   it('returns missing evidence for the one field whose selector matches nothing, without fabricating a value', async () => {
     const result = await extract('freedom-motors-detail-v2-missing-fuel-type.html', FREEDOM_MOTORS_DETAIL_MAPPINGS)

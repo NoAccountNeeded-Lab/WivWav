@@ -11,8 +11,8 @@ import type { FieldMapping } from '@wivwav/types'
  * shape (see declarative-detail.ts).
  *
  * Selectors target the real WooCommerce spec-block markup confirmed against
- * https://www.freedommotors.com/product/wheelchair-suv/2025-kia-telluride-ex-6/
- * on 2026-07-17 — `<li class="product_attribute-row"><b>Label:</b>
+ * https://www.freedommotors.com/product/wheelchair-suv/2025-chevrolet-traverse-fwd-lt-4/
+ * on 2026-10-11 (gallery slides carry the full-size URL in data-popup-src, #1105) — `<li class="product_attribute-row"><b>Label:</b>
  * <span>Value</span></li>` pairs with no stable per-field class/id, hence
  * the XPath label-text selectors (see declarative-detail.ts's doc comment
  * for why plain CSS can't express this).
@@ -20,8 +20,8 @@ import type { FieldMapping } from '@wivwav/types'
 export const FREEDOM_MOTORS_DETAIL_MAPPINGS: FieldMapping[] = [
   {
     targetField: 'images',
-    selector: '.images .woocommerce-product-gallery__image img.wp-post-image',
-    attribute: 'data-large_image',
+    selector: '.images .woocommerce-product-gallery__image[data-popup-type="image"]',
+    attribute: 'data-popup-src',
     transform: null,
   },
   {
