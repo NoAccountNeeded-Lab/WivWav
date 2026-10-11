@@ -15,7 +15,8 @@ import { useLocale, useTranslations } from 'next-intl'
 import type { Translate } from '@/lib/intl'
 import { toIntlLocale } from '@/lib/intl'
 import type { VinHistoryEntry } from '@wivwav/types'
-import { hasMultiListingVinHistory } from './vinHistory'
+import { hasValueChange } from './hasValueChange'
+import { shouldShowVinHistory, vinSeriesValues } from './vinHistory'
 
 interface VinHistoryTimelineProps {
   history: VinHistoryEntry[]
@@ -133,12 +134,14 @@ function CustomTooltip({ active, payload, locale, t }: CustomTooltipProps) {
 export function VinHistoryTimeline({ history, currentListingId }: VinHistoryTimelineProps) {
   const t = useTranslations('VinHistoryTimeline')
   const locale = useLocale()
-  if (!hasMultiListingVinHistory(history)) return null
+  if (!shouldShowVinHistory(history)) return null
 
   const data = buildVinHistoryChartData(history, currentListingId, t, locale)
   const listingCount = new Set(history.map((entry) => entry.listingId)).size
-  const priceValues = history.filter((entry) => entry.type === 'price').map((entry) => entry.value)
-  const mileageValues = history.filter((entry) => entry.type === 'mileage').map((entry) => entry.value)
+  const priceValues = vinSeriesValues(history, 'price')
+  const mileageValues = vinSeriesValues(history, 'mileage')
+  const showPrice = hasValueChange(priceValues)
+  const showMileage = hasValueChange(mileageValues)
   const changeKeys = data
     .filter((entry, index) => index > 0 && data[index - 1]?.listingId !== entry.listingId)
     .map((entry) => entry.key)
@@ -171,94 +174,106 @@ export function VinHistoryTimeline({ history, currentListingId }: VinHistoryTime
               axisLine={false}
               tickLine={false}
             />
-            <YAxis
-              yAxisId="price"
-              domain={[
-                Math.max(0, Math.floor((priceMin - pricePadding) / 100) * 100),
-                Math.ceil((priceMax + pricePadding) / 100) * 100,
-              ]}
-              tickFormatter={(v: number) => `$${(v / 100).toLocaleString(toIntlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 })}`}
-              tick={{ fontSize: 11, fill: 'var(--color-text-secondary, #64748b)' }}
-              axisLine={false}
-              tickLine={false}
-              width={56}
-            />
-            <YAxis
-              yAxisId="mileage"
-              orientation="right"
-              domain={[
-                Math.max(0, Math.floor(mileageMin - mileagePadding)),
-                Math.ceil(mileageMax + mileagePadding),
-              ]}
-              tickFormatter={(v: number) => t('miles', {
-                miles: v.toLocaleString(toIntlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 }),
-              })}
-              tick={{ fontSize: 11, fill: 'var(--color-text-secondary, #64748b)' }}
-              axisLine={false}
-              tickLine={false}
-              width={58}
-            />
+            {showPrice && (
+              <YAxis
+                yAxisId="price"
+                domain={[
+                  Math.max(0, Math.floor((priceMin - pricePadding) / 100) * 100),
+                  Math.ceil((priceMax + pricePadding) / 100) * 100,
+                ]}
+                tickFormatter={(v: number) => `$${(v / 100).toLocaleString(toIntlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 })}`}
+                tick={{ fontSize: 11, fill: 'var(--color-text-secondary, #64748b)' }}
+                axisLine={false}
+                tickLine={false}
+                width={56}
+              />
+            )}
+            {showMileage && (
+              <YAxis
+                yAxisId="mileage"
+                orientation="right"
+                domain={[
+                  Math.max(0, Math.floor(mileageMin - mileagePadding)),
+                  Math.ceil(mileageMax + mileagePadding),
+                ]}
+                tickFormatter={(v: number) => t('miles', {
+                  miles: v.toLocaleString(toIntlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 }),
+                })}
+                tick={{ fontSize: 11, fill: 'var(--color-text-secondary, #64748b)' }}
+                axisLine={false}
+                tickLine={false}
+                width={58}
+              />
+            )}
             <Tooltip content={<CustomTooltip locale={locale} t={t} />} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {changeKeys.map((key) => (
               <ReferenceLine
                 key={key}
                 x={key}
-                yAxisId="price"
+                yAxisId={showPrice ? 'price' : 'mileage'}
                 stroke="var(--color-border-strong, #94a3b8)"
                 strokeDasharray="4 4"
               />
             ))}
-            <Line
-              type="monotone"
-              dataKey="currentPriceCents"
-              yAxisId="price"
-              stroke="var(--color-primary-solid, #0d9488)"
-              strokeWidth={2.25}
-              dot={{ r: 3, fill: 'var(--color-primary-solid, #0d9488)', strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              name={t('thisListingPrice')}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="otherPriceCents"
-              yAxisId="price"
-              stroke="var(--color-text-secondary, #64748b)"
-              strokeWidth={2}
-              dot={{ r: 3, fill: 'var(--color-text-secondary, #64748b)', strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              name={t('otherListingPrice')}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="currentMileage"
-              yAxisId="mileage"
-              stroke="var(--color-primary-text, #0f766e)"
-              strokeDasharray="5 4"
-              strokeWidth={2}
-              dot={{ r: 3, fill: 'var(--color-primary-text, #0f766e)', strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              name={t('thisListingMileage')}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="otherMileage"
-              yAxisId="mileage"
-              stroke="var(--color-text-placeholder, #94a3b8)"
-              strokeDasharray="5 4"
-              strokeWidth={2}
-              dot={{ r: 3, fill: 'var(--color-text-placeholder, #94a3b8)', strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              name={t('otherListingMileage')}
-              connectNulls
-              isAnimationActive={false}
-            />
+            {showPrice && (
+              <Line
+                type="monotone"
+                dataKey="currentPriceCents"
+                yAxisId="price"
+                stroke="var(--color-primary-solid, #0d9488)"
+                strokeWidth={2.25}
+                dot={{ r: 3, fill: 'var(--color-primary-solid, #0d9488)', strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                name={t('thisListingPrice')}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
+            {showPrice && (
+              <Line
+                type="monotone"
+                dataKey="otherPriceCents"
+                yAxisId="price"
+                stroke="var(--color-text-secondary, #64748b)"
+                strokeWidth={2}
+                dot={{ r: 3, fill: 'var(--color-text-secondary, #64748b)', strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                name={t('otherListingPrice')}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
+            {showMileage && (
+              <Line
+                type="monotone"
+                dataKey="currentMileage"
+                yAxisId="mileage"
+                stroke="var(--color-primary-text, #0f766e)"
+                strokeDasharray="5 4"
+                strokeWidth={2}
+                dot={{ r: 3, fill: 'var(--color-primary-text, #0f766e)', strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                name={t('thisListingMileage')}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
+            {showMileage && (
+              <Line
+                type="monotone"
+                dataKey="otherMileage"
+                yAxisId="mileage"
+                stroke="var(--color-text-placeholder, #94a3b8)"
+                strokeDasharray="5 4"
+                strokeWidth={2}
+                dot={{ r: 3, fill: 'var(--color-text-placeholder, #94a3b8)', strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                name={t('otherListingMileage')}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -276,7 +291,7 @@ export function VinHistoryTimeline({ history, currentListingId }: VinHistoryTime
           </tr>
         </thead>
         <tbody>
-          {history.map((entry, index) => (
+          {history.filter((entry) => (entry.type === 'price' ? showPrice : showMileage)).map((entry, index) => (
             <tr key={`${entry.recordedAt}-${entry.listingId}-${entry.type}-${index}`}>
               <td>{formatLongDate(entry.recordedAt, locale)}</td>
               <td>{listingLabel(entry.listingId, currentListingId, t)}</td>

@@ -3,6 +3,7 @@ import { formatPrice } from '@/app/[locale]/listings/[id]/utils'
 import type { PricePoint } from '@/app/[locale]/listings/[id]/types'
 import { sparklinePoints } from './priceSparklineUtils'
 import styles from './PriceSparkline.module.css'
+import { hasValueChange } from './hasValueChange'
 
 interface PriceSparklineProps {
   priceHistory: PricePoint[]
@@ -19,7 +20,7 @@ export function PriceSparkline({ priceHistory }: PriceSparklineProps) {
   const t = useTranslations('PriceSparkline')
   const callForPrice = useTranslations('ListingDetail')('callForPrice')
   const locale = useLocale()
-  if (priceHistory.length < 2) return null
+  if (!hasValueChange(priceHistory.map((pt) => pt.priceCents))) return null
 
   const points = sparklinePoints(priceHistory, WIDTH, HEIGHT)
   const first = priceHistory[0]

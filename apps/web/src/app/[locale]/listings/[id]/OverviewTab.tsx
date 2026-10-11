@@ -13,6 +13,7 @@ import { DealerCard } from '@/components/listing/DealerCard'
 import { DealerReputation } from '@/components/listing/DealerReputation'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { PriceSparkline } from '@/components/listing/PriceSparkline'
+import { hasValueChange } from '@/components/listing/hasValueChange'
 import { toIntlLocale } from '@/lib/intl'
 import { ReportListingForm } from './ReportListingForm'
 import {
@@ -54,6 +55,7 @@ export function OverviewTab({
   const ageLabel = listing.sourceListedAt != null
     ? days === 0 ? t('onSourceToday') : t('onSourceDays', { days })
     : days === 0 ? t('foundToday') : t('foundDaysAgo', { days })
+  const hasPriceChange = hasValueChange(priceHistory.map((pt) => pt.priceCents))
   const firstPoint = priceHistory.length >= 2 ? priceHistory[0] : undefined
   const lastPoint = priceHistory.length >= 2 ? priceHistory[priceHistory.length - 1] : undefined
   const priceDrop = firstPoint && lastPoint ? firstPoint.priceCents - lastPoint.priceCents : null
@@ -126,7 +128,7 @@ export function OverviewTab({
             <PriceSparkline priceHistory={priceHistory} />
           </div>
         ) : (
-          priceHistory.length >= 2 && (
+          hasPriceChange && (
             <div className={styles.priceTrendRow}>
               <PriceSparkline priceHistory={priceHistory} />
             </div>
