@@ -8,6 +8,7 @@ import type { SourceRepository, ScraperRunRepository } from '../../repositories/
 import { diagnosticContextRoutes } from './context.js'
 import { systemSnapshotRoutes } from './system-snapshot.js'
 import { correlationRoutes } from './correlation.js'
+import { addDiagnosticSanitizer } from './sanitize-hook.js'
 
 export interface DiagnosticsPluginOptions {
   db: PrismaClient
@@ -31,6 +32,8 @@ export const diagnosticsRoutes: FastifyPluginAsync<DiagnosticsPluginOptions> = a
   app,
   { db, sources, scraperRuns, meili, cache, queueFactory, config },
 ) => {
+  addDiagnosticSanitizer(app)
+
   await app.register(diagnosticContextRoutes, {
     prefix: '/diagnostic-context',
     gitSha: config.GIT_SHA,
