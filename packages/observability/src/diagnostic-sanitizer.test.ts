@@ -290,3 +290,27 @@ describe('review regressions round 3 (#776 codex)', () => {
   })
 })
 
+describe('review regressions round 4 (#776 codex)', () => {
+  it('1: JSON fragments are parsed on the original text before the assignment scanner', () => {
+    expect(sanitizeString('x {"token":"A","api key":"BLEAK"} y')).toBe('x {} y')
+    expect(sanitizeString('x {"ok":1,"a\\u0074oken":"CLEAK","pass word":"DLEAK"} y')).toBe('x {"ok":1} y')
+    expect(sanitize({ 'api key': 'L', 'Api  Key': 'L', ok: 1 })).toEqual({ ok: 1 })
+  })
+
+  it('2: an invalid outer fragment does not hide valid nested JSON', () => {
+    expect(sanitizeString('[INFO {"api key":"BLEAK"}]')).not.toContain('BLEAK')
+    expect(sanitizeString('[INFO {"atoken":"CLEAK","n":1}] [retry]')).toBe('[INFO {"n":1}] [retry]')
+    expect(sanitizeString('{ bad json {"cookie":"DLEAK"} }')).not.toContain('DLEAK')
+    const t = Date.now()
+    sanitizeString('[{'.repeat(30_000))
+    sanitizeString('[ '.repeat(30_000) + ']'.repeat(30_000))
+    expect(Date.now() - t).toBeLessThan(2000)
+  })
+
+  it('labelled structures and quoted values still redact whole after the reorder', () => {
+    expect(sanitizeString('config={"region":"X1"} after')).not.toContain('X1')
+    expect(sanitizeString("config={ a: '}', b: 'Y1' } t")).not.toContain('Y1')
+    expect(sanitizeString('password="x [y] z" t')).not.toMatch(/\by\b|\bz\b/)
+  })
+})
+
