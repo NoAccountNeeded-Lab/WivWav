@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import type { VinHistoryResponse, VinHistoryEntry } from '@wivwav/types'
-import { Accessibility, Gauge, ShieldCheck, TrendingUp, Info } from 'lucide-react'
+import { Accessibility, Gauge, ShieldCheck, TrendingUp, Info, MapPin } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { getServerApiBaseUrl, getPublicApiBaseUrl } from '@/lib/api-url'
@@ -429,7 +429,12 @@ export default async function VehicleDetailPage({
             {listing.condition && (
               <span className={styles.headerDot}>{conditionLabel(listing.condition, listingT)}</span>
             )}
-            {location && <span className={styles.headerDot}>{location}</span>}
+            {location && (
+              <span className={styles.headerDot}>
+                <MapPin size={12} aria-hidden className={styles.headerIcon} />
+                {location}
+              </span>
+            )}
           </p>
         </div>
       </header>

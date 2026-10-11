@@ -64,6 +64,7 @@
     "listing": {
       "privateSeller": "Vendedor privado",
       "callForPrice": "Llame para precio",
+      "milesUnit": "millas",
       "rearEntry": "Entrada trasera",
       "sideEntry": "Entrada lateral",
       "inFloorRamp": "Rampa en el piso",
