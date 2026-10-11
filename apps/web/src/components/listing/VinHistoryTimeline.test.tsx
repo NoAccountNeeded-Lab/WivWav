@@ -7,7 +7,8 @@ import {
   buildVinHistoryChartData,
   VinHistoryTimeline,
 } from './VinHistoryTimeline'
-import { hasMultiListingVinHistory } from './vinHistory'
+import { hasValueChange } from './hasValueChange'
+import { hasMultiListingVinHistory, shouldShowVinHistory } from './vinHistory'
 
 afterEach(() => {
   cleanup()
@@ -24,6 +25,29 @@ describe('hasMultiListingVinHistory', () => {
   it('should require observations from at least two listings', () => {
     expect(hasMultiListingVinHistory(multiListingHistory)).toBe(true)
     expect(hasMultiListingVinHistory(multiListingHistory.slice(0, 2))).toBe(false)
+  })
+})
+
+describe('hasValueChange', () => {
+  it('needs at least two distinct values', () => {
+    expect(hasValueChange([])).toBe(false)
+    expect(hasValueChange([5])).toBe(false)
+    expect(hasValueChange([5, 5, 5])).toBe(false)
+    expect(hasValueChange([5, 5, 6])).toBe(true)
+  })
+})
+
+const flat = (overrides: Partial<VinHistoryEntry>[]): VinHistoryEntry[] =>
+  multiListingHistory.map((entry, i) => ({ ...entry, ...overrides[i] }))
+
+describe('shouldShowVinHistory', () => {
+  it('is hidden when neither price nor mileage changes', () => {
+    const history = flat([{}, {}, { value: 4200000 }, { value: 30000 }])
+    expect(shouldShowVinHistory(history)).toBe(false)
+  })
+
+  it('is shown when only one series changes', () => {
+    expect(shouldShowVinHistory(flat([{}, {}, { value: 4200000 }, {}]))).toBe(true)
   })
 })
 
@@ -66,5 +90,28 @@ describe('VinHistoryTimeline', () => {
     )
 
     expect(container.textContent).toBe('')
+  })
+
+  it('should not render when no value changed across listings', () => {
+    const { container } = renderWithIntl(
+      <VinHistoryTimeline
+        history={flat([{}, {}, { value: 4200000 }, { value: 30000 }])}
+        currentListingId="listing-1"
+      />,
+    )
+
+    expect(container.textContent).toBe('')
+  })
+
+  it('should omit a series whose values are all identical', () => {
+    renderWithIntl(
+      <VinHistoryTimeline
+        history={flat([{}, {}, {}, { value: 30000 }])}
+        currentListingId="listing-1"
+      />,
+    )
+
+    expect(screen.getAllByText('Price').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Mileage')).toBeNull()
   })
 })

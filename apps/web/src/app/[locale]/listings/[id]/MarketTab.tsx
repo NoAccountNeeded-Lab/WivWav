@@ -5,7 +5,8 @@ import { PriceHistoryChart } from '@/components/listing/PriceHistoryChart'
 import { SimilarListings } from '@/components/listing/SimilarListings'
 import { ListingDisclaimer } from '@/components/listing/ListingDisclaimer'
 import { VinHistoryTimeline } from '@/components/listing/VinHistoryTimeline'
-import { hasMultiListingVinHistory } from '@/components/listing/vinHistory'
+import { hasValueChange } from '@/components/listing/hasValueChange'
+import { shouldShowVinHistory } from '@/components/listing/vinHistory'
 import type { ListingDetail, MarketPricing, ModelMsrp, PricePoint, SimilarListing } from './types'
 import styles from './tabs.module.css'
 
@@ -30,7 +31,8 @@ export function MarketTab({
 }: MarketTabProps) {
   const t = useTranslations('MarketTab')
   const hasMarket = marketPricing && marketPricing.count >= 3 && marketPricing.priceCents
-  const hasVinHistory = hasMultiListingVinHistory(vinHistory)
+  const hasPriceChange = hasValueChange(priceHistory.map((pt) => pt.priceCents))
+  const hasVinHistory = shouldShowVinHistory(vinHistory)
 
   return (
     <div className={styles.tabContent}>
@@ -43,7 +45,7 @@ export function MarketTab({
         </div>
       )}
 
-      {priceHistory.length >= 2 && (
+      {hasPriceChange && (
         <div className={styles.section}>
           <div className={styles.sectionLabel}>{t('priceHistory')}</div>
           <PriceHistoryChart

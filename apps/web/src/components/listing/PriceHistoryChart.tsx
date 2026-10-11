@@ -13,6 +13,7 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 import { toIntlLocale } from '@/lib/intl'
 import type { PricePoint } from '@/app/[locale]/listings/[id]/types'
+import { hasValueChange } from './hasValueChange'
 
 interface PriceHistoryChartProps {
   priceHistory: PricePoint[]
@@ -65,7 +66,7 @@ function CustomTooltip({ active, payload, locale }: CustomTooltipProps) {
 export function PriceHistoryChart({ priceHistory, originalMsrpCents }: PriceHistoryChartProps) {
   const t = useTranslations('PriceHistoryChart')
   const locale = useLocale()
-  if (priceHistory.length < 2) return null
+  if (!hasValueChange(priceHistory.map((pt) => pt.priceCents))) return null
 
   const data = priceHistory.map((pt) => ({
     label: formatShortDate(pt.recordedAt, locale),

@@ -12,8 +12,12 @@ function point(priceCents: number, recordedAt: string): PricePoint {
 }
 
 describe('PriceSparkline', () => {
-  it('renders nothing with fewer than two price points', () => {
-    const { container } = renderWithIntl(<PriceSparkline priceHistory={[]} />)
+  it.each([
+    ['no entries', []],
+    ['one entry', [point(20_000_00, '2026-01-01')]],
+    ['identical prices', [point(20_000_00, '2026-01-01'), point(20_000_00, '2026-02-01')]],
+  ])('renders nothing with %s', (_label, priceHistory) => {
+    const { container } = renderWithIntl(<PriceSparkline priceHistory={priceHistory} />)
     expect(container.textContent).toBe('')
     expect(container.querySelector('svg')).toBeNull()
   })
@@ -36,10 +40,14 @@ describe('PriceSparkline', () => {
     expect(screen.getByRole('img', { name: /up to \$25,000 from \$20,000/ })).toBeTruthy()
   })
 
-  it('describes a steady price when there is no change', () => {
+  it('describes a steady price when it returns to its starting value', () => {
     renderWithIntl(
       <PriceSparkline
-        priceHistory={[point(20_000_00, '2026-01-01'), point(20_000_00, '2026-02-01')]}
+        priceHistory={[
+          point(20_000_00, '2026-01-01'),
+          point(22_000_00, '2026-02-01'),
+          point(20_000_00, '2026-03-01'),
+        ]}
       />,
     )
     expect(screen.getByRole('img', { name: /holding steady at \$20,000/ })).toBeTruthy()
