@@ -78,7 +78,7 @@
   z-index: 1;
   flex-shrink: 0;
   font-size: 0.8125rem;
-  color: var(--clr-text-muted);
+  color: var(--clr-text-secondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
