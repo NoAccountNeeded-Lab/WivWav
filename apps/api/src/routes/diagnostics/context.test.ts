@@ -38,6 +38,14 @@ describe('GET /', () => {
     await app.close()
   })
 
+  it('keeps signalGlossary keys (sanitizer must not strip bare "key" fields)', async () => {
+    const app = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/' })
+    const { data } = res.json() as { data: { signalGlossary: { key?: string }[] } }
+    expect(data.signalGlossary.every((e) => typeof e.key === 'string' && e.key.length > 0)).toBe(true)
+    await app.close()
+  })
+
   it('returns byte-identical static content across two calls (no system-state dependence)', async () => {
     const app = buildTestApp()
     const first = await app.inject({ method: 'GET', url: '/' })

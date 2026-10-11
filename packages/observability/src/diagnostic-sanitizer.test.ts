@@ -19,7 +19,7 @@ describe('sanitizeDiagnosticResponse keys', () => {
   })
 
   it('does not over-strip lookalike keys', () => {
-    expect(sanitize({ author: 'a', monkey: 1, status: 'ok' })).toEqual({ author: 'a', monkey: 1, status: 'ok' })
+    expect(sanitize({ author: 'a', key: 'health', status: 'ok' })).toEqual({ author: 'a', key: 'health', status: 'ok' })
   })
 
   it('handles unexpected key shapes and __proto__', () => {
@@ -44,7 +44,7 @@ describe('sanitizeDiagnosticResponse strings', () => {
     ['gh ghp_abcdefghijklmnopqrstuvwxyz0123', 'abcdefghijkl'],
     ['aws AKIAABCDEFGHIJKLMNOP', 'AKIAABCDEFGHIJKLMNOP'],
     ['jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.SflKxwRJSMeKKF2QT4fw', 'SflKxwRJ'],
-    ['{"password":"hunter2hunter2","x":1}', 'hunter2hunter2'],
+    ['{"msg":"password=hunter2hunter2","x":1}', 'hunter2hunter2'],
     ['VIN 1HGCM82633A004352 seen', '1HGCM82633A004352'],
   ])('redacts %s', (input, secret) => {
     const out = sanitizeString(input)
@@ -123,5 +123,86 @@ describe('sanitizeDiagnosticResponse safety', () => {
     const t = Date.now()
     sanitizeString(s)
     expect(Date.now() - t).toBeLessThan(1500)
+  })
+})
+
+describe('review regressions (#776 codex)', () => {
+  it('2: consumes whole quoted values, cookie lists and over-long values (fail closed)', () => {
+    expect(sanitizeString('password="one two three" next')).not.toMatch(/two|three/)
+    expect(sanitizeString("secret='a b c' x")).not.toMatch(/ b | c/)
+    expect(sanitizeString('Cookie: a=x; b=yyyy; c=zzzz')).not.toMatch(/yyyy|zzzz/)
+    expect(sanitizeString('Set-Cookie: sid=abc; Path=/; HttpOnly')).not.toContain('abc')
+    expect(sanitizeString('token=' + 'A'.repeat(2100) + 'TAILLEAK')).not.toContain('TAILLEAK')
+    expect(sanitizeString('password="unclosed secret tail')).not.toContain('tail')
+    expect(sanitizeString('https://' + 'u'.repeat(400) + ':pw@host/x')).not.toMatch(/uuuu|pw@/)
+    expect(sanitizeString('Authorization: Basic dXNlcjpwYXNz extra')).not.toContain('dXNlcjpwYXNz')
+    expect(sanitizeString('Bearer ' + 'a'.repeat(3000) + 'END')).not.toContain('END')
+    expect(sanitizeString('eyJhbGciOiJI.' + 'b'.repeat(3000) + '.sigTAIL')).not.toContain('sigTAIL')
+  })
+
+  it('3: percent-encoded parameter names are decoded before classification', () => {
+    expect(sanitizeString('/x?%74oken=LEAK1&ok=1')).not.toContain('LEAK1')
+    expect(sanitizeString('/x?%2574oken=LEAK2')).not.toContain('LEAK2')
+    expect(sanitizeString('a=1&api%5Fkey=LEAK3')).not.toContain('LEAK3')
+    expect(sanitizeString('/x?page=2&sort=asc')).toBe('/x?page=2&sort=asc')
+  })
+
+  it('4: passphrase, client ip, email keys and labelled/intl phones', () => {
+    const out = JSON.stringify(
+      sanitize({
+        passphrase: 'p', clientIp: '1.2.3.4', remoteAddress: '5.6.7.8', ip: '9.9.9.9',
+        'bob@example.com': 'x', extra: { note: 'phone=+15551234567 or +44 20 7946 0958' }, ok: 1,
+      }),
+    )
+    for (const s of ['1.2.3.4', '5.6.7.8', '9.9.9.9', 'bob@example.com', '15551234567', '7946 0958', '"p"']) {
+      expect(out).not.toContain(s)
+    }
+    expect(out).toContain('"ok":1')
+  })
+
+  it('5: primitives and total characters count toward the budget', () => {
+    const many = sanitize(Array.from({ length: 100_000 }, () => 'x'.repeat(100)))
+    expect(many.length).toBeLessThan(20_001)
+    expect(json(many).length).toBeLessThan(2_500_000)
+    const big = sanitize(Array.from({ length: 100 }, () => 'y'.repeat(60_000)))
+    expect(json(big).length).toBeLessThan(1_300_000)
+    expect(json(big)).toContain('[TRUNCATED]')
+    expect(sanitize(Array.from({ length: 100_000 }, () => 1)).length).toBeLessThan(20_001)
+  })
+
+  it('6: bare "key" fields survive; compound secret keys do not', () => {
+    expect(sanitize({ key: 'health', apiKey: 'a', secretKey: 'b', accessKey: 'c' })).toEqual({ key: 'health' })
+  })
+
+  it('7: throwing array-element and Error getters are contained', () => {
+    const arr = [1, 2, 3]
+    Object.defineProperty(arr, 1, { get() { throw new Error('boom') }, enumerable: true })
+    expect(sanitize(arr)).toEqual([1, '[UNREADABLE]', 3])
+    const err = new Error('x')
+    Object.defineProperty(err, 'message', { get() { throw new Error('boom') } })
+    expect(() => sanitize({ err })).not.toThrow()
+    expect((sanitize({ err }) as { err: { message: string } }).err.message).toBe('[UNREADABLE]')
+    const { proxy, revoke } = Proxy.revocable({}, {})
+    revoke()
+    expect(sanitize({ p: proxy })).toEqual({ p: '[UNREADABLE]' })
+  })
+
+  it('8: JSON embedded in strings is sanitized structurally', () => {
+    const whole = sanitize({ m: JSON.stringify({ headers: { a: 'LEAKH' }, nested: [{ note: 'mail a@b.com' }], ok: 1 }) })
+    expect(whole.m).not.toMatch(/LEAKH|a@b\.com/)
+    expect(JSON.parse(whole.m)).toEqual({ nested: [{ note: 'mail [EMAIL]' }], ok: 1 })
+    const mid = sanitizeString('request failed: {"cookie":"sid=LEAKC","x":1} (retrying)')
+    expect(mid).not.toContain('LEAKC')
+    expect(mid).toContain('retrying')
+  })
+
+  it('stays linear on new pathological shapes', () => {
+    for (const s of ['"'.repeat(60_000), "token='".repeat(9_000), '{'.repeat(60_000), '['.repeat(60_000),
+      'a@'.repeat(30_000), '+1 '.repeat(20_000), '%'.repeat(60_000), '?;'.repeat(30_000), 'a://'.repeat(15_000),
+      'Cookie:'.repeat(9_000), 'password="'.repeat(6_000)]) {
+      const t = Date.now()
+      sanitizeString(s)
+      expect(Date.now() - t).toBeLessThan(1500)
+    }
   })
 })
