@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createHash } from 'node:crypto'
+// Public-resolving DNS so the SSRF guard (safe-fetch) passes without network access.
+vi.mock('node:dns/promises', () => ({ lookup: vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }]) }))
+
 import { computeDHash, hammingDistance, hashImage, MAX_IMAGE_BYTES, PHASH_NEAR_DUPLICATE_THRESHOLD } from './image-hasher.js'
 
 // ── hammingDistance unit tests ───────────────────────────────────────────────
@@ -141,6 +144,18 @@ describe('hashImage', () => {
     if (!result.ok) {
       expect(result.kind).toBe('fetch_error')
     }
+  })
+
+  it('reports a blocked (internal) URL as fetch_error without fetching (#1136)', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const result = await hashImage('https://169.254.169.254/latest/meta-data', { retries: 0 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.kind).toBe('fetch_error')
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   it('should return timeout on abort', async () => {
