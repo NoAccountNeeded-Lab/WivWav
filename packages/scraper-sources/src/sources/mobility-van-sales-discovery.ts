@@ -55,4 +55,3 @@ export function extractSecondaryBrowseUrls(html: string): string[] {
 export function extractBrowseAdIds(html: string): string[] {
   return parseBrowsePageHtml(html).map((card) => card.adId)
 }
-
