@@ -3,12 +3,9 @@ import { cleanup, screen } from '@testing-library/react'
 import { createTestTranslator, renderWithIntl } from '@/test-utils/intl'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { VinHistoryEntry } from '@wivwav/types'
-import {
-  buildVinHistoryChartData,
-  VinHistoryTimeline,
-} from './VinHistoryTimeline'
+import { VinHistoryTimeline } from './VinHistoryTimeline'
 import { hasValueChange } from './hasValueChange'
-import { hasMultiListingVinHistory, shouldShowVinHistory } from './vinHistory'
+import { buildVinHistoryAxes, buildVinHistoryChartData, hasMultiListingVinHistory, shouldShowVinHistory } from './vinHistory'
 
 afterEach(() => {
   cleanup()
@@ -113,5 +110,29 @@ describe('VinHistoryTimeline', () => {
 
     expect(screen.getAllByText('Price').length).toBeGreaterThan(0)
     expect(screen.queryByText('Mileage')).toBeNull()
+  })
+})
+
+describe('buildVinHistoryAxes', () => {
+  const entry = (listingId: string, type: 'price' | 'mileage', value: number, day: number): VinHistoryEntry => ({
+    listingId,
+    type,
+    value,
+    recordedAt: `2026-01-0${day}T00:00:00.000Z`,
+  }) as VinHistoryEntry
+
+  it('pads and rounds each domain, flags changing series, and marks listing changes', () => {
+    const history = [entry('a', 'price', 1_000_000, 1), entry('b', 'price', 1_100_000, 2), entry('a', 'mileage', 5000, 1), entry('b', 'mileage', 5000, 2)]
+    const data = [{ key: 'k1', listingId: 'a' }, { key: 'k2', listingId: 'b' }, { key: 'k3', listingId: 'b' }] as Parameters<typeof buildVinHistoryAxes>[1]
+    const axes = buildVinHistoryAxes(history, data)
+    expect(axes.listingCount).toBe(2)
+    expect(axes.changeKeys).toEqual(['k2'])
+    expect(axes.price).toEqual({ show: true, domain: [985_000, 1_115_000] })
+    expect(axes.mileage.show).toBe(false)
+    expect(axes.mileage.domain).toEqual([4000, 6000])
+  })
+
+  it('falls back to a default domain for an empty series', () => {
+    expect(buildVinHistoryAxes([], []).price).toEqual({ show: false, domain: [0, 1200] })
   })
 })
