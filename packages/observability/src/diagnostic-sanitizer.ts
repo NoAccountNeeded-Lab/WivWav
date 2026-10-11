@@ -38,7 +38,7 @@ export function isSensitiveKey(key: string): boolean {
 /** Percent-decodes a name (up to 3 layers). Returns null on a malformed escape: callers fail closed. */
 function decodeName(raw: string): string | null {
   let n = raw
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     try {
       const d = decodeURIComponent(n)
       if (d === n) return n
@@ -47,7 +47,7 @@ function decodeName(raw: string): string | null {
       return null
     }
   }
-  return n
+  return null // still changing after the decode limit: fail closed
 }
 
 /** One classifier for object keys and `name=value` / `name: value` assignments in strings. */
@@ -71,19 +71,25 @@ function quotedEnd(s: string, i: number): number {
   return s.length
 }
 
-/** Balanced {...}/[...] starting at `i`, string- and escape-aware. */
-function balancedEnd(s: string, i: number): number {
+/** Balanced {...}/[...] starting at `i`, aware of "..." and '...' strings with escapes.
+ *  Returns the index past the closing bracket, or -1 if unterminated. */
+function balancedScan(s: string, i: number): number {
   let depth = 0
   for (let j = i; j < s.length; j += 1) {
     const c = s[j]
-    if (c === '"') j = quotedEnd(s, j) - 1
+    if (c === '"' || c === "'") j = quotedEnd(s, j) - 1
     else if (c === '{' || c === '[') depth += 1
     else if (c === '}' || c === ']') {
       depth -= 1
       if (depth === 0) return j + 1
     }
   }
-  return s.length
+  return -1
+}
+
+const balancedEnd = (s: string, i: number): number => {
+  const e = balancedScan(s, i)
+  return e < 0 ? s.length : e
 }
 
 function valueEnd(s: string, i: number, toEol: boolean): number {
@@ -101,7 +107,7 @@ function valueEnd(s: string, i: number, toEol: boolean): number {
   return j
 }
 
-const ASSIGN_RE = /(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]+)(\\*["']?)[ \t]*([=:])[ \t]*/g
+const ASSIGN_RE = /(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]+)(\\*["']?)\s*([=:])\s*/g
 
 /** Redacts the value of every assignment whose name is sensitive (any value shape). */
 function redactAssignments(s: string): string {
@@ -141,10 +147,48 @@ const STRING_RULES: readonly (readonly [RegExp, string])[] = [
   [/(?<![\w-])\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w-])/g, '[PHONE]'],
 ]
 
-function applyStringRules(input: string): string {
-  let s = redactAssignments(input)
+function applyPatternRules(input: string): string {
+  let s = input
   for (const [re, rep] of STRING_RULES) s = s.replace(re, rep)
   return scrubPii(s)
+}
+
+function applyStringRules(input: string): string {
+  return applyPatternRules(redactAssignments(input))
+}
+
+const OPEN_RE = /[{[]/g
+
+/** Balanced JSON-looking fragments are parsed and sanitized structurally (resolves \u escapes,
+ *  whitespace, nesting); anything that is not valid JSON falls back to the pattern rules.
+ *  Scan work is budgeted: on exhaustion the unprocessed tail is dropped (fail closed). */
+function sanitizeFragments(input: string, depth: number, st: State): string {
+  const s = redactAssignments(input)
+  let budget = 4 * s.length + 1024
+  let out = ''
+  let last = 0
+  OPEN_RE.lastIndex = 0
+  for (let m = OPEN_RE.exec(s); m !== null; m = OPEN_RE.exec(s)) {
+    const i = m.index
+    const end = balancedScan(s, i)
+    budget -= end < 0 ? s.length - i : end - i
+    if (budget < 0) return out + applyPatternRules(s.slice(last, i)) + '[TRUNCATED]'
+    if (end < 0) continue
+    out += applyPatternRules(s.slice(last, i))
+    const frag = s.slice(i, end)
+    let rep: string | undefined
+    if (depth < MAX_DEPTH) {
+      try {
+        rep = JSON.stringify(walk(JSON.parse(frag) as unknown, depth + 1, st))
+      } catch {
+        /* not JSON */
+      }
+    }
+    out += rep ?? applyPatternRules(frag)
+    last = end
+    OPEN_RE.lastIndex = end
+  }
+  return out + applyPatternRules(s.slice(last))
 }
 
 interface State {
@@ -170,7 +214,7 @@ function sanitizeText(input: string, depth: number, st: State): string {
       /* not JSON: fall through to pattern rules */
     }
   }
-  return applyStringRules(s)
+  return sanitizeFragments(s, depth, st)
 }
 
 export function sanitizeString(input: string): string {
@@ -225,7 +269,7 @@ function walkInner(value: unknown, depth: number, st: State): unknown {
       if (exhausted(st)) break
       st.chars += k.length
       // deny/shape checks first: nothing is read (no getter runs) for dropped keys
-      if (k.length > MAX_KEY || k === '__proto__' || isSensitiveKey(k)) continue
+      if (k.length > MAX_KEY || k === '__proto__' || isSensitiveName(k)) continue
       // keys can carry data too (e.g. an email used as a map key): drop if any rule fires
       if (applyStringRules(k) !== k) continue
       let v: unknown
