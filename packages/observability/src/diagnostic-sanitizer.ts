@@ -35,46 +35,98 @@ export function isSensitiveKey(key: string): boolean {
   return DENY_EXACT.has(k) || DENY_SUBSTRINGS.some((s) => k.includes(s))
 }
 
-const WORDS = 'token|secret|key|passw(?:or)?d|passphrase|pwd|auth|sig|signature|credential|session|cookie|phone|mobile|email|contact'
-const SECRET_NAME = `[A-Za-z0-9_.-]{0,40}(?:${WORDS})[A-Za-z0-9_.-]{0,40}`
-const SECRET_WORD_RE = new RegExp(WORDS, 'i')
-
-function decodeName(raw: string): string {
+/** Percent-decodes a name (up to 3 layers). Returns null on a malformed escape: callers fail closed. */
+function decodeName(raw: string): string | null {
   let n = raw
   for (let i = 0; i < 3; i += 1) {
     try {
-      const d = decodeURIComponent(n.replace(/\+/g, ' '))
-      if (d === n) break
+      const d = decodeURIComponent(n)
+      if (d === n) return n
       n = d
     } catch {
-      break
+      return null
     }
   }
   return n
 }
 
-/** Applied in order. Fail closed: values are consumed to their natural end (no length cap on the
- *  redacted span), every regex is a single linear scan with no nested/overlapping quantifiers. */
-const STRING_RULES: readonly (readonly [RegExp, string | ((...m: string[]) => string)])[] = [
-  // whole-line credential headers (cookie lists, authorization schemes)
-  [/\b((?:set-)?cookie|authorization|proxy-authorization)(["']?\s*[:=]\s*)[^\r\n]*/gi, `$1$2${REDACTED}`],
+/** One classifier for object keys and `name=value` / `name: value` assignments in strings. */
+function isSensitiveName(raw: string): boolean {
+  const d = decodeName(raw)
+  return d === null || isSensitiveKey(d)
+}
+
+const isLineName = (raw: string) => /cookie|authorization/i.test(decodeName(raw) ?? 'cookie')
+
+// ---- linear value scanners: each returns the index just past the value; unterminated => end of string
+
+/** Quoted value starting at `i` (quote char), backslash-escape aware. */
+function quotedEnd(s: string, i: number): number {
+  const q = s[i]
+  for (let j = i + 1; j < s.length; j += 1) {
+    const c = s[j]
+    if (c === '\\') j += 1
+    else if (c === q) return j + 1
+  }
+  return s.length
+}
+
+/** Balanced {...}/[...] starting at `i`, string- and escape-aware. */
+function balancedEnd(s: string, i: number): number {
+  let depth = 0
+  for (let j = i; j < s.length; j += 1) {
+    const c = s[j]
+    if (c === '"') j = quotedEnd(s, j) - 1
+    else if (c === '{' || c === '[') depth += 1
+    else if (c === '}' || c === ']') {
+      depth -= 1
+      if (depth === 0) return j + 1
+    }
+  }
+  return s.length
+}
+
+function valueEnd(s: string, i: number, toEol: boolean): number {
+  const c = s[i]
+  if (c === undefined) return i
+  if (c === '"' || c === "'") return quotedEnd(s, i)
+  if (c === '{' || c === '[') return balancedEnd(s, i)
+  if (c === '\\') return s.length // escaped-quote JSON-in-string: cannot parse reliably, fail closed
+  let j = i
+  while (j < s.length) {
+    const d = s[j] as string
+    if (toEol ? d === '\n' || d === '\r' : /[\s"',;&]/.test(d)) break
+    j += 1
+  }
+  return j
+}
+
+const ASSIGN_RE = /(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]+)(\\*["']?)[ \t]*([=:])[ \t]*/g
+
+/** Redacts the value of every assignment whose name is sensitive (any value shape). */
+function redactAssignments(s: string): string {
+  let out = ''
+  let last = 0
+  ASSIGN_RE.lastIndex = 0
+  for (let m = ASSIGN_RE.exec(s); m !== null; m = ASSIGN_RE.exec(s)) {
+    const name = m[1] as string
+    if (!isSensitiveName(name)) continue
+    const start = m.index + m[0].length
+    const end = valueEnd(s, start, isLineName(name))
+    if (end <= start) continue
+    out += s.slice(last, start) + REDACTED
+    last = end
+    ASSIGN_RE.lastIndex = end
+  }
+  return out + s.slice(last)
+}
+
+/** Fail closed: no length cap on the redacted span; every regex is a single linear scan. */
+const STRING_RULES: readonly (readonly [RegExp, string])[] = [
   // scheme://userinfo@host (userinfo unbounded)
   [/\b([A-Za-z][A-Za-z0-9+.-]{0,15}:\/\/)[^\s/@]*@/g, `$1${REDACTED}@`],
-  // query/form params: classify the percent-decoded name
-  [
-    /(^|[?&;\s])([^=&\s#"'?;]+)=(?!["'])([^&\s#"']*)/g,
-    (m: string, pre: string, name: string) =>
-      SECRET_WORD_RE.test(decodeName(name)) || isSensitiveKey(decodeName(name))
-        ? `${pre}${name}=${REDACTED}`
-        : m,
-  ],
   // Bearer/Basic credentials
   [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{4,}/gi, `$1 ${REDACTED}`],
-  // name=value / name: value, quoted values consumed whole (unclosed quote runs to the end)
-  [
-    new RegExp(`\\b(${SECRET_NAME})(["']?\\s*[=:]\\s*)("[^"]*"?|'[^']*'?|[^\\s"',;&]*)`, 'gi'),
-    `$1$2${REDACTED}`,
-  ],
   // JWTs
   [/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, REDACTED],
   // vendor key shapes: sk-..., ghp_..., AKIA..., xoxb-...
@@ -90,8 +142,8 @@ const STRING_RULES: readonly (readonly [RegExp, string | ((...m: string[]) => st
 ]
 
 function applyStringRules(input: string): string {
-  let s = input
-  for (const [re, rep] of STRING_RULES) s = s.replace(re, rep as string)
+  let s = redactAssignments(input)
+  for (const [re, rep] of STRING_RULES) s = s.replace(re, rep)
   return scrubPii(s)
 }
 
@@ -102,26 +154,20 @@ interface State {
 }
 
 const exhausted = (st: State) => st.nodes > MAX_NODES || st.chars > MAX_CHARS
+const MAX_KEY = 256
 
 function sanitizeText(input: string, depth: number, st: State): string {
-  let s = input.length > MAX_STRING ? `${input.slice(0, MAX_STRING)}…[TRUNCATED]` : input
+  const s = input.length > MAX_STRING ? `${input.slice(0, MAX_STRING)}…[TRUNCATED]` : input
   st.chars += s.length
   if (st.chars > MAX_CHARS) return '[TRUNCATED]'
-  // JSON embedded in a string (whole, or from the first brace/bracket): sanitize structurally
-  const start = s.search(/[{[]/)
-  if (start >= 0 && depth < MAX_DEPTH) {
-    const end = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']'))
-    if (end > start) {
-      try {
-        const parsed: unknown = JSON.parse(s.slice(start, end + 1))
-        if (typeof parsed === 'object' && parsed !== null) {
-          const inner = JSON.stringify(walk(parsed, depth + 1, st))
-          s = applyStringRules(s.slice(0, start)) + inner + applyStringRules(s.slice(end + 1))
-          return s
-        }
-      } catch {
-        /* not JSON: fall through to pattern rules */
-      }
+  // A string that is wholly a JSON object/array is sanitized structurally.
+  const c = s.trimStart()[0]
+  if ((c === '{' || c === '[') && depth < MAX_DEPTH) {
+    try {
+      const parsed: unknown = JSON.parse(s)
+      if (typeof parsed === 'object' && parsed !== null) return JSON.stringify(walk(parsed, depth + 1, st))
+    } catch {
+      /* not JSON: fall through to pattern rules */
     }
   }
   return applyStringRules(s)
@@ -135,8 +181,14 @@ function walk(value: unknown, depth: number, st: State): unknown {
   try {
     return walkInner(value, depth, st)
   } catch {
-    return UNREADABLE
+    return unreadable(st)
   }
+}
+
+function unreadable(st: State): string {
+  st.nodes += 1
+  st.chars += UNREADABLE.length
+  return UNREADABLE
 }
 
 function walkInner(value: unknown, depth: number, st: State): unknown {
@@ -156,36 +208,32 @@ function walkInner(value: unknown, depth: number, st: State): unknown {
       const out: unknown[] = []
       const len = value.length
       for (let i = 0; i < len && !exhausted(st); i += 1) {
-        let raw: unknown
+        let v: unknown
         try {
-          raw = value[i]
+          v = walk(value[i], depth + 1, st) // getter runs only after the budget check
         } catch {
-          raw = UNREADABLE
+          v = unreadable(st)
         }
-        const v = raw === UNREADABLE ? UNREADABLE : walk(raw, depth + 1, st)
         out.push(v === undefined ? null : v)
       }
       return out
     }
     const src = value as Record<string, unknown>
     const out: Record<string, unknown> = {}
-    const read = (k: string): unknown => {
-      try {
-        return src[k]
-      } catch {
-        return UNREADABLE
-      }
-    }
-    const entries: [string, unknown][] =
-      value instanceof Error
-        ? [['name', read('name')], ['message', read('message')], ['stack', read('stack')]]
-        : Object.keys(src).map((k) => [k, read(k)])
-    for (const [k, raw] of entries) {
+    const keys = value instanceof Error ? ['name', 'message', 'stack'] : Object.keys(src)
+    for (const k of keys) {
       if (exhausted(st)) break
-      if (k === '__proto__' || isSensitiveKey(k)) continue
+      st.chars += k.length
+      // deny/shape checks first: nothing is read (no getter runs) for dropped keys
+      if (k.length > MAX_KEY || k === '__proto__' || isSensitiveKey(k)) continue
       // keys can carry data too (e.g. an email used as a map key): drop if any rule fires
       if (applyStringRules(k) !== k) continue
-      const v = raw === UNREADABLE ? UNREADABLE : walk(raw, depth + 1, st)
+      let v: unknown
+      try {
+        v = walk(src[k], depth + 1, st)
+      } catch {
+        v = unreadable(st)
+      }
       if (v !== undefined) out[k] = v
     }
     return out

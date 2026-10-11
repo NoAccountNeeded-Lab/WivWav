@@ -206,3 +206,60 @@ describe('review regressions (#776 codex)', () => {
     }
   })
 })
+
+describe('review regressions round 2 (#776 codex)', () => {
+  it('1: escape-aware quoted values; unterminated redacts to the end', () => {
+    expect(sanitizeString('password="one\\" SECRETTAIL" next=1')).not.toContain('SECRETTAIL')
+    expect(sanitizeString("secret='it\\'s TAIL2' ok")).not.toContain('TAIL2')
+    expect(sanitizeString('password="never closed \\" TAIL3')).not.toContain('TAIL3')
+  })
+
+  it('2: encoded names classified regardless of value quoting; malformed escapes fail closed', () => {
+    expect(sanitizeString('%74oken="LEAK1 two"')).not.toMatch(/LEAK1|two/)
+    expect(sanitizeString('%74oken%=LEAK2')).not.toContain('LEAK2')
+    expect(sanitizeString('?%74oken=\'LEAK3 x\'&a=1')).not.toContain('LEAK3')
+  })
+
+  it('3: embedded JSON fragments, multiple and with trailing brackets', () => {
+    expect(sanitizeString('[INFO] response {"headers":{"x":"LEAK1"}}')).not.toContain('LEAK1')
+    const multi = sanitizeString('a {"cookie":"LEAK2"} b {"authorization":"LEAK3"} c [retry]')
+    expect(multi).not.toMatch(/LEAK2|LEAK3/)
+    expect(multi).toContain('[retry]')
+    expect(sanitizeString('x {"a":{"b":[{"token":"LEAK4"}]}} [retry]')).not.toContain('LEAK4')
+    expect(sanitizeString('{"data":"\\"password\\":\\"LEAK5\\""}')).not.toContain('LEAK5')
+  })
+
+  it('4: sensitive label before a structured value redacts the whole balanced value', () => {
+    for (const t of ['config={"region":"X1"} after', 'headers={"X-Custom":"Y1"}', 'payload: [{"a":"Z1"},{"b":"Z2"}] t', 'config={"unterminated":"X2"']) {
+      expect(sanitizeString(t)).not.toMatch(/X1|Y1|Z1|Z2|X2/)
+    }
+    expect(sanitizeString('config={"a":"}"} tail')).toBe('config=[REDACTED] tail')
+  })
+
+  it('5: sentinels and key characters count toward the budget; keys are length-capped', () => {
+    const arr = Array.from({ length: 100_000 }, () => 0)
+    for (let i = 0; i < arr.length; i += 1) Object.defineProperty(arr, i, { get() { throw new Error('x') }, enumerable: true })
+    expect(json(sanitize(arr)).length).toBeLessThan(400_000)
+    const keys: Record<string, number> = {}
+    for (let i = 0; i < 30_000; i += 1) keys['k' + i + 'x'.repeat(200)] = 1
+    expect(json(sanitize(keys)).length).toBeLessThan(8_000_000)
+    expect(sanitize({ ['k'.repeat(300)]: 1 })).toEqual({})
+  })
+
+  it('5: getters of denied keys are never evaluated', () => {
+    let called = false
+    const o = { get password(): string { called = true; return 'x' }, ok: 1 }
+    expect(sanitize(o)).toEqual({ ok: 1 })
+    expect(called).toBe(false)
+  })
+
+  it('6: object keys and string assignments share one classifier', () => {
+    for (const k of ['pass', 'dsn', 'pw', 'sig', 'auth', 'passphrase', 'jwt']) {
+      expect(sanitize({ [k]: 'LEAKV' })).toEqual({})
+      expect(sanitizeString(`${k}: LEAKV`)).not.toContain('LEAKV')
+      expect(sanitizeString(`x ${k}=LEAKV&y=1`)).not.toContain('LEAKV')
+    }
+    expect(sanitizeString('status: healthy key: health')).toBe('status: healthy key: health')
+  })
+})
+
