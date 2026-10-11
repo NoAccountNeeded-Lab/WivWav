@@ -137,7 +137,8 @@ export function parseArgs(argv: string[]): LocalRunOptions {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
-    const options = parseArgs([...argvFromEnv(process.env), ...process.argv.slice(2)])
+    // Explicit flags first: arg() takes the first match, so they win over ANALYZE_* values.
+    const options = parseArgs([...process.argv.slice(2), ...argvFromEnv(process.env)])
     const entries = await runLocalAnalysis(options)
     const totals = summarizeUsage(entries)
     await writeFile(
