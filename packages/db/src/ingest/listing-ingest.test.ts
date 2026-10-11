@@ -614,6 +614,18 @@ describe('ingestListing', () => {
       expect(detailed.listing.update.mock.calls[0]![0].data).not.toHaveProperty('images')
     })
 
+    it('seeds empty images even when no card field changed (#1105)', async () => {
+      const card = ['https://example.com/card.jpg']
+      const db = makeDb({ id: 'list-1', priceCents: 3000000, cardImages: card, images: [] })
+      await expect(
+        ingestListing(db as never, makeListing({ priceCents: 3000000, images: card })),
+      ).resolves.toMatchObject({ outcome: 'unchanged' })
+      expect(db.listing.update).toHaveBeenCalledWith({
+        where: { id: 'list-1' },
+        data: { images: card },
+      })
+    })
+
     it('still applies a genuine color correction from the card payload', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 3000000, color: 'White' })
 
