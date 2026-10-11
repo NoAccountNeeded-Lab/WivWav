@@ -158,12 +158,17 @@ function applyStringRules(input: string): string {
 }
 
 const OPEN_RE = /[{[]/g
+/** A sensitive `name=` / `name:` label ending a text segment, directly before a fragment. */
+const ASSIGN_TAIL = /(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]+)\\*["']?\s*[=:]\s*$/
 
-/** Balanced JSON-looking fragments are parsed and sanitized structurally (resolves \u escapes,
- *  whitespace, nesting); anything that is not valid JSON falls back to the pattern rules.
- *  Scan work is budgeted: on exhaustion the unprocessed tail is dropped (fail closed). */
-function sanitizeFragments(input: string, depth: number, st: State): string {
-  const s = redactAssignments(input)
+const plain = (t: string): string => applyPatternRules(redactAssignments(t))
+
+/** Order matters: balanced fragments are handled on the ORIGINAL text first (valid JSON is parsed and
+ *  sanitized structurally; \\u escapes, spaces in keys and nesting all resolve), then the assignment
+ *  scanner and pattern rules run on the remaining text. A fragment directly after a sensitive label
+ *  (`config={...}`) is redacted whole. An invalid outer fragment does not hide valid nested ones: the
+ *  scan simply continues inside it. Work is budgeted; on exhaustion the tail is dropped (fail closed). */
+function sanitizeFragments(s: string, depth: number, st: State): string {
   let budget = 4 * s.length + 1024
   let out = ''
   let last = 0
@@ -172,23 +177,26 @@ function sanitizeFragments(input: string, depth: number, st: State): string {
     const i = m.index
     const end = balancedScan(s, i)
     budget -= end < 0 ? s.length - i : end - i
-    if (budget < 0) return out + applyPatternRules(s.slice(last, i)) + '[TRUNCATED]'
+    if (budget < 0) return out + plain(s.slice(last, i)) + '[TRUNCATED]'
     if (end < 0) continue
-    out += applyPatternRules(s.slice(last, i))
-    const frag = s.slice(i, end)
+    const seg = s.slice(last, i)
+    const label = ASSIGN_TAIL.exec(seg)
     let rep: string | undefined
-    if (depth < MAX_DEPTH) {
+    if (label && isSensitiveName(label[1] as string)) {
+      rep = REDACTED
+    } else if (depth < MAX_DEPTH) {
       try {
-        rep = JSON.stringify(walk(JSON.parse(frag) as unknown, depth + 1, st))
+        rep = JSON.stringify(walk(JSON.parse(s.slice(i, end)) as unknown, depth + 1, st))
       } catch {
-        /* not JSON */
+        /* not JSON: keep scanning inside it */
       }
     }
-    out += rep ?? applyPatternRules(frag)
+    if (rep === undefined) continue
+    out += plain(seg) + rep
     last = end
     OPEN_RE.lastIndex = end
   }
-  return out + applyPatternRules(s.slice(last))
+  return out + plain(s.slice(last))
 }
 
 interface State {
