@@ -1357,3 +1357,215 @@ describe('GET /images/:imageId/semantic-analyses', () => {
     await app.close()
   })
 })
+
+// ── Characterization tests added before the #1124 route split ───────────────
+// These pin behavior that had no direct coverage on the original admin.ts.
+
+describe('DELETE /queues/:name/failed', () => {
+  it('cleans failed jobs and returns the removed count', async () => {
+    const factory = new MockQueueFactory()
+    const queue = factory.createQueue(QUEUES.GEOCODE) as MockQueueAdapter
+    const cleanFailed = vi.spyOn(queue, 'cleanFailed').mockResolvedValue(3)
+    const { app } = buildTestApp({}, {}, factory)
+
+    const res = await app.inject({ method: 'DELETE', url: `/queues/${QUEUES.GEOCODE}/failed` })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ data: { removed: 3 } })
+    expect(cleanFailed).toHaveBeenCalledTimes(1)
+    await app.close()
+  })
+
+  it('returns 404 for an unknown queue name', async () => {
+    const { app } = buildTestApp({}, {}, new MockQueueFactory())
+    const res = await app.inject({ method: 'DELETE', url: '/queues/nope/failed' })
+    expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+})
+
+describe('unknown queue handling on mutating queue routes', () => {
+  it.each([
+    ['POST', '/queues/nope/jobs'],
+    ['POST', '/queues/nope/pause'],
+    ['POST', '/queues/nope/resume'],
+  ])('%s %s returns 404', async (method, url) => {
+    const { app } = buildTestApp({}, {}, new MockQueueFactory())
+    const res = await app.inject({ method: method as 'POST', url, payload: {} })
+    expect(res.statusCode).toBe(404)
+    await app.close()
+  })
+
+  it('rejects enqueue on a source-scoped queue without data.sourceId', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp({}, {}, factory)
+    const res = await app.inject({
+      method: 'POST',
+      url: `/queues/${QUEUES.DETAIL_CRAWL}/jobs`,
+      payload: { data: {} },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error.code).toBe('BAD_REQUEST')
+    expect(factory.getQueue(QUEUES.DETAIL_CRAWL)?.getEnqueued()).toHaveLength(0)
+    await app.close()
+  })
+})
+
+describe('POST /sources/:id/disable and /enable missing-source and defaults', () => {
+  it('returns 404 and has no side effects when the source does not exist', async () => {
+    const factory = new MockQueueFactory()
+    const { app, sources, db } = buildTestApp({}, {}, factory)
+
+    const disable = await app.inject({ method: 'POST', url: '/sources/missing/disable', payload: {} })
+    const enable = await app.inject({ method: 'POST', url: '/sources/missing/enable', payload: {} })
+
+    expect(disable.statusCode).toBe(404)
+    expect(enable.statusCode).toBe(404)
+    expect(sources.disable).not.toHaveBeenCalled()
+    expect(sources.enable).not.toHaveBeenCalled()
+    expect(db.configEntry.create).not.toHaveBeenCalled()
+    expect(factory.getQueue(QUEUES.LISTING_SYNC)?.getEnqueued() ?? []).toHaveLength(0)
+    await app.close()
+  })
+
+  it('uses the default reason and returns the disabled envelope', async () => {
+    const { app, sources } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'Test Source', status: 'active', lastScrapedAt: null })) },
+      {},
+      new MockQueueFactory(),
+    )
+    const res = await app.inject({ method: 'POST', url: '/sources/src-1/disable', payload: {} })
+    const reason = 'Disabled by authenticated operator action'
+    expect(res.json()).toEqual({ data: { id: 'src-1', status: 'disabled', reason } })
+    expect(sources.disable).toHaveBeenCalledWith('src-1', reason)
+    await app.close()
+  })
+})
+
+describe('/repeatables mutations', () => {
+  const blvd = { id: 'blvd-id', name: 'BLVD.com', cronExpression: '0 */6 * * *', timezone: 'America/New_York' }
+
+  function intentWrites(db: { configEntry: { create: ReturnType<typeof vi.fn> } }) {
+    return (db.configEntry.create.mock.calls as Array<[{ data: { key: string; value: Record<string, unknown> } }]>)
+      .map(([arg]) => arg.data)
+  }
+
+  it.each([
+    ['DELETE', { key: 'k' }],
+    ['POST', { name: 'n', data: {}, pattern: '* * * * *' }],
+    ['PUT', { key: 'k', name: 'n', data: {}, pattern: '* * * * *' }],
+  ])('%s returns 404 for an unknown queue without side effects', async (method, payload) => {
+    const { app, db } = buildTestApp({}, {}, new MockQueueFactory())
+    const res = await app.inject({ method: method as 'POST', url: '/repeatables/nope', payload })
+    expect(res.statusCode).toBe(404)
+    expect(db.configEntry.create).not.toHaveBeenCalled()
+    await app.close()
+  })
+
+  it('DELETE persists disabled intent for a canonical schedule, then removes the BullMQ key', async () => {
+    const factory = new MockQueueFactory()
+    const crawl = factory.createQueue(QUEUES.DETAIL_CRAWL) as MockQueueAdapter
+    await crawl.addRepeatable(QUEUES.DETAIL_CRAWL, { sourceId: 'blvd-id' }, '0 * * * *', 'America/New_York', 'blvd-crawl')
+    const { app, db } = buildTestApp({ findScheduledSources: vi.fn(async () => [blvd]) }, {}, factory)
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/repeatables/${QUEUES.DETAIL_CRAWL}`,
+      payload: { key: 'blvd-crawl' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ data: { removed: true } })
+    const writes = intentWrites(db)
+    expect(writes).toHaveLength(1)
+    expect(writes[0]?.key).toContain('blvd-crawl')
+    expect(writes[0]?.value).toMatchObject({ enabled: false })
+    expect(await crawl.getRepeatableJobs()).toEqual([])
+    await app.close()
+  })
+
+  it('DELETE of a non-canonical key writes no intent but still removes the BullMQ key', async () => {
+    const factory = new MockQueueFactory()
+    const crawl = factory.createQueue(QUEUES.DETAIL_CRAWL) as MockQueueAdapter
+    await crawl.addRepeatable(QUEUES.DETAIL_CRAWL, {}, '0 * * * *', undefined, 'adhoc')
+    const { app, db } = buildTestApp({}, {}, factory)
+
+    const res = await app.inject({ method: 'DELETE', url: `/repeatables/${QUEUES.DETAIL_CRAWL}`, payload: { key: 'adhoc' } })
+
+    expect(res.statusCode).toBe(200)
+    expect(db.configEntry.create).not.toHaveBeenCalled()
+    expect(await crawl.getRepeatableJobs()).toEqual([])
+    await app.close()
+  })
+
+  it('POST for a canonical source-scrape schedule persists enabled intent, updates the source cron, and adds the repeatable', async () => {
+    const factory = new MockQueueFactory()
+    const { app, db, sources } = buildTestApp({ findScheduledSources: vi.fn(async () => [blvd]) }, {}, factory)
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/repeatables/${QUEUES.SOURCE_SCRAPE}`,
+      payload: { name: QUEUES.SOURCE_SCRAPE, data: { sourceId: 'blvd-id' }, pattern: '0 1 * * *', jobId: 'blvd' },
+    })
+
+    expect(res.statusCode).toBe(201)
+    expect(res.json()).toEqual({ data: { added: true } })
+    const writes = intentWrites(db)
+    expect(writes).toHaveLength(1)
+    expect(writes[0]?.value).toMatchObject({ enabled: true, pattern: '0 1 * * *', tz: 'America/New_York' })
+    expect(sources.updateCronExpression).toHaveBeenCalledWith('blvd-id', '0 1 * * *')
+    const live = await (factory.createQueue(QUEUES.SOURCE_SCRAPE) as MockQueueAdapter).getRepeatableJobs()
+    expect(live).toMatchObject([{ key: 'blvd', pattern: '0 1 * * *' }])
+    await app.close()
+  })
+
+  it('POST for a non-source-scrape canonical schedule does not touch the source cron', async () => {
+    const factory = new MockQueueFactory()
+    const { app, db, sources } = buildTestApp({ findScheduledSources: vi.fn(async () => [blvd]) }, {}, factory)
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/repeatables/${QUEUES.DETAIL_CRAWL}`,
+      payload: { name: QUEUES.DETAIL_CRAWL, data: { sourceId: 'blvd-id' }, pattern: '30 * * * *', tz: 'America/Chicago', jobId: 'blvd-crawl' },
+    })
+
+    expect(res.statusCode).toBe(201)
+    expect(intentWrites(db)[0]?.value).toMatchObject({ enabled: true, pattern: '30 * * * *', tz: 'America/Chicago' })
+    expect(sources.updateCronExpression).not.toHaveBeenCalled()
+    await app.close()
+  })
+
+  it('PUT replaces the BullMQ schedule and persists the new intent', async () => {
+    const factory = new MockQueueFactory()
+    const scrape = factory.createQueue(QUEUES.SOURCE_SCRAPE) as MockQueueAdapter
+    await scrape.addRepeatable(QUEUES.SOURCE_SCRAPE, { sourceId: 'blvd-id' }, '0 */6 * * *', 'America/New_York', 'blvd')
+    const { app, db, sources } = buildTestApp({ findScheduledSources: vi.fn(async () => [blvd]) }, {}, factory)
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/repeatables/${QUEUES.SOURCE_SCRAPE}`,
+      payload: { key: 'blvd', name: QUEUES.SOURCE_SCRAPE, data: { sourceId: 'blvd-id' }, pattern: '0 2 * * *', jobId: 'blvd' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ data: { updated: true } })
+    expect(intentWrites(db)[0]?.value).toMatchObject({ enabled: true, pattern: '0 2 * * *' })
+    expect(sources.updateCronExpression).toHaveBeenCalledWith('blvd-id', '0 2 * * *')
+    expect(await scrape.getRepeatableJobs()).toMatchObject([{ key: 'blvd', pattern: '0 2 * * *' }])
+    await app.close()
+  })
+
+  it('PUT for a non-canonical jobId writes no intent', async () => {
+    const factory = new MockQueueFactory()
+    const { app, db, sources } = buildTestApp({}, {}, factory)
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/repeatables/${QUEUES.DETAIL_CRAWL}`,
+      payload: { key: 'old', name: QUEUES.DETAIL_CRAWL, data: {}, pattern: '5 * * * *', jobId: 'adhoc' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(db.configEntry.create).not.toHaveBeenCalled()
+    expect(sources.updateCronExpression).not.toHaveBeenCalled()
+    await app.close()
+  })
+})
