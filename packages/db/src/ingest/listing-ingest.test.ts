@@ -594,6 +594,24 @@ describe('ingestListing', () => {
       )
     })
 
+    it('stores only https image URLs on create (#1136)', async () => {
+      const db = makeDb(null)
+      await ingestListing(
+        db as never,
+        makeListing({
+          images: ['http://a.test/1.jpg', 'https://a.test/2.jpg', 'javascript:alert(1)', 'not a url', 'https://a.test/3.jpg'],
+        }),
+      )
+      expect(db.listing.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            cardImages: ['https://a.test/2.jpg', 'https://a.test/3.jpg'],
+            images: ['https://a.test/2.jpg', 'https://a.test/3.jpg'],
+          }),
+        }),
+      )
+    })
+
     it('seeds empty images from new card images but never overwrites detail images (#1105)', async () => {
       const card = ['https://example.com/card.jpg']
       const empty = makeDb({ id: 'list-1', priceCents: 3000000, cardImages: [], images: [] })

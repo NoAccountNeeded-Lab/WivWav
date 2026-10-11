@@ -3,6 +3,7 @@ import type {
   ListingUpsertRequest as ListingUpsertData,
   ListingUpsertResponse as ListingUpsertResult,
 } from '@wivwav/types/scraper-gateway'
+import { httpsImageUrls } from './https-images.js'
 
 /**
  * Single-owner listing-ingest application service. Owns upsert-by-
@@ -98,8 +99,10 @@ function sourceObservation(listing: ListingUpsertData, buyerUrl: string | null) 
  */
 export async function ingestListing(
   tx: ListingIngestTx,
-  listing: ListingUpsertData,
+  rawListing: ListingUpsertData,
 ): Promise<ListingUpsertResult> {
+  // Single choke point for card and detail seeding: https-only images (#1136).
+  const listing = { ...rawListing, images: httpsImageUrls(rawListing.images) }
   const existing = await tx.listing.findUnique({
     where: {
       sourceId_sourceRecordKey: {
