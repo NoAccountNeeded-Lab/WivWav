@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { sanitizeDiagnosticResponse } from '@wivwav/observability'
 import {
   CONTENT_VERSION,
   RESPONSE_PROTOCOL,
@@ -28,7 +29,7 @@ export interface DiagnosticContextPluginOptions {
  * and only across deployments, not requests).
  */
 export const diagnosticContextRoutes: FastifyPluginAsync<DiagnosticContextPluginOptions> = async (app, { gitSha, nodeEnv }) => {
-  app.get('/', async () => ({
+  app.get('/', async () => sanitizeDiagnosticResponse({
     data: {
       contentVersion: CONTENT_VERSION,
       revision: {

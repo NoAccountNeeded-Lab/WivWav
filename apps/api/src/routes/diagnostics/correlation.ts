@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { sanitizeDiagnosticResponse } from '@wivwav/observability'
 import type { JobRecord, QueueFactory } from '@wivwav/queue'
 import { QUEUES } from '@wivwav/queue'
 import type { SourceRepository, ScraperRunRepository } from '../../repositories/index.js'
@@ -72,7 +73,7 @@ export const correlationRoutes: FastifyPluginAsync<CorrelationPluginOptions> = a
 
     const logs = await correlateLogs(lokiUrl, idType, id, window)
 
-    return reply.send({
+    return reply.send(sanitizeDiagnosticResponse({
       data: {
         idType,
         id,
@@ -80,7 +81,7 @@ export const correlationRoutes: FastifyPluginAsync<CorrelationPluginOptions> = a
         entities,
         logs,
       },
-    })
+    }))
   })
 }
 

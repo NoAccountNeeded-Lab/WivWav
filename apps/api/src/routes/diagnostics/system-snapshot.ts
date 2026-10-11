@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { sanitizeDiagnosticResponse } from '@wivwav/observability'
 import type { CacheService } from '../../services/cache/index.js'
 import type { Meilisearch } from 'meilisearch'
 import type { PrismaClient } from '@wivwav/db'
@@ -108,7 +109,7 @@ export const systemSnapshotRoutes: FastifyPluginAsync<SystemSnapshotPluginOption
 
     const snapshot: AttentionSnapshot = computeAttentionSnapshot(request)
 
-    return reply.send({
+    return reply.send(sanitizeDiagnosticResponse({
       data: {
         snapshot,
         window: { minutes: window.minutes, since: window.since, until: window.until },
@@ -124,7 +125,7 @@ export const systemSnapshotRoutes: FastifyPluginAsync<SystemSnapshotPluginOption
           schedules: (schedulesData?.length ?? 0) > MAX_SCHEDULES,
         },
       },
-    })
+    }))
   })
 }
 
