@@ -21,8 +21,8 @@
  *                      content hash and version, NOT provider; an existing
  *                      row (including an error row) is never overwritten and
  *                      blocks a re-run for that image; images that already have
- *                      a row for the current version are skipped before any model
- *                      call and reported as `existing`. Dry-run first.
+ *                      a row for the current version are dropped before --limit
+ *                      is applied, so no model call is spent on them. Dry-run first.
  *
  * Eligible images need `listing_image` rows, created by
  * `image-integrity-backfill.ts --apply [--source <id>] --limit N`. Run that
@@ -213,7 +213,21 @@ export async function runLocalAnalysis(options: LocalRunOptions): Promise<LocalR
           `${filtered.skippedResolved} already resolved (use --include-unfinished / --include-resolved to keep them).`,
       )
     }
-    const images = selectPhotos(filtered.images, options.perListing, options.limit)
+    // Rows are never overwritten, so an image that already has one for this version (an error
+    // row leaves it eligible) would only cost a model call whose result is thrown away. Drop
+    // them before the limit so a re-run reaches new photos.
+    const analysedIds = options.persist
+      ? new Set(
+          (
+            await db.listingImageSemanticAnalysis.findMany({
+              where: { listingImageId: { in: filtered.images.map((image) => image.id) }, semanticAnalysisVersion: CURRENT_SEMANTIC_ANALYSIS_VERSION },
+              select: { listingImageId: true },
+            })
+          ).map((row) => row.listingImageId),
+        )
+      : new Set<string>()
+    if (analysedIds.size > 0) console.log(`Skipped ${analysedIds.size} photo(s) that already have a stored row for this version.`)
+    const images = selectPhotos(filtered.images.filter((image) => !analysedIds.has(image.id)), options.perListing, options.limit)
     if (images.length === 0) {
       console.log('No eligible images. Run image-integrity-backfill.ts --apply --limit N first.')
     }
@@ -229,26 +243,8 @@ export async function runLocalAnalysis(options: LocalRunOptions): Promise<LocalR
     const groups = new Map<string, EligibleSemanticAnalysisImage[]>()
     for (const image of images) groups.set(image.listingId, [...(groups.get(image.listingId) ?? []), image])
 
-    for (const [listingId, allImages] of groups) {
+    for (const [listingId, group] of groups) {
       const started = Date.now()
-      // Rows are never overwritten, so an image that already has one for this version would
-      // only cost a model call whose result is thrown away.
-      const analysedIds = options.persist
-        ? new Set(
-            (
-              await db.listingImageSemanticAnalysis.findMany({
-                where: { listingImageId: { in: allImages.map((image) => image.id) }, semanticAnalysisVersion: CURRENT_SEMANTIC_ANALYSIS_VERSION },
-                select: { listingImageId: true },
-              })
-            ).map((row) => row.listingImageId),
-          )
-        : new Set<string>()
-      const group = allImages.filter((image) => !analysedIds.has(image.id))
-      for (const image of allImages) {
-        if (analysedIds.has(image.id)) {
-          entries.push({ imageId: image.id, listingId, url: image.normalizedUrl, outcome: 'existing', seconds: 0 })
-        }
-      }
       const downloads = []
       for (const image of group) {
         const downloaded = await hashImage(image.normalizedUrl, { keepBytes: true })

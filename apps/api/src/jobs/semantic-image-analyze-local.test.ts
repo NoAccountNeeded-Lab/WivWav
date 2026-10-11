@@ -280,12 +280,12 @@ describe('runLocalAnalysis', () => {
     expect((analyzeListingImage.mock.calls[2]![1] as ImageAnalysisProvider).model).toBe('chosen')
   })
 
-  it('persist mode skips images that already have a row for the current version, before any download or model call', async () => {
+  it('persist mode drops images that already have a row for this version before the limit, so a re-run reaches new photos', async () => {
     analysisFindMany.mockResolvedValue([{ listingImageId: 'i1' }])
     analyzeListingImage.mockResolvedValue({ status: 'success', errorMessage: null })
     const p = provider()
-    const entries = await runLocalAnalysis({ ...base, provider: p, persist: true })
-    expect(entries.map((e) => [e.imageId, e.outcome])).toEqual([['i1', 'existing'], ['i2', 'stored']])
+    const entries = await runLocalAnalysis({ ...base, provider: p, persist: true, limit: 1 })
+    expect(entries.map((e) => [e.imageId, e.outcome])).toEqual([['i2', 'stored']])
     expect(p.analyze).toHaveBeenCalledTimes(1)
     expect(hashImage).toHaveBeenCalledTimes(1)
   })
