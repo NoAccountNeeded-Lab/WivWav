@@ -6,7 +6,7 @@ export interface LocalRunEntry {
   imageId: string | null
   listingId?: string
   url: string
-  outcome: 'planned' | 'valid' | 'invalid' | 'error' | 'download_failed' | 'stored' | 'existing'
+  outcome: 'planned' | 'valid' | 'invalid' | 'error' | 'download_failed' | 'stored'
   detail?: string
   result?: unknown
   /** Extra details (color, maker, view angle, quality); reported but never stored. */
