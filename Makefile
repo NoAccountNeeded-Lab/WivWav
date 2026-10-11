@@ -42,7 +42,7 @@ disk-check:
 ##                   make analyze-images DRY_RUN=1                    only list the photos it would send
 ##                                                                    (no download, no model call)
 ##                   make analyze-images PERSIST=1                    also store results (see
-##                                                                    apps/api/src/jobs/semantic-image-analyze-local.ts)
+##                                                                    apps/api/src/jobs/semantic-image-analyze-local-cli.ts)
 ##                 LIMIT caps how many photos are processed (default 5, also when storing);
 ##                 LIMIT=0 means every eligible photo. PER_LISTING caps photos taken from one
 ##                 listing, in gallery order (default 4; 0 = all). A listing's photos share one
@@ -54,9 +54,21 @@ disk-check:
 ##                 rows: run 'make prep-images' first.
 PROVIDER ?= claude-cli
 LIMIT ?= 5
+# Values travel as environment variables (read by argvFromEnv in the script), never through
+# shell quoting, so a quote in URL cannot break the command.
+analyze-images: export ANALYZE_PROVIDER = $(PROVIDER)
+analyze-images: export ANALYZE_LIMIT = $(LIMIT)
+analyze-images: export ANALYZE_URL = $(URL)
+analyze-images: export ANALYZE_SOURCE = $(SOURCE)
+analyze-images: export ANALYZE_MODEL = $(MODEL)
+analyze-images: export ANALYZE_PER_LISTING = $(PER_LISTING)
+analyze-images: export ANALYZE_MAX_EDGE = $(MAX_EDGE)
+analyze-images: export ANALYZE_PERSIST = $(PERSIST)
+analyze-images: export ANALYZE_PLAN = $(DRY_RUN)
+analyze-images: export ANALYZE_INCLUDE_RESOLVED = $(INCLUDE_RESOLVED)
+analyze-images: export ANALYZE_INCLUDE_UNFINISHED = $(INCLUDE_UNFINISHED)
 analyze-images:
-	@cd apps/api && node --import tsx src/jobs/semantic-image-analyze-local.ts --provider $(PROVIDER) --limit $(LIMIT) \
-		$(if $(URL),--url '$(URL)') $(if $(SOURCE),--source $(SOURCE)) $(if $(MODEL),--model $(MODEL)) $(if $(PERSIST),--persist) $(if $(DRY_RUN),--plan) $(if $(PER_LISTING),--per-listing $(PER_LISTING)) $(if $(MAX_EDGE),--max-edge $(MAX_EDGE)) $(if $(INCLUDE_RESOLVED),--include-resolved) $(if $(INCLUDE_UNFINISHED),--include-unfinished)
+	@cd apps/api && node --import tsx src/jobs/semantic-image-analyze-local-cli.ts
 
 ## prep-images  Step before analyze-images: download each listing's photos, hash them,
 ##              and fill listing_image (flags placeholder/reused photos). Writes to the

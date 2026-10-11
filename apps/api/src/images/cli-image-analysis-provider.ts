@@ -57,6 +57,16 @@ export const DEFAULT_MAX_IMAGE_EDGE_PX = 1024
 
 const STRIPPED_ENV_KEYS = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'CODEX_API_KEY']
 
+/** Runs `fn` with a private temp directory that is always deleted afterwards. */
+async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
+  const dir = await mkdtemp(join(tmpdir(), 'wivwav-image-analysis-'))
+  try {
+    return await fn(dir)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
 function extensionFor(contentType: string): string {
   const subtype = contentType.split(';')[0]?.split('/')[1]?.trim().toLowerCase() ?? ''
   if (subtype === 'jpeg' || subtype === 'jpg') return 'jpg'
@@ -133,24 +143,30 @@ export class CliImageAnalysisProvider implements ImageAnalysisProvider {
 
   async analyze(input: ImageAnalysisInput): Promise<ImageAnalysisResult> {
     this.lastUsage = null
-    if (this.kind === 'claude-cli') {
-      const [result] = await this.runClaudeBatch([input])
-      return result!
-    }
-    const dir = await mkdtemp(join(tmpdir(), 'wivwav-image-analysis-'))
-    try {
+    if (this.kind === 'claude-cli') return this.analyzeWithClaude(input)
+    return this.analyzeWithCodex(input)
+  }
+
+  private async analyzeWithClaude(input: ImageAnalysisInput): Promise<ImageAnalysisResult> {
+    const [result] = await this.runClaudeBatch([input])
+    return result!
+  }
+
+  private analyzeWithCodex(input: ImageAnalysisInput): Promise<ImageAnalysisResult> {
+    return withTempDir(async (dir) => {
       const photo = await shrinkForModel(input.imageBytes, input.contentType, this.maxImageEdgePx)
       const fileName = `photo.${extensionFor(photo.contentType)}`
       await writeFile(join(dir, fileName), photo.bytes)
-
-      const env: NodeJS.ProcessEnv = { ...this.baseEnv }
-      for (const key of STRIPPED_ENV_KEYS) delete env[key]
-
-      const text = await this.runCodex(dir, fileName, env)
+      const text = await this.runCodex(dir, fileName, this.childEnv())
       return toAnalysisResult(extractJsonObject(text), input.schemaVersion)
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
+    })
+  }
+
+  /** Base environment with API keys removed so the CLI uses the subscription login. */
+  private childEnv(): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...this.baseEnv }
+    for (const key of STRIPPED_ENV_KEYS) delete env[key]
+    return env
   }
 
   private async runClaudeBatch(inputs: ImageAnalysisInput[]): Promise<ImageAnalysisResult[]> {
@@ -169,11 +185,9 @@ export class CliImageAnalysisProvider implements ImageAnalysisProvider {
     content.push({ type: 'text', text: buildAnalysisPrompt(count === 1 ? 'the attached photo' : 'the attached photos', count) })
     const message = JSON.stringify({ type: 'user', message: { role: 'user', content } })
 
-    const env: NodeJS.ProcessEnv = { ...this.baseEnv }
-    for (const key of STRIPPED_ENV_KEYS) delete env[key]
+    const env = this.childEnv()
     // An empty working directory so no project instructions can be picked up.
-    const dir = await mkdtemp(join(tmpdir(), 'wivwav-image-analysis-'))
-    try {
+    return withTempDir(async (dir) => {
       const args = [
         '-p',
         '--input-format', 'stream-json',
@@ -211,9 +225,7 @@ export class CliImageAnalysisProvider implements ImageAnalysisProvider {
       const items = extractJsonArray(final['result'])
       if (items.length !== count) throw new CliOutputError(`claude returned ${items.length} results for ${count} photos`)
       return items.map((item) => toAnalysisResult(item, schemaVersion))
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
+    })
   }
 
   private async runCodex(dir: string, fileName: string, env: NodeJS.ProcessEnv): Promise<string> {

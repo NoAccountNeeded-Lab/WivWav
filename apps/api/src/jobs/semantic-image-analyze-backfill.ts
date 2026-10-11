@@ -30,7 +30,7 @@
  *   provider (no real vision model is wired). Applying now stores empty
  *   `success` rows and marks every image analyzed, so a later real run
  *   would skip them. To try real analysis from a laptop use
- *   `semantic-image-analyze-local.ts` (#1112) instead.
+ *   `semantic-image-analyze-local-cli.ts` (#1112) instead.
  *
  * --source <sourceId>
  *   Scope the run to a single source for phased rollout.
