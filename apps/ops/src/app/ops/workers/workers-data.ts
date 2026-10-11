@@ -27,6 +27,8 @@ export interface ConnectedWorker {
   failed: number
   escalated: number
   totalDurationMs: number
+  /** Settled jobs with a known duration: the divisor for the average. */
+  timed: number
 }
 
 export interface QueueSummary {
@@ -98,6 +100,7 @@ function isConnectedWorker(row: unknown): row is ConnectedWorker {
     isNum(row.failed) &&
     isNum(row.escalated) &&
     isNum(row.totalDurationMs) &&
+    isNum(row.timed) &&
     typeof row.capabilities.chromium === 'boolean' &&
     typeof row.capabilities.httpEnrich === 'boolean' &&
     isNum(row.capabilities.maxConcurrentJobs)

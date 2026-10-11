@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { WorkerRegistry, newWorkerStats, type RegisteredWorker } from './registry.js'
+import { WorkerRegistry, newWorkerStats, recordOutcome, type RegisteredWorker } from './registry.js'
 
 function makeWorker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker {
   return {
@@ -183,5 +183,15 @@ describe('WorkerRegistry connection lifecycle', () => {
         .map((w) => w.connectionId)
         .sort(),
     ).toEqual(['a', 'b'])
+  })
+})
+
+describe('recordOutcome', () => {
+  it('only counts jobs with a known duration toward the average divisor', () => {
+    const s = newWorkerStats()
+    recordOutcome(s, 'q', 'completed', 3000)
+    recordOutcome(s, 'q', 'failed', undefined)
+    expect(s).toMatchObject({ completed: 1, failed: 1, totalDurationMs: 3000, timed: 1 })
+    expect(s.queues.get('q')).toMatchObject({ timed: 1, totalDurationMs: 3000 })
   })
 })

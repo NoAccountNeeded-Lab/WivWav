@@ -4,7 +4,7 @@ import { buildCorrelationId } from '@wivwav/types/worker-protocol'
 import type { WivWavLogger } from '@wivwav/logger'
 import type { WorkerJobEscalation } from '@wivwav/types/worker-protocol'
 import type { WorkerRegistry } from './registry.js'
-import { MAX_RECENT_JOBS } from './registry.js'
+import { MAX_RECENT_JOBS, recordOutcome } from './registry.js'
 
 /** How long a gateway processor rate-limits its queue when no worker qualifies. */
 export const NO_WORKER_RETRY_DELAY_MS = 15_000
@@ -242,18 +242,9 @@ export class WorkerDispatcher {
       const escalated = error instanceof CapabilityEscalationError
       const finishedAt = new Date()
       const durationMs = dispatchedAt ? finishedAt.getTime() - dispatchedAt.getTime() : undefined
-      const { stats } = worker
-      if (escalated) {
-        stats.escalated++
-      } else {
-        const q = stats.queues.get(entry.queueName) ?? { completed: 0, failed: 0, totalDurationMs: 0 }
-        stats.queues.set(entry.queueName, q)
-        for (const t of [stats, q]) {
-          if (error) t.failed++
-          else t.completed++
-          t.totalDurationMs += durationMs ?? 0
-        }
-      }
+      const kind = escalated ? 'escalated' : error ? 'failed' : 'completed'
+      recordOutcome(worker.stats, entry.queueName, kind, durationMs)
+      recordOutcome(this.registry.fleet, entry.queueName, kind, durationMs)
       worker.recentJobs.unshift({
         queueName: entry.queueName,
         correlationId,

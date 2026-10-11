@@ -5,7 +5,7 @@ import { fmtDuration, type QueueSummary, type WorkersSummary } from './workers-d
 
 const pct = (n: number | null) => (n === null ? '—' : `${(n * 100).toFixed(1)}%`)
 
-export function FleetSummary({ summary, idle, stale }: { summary: WorkersSummary; idle: number; stale: number }) {
+export function FleetSummary({ summary, busy, idle, stale }: { summary: WorkersSummary; busy: number; idle: number; stale: number }) {
   const util = summary.capacity > 0 ? Math.round((summary.inFlight / summary.capacity) * 100) : 0
   const slowest = summary.queues
     .filter((q) => q.avgDurationMs !== null)
@@ -15,7 +15,7 @@ export function FleetSummary({ summary, idle, stale }: { summary: WorkersSummary
       <div className={css.stat}>
         <div className={css.statLabel}><Server size={16} aria-hidden="true" />Workers</div>
         <div className={css.statValue}>{summary.workers}</div>
-        <div className={css.statSub}>{summary.busyWorkers} busy · {idle} idle · {stale} stale</div>
+        <div className={css.statSub}>{busy} busy · {idle} idle · {stale} stale</div>
       </div>
       <div className={css.stat}>
         <div className={css.statLabel}><Gauge size={16} aria-hidden="true" />Capacity in use</div>
@@ -58,7 +58,7 @@ export function QueueTable({ queues }: { queues: QueueSummary[] }) {
         <p className={css.muted}>No jobs have run yet.</p>
       ) : (
         <div className={css.queueWrap}>
-          <table className={css.queueTable}>
+          <table className={css.queueTable} aria-labelledby="wd-queues">
             <thead>
               <tr>
                 <th scope="col">Queue</th>
