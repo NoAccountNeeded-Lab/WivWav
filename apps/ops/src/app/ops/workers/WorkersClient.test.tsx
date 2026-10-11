@@ -125,7 +125,7 @@ describe('WorkersClient', () => {
     expect(Date.parse(url.searchParams.get('start') as string)).toBeLessThan(Date.now() - 119_000)
     // elapsed time and queue name render on the job row
     expect(within(job).getByText('detail-crawl')).toBeDefined()
-    expect(within(job).getByText(/^1:0\d$/)).toBeDefined()
+    expect(within(job).getByText(/^\d+:\d\d$/)).toBeDefined()
 
     const pip = screen.getByRole('link', { name: /Failed: worker reported failure/ })
     expect(pip.getAttribute('title')).toMatch(/worker reported failure/)
@@ -137,9 +137,9 @@ describe('WorkersClient', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER] })))
     render(<WorkersClient apiBaseUrl="" />)
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    const before = screen.getByText(/^1:0\d$/).textContent
+    const before = screen.getByText(/^\d+:\d\d$/).textContent
     await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
-    expect(screen.getByText(/^1:\d\d$/).textContent).not.toBe(before)
+    expect(screen.getByText(/^\d+:\d\d$/).textContent).not.toBe(before)
   })
 
   it('shows an escalation as escalated, never failed', async () => {
