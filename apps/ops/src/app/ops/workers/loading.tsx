@@ -4,8 +4,8 @@ import { OpsTableSkeleton } from '@/components/OpsTableSkeleton'
 export default function WorkersLoading() {
   return (
     <OpsRouteLoading
-      title="Connected workers"
-      intro="See which remote crawler workers are connected to the coordinator and how busy each one is."
+      title="Workers"
+      intro="Every connected crawler worker, what it is doing now, and fleet statistics."
       backHref="/ops"
       backLabel="← Operations"
     >

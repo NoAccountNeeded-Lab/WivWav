@@ -1,10 +1,20 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WorkersClient } from './WorkersClient'
 
-function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, json: async () => body } as Response
+const SUMMARY = {
+  workers: 1, busyWorkers: 1, inFlight: 1, capacity: 3, completed: 4, failed: 1, escalated: 0,
+  successRate: 0.8, avgDurationMs: 2000, jobsPerMinute: 2.5, statsSince: new Date().toISOString(),
+  queues: [{ queueName: 'source-scrape', running: 0, completed: 4, failed: 1, avgDurationMs: 2000 }],
+}
+const EMPTY_SUMMARY = {
+  ...SUMMARY, workers: 0, busyWorkers: 0, inFlight: 0, capacity: 0, completed: 0, failed: 0,
+  successRate: null, avgDurationMs: null, jobsPerMinute: null, statsSince: null, queues: [],
+}
+
+function jsonResponse(body: { data: unknown[]; summary?: unknown }): Response {
+  return { ok: true, status: 200, json: async () => ({ summary: body.data.length ? SUMMARY : EMPTY_SUMMARY, ...body }) } as Response
 }
 
 const WORKER = {
@@ -25,10 +35,16 @@ const WORKER = {
       correlationId: 'source-scrape:3',
       success: false,
       errorMessage: 'worker reported failure',
+      durationMs: 1500,
       finishedAt: new Date().toISOString(),
     },
   ],
   lastHeartbeatAt: new Date().toISOString(),
+  connectedAt: new Date().toISOString(),
+  completed: 4,
+  failed: 1,
+  escalated: 0,
+  totalDurationMs: 10_000,
 }
 
 const ESCALATED_WORKER = {
@@ -48,6 +64,11 @@ const ESCALATED_WORKER = {
     },
   ],
   lastHeartbeatAt: new Date().toISOString(),
+  connectedAt: new Date().toISOString(),
+  completed: 4,
+  failed: 1,
+  escalated: 0,
+  totalDurationMs: 10_000,
 }
 
 const IDLE_WORKER = {
@@ -58,6 +79,11 @@ const IDLE_WORKER = {
   inFlightJobs: [],
   recentJobs: [],
   lastHeartbeatAt: new Date().toISOString(),
+  connectedAt: new Date().toISOString(),
+  completed: 4,
+  failed: 1,
+  escalated: 0,
+  totalDurationMs: 10_000,
 }
 
 afterEach(() => {
@@ -67,88 +93,85 @@ afterEach(() => {
 })
 
 describe('WorkersClient', () => {
-  it('renders one row per worker with capabilities and in-flight/max count', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/workers')) return jsonResponse({ data: [WORKER] })
-      throw new Error(`Unexpected URL in test: ${url}`)
-    }))
-
+  it('renders the summary strip, per-queue table and one card per worker', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER, IDLE_WORKER] })))
     render(<WorkersClient apiBaseUrl="" />)
 
     expect(await screen.findByText('Desk laptop')).toBeDefined()
-    expect(screen.getByText('worker-1')).toBeDefined()
-    expect(screen.getByText('chromium: yes')).toBeDefined()
-    expect(screen.getByText('httpEnrich: no')).toBeDefined()
-    expect(screen.getByText('1 / 3')).toBeDefined()
-    expect(screen.getByRole('columnheader', { name: 'Current job' })).toBeDefined()
-    const rows = screen.getAllByRole('row')
-    expect(within(rows[1] as HTMLElement).getByText('detail-crawl')).toBeDefined()
-    expect(screen.getAllByRole('row')).toHaveLength(2) // header + one worker (detail row hidden)
+    expect(screen.getByText('Spare laptop')).toBeDefined()
+    expect(screen.getAllByRole('article')).toHaveLength(2)
+    const strip = screen.getByRole('region', { name: 'Fleet summary' })
+    expect(within(strip).getByText('80.0%')).toBeDefined()
+    expect(within(strip).getByText('2.5')).toBeDefined()
+    expect(screen.getByRole('img', { name: '33% of job slots in use' })).toBeDefined()
+    const queueLink = screen.getByRole('link', { name: 'source-scrape' })
+    expect(queueLink.getAttribute('href')).toBe('/ops/queues')
+    expect(screen.getByText(/reset when the API restarts/)).toBeDefined()
   })
 
-  it('shows the current job and expands to correlation id plus recent errors', async () => {
+  it('links the worker, current job and recent pips to the logs', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER] })))
-
     render(<WorkersClient apiBaseUrl="" />)
     await screen.findByText('Desk laptop')
 
-    const rowId = 'worker-details-worker-1-0'
-    const detailRow = () => document.getElementById(rowId) as HTMLTableRowElement
-    const expand = screen.getByRole('button', { name: 'Expand job details for Desk laptop' })
-    expect(expand.getAttribute('aria-expanded')).toBe('false')
-    expect(detailRow().hidden).toBe(true)
+    expect(screen.getByRole('link', { name: 'Desk laptop' }).getAttribute('href')).toBe('/ops/logs?search=Desk+laptop')
+    const job = screen.getByRole('link', { name: /detail-crawl:7/ })
+    const url = new URL(job.getAttribute('href') as string, 'http://x')
+    expect(url.pathname).toBe('/ops/logs')
+    expect(url.searchParams.get('search')).toBe('detail-crawl:7')
+    expect(Date.parse(url.searchParams.get('start') as string)).toBeLessThan(Date.now() - 119_000)
+    // elapsed time and queue name render on the job row
+    expect(within(job).getByText('detail-crawl')).toBeDefined()
+    expect(within(job).getByText(/^1:0\d$/)).toBeDefined()
 
-    fireEvent.click(expand)
-    expect(screen.getByRole('button', { name: 'Collapse job details for Desk laptop' }).getAttribute('aria-expanded')).toBe('true')
-    expect(detailRow().hidden).toBe(false)
-    expect(within(detailRow()).getByText('detail-crawl:7')).toBeDefined()
-    expect(within(detailRow()).getByText('failed')).toBeDefined()
-    expect(within(detailRow()).getByText('worker reported failure')).toBeDefined()
+    const pip = screen.getByRole('link', { name: /Failed: worker reported failure/ })
+    expect(pip.getAttribute('title')).toMatch(/worker reported failure/)
+    expect(new URL(pip.getAttribute('href') as string, 'http://x').searchParams.get('search')).toBe('source-scrape:3')
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse job details for Desk laptop' }))
-    expect(detailRow().hidden).toBe(true)
+  it('ticks the elapsed timer every second', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const before = screen.getByText(/^1:0\d$/).textContent
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(screen.getByText(/^1:\d\d$/).textContent).not.toBe(before)
   })
 
   it('shows an escalation as escalated, never failed', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [ESCALATED_WORKER] })))
-
     render(<WorkersClient apiBaseUrl="" />)
     await screen.findByText('Old laptop')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand job details for Old laptop' }))
-    const detail = document.getElementById('worker-details-worker-3-0') as HTMLElement
-    expect(within(detail).getByText('escalated')).toBeDefined()
-    expect(within(detail).queryByText('failed')).toBeNull()
+    const pip = screen.getByRole('link', { name: /^Escalated \(requeued\): worker requested capability/ })
+    expect(pip.getAttribute('data-kind')).toBe('esc')
+    expect(screen.queryByRole('link', { name: /^Failed/ })).toBeNull()
   })
 
-  it('shows an idle worker with no expand control', async () => {
+  it('shows an idle worker without a current job', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [IDLE_WORKER] })))
-
     render(<WorkersClient apiBaseUrl="" />)
     await screen.findByText('Spare laptop')
 
-    expect(screen.getByText('—')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /job details for/ })).toBeNull()
+    expect(screen.getByText(/Idle — waiting for work/)).toBeDefined()
   })
 
-  it('labels the heartbeat as received, never online, and explains ping/pong liveness', async () => {
+  it('explains that heartbeat is not proof of liveness', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER] })))
-
     render(<WorkersClient apiBaseUrl="" />)
     await screen.findByText('Desk laptop')
 
-    const table = screen.getByRole('table')
-    expect(within(table).getByRole('columnheader', { name: 'Last heartbeat received' })).toBeDefined()
     expect(screen.queryByText(/online/i)).toBeNull()
     expect(screen.getByText(/ping\/pong/)).toBeDefined()
   })
 
-  it('shows an empty state when no worker is connected', async () => {
+  it('shows an empty state, not NaN, when no worker is connected', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [] })))
-
     render(<WorkersClient apiBaseUrl="" />)
 
     expect(await screen.findByText(/No workers are connected/)).toBeDefined()
+    expect(document.body.textContent).not.toMatch(/NaN|0\/0/)
   })
 
   it('shows an error when the API fails', async () => {
@@ -196,7 +219,7 @@ describe('WorkersClient', () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ data: [WORKER] }))
-      .mockResolvedValue(jsonResponse({ data: [{ workerId: 'worker-2' }] }))
+      .mockResolvedValue(jsonResponse({ data: [{ workerId: 'worker-2' }], summary: SUMMARY }))
     vi.stubGlobal('fetch', fetchMock)
 
     render(<WorkersClient apiBaseUrl="" />)
@@ -209,7 +232,7 @@ describe('WorkersClient', () => {
   })
 
   it('rejects a body whose data is not an array', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: null })))
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: null }) }) as Response))
 
     render(<WorkersClient apiBaseUrl="" />)
 
