@@ -121,7 +121,8 @@ describe('WorkerDispatcher.dispatch', () => {
     })
     expect(worker.recentJobs[0]?.finishedAt).toBeInstanceOf(Date)
     expect(worker.recentJobs[0]?.durationMs).toBeGreaterThanOrEqual(0)
-    expect(worker.stats).toMatchObject({ completed: 0, failed: 1, escalated: 0 })
+    expect(worker.stats).toMatchObject({ completed: 0, failed: 1, escalated: 0, timed: 1 })
+    expect(registry.fleet).toMatchObject({ failed: 1, timed: 1 })
     expect(worker.stats.queues.get('detail-crawl')).toMatchObject({ completed: 0, failed: 1 })
   })
 
@@ -510,5 +511,6 @@ describe('WorkerDispatcher capability escalation (#1043)', () => {
     })
     expect(worker.stats).toMatchObject({ completed: 0, failed: 0, escalated: 1 })
     expect(worker.stats.queues.size).toBe(0)
+    expect(registry.fleet).toMatchObject({ escalated: 1, failed: 0, timed: 0 })
   })
 })

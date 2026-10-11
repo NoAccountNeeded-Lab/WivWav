@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import { describe, expect, it, vi } from 'vitest'
 import { adminAuthPlugin } from '../plugins/admin-auth.js'
-import { WorkerRegistry, newWorkerStats } from '../worker-gateway/registry.js'
+import { WorkerRegistry, newWorkerStats, recordOutcome } from '../worker-gateway/registry.js'
 import type { RegisteredWorker } from '../worker-gateway/registry.js'
 import { adminWorkersRoutes } from './admin-workers.js'
 
@@ -65,7 +65,7 @@ describe('GET /admin/workers', () => {
       data: [],
       summary: {
         workers: 0, busyWorkers: 0, inFlight: 0, capacity: 0, completed: 0, failed: 0, escalated: 0,
-        successRate: null, avgDurationMs: null, jobsPerMinute: null, statsSince: null, queues: [],
+        successRate: null, avgDurationMs: null, jobsPerMinute: expect.any(Number), statsSince: expect.any(String), queues: [],
       },
     })
     await app.close()
@@ -110,6 +110,7 @@ describe('GET /admin/workers', () => {
           failed: 0,
           escalated: 0,
           totalDurationMs: 0,
+          timed: 0,
         },
       ])
     expect(res.body).not.toContain('connectionId')
@@ -120,27 +121,31 @@ describe('GET /admin/workers', () => {
     await app.close()
   })
 
-  it('aggregates fleet totals and per-queue rows; escalations are not failures', async () => {
+  it('summarises fleet totals from the registry, surviving worker disconnect; escalations are not failures', async () => {
     const registry = new WorkerRegistry()
-    const stats = newWorkerStats(new Date(Date.now() - 10 * 60_000))
-    stats.completed = 8
-    stats.failed = 2
-    stats.escalated = 5
-    stats.totalDurationMs = 20_000
-    stats.queues.set('source-scrape', { completed: 8, failed: 2, totalDurationMs: 20_000 })
-    registry.register(worker({ stats }))
+    registry.startedAt.setTime(Date.now() - 10 * 60_000)
+    recordOutcome(registry.fleet, 'source-scrape', 'completed', 1000)
+    for (let i = 0; i < 7; i++) recordOutcome(registry.fleet, 'source-scrape', 'completed', 2000)
+    recordOutcome(registry.fleet, 'source-scrape', 'failed', 5000)
+    recordOutcome(registry.fleet, 'source-scrape', 'failed', undefined) // untimed: not in the divisor
+    for (let i = 0; i < 5; i++) recordOutcome(registry.fleet, 'source-scrape', 'escalated', 9999)
+    registry.register(worker())
     const app = await buildApp(registry)
-    const res = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
-    const { summary } = res.json()
+    const get = async () => (await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })).json().summary
+    const summary = await get()
     expect(summary).toMatchObject({
       workers: 1, busyWorkers: 1, inFlight: 2, capacity: 3,
-      completed: 8, failed: 2, escalated: 5, successRate: 0.8, avgDurationMs: 2000,
+      completed: 8, failed: 2, escalated: 5, successRate: 0.8,
     })
+    expect(summary.avgDurationMs).toBeCloseTo(20_000 / 9, 3) // 9 timed jobs, the untimed one is excluded
     expect(summary.jobsPerMinute).toBeCloseTo(1, 1)
+    expect(summary.statsSince).toBe(registry.startedAt.toISOString())
     expect(summary.queues).toEqual([
-      { queueName: 'source-scrape', running: 1, completed: 8, failed: 2, avgDurationMs: 2000 },
+      { queueName: 'source-scrape', running: 1, completed: 8, failed: 2, avgDurationMs: 20_000 / 9 },
       { queueName: 'detail-crawl', running: 1, completed: 0, failed: 0, avgDurationMs: null },
     ])
+    registry.unregister('conn-1')
+    expect(await get()).toMatchObject({ workers: 0, completed: 8, failed: 2 })
     await app.close()
   })
 })

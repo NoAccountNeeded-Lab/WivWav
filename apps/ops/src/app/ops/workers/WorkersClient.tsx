@@ -7,7 +7,7 @@ import styles from '../ops.module.css'
 import workerStyles from './WorkersClient.module.css'
 import { ACTION_ICONS } from '../action-icons'
 import { FleetSummary, QueueTable } from './FleetSummary'
-import { WorkerCard, workerStatus } from './WorkerCard'
+import { PIP_GLYPH, WorkerCard, workerStatus } from './WorkerCard'
 import { parseWorkers, type WorkersPayload } from './workers-data'
 
 interface WorkersClientProps {
@@ -69,6 +69,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
 
   const workers = data?.workers ?? null
   const stale = workers ? workers.filter((w) => workerStatus(w, now) === 'stale').length : 0
+  const busy = workers ? workers.filter((w) => workerStatus(w, now) === 'busy').length : 0
   const idle = workers ? workers.filter((w) => workerStatus(w, now) === 'idle').length : 0
 
   return (
@@ -119,7 +120,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
           <p className={styles.empty}>No workers are connected. Start a worker (for example with make worker), then refresh.</p>
         ) : (
           <div className={workerStyles.page}>
-            <FleetSummary summary={data.summary} idle={idle} stale={stale} />
+            <FleetSummary summary={data.summary} busy={busy} idle={idle} stale={stale} />
             <div className={workerStyles.split}>
               <section aria-labelledby="wd-workers" className={workerStyles.fleet}>
                 <div className={workerStyles.fleetHead}>
@@ -127,7 +128,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
                   <ul aria-label="Legend" className={workerStyles.legend}>
                     <li><span className={workerStyles.pip} data-kind="ok" aria-hidden="true" />Succeeded</li>
                     <li><span className={workerStyles.pip} data-kind="fail" aria-hidden="true">×</span>Failed</li>
-                    <li><span className={workerStyles.pip} data-kind="esc" aria-hidden="true" />Escalated (requeued)</li>
+                    <li><span className={workerStyles.pip} data-kind="esc" aria-hidden="true">{PIP_GLYPH.esc}</span>Escalated (requeued)</li>
                   </ul>
                 </div>
                 <div className={workerStyles.cards}>

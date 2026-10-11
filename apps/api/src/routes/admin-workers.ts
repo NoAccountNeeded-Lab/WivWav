@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { WorkerCapabilities } from '@wivwav/types/worker-protocol'
-import type { RegisteredWorker, WorkerRegistry } from '../worker-gateway/registry.js'
+import type { WorkerRegistry } from '../worker-gateway/registry.js'
 
 export interface AdminWorkersPluginOptions {
   registry: WorkerRegistry
@@ -31,7 +31,7 @@ export interface QueueSummary {
   avgDurationMs: number | null
 }
 
-/** Fleet totals since the API started (in-memory; reset on restart). */
+/** Fleet totals since the API started (in-memory on the registry; survive worker reconnects, reset on restart). */
 export interface WorkersSummary {
   workers: number
   busyWorkers: number
@@ -43,10 +43,10 @@ export interface WorkersSummary {
   /** completed / (completed + failed); null when nothing has settled. */
   successRate: number | null
   avgDurationMs: number | null
-  /** Settled (completed + failed) jobs per minute since the earliest connectedAt; null with no workers. */
+  /** Settled (completed + failed) jobs per minute since the API started. */
   jobsPerMinute: number | null
-  /** Earliest `connectedAt` across workers; null with no workers. */
-  statsSince: string | null
+  /** When the API (registry) started. */
+  statsSince: string
   queues: QueueSummary[]
 }
 
@@ -75,58 +75,47 @@ export interface ConnectedWorkerSummary {
   failed: number
   escalated: number
   totalDurationMs: number
+  /** Settled jobs with a known duration — the divisor for this worker's average. */
+  timed: number
 }
 
-const avg = (totalMs: number, n: number): number | null => (n > 0 ? totalMs / n : null)
+const avg = (totalMs: number, timed: number): number | null => (timed > 0 ? totalMs / timed : null)
 
-function summarize(workers: RegisteredWorker[], now: Date): WorkersSummary {
-  const queues = new Map<string, QueueSummary & { totalDurationMs: number }>()
-  const row = (queueName: string) => {
-    let q = queues.get(queueName)
-    if (!q) {
-      q = { queueName, running: 0, completed: 0, failed: 0, avgDurationMs: null, totalDurationMs: 0 }
-      queues.set(queueName, q)
-    }
-    return q
-  }
-  let completed = 0
-  let failed = 0
-  let escalated = 0
-  let totalDurationMs = 0
+function summarize(registry: WorkerRegistry, now: Date): WorkersSummary {
+  const workers = registry.list()
+  const { fleet } = registry
+  const running = new Map<string, number>()
   for (const w of workers) {
-    completed += w.stats.completed
-    failed += w.stats.failed
-    escalated += w.stats.escalated
-    totalDurationMs += w.stats.totalDurationMs
-    for (const [name, qs] of w.stats.queues) {
-      const q = row(name)
-      q.completed += qs.completed
-      q.failed += qs.failed
-      q.totalDurationMs += qs.totalDurationMs
-    }
-    for (const job of w.jobs.values()) row(job.queueName).running++
+    for (const job of w.jobs.values()) running.set(job.queueName, (running.get(job.queueName) ?? 0) + 1)
   }
-  const settled = completed + failed
-  const since = workers.reduce<Date | undefined>(
-    (min, w) => (!min || w.stats.connectedAt < min ? w.stats.connectedAt : min),
-    undefined,
-  )
-  const minutes = since ? (now.getTime() - since.getTime()) / 60_000 : 0
+  const names = new Set([...fleet.queues.keys(), ...running.keys()])
+  const queues = [...names]
+    .map((queueName) => {
+      const q = fleet.queues.get(queueName)
+      return {
+        queueName,
+        running: running.get(queueName) ?? 0,
+        completed: q?.completed ?? 0,
+        failed: q?.failed ?? 0,
+        avgDurationMs: q ? avg(q.totalDurationMs, q.timed) : null,
+      }
+    })
+    .sort((a, b) => b.completed + b.failed + b.running - (a.completed + a.failed + a.running))
+  const settled = fleet.completed + fleet.failed
+  const minutes = (now.getTime() - registry.startedAt.getTime()) / 60_000
   return {
     workers: workers.length,
     busyWorkers: workers.filter((w) => w.inFlight.size > 0).length,
     inFlight: workers.reduce((n, w) => n + w.inFlight.size, 0),
     capacity: workers.reduce((n, w) => n + w.capabilities.maxConcurrentJobs, 0),
-    completed,
-    failed,
-    escalated,
-    successRate: settled > 0 ? completed / settled : null,
-    avgDurationMs: avg(totalDurationMs, settled),
-    jobsPerMinute: since && minutes > 0 ? settled / minutes : null,
-    statsSince: since?.toISOString() ?? null,
-    queues: [...queues.values()]
-      .map(({ totalDurationMs: t, ...q }) => ({ ...q, avgDurationMs: avg(t, q.completed + q.failed) }))
-      .sort((a, b) => b.completed + b.failed + b.running - (a.completed + a.failed + a.running)),
+    completed: fleet.completed,
+    failed: fleet.failed,
+    escalated: fleet.escalated,
+    successRate: settled > 0 ? fleet.completed / settled : null,
+    avgDurationMs: avg(fleet.totalDurationMs, fleet.timed),
+    jobsPerMinute: minutes > 0 ? settled / minutes : null,
+    statsSince: registry.startedAt.toISOString(),
+    queues,
   }
 }
 
@@ -166,7 +155,8 @@ export const adminWorkersRoutes: FastifyPluginAsync<AdminWorkersPluginOptions> =
       failed: worker.stats.failed,
       escalated: worker.stats.escalated,
       totalDurationMs: worker.stats.totalDurationMs,
+      timed: worker.stats.timed,
     }))
-    return reply.send({ data, summary: summarize(registry.list(), new Date()) })
+    return reply.send({ data, summary: summarize(registry, new Date()) })
   })
 }

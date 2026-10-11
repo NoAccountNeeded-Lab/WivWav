@@ -16,6 +16,8 @@ function pipKind(job: RecentJob): Pip {
   return job.escalated ? 'esc' : job.success ? 'ok' : 'fail'
 }
 
+export const PIP_GLYPH: Record<Pip, string> = { ok: '', fail: '×', esc: '↻' }
+
 const PIP_LABEL: Record<Pip, string> = { ok: 'Succeeded', fail: 'Failed', esc: 'Escalated (requeued)' }
 
 function pipLabel(job: RecentJob): string {
@@ -33,20 +35,21 @@ const STATUS_LABEL = { busy: 'Busy', idle: 'Idle', stale: 'Heartbeat overdue' } 
 
 export function WorkerCard({ worker, now }: { worker: ConnectedWorker; now: number }) {
   const status = workerStatus(worker, now)
-  const settled = worker.completed + worker.failed
-  const avg = settled > 0 ? worker.totalDurationMs / settled : null
+  const avg = worker.timed > 0 ? worker.totalDurationMs / worker.timed : null
   const hb = Math.max(0, Math.round((now - Date.parse(worker.lastHeartbeatAt)) / 1000))
   const max = worker.capabilities.maxConcurrentJobs
-  const slots = Array.from({ length: max }, (_, i) => i < worker.inFlightCount)
+  const slots = Array.from({ length: Math.max(0, max) }, (_, i) => i < worker.inFlightCount)
 
   return (
     <article className={css.card} data-status={status}>
       <div className={css.cardHead}>
         <span className={css.dot} data-status={status} aria-hidden="true" />
         <div className={css.cardTitle}>
-          <Link className={css.workerLink} href={logsHref(worker.workerName)} title="Open this worker's logs">
-            {worker.workerName}
-          </Link>
+          <h3 className={css.workerHeading}>
+            <Link className={css.workerLink} href={logsHref(worker.workerName)} title="Open this worker's logs">
+              {worker.workerName}
+            </Link>
+          </h3>
           <span className={css.status} data-status={status}>{STATUS_LABEL[status]}</span>
         </div>
         {worker.capabilities.chromium ? (
@@ -84,7 +87,8 @@ export function WorkerCard({ worker, now }: { worker: ConnectedWorker; now: numb
       </div>
 
       <div className={css.cardFoot}>
-        <span>
+        <span title="Counted since this worker connected; resets if it reconnects">
+          <span className="sr-only">Since connected: </span>
           <span className={css.mono}>{worker.completed}</span> done ·{' '}
           <span className={css.mono} data-bad={worker.failed > 0}>{worker.failed}</span> failed
           {worker.escalated > 0 ? <> · <span className={css.mono}>{worker.escalated}</span> escalated</> : null}
@@ -98,7 +102,7 @@ export function WorkerCard({ worker, now }: { worker: ConnectedWorker; now: numb
             return (
               <li key={`${job.correlationId}-${job.finishedAt}-${i}`}>
                 <Link className={css.pip} data-kind={kind} href={logsHref(job.correlationId, start)} title={label} aria-label={label}>
-                  <span aria-hidden="true">{kind === 'fail' ? '×' : ''}</span>
+                  <span aria-hidden="true">{PIP_GLYPH[kind]}</span>
                 </Link>
               </li>
             )

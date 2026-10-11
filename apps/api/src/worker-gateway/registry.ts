@@ -57,16 +57,48 @@ export interface QueueStats {
   completed: number
   failed: number
   totalDurationMs: number
+  /** completed + failed jobs whose duration was known; the divisor for averages. */
+  timed: number
 }
 
-export interface WorkerStats extends QueueStats {
-  connectedAt: Date
+export interface FleetStats extends QueueStats {
   escalated: number
   queues: Map<string, QueueStats>
 }
 
+/** Per-connection counters; fleet-wide totals live on the registry and survive reconnects. */
+export interface WorkerStats extends FleetStats {
+  connectedAt: Date
+}
+
+export function newFleetStats(): FleetStats {
+  return { completed: 0, failed: 0, escalated: 0, totalDurationMs: 0, timed: 0, queues: new Map() }
+}
+
+/** Record one settled job into a stats bucket. An escalation is counted apart and never timed. */
+export function recordOutcome(
+  stats: FleetStats,
+  queueName: string,
+  kind: 'completed' | 'failed' | 'escalated',
+  durationMs: number | undefined,
+): void {
+  if (kind === 'escalated') {
+    stats.escalated++
+    return
+  }
+  const q = stats.queues.get(queueName) ?? { completed: 0, failed: 0, totalDurationMs: 0, timed: 0 }
+  stats.queues.set(queueName, q)
+  for (const t of [stats, q]) {
+    t[kind]++
+    if (durationMs !== undefined) {
+      t.totalDurationMs += durationMs
+      t.timed++
+    }
+  }
+}
+
 export function newWorkerStats(connectedAt: Date = new Date()): WorkerStats {
-  return { connectedAt, completed: 0, failed: 0, escalated: 0, totalDurationMs: 0, queues: new Map() }
+  return { connectedAt, ...newFleetStats() }
 }
 
 /** Cap on per-worker outcome history — operators need the last few, not a log. */
@@ -79,6 +111,9 @@ export const MAX_RECENT_JOBS = 5
  * how you get rate-limited or banned).
  */
 export class WorkerRegistry {
+  /** Fleet-wide totals since the API started; unlike per-worker stats they survive disconnects. */
+  readonly fleet: FleetStats = newFleetStats()
+  readonly startedAt = new Date()
   private readonly workers = new Map<string, RegisteredWorker>()
   private readonly sourceLocks = new Map<string, string>()
 

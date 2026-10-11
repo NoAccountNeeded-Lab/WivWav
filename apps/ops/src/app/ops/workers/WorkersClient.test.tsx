@@ -45,6 +45,7 @@ const WORKER = {
   failed: 1,
   escalated: 0,
   totalDurationMs: 10_000,
+  timed: 4,
 }
 
 const ESCALATED_WORKER = {
@@ -69,6 +70,7 @@ const ESCALATED_WORKER = {
   failed: 1,
   escalated: 0,
   totalDurationMs: 10_000,
+  timed: 4,
 }
 
 const IDLE_WORKER = {
@@ -84,6 +86,7 @@ const IDLE_WORKER = {
   failed: 1,
   escalated: 0,
   totalDurationMs: 10_000,
+  timed: 4,
 }
 
 afterEach(() => {
@@ -147,6 +150,28 @@ describe('WorkersClient', () => {
     const pip = screen.getByRole('link', { name: /^Escalated \(requeued\): worker requested capability/ })
     expect(pip.getAttribute('data-kind')).toBe('esc')
     expect(screen.queryByRole('link', { name: /^Failed/ })).toBeNull()
+    expect(pip.textContent).toBe('↻')
+  })
+
+  it('makes each worker a heading and names the queue table', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER, IDLE_WORKER] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    await screen.findByText('Desk laptop')
+
+    const h3s = screen.getAllByRole('heading', { level: 3 })
+    expect(h3s.map((h) => h.textContent)).toEqual(['Desk laptop', 'Spare laptop'])
+    expect(within(h3s[0] as HTMLElement).getByRole('link')).toBeDefined()
+    expect(screen.getByRole('table', { name: 'By queue' })).toBeDefined()
+    expect(screen.getByText('1 busy · 1 idle · 0 stale')).toBeDefined()
+  })
+
+  it('averages over timed jobs only and tolerates a bogus max concurrency', async () => {
+    const w = { ...WORKER, completed: 3, failed: 0, totalDurationMs: 6000, timed: 2, capabilities: { ...WORKER.capabilities, maxConcurrentJobs: -1 } }
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [w] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    await screen.findByText('Desk laptop')
+
+    expect(screen.getByText('3.0 s')).toBeDefined()
   })
 
   it('shows an idle worker without a current job', async () => {
