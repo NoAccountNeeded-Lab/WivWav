@@ -8,7 +8,7 @@ for migration ordering and rollback.
 `.github/workflows/ci.yml` is the only workflow that touches `main` and GHCR.
 There is no separate publish workflow and no staging registry:
 
-1. `docker` (matrix: api, web, ops, scraper, migrate) builds each service's
+1. `docker` (matrix: api, web, ops, worker, migrate) builds each service's
    **final** image stage exactly once — the same `runner`-stage (or, for
    `migrate`, single-stage) image that would run in production. On a push to
    `main` the built image is also saved as a workflow artifact.
@@ -40,9 +40,8 @@ artifacts. `e2e`, by contrast, rebuilds the `migrate`, `api`, and `web`
 images from the GitHub Actions build cache rather than loading those
 artifacts — same commit and cache scope give effectively identical layers,
 but `e2e` is not itself proof that it ran the identical tar `publish` later
-pushes. `e2e` also only exercises `migrate`, `api`, and `web`: `scraper` is
-covered separately by the `docker` job's own smoke test, and `ops` is built
-but not exercised by any E2E flow. Gating `publish` on `e2e` is still a net
+pushes. `e2e` also only exercises `migrate`, `api`, and `web`: `worker` and `ops` is built
+are built but not exercised by any E2E flow. Gating `publish` on `e2e` is still a net
 risk reduction — it stops production images from shipping while the core
 user-facing flow is provably broken — but it is a three-service smoke check
 gating five images, not a guarantee about every published service.
@@ -253,3 +252,23 @@ is the scripted drill that proves those backups actually restore. See
 `docs/data/backup-restore.md` for RPO/RTO, retention, access policy, and how
 to run a restore. Valkey has no equivalent backup — see
 `docs/data/valkey-state-audit.md` for why.
+
+## Worker (job-runner)
+
+The `worker` image is published to GHCR by digest like the others and pinned
+in the release manifest. `job-runner` in `docker-compose.prod.yml` sits behind
+the `worker` profile, so it never starts by default:
+
+```bash
+docker compose -f docker-compose.release.yml --profile worker up -d job-runner
+```
+
+`WORKER_TOKEN` is required with no default, and because compose interpolates
+inactive profiles too, **every host must set it in `.env.production`**, even
+one that never runs the worker. Set it to the same value as
+`INTERNAL_API_SECRET`: the API's worker gateway authenticates workers with
+`Authorization: Bearer {INTERNAL_API_SECRET}` (see
+`apps/api/src/plugins/worker-gateway-ws.test.ts`). `COORDINATOR_URL` defaults
+to `http://api:3001`; `WORKER_CAPABILITIES` and `WORKER_MAX_CONCURRENT_JOBS`
+default to `chromium=true` and `2`. The release-manifest selftest validates
+the manifest with and without `--profile worker`.

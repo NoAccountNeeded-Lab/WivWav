@@ -34,6 +34,9 @@ jobs:
           - service: ops
             file: docker/ops/Dockerfile
             target: runner
+          - service: worker
+            file: docker/worker/Dockerfile
+            target: runner
           - service: migrate
             file: docker/migrate/Dockerfile
             # 50% below the 1.52 GB baseline measured pre-#658, ARM64.
@@ -556,7 +559,7 @@ jobs:
         id: push
         run: |
           set -euo pipefail
-          for service in api web ops migrate; do
+          for service in api web ops worker migrate; do
             tar_path="/tmp/images/docker-image-${service}/${service}.tar"
             docker load -i "$tar_path"
 
@@ -586,12 +589,13 @@ jobs:
           API_DIGEST: ${{ steps.push.outputs.api }}
           WEB_DIGEST: ${{ steps.push.outputs.web }}
           OPS_DIGEST: ${{ steps.push.outputs.ops }}
+          WORKER_DIGEST: ${{ steps.push.outputs.worker }}
           MIGRATE_DIGEST: ${{ steps.push.outputs.migrate }}
         run: |
           set -euo pipefail
           mkdir -p release
           bash scripts/release-manifest.sh render release/docker-compose.release.yml \
-            "api=${API_DIGEST}" "web=${WEB_DIGEST}" "ops=${OPS_DIGEST}" "migrate=${MIGRATE_DIGEST}"
+            "api=${API_DIGEST}" "web=${WEB_DIGEST}" "ops=${OPS_DIGEST}" "worker=${WORKER_DIGEST}" "migrate=${MIGRATE_DIGEST}"
           bash scripts/release-manifest.sh verify release/docker-compose.release.yml
 
       - name: Upload release manifest artifact
