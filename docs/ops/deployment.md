@@ -40,8 +40,8 @@ artifacts. `e2e`, by contrast, rebuilds the `migrate`, `api`, and `web`
 images from the GitHub Actions build cache rather than loading those
 artifacts — same commit and cache scope give effectively identical layers,
 but `e2e` is not itself proof that it ran the identical tar `publish` later
-pushes. `e2e` also only exercises `migrate`, `api`, and `web`: `worker` and `ops` is built
-are built but not exercised by any E2E flow. Gating `publish` on `e2e` is still a net
+pushes. `e2e` also only exercises `migrate`, `api`, and `web`: `worker` and `ops` are built
+but not exercised by any E2E flow. Gating `publish` on `e2e` is still a net
 risk reduction — it stops production images from shipping while the core
 user-facing flow is provably broken — but it is a three-service smoke check
 gating five images, not a guarantee about every published service.
