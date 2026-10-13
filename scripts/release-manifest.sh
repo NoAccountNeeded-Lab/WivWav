@@ -80,6 +80,11 @@ selftest() {
     "${c[@]}" --profile worker config --quiet
     "${c[@]}" --profile worker config | grep -q "wivwav/worker@${b}" \
       || fail "selftest: worker digest not resolved"
+    local out; out="$("${c[@]}" --profile worker config)"
+    echo "$out" | grep -q 'shm_size: "1073741824"\|shm_size: 1073741824\|shm_size: 1gb' || fail "selftest: shm_size missing"
+    echo "$out" | grep -qE 'mem_limit: "?(2147483648|2g)' || fail "selftest: mem_limit missing"
+    echo "$out" | grep -qE 'cpus: "?1\.5' || fail "selftest: cpus missing"
+    if echo "$out" | grep -q 'ipc: host'; then fail "selftest: job-runner uses host IPC"; fi
     if ( env -u WORKER_TOKEN docker compose -f "$dir/m.yml" --env-file <(grep -v '^WORKER_TOKEN=' "$env") config --quiet ) 2>/dev/null; then
       fail "selftest: manifest resolved without WORKER_TOKEN"
     fi
