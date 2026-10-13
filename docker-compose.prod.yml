@@ -140,6 +140,31 @@ services:
       retries: 10
       start_period: 30s
 
+  # Data-collector worker. Never starts by default: enable with
+  # `docker compose --profile worker up -d job-runner`. WORKER_TOKEN must equal
+  # the coordinator's INTERNAL_API_SECRET and has no default on purpose.
+  job-runner:
+    image: ghcr.io/noaccountneeded-lab/wivwav/worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [worker]
+    init: true
+    ipc: host
+    security_opt:
+      - seccomp=./docker/chromium-seccomp.json
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      COORDINATOR_URL: ${COORDINATOR_URL:-http://api:3001}
+      WORKER_TOKEN: ${WORKER_TOKEN:?set WORKER_TOKEN}
+      WORKER_CAPABILITIES: ${WORKER_CAPABILITIES:-chromium=true}
+      WORKER_MAX_CONCURRENT_JOBS: ${WORKER_MAX_CONCURRENT_JOBS:-2}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: json
+    tmpfs:
+      - /tmp:size=512m
+    depends_on:
+      api:
+        condition: service_healthy
+
   web:
     image: ghcr.io/noaccountneeded-lab/wivwav/web@sha256:0000000000000000000000000000000000000000000000000000000000000000
     restart: unless-stopped

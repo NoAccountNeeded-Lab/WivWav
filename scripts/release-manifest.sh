@@ -14,7 +14,7 @@
 set -euo pipefail
 
 TEMPLATE="${TEMPLATE:-docker-compose.prod.yml}"
-SERVICES="api web ops migrate"
+SERVICES="api web ops worker migrate"
 ZERO="sha256:0000000000000000000000000000000000000000000000000000000000000000"
 
 fail() { echo "release-manifest: $*" >&2; exit 1; }
@@ -57,19 +57,34 @@ selftest() {
   local a="sha256:$(printf 'a%.0s' {1..64})" b="sha256:$(printf 'b%.0s' {1..64})"
   # The committed template must be rejected as a deployable manifest.
   if ( verify "$TEMPLATE" ) 2>/dev/null; then fail "selftest: template passed verify"; fi
-  render "$dir/m.yml" "api=$a" "web=$b" "ops=$a" "migrate=$b"
+  render "$dir/m.yml" "api=$a" "web=$b" "ops=$a" "worker=$b" "migrate=$b"
   verify "$dir/m.yml"
   # Partial digests must not render.
   if ( render "$dir/bad.yml" "api=$a" ) 2>/dev/null; then fail "selftest: partial render succeeded"; fi
   if [ -n "${COMPOSE_VALIDATE:-}" ]; then
     local env="$dir/env"
     for v in CONFIG_ENCRYPTION_SECRET CORS_ORIGIN DATABASE_URL INTERNAL_API_SECRET MEILI_MASTER_KEY \
-      NEXT_PUBLIC_API_URL OPS_ADMIN_PASSWORD OPS_ADMIN_USERNAME OPS_SESSION_SECRET POSTGRES_PASSWORD POSTGRES_USER; do
+      NEXT_PUBLIC_API_URL OPS_ADMIN_PASSWORD OPS_ADMIN_USERNAME OPS_SESSION_SECRET POSTGRES_PASSWORD POSTGRES_USER WORKER_TOKEN; do
       echo "$v=placeholder" >> "$env"
     done
-    docker compose -f "$dir/m.yml" --env-file "$env" config --quiet
-    docker compose -f "$dir/m.yml" --env-file "$env" config | grep -q "wivwav/api@${a}" \
+    local c=(docker compose -f "$dir/m.yml" --env-file "$env")
+    "${c[@]}" config --quiet
+    "${c[@]}" config | grep -q "wivwav/api@${a}" \
       || fail "selftest: compose config did not resolve rendered digest"
+    # Profile off: job-runner must not be part of the default set.
+    if "${c[@]}" config --services | grep -qx job-runner; then
+      fail "selftest: job-runner active without --profile worker"
+    fi
+    # Profile on: worker digest pinned. WORKER_TOKEN is required (:?) even
+    # with the profile off, because compose interpolates inactive profiles.
+    "${c[@]}" --profile worker config --quiet
+    "${c[@]}" --profile worker config | grep -q "wivwav/worker@${b}" \
+      || fail "selftest: worker digest not resolved"
+    if ( env -u WORKER_TOKEN docker compose -f "$dir/m.yml" --env-file <(grep -v '^WORKER_TOKEN=' "$env") config --quiet ) 2>/dev/null; then
+      fail "selftest: manifest resolved without WORKER_TOKEN"
+    fi
+    # Minimal service set resolves.
+    "${c[@]}" config --quiet postgres pg-backup valkey meilisearch migrate api
   fi
   echo "release-manifest selftest ok"
 }
