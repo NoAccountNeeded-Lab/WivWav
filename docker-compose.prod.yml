@@ -147,7 +147,9 @@ services:
     image: ghcr.io/noaccountneeded-lab/wivwav/worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
     profiles: [worker]
     init: true
-    ipc: host
+    shm_size: ${WORKER_SHM_SIZE:-1gb}
+    mem_limit: ${WORKER_MEM_LIMIT:-2g}
+    cpus: ${WORKER_CPUS:-1.5}
     security_opt:
       - seccomp=./docker/chromium-seccomp.json
     restart: unless-stopped

@@ -272,3 +272,7 @@ one that never runs the worker. Set it to the same value as
 to `http://api:3001`; `WORKER_CAPABILITIES` and `WORKER_MAX_CONCURRENT_JOBS`
 default to `chromium=true` and `2`. The release-manifest selftest validates
 the manifest with and without `--profile worker`.
+
+The container gets `shm_size` (`WORKER_SHM_SIZE`, default `1gb`) for Chromium
+instead of host IPC, plus `WORKER_MEM_LIMIT` (default `2g`) and `WORKER_CPUS`
+(default `1.5`). On small hosts lower `WORKER_MAX_CONCURRENT_JOBS` to `1`.
