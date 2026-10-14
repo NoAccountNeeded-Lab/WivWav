@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
-vi.mock('../images/image-hasher.js', () => ({ hashImage: vi.fn() }))
+vi.mock('../images/image-hasher.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  hashImage: vi.fn(),
+}))
 vi.mock('../images/semantic-image-analysis.js', () => ({
   analyzeListingImage: vi.fn(),
   CURRENT_SEMANTIC_ANALYSIS_VERSION: 1,

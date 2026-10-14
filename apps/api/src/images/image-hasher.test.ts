@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 // Public-resolving DNS so the SSRF guard (safe-fetch) passes without network access.
 vi.mock('node:dns/promises', () => ({ lookup: vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }]) }))
 
-import { computeDHash, hammingDistance, hashImage, MAX_IMAGE_BYTES, PHASH_NEAR_DUPLICATE_THRESHOLD } from './image-hasher.js'
+import { computeDHash, describeHashFailure, hammingDistance, hashImage, MAX_IMAGE_BYTES, PHASH_NEAR_DUPLICATE_THRESHOLD } from './image-hasher.js'
 
 // ── hammingDistance unit tests ───────────────────────────────────────────────
 
@@ -185,5 +185,17 @@ describe('constants', () => {
   it('PHASH_NEAR_DUPLICATE_THRESHOLD should be a positive integer', () => {
     expect(PHASH_NEAR_DUPLICATE_THRESHOLD).toBeGreaterThan(0)
     expect(Number.isInteger(PHASH_NEAR_DUPLICATE_THRESHOLD)).toBe(true)
+  })
+})
+
+describe('describeHashFailure', () => {
+  it('appends the message when the failure has one', () => {
+    expect(describeHashFailure({ kind: 'decode_error', message: 'sharp is unavailable on this host' })).toBe(
+      'decode_error: sharp is unavailable on this host',
+    )
+  })
+
+  it('returns just the kind when there is no message', () => {
+    expect(describeHashFailure({ kind: 'timeout' })).toBe('timeout')
   })
 })

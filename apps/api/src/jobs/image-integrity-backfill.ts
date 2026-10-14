@@ -77,7 +77,7 @@ import '../lib/load-env.js'
 
 import { getDb, upsertListingImage, upsertImageCluster } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
-import { hashImage } from '../images/image-hasher.js'
+import { describeHashFailure, hashImage } from '../images/image-hasher.js'
 import type { ImageHasherOptions } from '../images/image-hasher.js'
 import { normalizeImageUrl, isSiteChromeUrl } from '../images/image-normalizer.js'
 import {
@@ -113,6 +113,8 @@ export interface ImageIntegrityBackfillReport {
   crossVehicleClusters: number
   /** Download failure breakdown by reason. */
   failuresByKind: Record<string, number>
+  /** First failure seen per kind, with its message (e.g. "sharp is unavailable"). */
+  failureExamples: Record<string, string>
   /** When sourceId was given, the source it was scoped to. */
   scopedToSourceId?: string
 }
@@ -136,6 +138,7 @@ async function runImageIntegrityBackfill(opts: {
     placeholderClusters: 0,
     crossVehicleClusters: 0,
     failuresByKind: {},
+    failureExamples: {},
     ...(opts.sourceId !== undefined ? { scopedToSourceId: opts.sourceId } : {}),
   }
 
@@ -209,6 +212,7 @@ async function runImageIntegrityBackfill(opts: {
       if (!outcome.ok) {
         report.downloadFailures++
         report.failuresByKind[outcome.kind] = (report.failuresByKind[outcome.kind] ?? 0) + 1
+        report.failureExamples[outcome.kind] ??= describeHashFailure(outcome)
         allAnalyzerImages.push({
           id: imageRecordId(listing.id, originalUrl),
           listingId: listing.id,
@@ -338,7 +342,7 @@ function printReport(report: ImageIntegrityBackfillReport, applied: boolean): vo
   if (report.downloadFailures > 0) {
     console.log('\n── Download failure breakdown ──')
     for (const [kind, count] of Object.entries(report.failuresByKind)) {
-      console.log(`  ${kind}: ${count}`)
+      console.log(`  ${kind}: ${count}  (e.g. ${report.failureExamples[kind] ?? kind})`)
     }
   }
 

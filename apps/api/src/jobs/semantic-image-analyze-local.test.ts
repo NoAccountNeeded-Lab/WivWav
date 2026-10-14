@@ -8,7 +8,10 @@ const disconnect = vi.fn(async () => {})
 
 vi.mock('@wivwav/db', () => ({ getDb: () => ({ $disconnect: disconnect, listing: { findMany: (...args: unknown[]) => listingFindMany(...args) }, listingImageSemanticAnalysis: { findMany: (...args: unknown[]) => analysisFindMany(...args) } }) }))
 vi.mock('../images/semantic-analysis-eligibility.js', () => ({ findEligibleImagesForSemanticAnalysis: findEligible }))
-vi.mock('../images/image-hasher.js', () => ({ hashImage }))
+vi.mock('../images/image-hasher.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  hashImage,
+}))
 vi.mock('../images/semantic-image-analysis.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   analyzeListingImage,

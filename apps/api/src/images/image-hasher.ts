@@ -57,6 +57,11 @@ export type ImageHashError =
   | { kind: 'fetch_error'; message: string }
   | { kind: 'decode_error'; message: string }
 
+/** Failure kind plus its message when it has one, so e.g. "sharp is unavailable" survives into job reports. */
+export function describeHashFailure(failure: ImageHashError): string {
+  return 'message' in failure ? `${failure.kind}: ${failure.message}` : failure.kind
+}
+
 export type ImageHashOutcome =
   | ({ ok: true } & ImageHashResult)
   | ({ ok: false } & ImageHashError)
