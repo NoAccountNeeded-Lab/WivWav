@@ -31,7 +31,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import sharp from 'sharp'
+import { loadSharp } from './load-sharp.js'
 import { CliOutputError, CLAUDE_SYSTEM_PROMPT, buildAnalysisPrompt, claudeUsage, codexUsage, extractJsonArray, extractJsonObject, toAnalysisResult } from './cli-output-parsers.js'
 import { spawnProcessRunner } from './cli-process-runner.js'
 import type { ProcessRunResult, ProcessRunner } from './cli-process-runner.js'
@@ -89,6 +89,7 @@ export async function shrinkForModel(
 ): Promise<{ bytes: Uint8Array; contentType: string }> {
   if (maxEdgePx <= 0) return { bytes, contentType }
   try {
+    const sharp = await loadSharp()
     const meta = await sharp(bytes).metadata()
     if (Math.max(meta.width ?? 0, meta.height ?? 0) <= maxEdgePx) return { bytes, contentType }
     const out = await sharp(bytes)

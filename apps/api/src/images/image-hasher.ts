@@ -28,7 +28,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import sharp from 'sharp'
+import { loadSharp } from './load-sharp.js'
 import { safeFetch } from '../util/safe-fetch.js'
 
 export const PHASH_NEAR_DUPLICATE_THRESHOLD = 10 // Hamming distance ≤ 10 → near-duplicate
@@ -187,6 +187,7 @@ export async function hashImage(
  */
 export async function computeDHash(imageBuffer: Buffer): Promise<string> {
   // Resize to 9×8 greyscale — 9 columns so each row yields 8 comparison bits.
+  const sharp = await loadSharp()
   const raw = await sharp(imageBuffer)
     .resize(9, 8, { fit: 'fill' })
     .greyscale()
