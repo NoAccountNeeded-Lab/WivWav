@@ -16,7 +16,7 @@
 import { getDb } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { report } from './job-progress.js'
-import { hashImage } from '../images/image-hasher.js'
+import { describeHashFailure, hashImage } from '../images/image-hasher.js'
 import { analyzeListingImage, CURRENT_SEMANTIC_ANALYSIS_VERSION } from '../images/semantic-image-analysis.js'
 import { NoopImageAnalysisProvider } from '../images/image-analysis-provider.js'
 import type { ImageAnalysisProvider } from '../images/image-analysis-provider.js'
@@ -58,8 +58,8 @@ export async function runSemanticImageAnalyzeJob(
 
   const outcome = await hashImage(image.normalizedUrl, { keepBytes: true })
   if (!outcome.ok) {
-    await report(context, `[semantic-image-analyze] ${image.id}: download failed (${outcome.kind})`)
-    throw new Error(`semantic-image-analyze: download failed for ${image.id}: ${outcome.kind}`)
+    await report(context, `[semantic-image-analyze] ${image.id}: download failed (${describeHashFailure(outcome)})`)
+    throw new Error(`semantic-image-analyze: download failed for ${image.id}: ${describeHashFailure(outcome)}`)
   }
 
   const row = await analyzeListingImage(db, provider, {

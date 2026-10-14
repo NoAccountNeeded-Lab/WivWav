@@ -8,7 +8,7 @@
 
 import { getDb } from '@wivwav/db'
 import type { PrismaClient } from '@wivwav/db'
-import { hashImage } from '../images/image-hasher.js'
+import { describeHashFailure, hashImage } from '../images/image-hasher.js'
 import { CliOutputError } from '../images/cli-output-parsers.js'
 import type {
   AnalysisUsage,
@@ -116,7 +116,7 @@ async function analyzeUrl(provider: ImageAnalysisProvider, url: string): Promise
   const started = Date.now()
   const seconds = () => round((Date.now() - started) / 1000, 1)
   const downloaded = await hashImage(url, { keepBytes: true })
-  if (!downloaded.ok) return { imageId: null, url, outcome: 'download_failed', detail: downloaded.kind, seconds: seconds() }
+  if (!downloaded.ok) return { imageId: null, url, outcome: 'download_failed', detail: describeHashFailure(downloaded), seconds: seconds() }
   const [analysed] = await analyzeInputs(provider, [
     {
       imageBytes: downloaded.bytes!,
@@ -182,7 +182,7 @@ async function analyzeListingGroup(
   for (const image of group) {
     const downloaded = await hashImage(image.normalizedUrl, { keepBytes: true })
     if (!downloaded.ok) {
-      entries.push({ imageId: image.id, listingId, url: image.normalizedUrl, outcome: 'download_failed', detail: downloaded.kind, seconds: 0 })
+      entries.push({ imageId: image.id, listingId, url: image.normalizedUrl, outcome: 'download_failed', detail: describeHashFailure(downloaded), seconds: 0 })
     } else {
       downloads.push({ image, downloaded })
     }
