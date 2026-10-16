@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
+import { ListingActions } from './ListingActions'
 
 /**
  * One #499 field-resolution conflict: a listing whose conversionType or
@@ -136,6 +137,7 @@ export function FieldConflictsClient({ apiBaseUrl }: FieldConflictsClientProps) 
                   <th>Evidence</th>
                   <th className={styles.num}>Observed</th>
                   <th>Source</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,6 +163,9 @@ export function FieldConflictsClient({ apiBaseUrl }: FieldConflictsClientProps) 
                       <a href={row.sourceUrl} target="_blank" rel="noopener noreferrer">
                         View listing
                       </a>
+                    </td>
+                    <td>
+                      <ListingActions listingId={row.listingId} apiBaseUrl={apiBaseUrl} />
                     </td>
                   </tr>
                 ))}
