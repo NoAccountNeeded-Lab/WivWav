@@ -188,6 +188,8 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   const [selectedQueue, setSelectedQueue] = useState<string | null>(null)
   const [queueDetail, setQueueDetail] = useState<QueueDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
+  const [jobFeedback, setJobFeedback] = useState<{ jobId: string; message: string; isError: boolean } | null>(null)
   const [syncState, setSyncState] = useState<ActionState>({ loading: false, feedback: null, isError: false })
 
   const refresh = useCallback(async () => {
@@ -257,6 +259,30 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
     } catch (err) {
       setAction(name, { loading: false, feedback: err instanceof Error ? err.message : 'Error', isError: true })
     }
+  }
+
+  async function runJobAction(queueName: string, jobId: string, action: 'cancel' | 'retry' | 'make-ready') {
+    setConfirmCancelId(null)
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(queueName)}/jobs/${encodeURIComponent(jobId)}/${action}`,
+        { method: 'POST' },
+      )
+      const body = (await res.json().catch(() => null)) as { data?: { message?: string }; error?: { message?: string } } | null
+      if (!res.ok) {
+        const reason = body?.error?.message ?? `Failed (${res.status})`
+        setJobFeedback({
+          jobId,
+          message: res.status === 409 ? `Job #${jobId} was not changed: ${reason}.` : reason,
+          isError: true,
+        })
+      } else {
+        setJobFeedback({ jobId, message: body?.data?.message ?? 'Done', isError: false })
+      }
+    } catch (err) {
+      setJobFeedback({ jobId, message: err instanceof Error ? err.message : 'Error', isError: true })
+    }
+    void refreshQueueDetail(queueName)
   }
 
   async function triggerSync() {
@@ -461,7 +487,58 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                                     />
                                     <span className={styles.muted}>attempts {job.attemptsMade}</span>
                                     <span className={styles.muted}><RelativeTimestamp value={job.createdAt} /></span>
+                                    <div className={styles.jobActions}>
+                                      {job.status === 'failed' && (
+                                        <button
+                                          className={`${styles.btn} ${styles.btnGhost} ${styles.btnIcon}`}
+                                          type="button"
+                                          aria-label={`Retry job #${job.id}`}
+                                          title="Retry (resets attempts)"
+                                          onClick={() => void runJobAction(q.name, job.id, 'retry')}
+                                        >
+                                          <ACTION_ICONS.retryJob size={14} aria-hidden="true" />
+                                        </button>
+                                      )}
+                                      {job.status === 'delayed' && (
+                                        <button
+                                          className={`${styles.btn} ${styles.btnGhost} ${styles.btnIcon}`}
+                                          type="button"
+                                          aria-label={`Make job #${job.id} ready now`}
+                                          title="Make ready now"
+                                          onClick={() => void runJobAction(q.name, job.id, 'make-ready')}
+                                        >
+                                          <ACTION_ICONS.makeReady size={14} aria-hidden="true" />
+                                        </button>
+                                      )}
+                                      {(job.status === 'waiting' || job.status === 'delayed') && (
+                                        <button
+                                          className={`${styles.btn} ${styles.btnDanger} ${styles.btnIcon}`}
+                                          type="button"
+                                          aria-label={`Cancel job #${job.id}`}
+                                          title="Cancel queued job"
+                                          onClick={() => setConfirmCancelId(job.id)}
+                                        >
+                                          <ACTION_ICONS.cancelJob size={14} aria-hidden="true" />
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
+                                  {confirmCancelId === job.id && (
+                                    <div role="group" aria-label={`Confirm cancel job #${job.id}`} className={styles.jobActions}>
+                                      <span>Remove queued job #{job.id}? This does not stop a worker already running it.</span>
+                                      <button className={`${styles.btn} ${styles.btnDanger}`} type="button" onClick={() => void runJobAction(q.name, job.id, 'cancel')}>
+                                        Remove job
+                                      </button>
+                                      <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => setConfirmCancelId(null)}>
+                                        Keep job
+                                      </button>
+                                    </div>
+                                  )}
+                                  {jobFeedback?.jobId === job.id && (
+                                    <p role={jobFeedback.isError ? 'alert' : 'status'} className={jobFeedback.isError ? styles.errorMsg : styles.muted}>
+                                      {jobFeedback.message}
+                                    </p>
+                                  )}
                                   <div className={styles.jobGrid}>
                                     <div>
                                       <h3 className={styles.jobSubhead}>Progress</h3>

@@ -1,11 +1,14 @@
 import {
   Activity,
+  Ban,
   CheckCircle2,
   Download,
+  FastForward,
   Pause,
   Pencil,
   Play,
   RefreshCw,
+  RotateCw,
   Save,
   Trash2,
   XCircle,
@@ -35,4 +38,7 @@ export const ACTION_ICONS = {
   save: Save,
   delete: Trash2,
   download: Download,
+  cancelJob: Ban,
+  retryJob: RotateCw,
+  makeReady: FastForward,
 } as const satisfies Record<string, LucideIcon>
