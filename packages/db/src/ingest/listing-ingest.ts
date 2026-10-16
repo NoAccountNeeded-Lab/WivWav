@@ -143,6 +143,7 @@ export async function ingestListing(
       sourceUpdatedAt: true,
       qualityIssueCodes: true,
       status: true,
+      detailScrapedAt: true,
     },
   })
 
@@ -328,6 +329,11 @@ export async function ingestListing(
       ].includes(field),
   )
 
+  // A detail-complete listing whose detail survives this card update keeps its
+  // publication decision: the card validator only saw card data and must not
+  // re-publish (or un-pend) what detail extraction decided (#1156).
+  const keepDecision = !resetDetail && existing.detailScrapedAt !== null
+
   await tx.listing.update({
     where: { id: existing.id },
     data: {
@@ -364,9 +370,13 @@ export async function ingestListing(
       scrapedAt: new Date(),
       status: 'active',
       goneAt: null,
-      publicationStatus: listing.publicationStatus ?? 'pending',
-      qualityIssueCodes: listing.qualityIssueCodes ?? [],
-      qualityCheckedAt: listing.qualityCheckedAt ?? null,
+      ...(keepDecision
+        ? {}
+        : {
+            publicationStatus: listing.publicationStatus ?? 'pending',
+            qualityIssueCodes: listing.qualityIssueCodes ?? [],
+            qualityCheckedAt: listing.qualityCheckedAt ?? null,
+          }),
       ...(resetDetail ? { detailScrapedAt: null } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
       ...(lastRunId != null ? { lastRunId } : {}),
