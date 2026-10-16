@@ -103,12 +103,14 @@ export async function resolveRow(
   row: PrismaListing,
   context: JobContext | undefined,
 ): Promise<ResolveOutcome> {
+  // #1157: operator-hidden listings are never published by a resolve pass.
+  if (row.manuallyHiddenAt) return 'quarantined'
   const issues = validateListing(toValidatorInput(row))
   const decision = decidePublication(issues)
 
   try {
     await db.listing.update({
-      where: { id: row.id, updatedAt: row.updatedAt },
+      where: { id: row.id, updatedAt: row.updatedAt, manuallyHiddenAt: null },
       data: {
         publicationStatus: decision.publicationStatus,
         qualityIssueCodes: decision.qualityIssueCodes,

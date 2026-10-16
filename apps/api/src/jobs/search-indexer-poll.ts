@@ -87,6 +87,7 @@ async function repairOrphanedSearchCatalog(
     where: {
       status: 'active',
       publicationStatus: 'eligible',
+      manuallyHiddenAt: null,
       source: { is: { status: { not: 'disabled' } } },
     },
   })

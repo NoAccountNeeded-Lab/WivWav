@@ -202,7 +202,7 @@ describe('PrismaListingRepository.findQuarantined', () => {
       skip: 0,
       take: 50,
       select: expect.objectContaining({
-        observations: { orderBy: { observedAt: 'desc' }, take: 1, select: { extractionVersion: true } },
+        observations: { where: { stage: { not: 'ops_action' } }, orderBy: { observedAt: 'desc' }, take: 1, select: { extractionVersion: true } },
       }),
     }))
     expect(result).toEqual([{

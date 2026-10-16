@@ -362,6 +362,12 @@ model Listing {
   publicationStatus ListingPublicationStatus @default(pending)
   qualityIssueCodes String[]                 @default([])
   qualityCheckedAt  DateTime?
+  /// #1157 operator manual suppression. Non-null = hidden: ingest and
+  /// listing-resolve must not move the row to `eligible` while set. Kept apart
+  /// from publicationStatus/qualityIssueCodes because scrape, detail-apply and
+  /// vin-enrich all overwrite those. Cleared by the `unhide` ops action.
+  manuallyHiddenAt  DateTime?
+  manualHideReason  String?
 
   /// Number of consecutive complete source crawls where this listing was absent.
   /// Incremented each time a complete crawl finishes without finding this listing.

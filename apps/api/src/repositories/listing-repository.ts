@@ -753,6 +753,7 @@ export class PrismaListingRepository implements ListingRepository {
         // Latest observation only — gives the extractor version that produced
         // the current (quarantined) field values, needed for repair.
         observations: {
+          where: { stage: { not: 'ops_action' } },
           orderBy: { observedAt: 'desc' },
           take: 1,
           select: { extractionVersion: true },

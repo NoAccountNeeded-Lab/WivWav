@@ -55,7 +55,7 @@ function makeDb(overrides: Record<string, unknown> = {}) {
   return {
     listing: {
       findMany: vi.fn().mockResolvedValue([]),
-      update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
     $disconnect: vi.fn().mockResolvedValue(undefined),
@@ -124,8 +124,8 @@ describe('runBackfill', () => {
     await runBackfill({ apply: true })
 
     expect(db.$transaction).toHaveBeenCalledTimes(1)
-    expect(db.listing.update).toHaveBeenCalledWith({
-      where: { id: 'l-1' },
+    expect(db.listing.updateMany).toHaveBeenCalledWith({
+      where: { id: 'l-1', manuallyHiddenAt: null },
       data: {
         publicationStatus: 'quarantined',
         qualityIssueCodes: expect.arrayContaining(['contains_space']),
@@ -141,7 +141,7 @@ describe('runBackfill', () => {
 
     await runBackfill({ apply: false })
 
-    expect(db.listing.update).not.toHaveBeenCalled()
+    expect(db.listing.updateMany).not.toHaveBeenCalled()
     expect(db.$transaction).not.toHaveBeenCalled()
   })
 
@@ -190,8 +190,8 @@ describe('runBackfill', () => {
     expect(secondReport.quarantined).toBe(1)
     expect(secondReport.issuesByRule).toEqual(firstReport.issuesByRule)
 
-    expect(db.listing.update).toHaveBeenCalledTimes(2)
-    const updateCalls = db.listing.update.mock.calls as unknown as Array<[{ data: Record<string, unknown> }]>
+    expect(db.listing.updateMany).toHaveBeenCalledTimes(2)
+    const updateCalls = db.listing.updateMany.mock.calls as unknown as Array<[{ data: Record<string, unknown> }]>
     const [firstUpdate, secondUpdate] = updateCalls.map(([arg]) => arg.data)
     expect(secondUpdate).toMatchObject({
       publicationStatus: firstUpdate!.publicationStatus,

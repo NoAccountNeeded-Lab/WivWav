@@ -364,12 +364,21 @@ export async function ingestListing(
       scrapedAt: new Date(),
       status: 'active',
       goneAt: null,
-      publicationStatus: listing.publicationStatus ?? 'pending',
-      qualityIssueCodes: listing.qualityIssueCodes ?? [],
-      qualityCheckedAt: listing.qualityCheckedAt ?? null,
       ...(resetDetail ? { detailScrapedAt: null } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
       ...(lastRunId != null ? { lastRunId } : {}),
+    },
+  })
+
+  // #1157: the publication decision is its own conditional UPDATE so a hide that
+  // commits at any point is never overwritten (the WHERE is re-checked under the
+  // row lock). A hidden listing stays out of public until an operator unhides it.
+  await tx.listing.updateMany({
+    where: { id: existing.id, manuallyHiddenAt: null },
+    data: {
+      publicationStatus: listing.publicationStatus ?? 'pending',
+      qualityIssueCodes: listing.qualityIssueCodes ?? [],
+      qualityCheckedAt: listing.qualityCheckedAt ?? null,
     },
   })
 
