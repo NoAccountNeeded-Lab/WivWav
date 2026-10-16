@@ -47,6 +47,9 @@ A generated OpenAPI 3 document is served at `GET /openapi.json` (Swagger UI at `
 | POST   | /admin/queues/:name/jobs       | Enqueue a job                        |
 | POST   | /admin/queues/:name/pause      | Pause a queue                        |
 | POST   | /admin/queues/:name/resume     | Resume a queue                       |
+| POST   | /internal/ops/queues/:name/jobs/:id/cancel | Remove one waiting or delayed job (#1152). Removes the queued attempt only; never stops a remote worker. 404 unknown queue/job; 409 `JOB_CONFLICT` when the job is active/locked or in another state (also when a worker claims it mid-request). Bearer-guarded under `/internal/ops`. Response `{ data: { id, action, message } }` |
+| POST   | /internal/ops/queues/:name/jobs/:id/retry | Move a failed job back to waiting with attempts reset (#1152). Same 404/409 and guard as cancel |
+| POST   | /internal/ops/queues/:name/jobs/:id/make-ready | Promote a delayed job to waiting (#1152). Same 404/409 and guard as cancel |
 | GET    | /admin/runs                    | Recent scraper runs (last 100) + sourceName |
 | GET    | /admin/sources                 | Sources with status plus observed-active and eligible-active listing counts |
 | POST   | /admin/sources/:id/run         | Enqueue an immediate source-scrape job |
