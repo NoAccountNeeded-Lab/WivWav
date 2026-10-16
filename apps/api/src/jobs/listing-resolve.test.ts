@@ -101,6 +101,12 @@ describe('resolveRow', () => {
     db = makeDb()
   })
 
+  it('never publishes an operator-hidden listing (#1157)', async () => {
+    const row = makeListingRow({ manuallyHiddenAt: new Date('2026-02-01') })
+    expect(await resolveRow(db as never, row as never, undefined)).toBe('quarantined')
+    expect(db.listing.update).not.toHaveBeenCalled()
+  })
+
   it('marks a clean listing eligible and writes the decision', async () => {
     const row = makeListingRow()
     const outcome = await resolveRow(db as never, row as never, undefined)
