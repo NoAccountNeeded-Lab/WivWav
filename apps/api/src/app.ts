@@ -42,6 +42,7 @@ import { marketRoutes } from './routes/market.js'
 import { dealerRoutes } from './routes/dealers.js'
 import { sourceRoutes } from './routes/sources.js'
 import { adminRoutes } from './routes/admin.js'
+import { internalOpsQueueJobsRoutes } from './routes/internal-ops-queue-jobs.js'
 import { adminVehicleIdentityRoutes } from './routes/admin-vehicle-identity.js'
 import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
@@ -423,6 +424,10 @@ export async function buildApp(
       await internalOpsScope.register(internalOpsProblemAckRoutes, {
         prefix: '/problem-ack',
         problemStates: problemStateRepo,
+      })
+      await internalOpsScope.register(internalOpsQueueJobsRoutes, {
+        prefix: '/queues',
+        queueFactory,
       })
       await internalOpsScope.register(internalOpsProblemAggregateRoutes, {
         prefix: '/problem-aggregate',

@@ -867,6 +867,27 @@ describe('GET /openapi.json', () => {
   })
 })
 
+describe('POST /internal/ops/queues/:name/jobs/:id/* (#1152)', () => {
+  it('rejects a missing or wrong bearer with 401 UNAUTHORIZED', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
+    const app = await appPromise
+
+    for (const action of ['cancel', 'retry', 'make-ready']) {
+      const url = `/internal/ops/queues/detail-crawl/jobs/1/${action}`
+      const missing = await app.inject({ method: 'POST', url })
+      expect(missing.statusCode).toBe(401)
+      const wrong = await app.inject({ method: 'POST', url, headers: { authorization: 'Bearer wrong-value' } })
+      expect(wrong.statusCode).toBe(401)
+      const ok = await app.inject({ method: 'POST', url, headers: { authorization: 'Bearer shared-secret-value' } })
+      expect(ok.statusCode).toBe(404)
+    }
+
+    await app.close()
+  })
+})
+
 describe('GET /admin/workers (#1038)', () => {
   it('rejects a missing or wrong bearer with 401 UNAUTHORIZED when an admin secret is configured', async () => {
     const { app: appPromise } = buildTestApp({
