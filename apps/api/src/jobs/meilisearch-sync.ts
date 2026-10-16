@@ -50,6 +50,7 @@ async function fetchOrderedIdPage(
     INNER JOIN sources ON sources.id = listings."sourceId"
     WHERE listings.status = 'active'
       AND listings."publicationStatus" = 'eligible'
+      AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
       ${cursorClause}
     ORDER BY COALESCE(listings."vehicleId", listings.id), listings.id
@@ -201,6 +202,7 @@ async function runFullRebuildInSnapshot(
     INNER JOIN sources ON sources.id = listings."sourceId"
     WHERE listings.status = 'active'
       AND listings."publicationStatus" = 'eligible'
+      AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
   `
   const activeCount = Number(activeCountRows[0]?.count ?? 0)
@@ -233,6 +235,7 @@ async function runFullRebuildInSnapshot(
           id: { in: idsInOrder },
           status: 'active',
           publicationStatus: 'eligible',
+          manuallyHiddenAt: null,
           source: { is: { status: { not: SourceStatus.disabled } } },
         },
       })

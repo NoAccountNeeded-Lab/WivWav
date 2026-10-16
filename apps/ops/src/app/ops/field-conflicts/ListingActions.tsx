@@ -1,14 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
 
-type Action = 'requeue-resolve' | 'requeue-vin-decode' | 'hide' | 'unhide' | 'mark-gone' | 'release-quarantine'
+type Action = 'requeue-resolve' | 'hide' | 'unhide' | 'mark-gone' | 'release-quarantine'
 
 const BUTTONS: { action: Action; label: string; icon: keyof typeof ACTION_ICONS; confirm: string; needsReason?: boolean }[] = [
   { action: 'requeue-resolve', label: 'Re-run validation', icon: 'refresh', confirm: 'Queue a fresh validation for this listing?' },
-  { action: 'requeue-vin-decode', label: 'Re-run VIN decode', icon: 'decodeVin', confirm: 'Queue the VIN decode job? It also processes other undecoded listings.' },
   { action: 'release-quarantine', label: 'Release from quarantine', icon: 'releaseQuarantine', confirm: 'Release this listing from quarantine and re-validate it?' },
   { action: 'hide', label: 'Hide from public', icon: 'hideListing', confirm: 'Hide this listing from search and the public site?', needsReason: true },
   { action: 'unhide', label: 'Restore hidden listing', icon: 'unhideListing', confirm: 'Restore this listing and re-validate it?' },
@@ -22,8 +21,20 @@ export function ListingActions({ listingId, apiBaseUrl }: { listingId: string; a
   const [feedback, setFeedback] = useState<{ message: string; isError: boolean } | null>(null)
   const current = BUTTONS.find((b) => b.action === pending)
 
+  const controlId = (action: Action) => `listing-${listingId}-${action}`
+  // Safe choice first: move focus into the confirm when it opens.
+  useEffect(() => {
+    if (pending) document.getElementById(`${controlId(pending)}-cancel`)?.focus()
+  }, [pending])
+
+  function escapeToOpener(e: React.KeyboardEvent) {
+    if (e.key === 'Escape' && pending) { setPending(null); document.getElementById(controlId(pending))?.focus() }
+  }
+
   async function run(action: Action) {
     setPending(null)
+    // The confirm unmounts; hand focus back to the control that opened it.
+    document.getElementById(controlId(action))?.focus()
     try {
       const res = await fetch(`${apiBaseUrl}/internal/ops/listings/${encodeURIComponent(listingId)}/actions`, {
         method: 'POST',
@@ -47,7 +58,7 @@ export function ListingActions({ listingId, apiBaseUrl }: { listingId: string; a
           return (
             <button
               key={action}
-              id={`listing-${listingId}-${action}`}
+              id={controlId(action)}
               className={`${styles.btn} ${styles.btnGhost}`}
               type="button"
               aria-label={label}
@@ -65,21 +76,24 @@ export function ListingActions({ listingId, apiBaseUrl }: { listingId: string; a
           {current.needsReason && (
             <label style={{ display: 'block' }}>
               Reason
-              <input type="text" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} style={{ marginLeft: '0.375rem' }} />
+              <input type="text" value={reason} maxLength={500} onKeyDown={escapeToOpener} onChange={(e) => setReason(e.target.value)} style={{ marginLeft: '0.375rem' }} />
             </label>
           )}
           <button
             className={`${styles.btn} ${styles.btnDanger}`}
             type="button"
+            onKeyDown={escapeToOpener}
             disabled={current.needsReason && reason.trim() === ''}
             onClick={() => void run(current.action)}
           >
             Confirm
           </button>
           <button
+            id={`${controlId(current.action)}-cancel`}
             className={`${styles.btn} ${styles.btnGhost}`}
             type="button"
-            onClick={() => { setPending(null); document.getElementById(`listing-${listingId}-${current.action}`)?.focus() }}
+            onKeyDown={escapeToOpener}
+            onClick={() => { setPending(null); document.getElementById(controlId(current.action))?.focus() }}
           >
             Cancel
           </button>

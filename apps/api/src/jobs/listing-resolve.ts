@@ -110,7 +110,7 @@ export async function resolveRow(
 
   try {
     await db.listing.update({
-      where: { id: row.id, updatedAt: row.updatedAt },
+      where: { id: row.id, updatedAt: row.updatedAt, manuallyHiddenAt: null },
       data: {
         publicationStatus: decision.publicationStatus,
         qualityIssueCodes: decision.qualityIssueCodes,

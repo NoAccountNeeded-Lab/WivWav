@@ -342,6 +342,7 @@ export async function syncListings(
             vehicleId: { in: [...touchedVehicleIds] },
             status: 'active',
             publicationStatus: 'eligible',
+            manuallyHiddenAt: null,
           },
         })
       : []
@@ -367,6 +368,7 @@ export async function syncListings(
             id: { in: touchedUngroupedIds },
             status: 'active',
             publicationStatus: 'eligible',
+            manuallyHiddenAt: null,
           },
         })
       : []

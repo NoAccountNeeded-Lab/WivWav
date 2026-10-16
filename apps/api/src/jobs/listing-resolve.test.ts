@@ -113,7 +113,7 @@ describe('resolveRow', () => {
 
     expect(outcome).toBe('eligible')
     expect(db.listing.update).toHaveBeenCalledWith({
-      where: { id: 'l-1', updatedAt: row.updatedAt },
+      where: { id: 'l-1', updatedAt: row.updatedAt, manuallyHiddenAt: null },
       data: {
         publicationStatus: 'eligible',
         qualityIssueCodes: [],
