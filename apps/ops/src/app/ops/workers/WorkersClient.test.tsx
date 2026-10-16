@@ -18,6 +18,8 @@ function jsonResponse(body: { data: unknown[]; summary?: unknown }): Response {
 }
 
 const WORKER = {
+  connectionId: 'conn-1',
+  accepting: true,
   workerId: 'worker-1',
   workerName: 'Desk laptop',
   capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 3 },
@@ -49,6 +51,8 @@ const WORKER = {
 }
 
 const ESCALATED_WORKER = {
+  connectionId: 'conn-3',
+  accepting: true,
   workerId: 'worker-3',
   workerName: 'Old laptop',
   capabilities: { chromium: false, httpEnrich: false, maxConcurrentJobs: 1 },
@@ -74,6 +78,8 @@ const ESCALATED_WORKER = {
 }
 
 const IDLE_WORKER = {
+  connectionId: 'conn-2',
+  accepting: true,
   workerId: 'worker-2',
   workerName: 'Spare laptop',
   capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 },
@@ -278,5 +284,37 @@ describe('WorkersClient', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
     expect(screen.queryByText('Desk laptop')).toBeNull()
     expect(screen.getByText(/No workers are connected/)).toBeDefined()
+  })
+
+  it('pauses a worker via the API and shows the paused state', async () => {
+    let paused = false
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        paused = String(url).endsWith('/pause')
+        return { ok: true, status: 200, json: async () => ({}) } as Response
+      }
+      return jsonResponse({ data: [{ ...IDLE_WORKER, accepting: !paused }] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<WorkersClient apiBaseUrl="/api/bff" />)
+    const pause = await screen.findByRole('button', { name: 'Pause Spare laptop' })
+    await act(async () => { pause.click() })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/bff/internal/ops/workers/conn-2/pause', { method: 'POST' })
+    expect(await screen.findByRole('button', { name: 'Resume Spare laptop' })).toBeDefined()
+    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Paused — not taking new work/)).toBeDefined()
+  })
+
+  it('reports a stale connection when resume returns 404', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? ({ ok: false, status: 404, json: async () => ({}) } as Response)
+        : jsonResponse({ data: [{ ...IDLE_WORKER, accepting: false }] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    const resume = await screen.findByRole('button', { name: 'Resume Spare laptop' })
+    await act(async () => { resume.click() })
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Could not resume Spare laptop: that worker has disconnected/)
   })
 })

@@ -8,7 +8,7 @@ import workerStyles from './WorkersClient.module.css'
 import { ACTION_ICONS } from '../action-icons'
 import { FleetSummary, QueueTable } from './FleetSummary'
 import { PIP_GLYPH, WorkerCard, workerStatus } from './WorkerCard'
-import { parseWorkers, type WorkersPayload } from './workers-data'
+import { parseWorkers, type ConnectedWorker, type WorkersPayload } from './workers-data'
 
 interface WorkersClientProps {
   apiBaseUrl: string
@@ -53,6 +53,26 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
       if (!isStale()) setIsRefreshing(false)
     }
   }, [apiBaseUrl])
+
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const toggle = useCallback(async (worker: ConnectedWorker) => {
+    const verb = worker.accepting ? 'pause' : 'resume'
+    setPendingId(worker.connectionId)
+    setActionError(null)
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/internal/ops/workers/${encodeURIComponent(worker.connectionId)}/${verb}`,
+        { method: 'POST' },
+      )
+      if (!res.ok) throw new Error(res.status === 404 ? 'that worker has disconnected' : `API returned ${res.status}`)
+    } catch (err) {
+      if (mounted.current) setActionError(`Could not ${verb} ${worker.workerName}: ${err instanceof Error ? err.message : 'failed'}`)
+    }
+    if (mounted.current) setPendingId(null)
+    await refresh()
+  }, [apiBaseUrl, refresh])
 
   useEffect(() => {
     mounted.current = true
@@ -112,6 +132,8 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
           </p>
         )}
 
+        {actionError && <p className={styles.error} role="alert">{actionError}</p>}
+
         {!data || !workers ? (
           error ? null : (
             <p className={styles.empty}>Loading connected workers. If this takes more than a few seconds, confirm the API is running and refresh.</p>
@@ -134,7 +156,13 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
                 <div className={workerStyles.cards}>
                   {workers.map((worker, index) => (
                     // A reconnecting worker briefly has two sockets sharing one workerId.
-                    <WorkerCard key={`${worker.workerId}-${index}`} worker={worker} now={now} />
+                    <WorkerCard
+                      key={`${worker.workerId}-${index}`}
+                      worker={worker}
+                      now={now}
+                      onToggle={(w) => void toggle(w)}
+                      pending={pendingId === worker.connectionId}
+                    />
                   ))}
                 </div>
               </section>

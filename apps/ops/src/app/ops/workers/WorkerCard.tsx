@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Globe, Zap, ChevronRight } from 'lucide-react'
+import { Globe, Zap, ChevronRight, Pause, Play } from 'lucide-react'
 import css from './WorkersClient.module.css'
 import {
   fmtDuration,
@@ -26,14 +26,23 @@ function pipLabel(job: RecentJob): string {
   return `${PIP_LABEL[kind]}${detail} — ${job.queueName}, open log trail`
 }
 
-export function workerStatus(worker: ConnectedWorker, now: number): 'busy' | 'idle' | 'stale' {
+export function workerStatus(worker: ConnectedWorker, now: number): 'busy' | 'idle' | 'stale' | 'paused' {
+  if (!worker.accepting) return 'paused'
   if (now - Date.parse(worker.lastHeartbeatAt) > STALE_HEARTBEAT_MS) return 'stale'
   return worker.inFlightCount > 0 ? 'busy' : 'idle'
 }
 
-const STATUS_LABEL = { busy: 'Busy', idle: 'Idle', stale: 'Heartbeat overdue' } as const
+const STATUS_LABEL = { busy: 'Busy', idle: 'Idle', stale: 'Heartbeat overdue', paused: 'Paused' } as const
 
-export function WorkerCard({ worker, now }: { worker: ConnectedWorker; now: number }) {
+interface WorkerCardProps {
+  worker: ConnectedWorker
+  now: number
+  /** Called to pause (accepting) or resume (paused) this worker; omitted = no control. */
+  onToggle?: (worker: ConnectedWorker) => void
+  pending?: boolean
+}
+
+export function WorkerCard({ worker, now, onToggle, pending = false }: WorkerCardProps) {
   const status = workerStatus(worker, now)
   const avg = worker.timed > 0 ? worker.totalDurationMs / worker.timed : null
   const hb = Math.max(0, Math.round((now - Date.parse(worker.lastHeartbeatAt)) / 1000))
@@ -58,6 +67,18 @@ export function WorkerCard({ worker, now }: { worker: ConnectedWorker; now: numb
         {worker.capabilities.httpEnrich ? (
           <span className={css.cap} title="HTTP enrich"><Zap size={16} aria-hidden="true" /><span className="sr-only">HTTP enrich</span></span>
         ) : null}
+        {onToggle ? (
+          <button
+            type="button"
+            className={css.pauseBtn}
+            onClick={() => onToggle(worker)}
+            disabled={pending}
+            aria-label={`${worker.accepting ? 'Pause' : 'Resume'} ${worker.workerName}`}
+            title={worker.accepting ? 'Pause: stop new jobs; running jobs finish' : 'Resume: accept new jobs'}
+          >
+            {worker.accepting ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+          </button>
+        ) : null}
         <div className={css.slots} role="img" aria-label={`${worker.inFlightCount} of ${max} job slots in use`}>
           {slots.map((used, i) => <span key={i} className={css.slot} data-used={used} />)}
         </div>
@@ -81,7 +102,11 @@ export function WorkerCard({ worker, now }: { worker: ConnectedWorker; now: numb
           })
         ) : (
           <div className={css.emptyJob}>
-            {status === 'stale' ? `No heartbeat for ${hb}s — not taking work` : 'Idle — waiting for work'}
+            {status === 'stale'
+              ? `No heartbeat for ${hb}s — not taking work`
+              : status === 'paused'
+                ? 'Paused — not taking new work'
+                : 'Idle — waiting for work'}
           </div>
         )}
       </div>
