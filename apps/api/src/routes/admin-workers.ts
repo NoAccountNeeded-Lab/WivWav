@@ -51,6 +51,10 @@ export interface WorkersSummary {
 }
 
 export interface ConnectedWorkerSummary {
+  /** Key for pause/resume (#1151); identifies one live socket, unlike the untrusted workerId. */
+  connectionId: string
+  /** False while paused: no new dispatches, in-flight jobs finish. */
+  accepting: boolean
   workerId: string
   workerName: string
   capabilities: WorkerCapabilities
@@ -59,8 +63,8 @@ export interface ConnectedWorkerSummary {
   /**
    * In-flight job detail (#1067). Correlation ids ARE exposed here (unlike the
    * original count-only shape): this is an operator-authenticated surface and
-   * the queue + timing is what makes the row actionable. `connectionId` and
-   * socket internals stay server-side.
+   * the queue + timing is what makes the row actionable. Socket
+   * internals stay server-side.
    */
   inFlightJobs: InFlightJobSummary[]
   /** Most recent settled outcomes, newest first (bounded per worker). */
@@ -131,6 +135,8 @@ export const adminWorkersRoutes: FastifyPluginAsync<AdminWorkersPluginOptions> =
 ) => {
   app.get('/', async (_req, reply) => {
     const data: ConnectedWorkerSummary[] = registry.list().map((worker) => ({
+      connectionId: worker.connectionId,
+      accepting: worker.accepting !== false,
       workerId: worker.workerId,
       workerName: worker.workerName,
       capabilities: worker.capabilities,

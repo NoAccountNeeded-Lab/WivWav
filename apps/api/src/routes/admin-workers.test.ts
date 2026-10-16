@@ -79,6 +79,8 @@ describe('GET /admin/workers', () => {
     const res = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
     expect(res.json().data).toEqual([
         {
+          connectionId: 'conn-1',
+          accepting: true,
           workerId: 'worker-1',
           workerName: 'Desk laptop',
           capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 3 },
@@ -113,7 +115,6 @@ describe('GET /admin/workers', () => {
           timed: 0,
         },
       ])
-    expect(res.body).not.toContain('connectionId')
 
     registry.unregister('conn-1')
     const after = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
@@ -146,6 +147,63 @@ describe('GET /admin/workers', () => {
     ])
     registry.unregister('conn-1')
     expect(await get()).toMatchObject({ workers: 0, completed: 8, failed: 2 })
+    await app.close()
+  })
+})
+
+describe('POST /internal/ops/workers/:connectionId/{pause,resume} (#1151)', () => {
+  async function build(registry: WorkerRegistry) {
+    const { internalOpsWorkerControlRoutes } = await import('./internal-ops-worker-control.js')
+    const app = Fastify()
+    await app.register(
+      async (scope) => {
+        await adminAuthPlugin(scope, { internalApiSecret: SECRET, nodeEnv: 'test' })
+        await scope.register(internalOpsWorkerControlRoutes, { registry })
+      },
+      { prefix: '/internal/ops/workers' },
+    )
+    await app.ready()
+    return app
+  }
+
+  it('pauses then resumes, reflected on the registry', async () => {
+    const registry = new WorkerRegistry()
+    registry.register(worker())
+    const app = await build(registry)
+    const pause = await app.inject({ method: 'POST', url: '/internal/ops/workers/conn-1/pause', headers: auth })
+    expect(pause.statusCode).toBe(200)
+    expect(pause.json()).toEqual({ data: { connectionId: 'conn-1', accepting: false } })
+    expect(registry.pickWorker({ chromium: false })).toBeUndefined()
+    const resume = await app.inject({ method: 'POST', url: '/internal/ops/workers/conn-1/resume', headers: auth })
+    expect(resume.json()).toEqual({ data: { connectionId: 'conn-1', accepting: true } })
+    expect(registry.pickWorker({ chromium: false })?.connectionId).toBe('conn-1')
+    await app.close()
+  })
+
+  it('returns 404 for a stale connectionId', async () => {
+    const app = await build(new WorkerRegistry())
+    const res = await app.inject({ method: 'POST', url: '/internal/ops/workers/gone/pause', headers: auth })
+    expect(res.statusCode).toBe(404)
+    expect(res.json()).toMatchObject({ error: { code: 'NOT_FOUND' } })
+    await app.close()
+  })
+
+  it('rejects missing or wrong bearer with 401', async () => {
+    const app = await build(new WorkerRegistry())
+    for (const headers of [{}, { authorization: 'Bearer wrong' }]) {
+      const res = await app.inject({ method: 'POST', url: '/internal/ops/workers/conn-1/pause', headers })
+      expect(res.statusCode).toBe(401)
+    }
+    await app.close()
+  })
+
+  it('GET exposes connectionId and accepting', async () => {
+    const registry = new WorkerRegistry()
+    registry.register(worker())
+    registry.setAccepting('conn-1', false)
+    const app = await buildApp(registry)
+    const res = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
+    expect(res.json().data[0]).toMatchObject({ connectionId: 'conn-1', accepting: false })
     await app.close()
   })
 })

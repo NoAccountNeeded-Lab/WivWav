@@ -195,3 +195,42 @@ describe('recordOutcome', () => {
     expect(s.queues.get('q')).toMatchObject({ timed: 1, totalDurationMs: 3000 })
   })
 })
+
+describe('pause / resume (#1151)', () => {
+  it('skips a paused worker in pickWorker and picks it again after resume', () => {
+    const registry = new WorkerRegistry()
+    registry.register(makeWorker({ connectionId: 'a' }))
+    expect(registry.setAccepting('a', false)).toBe(true)
+    expect(registry.pickWorker({ chromium: false })).toBeUndefined()
+    registry.setAccepting('a', true)
+    expect(registry.pickWorker({ chromium: false })?.connectionId).toBe('a')
+  })
+
+  it('pause-before-dispatch routes to another worker', () => {
+    const registry = new WorkerRegistry()
+    registry.register(makeWorker({ connectionId: 'a' }))
+    registry.register(makeWorker({ connectionId: 'b', inFlight: new Set(['q:1']) }))
+    registry.setAccepting('a', false)
+    expect(registry.pickWorker({ chromium: false })?.connectionId).toBe('b')
+  })
+
+  it('dispatch-before-pause: in-flight jobs stay and settle on the paused worker', () => {
+    const registry = new WorkerRegistry()
+    const w = makeWorker({ connectionId: 'a', inFlight: new Set(['q:1']) })
+    registry.register(w)
+    registry.setAccepting('a', false)
+    expect(registry.get('a')?.inFlight.has('q:1')).toBe(true)
+    w.inFlight.delete('q:1')
+    expect(registry.pickWorker({ chromium: false })).toBeUndefined()
+  })
+
+  it('returns false for a stale connection, and a reconnect registers accepting', () => {
+    const registry = new WorkerRegistry()
+    registry.register(makeWorker({ connectionId: 'a' }))
+    registry.setAccepting('a', false)
+    registry.unregister('a')
+    expect(registry.setAccepting('a', true)).toBe(false)
+    registry.register(makeWorker({ connectionId: 'a2' }))
+    expect(registry.pickWorker({ chromium: false })?.connectionId).toBe('a2')
+  })
+})
