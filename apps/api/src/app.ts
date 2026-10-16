@@ -65,6 +65,7 @@ import { internalScraperRoutes } from './routes/internal-scraper.js'
 import { internalHttpEnrichRoutes } from './routes/internal-http-enrich.js'
 import { workerGatewayRoutes } from './plugins/worker-gateway-ws.js'
 import { WorkerRegistry } from './worker-gateway/registry.js'
+import { internalOpsWorkerControlRoutes } from './routes/internal-ops-worker-control.js'
 import { adminWorkersRoutes } from './routes/admin-workers.js'
 import { WorkerDispatcher } from './worker-gateway/dispatcher.js'
 import { registerGatewayWorkers } from './worker-gateway/gateway-workers.js'
@@ -403,6 +404,8 @@ export async function buildApp(
     { prefix: '/internal/v1' },
   )
 
+  const workerRegistry = new WorkerRegistry()
+
   // New privileged operator APIs mount under /internal/ops/*, not /admin/*.
   // This still uses the existing fail-closed bearer guard until the broader
   // OPS_API_SECRET migration lands.
@@ -413,6 +416,10 @@ export async function buildApp(
         nodeEnv: config.NODE_ENV,
       })
 
+      await internalOpsScope.register(internalOpsWorkerControlRoutes, {
+        prefix: '/workers',
+        registry: workerRegistry,
+      })
       await internalOpsScope.register(internalOpsProblemAckRoutes, {
         prefix: '/problem-ack',
         problemStates: problemStateRepo,
@@ -476,7 +483,6 @@ export async function buildApp(
   // consumers, so disabling this flag pauses browser-job processing.
   // The registry exists regardless of the flag so GET /admin/workers (#1038)
   // returns an empty list, not a 404, when the gateway is disabled.
-  const workerRegistry = new WorkerRegistry()
   await app.register(
     async (adminWorkersScope) => {
       await adminAuthPlugin(adminWorkersScope, {

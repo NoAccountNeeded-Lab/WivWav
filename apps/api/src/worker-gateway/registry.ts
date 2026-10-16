@@ -28,6 +28,12 @@ export interface RegisteredWorker {
   /** In-memory counters since this connection was registered (#1140). */
   stats: WorkerStats
   lastHeartbeatAt: Date
+  /**
+   * False while an operator has paused this connection: `pickWorker` skips it
+   * but in-flight jobs finish normally. In-memory only; a reconnect is a new
+   * connection that registers as accepting. Omitted = accepting.
+   */
+  accepting?: boolean
   send(message: CoordinatorToWorkerMessage): void
 }
 
@@ -136,6 +142,14 @@ export class WorkerRegistry {
     if (worker) worker.lastHeartbeatAt = at
   }
 
+  /** Pause/resume new dispatches to one connection; false when the connection is gone. */
+  setAccepting(connectionId: string, accepting: boolean): boolean {
+    const worker = this.workers.get(connectionId)
+    if (!worker) return false
+    worker.accepting = accepting
+    return true
+  }
+
   list(): RegisteredWorker[] {
     return [...this.workers.values()]
   }
@@ -150,6 +164,7 @@ export class WorkerRegistry {
   pickWorker(requirements: { chromium: boolean; httpEnrich?: boolean }): RegisteredWorker | undefined {
     let best: RegisteredWorker | undefined
     for (const worker of this.workers.values()) {
+      if (worker.accepting === false) continue
       if (requirements.chromium && !worker.capabilities.chromium) continue
       if (requirements.httpEnrich && !worker.capabilities.httpEnrich) continue
       if (worker.inFlight.size >= worker.capabilities.maxConcurrentJobs) continue

@@ -907,6 +907,26 @@ describe('GET /admin/workers (#1038)', () => {
   })
 })
 
+describe('POST /internal/ops/workers pause/resume (#1151)', () => {
+  it('is mounted in the guarded /internal/ops scope: missing or wrong bearer is 401', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+    })
+    const app = await appPromise
+
+    for (const action of ['pause', 'resume']) {
+      const url = `/internal/ops/workers/conn-1/${action}`
+      expect((await app.inject({ method: 'POST', url })).statusCode).toBe(401)
+      const wrong = await app.inject({ method: 'POST', url, headers: { authorization: 'Bearer wrong-value' } })
+      expect(wrong.statusCode).toBe(401)
+      const ok = await app.inject({ method: 'POST', url, headers: { authorization: 'Bearer shared-secret-value' } })
+      expect(ok.statusCode).toBe(404)
+    }
+
+    await app.close()
+  })
+})
+
 describe('worker gateway registration (#948/#951)', () => {
   it('registers no /internal/workers or /internal/scraper routes when WORKER_GATEWAY_ENABLED is unset (default false)', async () => {
     const { app: appPromise } = buildTestApp()
