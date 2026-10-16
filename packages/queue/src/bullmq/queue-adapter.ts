@@ -1,5 +1,13 @@
-import type { Queue, JobsOptions } from 'bullmq'
-import type { QueueAdapter, JobOptions, JobRecord, JobStats, JobStatus, RepeatableJob } from '../types.js'
+import type { Job, Queue, JobsOptions } from 'bullmq'
+import type {
+  QueueAdapter,
+  JobOptions,
+  JobRecord,
+  JobStats,
+  JobStatus,
+  QueuedJobActionResult,
+  RepeatableJob,
+} from '../types.js'
 import type { QueuePolicy } from '../policies.js'
 
 export class BullMQQueueAdapter implements QueueAdapter {
@@ -116,6 +124,51 @@ export class BullMQQueueAdapter implements QueueAdapter {
   async cleanFailed(limit = 1000): Promise<number> {
     const removed = await this.queue.clean(0, limit, 'failed')
     return removed.length
+  }
+
+  async removeQueued(jobId: string): Promise<QueuedJobActionResult> {
+    return this.act(jobId, ['waiting', 'delayed', 'paused'], 'queued', (job) => job.remove())
+  }
+
+  async retryFailed(jobId: string): Promise<QueuedJobActionResult> {
+    // Attempts are reset: a job that exhausted its budget would otherwise get
+    // exactly one more try, which is not what an operator pressing Retry expects.
+    return this.act(jobId, ['failed'], 'failed', (job) => job.retry('failed', { resetAttemptsMade: true }))
+  }
+
+  async makeReady(jobId: string): Promise<QueuedJobActionResult> {
+    return this.act(jobId, ['delayed'], 'delayed', (job) => job.promote())
+  }
+
+  /**
+   * The `getState()` pre-check only gives a readable 409 reason; it is never
+   * trusted for safety. BullMQ's Lua scripts re-check state and lock
+   * atomically, and their failures are translated here.
+   */
+  private async act(
+    jobId: string,
+    allowed: string[],
+    wanted: string,
+    run: (job: Job) => Promise<void>,
+  ): Promise<QueuedJobActionResult> {
+    const job = await this.queue.getJob(jobId)
+    if (!job) return { outcome: 'not_found' }
+    const state = await job.getState()
+    if (!allowed.includes(state)) {
+      return { outcome: 'conflict', reason: `Job is ${state}, not ${wanted}` }
+    }
+    try {
+      await run(job)
+      return { outcome: 'ok' }
+    } catch (err) {
+      const code = (err as { code?: unknown }).code
+      const message = err instanceof Error ? err.message : ''
+      if (code === -1) return { outcome: 'not_found' }
+      if (typeof code === 'number' || message.includes('locked by another worker')) {
+        return { outcome: 'conflict', reason: 'Job changed state or is running on a worker' }
+      }
+      throw err
+    }
   }
 
   async close(): Promise<void> {

@@ -7,6 +7,7 @@ import type {
   JobRecord,
   JobStats,
   JobStatus,
+  QueuedJobActionResult,
   RepeatableJob,
   WorkerOptions,
 } from '../types.js'
@@ -141,7 +142,55 @@ export class MockQueueAdapter implements QueueAdapter {
     return 0
   }
 
+  private transition(
+    jobId: string,
+    from: JobStatus[],
+    apply: (job: StoredJob) => void,
+  ): QueuedJobActionResult {
+    const job = this.jobs.find((j) => j.id === jobId)
+    if (!job) return { outcome: 'not_found' }
+    if (!from.includes(job.status)) {
+      return { outcome: 'conflict', reason: `Job is ${job.status}, not ${from.join(' or ')}` }
+    }
+    apply(job)
+    return { outcome: 'ok' }
+  }
+
+  async removeQueued(jobId: string): Promise<QueuedJobActionResult> {
+    return this.transition(jobId, ['waiting', 'delayed'], (job) => {
+      this.jobs = this.jobs.filter((j) => j !== job)
+    })
+  }
+
+  async retryFailed(jobId: string): Promise<QueuedJobActionResult> {
+    return this.transition(jobId, ['failed'], (job) => {
+      job.status = 'waiting'
+      job.attemptsMade = 0
+      job.failedReason = undefined
+    })
+  }
+
+  async makeReady(jobId: string): Promise<QueuedJobActionResult> {
+    return this.transition(jobId, ['delayed'], (job) => {
+      job.status = 'waiting'
+    })
+  }
+
   async close(): Promise<void> {}
+
+  /** Test helper: move the most recently added job to delayed. */
+  markDelayed(): void {
+    const job = this.jobs.at(-1)
+    if (!job) throw new Error('markDelayed: no jobs have been added yet')
+    job.status = 'delayed'
+  }
+
+  /** Test helper: mark the most recently added job as active. */
+  markActive(): void {
+    const job = this.jobs.at(-1)
+    if (!job) throw new Error('markActive: no jobs have been added yet')
+    job.status = 'active'
+  }
 
   /** Test helper: all jobs enqueued so far. */
   getEnqueued(): StoredJob[] {
