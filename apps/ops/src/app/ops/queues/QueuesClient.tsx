@@ -233,6 +233,11 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
     return () => window.clearInterval(interval)
   }, [refreshQueueDetail, selectedQueue])
 
+  // Move focus into the inline confirm (safe choice first) when it opens.
+  useEffect(() => {
+    if (confirmCancelId) document.getElementById(`keep-job-${confirmCancelId}`)?.focus()
+  }, [confirmCancelId])
+
   function setAction(name: string, state: ActionState) {
     setActionStates(prev => ({ ...prev, [name]: state }))
   }
@@ -263,6 +268,9 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
 
   async function runJobAction(queueName: string, jobId: string, action: 'cancel' | 'retry' | 'make-ready') {
     setConfirmCancelId(null)
+    // The focused control (a job-row button) is about to unmount or change; park
+    // focus on the stable Refresh button so keyboard users keep their place.
+    document.getElementById('queue-activity-refresh')?.focus()
     try {
       const res = await fetch(
         `${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(queueName)}/jobs/${encodeURIComponent(jobId)}/${action}`,
@@ -462,10 +470,18 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                               <h2 className={styles.activityTitle}>{q.name} activity</h2>
                               <p className={styles.activityMeta}>Auto-refreshes every 3 s</p>
                             </div>
-                            <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refreshQueueDetail(q.name)}>
+                            <button id="queue-activity-refresh" className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => void refreshQueueDetail(q.name)}>
                               <ACTION_ICONS.refresh size={13} aria-hidden="true" />
                               Refresh
                             </button>
+                          </div>
+                          {/* Lives outside the job rows: a successful cancel removes the row. */}
+                          <div aria-live="polite" aria-atomic="true">
+                            {jobFeedback && (
+                              <p role={jobFeedback.isError ? 'alert' : undefined} className={jobFeedback.isError ? styles.errorMsg : styles.muted}>
+                                {jobFeedback.message}
+                              </p>
+                            )}
                           </div>
                           {detailError ? (
                             <p className={styles.error}>
@@ -514,6 +530,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                                         <button
                                           className={`${styles.btn} ${styles.btnDanger} ${styles.btnIcon}`}
                                           type="button"
+                                          id={`cancel-job-${job.id}`}
                                           aria-label={`Cancel job #${job.id}`}
                                           title="Cancel queued job"
                                           onClick={() => setConfirmCancelId(job.id)}
@@ -529,15 +546,10 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                                       <button className={`${styles.btn} ${styles.btnDanger}`} type="button" onClick={() => void runJobAction(q.name, job.id, 'cancel')}>
                                         Remove job
                                       </button>
-                                      <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => setConfirmCancelId(null)}>
+                                      <button id={`keep-job-${job.id}`} className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => { setConfirmCancelId(null); document.getElementById(`cancel-job-${job.id}`)?.focus() }}>
                                         Keep job
                                       </button>
                                     </div>
-                                  )}
-                                  {jobFeedback?.jobId === job.id && (
-                                    <p role={jobFeedback.isError ? 'alert' : 'status'} className={jobFeedback.isError ? styles.errorMsg : styles.muted}>
-                                      {jobFeedback.message}
-                                    </p>
                                   )}
                                   <div className={styles.jobGrid}>
                                     <div>

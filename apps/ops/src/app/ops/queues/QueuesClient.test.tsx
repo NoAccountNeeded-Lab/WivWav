@@ -162,6 +162,36 @@ describe('QueuesClient per-job controls (#1152)', () => {
       '/internal/ops/queues/detail-crawl/jobs/w1/cancel', { method: 'POST' },
     ))
     expect(await screen.findByText('Removed the queued attempt only.')).toBeDefined()
+    expect(document.activeElement?.id).toBe('queue-activity-refresh')
+  })
+
+  it('keeps the success message and focus outside a row that disappears after cancel', async () => {
+    const fetchMock = setup(200, { data: { message: 'Removed the queued attempt only.' } })
+    await openActivity()
+    const detailFetch = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const res = await detailFetch(url, init)
+      if (url.endsWith('/admin/queues/detail-crawl') && !init?.method) {
+        const body = (await res.json()) as { data: { jobs: { id: string }[] } }
+        body.data.jobs = body.data.jobs.filter((j) => j.id !== 'w1')
+        return jsonResponse(body)
+      }
+      return res
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel job #w1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove job' }))
+    await waitFor(() => expect(screen.queryByText('#w1')).toBeNull())
+    expect(screen.getByText('Removed the queued attempt only.')).toBeDefined()
+    expect(document.activeElement?.id).toBe('queue-activity-refresh')
+  })
+
+  it('moves focus into the confirm and back to Cancel on Keep job', async () => {
+    setup()
+    await openActivity()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel job #w1' }))
+    expect(document.activeElement?.textContent).toBe('Keep job')
+    fireEvent.click(screen.getByRole('button', { name: 'Keep job' }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel job #w1' }))
   })
 
   it('shows a visible message on 409', async () => {
