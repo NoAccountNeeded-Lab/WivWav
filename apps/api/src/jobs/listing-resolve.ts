@@ -41,7 +41,7 @@ import {
   type PrismaClient,
 } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import { validateListing, decidePublication } from '../engine/listing-validator.js'
+import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
 import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
 

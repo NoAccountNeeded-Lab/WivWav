@@ -19,15 +19,6 @@ const DETAIL_METADATA_FIELDS = new Set([
   'qualityIssueCodes',
   'qualityCheckedAt',
 ])
-const ACCESSIBILITY_FIELDS = new Set([
-  'conversionType',
-  'conversionManufacturer',
-  'conversionStatus',
-  'rampType',
-  'wavFeatures',
-  'floorLoweringInches',
-  'wheelchairCapacity',
-])
 
 type ListingStatus = 'active' | 'possibly_gone' | 'gone'
 
@@ -130,10 +121,6 @@ export function detailObservationReference(rawPage: { id: string; scrapedAt: Dat
   return `${rawPage.id}:${rawPage.scrapedAt.toISOString()}`
 }
 
-export function requiresListingResolution(changedFields: string[]): boolean {
-  return changedFields.some((field) => ACCESSIBILITY_FIELDS.has(field))
-}
-
 function detailResolutionJobId(observationReference: string): string {
   return `detail-resolution:${observationReference}`
 }
@@ -147,17 +134,19 @@ export interface ResolutionEnqueueQueue {
   add(data: unknown, options?: { jobId?: string } & Record<string, unknown>): Promise<string>
 }
 
+/**
+ * Every detail write sets publicationStatus='pending', so every detail write
+ * must enqueue a resolve (idempotent via the observation-reference job id);
+ * gating on changed fields strands listings pending forever (#1156).
+ */
 export async function enqueueRequiredListingResolution(
   db: PrismaClient,
   resolutionQueue: ResolutionEnqueueQueue | undefined,
   jobOptions: object,
   listingId: string,
   observationReference: string,
-  changedFields: string[],
   parentRunId?: string | null,
 ): Promise<void> {
-  if (!requiresListingResolution(changedFields)) return
-
   const alreadyEnqueued = await db.listingObservation.findUnique({
     where: {
       stage_reference: {

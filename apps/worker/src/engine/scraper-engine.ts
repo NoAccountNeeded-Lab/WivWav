@@ -7,7 +7,7 @@ import {
   decidePublication,
   detectSourceDrift,
   SYSTEMIC_ERROR_THRESHOLD,
-} from './listing-validator.js'
+} from '@wivwav/types/listing-validator'
 import type { JobContext } from '../job-context.js'
 
 const DEFAULT_FULL_CRAWL_INTERVAL_HOURS = 24

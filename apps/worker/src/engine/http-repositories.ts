@@ -9,7 +9,7 @@ import type {
   SourceExecutionState,
   SourceRepository,
 } from './repositories.js'
-import type { SourceDriftBaseline } from './listing-validator.js'
+import type { SourceDriftBaseline } from '@wivwav/types/listing-validator'
 import type { FieldMapping } from '@wivwav/types'
 
 /**

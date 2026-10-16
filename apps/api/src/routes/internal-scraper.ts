@@ -416,7 +416,6 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         CRITICAL_JOB_OPTIONS,
         listing.id,
         observationReference,
-        alreadyApplied.changedFields,
         body.runId,
       )
       await db.rawPage.update({ where: { id: rawPage.id }, data: { processedAt: new Date() } })
@@ -481,7 +480,6 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       CRITICAL_JOB_OPTIONS,
       listing.id,
       observationReference,
-      changedFields,
       body.runId,
     )
 

@@ -2,7 +2,7 @@
  * Publication validator backfill (issue #502).
  *
  * Before the comprehensive per-listing validator in
- * apps/api/src/engine/listing-validator.ts is enforced for new scrapes,
+ * packages/types/src/listing-validator.ts is enforced for new scrapes,
  * this backfill audits every currently-active listing against the same rules
  * so operators can see the expected quarantine volume and rule breakdown
  * *before* enforcement begins. Active listings are otherwise left alone in
@@ -52,7 +52,7 @@
 import '../lib/load-env.js'
 
 import { getDb } from '@wivwav/db'
-import { validateListing, decidePublication } from '../engine/listing-validator.js'
+import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
 
 const BATCH_SIZE = 500
 
