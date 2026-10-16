@@ -10,6 +10,8 @@
  * Rows that lose the optimistic-concurrency race are skipped and counted; rerun
  * to pick them up. Afterwards trigger the meilisearch-sync job.
  */
+import '../lib/load-env.js'
+
 import type { PrismaClient } from '@wivwav/db'
 import { resolveRow } from './listing-resolve.js'
 
