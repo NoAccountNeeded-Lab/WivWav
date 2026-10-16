@@ -143,6 +143,7 @@ export async function ingestListing(
       sourceUpdatedAt: true,
       qualityIssueCodes: true,
       status: true,
+      manuallyHiddenAt: true,
     },
   })
 
@@ -364,9 +365,14 @@ export async function ingestListing(
       scrapedAt: new Date(),
       status: 'active',
       goneAt: null,
-      publicationStatus: listing.publicationStatus ?? 'pending',
-      qualityIssueCodes: listing.qualityIssueCodes ?? [],
-      qualityCheckedAt: listing.qualityCheckedAt ?? null,
+      // #1157: a manually hidden listing stays out of public until an operator unhides it.
+      ...(existing.manuallyHiddenAt
+        ? {}
+        : {
+            publicationStatus: listing.publicationStatus ?? 'pending',
+            qualityIssueCodes: listing.qualityIssueCodes ?? [],
+            qualityCheckedAt: listing.qualityCheckedAt ?? null,
+          }),
       ...(resetDetail ? { detailScrapedAt: null } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
       ...(lastRunId != null ? { lastRunId } : {}),
