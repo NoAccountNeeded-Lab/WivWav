@@ -15,6 +15,10 @@ export interface RecentJob {
 }
 
 export interface ConnectedWorker {
+  /** Keys pause/resume; one live socket. */
+  connectionId: string
+  /** False while an operator has paused the worker (no new dispatches; in-flight finish). */
+  accepting: boolean
   workerId: string
   workerName: string
   capabilities: { chromium: boolean; httpEnrich: boolean; maxConcurrentJobs: number }
@@ -87,6 +91,8 @@ function isRecentJob(row: unknown): row is RecentJob {
 function isConnectedWorker(row: unknown): row is ConnectedWorker {
   if (!isRecord(row) || !isRecord(row.capabilities)) return false
   return (
+    isStr(row.connectionId) &&
+    typeof row.accepting === 'boolean' &&
     isStr(row.workerId) &&
     isStr(row.workerName) &&
     isNum(row.inFlightCount) &&

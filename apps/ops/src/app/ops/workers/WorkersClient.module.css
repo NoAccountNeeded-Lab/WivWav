@@ -47,10 +47,17 @@
 .workerLink:focus-visible, .queueLink:focus-visible, .jobRow:focus-visible, .pip:focus-visible { outline: 2px solid var(--clr-primary); outline-offset: 2px; }
 .status { font-size: 0.75rem; color: var(--clr-text-muted); }
 .status[data-status="busy"] { color: var(--clr-primary-dark); }
+.status[data-status="paused"] { color: var(--clr-warning-text); }
 .status[data-status="stale"] { color: var(--clr-warning-text); }
 .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; box-sizing: border-box; border: 2px solid var(--clr-text-muted); }
 .dot[data-status="busy"] { background: var(--clr-primary); border-color: var(--clr-primary); }
+.dot[data-status="paused"] { background: var(--clr-warning); border-color: var(--clr-warning); }
 .dot[data-status="stale"] { background: var(--clr-warning); border-color: var(--clr-warning); }
+.card[data-status="paused"] { border-color: var(--clr-warning); border-style: dashed; }
+.pauseBtn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -0.25rem 0; border-radius: var(--radius-sm); border: 1px solid var(--clr-border); background: var(--clr-surface); color: var(--clr-text); cursor: pointer; }
+.pauseBtn:hover:not(:disabled) { border-color: var(--clr-border-strong); }
+.pauseBtn:focus-visible { outline: 2px solid var(--clr-primary); outline-offset: 2px; }
+.pauseBtn:disabled { opacity: 0.5; cursor: progress; }
 .cap { display: flex; color: var(--clr-text-muted); }
 .slots { display: flex; gap: 3px; }
 .slot { width: 8px; height: 18px; border-radius: 2px; background: var(--clr-border); }
