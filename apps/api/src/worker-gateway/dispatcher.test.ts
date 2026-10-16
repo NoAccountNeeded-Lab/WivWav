@@ -99,6 +99,25 @@ describe('WorkerDispatcher.dispatch', () => {
     await expect(promise).resolves.toBeUndefined()
   })
 
+  it('dispatch-before-pause: the in-flight job completes on the paused worker, which stays excluded (#1151)', async () => {
+    const registry = new WorkerRegistry()
+    const worker = connectWorker(registry)
+    const dispatcher = new WorkerDispatcher(registry, 1000)
+    const promise = dispatcher.dispatch('detail-crawl', '1', {}, { chromium: true })
+    await Promise.resolve()
+    expect(registry.setAccepting('conn-1', false)).toBe(true)
+    expect(worker.inFlight.has('detail-crawl:1')).toBe(true)
+
+    dispatcher.complete('detail-crawl:1', dispatchIdFrom(worker), true)
+    await expect(promise).resolves.toBeUndefined()
+    expect(worker.inFlight.size).toBe(0)
+    expect(worker.jobs.size).toBe(0)
+    expect(registry.pickWorker({ chromium: true })).toBeUndefined()
+    await expect(dispatcher.dispatch('detail-crawl', '2', {}, { chromium: true })).rejects.toThrow(RetryJobSignal)
+    registry.setAccepting('conn-1', true)
+    expect(registry.pickWorker({ chromium: true })?.connectionId).toBe('conn-1')
+  })
+
   it('tracks in-flight job detail and records the outcome in recentJobs (#1067)', async () => {
     const registry = new WorkerRegistry()
     const worker = connectWorker(registry)

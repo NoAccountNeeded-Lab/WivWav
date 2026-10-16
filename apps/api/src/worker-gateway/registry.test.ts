@@ -214,16 +214,6 @@ describe('pause / resume (#1151)', () => {
     expect(registry.pickWorker({ chromium: false })?.connectionId).toBe('b')
   })
 
-  it('dispatch-before-pause: in-flight jobs stay and settle on the paused worker', () => {
-    const registry = new WorkerRegistry()
-    const w = makeWorker({ connectionId: 'a', inFlight: new Set(['q:1']) })
-    registry.register(w)
-    registry.setAccepting('a', false)
-    expect(registry.get('a')?.inFlight.has('q:1')).toBe(true)
-    w.inFlight.delete('q:1')
-    expect(registry.pickWorker({ chromium: false })).toBeUndefined()
-  })
-
   it('returns false for a stale connection, and a reconnect registers accepting', () => {
     const registry = new WorkerRegistry()
     registry.register(makeWorker({ connectionId: 'a' }))
