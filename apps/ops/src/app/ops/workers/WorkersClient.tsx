@@ -54,12 +54,20 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
     }
   }, [apiBaseUrl])
 
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  // Connections with a pause/resume in flight, held until the refreshed list shows the new state.
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
+  const setPendingFor = (id: string, on: boolean) =>
+    setPending((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
   const [actionError, setActionError] = useState<string | null>(null)
 
   const toggle = useCallback(async (worker: ConnectedWorker) => {
     const verb = worker.accepting ? 'pause' : 'resume'
-    setPendingId(worker.connectionId)
+    setPendingFor(worker.connectionId, true)
     setActionError(null)
     try {
       const res = await fetch(
@@ -70,8 +78,8 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
     } catch (err) {
       if (mounted.current) setActionError(`Could not ${verb} ${worker.workerName}: ${err instanceof Error ? err.message : 'failed'}`)
     }
-    if (mounted.current) setPendingId(null)
     await refresh()
+    if (mounted.current) setPendingFor(worker.connectionId, false)
   }, [apiBaseUrl, refresh])
 
   useEffect(() => {
@@ -90,6 +98,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
   const workers = data?.workers ?? null
   const stale = workers ? workers.filter((w) => workerStatus(w, now) === 'stale').length : 0
   const busy = workers ? workers.filter((w) => workerStatus(w, now) === 'busy').length : 0
+  const paused = workers ? workers.filter((w) => !w.accepting).length : 0
   const idle = workers ? workers.filter((w) => workerStatus(w, now) === 'idle').length : 0
 
   return (
@@ -142,7 +151,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
           <p className={styles.empty}>No workers are connected. Start a worker (for example with make worker), then refresh.</p>
         ) : (
           <div className={workerStyles.page}>
-            <FleetSummary summary={data.summary} busy={busy} idle={idle} stale={stale} />
+            <FleetSummary summary={data.summary} busy={busy} idle={idle} stale={stale} paused={paused} />
             <div className={workerStyles.split}>
               <section aria-labelledby="wd-workers" className={workerStyles.fleet}>
                 <div className={workerStyles.fleetHead}>
@@ -154,14 +163,14 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
                   </ul>
                 </div>
                 <div className={workerStyles.cards}>
-                  {workers.map((worker, index) => (
-                    // A reconnecting worker briefly has two sockets sharing one workerId.
+                  {workers.map((worker) => (
+                    // connectionId is unique per socket; workerId can repeat during a reconnect.
                     <WorkerCard
-                      key={`${worker.workerId}-${index}`}
+                      key={worker.connectionId}
                       worker={worker}
                       now={now}
                       onToggle={(w) => void toggle(w)}
-                      pending={pendingId === worker.connectionId}
+                      pending={pending.has(worker.connectionId)}
                     />
                   ))}
                 </div>

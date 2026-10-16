@@ -26,13 +26,12 @@ function pipLabel(job: RecentJob): string {
   return `${PIP_LABEL[kind]}${detail} — ${job.queueName}, open log trail`
 }
 
-export function workerStatus(worker: ConnectedWorker, now: number): 'busy' | 'idle' | 'stale' | 'paused' {
-  if (!worker.accepting) return 'paused'
+export function workerStatus(worker: ConnectedWorker, now: number): 'busy' | 'idle' | 'stale' {
   if (now - Date.parse(worker.lastHeartbeatAt) > STALE_HEARTBEAT_MS) return 'stale'
   return worker.inFlightCount > 0 ? 'busy' : 'idle'
 }
 
-const STATUS_LABEL = { busy: 'Busy', idle: 'Idle', stale: 'Heartbeat overdue', paused: 'Paused' } as const
+const STATUS_LABEL = { busy: 'Busy', idle: 'Idle', stale: 'Heartbeat overdue' } as const
 
 interface WorkerCardProps {
   worker: ConnectedWorker
@@ -50,7 +49,7 @@ export function WorkerCard({ worker, now, onToggle, pending = false }: WorkerCar
   const slots = Array.from({ length: Math.max(0, max) }, (_, i) => i < worker.inFlightCount)
 
   return (
-    <article className={css.card} data-status={status}>
+    <article className={css.card} data-status={status} data-paused={!worker.accepting}>
       <div className={css.cardHead}>
         <span className={css.dot} data-status={status} aria-hidden="true" />
         <div className={css.cardTitle}>
@@ -59,7 +58,10 @@ export function WorkerCard({ worker, now, onToggle, pending = false }: WorkerCar
               {worker.workerName}
             </Link>
           </h3>
-          <span className={css.status} data-status={status}>{STATUS_LABEL[status]}</span>
+          <span className={css.status} data-status={status}>
+            {STATUS_LABEL[status]}
+            {!worker.accepting ? <span className={css.pausedTag} data-paused="true"> · Paused</span> : null}
+          </span>
         </div>
         {worker.capabilities.chromium ? (
           <span className={css.cap} title="Chromium"><Globe size={16} aria-hidden="true" /><span className="sr-only">Chromium</span></span>
@@ -104,7 +106,7 @@ export function WorkerCard({ worker, now, onToggle, pending = false }: WorkerCar
           <div className={css.emptyJob}>
             {status === 'stale'
               ? `No heartbeat for ${hb}s — not taking work`
-              : status === 'paused'
+              : !worker.accepting
                 ? 'Paused — not taking new work'
                 : 'Idle — waiting for work'}
           </div>
