@@ -444,7 +444,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
 
   // ── Quarantine ──────────────────────────────────────────────────────────────
   // Operator-facing list/filter/reprocess surface for listings the publication
-  // validator quarantined (see engine/listing-validator.ts).
+  // validator quarantined (see packages/types/src/listing-validator.ts).
 
   // GET /admin/quarantine — list quarantined listings, filterable by source,
   // rule, severity, and age (olderThanDays).

@@ -1,6 +1,11 @@
-import { isValidVin, normalizeVin, checkDigitValid } from '@wivwav/db'
-import { QUALITY_RULE_SEVERITY } from '@wivwav/types'
-import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
+import { QUALITY_RULE_SEVERITY } from './listing.js'
+import type { ListingUpsertRequest as ListingUpsertData } from './scraper-gateway.js'
+import { checkDigitValid, isValidVin, normalizeVin } from './vin.js'
+
+/**
+ * Single shared validator for apps/api and apps/worker (#1156). Exposed via the
+ * `@wivwav/types/listing-validator` subpath, not the barrel, so web bundles stay clear of it.
+ */
 
 export type ValidationSeverity = 'error' | 'warn'
 
@@ -76,6 +81,9 @@ const MAX_PLAUSIBLE_IMAGE_COUNT = 60
 function maxModelYear(): number {
   return new Date().getFullYear() + MAX_FUTURE_MODEL_YEARS
 }
+
+// This package has no DOM/Node lib types; both runtimes provide the global URL.
+declare const URL: new (url: string) => { origin: string }
 
 let urlOrigin: ((url: string) => string | null) = (url) => {
   try {
@@ -308,6 +316,64 @@ export function validateListing(listing: ListingUpsertData): ValidationIssue[] {
         break
       }
     }
+  }
+
+  return issues
+}
+
+// ─── Authoritative mismatch (NHTSA vPIC vs scraped identity) ────────────────
+// Ported unchanged from apps/scraper/src/engine/listing-validator.ts (#963) —
+// the vin-enrich handler's pure comparison between a vPIC VIN decode and the
+// scraped identity fields for the same listing.
+
+export interface DecodedVehicleIdentity {
+  make: string
+  model: string
+  year: number
+}
+
+export interface ScrapedVehicleIdentity {
+  make: string
+  model: string
+  year: number
+}
+
+export function validateAuthoritativeMismatch(
+  scraped: ScrapedVehicleIdentity,
+  decoded: DecodedVehicleIdentity,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const normalize = (s: string) => s.trim().toLowerCase()
+
+  if (normalize(scraped.make) !== normalize(decoded.make)) {
+    push(
+      issues,
+      'make',
+      `scraped=${scraped.make} decoded=${decoded.make}`,
+      'nhtsa_make_mismatch',
+      'authoritative',
+      'error',
+    )
+  }
+  if (normalize(scraped.model) !== normalize(decoded.model)) {
+    push(
+      issues,
+      'model',
+      `scraped=${scraped.model} decoded=${decoded.model}`,
+      'nhtsa_model_mismatch',
+      'authoritative',
+      'error',
+    )
+  }
+  if (Math.abs(scraped.year - decoded.year) > 1) {
+    push(
+      issues,
+      'year',
+      `scraped=${scraped.year} decoded=${decoded.year}`,
+      'nhtsa_year_mismatch',
+      'authoritative',
+      'error',
+    )
   }
 
   return issues

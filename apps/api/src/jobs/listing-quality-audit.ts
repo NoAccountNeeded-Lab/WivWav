@@ -56,8 +56,8 @@
 import '../lib/load-env.js'
 
 import { getDb } from '@wivwav/db'
-import { detectSourceDrift } from '../engine/listing-validator.js'
-import type { SourceDriftObservation } from '../engine/listing-validator.js'
+import { detectSourceDrift } from '@wivwav/types/listing-validator'
+import type { SourceDriftObservation } from '@wivwav/types/listing-validator'
 import { reconcileSearchCatalog } from './search-reconciliation.js'
 import type { CoverageBaseline, SearchReconciliationReport } from './search-reconciliation.js'
 
