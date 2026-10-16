@@ -372,7 +372,10 @@ export async function ingestListing(
       goneAt: null,
       ...(keepDecision
         ? {}
-        : {
+        : existing.detailScrapedAt !== null
+          ? // Detail is being reset: hold the listing pending until detail re-runs.
+            { publicationStatus: 'pending' as const, qualityIssueCodes: [], qualityCheckedAt: null }
+          : {
             publicationStatus: listing.publicationStatus ?? 'pending',
             qualityIssueCodes: listing.qualityIssueCodes ?? [],
             qualityCheckedAt: listing.qualityCheckedAt ?? null,

@@ -60,21 +60,38 @@ export async function repairPendingListings(
   return result
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const argv = process.argv.slice(2)
-  const numArg = (name: string): number | undefined => {
-    const raw = argv[argv.indexOf(name) + 1]
-    const n = raw === undefined ? NaN : parseInt(raw, 10)
-    return Number.isNaN(n) ? undefined : n
+/** Strict CLI parsing: a bad numeric flag throws before any write. */
+export function parseRepairArgs(argv: string[]): { apply: boolean; limit?: number; delayMs: number } {
+  const known = new Set(['--apply', '--limit', '--delay-ms'])
+  const num = (name: string, min: number): number | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    const raw = argv[i + 1]
+    if (raw === undefined || !/^\d+$/.test(raw) || Number(raw) < min) {
+      throw new Error(`${name} needs an integer >= ${min}, got ${raw === undefined ? 'nothing' : `"${raw}"`}`)
+    }
+    return Number(raw)
   }
-  const apply = argv.includes('--apply')
-  const limit = numArg('--limit')
-  const { getDb } = await import('@wivwav/db')
-  const result = await repairPendingListings(getDb(), {
-    apply,
+  const unknown = argv.filter((a) => a.startsWith('--') && !known.has(a))
+  if (unknown.length > 0) throw new Error(`unknown option(s): ${unknown.join(', ')}`)
+  const limit = num('--limit', 1)
+  return {
+    apply: argv.includes('--apply'),
     ...(limit !== undefined ? { limit } : {}),
-    delayMs: numArg('--delay-ms') ?? 200,
-  })
-  console.log(apply ? 'Applied:' : 'Dry run (use --apply to resolve):', result)
+    delayMs: num('--delay-ms', 0) ?? 200,
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  let options: ReturnType<typeof parseRepairArgs>
+  try {
+    options = parseRepairArgs(process.argv.slice(2))
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err)
+    process.exit(1)
+  }
+  const { getDb } = await import('@wivwav/db')
+  const result = await repairPendingListings(getDb(), options)
+  console.log(options.apply ? 'Applied:' : 'Dry run (use --apply to resolve):', result)
   process.exit(0)
 }

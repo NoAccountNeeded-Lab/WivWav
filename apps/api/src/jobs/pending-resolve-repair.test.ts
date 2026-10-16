@@ -3,7 +3,7 @@ import type { PrismaClient } from '@wivwav/db'
 
 vi.mock('./listing-resolve.js', () => ({ resolveRow: vi.fn() }))
 import { resolveRow } from './listing-resolve.js'
-import { repairPendingListings } from './pending-resolve-repair.js'
+import { parseRepairArgs, repairPendingListings } from './pending-resolve-repair.js'
 
 function makeDb(rows: Array<{ id: string }>) {
   return {
@@ -43,5 +43,30 @@ describe('repairPendingListings', () => {
     const db = makeDb([{ id: 'a' }])
     await repairPendingListings(db, { apply: true, limit: 1 })
     expect(db.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 1 }))
+  })
+})
+
+describe('parseRepairArgs', () => {
+  it('defaults to a dry run with no limit', () => {
+    expect(parseRepairArgs([])).toEqual({ apply: false, delayMs: 200 })
+  })
+  it('parses valid flags', () => {
+    expect(parseRepairArgs(['--apply', '--limit', '25', '--delay-ms', '0'])).toEqual({
+      apply: true,
+      limit: 25,
+      delayMs: 0,
+    })
+  })
+  it.each([
+    [['--apply', '--limit']],
+    [['--apply', '--limit', 'abc']],
+    [['--apply', '--limit', '10x']],
+    [['--apply', '--limit', '-5']],
+    [['--apply', '--limit', '1.5']],
+    [['--apply', '--limit', '0']],
+    [['--apply', '--delay-ms', '-1']],
+    [['--apply', '--limt', '5']],
+  ])('rejects %j', (argv) => {
+    expect(() => parseRepairArgs(argv)).toThrow()
   })
 })

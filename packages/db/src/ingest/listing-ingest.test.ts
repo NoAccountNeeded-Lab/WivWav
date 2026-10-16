@@ -866,6 +866,14 @@ describe('ingestListing', () => {
   })
 
   describe('upsert detailScrapedAt reset', () => {
+    it('still takes the card decision for a listing that never completed detail', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 2500000 })
+      await ingestListing(db as never, makeListing({ priceCents: 3000000, publicationStatus: 'eligible' }))
+      expect(db.listing.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'eligible' }) }),
+      )
+    })
+
     it('resets detailScrapedAt when price changes', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 2500000, status: 'active' })
       await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
@@ -920,7 +928,7 @@ describe('ingestListing', () => {
       expect(data).not.toHaveProperty('detailScrapedAt')
     })
 
-    it('still takes the card decision when the card change resets detail', async () => {
+    it('holds a detail-complete listing pending (never card-eligible) when the card change resets detail', async () => {
       const db = makeDb({
         id: 'list-1',
         priceCents: 2500000,
@@ -930,7 +938,11 @@ describe('ingestListing', () => {
 
       expect(db.listing.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ publicationStatus: 'eligible', detailScrapedAt: null }),
+          data: expect.objectContaining({
+            publicationStatus: 'pending',
+            qualityCheckedAt: null,
+            detailScrapedAt: null,
+          }),
         }),
       )
     })
