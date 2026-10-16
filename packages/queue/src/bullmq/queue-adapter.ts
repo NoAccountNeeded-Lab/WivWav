@@ -9,6 +9,11 @@ import type {
   RepeatableJob,
 } from '../types.js'
 import type { QueuePolicy } from '../policies.js'
+import { REMOVE_QUEUED_SCRIPT } from './remove-queued.lua.js'
+
+// BullMQ ErrorCode values (enums/error-code) this adapter knows how to translate.
+const BULLMQ_JOB_NOT_EXIST = -1
+const BULLMQ_JOB_NOT_IN_STATE = -3
 
 export class BullMQQueueAdapter implements QueueAdapter {
   readonly name: string
@@ -127,45 +132,54 @@ export class BullMQQueueAdapter implements QueueAdapter {
   }
 
   async removeQueued(jobId: string): Promise<QueuedJobActionResult> {
-    return this.act(jobId, ['waiting', 'delayed', 'paused'], 'queued', (job) => job.remove())
+    const client = await this.queue.backend.client
+    // Idempotent: redefining a named command just replaces it.
+    client.defineCommand('wivwavRemoveQueued', { numberOfKeys: 0, lua: REMOVE_QUEUED_SCRIPT })
+    const [code, state] = (await client.runCommand('wivwavRemoveQueued', [
+      this.queue.toKey(''),
+      jobId,
+      this.queue.toKey('repeat'),
+    ])) as [number, string]
+    if (code === 1) return { outcome: 'ok' }
+    if (code === 0) return { outcome: 'not_found' }
+    if (code === -1) return { outcome: 'conflict', reason: 'Job is running on a worker' }
+    if (code === -8) return { outcome: 'conflict', reason: 'Job is the next scheduled run; change the schedule instead' }
+    if (code === -2) return { outcome: 'conflict', reason: `Job is ${state}, not queued` }
+    throw new Error(`Unexpected remove-queued result ${code}`)
   }
 
   async retryFailed(jobId: string): Promise<QueuedJobActionResult> {
     // Attempts are reset: a job that exhausted its budget would otherwise get
     // exactly one more try, which is not what an operator pressing Retry expects.
-    return this.act(jobId, ['failed'], 'failed', (job) => job.retry('failed', { resetAttemptsMade: true }))
+    return this.act(jobId, 'failed', (job) => job.retry('failed', { resetAttemptsMade: true }))
   }
 
   async makeReady(jobId: string): Promise<QueuedJobActionResult> {
-    return this.act(jobId, ['delayed'], 'delayed', (job) => job.promote())
+    return this.act(jobId, 'delayed', (job) => job.promote())
   }
 
   /**
-   * The `getState()` pre-check only gives a readable 409 reason; it is never
-   * trusted for safety. BullMQ's Lua scripts re-check state and lock
-   * atomically, and their failures are translated here.
+   * BullMQ's retry/promote scripts check existence and state atomically, so no
+   * pre-read is trusted. Only the codes handled here are translated
+   * (JOB_NOT_EXIST -1, JOB_NOT_IN_STATE -3); anything else is rethrown.
    */
   private async act(
     jobId: string,
-    allowed: string[],
     wanted: string,
     run: (job: Job) => Promise<void>,
   ): Promise<QueuedJobActionResult> {
     const job = await this.queue.getJob(jobId)
     if (!job) return { outcome: 'not_found' }
-    const state = await job.getState()
-    if (!allowed.includes(state)) {
-      return { outcome: 'conflict', reason: `Job is ${state}, not ${wanted}` }
-    }
     try {
       await run(job)
       return { outcome: 'ok' }
     } catch (err) {
       const code = (err as { code?: unknown }).code
-      const message = err instanceof Error ? err.message : ''
-      if (code === -1) return { outcome: 'not_found' }
-      if (typeof code === 'number' || message.includes('locked by another worker')) {
-        return { outcome: 'conflict', reason: 'Job changed state or is running on a worker' }
+      if (code === BULLMQ_JOB_NOT_EXIST) return { outcome: 'not_found' }
+      if (code === BULLMQ_JOB_NOT_IN_STATE) {
+        const now = await this.queue.getJob(jobId)
+        if (!now) return { outcome: 'not_found' }
+        return { outcome: 'conflict', reason: `Job is ${await now.getState()}, not ${wanted}` }
       }
       throw err
     }

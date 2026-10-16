@@ -113,3 +113,53 @@ describe('BullMQQueueAdapter close (#995)', () => {
     expect(disconnect).toHaveBeenCalled()
   })
 })
+
+describe('BullMQQueueAdapter per-job actions (#1152)', () => {
+  const policy = getQueuePolicy('detail-crawl')
+  const jobWith = (over: Record<string, unknown>) => ({ getState: vi.fn(async () => 'active'), ...over })
+  const coded = (code: number) => Object.assign(new Error(`code ${code}`), { code })
+
+  it('translates remove-queued script codes', async () => {
+    const cases: [[number, string], string][] = [
+      [[1, 'wait'], 'ok'],
+      [[0, ''], 'not_found'],
+      [[-1, 'active'], 'conflict'],
+      [[-2, 'completed'], 'conflict'],
+      [[-8, 'scheduled'], 'conflict'],
+    ]
+    for (const [result, outcome] of cases) {
+      const queue = makeQueue({ backend: { client: Promise.resolve({ defineCommand: vi.fn(), runCommand: vi.fn(async () => result) }) }, toKey: (k: string) => `bull:q:${k}` })
+      expect((await new BullMQQueueAdapter(queue, policy).removeQueued('1')).outcome).toBe(outcome)
+    }
+  })
+
+  it('throws on an unexpected remove-queued result', async () => {
+    const queue = makeQueue({ backend: { client: Promise.resolve({ defineCommand: vi.fn(), runCommand: vi.fn(async () => [-99, '']) }) }, toKey: (k: string) => k })
+    await expect(new BullMQQueueAdapter(queue, policy).removeQueued('1')).rejects.toThrow('Unexpected')
+  })
+
+  it('maps only the handled BullMQ error codes for retry and promote', async () => {
+    const run = async (err: Error | null, getJob: unknown = vi.fn(async () => jobWith({
+      retry: vi.fn(async () => { if (err) throw err }),
+      promote: vi.fn(async () => { if (err) throw err }),
+    }))) => {
+      const adapter = new BullMQQueueAdapter(makeQueue({ getJob }), policy)
+      return [await adapter.retryFailed('1').catch((e: unknown) => e), await adapter.makeReady('1').catch((e: unknown) => e)]
+    }
+    expect(await run(null)).toEqual([{ outcome: 'ok' }, { outcome: 'ok' }])
+    expect(await run(coded(-1))).toEqual([{ outcome: 'not_found' }, { outcome: 'not_found' }])
+    const [retry] = await run(coded(-3))
+    expect(retry).toEqual({ outcome: 'conflict', reason: 'Job is active, not failed' })
+    const unhandled = coded(-2)
+    expect(await run(unhandled)).toEqual([unhandled, unhandled])
+    const plain = new Error('redis down')
+    expect(await run(plain)).toEqual([plain, plain])
+  })
+
+  it('reports not_found when the job vanishes while resolving a state conflict', async () => {
+    const getJob = vi.fn()
+      .mockResolvedValueOnce(jobWith({ retry: vi.fn(async () => { throw coded(-3) }) }))
+      .mockResolvedValueOnce(undefined)
+    expect(await new BullMQQueueAdapter(makeQueue({ getJob }), policy).retryFailed('1')).toEqual({ outcome: 'not_found' })
+  })
+})
