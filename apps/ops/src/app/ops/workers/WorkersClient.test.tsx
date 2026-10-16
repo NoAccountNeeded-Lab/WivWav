@@ -302,7 +302,7 @@ describe('WorkersClient', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/bff/internal/ops/workers/conn-2/pause', { method: 'POST' })
     expect(await screen.findByRole('button', { name: 'Resume Spare laptop' })).toBeDefined()
-    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
+    expect(screen.getByText(/· Paused/)).toBeDefined()
     expect(screen.getByText(/Paused — not taking new work/)).toBeDefined()
   })
 
