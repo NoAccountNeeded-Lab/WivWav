@@ -79,6 +79,16 @@ export interface RepeatableJob {
   data?: unknown
 }
 
+/**
+ * Outcome of a per-job ops action. `conflict` covers a job that is active or
+ * locked, or in a state the action does not apply to (including losing a race
+ * against a worker); `reason` is operator-readable.
+ */
+export type QueuedJobActionResult =
+  | { outcome: 'ok' }
+  | { outcome: 'not_found' }
+  | { outcome: 'conflict'; reason: string }
+
 export interface QueueAdapter {
   readonly name: string
   add(data: unknown, options?: JobOptions): Promise<string>
@@ -99,6 +109,15 @@ export interface QueueAdapter {
   ): Promise<void>
   removeRepeatableByKey(key: string): Promise<boolean>
   cleanFailed(limit?: number): Promise<number>
+  /**
+   * Removes a waiting or delayed job. Removes the queued attempt only; it never
+   * stops a remote worker already running the job (that job is `conflict`).
+   */
+  removeQueued(jobId: string): Promise<QueuedJobActionResult>
+  /** Moves a failed job back to waiting with a fresh attempt budget (attempts are reset). */
+  retryFailed(jobId: string): Promise<QueuedJobActionResult>
+  /** Promotes a delayed job to waiting so it runs without waiting out its delay. */
+  makeReady(jobId: string): Promise<QueuedJobActionResult>
   close(): Promise<void>
 }
 

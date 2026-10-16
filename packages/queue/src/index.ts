@@ -8,6 +8,7 @@ export type {
   JobProcessor,
   RepeatableJob,
   QueueAdapter,
+  QueuedJobActionResult,
   WorkerAdapter,
   QueueFactory,
 } from './types.js'
