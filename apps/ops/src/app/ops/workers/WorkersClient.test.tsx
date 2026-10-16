@@ -168,7 +168,7 @@ describe('WorkersClient', () => {
     expect(h3s.map((h) => h.textContent)).toEqual(['Desk laptop', 'Spare laptop'])
     expect(within(h3s[0] as HTMLElement).getByRole('link')).toBeDefined()
     expect(screen.getByRole('table', { name: 'By queue' })).toBeDefined()
-    expect(screen.getByText('1 busy · 1 idle · 0 stale')).toBeDefined()
+    expect(screen.getByText('1 busy · 1 idle · 0 stale · 0 paused')).toBeDefined()
   })
 
   it('averages over timed jobs only and tolerates a bogus max concurrency', async () => {
@@ -316,5 +316,43 @@ describe('WorkersClient', () => {
     await act(async () => { resume.click() })
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/Could not resume Spare laptop: that worker has disconnected/)
+  })
+
+  it('keeps each card disabled until the refreshed list arrives, independently across cards', async () => {
+    const state = { 'conn-1': true, 'conn-2': true }
+    const gates: Array<() => void> = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        const id = String(url).includes('conn-1') ? 'conn-1' : 'conn-2'
+        await new Promise<void>((r) => gates.push(r))
+        state[id] = false
+        return { ok: true, status: 200, json: async () => ({}) } as Response
+      }
+      return jsonResponse({ data: [{ ...WORKER, accepting: state['conn-1'] }, { ...IDLE_WORKER, accepting: state['conn-2'] }] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<WorkersClient apiBaseUrl="" />)
+    const a = await screen.findByRole('button', { name: 'Pause Desk laptop' })
+    const b = screen.getByRole('button', { name: 'Pause Spare laptop' })
+    await act(async () => { a.click(); b.click() })
+    expect((a as HTMLButtonElement).disabled).toBe(true)
+    expect((b as HTMLButtonElement).disabled).toBe(true)
+
+    await act(async () => { gates[0]?.() })
+    expect(await screen.findByRole('button', { name: 'Resume Desk laptop' })).toBeDefined()
+    expect((screen.getByRole('button', { name: 'Pause Spare laptop' }) as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => { gates[1]?.() })
+    expect((await screen.findByRole('button', { name: 'Resume Spare laptop' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('shows an overdue heartbeat on a paused worker and counts it in the summary', async () => {
+    const w = { ...IDLE_WORKER, accepting: false, lastHeartbeatAt: new Date(Date.now() - 120_000).toISOString() }
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [w] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    await screen.findByText('Spare laptop')
+
+    expect(screen.getByText('Heartbeat overdue')).toBeDefined()
+    expect(screen.getByText(/· Paused/)).toBeDefined()
+    expect(screen.getByText(/0 busy · 0 idle · 1 stale · 1 paused/)).toBeDefined()
   })
 })
