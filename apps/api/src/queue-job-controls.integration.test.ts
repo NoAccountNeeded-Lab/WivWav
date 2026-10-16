@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { BullMQQueueFactory } from '@wivwav/queue'
 import type { QueueAdapter, WorkerAdapter } from '@wivwav/queue'
 
@@ -19,6 +19,19 @@ async function until(check: () => Promise<boolean>): Promise<void> {
     await new Promise((r) => setTimeout(r, 50))
   }
   throw new Error('condition not reached')
+}
+
+// Minimal view of the underlying BullMQ Queue (apps/api does not depend on bullmq directly).
+interface RawJob { remove(): Promise<void> }
+interface RawQueue {
+  add(name: string, data: object, opts: object): Promise<{ id?: string }>
+  getJob(id: string): Promise<RawJob | undefined>
+  getJobState(id: string): Promise<string>
+  toKey(type: string): string
+  backend: { client: Promise<{ del(key: string): Promise<number> }> }
+}
+function bullOf(q: QueueAdapter): RawQueue {
+  return (q as unknown as { getBullMQQueue(): RawQueue }).getBullMQQueue()
 }
 
 const stateOf = async (q: QueueAdapter, id: string) =>
@@ -77,7 +90,7 @@ describe('queued job controls against real BullMQ/Redis (integration)', () => {
     await until(async () => (await stateOf(q, id)) === 'completed')
   })
 
-  it('conflicts when the job becomes active between the state check and removal', async () => {
+  it('does not delete a job that completed, or an active job whose lock expired', async () => {
     const q = freshQueue()
     let release!: () => void
     const gate = new Promise<void>((r) => { release = r })
@@ -85,18 +98,49 @@ describe('queued job controls against real BullMQ/Redis (integration)', () => {
     workers.push(factory.createWorker(q.name, async () => { started = true; await gate }))
     const id = await q.add({})
     await until(async () => started)
-    // Make the pre-check stale: it reports waiting while a worker holds the lock.
-    const job = await (q as unknown as { getBullMQQueue(): { getJob(id: string): Promise<object | undefined> } }).getBullMQQueue().getJob(id)
-    const proto = Object.getPrototypeOf(job) as { getState: () => Promise<string> }
-    const original = proto.getState
-    proto.getState = async () => 'waiting'
-    try {
-      expect((await q.removeQueued(id)).outcome).toBe('conflict')
-    } finally {
-      proto.getState = original
-    }
+    // Lock expired while the job is still in the active list.
+    const bull = bullOf(q)
+    await (await bull.backend.client).del(bull.toKey(`${id}:lock`))
+    expect((await q.removeQueued(id)).outcome).toBe('conflict')
     expect(await stateOf(q, id)).toBe('active')
     release()
+  })
+
+  it('does not delete a job that already completed', async () => {
+    const q = freshQueue()
+    workers.push(factory.createWorker(q.name, async () => {}))
+    const id = await q.add({})
+    await until(async () => (await stateOf(q, id)) === 'completed')
+    expect((await q.removeQueued(id)).outcome).toBe('conflict')
+    expect(await stateOf(q, id)).toBe('completed')
+  })
+
+  it('cancels prioritized jobs on normal and paused queues', async () => {
+    for (const paused of [false, true]) {
+      const q = freshQueue()
+      if (paused) await q.pause()
+      const job = await bullOf(q).add('x', {}, { priority: 5 })
+      const id = job.id ?? ''
+      expect(await bullOf(q).getJobState(id)).toBe('prioritized')
+      expect(await q.removeQueued(id)).toEqual({ outcome: 'ok' })
+      expect(await bullOf(q).getJob(id)).toBeUndefined()
+    }
+  })
+
+  it('returns not_found when the job vanishes between lookup and action', async () => {
+    const q = freshQueue()
+    const failedId = await q.add({}, { delay: 60_000 })
+    const bull = bullOf(q)
+    const stale = await bull.getJob(failedId)
+    await stale?.remove()
+    // Only the adapter's first lookup is stale; later lookups see reality.
+    const spy = vi.spyOn(bull, 'getJob')
+    spy.mockResolvedValueOnce(stale)
+    expect((await q.makeReady(failedId)).outcome).toBe('not_found')
+    spy.mockResolvedValueOnce(stale)
+    expect((await q.retryFailed(failedId)).outcome).toBe('not_found')
+    spy.mockRestore()
+    expect((await q.removeQueued(failedId)).outcome).toBe('not_found')
   })
 
   it('retries a failed job back to waiting with attempts reset', async () => {
