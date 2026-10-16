@@ -122,6 +122,7 @@ function makeDb(
       findUnique: vi.fn().mockResolvedValue(existing),
       create: vi.fn().mockResolvedValue({ id: 'list-created' }),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     // #1073: resolves any run id to an existing JobRun row by default;
     // override per-test to simulate a stale/foreign id.
@@ -160,6 +161,13 @@ function makeStatefulDb() {
         state = { ...state, ...data }
         return state
       }),
+      updateMany: vi
+        .fn()
+        .mockImplementation(async ({ where, data }: { where: { manuallyHiddenAt?: null }; data: Record<string, unknown> }) => {
+          if (state === null || (where.manuallyHiddenAt === null && state.manuallyHiddenAt != null)) return { count: 0 }
+          state = { ...state, ...data }
+          return { count: 1 }
+        }),
     },
     jobRun: {
       findUnique: vi
@@ -191,6 +199,28 @@ function makeStatefulDb() {
 }
 
 describe('ingestListing', () => {
+  describe('manual hide (#1157)', () => {
+    it('writes the publication decision only where the row is not hidden, even if a hide lands after the read', async () => {
+      const h = makeStatefulDb()
+      await ingestListing(h.db as never, makeListing({ publicationStatus: 'quarantined' }))
+      // A hide commits after the ingest's read of the row.
+      h.applyDetailExtraction({ manuallyHiddenAt: new Date(), publicationStatus: 'quarantined' })
+      await ingestListing(h.db as never, makeListing({ priceCents: 1, publicationStatus: 'eligible' }))
+
+      expect(h.db.listing.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'list-created', manuallyHiddenAt: null } }),
+      )
+      expect(h.getState()?.publicationStatus).toBe('quarantined')
+    })
+
+    it('still publishes a non-hidden listing', async () => {
+      const h = makeStatefulDb()
+      await ingestListing(h.db as never, makeListing({ publicationStatus: 'eligible' }))
+      await ingestListing(h.db as never, makeListing({ priceCents: 1, publicationStatus: 'eligible' }))
+      expect(h.getState()?.publicationStatus).toBe('eligible')
+    })
+  })
+
   describe('upsert price history', () => {
     it('writes a history row when price changes on re-scrape', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 2500000 })
@@ -365,7 +395,7 @@ describe('ingestListing', () => {
       const db = makeDb({ id: 'list-1', priceCents: 2500000 })
       await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.update).toHaveBeenCalledWith(
+      expect(db.listing.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             publicationStatus: 'pending',
@@ -756,9 +786,11 @@ describe('ingestListing', () => {
           expect.objectContaining({
             data: expect.objectContaining({
               [field]: observed,
-              publicationStatus: 'pending',
             }),
           }),
+        )
+        expect(db.listing.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'pending' }) }),
         )
         expect(db.listingConversionHistory.create).toHaveBeenCalledTimes(1)
         expect(db.listingObservation.create).toHaveBeenCalledWith({

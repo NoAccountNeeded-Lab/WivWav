@@ -34,4 +34,28 @@ describe('ListingActions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
     expect((await screen.findByRole('alert')).textContent).toContain('Listing is gone')
   })
+
+  it('moves focus into the confirm, and returns it to the opening control on Escape and after confirming', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: { message: 'Done', jobId: '9' } }) }) as Response))
+    render(<ListingActions listingId="l1" apiBaseUrl="" />)
+    const opener = screen.getByRole('button', { name: 'Mark as gone' })
+
+    opener.focus()
+    fireEvent.click(opener)
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    await waitFor(() => expect(document.activeElement).toBe(cancel))
+    fireEvent.keyDown(cancel, { key: 'Escape' })
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(document.activeElement).toBe(opener)
+
+    fireEvent.click(opener)
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('job 9'))
+    expect(document.activeElement).toBe(opener)
+  })
+
+  it('has no VIN decode action', () => {
+    render(<ListingActions listingId="l1" apiBaseUrl="" />)
+    expect(screen.queryByRole('button', { name: /VIN/ })).toBeNull()
+  })
 })

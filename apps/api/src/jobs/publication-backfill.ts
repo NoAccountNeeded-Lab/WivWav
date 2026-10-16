@@ -81,6 +81,7 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       where: {
         status: 'active',
+        manuallyHiddenAt: null,
         ...(opts.sourceId ? { sourceId: opts.sourceId } : {}),
       },
       orderBy: { id: 'asc' },
@@ -151,8 +152,8 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
       const now = new Date()
       await db.$transaction(
         updates.map((update) =>
-          db.listing.update({
-            where: { id: update.id },
+          db.listing.updateMany({
+            where: { id: update.id, manuallyHiddenAt: null },
             data: {
               publicationStatus: update.publicationStatus,
               qualityIssueCodes: update.qualityIssueCodes,
