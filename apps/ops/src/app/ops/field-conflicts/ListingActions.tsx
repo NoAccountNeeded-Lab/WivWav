@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import styles from '../ops.module.css'
 import { ACTION_ICONS } from '../action-icons'
 
@@ -15,13 +15,15 @@ const BUTTONS: { action: Action; label: string; icon: keyof typeof ACTION_ICONS;
 ]
 
 /** #1157 per-listing operator actions: icon buttons with accessible names and an in-page confirm. */
-export function ListingActions({ listingId, apiBaseUrl }: { listingId: string; apiBaseUrl: string }) {
+export function ListingActions({ listingId, manuallyHiddenAt, apiBaseUrl }: { listingId: string; manuallyHiddenAt: string | null; apiBaseUrl: string }) {
   const [pending, setPending] = useState<Action | null>(null)
   const [reason, setReason] = useState('')
   const [feedback, setFeedback] = useState<{ message: string; isError: boolean } | null>(null)
   const current = BUTTONS.find((b) => b.action === pending)
 
-  const controlId = (action: Action) => `listing-${listingId}-${action}`
+  // One listing can appear in several rows, so ids are per instance, not per listing.
+  const idPrefix = useId()
+  const controlId = (action: Action) => `${idPrefix}-${action}`
   // Safe choice first: move focus into the confirm when it opens.
   useEffect(() => {
     if (pending) document.getElementById(`${controlId(pending)}-cancel`)?.focus()
@@ -39,7 +41,7 @@ export function ListingActions({ listingId, apiBaseUrl }: { listingId: string; a
       const res = await fetch(`${apiBaseUrl}/internal/ops/listings/${encodeURIComponent(listingId)}/actions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, ...(action === 'hide' ? { reason } : {}) }),
+        body: JSON.stringify({ action, ...(action === 'hide' ? { reason } : {}), ...(action === 'unhide' ? { manuallyHiddenAt } : {}) }),
       })
       const body = (await res.json().catch(() => null)) as { data?: { message?: string; jobId?: string | null }; error?: { message?: string } } | null
       if (!res.ok) setFeedback({ message: body?.error?.message ?? `Failed (${res.status})`, isError: true })

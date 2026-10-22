@@ -35,14 +35,14 @@ const bad = (code: string, message: string) => ({ error: { code, message } })
 export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = async (app, { db, queueFactory }) => {
   const resolveQueue: QueueAdapter = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
 
-  // POST /internal/ops/listings/:id/actions  { action, reason? }
+  // POST /internal/ops/listings/:id/actions  { action, reason?, manuallyHiddenAt? (required for unhide) }
   app.post<{ Params: { id: string }; Body: unknown }>('/:id/actions', async (req, reply) => {
     const { id } = req.params
     const body = req.body
     if (typeof body !== 'object' || body === null || Array.isArray(body)) {
       return reply.code(400).send(bad('INVALID_BODY', 'body must be a JSON object'))
     }
-    const { action: rawAction, reason: rawReason } = body as { action?: unknown; reason?: unknown }
+    const { action: rawAction, reason: rawReason, manuallyHiddenAt: rawHiddenAt } = body as { action?: unknown; reason?: unknown; manuallyHiddenAt?: unknown }
     if (typeof rawAction !== 'string' || !(ACTIONS as readonly string[]).includes(rawAction)) {
       return reply.code(400).send(bad('INVALID_ACTION', `action must be one of: ${ACTIONS.join(', ')}`))
     }
@@ -53,6 +53,11 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
     const reason = (rawReason ?? '').trim()
     if (reason.length > 500 || (action === 'hide' && reason.length === 0)) {
       return reply.code(400).send(bad('INVALID_REASON', 'hide requires a reason of 1-500 characters'))
+    }
+    // unhide only undoes the hide the operator saw, so a delayed unhide cannot undo a newer hide.
+    const seenHiddenAt = typeof rawHiddenAt === 'string' ? new Date(rawHiddenAt) : null
+    if (action === 'unhide' && (!seenHiddenAt || Number.isNaN(seenHiddenAt.getTime()))) {
+      return reply.code(400).send(bad('INVALID_HIDDEN_AT', 'unhide requires manuallyHiddenAt as an ISO timestamp'))
     }
     const actor = String(req.headers['x-ops-actor'] ?? 'internal-api-secret').slice(0, 200)
     const ref = randomUUID()
@@ -82,10 +87,12 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
         }
         case 'unhide': {
           const r = await tx.listing.updateMany({
-            where: { id, manuallyHiddenAt: { not: null } },
+            where: { id, manuallyHiddenAt: seenHiddenAt },
             data: { manuallyHiddenAt: null, manualHideReason: null, publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
           })
-          outcome = r.count > 0 ? applied('Unhidden; queued listing-resolve to republish', true) : noop('Not hidden')
+          outcome = r.count > 0 ? applied('Unhidden; queued listing-resolve to republish', true)
+            : hidden ? conflict('Listing was hidden again since you loaded it; refresh and retry')
+            : noop('Not hidden')
           break
         }
         case 'mark-gone': {

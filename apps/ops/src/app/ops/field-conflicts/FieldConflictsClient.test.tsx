@@ -24,6 +24,7 @@ const ROW = {
   sourceRefs: ['https://dealer.example.com/listing/1', 'https://dealer.example.com/listing/1/detail'],
   observedAts: ['2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z'],
   detectedAt: '2026-01-02T00:00:00.000Z',
+  manuallyHiddenAt: null,
 }
 
 describe('FieldConflictsClient', () => {
