@@ -1142,6 +1142,7 @@ function makeFieldConflictRow(overrides: Record<string, unknown> = {}) {
     sourceRefs: ['https://dealer.example.com/listing/1', 'https://dealer.example.com/listing/1/detail'],
     observedAts: [new Date('2026-01-01'), new Date('2026-01-02')],
     detectedAt: new Date('2026-01-02'),
+    manuallyHiddenAt: null,
     ...overrides,
   }
 }

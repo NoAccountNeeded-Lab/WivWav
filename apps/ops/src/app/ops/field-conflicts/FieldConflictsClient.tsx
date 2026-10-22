@@ -24,6 +24,7 @@ interface FieldConflictRow {
   sourceRefs: (string | null)[]
   observedAts: string[]
   detectedAt: string
+  manuallyHiddenAt: string | null
 }
 
 interface FieldConflictsClientProps {
@@ -165,7 +166,7 @@ export function FieldConflictsClient({ apiBaseUrl }: FieldConflictsClientProps) 
                       </a>
                     </td>
                     <td>
-                      <ListingActions listingId={row.listingId} apiBaseUrl={apiBaseUrl} />
+                      <ListingActions listingId={row.listingId} manuallyHiddenAt={row.manuallyHiddenAt} apiBaseUrl={apiBaseUrl} />
                     </td>
                   </tr>
                 ))}

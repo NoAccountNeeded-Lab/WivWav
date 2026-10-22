@@ -278,6 +278,8 @@ export type FieldConflictRow = {
   observedAts: Date[]
   /** Most recent Listing write that could have changed this resolution. */
   detectedAt: Date
+  /** Set while an operator has the listing hidden (#1157); echoed back to `unhide`. */
+  manuallyHiddenAt: Date | null
 }
 
 export type FieldConflictFilter = {
@@ -821,6 +823,7 @@ export class PrismaListingRepository implements ListingRepository {
         conversionTypeResolution: true,
         rampTypeResolution: true,
         updatedAt: true,
+        manuallyHiddenAt: true,
       },
     })
     if (listingRows.length === 0) return []
@@ -870,6 +873,7 @@ export class PrismaListingRepository implements ListingRepository {
           sourceRefs: competing.map((c) => c.sourceRef),
           observedAts: competing.map((c) => c.observedAt),
           detectedAt: listing.updatedAt,
+          manuallyHiddenAt: listing.manuallyHiddenAt,
         })
       }
     }

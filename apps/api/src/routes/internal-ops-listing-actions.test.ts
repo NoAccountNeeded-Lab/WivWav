@@ -14,6 +14,7 @@ const base: Row = { id: 'l1', status: 'active', publicationStatus: 'eligible', m
 
 function matches(row: Row, where: Row): boolean {
   return Object.entries(where).every(([k, v]) => {
+    if (v instanceof Date) return row[k] instanceof Date && row[k].getTime() === v.getTime()
     if (v !== null && typeof v === 'object') {
       const cond = v as { not?: unknown }
       return cond.not === null ? row[k] !== null : row[k] !== cond.not
@@ -99,9 +100,25 @@ describe('POST /internal/ops/listings/:id/actions', () => {
     expect((await post('l1', { action: 'hide', reason: 'again' })).json().data.changed).toBe(false)
     expect((await post('l1', { action: 'requeue-resolve' })).statusCode).toBe(409)
     expect((await post('l1', { action: 'release-quarantine' })).statusCode).toBe(409)
-    expect((await post('l1', { action: 'unhide' })).json().data.jobId).toBeTruthy()
+    expect((await post('l1', { action: 'unhide', manuallyHiddenAt: (row.manuallyHiddenAt as Date).toISOString() })).json().data.jobId).toBeTruthy()
     expect(row).toMatchObject({ manuallyHiddenAt: null, publicationStatus: 'pending' })
     expect(resolveQ.getEnqueued()).toHaveLength(1)
+    await app.close()
+  })
+
+  it('unhide with a stale timestamp conflicts and leaves the newer hide in place; missing or invalid is 400', async () => {
+    const row: Row = { ...base, manuallyHiddenAt: new Date('2026-10-02T00:00:00.000Z'), publicationStatus: 'quarantined' }
+    const { app, post, resolveQ } = await buildApp(row)
+    const stale = await post('l1', { action: 'unhide', manuallyHiddenAt: '2026-10-01T00:00:00.000Z' })
+    expect(stale.statusCode).toBe(409)
+    expect(row.manuallyHiddenAt).toEqual(new Date('2026-10-02T00:00:00.000Z'))
+    expect(resolveQ.getEnqueued()).toHaveLength(0)
+    for (const payload of [{ action: 'unhide' }, { action: 'unhide', manuallyHiddenAt: 'nope' }, { action: 'unhide', manuallyHiddenAt: 5 }]) {
+      expect((await post('l1', payload)).statusCode).toBe(400)
+    }
+    const ok = await post('l1', { action: 'unhide', manuallyHiddenAt: '2026-10-02T00:00:00.000Z' })
+    expect(ok.json().data.changed).toBe(true)
+    expect(row.manuallyHiddenAt).toBeNull()
     await app.close()
   })
 
