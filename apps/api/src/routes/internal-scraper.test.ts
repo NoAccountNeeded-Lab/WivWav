@@ -503,6 +503,47 @@ describe('POST /detail-extract/submit', () => {
 
     expect(response.json().data).toEqual({ outcome: 'already_applied', changedFields: ['color'] })
   })
+
+  describe('detailStaleAt (#1156)', () => {
+    const staleAt = new Date('2026-08-02T00:00:00.000Z')
+    async function submitWith(pageScrapedAt: Date) {
+      const { app, ready, rawPages, listings } = buildTestApp()
+      await ready
+      rawPages.push({ id: 'raw-1', url: 'https://dealer.example/1', scrapedAt: pageScrapedAt, processedAt: null })
+      listings.push({
+        id: 'listing-1',
+        status: 'active',
+        soldAt: null,
+        missingFromCompleteCount: 0,
+        updatedAt: new Date(),
+        detailStaleAt: staleAt,
+      })
+      const response = await app.inject({
+        method: 'POST',
+        url: '/detail-extract/submit',
+        payload: {
+          sourceId: 'src-1',
+          rawPageId: 'raw-1',
+          listingId: 'listing-1',
+          detail: minimalDetail(),
+          enrichment: { dealerWebsite: null, directVehicleUrl: null },
+        },
+      })
+      expect(response.statusCode).toBe(200)
+      return listings[0]!
+    }
+
+    it('keeps detailStaleAt when the raw page was fetched before the card invalidation', async () => {
+      const row = await submitWith(new Date('2026-08-01T00:00:00.000Z'))
+      expect(row['detailStaleAt']).toEqual(staleAt)
+      expect(row['detailScrapedAt']).toBeInstanceOf(Date)
+    })
+
+    it('clears detailStaleAt when the raw page was fetched after the card invalidation', async () => {
+      const row = await submitWith(new Date('2026-08-03T00:00:00.000Z'))
+      expect(row['detailStaleAt']).toBeNull()
+    })
+  })
 })
 
 function minimalDetail() {

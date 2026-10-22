@@ -67,6 +67,7 @@ untouched listings never write to `ListingFieldClaim`:
 | `vehicleId`, `vehicleModelId`, `vehicleModelMatchConfidence` | VIN enrichment | Updated from normalized VIN/model evidence without rewriting source observations. |
 | `isDuplicate`, `canonicalId` | resolution | Owned by deduplication/canonical resolution. |
 | `detailScrapedAt` | detail scrape | Time the most recent raw page was successfully interpreted, even when its values were unchanged. |
+| `detailStaleAt` | list/card scrape (set), detail scrape (cleared) | Set when a card change touched a detail-owned field (identity, conversion/accessibility, color) of a detail-complete listing. While set, publication stays `pending`, the resolver skips the row, and detail re-crawl selects it. Detail apply clears it. |
 | `listedAt` | list/card scrape | WAV Search first-seen timestamp, set once on create from the scrape clock. It is not a seller listing date. Search ordering, “New” badges, crawl ordering, and observed-inventory history intentionally use this internal discovery time. |
 | `sourceListedAt`, `sourceUpdatedAt` | detail scrape | Explicit seller/source dates from listing-scoped structured metadata. Valid values replace prior source values; missing or invalid metadata preserves them. Seller-age and time-to-gone metrics use `sourceListedAt` and exclude rows where it is unavailable. |
 | `scrapedAt` | list/card scrape | Time the most recent **changed** card observation was committed. Unchanged cards do not churn rows; source-level `lastObservedAt` records successful no-change checks. |
@@ -110,7 +111,7 @@ Card writes run in a serializable transaction; transaction conflicts and
 concurrent creates are retried, then re-read, so the losing worker observes the
 committed value as unchanged. History and audit rows commit with the listing.
 
-Changed card rows reset `detailScrapedAt` when the correction can affect detail
+Changed card rows set `detailStaleAt` (keeping `detailScrapedAt`) when the correction can affect detail
 data. An unchanged row creates no history, observation, detail work, or search
 sync. Scraper-run counters mean:
 

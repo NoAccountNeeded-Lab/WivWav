@@ -2,7 +2,7 @@
  * Publication validator backfill (issue #502).
  *
  * Before the comprehensive per-listing validator in
- * apps/api/src/engine/listing-validator.ts is enforced for new scrapes,
+ * packages/types/src/listing-validator.ts is enforced for new scrapes,
  * this backfill audits every currently-active listing against the same rules
  * so operators can see the expected quarantine volume and rule breakdown
  * *before* enforcement begins. Active listings are otherwise left alone in
@@ -52,7 +52,7 @@
 import '../lib/load-env.js'
 
 import { getDb } from '@wivwav/db'
-import { validateListing, decidePublication } from '../engine/listing-validator.js'
+import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
 
 const BATCH_SIZE = 500
 
@@ -62,6 +62,8 @@ interface BackfillReport {
   quarantined: number
   bySource: Record<string, { audited: number; quarantined: number }>
   issuesByRule: Record<string, number>
+  /** Rows not written because they changed or went detail-stale since being read (#1156). */
+  skippedConcurrent: number
 }
 
 async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise<BackfillReport> {
@@ -72,6 +74,7 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
     quarantined: 0,
     bySource: {},
     issuesByRule: {},
+    skippedConcurrent: 0,
   }
 
   let cursor: string | undefined
@@ -82,6 +85,8 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
       where: {
         status: 'active',
         manuallyHiddenAt: null,
+        // Detail-stale rows are held pending until detail re-runs (#1156).
+        detailStaleAt: null,
         ...(opts.sourceId ? { sourceId: opts.sourceId } : {}),
       },
       orderBy: { id: 'asc' },
@@ -89,7 +94,7 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
     })
     if (rows.length === 0) break
 
-    const updates: Array<{ id: string; publicationStatus: 'eligible' | 'quarantined'; qualityIssueCodes: string[] }> = []
+    const updates: Array<{ id: string; updatedAt: Date; publicationStatus: 'eligible' | 'quarantined'; qualityIssueCodes: string[] }> = []
 
     for (const row of rows) {
       const issues = validateListing({
@@ -145,15 +150,17 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
         }
       }
 
-      updates.push({ id: row.id, publicationStatus: decision.publicationStatus, qualityIssueCodes: decision.qualityIssueCodes })
+      updates.push({ id: row.id, updatedAt: row.updatedAt, publicationStatus: decision.publicationStatus, qualityIssueCodes: decision.qualityIssueCodes })
     }
 
     if (opts.apply) {
       const now = new Date()
-      await db.$transaction(
+      // Guard each write on updatedAt + not-stale so a concurrent card
+      // invalidation is never overwritten or published over (#1156).
+      const results = await db.$transaction(
         updates.map((update) =>
           db.listing.updateMany({
-            where: { id: update.id, manuallyHiddenAt: null },
+            where: { id: update.id, updatedAt: update.updatedAt, manuallyHiddenAt: null, detailStaleAt: null },
             data: {
               publicationStatus: update.publicationStatus,
               qualityIssueCodes: update.qualityIssueCodes,
@@ -162,6 +169,7 @@ async function runBackfill(opts: { apply: boolean; sourceId?: string }): Promise
           }),
         ),
       )
+      report.skippedConcurrent += results.filter((result) => result.count === 0).length
     }
 
     cursor = rows[rows.length - 1]!.id
@@ -182,6 +190,10 @@ function printReport(report: BackfillReport, applied: boolean): void {
   if (report.totalAudited > 0) {
     const pct = ((report.quarantined / report.totalAudited) * 100).toFixed(1)
     console.log(`  Quarantine rate: ${pct}%`)
+  }
+
+  if (report.skippedConcurrent > 0) {
+    console.log(`  Skipped (changed or detail-stale since read): ${report.skippedConcurrent}`)
   }
 
   console.log('\n── By source ──')

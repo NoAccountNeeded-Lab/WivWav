@@ -135,7 +135,7 @@ export async function selectImages(db: PrismaClient, options: LocalRunOptions): 
   })
   const listingRows = await db.listing.findMany({
     where: { id: { in: [...new Set(eligible.map((image) => image.listingId))] } },
-    select: { id: true, sourceId: true, conversionType: true, rampType: true, detailScrapedAt: true },
+    select: { id: true, sourceId: true, conversionType: true, rampType: true, detailScrapedAt: true, detailStaleAt: true },
   })
   const filtered = filterPhotoCandidates(
     eligible,

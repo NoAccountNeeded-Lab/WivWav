@@ -23,6 +23,11 @@
       "import": "./dist/scraper-gateway.js",
       "default": "./dist/scraper-gateway.js"
     },
+    "./listing-validator": {
+      "types": "./dist/listing-validator.d.ts",
+      "import": "./dist/listing-validator.js",
+      "default": "./dist/listing-validator.js"
+    },
     "./http-enrich-gateway": {
       "types": "./dist/http-enrich-gateway.d.ts",
       "import": "./dist/http-enrich-gateway.js",

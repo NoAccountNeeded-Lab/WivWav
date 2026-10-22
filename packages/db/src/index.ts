@@ -81,7 +81,6 @@ export {
   changedDetailFields,
   detailObservationReference,
   enqueueRequiredListingResolution,
-  requiresListingResolution,
   resolveListingStatus,
 } from './ingest/detail-apply.js'
 export type {

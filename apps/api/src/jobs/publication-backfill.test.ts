@@ -46,6 +46,7 @@ function makeListingRow(overrides: Record<string, unknown> = {}) {
     saleStatus: 'active',
     soldAt: null,
     listedAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-02'),
     source: { name: 'MobilityWorks' },
     ...overrides,
   }
@@ -125,13 +126,27 @@ describe('runBackfill', () => {
 
     expect(db.$transaction).toHaveBeenCalledTimes(1)
     expect(db.listing.updateMany).toHaveBeenCalledWith({
-      where: { id: 'l-1', manuallyHiddenAt: null },
+      where: { id: 'l-1', updatedAt: new Date('2026-01-02'), manuallyHiddenAt: null, detailStaleAt: null },
       data: {
         publicationStatus: 'quarantined',
         qualityIssueCodes: expect.arrayContaining(['contains_space']),
         qualityCheckedAt: expect.any(Date),
       },
     })
+  })
+
+  it('excludes detail-stale rows from selection', async () => {
+    await runBackfill({ apply: true })
+    expect(db.listing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ detailStaleAt: null }) }),
+    )
+  })
+
+  it('counts a row skipped when the guarded write matches nothing (changed or went stale)', async () => {
+    db.listing.findMany.mockResolvedValueOnce([makeListingRow()]).mockResolvedValueOnce([])
+    db.listing.updateMany.mockResolvedValueOnce({ count: 0 })
+    const report = await runBackfill({ apply: true })
+    expect(report.skippedConcurrent).toBe(1)
   })
 
   it('does not write anything in report mode even for quarantined listings', async () => {

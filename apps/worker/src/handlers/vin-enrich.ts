@@ -7,7 +7,7 @@ import {
 import type { HttpEnrichGatewayClient } from '../http-enrich-gateway-client.js'
 import { createJobContext } from '../job-context.js'
 import { fetchWithRetry } from '../util/fetch-with-retry.js'
-import { validateAuthoritativeMismatch } from '../engine/listing-validator.js'
+import { validateAuthoritativeMismatch } from '@wivwav/types/listing-validator'
 
 const VPIC_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevin'
 const RATE_LIMIT_MS = 200

@@ -7,6 +7,8 @@ export interface ListingStageInfo {
   conversionType: string
   rampType: string
   detailScrapedAt: Date | null
+  /** Set while a card change has left detail data stale (#1156). */
+  detailStaleAt?: Date | null
 }
 
 export interface CandidateFilterResult {
@@ -36,7 +38,11 @@ export function filterPhotoCandidates(
   const kept = images.filter((image) => {
     const listing = listings.get(image.listingId)
     if (!listing) return true
-    if (options.requireFinishedStages && sourcesWithDetailStage.has(listing.sourceId) && !listing.detailScrapedAt) {
+    if (
+      options.requireFinishedStages &&
+      sourcesWithDetailStage.has(listing.sourceId) &&
+      (!listing.detailScrapedAt || listing.detailStaleAt)
+    ) {
       skippedUnfinishedIds.add(image.listingId)
       return false
     }

@@ -41,7 +41,7 @@ import {
   type PrismaClient,
 } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
-import { validateListing, decidePublication } from '../engine/listing-validator.js'
+import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
 import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
 
@@ -51,7 +51,7 @@ export type ListingResolveJobData =
 
 const SOURCE_BATCH_SIZE = 100
 
-export type ResolveOutcome = 'eligible' | 'quarantined' | 'skipped-stale'
+export type ResolveOutcome = 'eligible' | 'quarantined' | 'skipped-stale' | 'held-detail-stale'
 
 /** Maps a full Prisma listing row to the nested shape validateListing() requires. */
 export function toValidatorInput(row: PrismaListing): ListingUpsertData {
@@ -105,6 +105,8 @@ export async function resolveRow(
 ): Promise<ResolveOutcome> {
   // #1157: operator-hidden listings are never published by a resolve pass.
   if (row.manuallyHiddenAt) return 'quarantined'
+  // Card change invalidated detail data: stay pending until detail re-runs (#1156).
+  if (row.detailStaleAt) return 'held-detail-stale'
   const issues = validateListing(toValidatorInput(row))
   const decision = decidePublication(issues)
 
@@ -183,7 +185,7 @@ async function resolveSourceBacklog(
     for (const row of rows) {
       const outcome = await resolveRow(db, row, context)
       processed++
-      if (outcome === 'skipped-stale') skippedStale++
+      if (outcome === 'skipped-stale' || outcome === 'held-detail-stale') skippedStale++
       else resolved++
     }
 

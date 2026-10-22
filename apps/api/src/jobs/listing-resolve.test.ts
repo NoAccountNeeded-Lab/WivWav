@@ -52,6 +52,7 @@ function makeListingRow(overrides: Record<string, unknown> = {}) {
     status: 'active',
     publicationStatus: 'pending',
     updatedAt: new Date('2026-01-02'),
+    detailStaleAt: null,
     ...overrides,
   }
 }
@@ -120,6 +121,14 @@ describe('resolveRow', () => {
         qualityCheckedAt: expect.any(Date),
       },
     })
+  })
+
+  it('holds a row with detailStaleAt set: no write, no error (#1156)', async () => {
+    const row = makeListingRow({ detailStaleAt: new Date('2026-01-03') })
+    const outcome = await resolveRow(db as never, row as never, undefined)
+
+    expect(outcome).toBe('held-detail-stale')
+    expect(db.listing.update).not.toHaveBeenCalled()
   })
 
   it('marks a listing with an error-severity issue quarantined', async () => {

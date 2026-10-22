@@ -77,6 +77,8 @@ function makeDb(
         sourceUpdatedAt: Date | null
         qualityIssueCodes: string[]
         status: string
+        detailScrapedAt: Date | null
+        detailStaleAt: Date | null
       }> & { id: string; priceCents: number | null })
     | null = null,
 ) {
@@ -95,6 +97,8 @@ function makeDb(
         condition: fixture.condition,
         sellerType: fixture.sellerType,
         status: 'active',
+        detailScrapedAt: null,
+        detailStaleAt: null,
         mileage: fixture.mileage,
         color: fixture.color,
         conversionType: fixture.wav.conversionType,
@@ -896,37 +900,78 @@ describe('ingestListing', () => {
   })
 
   describe('upsert detailScrapedAt reset', () => {
-    it('resets detailScrapedAt when price changes', async () => {
+    it('still takes the card decision for a listing that never completed detail', async () => {
+      const db = makeDb({ id: 'list-1', priceCents: 2500000 })
+      await ingestListing(db as never, makeListing({ priceCents: 3000000, publicationStatus: 'eligible' }))
+      expect(db.listing.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'eligible' }) }),
+      )
+    })
+
+    it('does not touch detailScrapedAt or detailStaleAt when price changes on a never-detailed listing', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 2500000, status: 'active' })
       await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
 
-      expect(db.listing.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ detailScrapedAt: null }),
-        }),
-      )
+      const data = db.listing.update.mock.calls[0]?.[0].data
+      expect(data).not.toHaveProperty('detailScrapedAt')
+      expect(data).not.toHaveProperty('detailStaleAt')
     })
 
-    it('resets detailScrapedAt when a possibly_gone listing reappears', async () => {
-      const db = makeDb({ id: 'list-1', priceCents: 3000000, status: 'possibly_gone' })
-      await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
-
-      expect(db.listing.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ detailScrapedAt: null }),
-        }),
+    // #1156: a card re-scrape must not re-publish a listing detail already decided.
+    it('keeps the publication decision of a detail-complete listing when only non-detail card fields change', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        buyerUrl: null,
+        priceCents: 3000000,
+        detailScrapedAt: new Date('2026-07-03T18:00:00Z'),
+      })
+      await ingestListing(
+        db as never,
+        makeListing({ priceCents: 3000000, publicationStatus: 'eligible', qualityCheckedAt: new Date() }),
       )
+
+      expect(db.listing.update).toHaveBeenCalledTimes(1)
+      const data = db.listing.update.mock.calls[0]?.[0].data
+      expect(data).not.toHaveProperty('publicationStatus')
+      expect(data).not.toHaveProperty('qualityIssueCodes')
+      expect(data).not.toHaveProperty('qualityCheckedAt')
+      expect(data).not.toHaveProperty('detailScrapedAt')
     })
 
-    it('resets detailScrapedAt when a gone listing reappears', async () => {
-      const db = makeDb({ id: 'list-1', priceCents: 3000000, status: 'gone' })
-      await ingestListing(db as never, makeListing({ priceCents: 3000000 }))
-
-      expect(db.listing.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ detailScrapedAt: null }),
-        }),
+    it('marks detail stale and holds pending (keeping detailScrapedAt) when an accessibility field changes', async () => {
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 3000000,
+        detailScrapedAt: new Date('2026-07-03T18:00:00Z'),
+      })
+      await ingestListing(
+        db as never,
+        makeListing({ priceCents: 3000000, publicationStatus: 'eligible', wav: { ...makeListing().wav, rampType: 'fold_out' } }),
       )
+
+      const data = db.listing.update.mock.calls[0]?.[0].data
+      expect(data).toMatchObject({
+        publicationStatus: 'pending',
+        qualityCheckedAt: null,
+        detailStaleAt: expect.any(Date),
+      })
+      expect(data).not.toHaveProperty('detailScrapedAt')
+    })
+
+    it('keeps holding pending on a further card update while detail is stale', async () => {
+      const staleAt = new Date('2026-07-04T10:00:00Z')
+      const db = makeDb({
+        id: 'list-1',
+        priceCents: 2500000,
+        detailScrapedAt: new Date('2026-07-03T18:00:00Z'),
+        detailStaleAt: staleAt,
+      })
+      await ingestListing(db as never, makeListing({ priceCents: 3000000, publicationStatus: 'eligible' }))
+
+      const data = db.listing.update.mock.calls[0]?.[0].data
+      expect(data).toMatchObject({ publicationStatus: 'pending', qualityCheckedAt: null })
+      expect(data).not.toHaveProperty('detailStaleAt')
+      expect(data).not.toHaveProperty('detailScrapedAt')
     })
 
     it('does not reset detailScrapedAt when price and status are unchanged', async () => {
