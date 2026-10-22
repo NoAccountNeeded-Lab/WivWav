@@ -24,6 +24,10 @@ describe('isMainModule', () => {
     expect(isMainModule(pathToFileURL(script).href, link)).toBe(true)
   })
 
+  it('matches an extensionless argv entry (tsx path/to/job)', () => {
+    expect(isMainModule(pathToFileURL(script).href, script.replace(/\.ts$/, ''))).toBe(true)
+  })
+
   it('does not match a different script, a missing path or no argv', () => {
     const other = join(root, 'other.ts')
     writeFileSync(other, '')
