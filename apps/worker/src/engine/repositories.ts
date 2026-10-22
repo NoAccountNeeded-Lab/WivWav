@@ -1,6 +1,6 @@
 import type { FieldMapping } from '@wivwav/types'
 import type { ListingUpsertData, ListingUpsertResult } from '@wivwav/scraper-sources'
-import type { SourceDriftBaseline } from './listing-validator.js'
+import type { SourceDriftBaseline } from '@wivwav/types/listing-validator'
 
 /**
  * Port interfaces the worker's `ScraperEngine` depends on (#952) — an

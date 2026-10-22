@@ -464,7 +464,11 @@ describe('PrismaListingRepository.getSourcePipelineStages', () => {
       where: {
         sourceId: 'src-1',
         status: { not: 'gone' },
-        OR: [{ detailScrapedAt: null }, { detailScrapedAt: { lt: expect.any(Date) } }],
+        OR: [
+          { detailScrapedAt: null },
+          { detailScrapedAt: { lt: expect.any(Date) } },
+          { detailStaleAt: { not: null } },
+        ],
       },
     })
     expect(db.rawPage.count).toHaveBeenCalledWith({ where: { sourceId: 'src-1', processedAt: null } })

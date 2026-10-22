@@ -1034,6 +1034,7 @@ export class PrismaListingRepository implements ListingRepository {
           OR: [
             { detailScrapedAt: null },
             { detailScrapedAt: { lt: staleThreshold } },
+            { detailStaleAt: { not: null } },
           ],
         },
       }),

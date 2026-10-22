@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { ListingUpsertRequest as ListingUpsertData } from './scraper-gateway.js'
 import {
   validateListing,
   decidePublication,
@@ -7,7 +8,6 @@ import {
   SYSTEMIC_ERROR_THRESHOLD,
   DRIFT_THRESHOLD_PERCENTAGE_POINTS,
 } from './listing-validator.js'
-import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 
 function makeListing(overrides: Partial<ListingUpsertData> = {}): ListingUpsertData {
   return {

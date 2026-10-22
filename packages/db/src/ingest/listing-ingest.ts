@@ -143,6 +143,8 @@ export async function ingestListing(
       sourceUpdatedAt: true,
       qualityIssueCodes: true,
       status: true,
+      detailScrapedAt: true,
+      detailStaleAt: true,
     },
   })
 
@@ -317,16 +319,39 @@ export async function ingestListing(
     ].includes(field),
   )
   const locationChanged = changedFields.some((field) => ['zip', 'city', 'state'].includes(field))
-  const resetDetail = changedFields.some(
-    (field) =>
-      ![
-        'buyerUrl',
-        'sellerType',
-        'sourceListedAt',
-        'sourceUpdatedAt',
-        'qualityIssueCodes',
-      ].includes(field),
-  )
+  // Fields the detail stage re-derives or whose card change invalidates what
+  // detail extracted (#1156): identity (vin/make/model/year/trim/condition),
+  // conversion/accessibility evidence and color. Everything else the card owns
+  // outright (price, mileage, URLs, ids, dealer, location, images, source
+  // dates) and cannot make detail stale, so a price-only refresh keeps the
+  // listing's publication decision.
+  const DETAIL_OWNED_CARD_FIELDS = [
+    'vin',
+    'make',
+    'model',
+    'year',
+    'trim',
+    'condition',
+    'color',
+    'conversionType',
+    'conversionManufacturer',
+    'conversionStatus',
+    'floorLoweringInches',
+    'rampType',
+    'wavFeatures',
+    'wheelchairCapacity',
+  ]
+  const resetDetail = changedFields.some((field) => DETAIL_OWNED_CARD_FIELDS.includes(field))
+
+  // Stale = detail must re-run before the listing may be published again. Once
+  // set, any further card update keeps holding pending until detail apply
+  // clears it; the card validator verdict must never be taken meanwhile.
+  const detailStale =
+    existing.detailStaleAt !== null || (resetDetail && existing.detailScrapedAt !== null)
+  // A detail-complete listing whose detail survives this card update keeps its
+  // publication decision: the card validator only saw card data and must not
+  // re-publish (or un-pend) what detail extraction decided (#1156).
+  const keepDecision = !detailStale && existing.detailScrapedAt !== null
 
   await tx.listing.update({
     where: { id: existing.id },
@@ -364,7 +389,7 @@ export async function ingestListing(
       scrapedAt: new Date(),
       status: 'active',
       goneAt: null,
-      ...(resetDetail ? { detailScrapedAt: null } : {}),
+      ...(detailStale && existing.detailStaleAt === null ? { detailStaleAt: new Date() } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
       ...(lastRunId != null ? { lastRunId } : {}),
     },
@@ -373,14 +398,20 @@ export async function ingestListing(
   // #1157: the publication decision is its own conditional UPDATE so a hide that
   // commits at any point is never overwritten (the WHERE is re-checked under the
   // row lock). A hidden listing stays out of public until an operator unhides it.
-  await tx.listing.updateMany({
-    where: { id: existing.id, manuallyHiddenAt: null },
-    data: {
-      publicationStatus: listing.publicationStatus ?? 'pending',
-      qualityIssueCodes: listing.qualityIssueCodes ?? [],
-      qualityCheckedAt: listing.qualityCheckedAt ?? null,
-    },
-  })
+  // #1156: detail-stale listings are held pending until detail re-runs; a
+  // detail-complete listing whose detail survives keeps its decision.
+  if (detailStale || !keepDecision) {
+    await tx.listing.updateMany({
+      where: { id: existing.id, manuallyHiddenAt: null },
+      data: detailStale
+        ? { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null }
+        : {
+            publicationStatus: listing.publicationStatus ?? 'pending',
+            qualityIssueCodes: listing.qualityIssueCodes ?? [],
+            qualityCheckedAt: listing.qualityCheckedAt ?? null,
+          },
+    })
+  }
 
   if (priceChanged && listing.priceCents != null) {
     await tx.listingPriceHistory.create({

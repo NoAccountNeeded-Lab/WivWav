@@ -284,7 +284,11 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       where: {
         sourceId: body.sourceId,
         status: { not: 'gone' },
-        OR: [{ detailScrapedAt: null }, { detailScrapedAt: { lt: staleThreshold } }],
+        OR: [
+          { detailScrapedAt: null },
+          { detailScrapedAt: { lt: staleThreshold } },
+          { detailStaleAt: { not: null } },
+        ],
       },
       select: { sourceUrl: true, status: true },
       take: body.limit ?? DETAIL_CRAWL_BATCH_SIZE,
@@ -387,6 +391,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
               qualityIssueCodes: true,
               qualityCheckedAt: true,
               detailScrapedAt: true,
+              detailStaleAt: true,
               updatedAt: true,
             },
           }),
@@ -416,7 +421,6 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         CRITICAL_JOB_OPTIONS,
         listing.id,
         observationReference,
-        alreadyApplied.changedFields,
         body.runId,
       )
       await db.rawPage.update({ where: { id: rawPage.id }, data: { processedAt: new Date() } })
@@ -433,7 +437,13 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       now,
       listing.missingFromCompleteCount,
     )
-    const update = buildListingDetailUpdateData(body.detail, body.enrichment, statusUpdate, now)
+    const builtUpdate = buildListingDetailUpdateData(body.detail, body.enrichment, statusUpdate, now)
+    // Only a raw page fetched at/after the card invalidation may clear the
+    // stale flag; an older page is applied but the listing stays held and is
+    // re-selected for crawl (#1156).
+    const clearsStale = !listing.detailStaleAt || rawPage.scrapedAt >= listing.detailStaleAt
+    const { detailStaleAt: _clear, ...updateWithoutStale } = builtUpdate
+    const update = clearsStale ? builtUpdate : updateWithoutStale
     const claimsObserved = body.detail.evidence.accessibilityClaims !== 'missing'
     const changedFields = changedDetailFields(listing as unknown as Record<string, unknown>, update)
     const before = Object.fromEntries(
@@ -456,7 +466,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         async (tx) => {
           await tx.listing.update({
             where: { id: listing.id, updatedAt: listing.updatedAt },
-            data: changedFields.length > 0 ? update : { detailScrapedAt: now },
+            data: changedFields.length > 0 ? update : { detailScrapedAt: now, ...(clearsStale ? { detailStaleAt: null } : {}) },
           })
           await tx.listingObservation.create({
             data: {
@@ -481,7 +491,6 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       CRITICAL_JOB_OPTIONS,
       listing.id,
       observationReference,
-      changedFields,
       body.runId,
     )
 

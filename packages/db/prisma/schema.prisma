@@ -385,6 +385,8 @@ model Listing {
   updatedAt          DateTime  @updatedAt
   scrapedAt          DateTime  @default(now())
   detailScrapedAt    DateTime?
+  /// Set when a card change invalidated detail-owned data; detail re-run clears it. Holds publication pending (#1156).
+  detailStaleAt      DateTime?
   processingLockedAt DateTime?
 
   priceHistory      ListingPriceHistory[]
