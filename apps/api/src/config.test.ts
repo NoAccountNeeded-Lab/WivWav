@@ -21,6 +21,16 @@ describe('loadConfig', () => {
     expect(loadConfig().OLLAMA_BASE_URL).toBe('http://localhost:11434')
   })
 
+  it('keeps empty values meaningful for MEILISEARCH_API_KEY and CORS_ORIGIN', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', '')
+    vi.stubEnv('CORS_ORIGIN', '')
+
+    const config = loadConfig()
+    expect(config.MEILISEARCH_API_KEY).toBe('')
+    expect(config.CORS_ORIGIN).toBe('')
+  })
+
   it('loads successfully with required fields only', () => {
     vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
     vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)

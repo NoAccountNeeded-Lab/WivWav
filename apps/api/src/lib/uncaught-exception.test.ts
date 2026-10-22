@@ -10,7 +10,7 @@ function makeDeps(sentryEnabled: boolean) {
       capture: vi.fn(() => order.push('capture')),
       flush: vi.fn(() => Promise.resolve()),
       exit: vi.fn((code: number) => order.push(`exit ${code}`)),
-      write: vi.fn((text: string) => order.push(`write ${text.split('\n')[0]}`)),
+      write: vi.fn((text: string) => order.push(`write ${text}`)),
     },
   }
 }
@@ -18,17 +18,22 @@ function makeDeps(sentryEnabled: boolean) {
 describe('handleUncaughtException', () => {
   it('writes the error to stderr before exiting 1 when Sentry is disabled', () => {
     const { deps, order } = makeDeps(false)
-    handleUncaughtException(new Error('Invalid environment configuration. Missing or invalid: X'), deps)
-    expect(order).toEqual(['write Error: Invalid environment configuration. Missing or invalid: X', 'exit 1'])
+    const err = new Error('Invalid environment configuration. Missing or invalid: X')
+    handleUncaughtException(err, deps)
+    expect(order).toEqual([`write ${err.stack}\n`, 'exit 1'])
     expect(deps.capture).not.toHaveBeenCalled()
   })
 
   it('writes, captures and flushes before exiting 1 when Sentry is enabled', async () => {
     const { deps, order } = makeDeps(true)
-    handleUncaughtException(new Error('boom'), deps)
-    await Promise.resolve()
-    await Promise.resolve()
-    expect(order).toEqual(['write Error: boom', 'capture', 'exit 1'])
+    let release!: () => void
+    deps.flush.mockReturnValue(new Promise<void>((resolve) => (release = resolve)))
+    const err = new Error('boom')
+    handleUncaughtException(err, deps)
+    expect(order).toEqual([`write ${err.stack}\n`, 'capture'])
+    release()
+    await vi.waitFor(() => expect(order).toContain('exit 1'))
+    expect(order.at(-1)).toBe('exit 1')
   })
 
   it('stringifies non-Error values', () => {

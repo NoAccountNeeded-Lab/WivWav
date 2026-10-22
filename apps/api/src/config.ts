@@ -1,13 +1,19 @@
 import { z } from 'zod'
 import { DEFAULT_INDEX_NAME, validateIndexName } from '@wivwav/search'
 
+// Compose files pass unset optional variables as "" (`${VAR:-}`). For URL variables with a
+// default, "" is never valid, so treat it as unset (#1150). Variables where "" is meaningful
+// (MEILISEARCH_API_KEY, CORS_ORIGIN) are deliberately left alone.
+const urlWithDefault = (fallback: string) =>
+  z.preprocess((value) => (value === '' ? undefined : value), z.url().default(fallback))
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(4001),
   HOST: z.string().default('0.0.0.0'),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   DATABASE_URL: z.url(),
-  MEILISEARCH_HOST: z.url().default('http://localhost:7700'),
+  MEILISEARCH_HOST: urlWithDefault('http://localhost:7700'),
   MEILISEARCH_API_KEY: z.string(),
   MEILISEARCH_INDEX_NAME: z
     .string()
@@ -22,17 +28,17 @@ const schema = z.object({
       }
     }, 'MEILISEARCH_INDEX_NAME must contain only letters, numbers, underscores, and hyphens'),
   VALKEY_URL: z.string().default('redis://localhost:6379'),
-  OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
+  OLLAMA_BASE_URL: urlWithDefault('http://localhost:11434'),
   OLLAMA_REQUIRED: z
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
   // Loki log aggregation — used by the /admin/logs proxy endpoint
-  LOKI_URL: z.url().default('http://localhost:3100'),
+  LOKI_URL: urlWithDefault('http://localhost:3100'),
   // Grafana — used by the /internal/v1/grafana/alerts proxy endpoint (#890).
   // GRAFANA_API_TOKEN is optional: local dev's Grafana runs with anonymous
   // admin access (see docker-compose.yml's `obs` profile).
-  GRAFANA_URL: z.url().default('http://localhost:3003'),
+  GRAFANA_URL: urlWithDefault('http://localhost:3003'),
   GRAFANA_API_TOKEN: z.string().optional(),
   // Sentry issues API — used by the /internal/v1/sentry/issues proxy endpoint
   // (#890). Deliberately distinct from apps/web's SENTRY_AUTH_TOKEN/
@@ -103,9 +109,7 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>
 
 export function loadConfig(): Config {
-  // Compose files pass unset optional variables as "" (`${VAR:-}`); treat them as unset so defaults apply (#1150).
-  const env = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== ''))
-  const result = schema.safeParse(env)
+  const result = schema.safeParse(process.env)
   if (!result.success) {
     const missing = result.error.issues.map((i) => i.path.join('.')).join(', ')
     throw new Error(`Invalid environment configuration. Missing or invalid: ${missing}`)
