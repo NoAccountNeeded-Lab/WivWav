@@ -171,6 +171,7 @@ export function createDealerEnrichHandler(gateway: HttpEnrichGatewayClient, logg
           rating: details?.rating ?? null,
           reviewCount: details?.user_ratings_total ?? null,
           hours: details?.opening_hours ?? null,
+          website: details?.website ?? null,
           reviews: topReviews.map((review) => ({
             authorName: review.author_name,
             rating: review.rating,

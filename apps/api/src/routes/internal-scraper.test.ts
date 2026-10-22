@@ -25,6 +25,7 @@ function createFakeDb() {
   const jobRuns: Record<string, unknown>[] = []
   const sources: Record<string, unknown>[] = []
   const configEntries: Record<string, unknown>[] = []
+  const dealerSiteCandidates: Record<string, unknown>[] = []
   let idCounter = 0
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`
 
@@ -81,6 +82,31 @@ function createFakeDb() {
       },
       updateMany: async () => ({ count: 0 }),
       count: async () => 0,
+    },
+    dealerSiteCandidate: {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { origin: string }
+        create: Record<string, unknown>
+        update: Record<string, unknown>
+      }) => {
+        const existing = dealerSiteCandidates.find((c) => c['origin'] === where.origin)
+        if (!existing) {
+          const row = { id: nextId('dsc'), ...create }
+          dealerSiteCandidates.push(row)
+          return row
+        }
+        const { listingCount, ...rest } = update
+        Object.assign(existing, rest)
+        if (listingCount !== undefined) {
+          existing['listingCount'] =
+            Number(existing['listingCount']) + (listingCount as { increment: number }).increment
+        }
+        return existing
+      },
     },
     listingPriceHistory: { create: async () => ({}) },
     listingMileageHistory: { create: async () => ({}) },
@@ -218,7 +244,17 @@ function createFakeDb() {
     },
   }
 
-  return { db, listings, rawPages, listingObservations, scraperRuns, jobRuns, sources, configEntries }
+  return {
+    db,
+    listings,
+    rawPages,
+    listingObservations,
+    scraperRuns,
+    jobRuns,
+    sources,
+    configEntries,
+    dealerSiteCandidates,
+  }
 }
 
 function buildTestApp() {
@@ -502,6 +538,83 @@ describe('POST /detail-extract/submit', () => {
     })
 
     expect(response.json().data).toEqual({ outcome: 'already_applied', changedFields: ['color'] })
+  })
+
+  describe('dealer site candidates (#1178)', () => {
+    async function submitWebsite(
+      dealerWebsite: string | null,
+      listingOverrides: Record<string, unknown> = {},
+      listingId = 'listing-1',
+      existing?: ReturnType<typeof buildTestApp>,
+    ) {
+      const t = existing ?? buildTestApp()
+      await t.ready
+      const rawPageId = `raw-${listingId}-${t.rawPages.length}`
+      t.rawPages.push({
+        id: rawPageId,
+        url: 'https://dealer.example/1',
+        scrapedAt: new Date('2026-08-01T00:00:00.000Z'),
+        processedAt: null,
+      })
+      if (!t.listings.some((l) => l['id'] === listingId)) {
+        t.listings.push({
+          id: listingId,
+          status: 'active',
+          soldAt: null,
+          missingFromCompleteCount: 0,
+          updatedAt: new Date(),
+          dealerWebsite: null,
+          ...listingOverrides,
+        })
+      }
+      const response = await t.app.inject({
+        method: 'POST',
+        url: '/detail-extract/submit',
+        payload: {
+          sourceId: 'src-1',
+          rawPageId,
+          listingId,
+          detail: minimalDetail(),
+          enrichment: { dealerWebsite, directVehicleUrl: null },
+        },
+      })
+      return { t, response }
+    }
+
+    it('creates one candidate per normalized origin across URL variants and listings', async () => {
+      const first = await submitWebsite('https://www.Dealer.com/inventory?x=1')
+      expect(first.response.statusCode).toBe(200)
+      await submitWebsite('http://dealer.com/', {}, 'listing-2', first.t)
+      const rows = first.t.dealerSiteCandidates
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({
+        origin: 'https://dealer.com',
+        sampleUrl: 'https://www.Dealer.com/inventory?x=1',
+        discoveredVia: 'listing_dealer_website',
+        listingCount: 2,
+      })
+    })
+
+    it('does not re-count a listing whose dealerWebsite is already on that origin', async () => {
+      const { t } = await submitWebsite('https://dealer.com/a', { dealerWebsite: 'http://www.dealer.com/' })
+      expect(t.dealerSiteCandidates[0]).toMatchObject({ origin: 'https://dealer.com', listingCount: 0 })
+    })
+
+    it.each(['https://www.facebook.com/dealer', 'https://www.blvd.com/dealers/1'])(
+      'never creates a candidate for denylisted or registered host %s',
+      async (url) => {
+        const { t, response } = await submitWebsite(url)
+        expect(response.statusCode).toBe(200)
+        expect(t.dealerSiteCandidates).toHaveLength(0)
+      },
+    )
+
+    it('does not fail the request for a malformed website', async () => {
+      const { t, response } = await submitWebsite('http://')
+      expect(response.statusCode).toBe(200)
+      expect(response.json().data.outcome).toBe('applied')
+      expect(t.dealerSiteCandidates).toHaveLength(0)
+    })
   })
 
   describe('detailStaleAt (#1156)', () => {

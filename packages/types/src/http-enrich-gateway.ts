@@ -344,6 +344,8 @@ export const dealerEnrichSubmitRequestSchema = z.object({
   rating: z.number().nullable(),
   reviewCount: z.number().int().nullable(),
   hours: z.unknown().nullable(),
+  /** Google Places `website`; null/absent when Places has none (#1178). */
+  website: z.string().nullable().optional(),
   reviews: z.array(dealerReviewInputSchema),
 })
 export type DealerEnrichSubmitRequest = z.infer<typeof dealerEnrichSubmitRequestSchema>
