@@ -903,7 +903,7 @@ describe('ingestListing', () => {
     it('still takes the card decision for a listing that never completed detail', async () => {
       const db = makeDb({ id: 'list-1', priceCents: 2500000 })
       await ingestListing(db as never, makeListing({ priceCents: 3000000, publicationStatus: 'eligible' }))
-      expect(db.listing.update).toHaveBeenCalledWith(
+      expect(db.listing.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'eligible' }) }),
       )
     })
@@ -936,6 +936,7 @@ describe('ingestListing', () => {
       expect(data).not.toHaveProperty('qualityIssueCodes')
       expect(data).not.toHaveProperty('qualityCheckedAt')
       expect(data).not.toHaveProperty('detailScrapedAt')
+      expect(db.listing.updateMany).not.toHaveBeenCalled()
     })
 
     it('marks detail stale and holds pending (keeping detailScrapedAt) when an accessibility field changes', async () => {
@@ -950,12 +951,12 @@ describe('ingestListing', () => {
       )
 
       const data = db.listing.update.mock.calls[0]?.[0].data
-      expect(data).toMatchObject({
-        publicationStatus: 'pending',
-        qualityCheckedAt: null,
-        detailStaleAt: expect.any(Date),
-      })
+      expect(data).toMatchObject({ detailStaleAt: expect.any(Date) })
       expect(data).not.toHaveProperty('detailScrapedAt')
+      expect(db.listing.updateMany).toHaveBeenCalledWith({
+        where: { id: 'list-1', manuallyHiddenAt: null },
+        data: { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
+      })
     })
 
     it('keeps holding pending on a further card update while detail is stale', async () => {
@@ -969,8 +970,11 @@ describe('ingestListing', () => {
       await ingestListing(db as never, makeListing({ priceCents: 3000000, publicationStatus: 'eligible' }))
 
       const data = db.listing.update.mock.calls[0]?.[0].data
-      expect(data).toMatchObject({ publicationStatus: 'pending', qualityCheckedAt: null })
       expect(data).not.toHaveProperty('detailStaleAt')
+      expect(db.listing.updateMany).toHaveBeenCalledWith({
+        where: { id: 'list-1', manuallyHiddenAt: null },
+        data: { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
+      })
       expect(data).not.toHaveProperty('detailScrapedAt')
     })
 
