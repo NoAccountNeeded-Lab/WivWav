@@ -347,11 +347,11 @@ export async function ingestListing(
   // set, any further card update keeps holding pending until detail apply
   // clears it; the card validator verdict must never be taken meanwhile.
   const detailStale =
-    existing.detailStaleAt !== null || (resetDetail && existing.detailScrapedAt !== null)
+    existing.detailStaleAt != null || (resetDetail && existing.detailScrapedAt != null)
   // A detail-complete listing whose detail survives this card update keeps its
   // publication decision: the card validator only saw card data and must not
   // re-publish (or un-pend) what detail extraction decided (#1156).
-  const keepDecision = !detailStale && existing.detailScrapedAt !== null
+  const keepDecision = !detailStale && existing.detailScrapedAt != null
 
   await tx.listing.update({
     where: { id: existing.id },
@@ -389,7 +389,7 @@ export async function ingestListing(
       scrapedAt: new Date(),
       status: 'active',
       goneAt: null,
-      ...(detailStale && existing.detailStaleAt === null ? { detailStaleAt: new Date() } : {}),
+      ...(detailStale && existing.detailStaleAt == null ? { detailStaleAt: new Date() } : {}),
       ...(cameBack ? { saleStatus: 'active', soldAt: null } : {}),
       ...(lastRunId != null ? { lastRunId } : {}),
     },
