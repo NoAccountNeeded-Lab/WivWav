@@ -1,3 +1,4 @@
+import { writeSync } from 'node:fs'
 import { isSentryEnabled, Sentry } from '../sentry.js'
 
 interface Deps {
@@ -13,7 +14,8 @@ const defaultDeps: Deps = {
   capture: (err) => Sentry.captureException(err),
   flush: (ms) => Sentry.flush(ms),
   exit: (code) => process.exit(code),
-  write: (text) => process.stderr.write(text),
+  // Synchronous: process.exit() right after an async pipe write can truncate the output.
+  write: (text) => void writeSync(2, text),
 }
 
 /**
