@@ -78,11 +78,13 @@ Notes:
 
 Today, visible means active, eligible and source enabled. After #1103, visible means those plus ready (every required stage in section 2). Ops screens must show both numbers and name them as defined here.
 
-## 6. Decisions needed from the requester
+## 6. Decisions
 
-1. Is the required set in section 2 right (detail fetched and extracted and current, validated after latest detail, 1+ image, VIN decode when a VIN exists, conversion type known or post-detail `unknown`)?
-2. Should card-only listings ever be visible? A strict gate shrinks public search from 7,060 to roughly 120 listings until detail crawl catches up (about 4.5 days of clean hourly crawling for the largest source). The 120 is the audit's count under a slightly different predicate (it also required geocode or exemption); recompute it with this predicate before the flip.
-3. How should a source whose detail pages block crawling be handled: permanently hidden, or a per-source "card-only is acceptable" setting?
-4. Should a failed VIN decode block forever, or be an accepted end state after N attempts? This needs a failure marker that does not exist yet.
-5. Is aged detail (over 30 days) a warning only, as proposed, or should it eventually hide the listing?
-6. The audit proposed folding readiness into `publicationStatus` (eligible means validator-clean and ready). This document instead keeps `eligible` as validator-only and computes "ready" on top. Which should #1103 persist? Keeping both lets ops show "eligible but not ready", which the Pipeline banner needs.
+Delegated by the requester on 2026-10-22 and settled by Claude with a second opinion from Codex. Reopen any of them by comment on #1159.
+
+1. **Required set**: keep section 2 as written. Sources may be exempted (decision 3), and a recorded terminal VIN-decode failure counts as an accepted end state (decision 4).
+2. **Card-only listings**: stay visible during the report-only rollout of #1103 (validator-clean only). Enforce readiness only after the detail backfill and a per-source coverage check. Recompute the production impact first: the audit's roughly 120 of 7,060 ready was a local snapshot under a slightly different predicate.
+3. **Sources whose detail pages block crawling**: a per-source "card-only is acceptable" setting. It still requires validation, at least one image and the stale-detail safeguards, and never bypasses quarantine or manual hiding.
+4. **Failed VIN decode**: an accepted end state after three completed decode attempts, recorded in a failure marker (not yet existing; add it in #1103). Infrastructure errors do not count as attempts. Until the marker exists, VIN decode is a warning, not a block.
+5. **Aged detail (over 30 days)**: warning only; the crawler requeues it. Status rules and the #1156 hold cover genuinely wrong data.
+6. **Persistence**: keep `publicationStatus` validator-only and compute "ready" separately from current markers. Ops can then show "eligible but not ready". Indexing and public database reads must apply the same ready test, and must remove listings that are already indexed but not ready.
