@@ -442,8 +442,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     // stale flag; an older page is applied but the listing stays held and is
     // re-selected for crawl (#1156).
     const clearsStale = !listing.detailStaleAt || rawPage.scrapedAt >= listing.detailStaleAt
-    const { detailStaleAt: _clear, ...updateWithoutStale } = builtUpdate
-    const update = clearsStale ? builtUpdate : updateWithoutStale
+    const update = clearsStale ? builtUpdate : { ...builtUpdate, detailStaleAt: listing.detailStaleAt }
     const claimsObserved = body.detail.evidence.accessibilityClaims !== 'missing'
     const changedFields = changedDetailFields(listing as unknown as Record<string, unknown>, update)
     const before = Object.fromEntries(
