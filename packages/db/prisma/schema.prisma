@@ -929,15 +929,52 @@ model DealerProfile {
   rating        Float?
   reviewCount   Int?
   hours         Json?
+  website       String?
   enrichedAt    DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  reviews  DealerReview[]
-  listings Listing[]
+  reviews        DealerReview[]
+  listings       Listing[]
+  siteCandidates DealerSiteCandidate[]
 
   @@unique([name, zip])
   @@map("dealer_profiles")
+}
+
+/// Review state of a collected dealer site (#1178). `approved` only means
+/// "ready for mapping work"; enrollment states belong to #1042.
+enum DealerSiteCandidateStatus {
+  pending_review
+  approved
+  rejected
+}
+
+enum DealerSiteDiscovery {
+  listing_dealer_website
+  google_places
+}
+
+/// A distinct dealership website seen in the pipeline (#1178, slice 1 of
+/// #1042). Collection only: no validation fetch, no Source creation.
+/// `origin` is the normalized `https://host` (see normalizeDealerSiteOrigin).
+model DealerSiteCandidate {
+  id              String                    @id @default(cuid())
+  origin          String                    @unique
+  sampleUrl       String
+  status          DealerSiteCandidateStatus @default(pending_review)
+  discoveredVia   DealerSiteDiscovery
+  firstSeenAt     DateTime                  @default(now())
+  lastSeenAt      DateTime                  @default(now())
+  /// Distinct listings citing this origin.
+  listingCount    Int                       @default(0)
+  dealerProfileId String?
+  dealerProfile   DealerProfile?            @relation(fields: [dealerProfileId], references: [id], onDelete: SetNull)
+  dealerName      String?
+
+  @@index([status, listingCount])
+  @@index([dealerProfileId])
+  @@map("dealer_site_candidate")
 }
 
 /// #1116 numeric/range CHECKs live in migration
