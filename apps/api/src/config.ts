@@ -103,7 +103,9 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>
 
 export function loadConfig(): Config {
-  const result = schema.safeParse(process.env)
+  // Compose files pass unset optional variables as "" (`${VAR:-}`); treat them as unset so defaults apply (#1150).
+  const env = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== ''))
+  const result = schema.safeParse(env)
   if (!result.success) {
     const missing = result.error.issues.map((i) => i.path.join('.')).join(', ')
     throw new Error(`Invalid environment configuration. Missing or invalid: ${missing}`)
