@@ -13,6 +13,14 @@ afterEach(() => {
 })
 
 describe('loadConfig', () => {
+  it('treats an empty OLLAMA_BASE_URL as unset', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    vi.stubEnv('OLLAMA_BASE_URL', '')
+
+    expect(loadConfig().OLLAMA_BASE_URL).toBe('http://localhost:11434')
+  })
+
   it('loads successfully with required fields only', () => {
     vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
     vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)

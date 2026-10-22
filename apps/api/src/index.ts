@@ -2,15 +2,9 @@ import 'dotenv/config'
 // Sentry is disabled by default. When explicitly enabled, this import must stay
 // before app imports so startup errors can be captured.
 import { isSentryEnabled, Sentry } from './sentry.js'
+import { handleUncaughtException } from './lib/uncaught-exception.js'
 
-process.on('uncaughtException', (err) => {
-  if (!isSentryEnabled) {
-    process.exit(1)
-  }
-
-  Sentry.captureException(err)
-  void Sentry.flush(2000).finally(() => process.exit(1))
-})
+process.on('uncaughtException', (err) => handleUncaughtException(err))
 
 import { Meilisearch } from 'meilisearch'
 import { Redis } from 'ioredis'
