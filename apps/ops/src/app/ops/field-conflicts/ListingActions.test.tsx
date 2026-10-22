@@ -73,8 +73,10 @@ describe('ListingActions', () => {
   it('sends the hide timestamp the operator saw with unhide', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: { message: 'Unhidden', jobId: null } }) }) as Response)
     vi.stubGlobal('fetch', fetchMock)
-    render(<ListingActions listingId="l1" manuallyHiddenAt="2026-10-01T00:00:00.000Z" apiBaseUrl="" />)
+    const { rerender } = render(<ListingActions listingId="l1" manuallyHiddenAt="2026-10-01T00:00:00.000Z" apiBaseUrl="" />)
     fireEvent.click(screen.getByRole('button', { name: 'Restore hidden listing' }))
+    // A poll lands a newer hide while the confirm is open; confirming must still target the hide the operator saw.
+    rerender(<ListingActions listingId="l1" manuallyHiddenAt="2026-10-02T00:00:00.000Z" apiBaseUrl="" />)
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const call = fetchMock.mock.calls[0] as unknown as [string, { body: string }]
