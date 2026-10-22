@@ -8,8 +8,18 @@ import { fileURLToPath } from 'node:url'
 export function isMainModule(metaUrl: string, argv1: string | undefined = process.argv[1]): boolean {
   if (!argv1) return false
   try {
-    return realpathSync(fileURLToPath(metaUrl)) === realpathSync(argv1)
+    const self = realpathSync(fileURLToPath(metaUrl))
+    // `tsx path/to/job` leaves argv[1] without its extension.
+    return ['', '.ts', '.js', '.mjs'].some((ext) => realpathOrNull(argv1 + ext) === self)
   } catch {
     return false
+  }
+}
+
+function realpathOrNull(path: string): string | null {
+  try {
+    return realpathSync(path)
+  } catch {
+    return null
   }
 }
