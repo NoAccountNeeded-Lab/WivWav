@@ -135,3 +135,8 @@ export {
   setSourceMappings,
 } from './ingest/source-state.js'
 export type { SourceDriftBaseline, SourceExecutionState } from './ingest/source-state.js'
+export {
+  normalizeDealerSiteOrigin,
+  recordDealerSiteCandidate,
+  type DealerSiteCandidateInput,
+} from './lib/dealer-site-candidate.js'
