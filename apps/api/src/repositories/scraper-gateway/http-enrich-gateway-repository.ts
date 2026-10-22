@@ -1,4 +1,4 @@
-import type { PrismaClient, Prisma } from '@wivwav/db'
+import { recordDealerSiteCandidate, type PrismaClient, type Prisma } from '@wivwav/db'
 import type {
   DealerCandidate,
   DealerEnrichSubmitRequest,
@@ -402,6 +402,8 @@ export class HttpEnrichGatewayRepository {
 
   async submitDealerEnrich(body: DealerEnrichSubmitRequest): Promise<{ dealerId: string }> {
     const hours = body.hours as Prisma.InputJsonValue | null | undefined
+    // Never overwrite a stored website with null when Places returns none.
+    const websiteData = body.website ? { website: body.website } : {}
     const profile = hours
       ? await this.db.dealerProfile.upsert({
           where: { name_zip: { name: body.dealerName, zip: body.zip } },
@@ -412,6 +414,7 @@ export class HttpEnrichGatewayRepository {
             rating: body.rating,
             reviewCount: body.reviewCount,
             hours,
+            ...websiteData,
             enrichedAt: new Date(),
           },
           update: {
@@ -419,6 +422,7 @@ export class HttpEnrichGatewayRepository {
             rating: body.rating,
             reviewCount: body.reviewCount,
             hours,
+            ...websiteData,
             enrichedAt: new Date(),
           },
         })
@@ -430,12 +434,14 @@ export class HttpEnrichGatewayRepository {
             googlePlaceId: body.googlePlaceId,
             rating: body.rating,
             reviewCount: body.reviewCount,
+            ...websiteData,
             enrichedAt: new Date(),
           },
           update: {
             googlePlaceId: body.googlePlaceId,
             rating: body.rating,
             reviewCount: body.reviewCount,
+            ...websiteData,
             enrichedAt: new Date(),
           },
         })
@@ -465,6 +471,15 @@ export class HttpEnrichGatewayRepository {
     await this.db.listing.updateMany({
       where: { dealerName: body.dealerName, zip: body.zip },
       data: { dealerProfileId: profile.id },
+    })
+
+    // #1178: collect the Places website as a reviewable dealer-site candidate.
+    await recordDealerSiteCandidate(this.db, {
+      rawUrl: body.website,
+      discoveredVia: 'google_places',
+      now: new Date(),
+      dealerProfileId: profile.id,
+      dealerName: body.dealerName,
     })
 
     return { dealerId: profile.id }

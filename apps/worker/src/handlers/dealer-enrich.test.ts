@@ -39,6 +39,7 @@ describe('createDealerEnrichHandler', () => {
         result: {
           rating: 4.5,
           user_ratings_total: 120,
+          website: 'https://www.acme-mobility.com/',
           reviews: [{ author_name: 'A', rating: 5, text: 'great', time: 1700000000 }],
         },
       })
@@ -62,6 +63,7 @@ describe('createDealerEnrichHandler', () => {
         googlePlaceId: 'place-1',
         rating: 4.5,
         reviewCount: 120,
+        website: 'https://www.acme-mobility.com/',
       }),
     )
   })

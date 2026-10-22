@@ -460,6 +460,9 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       ]),
     )
 
+    // Read before the transaction mutates the row (#1178).
+    const previousDealerOrigin = normalizeDealerSiteOrigin(listing.dealerWebsite)
+
     // Serializable, matching detail-extract.ts's original transaction — same
     // pool-contention/transient-close hazard, same retry.
     await withTransientRetry(() =>
@@ -472,12 +475,11 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
           // #1178: collect the dealer site as a reviewable candidate. Counts
           // this listing only when its dealerWebsite moved to a new origin.
           if (typeof update.dealerWebsite === 'string') {
-            const previousOrigin = normalizeDealerSiteOrigin(listing.dealerWebsite)
             await recordDealerSiteCandidate(tx, {
               rawUrl: update.dealerWebsite,
               discoveredVia: 'listing_dealer_website',
               now,
-              ...(previousOrigin !== normalizeDealerSiteOrigin(update.dealerWebsite) && {
+              ...(previousDealerOrigin !== normalizeDealerSiteOrigin(update.dealerWebsite) && {
                 listingCount: { increment: 1 },
               }),
             })
