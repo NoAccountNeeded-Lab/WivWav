@@ -76,6 +76,7 @@ import {
   MULTI_WORD_MODEL_FIRST_TOKENS,
   AMBIGUOUS_MULTI_WORD_MODEL_FIRST_TOKENS,
 } from '@wivwav/search'
+import { isMainModule } from '../lib/main-module.js'
 
 interface CorrectedRow {
   id: string
@@ -257,7 +258,7 @@ function printReport(report: TitleTokenizerBackfillReport, applied: boolean): vo
 
 // ── CLI entry point ─────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2)
   const applyMode = args.includes('--apply')
   const reportMode = args.includes('--report') || !applyMode

@@ -58,6 +58,7 @@ import {
   findEligibleImagesForSemanticAnalysis,
   type EligibleSemanticAnalysisImage,
 } from '../images/semantic-analysis-eligibility.js'
+import { isMainModule } from '../lib/main-module.js'
 
 export interface SemanticImageAnalyzeBackfillReport {
   /** Images eligible and enqueue-worthy (unanalyzed or stale on semanticAnalysisVersion). */
@@ -148,7 +149,7 @@ function parseArgs(argv: string[]): {
   return result
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2))
   const queueFactory = new BullMQQueueFactory()
   const queue = queueFactory.createQueue(QUEUES.IMAGE_SEMANTIC_ANALYZE)

@@ -60,6 +60,7 @@ import { detectSourceDrift } from '@wivwav/types/listing-validator'
 import type { SourceDriftObservation } from '@wivwav/types/listing-validator'
 import { reconcileSearchCatalog } from './search-reconciliation.js'
 import type { CoverageBaseline, SearchReconciliationReport } from './search-reconciliation.js'
+import { isMainModule } from '../lib/main-module.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -788,7 +789,7 @@ function parseArgs(argv: string[]): {
   return result
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2))
 
   void (async () => {
