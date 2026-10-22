@@ -19,6 +19,8 @@ export function ListingActions({ listingId, manuallyHiddenAt, apiBaseUrl }: { li
   const [pending, setPending] = useState<Action | null>(null)
   const [reason, setReason] = useState('')
   const [feedback, setFeedback] = useState<{ message: string; isError: boolean } | null>(null)
+  // Snapshot of the hide the operator is confirming; a poll may change the prop while the confirm is open.
+  const [seenHiddenAt, setSeenHiddenAt] = useState<string | null>(null)
   const current = BUTTONS.find((b) => b.action === pending)
 
   // One listing can appear in several rows, so ids are per instance, not per listing.
@@ -41,7 +43,7 @@ export function ListingActions({ listingId, manuallyHiddenAt, apiBaseUrl }: { li
       const res = await fetch(`${apiBaseUrl}/internal/ops/listings/${encodeURIComponent(listingId)}/actions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, ...(action === 'hide' ? { reason } : {}), ...(action === 'unhide' ? { manuallyHiddenAt } : {}) }),
+        body: JSON.stringify({ action, ...(action === 'hide' ? { reason } : {}), ...(action === 'unhide' ? { manuallyHiddenAt: seenHiddenAt } : {}) }),
       })
       const body = (await res.json().catch(() => null)) as { data?: { message?: string; jobId?: string | null }; error?: { message?: string } } | null
       if (!res.ok) setFeedback({ message: body?.error?.message ?? `Failed (${res.status})`, isError: true })
@@ -65,7 +67,7 @@ export function ListingActions({ listingId, manuallyHiddenAt, apiBaseUrl }: { li
               type="button"
               aria-label={label}
               title={label}
-              onClick={() => { setFeedback(null); setPending(action) }}
+              onClick={() => { setFeedback(null); setSeenHiddenAt(manuallyHiddenAt); setPending(action) }}
             >
               <Icon size={14} aria-hidden="true" />
             </button>
