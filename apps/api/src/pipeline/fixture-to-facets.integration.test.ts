@@ -659,9 +659,10 @@ describe('fixture-to-facets pipeline contract (#640)', () => {
         '[database row] detail-owned wavFeatures must survive a card-only recrawl',
       ).toEqual(before.wavFeatures)
 
-      // Card recrawl invalidates the prior publication decision (resetDetail) —
-      // production code re-resolves it before the search sync can trust it again.
-      expect(after.publicationStatus).toBe('pending')
+      // #1156: a price/mileage-only recrawl leaves detail valid, so the
+      // detail-informed publication decision is kept rather than reset.
+      expect(after.publicationStatus).toBe(before.publicationStatus)
+      expect(after.detailStaleAt).toBeNull()
       await runListingResolveJob({ sourceId: blvdSourceId })
     })
 
