@@ -72,6 +72,7 @@ import '../lib/load-env.js'
 import { getDb, upsertVehicleIdentityDecision, VehicleIdentityDecisionState } from '@wivwav/db'
 import type { Listing } from '@wivwav/db'
 import { matchListingPair, type MatchableListing, type VehicleIdentityMatchResult } from '../engine/vehicle-identity-matcher.js'
+import { isMainModule } from '../lib/main-module.js'
 
 const BATCH_SIZE = 500
 
@@ -341,7 +342,7 @@ function parseArgs(argv: string[]): { apply: boolean; sourceId?: string } {
   return sourceId !== undefined ? { apply: applyMode, sourceId } : { apply: applyMode }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2))
   runVehicleIdentityBackfill(options)
     .then((report) => {

@@ -14,6 +14,7 @@ import '../lib/load-env.js'
 
 import type { PrismaClient } from '@wivwav/db'
 import { resolveRow } from './listing-resolve.js'
+import { isMainModule } from '../lib/main-module.js'
 
 const PAGE_SIZE = 50
 
@@ -85,7 +86,7 @@ export function parseRepairArgs(argv: string[]): { apply: boolean; limit?: numbe
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   let options: ReturnType<typeof parseRepairArgs>
   try {
     options = parseRepairArgs(process.argv.slice(2))

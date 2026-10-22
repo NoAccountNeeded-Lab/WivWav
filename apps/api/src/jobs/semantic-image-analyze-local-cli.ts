@@ -66,6 +66,7 @@ import {
 } from '../images/image-analysis-provider-factory.js'
 import { runLocalAnalysis, summarizeUsage } from './semantic-image-analyze-local.js'
 import type { LocalRunOptions } from './semantic-image-analyze-local.js'
+import { isMainModule } from '../lib/main-module.js'
 
 function arg(argv: string[], name: string): string | undefined {
   const index = argv.indexOf(name)
@@ -135,7 +136,7 @@ export function parseArgs(argv: string[]): LocalRunOptions {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   try {
     // Explicit flags first: arg() takes the first match, so they win over ANALYZE_* values.
     const options = parseArgs([...process.argv.slice(2), ...argvFromEnv(process.env)])

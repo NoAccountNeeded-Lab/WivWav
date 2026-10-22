@@ -62,6 +62,7 @@ import { getDb } from '@wivwav/db'
 import { canonicalConversionManufacturer, ENGINE_DESCRIPTION_PATTERN } from '@wivwav/search'
 import { CRITICAL_JOB_OPTIONS, QUEUES } from '@wivwav/queue'
 import { getQueueFactory } from '../lib/queue-factory.js'
+import { isMainModule } from '../lib/main-module.js'
 
 /**
  * Matches a color value that starts with a leaked MobilityWorks card field
@@ -303,7 +304,7 @@ function printReport(report: BackfillReport, applied: boolean): void {
 
 // ── CLI entry point ─────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2)
   const applyMode = args.includes('--apply')
   const reportMode = args.includes('--report') || !applyMode

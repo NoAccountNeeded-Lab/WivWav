@@ -86,6 +86,7 @@ import {
   type AnalysisResult,
 } from '../images/image-integrity-analyzer.js'
 import { jitteredSleep } from '../util/jitter-sleep.js'
+import { isMainModule } from '../lib/main-module.js'
 
 const BATCH_SIZE = 100
 
@@ -386,7 +387,7 @@ function parseArgs(argv: string[]): {
   return result
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2))
   runImageIntegrityBackfill(options)
     .then((report) => {

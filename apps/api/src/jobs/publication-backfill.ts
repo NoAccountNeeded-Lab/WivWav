@@ -53,6 +53,7 @@ import '../lib/load-env.js'
 
 import { getDb } from '@wivwav/db'
 import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
+import { isMainModule } from '../lib/main-module.js'
 
 const BATCH_SIZE = 500
 
@@ -225,7 +226,7 @@ function parseArgs(argv: string[]): { apply: boolean; sourceId?: string } {
   return sourceId !== undefined ? { apply: applyMode, sourceId } : { apply: applyMode }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2))
   runBackfill(options)
     .then((report) => {

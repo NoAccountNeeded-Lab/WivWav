@@ -59,6 +59,7 @@ import '../lib/load-env.js'
 import { applyFieldResolution, getDb, recordClaim, withTransientRetry } from '@wivwav/db'
 import { NoopPhotoClaimProvider } from '../resolution/photo-claim-provider.js'
 import type { ClaimField, FieldResolutionState } from '../resolution/types.js'
+import { isMainModule } from '../lib/main-module.js'
 
 const BATCH_SIZE = 500
 const BACKFILL_EXTRACTOR_VERSION = 'backfill-v1'
@@ -198,7 +199,7 @@ function parseArgs(argv: string[]): { apply: boolean; sourceId?: string } {
   return sourceId !== undefined ? { apply: applyMode, sourceId } : { apply: applyMode }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2))
   runBackfill(options)
     .then((report) => {
