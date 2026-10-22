@@ -38,6 +38,8 @@ export async function resetIntegrationDb(db: PrismaClient): Promise<void> {
       "scraper_runs",
       "listings",
       "sources",
+      "dealer_site_candidate",
+      "dealer_profiles",
       "nmea_dealers"
     RESTART IDENTITY CASCADE
   `)
