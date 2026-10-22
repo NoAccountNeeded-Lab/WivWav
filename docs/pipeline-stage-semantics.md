@@ -1,6 +1,6 @@
 # Listing pipeline stage semantics
 
-Status: draft for requester review (issue #1159). Must be approved before #1103 work starts. Reviewed once by Codex (2026-10-22); findings are folded in.
+Status: decided (issue #1159); open decisions settled in section 6. Reviewed once by Codex (2026-10-22); findings are folded in.
 
 Source: pipeline audit of 2026-10-16 (counts come from a local snapshot of 7,518 listings, not production), checked against code after #1156 and #1157. This document defines terms; it does not change code. The readiness predicate (#1103) and the Pipeline page must use these definitions so every dashboard and the gate agree.
 
