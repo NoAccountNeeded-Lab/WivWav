@@ -72,7 +72,7 @@ describe('dealer site candidates (integration)', () => {
       })
       .ready()
     const rawPage = await db.rawPage.create({
-      data: { url: `https://raw.example/${listingId}`, sourceId, html: '<html></html>' },
+      data: { url: `https://raw.example/${listingId}/${++rawPageSeq}`, sourceId, html: '<html></html>' },
     })
     const res = await app.inject({
       method: 'POST',
