@@ -107,9 +107,34 @@ describe('dealer site candidates (integration)', () => {
       origin: 'https://dealer.com',
       discoveredVia: 'listing_dealer_website',
       status: 'pending_review',
-      listingCount: 2,
     })
+    const members = await db.listing.findMany({ where: { dealerSiteCandidateId: rows[0]!.id }, select: { id: true } })
+    expect(members.map((m) => m.id).sort()).toEqual([a.id, b.id].sort())
+    for (const id of [c.id, d.id]) {
+      expect((await db.listing.findUniqueOrThrow({ where: { id } })).dealerSiteCandidateId).toBeNull()
+    }
     expect(await db.source.count()).toBe(1)
+  })
+
+  it('detail-extract membership moves A -> B -> A: counts once for A, zero for B', async () => {
+    const source = await createSource(db)
+    const listing = await createListing(db, source.id)
+    const counts = async () =>
+      Object.fromEntries(
+        (await db.dealerSiteCandidate.findMany({ include: { _count: { select: { listings: true } } } })).map((c) => [
+          c.origin,
+          c._count.listings,
+        ]),
+      )
+    await submitDetail(source.id, listing.id, 'https://a.com')
+    expect(await counts()).toEqual({ 'https://a.com': 1 })
+    await submitDetail(source.id, listing.id, 'https://b.com')
+    expect(await counts()).toEqual({ 'https://a.com': 0, 'https://b.com': 1 })
+    await submitDetail(source.id, listing.id, 'https://a.com/again')
+    expect(await counts()).toEqual({ 'https://a.com': 1, 'https://b.com': 0 })
+    // Resubmitting the same origin never double-counts.
+    await submitDetail(source.id, listing.id, 'https://www.a.com/x')
+    expect(await counts()).toEqual({ 'https://a.com': 1, 'https://b.com': 0 })
   })
 
   it('dealer-enrich stores the Places website and links the candidate to the profile', async () => {
@@ -151,13 +176,17 @@ describe('dealer site candidates (integration)', () => {
     )
   })
 
-  it('backfill is idempotent and recomputes distinct listing counts', async () => {
+  it('backfill is idempotent and links listings to candidates', async () => {
     const source = await createSource(db)
     await createListing(db, source.id, { dealerWebsite: 'https://www.dealer.com/a' })
     await createListing(db, source.id, { dealerWebsite: 'http://dealer.com/' })
     await createListing(db, source.id, { dealerWebsite: 'https://other.com' })
     await createListing(db, source.id, { dealerWebsite: 'https://facebook.com/x' })
     await createListing(db, source.id, { dealerWebsite: 'not a url' })
+    const stale = await db.dealerSiteCandidate.create({
+      data: { origin: 'https://old.com', sampleUrl: 'https://old.com', discoveredVia: 'listing_dealer_website' },
+    })
+    await createListing(db, source.id, { dealerWebsite: 'https://facebook.com/y', dealerSiteCandidateId: stale.id })
     await db.dealerProfile.create({
       data: { name: 'Profile Dealer', zip: '90210', website: 'https://profile-dealer.com' },
     })
@@ -174,23 +203,30 @@ describe('dealer site candidates (integration)', () => {
     const second = await snapshot()
 
     expect(second).toEqual(first)
-    expect(first.map((r) => [r.origin, r.listingCount])).toEqual([
+    const counts = await db.dealerSiteCandidate.findMany({
+      orderBy: { origin: 'asc' },
+      include: { _count: { select: { listings: true } } },
+    })
+    expect(counts.map((r) => [r.origin, r._count.listings])).toEqual([
       ['https://dealer.com', 2],
+      ['https://old.com', 0],
       ['https://other.com', 1],
       ['https://profile-dealer.com', 0],
     ])
+    expect(await db.listing.count({ where: { dealerSiteCandidateId: { not: null } } })).toBe(3)
     expect(await db.source.count()).toBe(1)
   })
 
-  it('read route filters by status and orders by listingCount desc', async () => {
+  it('read route filters by status and orders by derived listingCount desc', async () => {
+    const source = await createSource(db)
     const base = { sampleUrl: 'https://x', discoveredVia: 'listing_dealer_website' as const }
-    await db.dealerSiteCandidate.createMany({
-      data: [
-        { origin: 'https://low.com', listingCount: 1, ...base },
-        { origin: 'https://high.com', listingCount: 7, ...base },
-        { origin: 'https://done.com', listingCount: 9, status: 'approved', ...base },
-      ],
-    })
+    const make = async (origin: string, n: number, status?: 'approved') => {
+      const c = await db.dealerSiteCandidate.create({ data: { origin, ...(status && { status }), ...base } })
+      for (let i = 0; i < n; i++) await createListing(db, source.id, { dealerSiteCandidateId: c.id })
+    }
+    await make('https://low.com', 1)
+    await make('https://high.com', 7)
+    await make('https://done.com', 9, 'approved')
     const app = Fastify()
     await app.register(sensible).register(internalOpsDealerSiteCandidatesRoutes, { db }).ready()
     const all = await app.inject({ method: 'GET', url: '/' })
@@ -199,6 +235,7 @@ describe('dealer site candidates (integration)', () => {
       'https://high.com',
       'https://low.com',
     ])
+    expect(all.json().data.map((r: { listingCount: number }) => r.listingCount)).toEqual([9, 7, 1])
     const pending = await app.inject({ method: 'GET', url: '/?status=pending_review' })
     expect(pending.json().data.map((r: { origin: string }) => r.origin)).toEqual([
       'https://high.com',

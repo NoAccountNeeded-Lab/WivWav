@@ -28,9 +28,12 @@ export const internalOpsDealerSiteCandidatesRoutes: FastifyPluginAsync<Options> 
     }
     const candidates = await db.dealerSiteCandidate.findMany({
       where: status === undefined ? {} : { status: status as Status },
-      orderBy: [{ listingCount: 'desc' }, { origin: 'asc' }],
+      include: { _count: { select: { listings: true } } },
+      orderBy: [{ listings: { _count: 'desc' } }, { origin: 'asc' }],
       take: limit,
     })
-    return reply.send({ data: candidates })
+    return reply.send({
+      data: candidates.map(({ _count, ...candidate }) => ({ ...candidate, listingCount: _count.listings })),
+    })
   })
 }
