@@ -58,6 +58,7 @@ describe('dealer site candidates (integration)', () => {
     },
   }
 
+  let rawPageSeq = 0
   async function submitDetail(sourceId: string, listingId: string, dealerWebsite: string | null) {
     const app = Fastify()
     const cache = { get: vi.fn(async () => null), set: vi.fn(async () => 'OK'), del: vi.fn(async () => 1) }
