@@ -44,8 +44,11 @@ export async function backfillDealerSiteCandidates(
       ...(cursor !== undefined && { cursor: { id: cursor }, skip: 1 }),
     })
     if (rows.length === 0) break
-    // candidate id (null = unlink) -> listing ids in this batch
-    const byCandidate = new Map<string | null, string[]>()
+    // (candidate id, observed website) -> listing ids in this batch. The
+    // observed website guards each write: a live detail-extract that changed
+    // the website after this read already set the right membership, so the
+    // stale row is skipped instead of being re-linked to the old origin.
+    const byCandidate = new Map<string, { candidateId: string | null; dealerWebsite: string | null; ids: string[] }>()
     for (const row of rows) {
       let candidateId: string | null = null
       const origin = normalizeDealerSiteOrigin(row.dealerWebsite)
@@ -63,10 +66,16 @@ export async function backfillDealerSiteCandidates(
           if (candidateId !== null) candidateIds.set(origin, candidateId)
         }
       }
-      byCandidate.set(candidateId, [...(byCandidate.get(candidateId) ?? []), row.id])
+      const key = JSON.stringify([candidateId, row.dealerWebsite])
+      const group = byCandidate.get(key) ?? { candidateId, dealerWebsite: row.dealerWebsite, ids: [] }
+      group.ids.push(row.id)
+      byCandidate.set(key, group)
     }
-    for (const [candidateId, ids] of byCandidate) {
-      await db.listing.updateMany({ where: { id: { in: ids } }, data: { dealerSiteCandidateId: candidateId } })
+    for (const { candidateId, dealerWebsite, ids } of byCandidate.values()) {
+      await db.listing.updateMany({
+        where: { id: { in: ids }, dealerWebsite },
+        data: { dealerSiteCandidateId: candidateId },
+      })
     }
     cursor = rows[rows.length - 1]!.id
   }
