@@ -327,7 +327,9 @@ model Listing {
   dealerWebsite   String?
   dealerProfileId String?
   dealerProfile   DealerProfile? @relation(fields: [dealerProfileId], references: [id])
-
+  /// Candidate for the normalized dealerWebsite origin (#1178); null when none/rejected.
+  dealerSiteCandidateId String?
+  dealerSiteCandidate   DealerSiteCandidate? @relation(fields: [dealerSiteCandidateId], references: [id], onDelete: SetNull)
 
   /// Image URLs observed on the list/card page. Detail extraction owns `images`.
   cardImages  String[] @default([])
@@ -413,6 +415,7 @@ model Listing {
   /// `WHERE "vin" IS NOT NULL` (see partial_nullable_listing_indexes) so
   /// VIN-less rows skip it on ingest.
   @@index([vin])
+  @@index([dealerSiteCandidateId])
   @@index([vehicleId, status])
   @@index([vehicleId, listedAt])
   @@index([make, model])
@@ -966,13 +969,13 @@ model DealerSiteCandidate {
   discoveredVia   DealerSiteDiscovery
   firstSeenAt     DateTime                  @default(now())
   lastSeenAt      DateTime                  @default(now())
-  /// Distinct listings citing this origin.
-  listingCount    Int                       @default(0)
   dealerProfileId String?
   dealerProfile   DealerProfile?            @relation(fields: [dealerProfileId], references: [id], onDelete: SetNull)
   dealerName      String?
+  /// Listings whose dealerWebsite normalizes to this origin (membership, not a stored count).
+  listings        Listing[]
 
-  @@index([status, listingCount])
+  @@index([status])
   @@index([dealerProfileId])
   @@map("dealer_site_candidate")
 }
