@@ -3,9 +3,10 @@
  *
  * Walks existing `Listing.dealerWebsite` and `DealerProfile.website` values
  * through the same normalization and denylist as the live capture paths and
- * upserts `dealer_site_candidate` rows. Idempotent: listing counts are
- * recomputed (set, not incremented) and existing `lastSeenAt` values are left
- * alone, so re-running on unchanged data leaves identical rows.
+ * upserts `dealer_site_candidate` rows, then links each listing via
+ * `Listing.dealerSiteCandidateId` (null for missing or rejected websites).
+ * Membership only, no count writes, so it cannot race live writers. Idempotent:
+ * existing `lastSeenAt` values are left alone and re-running sets the same links.
  *
  * Collection only: no Source is created and no candidate site is fetched.
  *
@@ -31,35 +32,43 @@ export async function backfillDealerSiteCandidates(
   db: PrismaClient,
   now: Date = new Date(),
 ): Promise<DealerSiteBackfillResult> {
-  const byOrigin = new Map<string, { sampleUrl: string; listingIds: Set<string> }>()
+  const origins = new Set<string>()
+  const candidateIds = new Map<string, string>()
   let cursor: string | undefined
   for (;;) {
     const rows = await db.listing.findMany({
-      where: { dealerWebsite: { not: null } },
+      where: { OR: [{ dealerWebsite: { not: null } }, { dealerSiteCandidateId: { not: null } }] },
       select: { id: true, dealerWebsite: true },
       orderBy: { id: 'asc' },
       take: BATCH_SIZE,
       ...(cursor !== undefined && { cursor: { id: cursor }, skip: 1 }),
     })
     if (rows.length === 0) break
+    // candidate id (null = unlink) -> listing ids in this batch
+    const byCandidate = new Map<string | null, string[]>()
     for (const row of rows) {
+      let candidateId: string | null = null
       const origin = normalizeDealerSiteOrigin(row.dealerWebsite)
-      if (origin === null || row.dealerWebsite === null) continue
-      const entry = byOrigin.get(origin) ?? { sampleUrl: row.dealerWebsite, listingIds: new Set<string>() }
-      entry.listingIds.add(row.id)
-      byOrigin.set(origin, entry)
+      if (origin !== null && row.dealerWebsite !== null) {
+        origins.add(origin)
+        candidateId = candidateIds.get(origin) ?? null
+        if (candidateId === null) {
+          const recorded = await recordDealerSiteCandidate(db, {
+            rawUrl: row.dealerWebsite,
+            discoveredVia: 'listing_dealer_website',
+            now,
+            touchLastSeen: false,
+          })
+          candidateId = recorded?.id ?? null
+          if (candidateId !== null) candidateIds.set(origin, candidateId)
+        }
+      }
+      byCandidate.set(candidateId, [...(byCandidate.get(candidateId) ?? []), row.id])
+    }
+    for (const [candidateId, ids] of byCandidate) {
+      await db.listing.updateMany({ where: { id: { in: ids } }, data: { dealerSiteCandidateId: candidateId } })
     }
     cursor = rows[rows.length - 1]!.id
-  }
-
-  for (const entry of byOrigin.values()) {
-    await recordDealerSiteCandidate(db, {
-      rawUrl: entry.sampleUrl,
-      discoveredVia: 'listing_dealer_website',
-      now,
-      listingCount: { set: entry.listingIds.size },
-      touchLastSeen: false,
-    })
   }
 
   let profilesRecorded = 0
@@ -69,7 +78,7 @@ export async function backfillDealerSiteCandidates(
     orderBy: { id: 'asc' },
   })
   for (const profile of profiles) {
-    const origin = await recordDealerSiteCandidate(db, {
+    const recorded = await recordDealerSiteCandidate(db, {
       rawUrl: profile.website,
       discoveredVia: 'google_places',
       now,
@@ -77,10 +86,10 @@ export async function backfillDealerSiteCandidates(
       dealerName: profile.name,
       touchLastSeen: false,
     })
-    if (origin !== null) profilesRecorded++
+    if (recorded !== null) profilesRecorded++
   }
 
-  return { listingOrigins: byOrigin.size, profilesRecorded }
+  return { listingOrigins: origins.size, profilesRecorded }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

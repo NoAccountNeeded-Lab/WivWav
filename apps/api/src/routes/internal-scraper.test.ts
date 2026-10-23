@@ -99,12 +99,7 @@ function createFakeDb() {
           dealerSiteCandidates.push(row)
           return row
         }
-        const { listingCount, ...rest } = update
-        Object.assign(existing, rest)
-        if (listingCount !== undefined) {
-          existing['listingCount'] =
-            Number(existing['listingCount']) + (listingCount as { increment: number }).increment
-        }
+        Object.assign(existing, update)
         return existing
       },
     },
@@ -591,21 +586,34 @@ describe('POST /detail-extract/submit', () => {
         origin: 'https://dealer.com',
         sampleUrl: 'https://www.Dealer.com/inventory?x=1',
         discoveredVia: 'listing_dealer_website',
-        listingCount: 2,
       })
+      const id = rows[0]!['id']
+      expect(first.t.listings.map((l) => l['dealerSiteCandidateId'])).toEqual([id, id])
     })
 
-    it('does not re-count a listing whose dealerWebsite is already on that origin', async () => {
-      const { t } = await submitWebsite('https://dealer.com/a', { dealerWebsite: 'http://www.dealer.com/' })
-      expect(t.dealerSiteCandidates[0]).toMatchObject({ origin: 'https://dealer.com', listingCount: 0 })
+    it('links the listing to the candidate once, however often the origin is resubmitted', async () => {
+      const first = await submitWebsite('https://dealer.com/a', { dealerWebsite: 'http://www.dealer.com/' })
+      await submitWebsite('https://www.dealer.com/b', {}, 'listing-1', first.t)
+      expect(first.t.dealerSiteCandidates).toHaveLength(1)
+      expect(first.t.listings[0]).toMatchObject({ dealerSiteCandidateId: first.t.dealerSiteCandidates[0]!['id'] })
+    })
+
+    it('moves membership A -> B -> A', async () => {
+      const first = await submitWebsite('https://a.com')
+      await submitWebsite('https://b.com', {}, 'listing-1', first.t)
+      const [a, b] = first.t.dealerSiteCandidates
+      expect(first.t.listings[0]!['dealerSiteCandidateId']).toBe(b!['id'])
+      await submitWebsite('https://a.com/x', {}, 'listing-1', first.t)
+      expect(first.t.listings[0]!['dealerSiteCandidateId']).toBe(a!['id'])
     })
 
     it.each(['https://www.facebook.com/dealer', 'https://www.blvd.com/dealers/1'])(
       'never creates a candidate for denylisted or registered host %s',
       async (url) => {
-        const { t, response } = await submitWebsite(url)
+        const { t, response } = await submitWebsite(url, { dealerSiteCandidateId: 'stale' })
         expect(response.statusCode).toBe(200)
         expect(t.dealerSiteCandidates).toHaveLength(0)
+        expect(t.listings[0]!['dealerSiteCandidateId']).toBeNull()
       },
     )
 

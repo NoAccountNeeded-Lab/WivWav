@@ -11,7 +11,6 @@ import {
   changedDetailFields,
   auditDetailValue,
   detailObservationReference,
-  normalizeDealerSiteOrigin,
   recordDealerSiteCandidate,
   enqueueRequiredListingResolution,
   type PrismaClient,
@@ -460,30 +459,29 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       ]),
     )
 
-    // Read before the transaction mutates the row (#1178).
-    const previousDealerOrigin = normalizeDealerSiteOrigin(listing.dealerWebsite)
+    // Effective website after this update (unchanged when the update omits it) (#1178).
+    const effectiveDealerWebsite =
+      update.dealerWebsite === undefined ? listing.dealerWebsite : (update.dealerWebsite as string | null)
 
     // Serializable, matching detail-extract.ts's original transaction — same
     // pool-contention/transient-close hazard, same retry.
     await withTransientRetry(() =>
       db.$transaction(
         async (tx) => {
+          // #1178: collect the dealer site as a reviewable candidate and link
+          // this listing to it (membership, so a count is derived on read).
+          const candidate = await recordDealerSiteCandidate(tx, {
+            rawUrl: effectiveDealerWebsite,
+            discoveredVia: 'listing_dealer_website',
+            now,
+          })
           await tx.listing.update({
             where: { id: listing.id, updatedAt: listing.updatedAt },
-            data: changedFields.length > 0 ? update : { detailScrapedAt: now, ...(clearsStale ? { detailStaleAt: null } : {}) },
+            data: {
+              ...(changedFields.length > 0 ? update : { detailScrapedAt: now, ...(clearsStale ? { detailStaleAt: null } : {}) }),
+              dealerSiteCandidateId: candidate?.id ?? null,
+            },
           })
-          // #1178: collect the dealer site as a reviewable candidate. Counts
-          // this listing only when its dealerWebsite moved to a new origin.
-          if (typeof update.dealerWebsite === 'string') {
-            await recordDealerSiteCandidate(tx, {
-              rawUrl: update.dealerWebsite,
-              discoveredVia: 'listing_dealer_website',
-              now,
-              ...(previousDealerOrigin !== normalizeDealerSiteOrigin(update.dealerWebsite) && {
-                listingCount: { increment: 1 },
-              }),
-            })
-          }
           await tx.listingObservation.create({
             data: {
               listingId: listing.id,

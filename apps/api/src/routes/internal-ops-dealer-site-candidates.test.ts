@@ -8,19 +8,19 @@ const SECRET = 'a'.repeat(32)
 const auth = { authorization: `Bearer ${SECRET}` }
 
 const rows = [
-  { origin: 'https://a.com', status: 'pending_review', listingCount: 1 },
-  { origin: 'https://b.com', status: 'pending_review', listingCount: 5 },
-  { origin: 'https://c.com', status: 'approved', listingCount: 9 },
+  { origin: 'https://a.com', status: 'pending_review', _count: { listings: 1 } },
+  { origin: 'https://b.com', status: 'pending_review', _count: { listings: 5 } },
+  { origin: 'https://c.com', status: 'approved', _count: { listings: 9 } },
 ]
 
 async function buildApp() {
-  // Fake mirrors only the where.status filter, orderBy listingCount desc and take.
+  // Fake mirrors only the where.status filter, relation-count ordering and take.
   const db = {
     dealerSiteCandidate: {
       findMany: async ({ where, take }: { where: { status?: string }; take: number }) =>
         rows
           .filter((r) => where.status === undefined || r.status === where.status)
-          .sort((x, y) => y.listingCount - x.listingCount)
+          .sort((x, y) => y._count.listings - x._count.listings)
           .slice(0, take),
     },
   }
@@ -55,6 +55,8 @@ describe('GET /internal/ops/dealer-site-candidates', () => {
       'https://b.com',
       'https://a.com',
     ])
+    expect(res.json().data.map((r: { listingCount: number }) => r.listingCount)).toEqual([9, 5, 1])
+    expect(res.json().data[0]).not.toHaveProperty('_count')
   })
 
   it('filters by status', async () => {
