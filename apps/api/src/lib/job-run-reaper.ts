@@ -8,6 +8,7 @@ export interface JobRunReaperStats {
 
 export class JobRunReaper {
   private stats: JobRunReaperStats = { reapedCount: 0, runningTooLongCount: 0 }
+  private running: Promise<JobRunReaperStats> | undefined
   private readonly queues = new Map<string, ReturnType<QueueFactory['createQueue']>>()
 
   constructor(
@@ -22,24 +23,35 @@ export class JobRunReaper {
     return { ...this.stats }
   }
 
-  async run(now = new Date()): Promise<JobRunReaperStats> {
+  // Overlapping timer ticks share one pass instead of racing each other.
+  run(now = new Date()): Promise<JobRunReaperStats> {
+    this.running ??= this.reap(now).finally(() => {
+      this.running = undefined
+    })
+    return this.running
+  }
+
+  private async reap(now: Date): Promise<JobRunReaperStats> {
     const candidates = await this.jobRuns.findRunningBefore(new Date(now.getTime() - this.maxAgeMs))
-    let reapedCount = 0
     let runningTooLongCount = 0
     for (const run of candidates) {
-      const liveness = await this.liveness(run.jobType, run.queueJobId)
+      // One unreachable job must not stop the rest of the batch; treat it as live.
+      const liveness = await this.liveness(run.jobType, run.queueJobId).catch((): JobLiveness => 'live')
       if (liveness === 'live') {
         runningTooLongCount += 1
         continue
       }
-      if (await this.jobRuns.abandonIfRunning(run.id)) reapedCount += 1
+      if (await this.jobRuns.abandonIfRunning(run.id)) this.stats.reapedCount += 1
     }
-    this.stats = { reapedCount, runningTooLongCount }
+    // reapedCount is cumulative since process start; runningTooLongCount is the latest snapshot.
+    this.stats.runningTooLongCount = runningTooLongCount
     return this.getStats()
   }
 
   private async liveness(jobType: string, queueJobId: string | null): Promise<JobLiveness> {
-    if (!queueJobId) return 'gone'
+    // Rows without a queue job id (source scrapes from startScraperRun, rows
+    // from before this column existed) cannot be checked, so never reap them.
+    if (!queueJobId) return 'live'
     const queue = this.queues.get(jobType)
     if (!queue) return 'live'
     return queue.getJobLiveness(queueJobId)
