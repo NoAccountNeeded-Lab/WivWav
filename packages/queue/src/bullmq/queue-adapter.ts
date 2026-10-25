@@ -97,7 +97,10 @@ export class BullMQQueueAdapter implements QueueAdapter {
   async getJobLiveness(jobId: string): Promise<JobLiveness> {
     const job = await this.queue.getJob(jobId)
     if (!job) return 'gone'
-    if ((await job.getState()) !== 'active') return 'live'
+    const state = await job.getState()
+    // A finished job will never call back into its JobRun row.
+    if (state === 'completed' || state === 'failed') return 'gone'
+    if (state !== 'active') return 'live'
     // BullMQ's public Job API exposes the active state but not whether its
     // worker lease still exists. Read the queue backend through a narrow local
     // view so a slow job with a held lock remains live.
