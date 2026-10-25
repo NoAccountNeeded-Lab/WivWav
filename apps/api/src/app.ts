@@ -72,6 +72,7 @@ import { internalOpsWorkerControlRoutes } from './routes/internal-ops-worker-con
 import { adminWorkersRoutes } from './routes/admin-workers.js'
 import { WorkerDispatcher } from './worker-gateway/dispatcher.js'
 import { registerGatewayWorkers } from './worker-gateway/gateway-workers.js'
+import type { JobRunReaper } from './lib/job-run-reaper.js'
 
 export function isAllowedCorsOrigin(origin: string | undefined, config: Config): boolean {
   if (!origin) return true
@@ -114,6 +115,7 @@ export async function buildApp(
   facets: ListingFacetsService,
   queueFactory: BullMQQueueFactory,
   redis: Redis | undefined,
+  jobRunReaper?: JobRunReaper,
 ) {
   const app = Fastify({
     logger:
@@ -337,6 +339,7 @@ export async function buildApp(
         scraperRuns: scraperRunRepo,
         jobRuns: jobRunRepo,
         queueFactory,
+        ...(jobRunReaper ? { jobRunReaper } : {}),
       })
       await adminScope.register(adminVehicleIdentityRoutes, {
         prefix: '/vehicle-identity',

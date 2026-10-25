@@ -18,6 +18,7 @@ import type {
   SourceRow,
 } from '../repositories/index.js'
 import { latestCompletedTimestampSeconds } from '../services/queue-job-timestamps.js'
+import type { JobRunReaper } from '../lib/job-run-reaper.js'
 
 const MAX_QUARANTINE_PAGE_SIZE = 200
 const DEFAULT_QUARANTINE_PAGE_SIZE = 50
@@ -66,6 +67,7 @@ interface AdminPluginOptions {
   scraperRuns: ScraperRunRepository
   jobRuns: JobRunRepository
   queueFactory: QueueFactory
+  jobRunReaper?: JobRunReaper
 }
 
 interface QueueJobBody {
@@ -143,7 +145,7 @@ const queueJobBodySchema = {
 
 export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app,
-  { db, listings, sources, scraperRuns, jobRuns, queueFactory },
+  { db, listings, sources, scraperRuns, jobRuns, queueFactory, jobRunReaper },
 ) => {
   const queues = new Map<string, QueueAdapter>()
   for (const name of Object.values(QUEUES)) {
@@ -821,7 +823,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       }
     })
 
-    return reply.send({ data })
+    return reply.send({ data, jobRuns: jobRunReaper?.getStats() ?? { reapedCount: 0, runningTooLongCount: 0 } })
   })
 
   // DELETE /admin/repeatables/:queue — disable (remove from BullMQ) by key

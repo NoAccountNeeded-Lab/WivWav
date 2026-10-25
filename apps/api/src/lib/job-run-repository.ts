@@ -9,6 +9,7 @@ import type { PrismaClient } from '@wivwav/db'
  */
 export interface JobRunStartInput {
   jobType: string
+  queueJobId: string | null
   /** Set when the run's work is attributable to a single source; null for global jobs. */
   sourceId: string | null
   /** Set when this run was spawned by another run, linking the two into one pipeline tree. */
@@ -36,12 +37,24 @@ export interface JobRunRepository {
   fail(id: string, errorMessage: string, stats?: JobRunFinishStats): Promise<void>
 }
 
-export class PrismaJobRunRepository implements JobRunRepository {
+export interface RunningJobRun {
+  id: string
+  jobType: string
+  queueJobId: string | null
+  startedAt: Date
+}
+
+export interface AbandonableJobRunRepository extends JobRunRepository {
+  findRunningBefore(startedBefore: Date): Promise<RunningJobRun[]>
+  abandonIfRunning(id: string): Promise<boolean>
+}
+
+export class PrismaJobRunRepository implements AbandonableJobRunRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async start({ jobType, sourceId, parentRunId }: JobRunStartInput): Promise<JobRunRecord> {
+  async start({ jobType, queueJobId, sourceId, parentRunId }: JobRunStartInput): Promise<JobRunRecord> {
     return this.db.jobRun.create({
-      data: { jobType, sourceId, parentRunId, startedAt: new Date() },
+      data: { jobType, queueJobId, sourceId, parentRunId, startedAt: new Date() },
       select: { id: true },
     })
   }
@@ -68,5 +81,21 @@ export class PrismaJobRunRepository implements JobRunRepository {
         ...(stats ? { succeededCount: stats.succeededCount ?? null, failedCount: stats.failedCount ?? null } : {}),
       },
     })
+  }
+
+  async findRunningBefore(startedBefore: Date): Promise<RunningJobRun[]> {
+    return this.db.jobRun.findMany({
+      where: { status: 'running', startedAt: { lt: startedBefore } },
+      select: { id: true, jobType: true, queueJobId: true, startedAt: true },
+      orderBy: { startedAt: 'asc' },
+    })
+  }
+
+  async abandonIfRunning(id: string): Promise<boolean> {
+    const result = await this.db.jobRun.updateMany({
+      where: { id, status: 'running' },
+      data: { status: 'failed', finishedAt: new Date(), errorMessage: 'abandoned' },
+    })
+    return result.count === 1
   }
 }

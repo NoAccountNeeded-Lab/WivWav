@@ -653,6 +653,7 @@ enum JobRunStatus {
 model JobRun {
   id       String  @id @default(cuid())
   jobType  String
+  queueJobId String?
   sourceId String?
   source   Source? @relation(fields: [sourceId], references: [id])
 
@@ -673,6 +674,7 @@ model JobRun {
   @@index([sourceId])
   @@index([parentRunId])
   @@index([jobType, startedAt])
+  @@index([jobType, queueJobId])
   @@index([status])
   @@map("job_run")
 }

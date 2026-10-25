@@ -63,7 +63,7 @@ export function withJobRunTracking<T = unknown>(
   return async (data: T, context: JobContext): Promise<void> => {
     const sourceId = readStringField(data, 'sourceId')
     const parentRunId = readStringField(data, 'parentRunId')
-    const run = await jobRuns.start({ jobType, sourceId, parentRunId })
+    const run = await jobRuns.start({ jobType, queueJobId: context.jobId ?? null, sourceId, parentRunId })
     const runContext: JobContext = { ...context, runId: run.id }
 
     try {

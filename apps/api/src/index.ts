@@ -36,6 +36,7 @@ import {
 import { withSentryCapture } from './lib/capture-job-error.js'
 import { withJobRunTracking } from './lib/job-run-tracking.js'
 import { PrismaJobRunRepository } from './lib/job-run-repository.js'
+import { JobRunReaper } from './lib/job-run-reaper.js'
 
 const config = loadConfig()
 if (!config.CONFIG_ENCRYPTION_SECRET) {
@@ -50,11 +51,15 @@ const searchService = new MeilisearchService(meili)
 const search = new ListingSearchService(searchService)
 const facets = new ListingFacetsService(searchService, cache)
 const queueFactory = new BullMQQueueFactory()
-const app = await buildApp(config, db, meili, cache, search, facets, queueFactory, redis)
-
 // #933 lineage backbone: one JobRun row per job execution, across every job
 // type registered below — see lib/job-run-tracking.ts.
 const jobRuns = new PrismaJobRunRepository(db)
+const jobRunReaper = new JobRunReaper(jobRuns, queueFactory, config.JOB_RUN_MAX_AGE_MS)
+const app = await buildApp(config, db, meili, cache, search, facets, queueFactory, redis, jobRunReaper)
+const jobRunReaperTimer = setInterval(() => {
+  void jobRunReaper.run().catch((err: unknown) => app.log.error(err, '[job-runs] reaper failed'))
+}, 60_000)
+void jobRunReaper.run().catch((err: unknown) => app.log.error(err, '[job-runs] initial reaper failed'))
 
 let shutdownPromise: Promise<void> | undefined
 
@@ -72,6 +77,7 @@ function shutdown(signal: NodeJS.Signals): Promise<void> {
     app.log.info(`[shutdown] ${signal} received, closing`)
 
     try {
+      clearInterval(jobRunReaperTimer)
       await app.close()
       await queueFactory.close()
       await closeCache()
