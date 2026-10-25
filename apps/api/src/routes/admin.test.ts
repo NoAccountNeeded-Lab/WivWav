@@ -784,6 +784,7 @@ describe('GET /repeatables', () => {
 
     const res = await app.inject({ method: 'GET', url: '/repeatables' })
 
+    expect(res.json().jobRuns).toEqual({ reapedCount: 0, runningTooLongCount: 0 })
     const schedules = res.json().data as Array<{ id: string; enabled: boolean }>
     expect(schedules.find((schedule) => schedule.id === 'blvd-crawl')?.enabled).toBe(false)
     expect(schedules.find((schedule) => schedule.id === 'mw-crawl')?.enabled).toBe(false)

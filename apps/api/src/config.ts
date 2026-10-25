@@ -99,6 +99,7 @@ const schema = z.object({
     .int()
     .positive()
     .default(45 * 60_000),
+  JOB_RUN_MAX_AGE_MS: z.coerce.number().int().positive().default(6 * 60 * 60_000),
   // Deployed commit SHA, set by the deploy pipeline (e.g. `GIT_SHA=$(git rev-parse HEAD)`
   // as a build/run arg). Surfaced verbatim by `GET /diagnostics/diagnostic-context`
   // (#775) as fixed-size revision metadata; 'unknown' in local dev where no

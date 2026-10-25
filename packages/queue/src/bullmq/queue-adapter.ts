@@ -5,6 +5,7 @@ import type {
   JobRecord,
   JobStats,
   JobStatus,
+  JobLiveness,
   QueuedJobActionResult,
   RepeatableJob,
 } from '../types.js'
@@ -91,6 +92,21 @@ export class BullMQQueueAdapter implements QueueAdapter {
         }
       }),
     )
+  }
+
+  async getJobLiveness(jobId: string): Promise<JobLiveness> {
+    const job = await this.queue.getJob(jobId)
+    if (!job) return 'gone'
+    if ((await job.getState()) !== 'active') return 'live'
+    // BullMQ's public Job API exposes the active state but not whether its
+    // worker lease still exists. Read the queue backend through a narrow local
+    // view so a slow job with a held lock remains live.
+    const queueInternals = this.queue as unknown as {
+      backend: { client: Promise<{ exists(key: string): Promise<number> }> }
+      toKey(type: string): string
+    }
+    const lockExists = await (await queueInternals.backend.client).exists(`${queueInternals.toKey(jobId)}:lock`)
+    return lockExists === 1 ? 'live' : 'expired'
   }
 
   async getRepeatableJobs(): Promise<RepeatableJob[]> {

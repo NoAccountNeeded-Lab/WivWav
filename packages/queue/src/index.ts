@@ -2,6 +2,7 @@ export type {
   JobOptions,
   JobStats,
   JobStatus,
+  JobLiveness,
   JobRecord,
   JobProgress,
   JobContext,

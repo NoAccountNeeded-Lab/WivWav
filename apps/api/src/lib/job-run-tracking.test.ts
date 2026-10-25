@@ -26,7 +26,7 @@ describe('withJobRunTracking', () => {
 
     await wrapped({}, makeContext())
 
-    expect(jobRuns.start).toHaveBeenCalledWith({ jobType: 'geocode', sourceId: null, parentRunId: null })
+    expect(jobRuns.start).toHaveBeenCalledWith({ jobType: 'geocode', queueJobId: null, sourceId: null, parentRunId: null })
   })
 
   it('reads sourceId off the job data when present', async () => {
@@ -38,6 +38,7 @@ describe('withJobRunTracking', () => {
 
     expect(jobRuns.start).toHaveBeenCalledWith({
       jobType: 'source-scrape',
+      queueJobId: null,
       sourceId: 'src-1',
       parentRunId: null,
     })
@@ -52,6 +53,7 @@ describe('withJobRunTracking', () => {
 
     expect(jobRuns.start).toHaveBeenCalledWith({
       jobType: 'listing-resolve',
+      queueJobId: null,
       sourceId: null,
       parentRunId: 'parent-run',
     })
@@ -64,7 +66,16 @@ describe('withJobRunTracking', () => {
 
     await wrapped({ sourceId: 42, parentRunId: {} }, makeContext())
 
-    expect(jobRuns.start).toHaveBeenCalledWith({ jobType: 'vin-enrich', sourceId: null, parentRunId: null })
+    expect(jobRuns.start).toHaveBeenCalledWith({ jobType: 'vin-enrich', queueJobId: null, sourceId: null, parentRunId: null })
+  })
+
+  it('records the BullMQ job id for reaper liveness checks', async () => {
+    const jobRuns = makeJobRuns()
+    const wrapped = withJobRunTracking('geocode', jobRuns, async () => {})
+
+    await wrapped({}, { ...makeContext(), jobId: 'bull-job-1' })
+
+    expect(jobRuns.start).toHaveBeenCalledWith({ jobType: 'geocode', queueJobId: 'bull-job-1', sourceId: null, parentRunId: null })
   })
 
   it('passes the created run id to the processor as context.runId', async () => {

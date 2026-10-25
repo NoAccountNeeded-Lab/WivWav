@@ -24,6 +24,7 @@ export interface JobStats {
 }
 
 export type JobStatus = 'waiting' | 'active' | 'completed' | 'failed' | 'delayed'
+export type JobLiveness = 'live' | 'expired' | 'gone'
 
 export interface JobRecord {
   id: string
@@ -98,6 +99,7 @@ export interface QueueAdapter {
   isPaused(): Promise<boolean>
   getStats(): Promise<JobStats>
   getJobs(statuses: JobStatus[]): Promise<JobRecord[]>
+  getJobLiveness(jobId: string): Promise<JobLiveness>
   getRepeatableJobs(): Promise<RepeatableJob[]>
   addRepeatable(
     name: string,

@@ -104,6 +104,12 @@ export class MockQueueAdapter implements QueueAdapter {
       }))
   }
 
+  async getJobLiveness(jobId: string) {
+    const job = this.jobs.find((candidate) => candidate.id === jobId)
+    if (!job) return 'gone' as const
+    return job.status === 'active' ? 'live' as const : 'live' as const
+  }
+
   async getRepeatableJobs(): Promise<RepeatableJob[]> {
     return this.repeatableJobs.map((job) => ({ ...job }))
   }
