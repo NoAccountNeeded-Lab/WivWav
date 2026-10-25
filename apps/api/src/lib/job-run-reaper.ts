@@ -41,7 +41,7 @@ export class JobRunReaper {
   private async liveness(jobType: string, queueJobId: string | null): Promise<JobLiveness> {
     if (!queueJobId) return 'gone'
     const queue = this.queues.get(jobType)
-    if (!queue) return 'gone'
+    if (!queue) return 'live'
     return queue.getJobLiveness(queueJobId)
   }
 }
