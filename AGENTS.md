@@ -10,8 +10,8 @@ Setup and service URLs: `docs/ops/quick-start.md`.
 Discussion, debugging, review, and planning do not require an issue; require an issue before implementation.
 Before implementation: confirm or select an open issue; verify acceptance criteria; set `status:in-progress`; branch from latest `origin/main`; post a check-in comment.
 If implementation is requested without an issue or branch, recommend the issue workflow before editing.
-If the current branch is `main` or `master`, stop; offer to select or create an issue and branch.
-Never implement directly on `main`.
+If the current branch is `main` or `master`, stop; offer to select or create an issue and branch, unless the requester has explicitly directed work on `main` for this change.
+Work directly on `main` only on that explicit direction; commit locally and confirm with the requester before pushing.
 
 Search first with `rg`; state likely files, types, and risks; read the smallest relevant ranges.
 Keep changes and commits issue-scoped; do not mix unrelated work.
