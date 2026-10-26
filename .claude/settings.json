@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh issue comment *)"
+      "Bash(gh issue comment *)",
+      "Bash(ansible-playbook * --tags wivwav *)"
     ]
   },
   "hooks": {
