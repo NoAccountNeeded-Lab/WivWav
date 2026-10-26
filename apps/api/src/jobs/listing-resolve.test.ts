@@ -102,6 +102,7 @@ describe('resolveRow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
     db = makeDb()
   })
 
@@ -123,8 +124,23 @@ describe('resolveRow', () => {
         qualityIssueCodes: [],
         qualityCheckedAt: expect.any(Date),
         readinessBlockers: ['detail_not_crawled', 'not_validated_after_detail', 'no_images'],
+        readinessComputedAt: expect.any(Date),
       },
     })
+  })
+
+  it('keeps the existing eligible decision when the strict gate is off', async () => {
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+    const row = makeListingRow()
+    expect(await resolveRow(db as never, row as never, undefined)).toBe('eligible')
+    expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'eligible' }) }))
+  })
+
+  it('writes pending and returns pending when strict readiness rejects an eligible decision', async () => {
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'true')
+    const row = makeListingRow()
+    expect(await resolveRow(db as never, row as never, undefined)).toBe('pending')
+    expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'pending' }) }))
   })
 
   it('holds a row with detailStaleAt set: no write, no error (#1156)', async () => {

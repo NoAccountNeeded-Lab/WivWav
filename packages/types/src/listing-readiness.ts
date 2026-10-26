@@ -26,6 +26,32 @@ export interface ListingReadiness {
   warnings: ReadinessWarning[]
 }
 
+/** The publish gate is opt-in so existing deployments keep their current behavior. */
+type PublishGateEnv = Readonly<Record<string, string | undefined>>
+
+function runtimeEnv(): PublishGateEnv {
+  return (globalThis as typeof globalThis & { process?: { env: PublishGateEnv } }).process?.env ?? {}
+}
+
+export function isPublishGateStrict(env: PublishGateEnv = runtimeEnv()): boolean {
+  return env['PUBLISH_GATE_STRICT'] === 'true'
+}
+
+/** Prisma predicate shared by every strict publication/search reader. */
+export function strictReadyWhere(env: PublishGateEnv = runtimeEnv()) {
+  return isPublishGateStrict(env)
+    ? {
+        detailScrapedAt: { not: null },
+        detailStaleAt: null,
+        qualityCheckedAt: { not: null },
+        readinessComputedAt: { not: null },
+        images: { isEmpty: false },
+        readinessBlockers: { isEmpty: true },
+        OR: [{ vin: null }, { vehicleModelId: { not: null } }],
+      }
+    : {}
+}
+
 /**
  * Shared, side-effect-free readiness policy. This deliberately does not
  * include optional stages (geocoding, dealer enrichment, image semantics,
@@ -36,8 +62,6 @@ export function computeReadiness(
 ): ListingReadiness {
   const blockers: ReadinessBlocker[] = []
   const warnings: ReadinessWarning[] = []
-  const detailCurrent = listing.detailScrapedAt !== null && listing.detailStaleAt === null
-
   if (listing.detailScrapedAt === null) blockers.push('detail_not_crawled')
   else if (listing.detailStaleAt !== null) blockers.push('detail_stale')
 
@@ -57,7 +81,7 @@ export function computeReadiness(
 
   if (listing.conversionType === 'unknown') {
     warnings.push('conversion_type_unknown')
-    if (!detailCurrent) blockers.push('conversion_type_unresolved')
+    blockers.push('conversion_type_unresolved')
   }
 
   if (listing.city == null || listing.city.trim() === '') warnings.push('no_city')

@@ -955,7 +955,13 @@ describe('ingestListing', () => {
       expect(data).not.toHaveProperty('detailScrapedAt')
       expect(db.listing.updateMany).toHaveBeenCalledWith({
         where: { id: 'list-1', manuallyHiddenAt: null },
-        data: { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
+        data: {
+          publicationStatus: 'pending',
+          qualityIssueCodes: [],
+          qualityCheckedAt: null,
+          readinessBlockers: ['detail_stale'],
+          readinessComputedAt: expect.any(Date),
+        },
       })
     })
 
@@ -973,7 +979,13 @@ describe('ingestListing', () => {
       expect(data).not.toHaveProperty('detailStaleAt')
       expect(db.listing.updateMany).toHaveBeenCalledWith({
         where: { id: 'list-1', manuallyHiddenAt: null },
-        data: { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
+        data: {
+          publicationStatus: 'pending',
+          qualityIssueCodes: [],
+          qualityCheckedAt: null,
+          readinessBlockers: ['detail_stale'],
+          readinessComputedAt: expect.any(Date),
+        },
       })
       expect(data).not.toHaveProperty('detailScrapedAt')
     })

@@ -32,10 +32,11 @@ describe('repairPendingListings', () => {
     vi.mocked(resolveRow)
       .mockResolvedValueOnce('eligible')
       .mockResolvedValueOnce('quarantined')
+      .mockResolvedValueOnce('pending')
       .mockResolvedValueOnce('skipped-stale')
-    const db = makeDb([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
+    const db = makeDb([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }])
     const result = await repairPendingListings(db, { apply: true })
-    expect(result).toEqual({ found: 3, eligible: 1, quarantined: 1, pending: 0, skippedStale: 1 })
+    expect(result).toEqual({ found: 4, eligible: 1, quarantined: 1, pending: 1, skippedStale: 1 })
   })
 
   it('apply honours the limit', async () => {

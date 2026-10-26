@@ -29,7 +29,7 @@ vi.mock('../lib/meili.js', () => ({ getMeiliClient: vi.fn() }))
 import { getDb } from '@wivwav/db'
 import { configureIndexSettings, indexExists, selectRepresentative } from '@wivwav/search'
 import { getMeiliClient } from '../lib/meili.js'
-import { runMeilisearchSyncJob } from './meilisearch-sync.js'
+import { runMeilisearchSyncJob, STRICT_READY_SQL } from './meilisearch-sync.js'
 
 type IdRow = { id: string; groupKey: string }
 type ListingRow = { id: string; vehicleId: string | null }
@@ -353,5 +353,14 @@ describe('runMeilisearchSyncJob', () => {
       [expect.objectContaining({ id: 'listing-a' })],
       { primaryKey: 'id' },
     )
+  })
+})
+
+describe('strict readiness SQL parity', () => {
+  it('contains every strict predicate field from the shared Prisma where', () => {
+    const sql = (STRICT_READY_SQL as unknown as { strings: string[] }).strings.join(' ')
+    for (const field of ['detailScrapedAt', 'detailStaleAt', 'qualityCheckedAt', 'readinessComputedAt', 'images', 'readinessBlockers', 'vin', 'vehicleModelId']) {
+      expect(sql).toContain(field)
+    }
   })
 })

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { Meilisearch } from 'meilisearch'
 import { INDEX_NAME, syncListings } from '@wivwav/search'
+import { strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { rebuildMeilisearchIndex } from './meilisearch-sync.js'
@@ -43,19 +44,6 @@ const CHECKPOINT_ID = 'listings'
 
 /** Before any checkpoint exists, start from the beginning of time. */
 const EPOCH = new Date(0)
-
-function strictReadyWhere() {
-  return process.env['PUBLISH_GATE_STRICT'] === 'true'
-    ? {
-        detailScrapedAt: { not: null },
-        detailStaleAt: null,
-        qualityCheckedAt: { not: null },
-        images: { isEmpty: false },
-        readinessBlockers: { isEmpty: true },
-        OR: [{ vin: null }, { vehicleModelId: { not: null } }],
-      }
-    : {}
-}
 
 interface Checkpoint {
   lastUpdatedAt: Date

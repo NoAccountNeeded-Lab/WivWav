@@ -42,7 +42,7 @@ import {
 } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
-import { computeReadiness } from '@wivwav/types/listing-readiness'
+import { computeReadiness, isPublishGateStrict } from '@wivwav/types/listing-readiness'
 import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
 
@@ -121,7 +121,7 @@ export async function resolveRow(
     conversionType: row.conversionType,
     city: row.city,
   })
-  const strictGate = process.env['PUBLISH_GATE_STRICT'] === 'true'
+  const strictGate = isPublishGateStrict()
   const publicationStatus = strictGate && decision.publicationStatus === 'eligible' && !readiness.ready
     ? 'pending'
     : decision.publicationStatus
@@ -133,6 +133,7 @@ export async function resolveRow(
         publicationStatus,
         qualityIssueCodes: decision.qualityIssueCodes,
         readinessBlockers: readiness.blockers,
+        readinessComputedAt: new Date(),
         qualityCheckedAt: new Date(),
       },
     })
@@ -147,7 +148,7 @@ export async function resolveRow(
     throw err
   }
 
-  return decision.publicationStatus
+  return publicationStatus
 }
 
 async function resolveOneListing(
