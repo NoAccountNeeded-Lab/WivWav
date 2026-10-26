@@ -42,6 +42,7 @@ import {
 } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
+import { computeReadiness } from '@wivwav/types/listing-readiness'
 import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
 
@@ -51,7 +52,7 @@ export type ListingResolveJobData =
 
 const SOURCE_BATCH_SIZE = 100
 
-export type ResolveOutcome = 'eligible' | 'quarantined' | 'skipped-stale' | 'held-detail-stale'
+export type ResolveOutcome = 'eligible' | 'quarantined' | 'pending' | 'skipped-stale' | 'held-detail-stale'
 
 /** Maps a full Prisma listing row to the nested shape validateListing() requires. */
 export function toValidatorInput(row: PrismaListing): ListingUpsertData {
@@ -109,13 +110,29 @@ export async function resolveRow(
   if (row.detailStaleAt) return 'held-detail-stale'
   const issues = validateListing(toValidatorInput(row))
   const decision = decidePublication(issues)
+  const readiness = computeReadiness({
+    detailScrapedAt: row.detailScrapedAt,
+    detailStaleAt: row.detailStaleAt,
+    qualityCheckedAt: decision.publicationStatus === 'eligible' ? new Date() : null,
+    publicationStatus: decision.publicationStatus,
+    images: row.images,
+    vin: row.vin,
+    vehicleModelId: row.vehicleModelId,
+    conversionType: row.conversionType,
+    city: row.city,
+  })
+  const strictGate = process.env['PUBLISH_GATE_STRICT'] === 'true'
+  const publicationStatus = strictGate && decision.publicationStatus === 'eligible' && !readiness.ready
+    ? 'pending'
+    : decision.publicationStatus
 
   try {
     await db.listing.update({
       where: { id: row.id, updatedAt: row.updatedAt, manuallyHiddenAt: null },
       data: {
-        publicationStatus: decision.publicationStatus,
+        publicationStatus,
         qualityIssueCodes: decision.qualityIssueCodes,
+        readinessBlockers: readiness.blockers,
         qualityCheckedAt: new Date(),
       },
     })

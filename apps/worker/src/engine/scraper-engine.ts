@@ -8,6 +8,7 @@ import {
   detectSourceDrift,
   SYSTEMIC_ERROR_THRESHOLD,
 } from '@wivwav/types/listing-validator'
+import { computeReadiness } from '@wivwav/types'
 import type { JobContext } from '../job-context.js'
 
 const DEFAULT_FULL_CRAWL_INTERVAL_HOURS = 24
@@ -167,7 +168,21 @@ export class ScraperEngine {
         issues: validateListing({ ...l, sourceId }),
       }))
       const decisionByKey = new Map(
-        validationResults.map(vr => [vr.sourceRecordKey, decidePublication(vr.issues)]),
+        result.listings.map((listing, index) => {
+          const decision = decidePublication(validationResults[index]!.issues)
+          const readiness = computeReadiness({
+            detailScrapedAt: null,
+            detailStaleAt: null,
+            qualityCheckedAt: decision.publicationStatus === 'eligible' ? new Date() : null,
+            publicationStatus: decision.publicationStatus,
+            images: listing.images,
+            vin: listing.vin,
+            vehicleModelId: null,
+            conversionType: listing.wav.conversionType,
+            city: listing.location.city,
+          })
+          return [listing.sourceRecordKey, { decision, readiness }] as const
+        }),
       )
       const quality = summarizeQuality(validationResults)
 
@@ -232,12 +247,17 @@ export class ScraperEngine {
       let listingsUpdated = 0
       for (let i = 0; i < result.listings.length; i++) {
         const listing = result.listings[i]!
-        const decision = decisionByKey.get(listing.sourceRecordKey)
+        const evaluated = decisionByKey.get(listing.sourceRecordKey)
+        const strictGate = process.env['PUBLISH_GATE_STRICT'] === 'true'
+        const decision = evaluated?.decision
         const upsert = await this.listings.upsert({
           ...listing,
           sourceId,
-          publicationStatus: decision?.publicationStatus ?? 'pending',
+          publicationStatus: strictGate && decision?.publicationStatus === 'eligible' && !evaluated?.readiness.ready
+            ? 'pending'
+            : decision?.publicationStatus ?? 'pending',
           qualityIssueCodes: decision?.qualityIssueCodes ?? listing.qualityIssueCodes ?? [],
+          readinessBlockers: evaluated?.readiness.blockers ?? [],
           qualityCheckedAt: new Date(),
           runId: context?.runId,
         })

@@ -20,6 +20,7 @@ export type ListingUpsertData = Omit<
   sourceUpdatedAt?: Date | null
   publicationStatus?: 'pending' | 'eligible' | 'quarantined'
   qualityCheckedAt?: Date | null
+  readinessBlockers?: string[]
   /**
    * #933 lineage backbone: the calling job's `JobRun` id (`context.runId`),
    * when run tracking is wired for the caller. Recorded on the listing as

@@ -142,6 +142,7 @@ export async function ingestListing(
       sourceListedAt: true,
       sourceUpdatedAt: true,
       qualityIssueCodes: true,
+      readinessBlockers: true,
       status: true,
       detailScrapedAt: true,
       detailStaleAt: true,
@@ -218,6 +219,7 @@ export async function ingestListing(
         qualityIssueCodes: listing.qualityIssueCodes ?? [],
         publicationStatus: listing.publicationStatus ?? 'pending',
         qualityCheckedAt: listing.qualityCheckedAt ?? null,
+        readinessBlockers: listing.readinessBlockers ?? [],
         listedAt: listing.listedAt,
         sourceListedAt: listing.sourceListedAt ?? null,
         sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
@@ -409,6 +411,7 @@ export async function ingestListing(
             publicationStatus: listing.publicationStatus ?? 'pending',
             qualityIssueCodes: listing.qualityIssueCodes ?? [],
             qualityCheckedAt: listing.qualityCheckedAt ?? null,
+            readinessBlockers: listing.readinessBlockers ?? [],
           },
     })
   }
