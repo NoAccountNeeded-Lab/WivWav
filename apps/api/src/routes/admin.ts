@@ -751,6 +751,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       { id: 'geocode',         queue: 'geocode',         label: 'Geocode (city → GPS)',      name: 'geocode',         data: {},                          defaultPattern: '0 2 * * *',   tz },
       { id: 'deduplicate',     queue: 'deduplicate',     label: 'Deduplicate (VIN)',         name: 'deduplicate',     data: {},                          defaultPattern: '0 3 * * *',   tz },
       { id: 'rawpage-cleanup', queue: 'rawpage-cleanup', label: 'RawPage cleanup (TTL)',      name: 'rawpage-cleanup', data: {},                          defaultPattern: '0 1 * * *',   tz },
+      { id: 'listing-observation-cleanup', queue: 'listing-observation-cleanup', label: 'Listing observation cleanup (TTL)', name: 'listing-observation-cleanup', data: {}, defaultPattern: '0 1 * * *', tz },
       { id: 'vin-enrich',      queue: QUEUES.VIN_ENRICH,           label: 'VIN enrichment (NHTSA vPIC)',     name: QUEUES.VIN_ENRICH,           data: {}, defaultPattern: '0 4/6 * * *', tz },
       { id: 'listing-sync',    queue: QUEUES.LISTING_SYNC,         label: 'Listing search full sync',         name: QUEUES.LISTING_SYNC,         data: {}, defaultPattern: '30 1 * * *',  tz },
       { id: 'nhtsa-recalls',   queue: QUEUES.NHTSA_RECALLS,        label: 'NHTSA recalls refresh',           name: QUEUES.NHTSA_RECALLS,        data: {}, defaultPattern: '30 4 * * *',  tz },
