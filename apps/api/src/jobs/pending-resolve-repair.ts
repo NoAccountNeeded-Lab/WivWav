@@ -22,6 +22,7 @@ export interface PendingRepairResult {
   found: number
   eligible: number
   quarantined: number
+  pending: number
   skippedStale: number
 }
 
@@ -36,7 +37,7 @@ export async function repairPendingListings(
   db: PrismaClient,
   options: { apply: boolean; limit?: number; delayMs?: number },
 ): Promise<PendingRepairResult> {
-  const result: PendingRepairResult = { found: 0, eligible: 0, quarantined: 0, skippedStale: 0 }
+  const result: PendingRepairResult = { found: 0, eligible: 0, quarantined: 0, pending: 0, skippedStale: 0 }
   if (!options.apply) {
     result.found = await db.listing.count({ where: stuckWhere })
     return result

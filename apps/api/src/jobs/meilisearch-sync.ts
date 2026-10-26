@@ -15,6 +15,19 @@ const SNAPSHOT_TXN_MAX_WAIT_MS = 10_000
 /** Prefix for versioned rebuild-target indexes, e.g. "listings_v1751234567890". */
 const VERSIONED_INDEX_PREFIX = `${INDEX_NAME}_v`
 
+const STRICT_READY_SQL = Prisma.sql`
+      AND listings."detailScrapedAt" IS NOT NULL
+      AND listings."detailStaleAt" IS NULL
+      AND listings."qualityCheckedAt" >= listings."detailScrapedAt"
+      AND cardinality(listings.images) > 0
+      AND cardinality(listings."readinessBlockers") = 0
+      AND (listings.vin IS NULL OR listings."vehicleModelId" IS NOT NULL)
+`
+
+function strictReadyEnabled(): boolean {
+  return process.env['PUBLISH_GATE_STRICT'] === 'true'
+}
+
 type VehicleAwareCountRow = {
   count: number | bigint
 }
@@ -52,6 +65,7 @@ async function fetchOrderedIdPage(
       AND listings."publicationStatus" = 'eligible'
       AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
+      ${strictReadyEnabled() ? STRICT_READY_SQL : Prisma.empty}
       ${cursorClause}
     ORDER BY COALESCE(listings."vehicleId", listings.id), listings.id
     LIMIT ${BATCH_SIZE}
@@ -236,7 +250,17 @@ async function runFullRebuildInSnapshot(
           status: 'active',
           publicationStatus: 'eligible',
           manuallyHiddenAt: null,
-          source: { is: { status: { not: SourceStatus.disabled } } },
+            source: { is: { status: { not: SourceStatus.disabled } } },
+            ...(strictReadyEnabled()
+              ? {
+                  detailScrapedAt: { not: null },
+                  detailStaleAt: null,
+                  qualityCheckedAt: { not: null },
+                  images: { isEmpty: false },
+                  readinessBlockers: { isEmpty: true },
+                  OR: [{ vin: null }, { vehicleModelId: { not: null } }],
+                }
+              : {}),
         },
       })
       const byId = new Map(fullRows.map((row) => [row.id, row]))

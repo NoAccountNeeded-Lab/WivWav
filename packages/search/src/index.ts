@@ -90,6 +90,19 @@ export type { CanonicalFuelType } from '@wivwav/types'
 export const DEFAULT_INDEX_NAME = 'listings'
 const INDEX_NAME_PATTERN = /^[A-Za-z0-9_-]+$/
 
+function strictReadyWhere() {
+  return process.env['PUBLISH_GATE_STRICT'] === 'true'
+    ? {
+        detailScrapedAt: { not: null },
+        detailStaleAt: null,
+        qualityCheckedAt: { not: null },
+        images: { isEmpty: false },
+        readinessBlockers: { isEmpty: true },
+        OR: [{ vin: null }, { vehicleModelId: { not: null } }],
+      }
+    : {}
+}
+
 export function validateIndexName(value: string): string {
   if (!INDEX_NAME_PATTERN.test(value)) {
     throw new Error('MEILISEARCH_INDEX_NAME must contain only letters, numbers, underscores, and hyphens')
@@ -343,6 +356,7 @@ export async function syncListings(
             status: 'active',
             publicationStatus: 'eligible',
             manuallyHiddenAt: null,
+            ...strictReadyWhere(),
           },
         })
       : []
@@ -369,6 +383,7 @@ export async function syncListings(
             status: 'active',
             publicationStatus: 'eligible',
             manuallyHiddenAt: null,
+            ...strictReadyWhere(),
           },
         })
       : []

@@ -35,7 +35,7 @@ describe('repairPendingListings', () => {
       .mockResolvedValueOnce('skipped-stale')
     const db = makeDb([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
     const result = await repairPendingListings(db, { apply: true })
-    expect(result).toEqual({ found: 3, eligible: 1, quarantined: 1, skippedStale: 1 })
+    expect(result).toEqual({ found: 3, eligible: 1, quarantined: 1, pending: 0, skippedStale: 1 })
   })
 
   it('apply honours the limit', async () => {

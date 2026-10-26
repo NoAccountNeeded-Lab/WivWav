@@ -51,6 +51,9 @@ function makeListingRow(overrides: Record<string, unknown> = {}) {
     listedAt: new Date('2026-01-01'),
     status: 'active',
     publicationStatus: 'pending',
+    detailScrapedAt: null,
+    qualityCheckedAt: null,
+    vehicleModelId: null,
     updatedAt: new Date('2026-01-02'),
     detailStaleAt: null,
     ...overrides,
@@ -119,6 +122,7 @@ describe('resolveRow', () => {
         publicationStatus: 'eligible',
         qualityIssueCodes: [],
         qualityCheckedAt: expect.any(Date),
+        readinessBlockers: ['detail_not_crawled', 'not_validated_after_detail', 'no_images'],
       },
     })
   })

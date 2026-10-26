@@ -28,6 +28,11 @@
       "import": "./dist/listing-validator.js",
       "default": "./dist/listing-validator.js"
     },
+    "./listing-readiness": {
+      "types": "./dist/listing-readiness.d.ts",
+      "import": "./dist/listing-readiness.js",
+      "default": "./dist/listing-readiness.js"
+    },
     "./http-enrich-gateway": {
       "types": "./dist/http-enrich-gateway.d.ts",
       "import": "./dist/http-enrich-gateway.js",

@@ -270,6 +270,7 @@ export const listingUpsertRequestSchema = z.object({
   sourceUpdatedAt: isoDateTimeSchema.nullable().optional(),
   publicationStatus: publicationStatusSchema.optional(),
   qualityCheckedAt: isoDateTimeSchema.nullable().optional(),
+  readinessBlockers: z.array(z.string()).optional(),
   runId: z.string().nullable().optional(),
 })
 export type ListingUpsertRequest = z.infer<typeof listingUpsertRequestSchema>

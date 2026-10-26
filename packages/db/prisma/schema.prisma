@@ -363,6 +363,8 @@ model Listing {
   // not implicitly promote them into public APIs or search.
   publicationStatus ListingPublicationStatus @default(pending)
   qualityIssueCodes String[]                 @default([])
+  /// Prisma scalar lists cannot be nullable; an empty array means no blockers.
+  readinessBlockers String[] @default([])
   qualityCheckedAt  DateTime?
   /// #1157 operator manual suppression. Non-null = hidden: ingest and
   /// listing-resolve must not move the row to `eligible` while set. Kept apart

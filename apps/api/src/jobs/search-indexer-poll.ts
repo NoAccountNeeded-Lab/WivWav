@@ -44,6 +44,19 @@ const CHECKPOINT_ID = 'listings'
 /** Before any checkpoint exists, start from the beginning of time. */
 const EPOCH = new Date(0)
 
+function strictReadyWhere() {
+  return process.env['PUBLISH_GATE_STRICT'] === 'true'
+    ? {
+        detailScrapedAt: { not: null },
+        detailStaleAt: null,
+        qualityCheckedAt: { not: null },
+        images: { isEmpty: false },
+        readinessBlockers: { isEmpty: true },
+        OR: [{ vin: null }, { vehicleModelId: { not: null } }],
+      }
+    : {}
+}
+
 interface Checkpoint {
   lastUpdatedAt: Date
   lastId: string
@@ -89,6 +102,7 @@ async function repairOrphanedSearchCatalog(
       publicationStatus: 'eligible',
       manuallyHiddenAt: null,
       source: { is: { status: { not: 'disabled' } } },
+      ...strictReadyWhere(),
     },
   })
   if (publicListingCount > 0) return
