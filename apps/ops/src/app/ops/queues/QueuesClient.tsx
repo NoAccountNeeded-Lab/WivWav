@@ -140,6 +140,11 @@ const QUEUE_META: Record<string, QueueMeta> = {
     detail: 'Removes processed pages older than 7 days and unprocessed pages older than 30 days. Runs nightly at midnight before other pipeline jobs. No listing writes.',
     canTrigger: true,
   },
+  'listing-observation-cleanup': {
+    short: 'Deletes listing observations older than 90 days',
+    detail: 'Removes append-only listing audit observations after the 90-day retention window in batches of up to 10,000 rows per run. Runs nightly at 1 AM. No listing writes.',
+    canTrigger: true,
+  },
   'conversion-brands-seed': {
     short: 'Seeds WAV conversion brand and product data from a curated JSON dataset',
     detail: 'Loads conversion brands (e.g. BraunAbility, VMI) and their products into the database from a bundled seed file. Runs weekly on Sunday at 1:15 AM. Safe to re-trigger; upserts on name.',

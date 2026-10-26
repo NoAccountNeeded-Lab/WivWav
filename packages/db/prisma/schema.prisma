@@ -541,6 +541,7 @@ model ListingObservation {
   after             Json
   observedAt        DateTime @default(now())
 
+  /// Idempotency key; safe to drop after 90d because RawPages TTL is 7/30 days.
   @@unique([stage, reference])
   @@index([listingId, observedAt])
   @@index([observedAt])

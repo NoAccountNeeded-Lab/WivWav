@@ -49,7 +49,7 @@ describe('listing-observation-cleanup (integration)', () => {
         },
         {
           listingId: listing.id,
-          stage: 'card',
+          stage: 'list_card',
           reference: 'retention-recent',
           extractionVersion: 'test',
           changedFields: [],
