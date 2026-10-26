@@ -193,6 +193,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
       API_INTERNAL_URL: http://api:3001
+      OPS_PUBLIC_ORIGIN: http://localhost:3002
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
       LOG_FORMAT: json
     depends_on:

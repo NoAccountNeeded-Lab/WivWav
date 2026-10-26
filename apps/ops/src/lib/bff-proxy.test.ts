@@ -24,10 +24,11 @@ vi.mock('./api-url', () => ({
   getServerApiBaseUrl: () => 'http://api.internal:3001',
 }))
 
-const { proxyToApi, buildUpstreamPath } = await import('./bff-proxy')
+const { BFF_ALLOWLIST, isAllowedBffRequest, proxyToApi, buildUpstreamPath } = await import('./bff-proxy')
 
 beforeEach(() => {
   process.env['OPS_SESSION_SECRET'] = 'test-session-secret'
+  process.env['OPS_PUBLIC_ORIGIN'] = 'https://ops.local'
   mockCookieValue = undefined
   mockRequestHeaders = {}
   mockApiFetch.mockReset()
@@ -56,6 +57,37 @@ describe('buildUpstreamPath', () => {
 })
 
 describe('proxyToApi', () => {
+  it.each([
+    ['GET', '/health'], ['GET', '/v1/listings?perPage=1'], ['GET', '/admin/queues'],
+    ['GET', '/admin/queues/detail-crawl'], ['GET', '/admin/sources/source-1/pipeline'],
+    ['GET', '/admin/sources/source-1/job-runs'], ['GET', '/admin/runs'], ['GET', '/admin/repeatables'],
+    ['GET', '/admin/workers'], ['GET', '/admin/config'], ['GET', '/admin/config/ollama%2Fmodel'],
+    ['GET', '/admin/ai/status'], ['GET', '/admin/logs?limit=50'], ['GET', '/admin/field-conflicts'],
+    ['GET', '/admin/private-seller-retention/listings/listing-1/audit'], ['GET', '/admin/board/static/app.js'],
+    ['POST', '/admin/queues/detail-crawl/pause'], ['POST', '/admin/queues/detail-crawl/jobs'],
+    ['POST', '/admin/sync'], ['POST', '/admin/sources/source-1/run'], ['POST', '/admin/ai/explain-error'],
+    ['POST', '/admin/private-seller-retention/listings/listing-1/delete'], ['POST', '/internal/ops/workers/conn-1/pause'],
+    ['POST', '/internal/ops/queues/detail-crawl/jobs/1/retry'], ['POST', '/internal/ops/problem-ack'],
+    ['POST', '/internal/ops/listings/listing-1/actions'], ['PUT', '/admin/config/ollama%2Fmodel'],
+    ['PUT', '/admin/repeatables/detail-crawl'], ['DELETE', '/admin/config/ollama%2Fmodel'],
+    ['DELETE', '/admin/repeatables/detail-crawl'], ['DELETE', '/admin/queues/detail-crawl/failed'],
+  ])('allows current ops call site %s %s', (method, path) => {
+    expect(isAllowedBffRequest(method, path)).toBe(true)
+  })
+
+  it('has a method and path rule for every allowlist entry', () => {
+    expect(BFF_ALLOWLIST.every(rule => rule.method && rule.path instanceof RegExp)).toBe(true)
+  })
+
+  it('rejects an unlisted path and method before forwarding', async () => {
+    mockCookieValue = createSessionValue()
+    const request = new Request('https://ops.local/api/bff/admin/secrets', { method: 'POST' })
+    const response = await proxyToApi(request, '/admin/secrets')
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: { code: 'FORBIDDEN_PATH', message: 'BFF path or method is not allowed' } })
+    expect(mockApiFetch).not.toHaveBeenCalled()
+  })
+
   it('rejects when there is no valid session cookie', async () => {
     const request = new Request('http://ops.local/api/bff/admin/queues')
     const response = await proxyToApi(request, '/admin/queues')
@@ -90,16 +122,34 @@ describe('proxyToApi', () => {
     expect(mockApiFetch).not.toHaveBeenCalled()
   })
 
-  it('allows a state-changing request when Origin matches the host', async () => {
+  it('allows a state-changing request when Origin matches the configured public origin', async () => {
     mockCookieValue = createSessionValue()
-    mockRequestHeaders = { origin: 'http://ops.local', host: 'ops.local' }
+    mockRequestHeaders = { origin: 'https://ops.local', host: 'ops.local' }
     mockApiFetch.mockResolvedValue(new Response(null, { status: 204 }))
 
-    const request = new Request('http://ops.local/api/bff/admin/sync', { method: 'POST' })
+    const request = new Request('https://ops.local/api/bff/admin/sync', { method: 'POST' })
     const response = await proxyToApi(request, '/admin/sync')
 
     expect(response.status).toBe(204)
     expect(mockApiFetch).toHaveBeenCalled()
+  })
+
+  it('rejects a scheme-mismatched Origin', async () => {
+    mockCookieValue = createSessionValue()
+    mockRequestHeaders = { origin: 'http://ops.local', host: 'ops.local' }
+    const request = new Request('https://ops.local/api/bff/admin/sync', { method: 'POST' })
+    const response = await proxyToApi(request, '/admin/sync')
+    expect(response.status).toBe(403)
+    expect(mockApiFetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a foreign Origin even when its host header matches', async () => {
+    mockCookieValue = createSessionValue()
+    mockRequestHeaders = { origin: 'https://evil.example', host: 'ops.local' }
+    const request = new Request('https://ops.local/api/bff/admin/sync', { method: 'POST' })
+    const response = await proxyToApi(request, '/admin/sync')
+    expect(response.status).toBe(403)
+    expect(mockApiFetch).not.toHaveBeenCalled()
   })
 
   it('rejects a state-changing request with no Origin header', async () => {
