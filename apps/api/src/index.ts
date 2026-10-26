@@ -28,6 +28,7 @@ import { runMeilisearchSyncJob } from './jobs/meilisearch-sync.js'
 import { runSearchIndexerPollJob } from './jobs/search-indexer-poll.js'
 import { runListingResolveJob, type ListingResolveJobData } from './jobs/listing-resolve.js'
 import { runRawPageCleanupJob } from './jobs/rawpage-cleanup.js'
+import { runListingObservationCleanupJob } from './jobs/listing-observation-cleanup.js'
 import { runPrivateSellerRetentionJob } from './jobs/private-seller-retention.js'
 import {
   runSemanticImageAnalyzeJob,
@@ -134,6 +135,7 @@ const modelResearchQueue = queueFactory.createQueue(QUEUES.MODEL_RESEARCH)
 const listingSyncQueue = queueFactory.createQueue(QUEUES.LISTING_SYNC)
 const listingIndexPollQueue = queueFactory.createQueue(QUEUES.LISTING_INDEX_POLL)
 const rawPageCleanupQueue = queueFactory.createQueue(QUEUES.RAWPAGE_CLEANUP)
+const listingObservationCleanupQueue = queueFactory.createQueue(QUEUES.LISTING_OBSERVATION_CLEANUP)
 const dealerEnrichQueue = queueFactory.createQueue(QUEUES.DEALER_ENRICH)
 const fuelEconomyMsrpQueue = queueFactory.createQueue(QUEUES.FUELECONOMY_MSRP)
 const privateSellerRetentionQueue = queueFactory.createQueue(QUEUES.PRIVATE_SELLER_RETENTION)
@@ -243,6 +245,16 @@ function registerWorkers(): void {
     { lockDuration: 120_000, logger: app.log },
   )
   queueFactory.createWorker(
+    QUEUES.LISTING_OBSERVATION_CLEANUP,
+    withSentryCapture(
+      QUEUES.LISTING_OBSERVATION_CLEANUP,
+      withJobRunTracking(QUEUES.LISTING_OBSERVATION_CLEANUP, jobRuns, (_data: unknown, context) =>
+        runListingObservationCleanupJob(context),
+      ),
+    ),
+    { lockDuration: 120_000, logger: app.log },
+  )
+  queueFactory.createWorker(
     QUEUES.PRIVATE_SELLER_RETENTION,
     withSentryCapture(
       QUEUES.PRIVATE_SELLER_RETENTION,
@@ -298,6 +310,7 @@ try {
       listingSync: listingSyncQueue,
       listingIndexPoll: listingIndexPollQueue,
       rawPageCleanup: rawPageCleanupQueue,
+      listingObservationCleanup: listingObservationCleanupQueue,
       dealerEnrich: dealerEnrichQueue,
       fuelEconomyMsrp: fuelEconomyMsrpQueue,
       privateSellerRetention: privateSellerRetentionQueue,
