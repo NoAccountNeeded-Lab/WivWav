@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeReadiness, type ListingReadinessInput } from './listing-readiness.js'
+import { computeReadiness, isPublishGateStrict, strictReadyWhere, type ListingReadinessInput } from './listing-readiness.js'
 
 const detail = new Date('2026-10-20T00:00:00Z')
 const base: ListingReadinessInput & { city: string | null } = {
@@ -15,11 +15,11 @@ const base: ListingReadinessInput & { city: string | null } = {
 }
 
 describe('computeReadiness', () => {
-  it('accepts the explicit exemptions for no VIN and unknown conversion after detail', () => {
-    expect(computeReadiness(base)).toEqual({
+  it('accepts the explicit no-VIN exemption after detail', () => {
+    expect(computeReadiness({ ...base, conversionType: 'rear_entry' })).toEqual({
       ready: true,
       blockers: [],
-      warnings: ['no_vin', 'conversion_type_unknown'],
+      warnings: ['no_vin'],
     })
   })
 
@@ -37,7 +37,27 @@ describe('computeReadiness', () => {
   })
 
   it('warns when city is missing without blocking readiness', () => {
-    expect(computeReadiness({ ...base, city: null })).toMatchObject({ ready: true, blockers: [] })
-    expect(computeReadiness({ ...base, city: null }).warnings).toContain('no_city')
+    expect(computeReadiness({ ...base, conversionType: 'rear_entry', city: null })).toMatchObject({ ready: true, blockers: [] })
+    expect(computeReadiness({ ...base, conversionType: 'rear_entry', city: null }).warnings).toContain('no_city')
+  })
+
+  it('blocks unresolved conversion type even when detail is current', () => {
+    expect(computeReadiness({ ...base, conversionType: 'unknown' }).blockers).toContain('conversion_type_unresolved')
+  })
+
+  it('requires a computed readiness timestamp and eligible status in the strict predicate', () => {
+    expect(isPublishGateStrict({ PUBLISH_GATE_STRICT: 'false' })).toBe(false)
+    expect(strictReadyWhere({ PUBLISH_GATE_STRICT: 'false' })).toEqual({})
+    expect(isPublishGateStrict({ PUBLISH_GATE_STRICT: 'true' })).toBe(true)
+    const where = strictReadyWhere({ PUBLISH_GATE_STRICT: 'true' })
+    expect(where).toMatchObject({
+      qualityCheckedAt: { not: null },
+      readinessComputedAt: { not: null },
+      readinessBlockers: { isEmpty: true },
+    })
+  })
+
+  it('reports non-eligible publication status as a readiness blocker', () => {
+    expect(computeReadiness({ ...base, publicationStatus: 'quarantined' }).blockers).toContain('not_validated_after_detail')
   })
 })

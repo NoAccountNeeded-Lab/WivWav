@@ -143,6 +143,7 @@ export async function ingestListing(
       sourceUpdatedAt: true,
       qualityIssueCodes: true,
       readinessBlockers: true,
+      readinessComputedAt: true,
       status: true,
       detailScrapedAt: true,
       detailStaleAt: true,
@@ -220,6 +221,7 @@ export async function ingestListing(
         publicationStatus: listing.publicationStatus ?? 'pending',
         qualityCheckedAt: listing.qualityCheckedAt ?? null,
         readinessBlockers: listing.readinessBlockers ?? [],
+        readinessComputedAt: listing.readinessBlockers !== undefined ? new Date() : null,
         listedAt: listing.listedAt,
         sourceListedAt: listing.sourceListedAt ?? null,
         sourceUpdatedAt: listing.sourceUpdatedAt ?? null,
@@ -406,12 +408,20 @@ export async function ingestListing(
     await tx.listing.updateMany({
       where: { id: existing.id, manuallyHiddenAt: null },
       data: detailStale
-        ? { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null }
+        ? {
+            publicationStatus: 'pending',
+            qualityIssueCodes: [],
+            qualityCheckedAt: null,
+            readinessBlockers: ['detail_stale'],
+            readinessComputedAt: new Date(),
+          }
         : {
             publicationStatus: listing.publicationStatus ?? 'pending',
             qualityIssueCodes: listing.qualityIssueCodes ?? [],
             qualityCheckedAt: listing.qualityCheckedAt ?? null,
-            readinessBlockers: listing.readinessBlockers ?? [],
+            ...(listing.readinessBlockers !== undefined
+              ? { readinessBlockers: listing.readinessBlockers, readinessComputedAt: new Date() }
+              : {}),
           },
     })
   }

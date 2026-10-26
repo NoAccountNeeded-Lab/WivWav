@@ -8,7 +8,7 @@ import {
   detectSourceDrift,
   SYSTEMIC_ERROR_THRESHOLD,
 } from '@wivwav/types/listing-validator'
-import { computeReadiness } from '@wivwav/types'
+import { computeReadiness, isPublishGateStrict } from '@wivwav/types'
 import type { JobContext } from '../job-context.js'
 
 const DEFAULT_FULL_CRAWL_INTERVAL_HOURS = 24
@@ -248,7 +248,7 @@ export class ScraperEngine {
       for (let i = 0; i < result.listings.length; i++) {
         const listing = result.listings[i]!
         const evaluated = decisionByKey.get(listing.sourceRecordKey)
-        const strictGate = process.env['PUBLISH_GATE_STRICT'] === 'true'
+        const strictGate = isPublishGateStrict()
         const decision = evaluated?.decision
         const upsert = await this.listings.upsert({
           ...listing,

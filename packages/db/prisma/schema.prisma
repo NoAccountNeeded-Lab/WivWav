@@ -366,6 +366,9 @@ model Listing {
   /// Prisma scalar lists cannot be nullable; an empty array means no blockers.
   readinessBlockers String[] @default([])
   qualityCheckedAt  DateTime?
+  /// Null until a writer has computed readiness for this row; strict readers
+  /// must not treat pre-migration [] defaults as proof of readiness.
+  readinessComputedAt DateTime?
   /// #1157 operator manual suppression. Non-null = hidden: ingest and
   /// listing-resolve must not move the row to `eligible` while set. Kept apart
   /// from publicationStatus/qualityIssueCodes because scrape, detail-apply and
