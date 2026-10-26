@@ -22,6 +22,7 @@ export const QUEUES = {
   LISTING_INDEX_POLL:                   'listing-index-poll',
   LISTING_RESOLVE:                      'listing-resolve',
   RAWPAGE_CLEANUP:                      'rawpage-cleanup',
+  LISTING_OBSERVATION_CLEANUP:          'listing-observation-cleanup',
   PRIVATE_SELLER_RETENTION:             'private-seller-retention',
   CONVERSION_BRANDS_SEED:               'conversion-brands-seed',
   NMEDA_DEALERS_SEED:                   'nmeda-dealers-seed',

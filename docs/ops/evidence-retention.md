@@ -26,6 +26,11 @@ evidence preserved under this policy.
 | Listing DB row (all columns) | Until listing is permanently deleted | Primary source of parsed field values |
 | `qualityIssueCodes[]` on the listing | Same as listing row | Enables audit to identify quarantined listings without re-parsing |
 | `ListingObservation` rows for the detail extraction | 90 days from `observedAt` | Provides the specific extraction-version context (schema version, job run) that produced the current field values |
+| `ListingPriceHistory` | Indefinite while the listing row is retained | Feeds market-trends time-series aggregations; retention needs a product decision before cleanup is introduced |
+| `ListingMileageHistory` | Indefinite while the listing row is retained | Preserves mileage progression for market analysis; retention needs a product decision before cleanup is introduced |
+| `ListingConversionHistory` | Indefinite while the listing row is retained | Preserves conversion-status changes for market analysis; retention needs a product decision before cleanup is introduced |
+| `ListingFieldClaim` | Indefinite while the listing row is retained | Supports field-conflict review and provenance across resolution changes; claims are the durable audit trail |
+| `ListingImageSemanticAnalysis` | Indefinite while the listing row and image are retained | Preserves model/versioned image evidence for accessibility-field review; deletion follows image/listing lifecycle |
 | Source URL (`sourceUrl`, `buyerUrl`) | Same as listing row | Allows an operator to re-fetch the live page for fresh verification |
 | `qualityCheckedAt` timestamp | Same as listing row | Links field values to the validation run that produced the quarantine decision |
 | Gold dataset fixtures (`fixtures/gold/*.gold.json`) | Indefinite — checked into version control | Provides verified expected values for each parser version to compare against |

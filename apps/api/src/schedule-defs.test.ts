@@ -38,6 +38,7 @@ function makeQueues(): ScheduleDefQueues {
     listingSync: new MockQueueAdapter(QUEUES.LISTING_SYNC),
     listingIndexPoll: new MockQueueAdapter(QUEUES.LISTING_INDEX_POLL),
     rawPageCleanup: new MockQueueAdapter(QUEUES.RAWPAGE_CLEANUP),
+    listingObservationCleanup: new MockQueueAdapter(QUEUES.LISTING_OBSERVATION_CLEANUP),
     dealerEnrich: new MockQueueAdapter(QUEUES.DEALER_ENRICH),
     fuelEconomyMsrp: new MockQueueAdapter(QUEUES.FUELECONOMY_MSRP),
     privateSellerRetention: new MockQueueAdapter(QUEUES.PRIVATE_SELLER_RETENTION),
@@ -71,6 +72,7 @@ const EXPECTED_SCHEDULED_QUEUE_NAMES = [
   QUEUES.FUELECONOMY_MSRP,
   QUEUES.DEALER_ENRICH,
   QUEUES.RAWPAGE_CLEANUP,
+  QUEUES.LISTING_OBSERVATION_CLEANUP,
   QUEUES.PRIVATE_SELLER_RETENTION,
 ].sort()
 

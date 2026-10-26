@@ -543,6 +543,7 @@ model ListingObservation {
 
   @@unique([stage, reference])
   @@index([listingId, observedAt])
+  @@index([observedAt])
   @@map("listing_observation")
 }
 

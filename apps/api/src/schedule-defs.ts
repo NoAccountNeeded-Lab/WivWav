@@ -25,6 +25,7 @@ export interface ScheduleDefQueues {
   listingSync: QueueAdapter
   listingIndexPoll: QueueAdapter
   rawPageCleanup: QueueAdapter
+  listingObservationCleanup: QueueAdapter
   dealerEnrich: QueueAdapter
   fuelEconomyMsrp: QueueAdapter
   privateSellerRetention: QueueAdapter
@@ -147,6 +148,13 @@ export function buildScheduleDefs(
       name: QUEUES.RAWPAGE_CLEANUP,
       data: {},
       pattern: '0 0 * * *',
+      tz,
+    },
+    {
+      queue: queues.listingObservationCleanup,
+      name: QUEUES.LISTING_OBSERVATION_CLEANUP,
+      data: {},
+      pattern: '0 1 * * *',
       tz,
     },
     {
