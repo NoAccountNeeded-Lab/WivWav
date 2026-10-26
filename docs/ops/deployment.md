@@ -127,6 +127,12 @@ deploy, which this fix now precedes.
 
 ## Deploying
 
+Production Compose requires `OPS_PUBLIC_ORIGIN` before deploy. Set it to the
+exact public ops origin, including scheme and host (for example,
+`https://ops.example.com`, without a path, query, or fragment), in
+`.env.production`. The ops BFF rejects mutations when this value is missing or
+malformed.
+
 `docker-compose.prod.yml` is a **template**: its wivwav image digests are
 all-zero placeholders and it is not deployable as committed (CI's
 `scripts/release-manifest.sh verify` rejects it). The deployable,

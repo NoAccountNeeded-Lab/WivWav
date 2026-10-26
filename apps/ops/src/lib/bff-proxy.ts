@@ -27,13 +27,26 @@ export const BFF_ALLOWLIST: readonly BffRule[] = [
   { method: 'POST', path: /^\/admin\/private-seller-retention\/listings\/[^/]+\/delete$/ },
   { method: 'POST', path: /^\/internal\/ops\/workers\/[^/]+\/(?:pause|resume)$/ },
   { method: 'POST', path: /^\/internal\/ops\/queues\/[^/]+\/jobs\/[^/]+\/(?:cancel|retry|make-ready)$/ },
+  { method: 'POST', path: /^\/internal\/ops\/problem-aggregate$/ },
   { method: 'POST', path: /^\/internal\/ops\/problem-ack$/ },
   { method: 'POST', path: /^\/internal\/ops\/listings\/[^/]+\/actions$/ },
   { method: 'PUT', path: /^\/admin\/config\/[^/]+$/ },
   { method: 'PUT', path: /^\/admin\/repeatables\/[^/]+$/ },
+  { method: 'POST', path: /^\/admin\/repeatables\/[^/]+$/ },
   { method: 'DELETE', path: /^\/admin\/config\/[^/]+$/ },
   { method: 'DELETE', path: /^\/admin\/repeatables\/[^/]+$/ },
   { method: 'DELETE', path: /^\/admin\/queues\/[^/]+\/failed$/ },
+  // Bull Board 9.10.2's mutation routes (see @bull-board/api/dist/routes.js).
+  { method: 'POST', path: /^\/admin\/board\/api\/queues\/[^/]+\/add$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/(?:pause|resume)$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/(?:retry|clean)\/[^/]+$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/promote$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/(?:pause|resume|concurrency|rate-limit|empty|obliterate)$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/rate-limit\/release$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/job-schedulers\/[^/]+\/(?:remove|run)$/ },
+  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/[^/]+\/(?:retry|clean|promote|remove-unprocessed-children)$/ },
+  { method: 'PATCH', path: /^\/admin\/board\/api\/queues\/[^/]+\/job-schedulers\/[^/]+$/ },
+  { method: 'PATCH', path: /^\/admin\/board\/api\/queues\/[^/]+\/[^/]+\/(?:update-data|delay|priority)$/ },
 ]
 
 export function isAllowedBffRequest(method: string, upstreamPath: string): boolean {
@@ -96,7 +109,14 @@ export async function proxyToApi(request: Request, upstreamPath: string): Promis
     const incomingHeaders = await headers()
     const origin = incomingHeaders.get('origin')
     const trustedOrigin = getTrustedOpsOrigin()
-    if (!origin || !trustedOrigin) {
+    if (!trustedOrigin) {
+      console.error('[ops] OPS_PUBLIC_ORIGIN must be set to a valid scheme and host')
+      return NextResponse.json(
+        { error: { code: 'OPS_PUBLIC_ORIGIN_MISCONFIGURED', message: 'OPS_PUBLIC_ORIGIN must be set to the public ops scheme and host' } },
+        { status: 500 },
+      )
+    }
+    if (!origin) {
       return NextResponse.json(
         { error: { code: 'BAD_ORIGIN', message: 'Origin header required for this request' } },
         { status: 403 },
