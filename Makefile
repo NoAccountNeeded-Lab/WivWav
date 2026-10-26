@@ -1,4 +1,5 @@
 COMPOSE = docker compose
+export OPS_PUBLIC_ORIGIN ?= http://localhost:4002
 
 .PHONY: up build disk-check reclaim analyze-images prep-images try-image-analysis down dev test test-integration typecheck lint build-app clean format logs \
         worker worker-down worker-build worker-count-check worker-remote worker-logs obs \

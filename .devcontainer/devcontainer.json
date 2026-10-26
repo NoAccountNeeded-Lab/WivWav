@@ -22,6 +22,7 @@
     "NEXT_PUBLIC_API_URL": "http://localhost:4001",
     "API_INTERNAL_URL": "http://localhost:4001",
     "CONFIG_API_URL": "http://localhost:4001",
+    "OPS_PUBLIC_ORIGIN": "http://localhost:4002",
     "CONFIG_ENCRYPTION_SECRET": "0e1735cf48baa21c71a376a432ebd30b400a118feaecce8ea43f864cf27b2f61",
     "INTERNAL_API_SECRET": "41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2",
     "OPS_SESSION_SECRET": "41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2",
