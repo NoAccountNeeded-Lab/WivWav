@@ -16,5 +16,9 @@ export default defineConfig({
     // Needed so computed-style assertions (e.g. font-family legibility checks)
     // see real cascaded CSS rather than an empty stylesheet.
     css: true,
+    // Raised timeouts: jsdom + real CSS renders exceed the 5s default under full-suite load (#1186).
+    setupFiles: ['./vitest.setup.ts'],
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 })

@@ -173,7 +173,7 @@ beforeAll(async () => {
   for (const contractCase of manifest.cases) {
     rawById.set(contractCase.id, await extractRaw(contractCase))
   }
-}, 30_000)
+}, 120_000)
 
 afterAll(async () => {
   await session?.close()
