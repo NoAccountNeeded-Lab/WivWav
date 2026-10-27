@@ -47,7 +47,9 @@ describe('runListingObservationCleanupJob', () => {
       orderBy: [{ observedAt: 'asc' }, { id: 'asc' }],
       take: 500,
     }))
-    expect(db.listingObservation.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['old-1'] } } })
+    expect(db.listingObservation.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['old-1'] }, observedAt: { lt: expect.any(Date) } },
+    })
   })
 
   it('bounds a run at 20 batches when the backlog does not shrink', async () => {
@@ -62,7 +64,7 @@ describe('runListingObservationCleanupJob', () => {
     expect(db.listingObservation.findMany).toHaveBeenCalledTimes(20)
     expect(db.listingObservation.deleteMany).toHaveBeenCalledTimes(20)
     expect(db.listingObservation.deleteMany).toHaveBeenLastCalledWith({
-      where: { id: { in: fullBatch.map((row) => row.id) } },
+      where: { id: { in: fullBatch.map((row) => row.id) }, observedAt: { lt: expect.any(Date) } },
     })
     expect(context.logger.warn).toHaveBeenCalledWith(
       { event: 'job.warning', deleted: 10_000, cap: 10_000 },
