@@ -64,7 +64,7 @@ describe('proxyToApi', () => {
     ['GET', '/health'], ['GET', '/v1/listings?perPage=1'], ['GET', '/admin/queues'],
     ['GET', '/admin/queues/detail-crawl'], ['GET', '/admin/sources/source-1/pipeline'],
     ['GET', '/admin/sources/source-1/job-runs'], ['GET', '/admin/runs'], ['GET', '/admin/repeatables'],
-    ['GET', '/admin/workers'], ['GET', '/admin/config'], ['GET', '/admin/config/ollama%2Fmodel'],
+    ['GET', '/admin/workers'], ['GET', '/admin/config'], ['GET', '/admin/config/ollama%2Fmodel'], ['GET', '/admin/config/ollama%2Fmodel/history'],
     ['GET', '/admin/ai/status'], ['GET', '/admin/logs?limit=50'], ['GET', '/admin/field-conflicts'],
     ['GET', '/admin/private-seller-retention/listings/listing-1/audit'], ['GET', '/admin/board/static/app.js'],
     ['POST', '/admin/queues/detail-crawl/pause'], ['POST', '/admin/queues/detail-crawl/jobs'],

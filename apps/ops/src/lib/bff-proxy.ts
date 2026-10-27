@@ -17,7 +17,7 @@ export const BFF_ALLOWLIST: readonly BffRule[] = [
   { method: 'GET', path: /^\/admin\/queues\/[^/]+$/ },
   { method: 'GET', path: /^\/admin\/sources\/[^/]+\/(?:pipeline|job-runs)$/ },
   { method: 'GET', path: /^\/admin\/listing-refresh\/status$/ },
-  { method: 'GET', path: /^\/admin\/config\/[^/]+$/ },
+  { method: 'GET', path: /^\/admin\/config\/[^/]+(?:\/history)?$/ },
   { method: 'GET', path: /^\/admin\/ai\/status$/ },
   { method: 'GET', path: /^\/admin\/private-seller-retention\/listings\/[^/]+\/audit$/ },
   { method: 'POST', path: /^\/admin\/queues\/[^/]+\/(?:pause|resume|jobs)$/ },
