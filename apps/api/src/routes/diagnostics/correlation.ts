@@ -146,7 +146,7 @@ async function gatherEntities(idType: IdType, id: string, deps: GatherDeps): Pro
 }
 
 interface CorrelationLogs {
-  lines: LogEntry[]
+  lines: Omit<LogEntry, 'extra'>[]
   truncated: boolean
   unavailable: boolean
 }
