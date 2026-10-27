@@ -76,7 +76,7 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
     vinEnrichJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
 
-    const batchSize = await readWorkerSetting(gateway, 'vin_enrich.batch_size')
+    const batchSize = await readWorkerSetting(gateway, 'vin_enrich.batch_size', logger)
     const { listings } = await gateway.claimVinEnrichListings(batchSize)
 
     await report(context, `[vin-enrich] ${listings.length} listing(s) claimed for VIN decode`, {

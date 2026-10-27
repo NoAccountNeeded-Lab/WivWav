@@ -76,7 +76,7 @@ export function createSourceScrapeHandler(
     })
 
     const runContext = new RunContext()
-    const fullCrawlIntervalHours = await readWorkerSetting(gateway, 'scraper.full_crawl_interval_hours')
+    const fullCrawlIntervalHours = await readWorkerSetting(gateway, 'scraper.full_crawl_interval_hours', logger)
     const engine = new ScraperEngine({
       fullCrawlIntervalHours,
       runs: new HttpScraperRunRepository(gateway, runContext),

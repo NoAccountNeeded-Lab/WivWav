@@ -50,8 +50,8 @@ export function createDetailCrawlHandler(
       return
     }
 
-    const batchSize = await readWorkerSetting(gateway, 'detail_crawl.batch_size')
-    const rateLimitMs = await readWorkerSetting(gateway, 'detail_crawl.rate_limit_ms')
+    const batchSize = await readWorkerSetting(gateway, 'detail_crawl.batch_size', logger)
+    const rateLimitMs = await readWorkerSetting(gateway, 'detail_crawl.rate_limit_ms', logger)
     const { listings } = await gateway.getDetailCrawlPendingListings(sourceId, batchSize)
     if (listings.length === 0) {
       await report(context, `[detail-crawl] No listings pending for source ${sourceId}`, {
