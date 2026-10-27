@@ -61,6 +61,7 @@ describe('GET / — idType validation', () => {
     const res = await app.inject({ method: 'GET', url: '/?id=abc' })
     expect(res.statusCode).toBe(400)
     expect((res.json() as { error: { code: string } }).error.code).toBe('INVALID_ID_TYPE')
+    expect(res.body).not.toContain('secret')
     await app.close()
   })
 
@@ -84,6 +85,7 @@ describe('GET / — idType validation', () => {
     const res = await app.inject({ method: 'GET', url: '/?idType=requestId' })
     expect(res.statusCode).toBe(400)
     expect((res.json() as { error: { code: string } }).error.code).toBe('MISSING_ID')
+    expect(res.body).not.toContain('secret')
     await app.close()
   })
 })
@@ -162,6 +164,28 @@ describe('GET / — requestId correlation', () => {
     const body = res.json() as { data: { logs: { lines: unknown[] } } }
     expect(body.data.logs.lines).toHaveLength(0)
 
+    await app.close()
+  })
+
+  it('sanitizes free-form log messages and unknown structured fields', async () => {
+    const tsNs = String(BigInt(Date.now()) * 1_000_000n)
+    vi.stubGlobal('fetch', vi.fn(async () => lokiStreams([{
+      tsNs,
+      line: {
+        level: 50,
+        msg: 'failure for jane@example.com with token sk-live-should-be-redacted',
+        requestId: 'req-1',
+        apiKey: 'sk-live-unknown-field',
+      },
+    }])))
+
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/?idType=requestId&id=req-1' })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).not.toContain('jane@example.com')
+    expect(res.body).not.toContain('sk-live-should-be-redacted')
+    expect(res.body).not.toContain('sk-live-unknown-field')
     await app.close()
   })
 

@@ -74,4 +74,13 @@ describe('GET /', () => {
     await app.close()
     await staticApp.close()
   })
+
+  it('sanitizes the dynamic response before returning it', async () => {
+    const app = buildTestApp('sk-live-should-be-redacted')
+    const res = await app.inject({ method: 'GET', url: '/' })
+
+    expect(res.body).not.toContain('sk-live-should-be-redacted')
+    expect((res.json() as { data: { revision: { gitSha: string } } }).data.revision.gitSha).toBe('[REDACTED]')
+    await app.close()
+  })
 })

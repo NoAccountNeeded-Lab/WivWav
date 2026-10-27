@@ -258,4 +258,26 @@ describe('GET /', () => {
 
     await app.close()
   })
+
+  it('sanitizes free-form source errors before returning the snapshot', async () => {
+    stubLokiReady()
+    const { app } = buildTestApp({
+      sourceRepoOverrides: {
+        findAll: vi.fn(async () => [{
+          id: 'src-1',
+          name: 'Acme',
+          status: 'error',
+          listingCount: 0,
+          possiblyGoneCount: 0,
+          errorMessage: 'failed for jane@example.com with token sk-live-should-be-redacted',
+        }]),
+      },
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/system-snapshot' })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).not.toContain('jane@example.com')
+    expect(res.body).not.toContain('sk-live-should-be-redacted')
+    await app.close()
+  })
 })
