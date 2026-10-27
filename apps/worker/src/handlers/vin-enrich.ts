@@ -77,7 +77,7 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
     const context = createJobContext(logger, correlationId)
 
     const batchSize = await readWorkerSetting(gateway, 'vin_enrich.batch_size', logger)
-    const { listings } = await gateway.claimVinEnrichListings(batchSize, listingId)
+    const { listings, lockedAt } = await gateway.claimVinEnrichListings(batchSize, listingId)
 
     await report(context, `[vin-enrich] ${listings.length} listing(s) claimed for VIN decode`, {
       stage: 'decoding',
@@ -91,6 +91,7 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
     for (let i = 0; i < listings.length; i++) {
       const { id, vin, make: scrapedMake, model: scrapedModel, year: scrapedYear } = listings[i]!
 
+      const lockToken = lockedAt === undefined ? {} : { lockedAt }
       const decoded = await decodeVin(vin)
 
       if (decoded) {
@@ -101,7 +102,7 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
 
         if (mismatchIssues.length > 0) {
           const qualityIssueCodes = [...new Set(mismatchIssues.map((issue) => issue.rule))]
-          await gateway.resolveVinEnrichListing({ listingId: id, outcome: 'mismatched', qualityIssueCodes })
+          await gateway.resolveVinEnrichListing({ listingId: id, ...lockToken, outcome: 'mismatched', qualityIssueCodes })
           processed++
           await report(
             context,
@@ -116,6 +117,7 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
 
           await gateway.resolveVinEnrichListing({
             listingId: id,
+            ...lockToken,
             outcome: 'enriched',
             decoded: { make, model, year: decoded.year, trim, bodyType },
           })
@@ -128,7 +130,7 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
           )
         }
       } else {
-        await gateway.resolveVinEnrichListing({ listingId: id, outcome: 'failed' })
+        await gateway.resolveVinEnrichListing({ listingId: id, ...lockToken, outcome: 'failed' })
         failed++
         await report(context, `[vin-enrich] ${i + 1}/${listings.length} — ${vin} → decode failed`, {
           stage: 'decoding',

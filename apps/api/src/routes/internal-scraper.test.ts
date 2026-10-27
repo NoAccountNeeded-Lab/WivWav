@@ -852,6 +852,17 @@ describe('listing-scoped detail-crawl claim (#1169)', () => {
   })
 })
 
+describe('POST /detail-crawl/release-lock', () => {
+  it('rejects a non-ISO lockedAt with a client error instead of a 500', async () => {
+    const { app, ready } = buildTestApp()
+    await ready
+    const res = await app.inject({ method: 'POST', url: '/detail-crawl/release-lock', payload: { listingId: 'l1', lockedAt: 'not-a-date' } })
+    expect(res.statusCode).toBeGreaterThanOrEqual(400)
+    expect(res.statusCode).toBeLessThan(500)
+    await app.close()
+  })
+})
+
 describe('GET /config/:key', () => {
   it('returns a registry default with no row', async () => {
     const { app, ready } = buildTestApp()

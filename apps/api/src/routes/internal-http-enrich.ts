@@ -92,8 +92,7 @@ export const internalHttpEnrichRoutes: FastifyPluginAsync<InternalHttpEnrichRout
 
   app.post('/vin-enrich/claim', async (req, reply) => {
     const body = vinEnrichClaimRequestSchema.parse(req.body)
-    const listings = await repo.claimVinEnrichListings(body.limit, body.listingId)
-    return reply.send({ data: { listings } })
+    return reply.send({ data: await repo.claimVinEnrichListings(body.limit, body.listingId) })
   })
 
   app.post('/vin-enrich/resolve', async (req, reply) => {

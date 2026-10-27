@@ -331,7 +331,7 @@ export type DetailCrawlPendingListingsResponse = z.infer<
 
 export const detailCrawlReleaseLockRequestSchema = z.object({
   listingId: z.string().min(1),
-  lockedAt: z.string().min(1),
+  lockedAt: z.string().datetime(),
 })
 export type DetailCrawlReleaseLockRequest = z.infer<typeof detailCrawlReleaseLockRequestSchema>
 
