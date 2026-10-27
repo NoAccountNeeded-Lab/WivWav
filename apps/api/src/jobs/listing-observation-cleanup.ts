@@ -22,7 +22,8 @@ export async function runListingObservationCleanupJob(context?: JobContext): Pro
     if (rows.length === 0) break
 
     const result = await db.listingObservation.deleteMany({
-      where: { id: { in: rows.map((row) => row.id) } },
+      // re-check the cutoff so a row can never be deleted unless it is still outside the window
+      where: { id: { in: rows.map((row) => row.id) }, observedAt: { lt: cutoff } },
     })
     deleted += result.count
     if (rows.length < BATCH_SIZE) break
