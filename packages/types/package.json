@@ -13,6 +13,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./operator-settings": {
+      "types": "./dist/operator-settings.d.ts",
+      "import": "./dist/operator-settings.js",
+      "default": "./dist/operator-settings.js"
+    },
     "./worker-protocol": {
       "types": "./dist/worker-protocol.d.ts",
       "import": "./dist/worker-protocol.js",
