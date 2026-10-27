@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -13,16 +14,6 @@ const PLACES_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/j
 
 /** Max reviews to store per dealer. Top 5 by rating. */
 const MAX_REVIEWS = 5
-
-/** Re-enrich dealers older than this many days. */
-const ENRICH_STALE_DAYS = 30
-
-/** Max dealers to process per run (stays within 100 req/day free-tier budget).
- *  Each dealer costs 2 requests (text search + details). So 50 dealers = 100 requests. */
-const MAX_DEALERS_PER_RUN = 50
-
-// Minimum gap between API calls to stay within rate limits.
-const RATE_LIMIT_MS = 200
 
 interface PlaceCandidate {
   place_id: string
@@ -129,8 +120,11 @@ export function createDealerEnrichHandler(gateway: HttpEnrichGatewayClient, logg
       return { processed: 0 }
     }
 
-    const staleThreshold = new Date(Date.now() - ENRICH_STALE_DAYS * 24 * 60 * 60 * 1000)
-    const { dealers: toEnrich } = await gateway.listDealerEnrichPending(MAX_DEALERS_PER_RUN, staleThreshold)
+    const staleDays = await readWorkerSetting(gateway, 'dealer_enrich.stale_days')
+    const maxPerRun = await readWorkerSetting(gateway, 'dealer_enrich.max_per_run')
+    const rateLimitMs = await readWorkerSetting(gateway, 'dealer_enrich.rate_limit_ms')
+    const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000)
+    const { dealers: toEnrich } = await gateway.listDealerEnrichPending(maxPerRun, staleThreshold)
 
     await report(context, `[dealer-enrich] ${toEnrich.length} dealer(s) to enrich`, {
       stage: 'enriching',
@@ -146,7 +140,7 @@ export function createDealerEnrichHandler(gateway: HttpEnrichGatewayClient, logg
 
       try {
         const placeId = await findPlaceId(dealerName, zip, apiKey)
-        await jitteredSleep(RATE_LIMIT_MS)
+        await jitteredSleep(rateLimitMs)
 
         if (!placeId) {
           failed++
@@ -159,7 +153,7 @@ export function createDealerEnrichHandler(gateway: HttpEnrichGatewayClient, logg
         }
 
         const details = await fetchPlaceDetails(placeId, apiKey)
-        await jitteredSleep(RATE_LIMIT_MS)
+        await jitteredSleep(rateLimitMs)
 
         const rawReviews = details?.reviews ?? []
         const topReviews = [...rawReviews].sort((a, b) => b.rating - a.rating).slice(0, MAX_REVIEWS)

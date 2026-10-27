@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report } from '@wivwav/scraper-sources'
 import type { BrowserPage, BrowserService } from '@wivwav/scraper-sources/browser/types.js'
 import {
@@ -25,7 +26,6 @@ import type { WivWavLogger } from '@wivwav/logger'
 import type { ScraperGatewayClient } from '../scraper-gateway-client.js'
 import { createJobContext } from '../job-context.js'
 
-const BATCH_SIZE = 100
 const BLVD_DETAIL_DOMAIN = 'blvd.com'
 const MOBILITYWORKS_DETAIL_DOMAIN = 'mobilityworks.com'
 
@@ -185,7 +185,8 @@ export function createDetailExtractHandler(
       return
     }
 
-    const { rawPages } = await gateway.getDetailExtractPendingRawPages(sourceId, BATCH_SIZE)
+    const batchSize = await readWorkerSetting(gateway, 'detail_extract.batch_size')
+    const { rawPages } = await gateway.getDetailExtractPendingRawPages(sourceId, batchSize)
     if (rawPages.length === 0) {
       await report(context, `[detail-extract] No raw pages pending for source ${sourceId}`, {
         stage: 'complete',

@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -9,7 +10,6 @@ import { createJobContext } from '../job-context.js'
 import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const COMPLAINTS_URL = 'https://api.nhtsa.gov/complaints/complaintsByVehicle'
-const RATE_LIMIT_MS = 300
 
 interface NhtsaComplaint {
   odiNumber: number
@@ -54,6 +54,7 @@ export function createNhtsaComplaintsHandler(gateway: HttpEnrichGatewayClient, l
   return async (payload: unknown, correlationId: string): Promise<NhtsaComplaintsJobResult> => {
     const data = nhtsaComplaintsJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
+    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms')
 
     const { vehicleModels } = await gateway.listVehicleModels(data.vehicleModelId)
 
@@ -90,7 +91,7 @@ export function createNhtsaComplaintsHandler(gateway: HttpEnrichGatewayClient, l
         { stage: 'fetching', current: i + 1, total: vehicleModels.length },
       )
 
-      if (i < vehicleModels.length - 1) await jitteredSleep(RATE_LIMIT_MS)
+      if (i < vehicleModels.length - 1) await jitteredSleep(rateLimitMs)
     }
 
     await report(

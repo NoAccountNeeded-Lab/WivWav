@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -9,7 +10,6 @@ import { createJobContext } from '../job-context.js'
 import { fetchWithRetry } from '../util/fetch-with-retry.js'
 
 const RATINGS_BASE = 'https://api.nhtsa.gov/SafetyRatings'
-const RATE_LIMIT_MS = 300
 
 interface RatingsVariant {
   VehicleId: number
@@ -75,6 +75,7 @@ export function createNhtsaSafetyRatingsHandler(gateway: HttpEnrichGatewayClient
   return async (payload: unknown, correlationId: string): Promise<NhtsaSafetyRatingsJobResult> => {
     const data = nhtsaSafetyRatingsJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
+    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms')
 
     const { vehicleModels } = await gateway.listVehicleModels(data.vehicleModelId)
 
@@ -91,7 +92,7 @@ export function createNhtsaSafetyRatingsHandler(gateway: HttpEnrichGatewayClient
       const variants = await fetchVariants(vm.make, vm.model, vm.year)
 
       for (const variant of variants) {
-        await jitteredSleep(RATE_LIMIT_MS)
+        await jitteredSleep(rateLimitMs)
         const detail = await fetchRatings(variant.VehicleId)
         if (!detail) continue
 
@@ -114,7 +115,7 @@ export function createNhtsaSafetyRatingsHandler(gateway: HttpEnrichGatewayClient
         { stage: 'fetching', current: i + 1, total: vehicleModels.length },
       )
 
-      if (i < vehicleModels.length - 1) await jitteredSleep(RATE_LIMIT_MS)
+      if (i < vehicleModels.length - 1) await jitteredSleep(rateLimitMs)
     }
 
     await report(

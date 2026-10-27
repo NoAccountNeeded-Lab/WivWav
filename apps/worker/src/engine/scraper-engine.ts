@@ -1,3 +1,4 @@
+import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
 import type { SourceAdapter } from '@wivwav/scraper-sources'
 import { report, isEscalateCapabilitySignal } from '@wivwav/scraper-sources'
 import type { ScraperRunRepository, SourceRepository, ListingRepository } from './repositories.js'
@@ -10,8 +11,6 @@ import {
 } from '@wivwav/types/listing-validator'
 import { computeReadiness, isPublishGateStrict } from '@wivwav/types'
 import type { JobContext } from '../job-context.js'
-
-const DEFAULT_FULL_CRAWL_INTERVAL_HOURS = 24
 
 function sourceExecutionBlockReason(status: string, errorMessage: string | null): string | null {
   if (status === 'disabled') return errorMessage ?? 'Source is disabled by operator policy'
@@ -59,7 +58,7 @@ export class ScraperEngine {
     this.runs = options.runs
     this.sources = options.sources
     this.listings = options.listings
-    this.fullCrawlIntervalHours = options.fullCrawlIntervalHours ?? DEFAULT_FULL_CRAWL_INTERVAL_HOURS
+    this.fullCrawlIntervalHours = options.fullCrawlIntervalHours ?? OPERATOR_SETTINGS['scraper.full_crawl_interval_hours'].defaultValue
   }
 
   register(adapter: SourceAdapter, dbSourceId: string): void {

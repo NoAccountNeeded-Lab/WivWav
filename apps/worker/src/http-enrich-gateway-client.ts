@@ -1,3 +1,4 @@
+import type { OperatorSettingKey } from '@wivwav/types/operator-settings'
 import type {
   ComplaintUpsertRequest,
   DealerCandidate,
@@ -24,6 +25,11 @@ import type { HttpClient } from './http-client.js'
  */
 export class HttpEnrichGatewayClient {
   constructor(private readonly http: HttpClient) {}
+
+  async getOperatorSetting(key: OperatorSettingKey): Promise<number> {
+    const response = await this.http.get<{ key: string; value: number }>(`/internal/scraper/config/${encodeURIComponent(key)}`)
+    return response.value
+  }
 
   listVehicleModels(vehicleModelId?: string): Promise<{ vehicleModels: VehicleModelSummary[] }> {
     return this.http.post('/internal/scraper/http-enrich/vehicle-models/list', { vehicleModelId })

@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { findScraperSourceByName } from '@wivwav/types'
 import { SOURCE_ADAPTER_MODULES, type SourceAdapter } from '@wivwav/scraper-sources'
 import type { PlaywrightBrowserService } from '@wivwav/scraper-sources/browser/playwright-browser-service.js'
@@ -75,7 +76,9 @@ export function createSourceScrapeHandler(
     })
 
     const runContext = new RunContext()
+    const fullCrawlIntervalHours = await readWorkerSetting(gateway, 'scraper.full_crawl_interval_hours')
     const engine = new ScraperEngine({
+      fullCrawlIntervalHours,
       runs: new HttpScraperRunRepository(gateway, runContext),
       sources: new HttpSourceRepository(gateway),
       listings: new HttpListingRepository(gateway, runContext),

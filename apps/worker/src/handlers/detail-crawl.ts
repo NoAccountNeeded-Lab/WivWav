@@ -1,11 +1,9 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { jitteredSleep, report } from '@wivwav/scraper-sources'
 import type { BrowserService } from '@wivwav/scraper-sources/browser/types.js'
 import type { WivWavLogger } from '@wivwav/logger'
 import type { ScraperGatewayClient } from '../scraper-gateway-client.js'
 import { createJobContext } from '../job-context.js'
-
-const BATCH_SIZE = 50
-const RATE_LIMIT_MS = 2000
 
 export interface DetailCrawlPayload {
   sourceId: string
@@ -52,7 +50,9 @@ export function createDetailCrawlHandler(
       return
     }
 
-    const { listings } = await gateway.getDetailCrawlPendingListings(sourceId, BATCH_SIZE)
+    const batchSize = await readWorkerSetting(gateway, 'detail_crawl.batch_size')
+    const rateLimitMs = await readWorkerSetting(gateway, 'detail_crawl.rate_limit_ms')
+    const { listings } = await gateway.getDetailCrawlPendingListings(sourceId, batchSize)
     if (listings.length === 0) {
       await report(context, `[detail-crawl] No listings pending for source ${sourceId}`, {
         stage: 'complete',
@@ -130,7 +130,7 @@ export function createDetailCrawlHandler(
           total: listings.length,
         })
 
-        if (i < listings.length - 1) await jitteredSleep(RATE_LIMIT_MS)
+        if (i < listings.length - 1) await jitteredSleep(rateLimitMs)
       }
     } finally {
       await browser.close()

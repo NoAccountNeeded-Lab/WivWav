@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -11,7 +12,6 @@ import { validateAuthoritativeMismatch } from '@wivwav/types/listing-validator'
 
 const VPIC_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevin'
 const RATE_LIMIT_MS = 200
-const CLAIM_BATCH_SIZE = 100
 
 interface VpicResult {
   Variable: string
@@ -76,7 +76,8 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
     vinEnrichJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
 
-    const { listings } = await gateway.claimVinEnrichListings(CLAIM_BATCH_SIZE)
+    const batchSize = await readWorkerSetting(gateway, 'vin_enrich.batch_size')
+    const { listings } = await gateway.claimVinEnrichListings(batchSize)
 
     await report(context, `[vin-enrich] ${listings.length} listing(s) claimed for VIN decode`, {
       stage: 'decoding',
