@@ -31,7 +31,6 @@ const vehicleModelScopedPayloadSchemas = {
 }
 
 const unscopedPayloadSchemas = {
-  vinEnrichJobPayloadSchema,
   modelResearchJobPayloadSchema,
   dealerEnrichJobPayloadSchema,
 }
@@ -86,5 +85,17 @@ describe.each(Object.entries(resultSchemas))('%s', (_name, schema) => {
   it('rejects a missing processed count', () => {
     const result = schema.safeParse({})
     expect(issuePaths(result)).toContain('processed')
+  })
+})
+
+describe('vinEnrichJobPayloadSchema', () => {
+  it('parses batch (empty) and listing-scoped payloads', () => {
+    expect(vinEnrichJobPayloadSchema.parse({})).toEqual({})
+    expect(vinEnrichJobPayloadSchema.parse({ listingId: 'l1' })).toEqual({ listingId: 'l1' })
+  })
+
+  it('rejects an empty or non-string listingId', () => {
+    expect(() => vinEnrichJobPayloadSchema.parse({ listingId: '' })).toThrow()
+    expect(() => vinEnrichJobPayloadSchema.parse({ listingId: 5 })).toThrow()
   })
 })

@@ -308,6 +308,8 @@ export type ListingMarkGoneResponse = z.infer<typeof listingMarkGoneResponseSche
 export const detailCrawlPendingListingsRequestSchema = z.object({
   sourceId: sourceIdSchema,
   limit: z.number().int().positive().optional(),
+  /** Claim only this listing under an ownership-aware lock (#1169). */
+  listingId: z.string().min(1).optional(),
 })
 export type DetailCrawlPendingListingsRequest = z.infer<
   typeof detailCrawlPendingListingsRequestSchema
@@ -320,10 +322,18 @@ export const detailCrawlPendingListingsResponseSchema = z.object({
       status: listingStatusSchema,
     }),
   ),
+  /** Lock token for a listing-scoped claim; hand back to release-lock. */
+  lockedAt: z.string().optional(),
 })
 export type DetailCrawlPendingListingsResponse = z.infer<
   typeof detailCrawlPendingListingsResponseSchema
 >
+
+export const detailCrawlReleaseLockRequestSchema = z.object({
+  listingId: z.string().min(1),
+  lockedAt: z.string().min(1),
+})
+export type DetailCrawlReleaseLockRequest = z.infer<typeof detailCrawlReleaseLockRequestSchema>
 
 /** Upsert resets `processedAt` so detail-extract re-processes on re-crawl. */
 export const rawPageUpsertRequestSchema = z.object({
