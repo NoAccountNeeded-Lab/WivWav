@@ -80,8 +80,11 @@ export type NhtsaManufacturerCommunicationsJobResult = EnrichJobResult
 
 // --- vin-enrich (vpic.nhtsa.dot.gov) ---
 
-export const vinEnrichJobPayloadSchema = unscopedEnrichJobPayloadSchema
-export type VinEnrichJobPayload = UnscopedEnrichJobPayload
+/** Optional `listingId` scopes one run to a single listing (operator requeue, #1169). */
+export const vinEnrichJobPayloadSchema = z.object({
+  listingId: z.string().min(1).optional(),
+})
+export type VinEnrichJobPayload = z.infer<typeof vinEnrichJobPayloadSchema>
 export const vinEnrichJobResultSchema = enrichJobResultSchema
 export type VinEnrichJobResult = EnrichJobResult
 
@@ -214,6 +217,8 @@ export type ManufacturerCommunicationUpsertRequest = z.infer<
  */
 export const vinEnrichClaimRequestSchema = z.object({
   limit: z.number().int().positive(),
+  /** Claim only this listing (still lock-aware: a live lock yields no claim). */
+  listingId: z.string().min(1).optional(),
 })
 export type VinEnrichClaimRequest = z.infer<typeof vinEnrichClaimRequestSchema>
 
