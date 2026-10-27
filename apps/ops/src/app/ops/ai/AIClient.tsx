@@ -612,6 +612,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                         <React.Fragment key={job.id}>
                         <tr>
                           <td style={{ fontWeight: 600, verticalAlign: 'top', paddingTop: '0.9rem' }}>
+                            {job.id === 'intake' ? (
                             <button
                               type="button"
                               aria-expanded={isExpanded}
@@ -629,6 +630,9 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
                             >
                               {isExpanded ? '▼' : '▶'}
                             </button>
+                            ) : (
+                              <span aria-hidden="true" style={{ display: 'inline-block', minWidth: '1.75rem' }} />
+                            )}
                             {job.label}
                           </td>
                           <td style={{ verticalAlign: 'top', paddingTop: '0.75rem' }}>
