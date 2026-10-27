@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@wivwav/db', () => ({ getDb: vi.fn() }))
 
-import { acquireListingLock, releaseListingLock, releaseListingLocks, unlockableWhere, LOCK_TTL_MS } from './listing-lock.js'
+import { claimListingLock, releaseOwnedListingLock, acquireListingLock, releaseListingLock, releaseListingLocks, unlockableWhere, LOCK_TTL_MS } from './listing-lock.js'
 import { getDb } from '@wivwav/db'
 
 function makeDb(overrides: Record<string, unknown> = {}) {
@@ -115,5 +115,34 @@ describe('unlockableWhere', () => {
     // staleThreshold should be LOCK_TTL_MS before "now"
     expect(before - threshold.getTime()).toBeCloseTo(LOCK_TTL_MS, -2)
     expect(after - threshold.getTime()).toBeGreaterThanOrEqual(LOCK_TTL_MS)
+  })
+})
+
+describe('claimListingLock / releaseOwnedListingLock', () => {
+  it('returns null and does not take over when a live lock holds the row', async () => {
+    const db = makeDb({ $executeRaw: vi.fn().mockResolvedValue(0) })
+    expect(await claimListingLock(db as never, 'l1')).toBeNull()
+  })
+
+  it('only claims rows whose lock is null or older than the stale threshold', async () => {
+    const db = makeDb({ $executeRaw: vi.fn().mockResolvedValue(1) })
+    const token = await claimListingLock(db as never, 'l1')
+    expect(token).toBeInstanceOf(Date)
+    const sql = (db.$executeRaw.mock.calls[0]![0] as string[]).join('?')
+    expect(sql).toContain('"processingLockedAt" IS NULL')
+    expect(sql).toContain('"processingLockedAt" <')
+    const [now, , stale] = db.$executeRaw.mock.calls[0]!.slice(1) as Date[]
+    expect(token).toBe(now)
+    expect(now!.getTime() - stale!.getTime()).toBe(LOCK_TTL_MS)
+  })
+
+  it('releases only the lock stamped by the claimant', async () => {
+    const db = makeDb()
+    const lockedAt = new Date()
+    await releaseOwnedListingLock(db as never, 'l1', lockedAt)
+    expect(db.listing.updateMany).toHaveBeenCalledWith({
+      where: { id: 'l1', processingLockedAt: lockedAt },
+      data: { processingLockedAt: null },
+    })
   })
 })

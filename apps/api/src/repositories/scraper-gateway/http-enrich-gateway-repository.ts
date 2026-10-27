@@ -1,4 +1,4 @@
-import { recordDealerSiteCandidate, type PrismaClient, type Prisma } from '@wivwav/db'
+import { recordDealerSiteCandidate, Prisma, type PrismaClient } from '@wivwav/db'
 import type {
   DealerCandidate,
   DealerEnrichSubmitRequest,
@@ -184,9 +184,11 @@ export class HttpEnrichGatewayRepository {
    * Atomically claims up to `limit` unlinked-VIN listings by locking them in
    * one raw UPDATE, then reads back the claimed rows — same
    * lock-then-select shape as `acquireListingLock` in
-   * apps/scraper/src/jobs/listing-lock.ts, batched.
+   * apps/scraper/src/jobs/listing-lock.ts, batched. A `listingId` claims only
+   * that listing (operator requeue, #1169): the same lock-null-or-stale
+   * condition applies, so a live worker's claim is never taken over.
    */
-  async claimVinEnrichListings(limit: number): Promise<VinEnrichCandidate[]> {
+  async claimVinEnrichListings(limit: number, listingId?: string): Promise<VinEnrichCandidate[]> {
     const now = new Date()
     const staleThreshold = new Date(now.getTime() - LOCK_TTL_MS)
 
@@ -196,7 +198,7 @@ export class HttpEnrichGatewayRepository {
       WHERE id IN (
         SELECT id FROM listings
         WHERE vin IS NOT NULL
-          AND "vehicleModelId" IS NULL
+          AND ${listingId === undefined ? Prisma.sql`"vehicleModelId" IS NULL` : Prisma.sql`id = ${listingId}`}
           AND ("processingLockedAt" IS NULL OR "processingLockedAt" < ${staleThreshold})
         ORDER BY id
         LIMIT ${limit}

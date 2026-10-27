@@ -9,14 +9,16 @@ interface Options {
   queueFactory: QueueFactory
 }
 
-const ACTIONS = ['requeue-resolve', 'hide', 'unhide', 'mark-gone', 'release-quarantine'] as const
+const ACTIONS = ['requeue-resolve', 'requeue-vin-decode', 'requeue-detail', 'hide', 'unhide', 'mark-gone', 'release-quarantine'] as const
 type Action = (typeof ACTIONS)[number]
 
+type Enqueue = 'resolve' | 'vin-enrich' | 'detail-crawl'
+
 type Outcome =
-  | { kind: 'applied' | 'noop'; message: string; enqueue: boolean }
+  | { kind: 'applied' | 'noop'; message: string; enqueue: Enqueue | false }
   | { kind: 'conflict'; message: string }
 
-const applied = (message: string, enqueue = false): Outcome => ({ kind: 'applied', message, enqueue })
+const applied = (message: string, enqueue: Enqueue | false = false): Outcome => ({ kind: 'applied', message, enqueue })
 const noop = (message: string): Outcome => ({ kind: 'noop', message, enqueue: false })
 const conflict = (message: string): Outcome => ({ kind: 'conflict', message })
 const bad = (code: string, message: string) => ({ error: { code, message } })
@@ -29,11 +31,14 @@ const bad = (code: string, message: string) => ({ error: { code, message } })
  * overwritten. Unknown ids cannot be audited (the row has a listing foreign
  * key); they are logged instead.
  *
- * requeue-vin-decode is deliberately absent: vin-enrich has no per-listing
- * variant, and clearing a lock to force a batch can steal a live claim.
+ * requeue-vin-decode and requeue-detail (#1169) enqueue a listing-scoped
+ * vin-enrich / detail-crawl job. They never touch the processing lock: the job
+ * claims it with an ownership-aware claim, so a live worker is never displaced.
  */
 export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = async (app, { db, queueFactory }) => {
   const resolveQueue: QueueAdapter = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
+  const vinQueue: QueueAdapter = queueFactory.createQueue(QUEUES.VIN_ENRICH)
+  const detailQueue: QueueAdapter = queueFactory.createQueue(QUEUES.DETAIL_CRAWL)
 
   // POST /internal/ops/listings/:id/actions  { action, reason?, manuallyHiddenAt? (required for unhide) }
   app.post<{ Params: { id: string }; Body: unknown }>('/:id/actions', async (req, reply) => {
@@ -65,7 +70,7 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
     const result = await db.$transaction(async (tx) => {
       const listing = await tx.listing.findUnique({
         where: { id },
-        select: { status: true, publicationStatus: true, manuallyHiddenAt: true },
+        select: { status: true, publicationStatus: true, manuallyHiddenAt: true, vin: true, sourceId: true },
       })
       if (!listing) return null
       const hidden = listing.manuallyHiddenAt !== null
@@ -75,7 +80,16 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
         case 'requeue-resolve':
           outcome = listing.status === 'gone' ? conflict('Listing is gone; nothing to resolve')
             : hidden ? conflict('Listing is hidden; unhide it first')
-            : applied('Queued listing-resolve', true)
+            : applied('Queued listing-resolve', 'resolve')
+          break
+        case 'requeue-vin-decode':
+          outcome = listing.status === 'gone' ? conflict('Listing is gone; nothing to decode')
+            : !listing.vin ? conflict('Listing has no VIN to decode')
+            : applied('Queued VIN decode', 'vin-enrich')
+          break
+        case 'requeue-detail':
+          outcome = listing.status === 'gone' ? conflict('Listing is gone; nothing to crawl')
+            : applied('Queued detail crawl', 'detail-crawl')
           break
         case 'hide': {
           const r = await tx.listing.updateMany({
@@ -90,7 +104,7 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
             where: { id, manuallyHiddenAt: seenHiddenAt },
             data: { manuallyHiddenAt: null, manualHideReason: null, publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
           })
-          outcome = r.count > 0 ? applied('Unhidden; queued listing-resolve to republish', true)
+          outcome = r.count > 0 ? applied('Unhidden; queued listing-resolve to republish', 'resolve')
             : hidden ? conflict('Listing was hidden again since you loaded it; refresh and retry')
             : noop('Not hidden')
           break
@@ -106,7 +120,7 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
             where: { id, manuallyHiddenAt: null, publicationStatus: 'quarantined' },
             data: { publicationStatus: 'pending', qualityIssueCodes: [], qualityCheckedAt: null },
           })
-          outcome = r.count > 0 ? applied('Released; queued listing-resolve', true)
+          outcome = r.count > 0 ? applied('Released; queued listing-resolve', 'resolve')
             : conflict(`Listing is ${listing.publicationStatus}, not quarantined`)
           break
         }
@@ -123,7 +137,7 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
           after: { action, reason: reason || null, actor, result: outcome.kind, detail: outcome.message },
         } satisfies Prisma.ListingObservationUncheckedCreateInput,
       })
-      return outcome
+      return { ...outcome, sourceId: listing.sourceId }
     })
 
     if (!result) {
@@ -138,7 +152,12 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
     if (result.enqueue) {
       try {
         // Per-attempt id: a fixed id would hand back an old completed job instead of rerunning.
-        jobId = await resolveQueue.add({ listingId: id, observationReference: `ops:${ref}` }, { jobId: `ops-resolve-${id}-${ref}` })
+        const jobKey = `${id}-${ref}`
+        jobId = result.enqueue === 'vin-enrich'
+          ? await vinQueue.add({ listingId: id }, { jobId: `ops-vin-${jobKey}` })
+          : result.enqueue === 'detail-crawl'
+            ? await detailQueue.add({ sourceId: result.sourceId, listingId: id }, { jobId: `ops-detail-${jobKey}` })
+            : await resolveQueue.add({ listingId: id, observationReference: `ops:${ref}` }, { jobId: `ops-resolve-${jobKey}` })
       } catch (err) {
         await db.listingObservation.create({
           data: {
@@ -151,7 +170,7 @@ export const internalOpsListingActionsRoutes: FastifyPluginAsync<Options> = asyn
             after: { action, actor, result: 'enqueue_failed', detail: err instanceof Error ? err.message : String(err) },
           },
         })
-        return reply.code(502).send(bad('ENQUEUE_FAILED', 'The change was saved but queueing listing-resolve failed; retry requeue-resolve'))
+        return reply.code(502).send(bad('ENQUEUE_FAILED', `The change was saved but queueing ${result.enqueue} failed; retry ${action}`))
       }
     }
     return reply.send({ data: { id, action, changed: result.kind === 'applied', jobId, message: result.message } })

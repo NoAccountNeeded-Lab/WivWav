@@ -10,7 +10,7 @@ const SECRET = 'a'.repeat(32)
 const auth = { authorization: `Bearer ${SECRET}` }
 
 type Row = Record<string, unknown>
-const base: Row = { id: 'l1', status: 'active', publicationStatus: 'eligible', manuallyHiddenAt: null }
+const base: Row = { id: 'l1', status: 'active', publicationStatus: 'eligible', manuallyHiddenAt: null, vin: '1FTBW2CM5NKA12345', sourceId: 'src-1' }
 
 function matches(row: Row, where: Row): boolean {
   return Object.entries(where).every(([k, v]) => {
@@ -54,7 +54,9 @@ async function buildApp(row: Row | null, opts: { beforeUpdate?: () => void; fail
   await app.ready()
   const post = (id: string, payload: unknown, headers: Record<string, string> = auth) =>
     app.inject({ method: 'POST', url: `/internal/ops/listings/${id}/actions`, headers: { 'content-type': 'application/json', ...headers }, payload: JSON.stringify(payload) })
-  return { app, post, audits, resolveQ }
+  const vinQ = factory.createQueue(QUEUES.VIN_ENRICH) as MockQueueAdapter
+  const detailQ = factory.createQueue(QUEUES.DETAIL_CRAWL) as MockQueueAdapter
+  return { app, post, audits, resolveQ, vinQ, detailQ }
 }
 
 describe('POST /internal/ops/listings/:id/actions', () => {
@@ -73,7 +75,7 @@ describe('POST /internal/ops/listings/:id/actions', () => {
 
   it('400s malformed bodies instead of throwing', async () => {
     const { app, post } = await buildApp({ ...base })
-    for (const payload of [[], 'x', { action: 5 }, { action: 'explode' }, { action: 'requeue-vin-decode' },
+    for (const payload of [[], 'x', { action: 5 }, { action: 'explode' }, { action: 'requeue-everything' },
       { action: 'hide', reason: 7 }, { action: 'hide', reason: '  ' }, { action: 'hide', reason: 'x'.repeat(501) }]) {
       expect((await post('l1', payload)).statusCode).toBe(400)
     }
@@ -89,6 +91,41 @@ describe('POST /internal/ops/listings/:id/actions', () => {
     expect(b.json().data.jobId).not.toBe(a.json().data.jobId)
     expect(audits).toHaveLength(2)
     expect(audits[0]).toMatchObject({ stage: 'ops_action', after: { action: 'requeue-resolve', result: 'applied' } })
+    await app.close()
+  })
+
+  it('requeue-vin-decode enqueues a listing-scoped vin-enrich job and audits it', async () => {
+    const { app, post, audits, vinQ } = await buildApp({ ...base })
+    const res = await post('l1', { action: 'requeue-vin-decode' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.jobId).toBeTruthy()
+    expect(vinQ.getEnqueued()[0]).toMatchObject({ data: { listingId: 'l1' } })
+    expect(audits[0]).toMatchObject({ after: { action: 'requeue-vin-decode', result: 'applied' } })
+    await app.close()
+  })
+
+  it('requeue-vin-decode refuses a listing without a VIN or a gone listing', async () => {
+    const noVin = await buildApp({ ...base, vin: null })
+    expect((await noVin.post('l1', { action: 'requeue-vin-decode' })).statusCode).toBe(409)
+    expect(noVin.vinQ.getEnqueued()).toHaveLength(0)
+    await noVin.app.close()
+    const gone = await buildApp({ ...base, status: 'gone' })
+    expect((await gone.post('l1', { action: 'requeue-vin-decode' })).statusCode).toBe(409)
+    await gone.app.close()
+  })
+
+  it('requeue-detail enqueues a listing-scoped detail-crawl job for the listing source', async () => {
+    const { app, post, detailQ } = await buildApp({ ...base })
+    const res = await post('l1', { action: 'requeue-detail' })
+    expect(res.statusCode).toBe(200)
+    expect(detailQ.getEnqueued()[0]).toMatchObject({ data: { sourceId: 'src-1', listingId: 'l1' } })
+    await app.close()
+  })
+
+  it('requeue-detail refuses a gone listing', async () => {
+    const { app, post, detailQ } = await buildApp({ ...base, status: 'gone' })
+    expect((await post('l1', { action: 'requeue-detail' })).statusCode).toBe(409)
+    expect(detailQ.getEnqueued()).toHaveLength(0)
     await app.close()
   })
 

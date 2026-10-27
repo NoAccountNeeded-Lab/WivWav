@@ -22,6 +22,19 @@ export async function acquireListingLock(
   db: ReturnType<typeof getDb>,
   listingId: string,
 ): Promise<boolean> {
+  return (await claimListingLock(db, listingId)) !== null
+}
+
+/**
+ * Same atomic claim as `acquireListingLock`, but returns the lock timestamp as
+ * an ownership token (`null` when a live lock is held). Pass the token to
+ * `releaseOwnedListingLock` so a release can never clear a lock that a later
+ * claimant took over after this one went stale.
+ */
+export async function claimListingLock(
+  db: ReturnType<typeof getDb>,
+  listingId: string,
+): Promise<Date | null> {
   const now = new Date()
   const staleThreshold = new Date(now.getTime() - LOCK_TTL_MS)
 
@@ -36,7 +49,19 @@ export async function acquireListingLock(
   `
 
   // executeRaw returns the number of rows affected
-  return result === 1
+  return result === 1 ? now : null
+}
+
+/** Releases the lock only if it is still the one stamped by `claimListingLock`. */
+export async function releaseOwnedListingLock(
+  db: ReturnType<typeof getDb>,
+  listingId: string,
+  lockedAt: Date,
+): Promise<void> {
+  await db.listing.updateMany({
+    where: { id: listingId, processingLockedAt: lockedAt },
+    data: { processingLockedAt: null },
+  })
 }
 
 /**
