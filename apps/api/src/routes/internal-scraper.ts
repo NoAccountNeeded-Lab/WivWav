@@ -31,6 +31,7 @@ import {
   listingUpsertRequestSchema,
   listingMarkGoneRequestSchema,
   detailCrawlPendingListingsRequestSchema,
+  detailCrawlReleaseLockRequestSchema,
   rawPageUpsertRequestSchema,
   listingMarkGoneByUrlRequestSchema,
   rawPageMarkProcessedRequestSchema,
@@ -41,6 +42,7 @@ import {
 import type { WivWavLogger } from '@wivwav/logger'
 import { ScraperRunGatewayRepository } from '../repositories/scraper-gateway/scraper-run-gateway-repository.js'
 import { SourceGatewayRepository } from '../repositories/scraper-gateway/source-gateway-repository.js'
+import { claimListingLock, releaseOwnedListingLock } from '../jobs/listing-lock.js'
 import { ConfigService } from '../services/config-service.js'
 import type { CacheService } from '../services/cache/index.js'
 
@@ -278,8 +280,30 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
 
   // --- detail-crawl ---
 
+  app.post('/detail-crawl/release-lock', async (req, reply) => {
+    const body = detailCrawlReleaseLockRequestSchema.parse(req.body)
+    await releaseOwnedListingLock(db, body.listingId, new Date(body.lockedAt))
+    return reply.send({ data: { ok: true } })
+  })
+
   app.post('/detail-crawl/pending-listings', async (req, reply) => {
     const body = detailCrawlPendingListingsRequestSchema.parse(req.body)
+    if (body.listingId !== undefined) {
+      // Listing-scoped (operator requeue, #1169): claim under an ownership-aware
+      // lock and skip the staleness filter, since the operator forced the crawl.
+      // A live lock held by another worker yields no listings, never a takeover.
+      const lockedAt = await claimListingLock(db, body.listingId)
+      if (lockedAt === null) return reply.send({ data: { listings: [] } })
+      const listing = await db.listing.findFirst({
+        where: { id: body.listingId, sourceId: body.sourceId, status: { not: 'gone' } },
+        select: { sourceUrl: true, status: true },
+      })
+      if (!listing) {
+        await releaseOwnedListingLock(db, body.listingId, lockedAt)
+        return reply.send({ data: { listings: [] } })
+      }
+      return reply.send({ data: { listings: [listing], lockedAt: lockedAt.toISOString() } })
+    }
     const staleDays = await config.getOperatorSetting('detail_crawl.stale_days')
     const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000)
     const listings = await db.listing.findMany({

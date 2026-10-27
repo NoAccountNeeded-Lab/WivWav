@@ -811,6 +811,47 @@ describe('pending work limits', () => {
   })
 })
 
+describe('listing-scoped detail-crawl claim (#1169)', () => {
+  const claim = (app: ReturnType<typeof buildTestApp>['app']) =>
+    app.inject({ method: 'POST', url: '/detail-crawl/pending-listings', payload: { sourceId: 'src-1', listingId: 'l1' } })
+
+  it('returns nothing and never reads the listing when a live worker holds the lock', async () => {
+    const { app, ready, db } = buildTestApp()
+    await ready
+    const findFirst = vi.fn()
+    Object.assign(db, { $executeRaw: vi.fn(async () => 0) })
+    Object.assign(db.listing, { findFirst })
+    const res = await claim(app)
+    expect(res.json()).toEqual({ data: { listings: [] } })
+    expect(findFirst).not.toHaveBeenCalled()
+    await app.close()
+  })
+
+  it('claims a free or stale-locked listing and returns the lock token', async () => {
+    const { app, ready, db } = buildTestApp()
+    await ready
+    Object.assign(db, { $executeRaw: vi.fn(async () => 1) })
+    Object.assign(db.listing, { findFirst: vi.fn(async () => ({ sourceUrl: 'https://d.example/a', status: 'active' })) })
+    const data = (await claim(app)).json().data
+    expect(data.listings).toEqual([{ sourceUrl: 'https://d.example/a', status: 'active' }])
+    expect(typeof data.lockedAt).toBe('string')
+    await app.close()
+  })
+
+  it('releases its own lock when the listing is not crawlable', async () => {
+    const { app, ready, db } = buildTestApp()
+    await ready
+    const updateMany = vi.fn(async () => ({ count: 1 }))
+    Object.assign(db, { $executeRaw: vi.fn(async () => 1) })
+    Object.assign(db.listing, { findFirst: vi.fn(async () => null), updateMany })
+    expect((await claim(app)).json().data.listings).toEqual([])
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'l1', processingLockedAt: expect.any(Date) }) }),
+    )
+    await app.close()
+  })
+})
+
 describe('GET /config/:key', () => {
   it('returns a registry default with no row', async () => {
     const { app, ready } = buildTestApp()
