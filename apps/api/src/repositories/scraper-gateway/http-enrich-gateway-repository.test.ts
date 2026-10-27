@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { HttpEnrichGatewayRepository } from './http-enrich-gateway-repository.js'
 
-function repoWith(claimedIds: string[]) {
-  const updateMany = vi.fn(async () => ({ count: 0 }))
+function repoWith(claimedIds: string[], writeCount = 1) {
+  const updateMany = vi.fn(async (_args: object) => ({ count: writeCount }))
   const queryRaw = vi.fn(async () => claimedIds.map((id) => ({ id })))
   const db = { $queryRaw: queryRaw, listing: { findMany: vi.fn(async () => []), updateMany } }
   return { repo: new HttpEnrichGatewayRepository(db as never), queryRaw, updateMany }
@@ -43,5 +43,24 @@ describe('resolveVinEnrichListing lock release', () => {
     const { repo, updateMany } = repoWith([])
     await repo.resolveVinEnrichListing({ listingId: 'l1', outcome: 'failed' })
     expect(updateMany).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { processingLockedAt: null } })
+  })
+})
+
+describe('resolveVinEnrichListing guarded result write', () => {
+  const lockedAt = '2026-10-27T00:00:00.000Z'
+  const token = { id: 'l1', processingLockedAt: new Date(lockedAt) }
+
+  it('guards the mismatched write on the claim token', async () => {
+    const { repo, updateMany } = repoWith([])
+    await repo.resolveVinEnrichListing({ listingId: 'l1', outcome: 'mismatched', qualityIssueCodes: ['x'], lockedAt })
+    expect(updateMany.mock.calls[0]![0]).toMatchObject({ where: token, data: { publicationStatus: 'quarantined' } })
+  })
+
+  it('reports a lost claim and writes nothing else when the token no longer matches', async () => {
+    const { repo, updateMany } = repoWith([], 0)
+    const result = await repo.resolveVinEnrichListing({ listingId: 'l1', outcome: 'mismatched', qualityIssueCodes: [], lockedAt })
+    expect(result).toEqual({ vehicleModelId: null, lostClaim: true })
+    // result write + conditional release only; both carry the token
+    for (const call of updateMany.mock.calls) expect(call[0]).toMatchObject({ where: token })
   })
 })
