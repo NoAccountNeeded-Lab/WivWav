@@ -172,7 +172,8 @@ async function correlateLogs(lokiUrl: string, idType: IdType, id: string, window
 
   const matched = result.entries.filter((entry) => matchesIdField(entry, idType, id))
   return {
-    lines: matched.slice(0, MAX_LOG_LINES),
+    // `extra` is the raw parsed log line (arbitrary fields): never served
+    lines: matched.slice(0, MAX_LOG_LINES).map(({ extra: _extra, ...entry }) => entry),
     truncated: matched.length > MAX_LOG_LINES,
     unavailable: false,
   }

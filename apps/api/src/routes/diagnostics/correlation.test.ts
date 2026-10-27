@@ -137,6 +137,18 @@ describe('GET / — requestId correlation', () => {
     await app.close()
   })
 
+  it('never serves the raw parsed log line (extra) but keeps typed fields', async () => {
+    const tsNs = String(BigInt(Date.now()) * 1_000_000n)
+    vi.stubGlobal('fetch', vi.fn(async () => lokiStreams([{ tsNs, line: { level: 30, msg: 'ok', requestId: 'req-1', customField: 'RAWLEAK' } }])))
+    const { app } = buildTestApp()
+    const res = await app.inject({ method: 'GET', url: '/?idType=requestId&id=req-1' })
+    expect(res.body).not.toContain('RAWLEAK')
+    const body = res.json() as { data: { logs: { lines: Array<Record<string, unknown>> } } }
+    expect(body.data.logs.lines[0]).toMatchObject({ requestId: 'req-1', message: 'ok' })
+    expect(body.data.logs.lines[0]).not.toHaveProperty('extra')
+    await app.close()
+  })
+
   it('only correlates entries whose parsed field actually matches (not just a substring hit)', async () => {
     const tsNs = String(BigInt(Date.now()) * 1_000_000n)
     // The message body contains "req-1" as a substring, but its requestId field is different.
