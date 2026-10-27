@@ -17,9 +17,7 @@ import { MOTORS_CATEGORY_ID, SEARCH_KEYWORDS } from './ebay-motors.js'
 // something (recall) and that most of what it finds actually looks like a
 // WAV listing (precision) — catching a keyword that's gone too broad (e.g.
 // a short/generic term starting to pull in unrelated Cars & Trucks
-// inventory) before it ships, the same question the manual
-// /ops/ebay-motors-search tool answers interactively for one keyword at a
-// time (#999).
+// inventory) before it ships (#999).
 
 const liveNetwork = process.env['WIVWAV_LIVE_SCRAPER_TESTS'] === '1'
 const appId = process.env['EBAY_MOTORS_APP_ID']
