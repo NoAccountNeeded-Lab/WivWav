@@ -12,6 +12,7 @@ import styles from '../ops.module.css'
 import { buildJobProgressModel, buildQueueSnapshotProgress } from './progress'
 import { QUEUE_RUNBOOK_IDS } from '../runbooks'
 import { ACTION_ICONS } from '../action-icons'
+import { SettingRef } from '../settings/SettingRef'
 
 interface QueueStats {
   waiting: number
@@ -67,12 +68,12 @@ const QUEUE_META: Record<string, QueueMeta> = {
   },
   'detail-crawl': {
     short: 'Loads full listing detail pages via Playwright and stores the raw HTML',
-    detail: 'Finds listings that haven\'t had their detail page fetched yet. Rate-limited to one page every 2 seconds to be polite to source sites. Runs hourly.',
+    detail: 'Finds listings that haven\'t had their detail page fetched yet. Runs hourly.',
     canTrigger: true,
   },
   'detail-extract': {
     short: 'Parses stored HTML to extract WAV-specific fields (ramp, lift, wheelchair capacity)',
-    detail: 'Reads from the raw_pages table — no network calls. Processes up to 100 pages per job run. Runs every 5 minutes.',
+    detail: 'Reads from the raw_pages table — no network calls. Runs every 5 minutes.',
     canTrigger: true,
   },
   'geocode': {
@@ -117,7 +118,7 @@ const QUEUE_META: Record<string, QueueMeta> = {
   },
   'dealer-enrich': {
     short: 'Enriches dealer records with Google Places data (hours, reviews, photos)',
-    detail: 'Processes up to 50 dealers per run (2 API requests each) to stay within the 100 req/day free-tier budget. Re-enriches dealers older than 30 days. Runs nightly at 7 AM.',
+    detail: 'Uses the configured daily-safe dealer cap and refresh age. Runs nightly at 7 AM.',
     canTrigger: true,
   },
   'vehicle-stats-refresh': {
@@ -137,7 +138,7 @@ const QUEUE_META: Record<string, QueueMeta> = {
   },
   'rawpage-cleanup': {
     short: 'Deletes stale raw HTML pages from the raw_pages table',
-    detail: 'Removes processed pages older than 7 days and unprocessed pages older than 30 days. Runs nightly at midnight before other pipeline jobs. No listing writes.',
+    detail: 'Removes raw pages after the configured retention periods. Runs nightly at midnight before other pipeline jobs. No listing writes.',
     canTrigger: true,
   },
   'listing-observation-cleanup': {
@@ -468,6 +469,10 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
                           No visible jobs in this snapshot yet.
                         </p>
                       )}
+                      {q.name === 'detail-crawl' && <p>Batch <SettingRef settingKey="detail_crawl.batch_size" /> · Pace <SettingRef settingKey="detail_crawl.rate_limit_ms" /> ms · Stale after <SettingRef settingKey="detail_crawl.stale_days" /> days</p>}
+                      {q.name === 'detail-extract' && <p>Batch <SettingRef settingKey="detail_extract.batch_size" /> pages</p>}
+                      {q.name === 'dealer-enrich' && <p>Max per run <SettingRef settingKey="dealer_enrich.max_per_run" /> · Stale after <SettingRef settingKey="dealer_enrich.stale_days" /> days · Pace <SettingRef settingKey="dealer_enrich.rate_limit_ms" /> ms</p>}
+                      {q.name === 'rawpage-cleanup' && <p>Processed retention <SettingRef settingKey="retention.raw_page.processed_days" /> days · Unprocessed retention <SettingRef settingKey="retention.raw_page.unprocessed_days" /> days</p>}
                       {isExpanded ? (
                         <>
                           <div className={styles.activityHeader}>

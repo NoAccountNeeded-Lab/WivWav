@@ -36,6 +36,9 @@ import { SkeletonChartBox } from '@/components/Skeleton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
 import { ACTION_ICONS } from './action-icons'
+import { useOptionalSettings } from './settings/SettingsProvider'
+import { SettingRef } from './settings/SettingRef'
+import { OPERATOR_SETTINGS, resolveOperatorSetting } from '@wivwav/types/operator-settings'
 import type { ScrapeRunPoint } from '@wivwav/charts'
 import type { PolledResourceState } from '@/lib/use-polled-resource'
 import { useOverviewResources } from './use-overview-resources'
@@ -146,7 +149,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   // regardless, so a useMemo here would never actually skip recomputation.
   const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules, listingRefresh }
 
+  const settings = useOptionalSettings()
+  const scraperStaleHours = settings ? resolveOperatorSetting('health.scraper_stale_hours', settings.entries.get('health.scraper_stale_hours') ?? null) : OPERATOR_SETTINGS['health.scraper_stale_hours'].defaultValue
   const overview = useMemo<OverviewModel>(() => buildOpsOverview({
+    scraperStaleHours,
     health: health.data,
     queues: queues.data,
     sources: sources.data,
@@ -171,7 +177,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
       listingRefresh: listingRefresh.isLoading,
     },
     now,
-  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, listingRefresh.data, listingRefresh.error, listingRefresh.isLoading, problemAggregate.data, now])
+  }), [health.data, health.error, health.isLoading, queues.data, queues.error, queues.isLoading, sources.data, sources.error, sources.isLoading, runs.data, runs.error, runs.isLoading, schedules.data, schedules.error, schedules.isLoading, listingRefresh.data, listingRefresh.error, listingRefresh.isLoading, problemAggregate.data, scraperStaleHours, now])
 
   const topProblems = useMemo(
     () => (problemAggregate.data ? sortProblems(unacknowledgedProblems(problemAggregate.data.problems)).slice(0, TOP_PROBLEMS_PREVIEW_LIMIT) : []),
@@ -404,6 +410,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           )}
           <Link href="/ops/runs" className={styles.labelLink}>Scraper runs →</Link>
         </div>
+        <p className={styles.span4}>Scrape health is stale after <SettingRef settingKey="health.scraper_stale_hours" /> hours.</p>
         {overview.freshnessCards.map(card => (
           <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
         ))}

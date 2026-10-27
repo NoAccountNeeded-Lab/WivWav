@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getPublicApiBaseUrl } from '@/lib/api-url'
 import { opsPageTitle } from '@/lib/ops-title'
 import { SourcePipelineClient } from './SourcePipelineClient'
+import { SettingsProvider } from '../../settings/SettingsProvider'
 
 // Not registered in OPS_NAV_GROUPS (dynamic `[id]` detail route), so this
 // title is literal rather than looked up from the nav registry.
@@ -15,5 +16,5 @@ export default async function SourcePipelinePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  return <SourcePipelineClient apiBaseUrl={getPublicApiBaseUrl()} sourceId={id} />
+  return <SettingsProvider apiBaseUrl={getPublicApiBaseUrl()}><SourcePipelineClient apiBaseUrl={getPublicApiBaseUrl()} sourceId={id} /></SettingsProvider>
 }

@@ -1,3 +1,4 @@
+import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from '@/lib/relative-time'
 import type { AttentionResourceInput, HealthResponse, ServiceHealth } from '@wivwav/types'
 import type { PolledResourceState } from '@/lib/use-polled-resource'
@@ -121,10 +122,9 @@ export interface OverviewInput {
    */
   pending?: Partial<Record<OverviewResourceKey, boolean>>
   now: Date
+  scraperStaleHours?: number
 }
 
-const STALE_SCRAPE_MS = 24 * 60 * 60 * 1000
-const VERY_STALE_SCRAPE_MS = 48 * 60 * 60 * 1000
 
 export function buildOpsOverview(input: OverviewInput): OverviewModel {
   const activeListingCount = input.sources?.reduce((sum, source) => sum + source.listingCount, 0) ?? null
@@ -191,7 +191,7 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
       label: 'Last successful scrape',
       value: runError ? 'Unavailable' : lastSuccessfulRunRelative ?? 'Not yet tracked',
       detail: runError ?? (lastSuccessfulRun ? `${lastSuccessfulRun.sourceName ?? 'Unknown source'} finished most recently` : 'No successful scraper run found in recent history'),
-      severity: runError ? 'unknown' : staleSeverity(lastScrapeAgeMs),
+      severity: runError ? 'unknown' : staleSeverity(lastScrapeAgeMs, input.scraperStaleHours ?? OPERATOR_SETTINGS['health.scraper_stale_hours'].defaultValue),
       href: '/ops/runs',
       ...(lastSuccessfulRunTitle ? { title: lastSuccessfulRunTitle } : {}),
     },
@@ -346,10 +346,10 @@ function findLastSuccessfulRun(runs: RunRow[] | null): RunRow | null {
     .sort((a, b) => new Date(b.finishedAt ?? 0).getTime() - new Date(a.finishedAt ?? 0).getTime())[0] ?? null
 }
 
-function staleSeverity(ageMs: number | null): OverviewSeverity {
+function staleSeverity(ageMs: number | null, hours: number): OverviewSeverity {
   if (ageMs == null) return 'unknown'
-  if (ageMs > VERY_STALE_SCRAPE_MS) return 'critical'
-  if (ageMs > STALE_SCRAPE_MS) return 'warning'
+  if (ageMs > hours * 2 * 60 * 60 * 1000) return 'critical'
+  if (ageMs > hours * 60 * 60 * 1000) return 'warning'
   return 'good'
 }
 

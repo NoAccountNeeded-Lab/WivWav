@@ -6,6 +6,7 @@ import { RelativeTimestamp } from '@/lib/relative-time'
 import styles from '../../ops.module.css'
 import { stageStatus, stageStatusLabel, type PipelineStage } from './source-pipeline-helpers'
 import { SourceJobRunsSection } from './SourceJobRunsSection'
+import { SettingRef } from '../../settings/SettingRef'
 
 interface PipelineResponse {
   source: { id: string; name: string }
@@ -203,6 +204,9 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
                     </span>
                   </div>
                   {meta && <p className={styles.muted} style={{ fontSize: '0.8125rem' }}>{meta.description}</p>}
+                  {stage.stage === 'detail-crawl' && <p className={styles.muted}>Batch <SettingRef settingKey="detail_crawl.batch_size" /> · Pace <SettingRef settingKey="detail_crawl.rate_limit_ms" /> ms · Stale after <SettingRef settingKey="detail_crawl.stale_days" /> days</p>}
+                  {stage.stage === 'detail-extract' && <p className={styles.muted}>Batch <SettingRef settingKey="detail_extract.batch_size" /> pages</p>}
+                  {stage.stalled && <p className={styles.muted}>No completion within <SettingRef settingKey="ops.stall_threshold_hours" /> hours.</p>}
                   <div className={styles.pipelineStageMetrics}>
                     <div className={styles.metric}>
                       <span className={styles.metricLabel}>Pending</span>
@@ -275,7 +279,7 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
             <p>Each tile is one stage of the ingest pipeline for this source, left to right (or top to bottom on mobile) in processing order.</p>
             <p><strong>Pending</strong> is the count of items still waiting for that stage&apos;s work, derived directly from the database (mirrors what the next job run would pick up).</p>
             <p><strong>Failed</strong> is the count of failed BullMQ jobs for that stage&apos;s queue. For detail-crawl and detail-extract this is scoped to this source; geocode and vin-enrich run globally, so their failed count covers all sources.</p>
-            <p><strong>Stalled</strong> means pending work exists but the stage hasn&apos;t completed anything within the expected window — distinct from active failures, which show as <strong>Failing</strong> instead.</p>
+            <p><strong>Stalled</strong> means pending work exists but the stage hasn&apos;t completed anything within <SettingRef settingKey="ops.stall_threshold_hours" /> hours — distinct from active failures, which show as <strong>Failing</strong> instead.</p>
             <p><strong>Retry failed jobs</strong> re-enqueues work for that stage via the same endpoint used elsewhere in ops (for source-scoped stages, scoped to this source only).</p>
           </div>
         </details>
