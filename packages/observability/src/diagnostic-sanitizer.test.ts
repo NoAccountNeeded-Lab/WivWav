@@ -46,10 +46,11 @@ describe('sanitizeDiagnosticResponse strings', () => {
     ['jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.SflKxwRJSMeKKF2QT4fw', 'SflKxwRJ'],
     ['{"msg":"password=hunter2hunter2","x":1}', 'hunter2hunter2'],
     ['VIN 1HGCM82633A004352 seen', '1HGCM82633A004352'],
+    ['from 10.1.2.3 port 80', '10.1.2.3'],
   ])('redacts %s', (input, secret) => {
     const out = sanitizeString(input)
     expect(out).not.toContain(secret)
-    expect(out).toMatch(/REDACTED|EMAIL|PHONE|VIN/)
+    expect(out).toMatch(/REDACTED|EMAIL|PHONE|VIN|IP/)
   })
 
   it('keeps benign text and context', () => {

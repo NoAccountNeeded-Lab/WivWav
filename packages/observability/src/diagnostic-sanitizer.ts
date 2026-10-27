@@ -123,6 +123,8 @@ const PATTERN_RULES: readonly (readonly [RegExp, string])[] = [
   // international (+...) and NANP phones; plain digit runs and ISO dates don't match
   [/(?<![\w-])\+\d[\d\s().-]{6,}\d/g, '[PHONE]'],
   [/(?<![\w-])\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w-])/g, '[PHONE]'],
+  // IPv4 (octet range not checked: fail closed, so dotted version strings like 1.2.3.4 are also redacted)
+  [/(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])/g, '[IP]'],
 ]
 
 function isSensitivePhrase(phrase: string): boolean {
