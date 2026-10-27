@@ -13,6 +13,7 @@ async function build() {
     scope.get('/throw', async () => {
       throw new Error('db down postgres://u:pw99999@h/db')
     })
+    scope.get('/huge', async (_req, reply) => reply.send({ message: 'x'.repeat(1_100_000) + ' token=HUGE123' }))
     scope.get('/stream', async (_req, reply) => reply.type('text/plain').send(Buffer.from('plain text token=RAW123')))
     scope.get('/bin', async (_req, reply) =>
       reply.type('application/octet-stream').send(Buffer.from('token=BIN123 \u0000\u0001', 'latin1')),
@@ -52,6 +53,14 @@ describe('addDiagnosticSanitizer', () => {
     const app = await build()
     const res = await app.inject({ method: 'GET', url: '/bin' })
     expect(res.body).not.toContain('BIN123')
+    expect(res.json()).toEqual({ error: { code: 'DIAGNOSTIC_UNSANITIZABLE', message: 'Response could not be sanitized' } })
+    await app.close()
+  })
+
+  it('fails closed for oversize payloads before parsing', async () => {
+    const app = await build()
+    const res = await app.inject({ method: 'GET', url: '/huge' })
+    expect(res.body).not.toContain('HUGE123')
     expect(res.json()).toEqual({ error: { code: 'DIAGNOSTIC_UNSANITIZABLE', message: 'Response could not be sanitized' } })
     await app.close()
   })

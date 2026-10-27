@@ -33,6 +33,8 @@ export const diagnosticsRoutes: FastifyPluginAsync<DiagnosticsPluginOptions> = a
   { db, sources, scraperRuns, meili, cache, queueFactory, config },
 ) => {
   addDiagnosticSanitizer(app)
+  // The framework 404 echoes the requested path and sits outside this plugin's onSend hook.
+  app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } }))
 
   await app.register(diagnosticContextRoutes, {
     prefix: '/diagnostic-context',

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { sanitizeDiagnosticResponse, sanitizeString } from '@wivwav/observability'
+import { MAX_CHARS, sanitizeDiagnosticResponse, sanitizeString } from '@wivwav/observability'
 
 const FAIL_CLOSED = JSON.stringify({
   error: { code: 'DIAGNOSTIC_UNSANITIZABLE', message: 'Response could not be sanitized' },
@@ -19,7 +19,8 @@ export function addDiagnosticSanitizer(app: FastifyInstance): void {
     const textual = /^(application\/([\w.+-]*\+)?json|text\/)/i.test(ct)
     const text = !textual ? null : typeof payload === 'string' ? payload : Buffer.isBuffer(payload) ? payload.toString('utf8') : null
     reply.removeHeader('content-length')
-    if (text === null) {
+    // oversize payloads are rejected before JSON.parse: the sanitizer's budget only applies after parsing
+    if (text === null || text.length > MAX_CHARS) {
       reply.type('application/json; charset=utf-8')
       return FAIL_CLOSED
     }

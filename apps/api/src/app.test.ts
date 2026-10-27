@@ -535,6 +535,23 @@ describe('/diagnostics auth boundary (#773)', () => {
     await app.close()
   })
 
+  it('does not echo an unmatched diagnostics path in the 404 (#776)', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' },
+    })
+    const app = await appPromise
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/diagnostics/token=LEAK',
+      headers: { authorization: 'Bearer diagnostic-secret-value' },
+    })
+    expect(response.statusCode).toBe(404)
+    expect(response.body).not.toContain('LEAK')
+
+    await app.close()
+  })
+
   it('accepts a valid DIAGNOSTIC_API_SECRET bearer token', async () => {
     const { app: appPromise } = buildTestApp({
       config: { DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value' },

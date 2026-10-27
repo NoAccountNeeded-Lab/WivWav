@@ -35,7 +35,11 @@ const DENY_SUBSTRINGS = [
  *  deliberately NOT denied (legit identifier field); apiKey/secretKey etc. match above. */
 const DENY_EXACT = new Set(['auth', 'pwd', 'pass', 'pw', 'dsn', 'sig', 'ip', 'cert', 'jwt'])
 
+/** Letters outside ASCII (Greek/Cyrillic homoglyphs such as "tοken") cannot be classified: fail closed. */
+const NON_ASCII_LETTER = /[\u00C0-\u1FFF\u2C00-\uFFFF]/
+
 export function isSensitiveKey(key: string): boolean {
+  if (NON_ASCII_LETTER.test(key)) return true
   const k = key.toLowerCase().replace(/[^a-z0-9]/g, '')
   return DENY_EXACT.has(k) || DENY_SUBSTRINGS.some((s) => k.includes(s))
 }
@@ -109,7 +113,7 @@ function redactLinesAndUrls(s: string): string {
 
 /** A name (optionally two words, e.g. "api key"; optional [] suffix) directly before =/: */
 const NAME_SEP_RE =
-  /(?<![A-Za-z0-9_.%+-])((?:[A-Za-z0-9_.%+-]+[ \t]+)?[A-Za-z0-9_.%+-]+(?:\[[A-Za-z0-9_.-]{0,20}\])*)\\*["']?[ \t]*[=:]/g
+  /(?<![A-Za-z0-9_.%+\u00C0-\u1FFF\u2C00-\uFFFF-])((?:[A-Za-z0-9_.%+\u00C0-\u1FFF\u2C00-\uFFFF-]+[ \t]+)?[A-Za-z0-9_.%+\u00C0-\u1FFF\u2C00-\uFFFF-]+(?:\[[A-Za-z0-9_.-]{0,20}\])*)\\*["']?[ \t]*[=:]/g
 
 const PATTERN_RULES: readonly (readonly [RegExp, string])[] = [
   [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{4,}/gi, `$1 ${REDACTED}`],
@@ -133,7 +137,9 @@ function isSensitivePhrase(phrase: string): boolean {
 }
 
 /** (d) sensitive name before =/: redacts the rest of the line; then the value-shape patterns. */
-function redactNamesAndPatterns(input: string): string {
+function redactNamesAndPatterns(rawInput: string): string {
+  // JSON \uXXXX escapes in text that did not parse as JSON would hide key names ("\\u0074oken")
+  const input = rawInput.replace(/\\u([0-9a-fA-F]{4})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
   let s = input
     .split('\n')
     .map((line) => {
@@ -217,6 +223,17 @@ function walk(value: unknown, depth: number, st: State): unknown {
   }
 }
 
+/** Own enumerable keys, stopping at MAX_NODES so a huge object is not fully enumerated before the budget applies. */
+function boundedKeys(o: object): string[] {
+  const keys: string[] = []
+  for (const k in o) {
+    if (!Object.prototype.hasOwnProperty.call(o, k)) continue
+    keys.push(k)
+    if (keys.length >= MAX_NODES) break
+  }
+  return keys
+}
+
 function unreadable(st: State): string {
   st.nodes += 1
   st.chars += UNREADABLE.length
@@ -252,7 +269,7 @@ function walkInner(value: unknown, depth: number, st: State): unknown {
     }
     const src = value as Record<string, unknown>
     const out: Record<string, unknown> = {}
-    const keys = value instanceof Error ? ['name', 'message', 'stack'] : Object.keys(src)
+    const keys = value instanceof Error ? ['name', 'message', 'stack'] : boundedKeys(src)
     for (const k of keys) {
       if (exhausted(st)) break
       st.chars += k.length
