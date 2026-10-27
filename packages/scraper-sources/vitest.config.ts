@@ -10,6 +10,11 @@ export default defineConfig({
   // Explicit so compiled output is never rediscovered as tests (#811).
   test: {
     exclude: [...configDefaults.exclude, '**/dist/**'],
+    // Several files launch their own Chromium in beforeAll; under full-suite
+    // load (turbo runs packages in parallel) a launch can exceed vitest's 10s
+    // default hook timeout (#1186).
+    hookTimeout: 60_000,
+    testTimeout: 30_000,
   },
   resolve: {
     // The subpath alias must precede the bare '@wivwav/queue' one (Vite

@@ -33,12 +33,37 @@ export default defineConfig({
     projects: [
       {
         extends: true,
+        // Pre-declare the runtime deps so Vite's optimizer bundles them before
+        // the first story loads. Discovered lazily, they trigger a mid-run
+        // re-optimize that cancels in-flight imports ("The build was
+        // canceled", "does not provide an export named 'default'") (#1186).
+        optimizeDeps: {
+          include: [
+            'react',
+            'react/jsx-dev-runtime',
+            'react-dom',
+            'react-dom/client',
+            '@emotion/react',
+            '@emotion/styled',
+            '@mui/material',
+            '@mui/material/styles',
+            '@mui/x-data-grid',
+          ],
+        },
         plugins: [storybookTest({ configDir: path.join(dirname, '.storybook') })],
         test: {
           name: 'storybook',
+          // Chromium start-up plus Vite dependency optimisation can exceed
+          // the 5s/10s defaults under full-suite load (#1186).
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
           browser: {
             enabled: true,
             headless: true,
+            // The matcher waits for two identical consecutive captures and
+            // gives up after 5s by default; under load a render can take
+            // longer than that to settle (#1186).
+            expect: { toMatchScreenshot: { timeout: 30_000 } },
             provider: playwright({}),
             instances: [{ browser: 'chromium' }],
           },

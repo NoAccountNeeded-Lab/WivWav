@@ -45,7 +45,7 @@ describe('FilterGroup', () => {
     )
     await waitFor(() => {
       expect(screen.getAllByRole('button', { name: /^Item \d+/ })).toHaveLength(8)
-    }, { timeout: 5000 })
+    })
   })
 
   it('should show a "Show N more" button when items exceed maxVisible', async () => {

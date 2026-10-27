@@ -14,6 +14,10 @@ export default defineConfig({
     },
   },
   test: {
+    // Raised async/test timeouts: see vitest.setup.ts (#1186).
+    setupFiles: ['./vitest.setup.ts'],
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     // Generated output (.next, dist) must never be rediscovered as tests (#811).
     exclude: ['**/node_modules/**', '**/e2e/**', '**/dist/**', '**/.next/**'],
   },
