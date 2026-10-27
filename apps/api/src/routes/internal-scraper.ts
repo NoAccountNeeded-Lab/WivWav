@@ -1,4 +1,4 @@
-import { isOperatorSettingKey } from '@wivwav/types/operator-settings'
+import { OPERATOR_SETTINGS, isOperatorSettingKey } from '@wivwav/types/operator-settings'
 import type { FastifyPluginAsync } from 'fastify'
 import {
   type Prisma,
@@ -293,7 +293,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         ],
       },
       select: { sourceUrl: true, status: true },
-      take: body.limit ?? await config.getOperatorSetting('detail_crawl.batch_size'),
+      take: body.limit === undefined ? await config.getOperatorSetting('detail_crawl.batch_size') : Math.min(body.limit, OPERATOR_SETTINGS['detail_crawl.batch_size'].max),
       orderBy: { listedAt: 'asc' },
     })
     return reply.send({ data: { listings } })
@@ -329,7 +329,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     const rawPages = await db.rawPage.findMany({
       where: { sourceId: body.sourceId, processedAt: null },
       select: { id: true, url: true, html: true, scrapedAt: true },
-      take: body.limit ?? await config.getOperatorSetting('detail_extract.batch_size'),
+      take: body.limit === undefined ? await config.getOperatorSetting('detail_extract.batch_size') : Math.min(body.limit, OPERATOR_SETTINGS['detail_extract.batch_size'].max),
     })
     return reply.send({ data: { rawPages } })
   })

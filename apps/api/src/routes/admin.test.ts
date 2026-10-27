@@ -423,6 +423,19 @@ describe('POST /sources/:id/disable and /enable', () => {
 })
 
 describe('GET /sources/:id/pipeline', () => {
+  it('uses the six-hour stall default without a config service', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp(
+      { findById: vi.fn(async () => ({ id: 'src-1', name: 'Source', status: 'active', lastScrapedAt: null })) },
+      {},
+      factory,
+      { getSourcePipelineStages: vi.fn(async () => [{ stage: 'detail-crawl', pendingCount: 1, lastCompletedAt: new Date(Date.now() - 7 * 60 * 60 * 1000) }]) },
+    )
+    const response = await app.inject({ method: 'GET', url: '/sources/src-1/pipeline' })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().data.stages.find((stage: { stage: string }) => stage.stage === 'detail-crawl').stalled).toBe(true)
+    await app.close()
+  })
   it('returns source-scrape plus DB-derived stages with pending/failed/stall state', async () => {
     const now = new Date('2026-06-18T10:00:00Z')
     const staleCompletion = new Date('2026-06-17T00:00:00Z') // > 6h stall threshold before `now`

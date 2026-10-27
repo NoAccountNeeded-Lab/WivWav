@@ -54,6 +54,14 @@ describe('runSearchIndexerPollJob', () => {
     vi.mocked(getMeiliClient).mockReturnValue(meili as never)
   })
 
+  it('uses the registry batch and poll bounds without a config service', async () => {
+    const fullPage = Array.from({ length: 500 }, (_, index) => ({ id: `l-${index}`, updatedAt: new Date('2026-01-01T00:00:00Z') }))
+    db.$queryRaw.mockResolvedValue(fullPage)
+    await runSearchIndexerPollJob()
+    expect(db.$queryRaw).toHaveBeenCalledTimes(20)
+    expect(db.$queryRaw.mock.calls[0]?.[3]).toBe(500)
+  })
+
   it('atomically rebuilds an orphaned persisted index when PostgreSQL has no public listings', async () => {
     db.listing.count.mockResolvedValueOnce(0)
     getStats.mockResolvedValueOnce({ numberOfDocuments: 4814 })

@@ -3,6 +3,7 @@ import type { CacheService } from '../services/cache/index.js'
 import type { PrismaClient } from '@wivwav/db'
 import { ConfigService } from '../services/config-service.js'
 import type { ConfigValueType, ConfigValue } from '../services/config-service.js'
+import { OPERATOR_SETTINGS, isOperatorSettingKey } from '@wivwav/types/operator-settings'
 
 interface AdminConfigPluginOptions {
   db: PrismaClient
@@ -95,6 +96,13 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
       return reply.badRequest('Value is required')
     }
 
+    if (isOperatorSettingKey(req.params.key)) {
+      const definition = OPERATOR_SETTINGS[req.params.key]
+      if (type !== 'number' || typeof value !== 'number' || !Number.isInteger(value) || value < definition.min || value > definition.max) {
+        return reply.badRequest(`Operator setting ${req.params.key} requires an integer number from ${definition.min} to ${definition.max}`)
+      }
+    }
+
     const parsed = parseValue(value, type)
 
     if (parsed === null) {
@@ -169,6 +177,7 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
         await svc.delete(req.params.key, typeof createdBy === 'string' ? createdBy : undefined)
       } catch (err) {
         if (err instanceof Error && err.message.includes('not found')) {
+          if (isOperatorSettingKey(req.params.key)) return reply.send({ data: { deleted: true } })
           return reply.notFound(err.message)
         }
         throw err
