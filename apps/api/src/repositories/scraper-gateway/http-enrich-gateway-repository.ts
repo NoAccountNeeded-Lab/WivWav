@@ -259,7 +259,10 @@ export class HttpEnrichGatewayRepository {
    */
   async resolveVinEnrichListing(
     body: VinEnrichResolveRequest,
-  ): Promise<{ vehicleModelId: string | null }> {
+  ): Promise<{ vehicleModelId: string | null; lostClaim?: true }> {
+    // With a claim token every write is guarded on it: a stale worker whose lock
+    // was taken over must not overwrite the newer claimant's result (#1169).
+    const owned = { id: body.listingId, ...(body.lockedAt ? { processingLockedAt: new Date(body.lockedAt) } : {}) }
     try {
       if (body.outcome === 'enriched') {
         const { id: vehicleModelId } = await this.findOrCreateVehicleModel(
@@ -269,8 +272,8 @@ export class HttpEnrichGatewayRepository {
           body.decoded.trim,
           body.decoded.bodyType,
         )
-        await this.db.listing.update({
-          where: { id: body.listingId },
+        const written = await this.db.listing.updateMany({
+          where: owned,
           data: {
             vehicleModelId,
             vehicleModelMatchConfidence: 'exact',
@@ -279,18 +282,20 @@ export class HttpEnrichGatewayRepository {
             qualityCheckedAt: null,
           },
         })
+        if (written.count === 0) return { vehicleModelId: null, lostClaim: true }
         return { vehicleModelId }
       }
 
       if (body.outcome === 'mismatched') {
-        await this.db.listing.update({
-          where: { id: body.listingId },
+        const written = await this.db.listing.updateMany({
+          where: owned,
           data: {
             publicationStatus: 'quarantined',
             qualityIssueCodes: body.qualityIssueCodes,
             qualityCheckedAt: new Date(),
           },
         })
+        if (written.count === 0) return { vehicleModelId: null, lostClaim: true }
         return { vehicleModelId: null }
       }
 
@@ -300,7 +305,7 @@ export class HttpEnrichGatewayRepository {
       // With a claim token, release only our own lock: a slow claimant must not
       // clear the lock of a newer worker that took over a stale one (#1169).
       await this.db.listing.updateMany({
-        where: { id: body.listingId, ...(body.lockedAt ? { processingLockedAt: new Date(body.lockedAt) } : {}) },
+        where: owned,
         data: { processingLockedAt: null },
       })
     }

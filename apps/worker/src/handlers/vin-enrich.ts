@@ -79,6 +79,12 @@ export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger:
     const batchSize = await readWorkerSetting(gateway, 'vin_enrich.batch_size', logger)
     const { listings, lockedAt } = await gateway.claimVinEnrichListings(batchSize, listingId)
 
+    // A listing-scoped claim must carry its lock token; without it resolve could
+    // release or overwrite a newer claimant's lock, so fail closed.
+    if (listingId !== undefined && listings.length > 0 && lockedAt === undefined) {
+      throw new Error('[vin-enrich] listing-scoped claim returned no lock token')
+    }
+
     await report(context, `[vin-enrich] ${listings.length} listing(s) claimed for VIN decode`, {
       stage: 'decoding',
       current: 0,

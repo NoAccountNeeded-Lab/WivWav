@@ -127,4 +127,14 @@ describe('createVinEnrichHandler', () => {
       outcome: 'failed',
     })
   })
+
+  it('fails closed when a listing-scoped claim carries no lock token', async () => {
+    const gateway = fakeGateway({
+      claimVinEnrichListings: vi.fn(async () => ({
+        listings: [{ id: 'l1', vin: '1FTBW2CM5NKA12345', make: 'Toyota', model: 'Sienna', year: 2023 }],
+      })),
+    })
+    await expect(createVinEnrichHandler(gateway, createNoopLogger())({ listingId: 'l1' }, 'corr-8')).rejects.toThrow(/lock token/)
+    expect(gateway.resolveVinEnrichListing).not.toHaveBeenCalled()
+  })
 })
