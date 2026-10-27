@@ -52,7 +52,7 @@ function createFakeDb() {
           return listings.find((l) => l['sourceUrl'] === where['sourceUrl']) ?? null
         return null
       },
-      findMany: async () => [],
+      findMany: vi.fn(async () => []),
       create: async ({ data }: { data: Record<string, unknown> }) => {
         // Mirrors Prisma schema defaults (schema.prisma's Listing.status
         // @default(active)) that a real create() applies but this fake's
@@ -149,7 +149,7 @@ function createFakeDb() {
         if (where['url']) return rawPages.find((p) => p['url'] === where['url']) ?? null
         return null
       },
-      findMany: async () => [],
+      findMany: vi.fn(async () => []),
       upsert: async ({
         where,
         create,
@@ -796,6 +796,20 @@ describe('GET /sources/ebay-motors/credentials (#999)', () => {
   })
 })
 
+
+describe('pending work limits', () => {
+  it.each([
+    { url: '/detail-crawl/pending-listings', model: 'listing', max: 500 },
+    { url: '/detail-extract/pending-raw-pages', model: 'rawPage', max: 1000 },
+  ] as const)('clamps $url caller limit to $max', async ({ url, model, max }) => {
+    const { app, ready, db } = buildTestApp()
+    await ready
+    const response = await app.inject({ method: 'POST', url, payload: { sourceId: 'src-1', limit: max + 1 } })
+    expect(response.statusCode).toBe(200)
+    expect(db[model].findMany).toHaveBeenCalledWith(expect.objectContaining({ take: max }))
+    await app.close()
+  })
+})
 
 describe('GET /config/:key', () => {
   it('returns a registry default with no row', async () => {

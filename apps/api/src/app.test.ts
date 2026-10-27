@@ -1,4 +1,4 @@
-import Fastify, { type FastifyBaseLogger } from 'fastify'
+import Fastify, { LogController, type FastifyBaseLogger } from 'fastify'
 import { MockQueueFactory } from '@wivwav/queue'
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp, isAllowedCorsOrigin } from './app.js'
@@ -264,7 +264,7 @@ function makeSpyLogger(): { loggerInstance: FastifyBaseLogger; entries: LogEntry
  */
 function buildMinimalLoggingApp() {
   const { loggerInstance, entries } = makeSpyLogger()
-  const app = Fastify({ loggerInstance, disableRequestLogging: true })
+  const app = Fastify({ loggerInstance, logController: new LogController({ disableRequestLogging: true }) })
 
   // Replicate the onResponse hook from app.ts
   app.addHook('onResponse', (request, reply, done) => {

@@ -503,6 +503,7 @@ export async function runListingQualityAudit(opts: {
   const auditedAt = new Date().toISOString()
   const crawlCompletenessWindowDays = opts.crawlCompletenessWindowDays ?? CRAWL_COMPLETENESS_WINDOW_DAYS
 
+  // This audit also runs as a standalone CLI, outside the API's shared ConfigService lifecycle.
   const operatorConfig = new ConfigService(db, new MemoryCacheService(), undefined)
   const staleDays = await operatorConfig.getOperatorSetting('detail_crawl.stale_days')
   const sources = await getSources(db, opts.sourceId)

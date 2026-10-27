@@ -1,4 +1,4 @@
-import Fastify, { type FastifyBaseLogger } from 'fastify'
+import Fastify, { LogController, type FastifyBaseLogger } from 'fastify'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { adminClientEventsRoutes } from './admin-client-events.js'
 
@@ -39,7 +39,7 @@ function makeSpyLogger(): { loggerInstance: FastifyBaseLogger; entries: LogEntry
 
 function buildSpyApp() {
   const { loggerInstance, entries } = makeSpyLogger()
-  const app = Fastify({ loggerInstance, disableRequestLogging: true })
+  const app = Fastify({ loggerInstance, logController: new LogController({ disableRequestLogging: true }) })
   void app.register(adminClientEventsRoutes)
   return { app, entries }
 }

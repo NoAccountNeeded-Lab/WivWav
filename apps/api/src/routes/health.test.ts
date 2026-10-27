@@ -55,6 +55,21 @@ describe('healthRoutes', () => {
     vi.unstubAllGlobals()
   })
 
+  it('uses the 24-hour scraper stale default with no config row', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))
+    const app = Fastify()
+    const findFirst = vi.fn(async () => null)
+    await app.register(healthRoutes, {
+      ...baseDeps,
+      ...buildHealthDeps(2, { finishedAt: new Date(Date.now() - 25 * 60 * 60 * 1000) }),
+      db: { $queryRaw: vi.fn(async () => [{ '?column?': 1 }]), configEntry: { findFirst } } as never,
+    })
+    const response = await app.inject({ method: 'GET', url: '/' })
+    expect(response.json().services.scraper.status).toBe('degraded')
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { key: 'health.scraper_stale_hours' } }))
+    await app.close()
+  })
+
   it('returns ok when all service probes are up', async () => {
     vi.stubGlobal(
       'fetch',

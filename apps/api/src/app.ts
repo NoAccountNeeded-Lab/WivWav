@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { isSentryEnabled, Sentry } from './sentry.js'
 import { ZodError } from 'zod'
-import Fastify, { type FastifyError, type FastifyRequest } from 'fastify'
+import Fastify, { LogController, type FastifyError, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import rateLimit from '@fastify/rate-limit'
@@ -124,7 +124,7 @@ export async function buildApp(
         ? false
         : createPinoLoggerOptions({ service: 'api', env: config.NODE_ENV }),
     // Custom hooks below handle request/response logging with structured fields.
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
     // Honour x-request-id forwarded from the Next.js web layer for end-to-end
     // tracing; fall back to a fresh UUID when the header is absent.
     genReqId: (req: FastifyRequest['raw']) => {

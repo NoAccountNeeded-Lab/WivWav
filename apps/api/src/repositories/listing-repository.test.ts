@@ -418,7 +418,7 @@ describe('PrismaListingRepository.getSourcePipelineStages', () => {
   function buildPipelineDb() {
     return {
       listing: {
-        count: vi.fn(async () => 0),
+        count: vi.fn(async (_args: unknown) => 0),
         aggregate: vi.fn(async (): Promise<{ _max: { detailScrapedAt: Date | null; updatedAt: Date | null } }> => (
           { _max: { detailScrapedAt: null, updatedAt: null } }
         )),
@@ -431,6 +431,18 @@ describe('PrismaListingRepository.getSourcePipelineStages', () => {
       },
     }
   }
+
+  it('uses the 30-day registry default when no config service is provided', async () => {
+    const db = buildPipelineDb()
+    const before = Date.now()
+    await new PrismaListingRepository(db as never).getSourcePipelineStages('src-1')
+    const after = Date.now()
+    const call = db.listing.count.mock.calls[0]![0] as unknown as { where: { OR: Array<{ detailScrapedAt?: { lt: Date } }> } }
+    const cutoff = call.where.OR[1]!.detailScrapedAt!.lt.getTime()
+    const days = 30 * 24 * 60 * 60 * 1000
+    expect(cutoff).toBeGreaterThanOrEqual(before - days)
+    expect(cutoff).toBeLessThanOrEqual(after - days)
+  })
 
   it('returns pending counts and last-completed timestamps for each DB-derivable stage', async () => {
     const detailCrawledAt = new Date('2026-06-17T00:00:00Z')

@@ -141,6 +141,41 @@ describe('GET /admin/config/:key', () => {
 })
 
 describe('PUT /admin/config/:key', () => {
+  it.each([1, 500])('accepts registry boundary value %i', async value => {
+    const row = makeRow({ key: 'detail_crawl.batch_size', value, type: 'number' })
+    const db = { configEntry: { create: vi.fn(async () => row) } }
+    const { app } = buildTestApp(db)
+    const res = await app.inject({ method: 'PUT', url: '/detail_crawl.batch_size', payload: { value, type: 'number' } })
+    expect(res.statusCode).toBe(201)
+    expect(db.configEntry.create).toHaveBeenCalledOnce()
+    await app.close()
+  })
+
+  it.each([
+    { value: '50', type: 'number' },
+    { value: 50, type: 'string' },
+    { value: 1.5, type: 'number' },
+    { value: 0, type: 'number' },
+    { value: 501, type: 'number' },
+  ])('rejects invalid registry payload $value with type $type', async payload => {
+    const db = { configEntry: { create: vi.fn() } }
+    const { app } = buildTestApp(db)
+    const res = await app.inject({ method: 'PUT', url: '/detail_crawl.batch_size', payload })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().message).toContain('integer number from 1 to 500')
+    expect(db.configEntry.create).not.toHaveBeenCalled()
+    await app.close()
+  })
+
+  it('preserves numeric string coercion for non-registry keys', async () => {
+    const row = makeRow({ key: 'some.count', value: 50, type: 'number' })
+    const db = { configEntry: { create: vi.fn(async () => row) } }
+    const { app } = buildTestApp(db)
+    const res = await app.inject({ method: 'PUT', url: '/some.count', payload: { value: '50', type: 'number' } })
+    expect(res.statusCode).toBe(201)
+    await app.close()
+  })
+
   it('inserts a new string config entry', async () => {
     const row = makeRow()
     const db = {
@@ -335,6 +370,14 @@ describe('GET /admin/config/:key/history', () => {
 })
 
 describe('DELETE /admin/config/:key', () => {
+  it('allows resetting a registry key with no active row', async () => {
+    const db = { configEntry: { findFirst: vi.fn(async () => null), create: vi.fn() } }
+    const { app } = buildTestApp(db)
+    const res = await app.inject({ method: 'DELETE', url: '/detail_crawl.batch_size' })
+    expect(res.statusCode).toBe(200)
+    expect(db.configEntry.create).not.toHaveBeenCalled()
+    await app.close()
+  })
   it('inserts a tombstone row', async () => {
     const row = makeRow()
     const db = {
