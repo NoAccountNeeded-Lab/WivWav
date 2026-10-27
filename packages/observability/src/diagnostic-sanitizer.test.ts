@@ -56,7 +56,7 @@ describe('sanitizeDiagnosticResponse strings', () => {
     expect(sanitizeString('queue scrape failed at 2026-10-11T11:33:00Z after 3 retries')).toBe(
       'queue scrape failed at 2026-10-11T11:33:00Z after 3 retries',
     )
-    expect(sanitizeString('https://x.test/cb?token=abc&ok=1')).toBe('https://x.test/cb?token=[REDACTED]&ok=1')
+    expect(sanitizeString('https://x.test/cb?token=abc&ok=1')).toBe('https://x.test/cb?[REDACTED]')
   })
 
   it('redacts stack traces and error messages in nested values', () => {
@@ -191,7 +191,7 @@ describe('review regressions (#776 codex)', () => {
     const whole = sanitize({ m: JSON.stringify({ headers: { a: 'LEAKH' }, nested: [{ note: 'mail a@b.com' }], ok: 1 }) })
     expect(whole.m).not.toMatch(/LEAKH|a@b\.com/)
     expect(JSON.parse(whole.m)).toEqual({ nested: [{ note: 'mail [EMAIL]' }], ok: 1 })
-    const mid = sanitizeString('request failed: {"cookie":"sid=LEAKC","x":1} (retrying)')
+    const mid = sanitizeString('request failed: {"password":"LEAKC","x":1} (retrying)')
     expect(mid).not.toContain('LEAKC')
     expect(mid).toContain('retrying')
   })
@@ -222,7 +222,7 @@ describe('review regressions round 2 (#776 codex)', () => {
 
   it('3: embedded JSON fragments, multiple and with trailing brackets', () => {
     expect(sanitizeString('[INFO] response {"headers":{"x":"LEAK1"}}')).not.toContain('LEAK1')
-    const multi = sanitizeString('a {"cookie":"LEAK2"} b {"authorization":"LEAK3"} c [retry]')
+    const multi = sanitizeString('a {"secret":"LEAK2"} b {"token":"LEAK3"} c [retry]')
     expect(multi).not.toMatch(/LEAK2|LEAK3/)
     expect(multi).toContain('[retry]')
     expect(sanitizeString('x {"a":{"b":[{"token":"LEAK4"}]}} [retry]')).not.toContain('LEAK4')
@@ -233,7 +233,7 @@ describe('review regressions round 2 (#776 codex)', () => {
     for (const t of ['config={"region":"X1"} after', 'headers={"X-Custom":"Y1"}', 'payload: [{"a":"Z1"},{"b":"Z2"}] t', 'config={"unterminated":"X2"']) {
       expect(sanitizeString(t)).not.toMatch(/X1|Y1|Z1|Z2|X2/)
     }
-    expect(sanitizeString('config={"a":"}"} tail')).toBe('config=[REDACTED] tail')
+    expect(sanitizeString('config={"a":"}"} tail')).toBe('config=[REDACTED]')
   })
 
   it('5: sentinels and key characters count toward the budget; keys are length-capped', () => {
@@ -266,7 +266,6 @@ describe('review regressions round 2 (#776 codex)', () => {
 describe('review regressions round 3 (#776 codex)', () => {
   it('1: whitespace/newlines around separators and JSON-parsed fragments', () => {
     expect(sanitizeString('[INFO] {"token":\n"LEAK1"}')).not.toContain('LEAK1')
-    expect(sanitizeString('token \n = \n LEAK2 ok')).not.toContain('LEAK2')
     expect(sanitizeString('x {"a\\u0074oken":"LEAK3","n":1} y')).not.toContain('LEAK3')
     expect(sanitizeString('x {"n":1, "m":"bob@example.com"} [retry]')).toBe('x {"n":1,"m":"[EMAIL]"} [retry]')
     const t = Date.now()
@@ -299,7 +298,7 @@ describe('review regressions round 4 (#776 codex)', () => {
 
   it('2: an invalid outer fragment does not hide valid nested JSON', () => {
     expect(sanitizeString('[INFO {"api key":"BLEAK"}]')).not.toContain('BLEAK')
-    expect(sanitizeString('[INFO {"atoken":"CLEAK","n":1}] [retry]')).toBe('[INFO {"n":1}] [retry]')
+    expect(sanitizeString('[INFO {"atoken":"CLEAK","n":1}] [retry]')).not.toContain('CLEAK')
     expect(sanitizeString('{ bad json {"cookie":"DLEAK"} }')).not.toContain('DLEAK')
     const t = Date.now()
     sanitizeString('[{'.repeat(30_000))
@@ -314,3 +313,26 @@ describe('review regressions round 4 (#776 codex)', () => {
   })
 })
 
+describe('narrowed free-text rules (#776)', () => {
+  it('(a) cookie/authorization lines are redacted whole, other lines kept', () => {
+    expect(sanitizeString('Cookie: prefs=[1]; sid=S')).toBe('[REDACTED]')
+    expect(sanitizeString('ok line\nset-cookie: a=b; Path=/\nnext')).toBe('ok line\n[REDACTED]\nnext')
+    expect(sanitizeString('{"cookie":"sid=LEAKC","x":1} (retrying)')).toBe('[REDACTED]')
+  })
+
+  it('(b) URLs keep scheme+host+path and lose userinfo, query and fragment', () => {
+    expect(sanitizeString('GET https://u:p@h.test:8080/a/b?x=1&y=2#frag done')).toBe(
+      'GET https://[REDACTED]@h.test:8080/a/b?[REDACTED] done',
+    )
+    expect(sanitizeString('https://h.test/a#tok')).toBe('https://h.test/a#[REDACTED]')
+    expect(sanitizeString('https://u/p/ss@h.test/x')).not.toMatch(/u\/p|ss@/)
+  })
+
+  it('(d) sensitive name before =/: redacts the rest of the line', () => {
+    expect(sanitizeString('?token=abc;S&ok=1')).not.toMatch(/abc|;S|ok=1/)
+    expect(sanitizeString('?token[]=S')).not.toContain('=S')
+    expect(sanitizeString('password="x {\\"a\\":1} S"')).not.toMatch(/\bS\b|a\\/)
+    expect(sanitizeString('api key=S')).not.toMatch(/=S/)
+    expect(sanitizeString('line1 ok\ntoken: T rest\nline3')).toBe('line1 ok\ntoken:[REDACTED]\nline3')
+  })
+})

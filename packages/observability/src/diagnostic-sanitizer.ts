@@ -1,12 +1,17 @@
 import { scrubPii } from './sentry-pii.js'
 
 /**
- * Defense-in-depth sanitizer for diagnostic gateway responses (#776). It does
- * NOT make source telemetry safe; ingestion-time redaction remains the first
- * line of defense. Returns a sanitized deep copy and never mutates its input.
+ * Defense-in-depth sanitizer for diagnostic gateway responses (#776). It fails closed
+ * (when unsure, it redacts or drops) but it is NOT a guarantee: it does not make source
+ * telemetry safe, and ingestion-time redaction remains the first line of defense.
+ * Returns a sanitized deep copy and never mutates its input.
  *
- * Every regex below is linear-time: no nested/unbounded quantifiers over
- * overlapping classes, and every repeat is length-bounded (ReDoS-safe).
+ * Objects: sensitive keys (percent-decoded, case/punctuation-insensitive) are dropped.
+ * Free text, in order: (a) any line mentioning cookie/authorization is redacted whole;
+ * (b) URLs keep scheme+host+path, userinfo and the whole query/fragment are redacted;
+ * (c) balanced {...}/[...] fragments that parse as JSON are sanitized structurally;
+ * (d) a sensitive name followed by =/: redacts the rest of its line, then the
+ * Bearer/JWT/vendor-key/email/phone/VIN patterns run. Every regex is linear-time.
  */
 
 const REDACTED = '[REDACTED]'
@@ -56,11 +61,9 @@ function isSensitiveName(raw: string): boolean {
   return d === null || isSensitiveKey(d)
 }
 
-const isLineName = (raw: string) => /cookie|authorization/i.test(decodeName(raw) ?? 'cookie')
+// ---- balanced-fragment scanner (used only for step (c))
 
-// ---- linear value scanners: each returns the index just past the value; unterminated => end of string
-
-/** Quoted value starting at `i` (quote char), backslash-escape aware. */
+/** Quoted string starting at `i` (the quote char), backslash-escape aware. Unterminated => s.length. */
 function quotedEnd(s: string, i: number): number {
   const q = s[i]
   for (let j = i + 1; j < s.length; j += 1) {
@@ -71,8 +74,7 @@ function quotedEnd(s: string, i: number): number {
   return s.length
 }
 
-/** Balanced {...}/[...] starting at `i`, aware of "..." and '...' strings with escapes.
- *  Returns the index past the closing bracket, or -1 if unterminated. */
+/** Balanced {...}/[...] starting at `i`, aware of quoted strings. Returns the end index or -1. */
 function balancedScan(s: string, i: number): number {
   let depth = 0
   for (let j = i; j < s.length; j += 1) {
@@ -87,55 +89,31 @@ function balancedScan(s: string, i: number): number {
   return -1
 }
 
-const balancedEnd = (s: string, i: number): number => {
-  const e = balancedScan(s, i)
-  return e < 0 ? s.length : e
+// ---- free-text steps
+
+const URL_RE = /\b([A-Za-z][A-Za-z0-9+.-]{0,15}:\/\/)([^\s?#]*@)?([^\s/?#]*)([^\s?#]*)([?#]\S*)?/g
+
+/** (a) cookie/authorization lines, (b) URLs. */
+function redactLinesAndUrls(s: string): string {
+  return s
+    .split('\n')
+    .map((line) =>
+      /cookie|authorization/i.test(line)
+        ? REDACTED
+        : line.replace(URL_RE, (_m, scheme: string, ui: string | undefined, host: string, path: string, qf: string | undefined) =>
+            `${scheme}${ui ? `${REDACTED}@` : ''}${host}${path}${qf ? `${qf[0]}${REDACTED}` : ''}`,
+          ),
+    )
+    .join('\n')
 }
 
-function valueEnd(s: string, i: number, toEol: boolean): number {
-  const c = s[i]
-  if (c === undefined) return i
-  if (c === '"' || c === "'") return quotedEnd(s, i)
-  if (c === '{' || c === '[') return balancedEnd(s, i)
-  if (c === '\\') return s.length // escaped-quote JSON-in-string: cannot parse reliably, fail closed
-  let j = i
-  while (j < s.length) {
-    const d = s[j] as string
-    if (toEol ? d === '\n' || d === '\r' : /[\s"',;&]/.test(d)) break
-    j += 1
-  }
-  return j
-}
+/** A name (optionally two words, e.g. "api key"; optional [] suffix) directly before =/: */
+const NAME_SEP_RE =
+  /(?<![A-Za-z0-9_.%+-])((?:[A-Za-z0-9_.%+-]+[ \t]+)?[A-Za-z0-9_.%+-]+(?:\[[A-Za-z0-9_.-]{0,20}\])*)\\*["']?[ \t]*[=:]/g
 
-const ASSIGN_RE = /(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]+)(\\*["']?)\s*([=:])\s*/g
-
-/** Redacts the value of every assignment whose name is sensitive (any value shape). */
-function redactAssignments(s: string): string {
-  let out = ''
-  let last = 0
-  ASSIGN_RE.lastIndex = 0
-  for (let m = ASSIGN_RE.exec(s); m !== null; m = ASSIGN_RE.exec(s)) {
-    const name = m[1] as string
-    if (!isSensitiveName(name)) continue
-    const start = m.index + m[0].length
-    const end = valueEnd(s, start, isLineName(name))
-    if (end <= start) continue
-    out += s.slice(last, start) + REDACTED
-    last = end
-    ASSIGN_RE.lastIndex = end
-  }
-  return out + s.slice(last)
-}
-
-/** Fail closed: no length cap on the redacted span; every regex is a single linear scan. */
-const STRING_RULES: readonly (readonly [RegExp, string])[] = [
-  // scheme://userinfo@host (userinfo unbounded)
-  [/\b([A-Za-z][A-Za-z0-9+.-]{0,15}:\/\/)[^\s/@]*@/g, `$1${REDACTED}@`],
-  // Bearer/Basic credentials
+const PATTERN_RULES: readonly (readonly [RegExp, string])[] = [
   [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{4,}/gi, `$1 ${REDACTED}`],
-  // JWTs
   [/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, REDACTED],
-  // vendor key shapes: sk-..., ghp_..., AKIA..., xoxb-...
   [/\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}/g, REDACTED],
   [/\bgh[pousr]_[A-Za-z0-9]{20,}/g, REDACTED],
   [/\bAKIA[0-9A-Z]{16}\b/g, REDACTED],
@@ -147,28 +125,33 @@ const STRING_RULES: readonly (readonly [RegExp, string])[] = [
   [/(?<![\w-])\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?![\w-])/g, '[PHONE]'],
 ]
 
-function applyPatternRules(input: string): string {
+function isSensitivePhrase(phrase: string): boolean {
+  const words = phrase.split(/[ \t]+/)
+  return isSensitiveName(phrase.replace(/[ \t]+/g, '')) || words.some(isSensitiveName)
+}
+
+/** (d) sensitive name before =/: redacts the rest of the line; then the value-shape patterns. */
+function redactNamesAndPatterns(input: string): string {
   let s = input
-  for (const [re, rep] of STRING_RULES) s = s.replace(re, rep)
+    .split('\n')
+    .map((line) => {
+      NAME_SEP_RE.lastIndex = 0
+      for (let m = NAME_SEP_RE.exec(line); m !== null; m = NAME_SEP_RE.exec(line)) {
+        if (isSensitivePhrase(m[1] as string)) return line.slice(0, m.index + m[0].length) + REDACTED
+      }
+      return line
+    })
+    .join('\n')
+  for (const [re, rep] of PATTERN_RULES) s = s.replace(re, rep)
   return scrubPii(s)
 }
 
-function applyStringRules(input: string): string {
-  return applyPatternRules(redactAssignments(input))
-}
-
 const OPEN_RE = /[{[]/g
-/** A sensitive `name=` / `name:` label ending a text segment, directly before a fragment. */
-const ASSIGN_TAIL = /(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]+)\\*["']?\s*[=:]\s*$/
 
-const plain = (t: string): string => applyPatternRules(redactAssignments(t))
-
-/** Order matters: balanced fragments are handled on the ORIGINAL text first (valid JSON is parsed and
- *  sanitized structurally; \\u escapes, spaces in keys and nesting all resolve), then the assignment
- *  scanner and pattern rules run on the remaining text. A fragment directly after a sensitive label
- *  (`config={...}`) is redacted whole. An invalid outer fragment does not hide valid nested ones: the
- *  scan simply continues inside it. Work is budgeted; on exhaustion the tail is dropped (fail closed). */
+/** (c) Outermost balanced fragments that parse as JSON are sanitized structurally; others are left
+ *  for step (d). Scan work is budgeted: on exhaustion the tail is dropped (fail closed). */
 function sanitizeFragments(s: string, depth: number, st: State): string {
+  if (depth >= MAX_DEPTH) return s
   let budget = 4 * s.length + 1024
   let out = ''
   let last = 0
@@ -177,27 +160,22 @@ function sanitizeFragments(s: string, depth: number, st: State): string {
     const i = m.index
     const end = balancedScan(s, i)
     budget -= end < 0 ? s.length - i : end - i
-    if (budget < 0) return out + plain(s.slice(last, i)) + '[TRUNCATED]'
+    if (budget < 0) return out + s.slice(last, i) + '[TRUNCATED]'
     if (end < 0) continue
-    const seg = s.slice(last, i)
-    const label = ASSIGN_TAIL.exec(seg)
-    let rep: string | undefined
-    if (label && isSensitiveName(label[1] as string)) {
-      rep = REDACTED
-    } else if (depth < MAX_DEPTH) {
-      try {
-        rep = JSON.stringify(walk(JSON.parse(s.slice(i, end)) as unknown, depth + 1, st))
-      } catch {
-        /* not JSON: keep scanning inside it */
-      }
+    try {
+      const rep = JSON.stringify(walk(JSON.parse(s.slice(i, end)) as unknown, depth + 1, st))
+      out += s.slice(last, i) + rep
+      last = end
+      OPEN_RE.lastIndex = end
+    } catch {
+      OPEN_RE.lastIndex = end // not JSON: leave for step (d), do not descend
     }
-    if (rep === undefined) continue
-    out += plain(seg) + rep
-    last = end
-    OPEN_RE.lastIndex = end
   }
-  return out + plain(s.slice(last))
+  return out + s.slice(last)
 }
+
+/** Key/standalone text check without structural parsing. */
+const redactText = (s: string): string => redactNamesAndPatterns(redactLinesAndUrls(s))
 
 interface State {
   nodes: number
@@ -222,7 +200,7 @@ function sanitizeText(input: string, depth: number, st: State): string {
       /* not JSON: fall through to pattern rules */
     }
   }
-  return sanitizeFragments(s, depth, st)
+  return redactNamesAndPatterns(sanitizeFragments(redactLinesAndUrls(s), depth, st))
 }
 
 export function sanitizeString(input: string): string {
@@ -279,7 +257,7 @@ function walkInner(value: unknown, depth: number, st: State): unknown {
       // deny/shape checks first: nothing is read (no getter runs) for dropped keys
       if (k.length > MAX_KEY || k === '__proto__' || isSensitiveName(k)) continue
       // keys can carry data too (e.g. an email used as a map key): drop if any rule fires
-      if (applyStringRules(k) !== k) continue
+      if (redactText(k) !== k) continue
       let v: unknown
       try {
         v = walk(src[k], depth + 1, st)
