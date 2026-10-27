@@ -48,7 +48,7 @@ import { runListingQualityAudit, AUDIT_VERSION } from './listing-quality-audit.j
 
 // ── DB mock helpers ──────────────────────────────────────────────────────────
 
-const STALE_DATE = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) // 20 days ago
+const STALE_DATE = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000) // 40 days ago
 const FRESH_DATE = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)  // 1 day ago
 
 function makeListing(overrides: Partial<{
@@ -96,12 +96,14 @@ function makeListing(overrides: Partial<{
 }
 
 function makeDb(listings: ReturnType<typeof makeListing>[], overrides?: {
+  staleDays?: number
   imageClusterCount?: Partial<Record<string, number>>
   listingImageCount?: number
   /** ScraperRun rows returned for every source — defaults to none (empty-state, #986). */
   scraperRuns?: { isCompleteCrawl: boolean | null; markGoneNewlyGoneCount: number | null }[]
 }) {
   const db = {
+    configEntry: { findFirst: vi.fn().mockResolvedValue(overrides?.staleDays === undefined ? null : { key: 'detail_crawl.stale_days', value: overrides.staleDays, type: 'number', id: 'setting', createdAt: new Date(), createdBy: null, description: null, hint: null }) },
     source: {
       findMany: vi.fn().mockResolvedValue([{ id: 'test-source' }]),
     },
@@ -269,6 +271,14 @@ describe('runListingQualityAudit', () => {
     expect(src.staleDetailSamples).not.toContain('fresh')
   })
 
+  it('uses the configured detail staleness window', async () => {
+    const listings = [makeListing({ id: 'twenty-days', detailScrapedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) })]
+    const db = makeDb(listings, { staleDays: 14 })
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>)
+    const report = await runListingQualityAudit({})
+    expect(report.bySources[0]?.staleDetailCount).toBe(1)
+  })
+
   it('counts accessibility conflicts', async () => {
     const listings = [
       makeListing({ id: 'ok' }),
@@ -390,6 +400,7 @@ describe('runListingQualityAudit', () => {
 
   it('scopes to a single source when sourceId is provided', async () => {
     const db = {
+      configEntry: { findFirst: vi.fn().mockResolvedValue(null) },
       source: {
         findMany: vi.fn().mockResolvedValue([{ id: 'source-a' }]),
       },

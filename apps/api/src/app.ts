@@ -48,6 +48,7 @@ import { internalOpsDealerSiteCandidatesRoutes } from './routes/internal-ops-dea
 import { adminVehicleIdentityRoutes } from './routes/admin-vehicle-identity.js'
 import { adminAiRoutes } from './routes/admin-ai.js'
 import { adminConfigRoutes } from './routes/admin-config.js'
+import { ConfigService } from './services/config-service.js'
 import { adminLogsRoutes } from './routes/admin-logs.js'
 import { adminAttentionRoutes } from './routes/admin-attention.js'
 import { adminPrivateSellerRetentionRoutes } from './routes/admin-private-seller-retention.js'
@@ -134,7 +135,8 @@ export async function buildApp(
 
   const { registry, httpRequests, httpDuration } = createMetricsRegistry()
 
-  const listingRepo = new PrismaListingRepository(db)
+  const operatorConfig = new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)
+  const listingRepo = new PrismaListingRepository(db, operatorConfig)
   const vehicleRepo = new PrismaVehicleRepository(db)
   const sourceRepo = new PrismaSourceRepository(db)
   const scraperRunRepo = new PrismaScraperRunRepository(db)
@@ -335,6 +337,7 @@ export async function buildApp(
       await adminScope.register(adminRoutes, {
         db,
         listings: listingRepo,
+        operatorConfig,
         sources: sourceRepo,
         scraperRuns: scraperRunRepo,
         jobRuns: jobRunRepo,

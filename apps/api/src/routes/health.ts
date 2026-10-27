@@ -1,3 +1,4 @@
+import { ConfigService } from '../services/config-service.js'
 import type { FastifyPluginAsync } from 'fastify'
 import type { CacheService } from '../services/cache/index.js'
 import type { Meilisearch } from 'meilisearch'
@@ -13,7 +14,6 @@ const LATENCY_THRESHOLDS_MS = {
   ollama: 750,
 } as const
 
-const SCRAPER_STALE_MS = 24 * 60 * 60 * 1000
 const PROBE_TIMEOUT_MS = 1500
 
 interface HealthPluginOptions {
@@ -43,7 +43,7 @@ export async function computeHealth({ db, sources, scraperRuns, meili, cache, co
     probe('meilisearch', () => meili.health()),
     probe('valkey', () => cache.ping()),
     probeOllama(config),
-    getScraperHealth(sources, scraperRuns),
+    getScraperHealth(sources, scraperRuns, new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)),
   ])
 
   const services = { postgres, meilisearch, valkey, ollama, scraper }
@@ -85,7 +85,7 @@ async function probe(name: ProbeName, fn: () => Promise<unknown>): Promise<Servi
   }
 }
 
-async function getScraperHealth(sources: SourceRepository, scraperRuns: ScraperRunRepository): Promise<ServiceHealth> {
+async function getScraperHealth(sources: SourceRepository, scraperRuns: ScraperRunRepository, operatorConfig: ConfigService): Promise<ServiceHealth> {
   try {
     const [sourceCount, activeSourceCount, lastRun] = await withTimeout(
       Promise.all([
@@ -106,7 +106,8 @@ async function getScraperHealth(sources: SourceRepository, scraperRuns: ScraperR
     const finishedAt = lastRun.finishedAt
     const lastRunAt = finishedAt.toISOString()
     const ageMs = Date.now() - finishedAt.getTime()
-    const stale = ageMs > SCRAPER_STALE_MS
+    const staleHours = await operatorConfig.getOperatorSetting('health.scraper_stale_hours')
+    const stale = ageMs > staleHours * 60 * 60 * 1000
     return {
       status: stale ? 'degraded' : 'up',
       lastRunAt,

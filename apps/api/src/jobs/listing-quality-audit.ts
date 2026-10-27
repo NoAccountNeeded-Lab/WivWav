@@ -1,3 +1,5 @@
+import { ConfigService } from '../services/config-service.js'
+import { MemoryCacheService } from '../services/cache/index.js'
 /**
  * Listing quality audit (issue #505).
  *
@@ -23,7 +25,7 @@
  *   3. unknown-value rates for enum fields (conversionType, rampType)
  *   4. validation/quarantine breakdown by source
  *   5. accessibility conflicts (quarantine due to unsupported accessibility claim)
- *   6. stale observations (detail not scraped in >14 days for active listings)
+ *   6. stale observations (detail older than the configured detail crawl window)
  *   7. VIN / no-VIN split — no-VIN candidate counts
  *   8. exact/near-duplicate photo clusters (from image_cluster table)
  *   9. suspected placeholder clusters
@@ -65,7 +67,6 @@ import { isMainModule } from '../lib/main-module.js'
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const BATCH_SIZE = 500
-const STALE_DETAIL_DAYS = 14
 const MAX_REPRESENTATIVE_IDS = 10
 /** Trailing window (#986) for the crawl-completeness / gone-promotion report dimension. */
 const CRAWL_COMPLETENESS_WINDOW_DAYS = 30
@@ -160,6 +161,7 @@ export interface ListingQualityReport {
   auditedAt: string
   /** Extraction/analysis version so results can be tied to deployed logic. */
   auditVersion: number
+  staleDetailDays: number
   /** Total active listings across all sources. */
   totalActive: number
   /** Total listings across all sources and statuses. */
@@ -212,8 +214,9 @@ async function scanSourceListings(
   db: DbClient,
   sourceId: string,
   opts: { limit?: number },
+  staleDays: number,
 ): Promise<SourceSummary> {
-  const staleThreshold = new Date(Date.now() - STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000)
+  const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000)
 
   const summary: SourceSummary = {
     sourceId,
@@ -500,6 +503,8 @@ export async function runListingQualityAudit(opts: {
   const auditedAt = new Date().toISOString()
   const crawlCompletenessWindowDays = opts.crawlCompletenessWindowDays ?? CRAWL_COMPLETENESS_WINDOW_DAYS
 
+  const operatorConfig = new ConfigService(db, new MemoryCacheService(), undefined)
+  const staleDays = await operatorConfig.getOperatorSetting('detail_crawl.stale_days')
   const sources = await getSources(db, opts.sourceId)
   const bySources: SourceSummary[] = []
   const crawlCompleteness: CrawlCompletenessSummary[] = []
@@ -507,7 +512,7 @@ export async function runListingQualityAudit(opts: {
   for (const src of sources) {
     const scanOpts: { limit?: number } = {}
     if (opts.limit !== undefined) scanOpts.limit = opts.limit
-    const summary = await scanSourceListings(db, src.id, scanOpts)
+    const summary = await scanSourceListings(db, src.id, scanOpts, staleDays)
     bySources.push(summary)
     crawlCompleteness.push(await auditCrawlCompleteness(db, src.id, crawlCompletenessWindowDays))
   }
@@ -556,6 +561,7 @@ export async function runListingQualityAudit(opts: {
   return {
     auditedAt,
     auditVersion: AUDIT_VERSION,
+    staleDetailDays: staleDays,
     totalActive,
     totalAll,
     bySources,
@@ -599,7 +605,7 @@ function printReport(report: ListingQualityReport): void {
     console.log(`  Quarantined:         ${src.quarantinedListings}`)
     console.log(`  Pending:             ${src.pendingListings}`)
     console.log(`  No-VIN active:       ${src.noVinCount}`)
-    console.log(`  Stale detail (>${STALE_DETAIL_DAYS}d): ${src.staleDetailCount}`)
+    console.log(`  Stale detail (>${report.staleDetailDays}d): ${src.staleDetailCount}`)
     console.log(`  A11y conflicts:      ${src.accessibilityConflictCount}`)
     console.log(`  Same-source dups:    ${src.sameSourceDuplicateCount}`)
     console.log(`  Cross-source dups:   ${src.crossSourceDuplicateCount}`)
