@@ -122,7 +122,7 @@ export interface OverviewInput {
    */
   pending?: Partial<Record<OverviewResourceKey, boolean>>
   now: Date
-  scraperStaleHours?: number
+  scraperStaleHours?: number | null
 }
 
 
@@ -191,7 +191,7 @@ export function buildOpsOverview(input: OverviewInput): OverviewModel {
       label: 'Last successful scrape',
       value: runError ? 'Unavailable' : lastSuccessfulRunRelative ?? 'Not yet tracked',
       detail: runError ?? (lastSuccessfulRun ? `${lastSuccessfulRun.sourceName ?? 'Unknown source'} finished most recently` : 'No successful scraper run found in recent history'),
-      severity: runError ? 'unknown' : staleSeverity(lastScrapeAgeMs, input.scraperStaleHours ?? OPERATOR_SETTINGS['health.scraper_stale_hours'].defaultValue),
+      severity: runError ? 'unknown' : staleSeverity(lastScrapeAgeMs, input.scraperStaleHours === undefined ? OPERATOR_SETTINGS['health.scraper_stale_hours'].defaultValue : input.scraperStaleHours),
       href: '/ops/runs',
       ...(lastSuccessfulRunTitle ? { title: lastSuccessfulRunTitle } : {}),
     },
@@ -346,8 +346,8 @@ function findLastSuccessfulRun(runs: RunRow[] | null): RunRow | null {
     .sort((a, b) => new Date(b.finishedAt ?? 0).getTime() - new Date(a.finishedAt ?? 0).getTime())[0] ?? null
 }
 
-function staleSeverity(ageMs: number | null, hours: number): OverviewSeverity {
-  if (ageMs == null) return 'unknown'
+function staleSeverity(ageMs: number | null, hours: number | null): OverviewSeverity {
+  if (ageMs == null || hours == null) return 'unknown'
   if (ageMs > hours * 2 * 60 * 60 * 1000) return 'critical'
   if (ageMs > hours * 60 * 60 * 1000) return 'warning'
   return 'good'

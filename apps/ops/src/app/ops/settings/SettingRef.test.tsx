@@ -17,6 +17,13 @@ describe('SettingRef', () => {
     expect(screen.getByText('Loading setting…')).toBeDefined()
     const link = await screen.findByRole('link', { name: /detail_crawl.batch_size: 50/ })
     expect(link.getAttribute('href')).toBe('/ops/settings/detail_crawl.batch_size')
+    expect(screen.getByText('(default)')).toBeDefined()
+  })
+
+  it('marks the default as unavailable outside a provider', () => {
+    render(<SettingRef settingKey="detail_crawl.batch_size" />)
+    expect(screen.getByText('(default; settings unavailable)')).toBeDefined()
+    expect(screen.getByRole('link').getAttribute('aria-label')).toContain('settings unavailable')
   })
 
   it('shows an error when the config request fails', async () => {
