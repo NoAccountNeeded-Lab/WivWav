@@ -233,6 +233,8 @@ export type VinEnrichCandidate = z.infer<typeof vinEnrichCandidateSchema>
 
 export const vinEnrichClaimResponseSchema = z.object({
   listings: z.array(vinEnrichCandidateSchema),
+  /** Lock token stamped on every claimed row; hand back to resolve so release is ownership-aware. */
+  lockedAt: z.string().datetime().optional(),
 })
 export type VinEnrichClaimResponse = z.infer<typeof vinEnrichClaimResponseSchema>
 
@@ -246,6 +248,7 @@ export type VinEnrichClaimResponse = z.infer<typeof vinEnrichClaimResponseSchema
 export const vinEnrichResolveRequestSchema = z.discriminatedUnion('outcome', [
   z.object({
     listingId: z.string().min(1),
+    lockedAt: z.string().datetime().optional(),
     outcome: z.literal('enriched'),
     decoded: z.object({
       make: z.string().min(1),
@@ -257,11 +260,13 @@ export const vinEnrichResolveRequestSchema = z.discriminatedUnion('outcome', [
   }),
   z.object({
     listingId: z.string().min(1),
+    lockedAt: z.string().datetime().optional(),
     outcome: z.literal('mismatched'),
     qualityIssueCodes: z.array(z.string()),
   }),
   z.object({
     listingId: z.string().min(1),
+    lockedAt: z.string().datetime().optional(),
     outcome: z.literal('failed'),
   }),
 ])

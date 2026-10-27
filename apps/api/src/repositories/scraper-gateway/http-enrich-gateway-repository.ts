@@ -188,7 +188,8 @@ export class HttpEnrichGatewayRepository {
    * that listing (operator requeue, #1169): the same lock-null-or-stale
    * condition applies, so a live worker's claim is never taken over.
    */
-  async claimVinEnrichListings(limit: number, listingId?: string): Promise<VinEnrichCandidate[]> {
+  async claimVinEnrichListings(limit: number, listingId?: string,
+  ): Promise<{ listings: VinEnrichCandidate[]; lockedAt: string }> {
     const now = new Date()
     const staleThreshold = new Date(now.getTime() - LOCK_TTL_MS)
 
@@ -206,13 +207,13 @@ export class HttpEnrichGatewayRepository {
       )
       RETURNING id
     `
-    if (claimed.length === 0) return []
+    if (claimed.length === 0) return { listings: [], lockedAt: now.toISOString() }
 
     const listings = await this.db.listing.findMany({
       where: { id: { in: claimed.map((row) => row.id) } },
       select: { id: true, vin: true, make: true, model: true, year: true },
     })
-    return listings
+    const candidates = listings
       .filter((listing): listing is typeof listing & { vin: string } => listing.vin !== null)
       .map((listing) => ({
         id: listing.id,
@@ -221,6 +222,7 @@ export class HttpEnrichGatewayRepository {
         model: listing.model,
         year: listing.year,
       }))
+    return { listings: candidates, lockedAt: now.toISOString() }
   }
 
   private async findOrCreateVehicleModel(
@@ -295,7 +297,12 @@ export class HttpEnrichGatewayRepository {
       // outcome === 'failed': nothing to persist besides releasing the lock.
       return { vehicleModelId: null }
     } finally {
-      await this.db.listing.update({ where: { id: body.listingId }, data: { processingLockedAt: null } })
+      // With a claim token, release only our own lock: a slow claimant must not
+      // clear the lock of a newer worker that took over a stale one (#1169).
+      await this.db.listing.updateMany({
+        where: { id: body.listingId, ...(body.lockedAt ? { processingLockedAt: new Date(body.lockedAt) } : {}) },
+        data: { processingLockedAt: null },
+      })
     }
   }
 

@@ -109,4 +109,22 @@ describe('createVinEnrichHandler', () => {
     await handler({}, 'corr-6')
     expect(claimVinEnrichListings).toHaveBeenCalledWith(expect.any(Number), undefined)
   })
+
+  it('hands the claim lock token back on resolve', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ Results: [] })))
+    const resolveVinEnrichListing = vi.fn(async () => ({ vehicleModelId: null }))
+    const gateway = fakeGateway({
+      claimVinEnrichListings: vi.fn(async () => ({
+        listings: [{ id: 'l1', vin: '1FTBW2CM5NKA12345', make: 'Toyota', model: 'Sienna', year: 2023 }],
+        lockedAt: '2026-10-27T00:00:00.000Z',
+      })),
+      resolveVinEnrichListing,
+    })
+    await createVinEnrichHandler(gateway, createNoopLogger())({ listingId: 'l1' }, 'corr-7')
+    expect(resolveVinEnrichListing).toHaveBeenCalledWith({
+      listingId: 'l1',
+      lockedAt: '2026-10-27T00:00:00.000Z',
+      outcome: 'failed',
+    })
+  })
 })
