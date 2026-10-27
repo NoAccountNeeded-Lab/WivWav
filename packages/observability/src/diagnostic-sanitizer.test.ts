@@ -336,4 +336,15 @@ describe('narrowed free-text rules (#776)', () => {
     expect(sanitizeString('api key=S')).not.toMatch(/=S/)
     expect(sanitizeString('line1 ok\ntoken: T rest\nline3')).toBe('line1 ok\ntoken:[REDACTED]\nline3')
   })
+  it('fails closed on homoglyph names and hidden \\u escapes (codex review)', () => {
+    expect(json(sanitize({ t\u03BFken: 'LEAK', ok: 1 }))).not.toContain('LEAK')
+    expect(sanitizeString('t\u03BFken=LEAK')).not.toContain('LEAK')
+    expect(sanitizeString('log: {"\\u0074oken":"LEAK",} tail')).not.toContain('LEAK')
+  })
+
+  it('does not enumerate a huge object before applying the node budget', () => {
+    const big: Record<string, number> = {}
+    for (let i = 0; i < 50_000; i += 1) big[`k${i}`] = i
+    expect(Object.keys(sanitize(big) as object).length).toBeLessThan(25_000)
+  })
 })
