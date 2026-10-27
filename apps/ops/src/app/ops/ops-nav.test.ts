@@ -11,7 +11,6 @@ const KNOWN_NEXT_ROUTES = new Set([
   '/ops/config',
   '/ops/settings',
   '/ops/privacy-requests',
-  '/ops/ebay-motors-search',
   '/ops/field-conflicts',
   '/ops/logs',
   '/ops/problems',
@@ -69,7 +68,6 @@ describe('OPS_NAV_GROUPS', () => {
       '/ops/workers',
       '/ops/config',
       '/ops/settings',
-      '/ops/ebay-motors-search',
       '/ops/privacy-requests',
       '/admin/board',
     ]))

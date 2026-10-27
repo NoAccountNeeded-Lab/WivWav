@@ -9,7 +9,7 @@ const PULL_TIMEOUT_MS = 30 * 60_000
  * Proxies `POST /api/pull` from the ops server to the connected Ollama
  * instance and streams the newline-delimited JSON progress body straight
  * through to the browser (#250). The browser never talks to Ollama directly —
- * same server-side-only pattern as `apps/ops/src/app/api/ai-test/*`.
+ * same server-side-only pattern as the other ops proxy routes.
  */
 export async function POST(req: NextRequest): Promise<NextResponse | Response> {
   let body: unknown
