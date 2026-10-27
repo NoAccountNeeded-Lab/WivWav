@@ -1,3 +1,4 @@
+import { isOperatorSettingKey } from '@wivwav/types/operator-settings'
 import type { FastifyPluginAsync } from 'fastify'
 import {
   type Prisma,
@@ -43,10 +44,6 @@ import { SourceGatewayRepository } from '../repositories/scraper-gateway/source-
 import { ConfigService } from '../services/config-service.js'
 import type { CacheService } from '../services/cache/index.js'
 
-const DETAIL_CRAWL_BATCH_SIZE = 50
-const DETAIL_CRAWL_STALE_DETAIL_DAYS = 30
-const DETAIL_EXTRACT_BATCH_SIZE = 100
-
 export interface InternalScraperRoutesOptions {
   db: PrismaClient
   queueFactory: QueueFactory
@@ -77,6 +74,11 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
   const sources = new SourceGatewayRepository(db, logger)
   const resolutionQueue = queueFactory.createQueue(QUEUES.LISTING_RESOLVE)
   const config = new ConfigService(db, cache, configEncryptionSecret)
+
+  app.get<{ Params: { key: string } }>('/config/:key', async (req, reply) => {
+    if (!isOperatorSettingKey(req.params.key)) return reply.notFound('Unknown operator setting')
+    return reply.send({ data: { key: req.params.key, value: await config.getOperatorSetting(req.params.key) } })
+  })
 
   // --- scraper runs ---
 
@@ -278,9 +280,8 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
 
   app.post('/detail-crawl/pending-listings', async (req, reply) => {
     const body = detailCrawlPendingListingsRequestSchema.parse(req.body)
-    const staleThreshold = new Date(
-      Date.now() - DETAIL_CRAWL_STALE_DETAIL_DAYS * 24 * 60 * 60 * 1000,
-    )
+    const staleDays = await config.getOperatorSetting('detail_crawl.stale_days')
+    const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000)
     const listings = await db.listing.findMany({
       where: {
         sourceId: body.sourceId,
@@ -292,7 +293,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
         ],
       },
       select: { sourceUrl: true, status: true },
-      take: body.limit ?? DETAIL_CRAWL_BATCH_SIZE,
+      take: body.limit ?? await config.getOperatorSetting('detail_crawl.batch_size'),
       orderBy: { listedAt: 'asc' },
     })
     return reply.send({ data: { listings } })
@@ -328,7 +329,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
     const rawPages = await db.rawPage.findMany({
       where: { sourceId: body.sourceId, processedAt: null },
       select: { id: true, url: true, html: true, scrapedAt: true },
-      take: body.limit ?? DETAIL_EXTRACT_BATCH_SIZE,
+      take: body.limit ?? await config.getOperatorSetting('detail_extract.batch_size'),
     })
     return reply.send({ data: { rawPages } })
   })

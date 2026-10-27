@@ -1,3 +1,4 @@
+import { resolveOperatorSetting, type OperatorSettingKey } from '@wivwav/types/operator-settings'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import type { CacheService } from './cache/index.js'
 import { Prisma, type PrismaClient } from '@wivwav/db'
@@ -117,6 +118,10 @@ export class ConfigService {
     return mapped
   }
 
+  async getOperatorSetting(key: OperatorSettingKey): Promise<number> {
+    return resolveOperatorSetting(key, await this.get(key))
+  }
+
   /**
    * Get the decrypted plaintext for a secret key.
    * Returns null if the key doesn't exist or isn't a secret.
@@ -152,13 +157,17 @@ export class ConfigService {
       createdBy: string | null
     }>>`
       WITH latest AS (
-        SELECT DISTINCT ON (key) id, key, value, type, description, hint, "createdAt", "createdBy"
+        SELECT DISTINCT ON (config_entry.key)
+          config_entry.id, config_entry.key, config_entry.value, config_entry.type,
+          config_entry.description, config_entry.hint, config_entry."createdAt", config_entry."createdBy"
         FROM config_entry
-        ORDER BY key, "createdAt" DESC
+        ORDER BY config_entry.key, config_entry."createdAt" DESC
       )
-      SELECT * FROM latest
-      WHERE (type != 'secret' AND value IS NOT NULL)
-         OR (type = 'secret' AND hint IS NOT NULL)
+      SELECT latest.id, latest.key, latest.value, latest.type,
+             latest.description, latest.hint, latest."createdAt", latest."createdBy"
+      FROM latest
+      WHERE (latest.type != 'secret' AND latest.value IS NOT NULL)
+         OR (latest.type = 'secret' AND latest.hint IS NOT NULL)
     `
     return rows.map(mapRow)
   }

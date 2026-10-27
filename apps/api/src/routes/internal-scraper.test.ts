@@ -5,6 +5,7 @@ import { MockQueueFactory } from '@wivwav/queue'
 import { describe, expect, it, vi } from 'vitest'
 import { internalScraperRoutes } from './internal-scraper.js'
 import { encryptSecret } from '../services/config-service.js'
+import { adminAuthPlugin } from '../plugins/admin-auth.js'
 
 const TEST_ENCRYPTION_SECRET = 'a'.repeat(64)
 
@@ -252,7 +253,7 @@ function createFakeDb() {
   }
 }
 
-function buildTestApp() {
+function buildTestApp(workerToken?: string) {
   const fake = createFakeDb()
   const queueFactory = new MockQueueFactory()
   const app = Fastify()
@@ -272,11 +273,14 @@ function buildTestApp() {
   }
   const ready = app
     .register(sensible)
-    .register(internalScraperRoutes, {
+    .register(async (scope) => {
+      await adminAuthPlugin(scope, { internalApiSecret: workerToken, nodeEnv: 'test' })
+      await scope.register(internalScraperRoutes, {
       db: fake.db as never,
       queueFactory,
       cache: cache as never,
       configEncryptionSecret: TEST_ENCRYPTION_SECRET,
+      })
     })
   return { app, ready, ...fake }
 }
@@ -788,6 +792,55 @@ describe('GET /sources/ebay-motors/credentials (#999)', () => {
     await ready
     const response = await app.inject({ method: 'GET', url: '/sources/ebay-motors/credentials' })
     expect(response.json().data.environment).toBe('sandbox')
+    await app.close()
+  })
+})
+
+
+describe('GET /config/:key', () => {
+  it('returns a registry default with no row', async () => {
+    const { app, ready } = buildTestApp()
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/config/detail_crawl.batch_size' })
+    expect(response.json()).toEqual({ data: { key: 'detail_crawl.batch_size', value: 50 } })
+    await app.close()
+  })
+
+  it('clamps a stored value at the upper bound', async () => {
+    const { app, ready, configEntries } = buildTestApp()
+    configEntries.push({ key: 'detail_crawl.batch_size', value: 900, type: 'number', createdAt: new Date(), id: '1', description: null, hint: null, createdBy: null })
+    await ready
+    const response = await app.inject({ method: 'GET', url: '/config/detail_crawl.batch_size' })
+    expect(response.json().data.value).toBe(500)
+    await app.close()
+  })
+
+  it('uses the default for a wrong-type or tombstoned row', async () => {
+    const { app, ready, configEntries } = buildTestApp()
+    configEntries.push({ key: 'detail_crawl.batch_size', value: '900', type: 'string', createdAt: new Date('2026-01-01'), id: '1', description: null, hint: null, createdBy: null })
+    await ready
+    const wrongType = await app.inject({ method: 'GET', url: '/config/detail_crawl.batch_size' })
+    configEntries.push({ key: 'detail_crawl.batch_size', value: null, type: 'number', createdAt: new Date('2026-01-02'), id: '2', description: null, hint: null, createdBy: null })
+    const tombstone = await app.inject({ method: 'GET', url: '/config/detail_crawl.batch_size' })
+    expect([wrongType.json().data.value, tombstone.json().data.value]).toEqual([50, 50])
+    await app.close()
+  })
+
+  it('rejects unknown and secret keys', async () => {
+    const { app, ready } = buildTestApp()
+    await ready
+    const unknown = await app.inject({ method: 'GET', url: '/config/no.such.key' })
+    const secret = await app.inject({ method: 'GET', url: '/config/ebay.motors.app-id' })
+    expect([unknown.statusCode, secret.statusCode]).toEqual([404, 404])
+    await app.close()
+  })
+
+  it('requires the worker token', async () => {
+    const { app, ready } = buildTestApp('worker-secret')
+    await ready
+    const missing = await app.inject({ method: 'GET', url: '/config/detail_crawl.batch_size' })
+    const authorized = await app.inject({ method: 'GET', url: '/config/detail_crawl.batch_size', headers: { authorization: 'Bearer worker-secret' } })
+    expect([missing.statusCode, authorized.statusCode]).toEqual([401, 200])
     await app.close()
   })
 })

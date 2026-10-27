@@ -1,3 +1,5 @@
+import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
+import type { ConfigService } from '../services/config-service.js'
 import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
 import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
@@ -63,6 +65,7 @@ function quarantineRowToResponse(row: QuarantinedListingRow) {
 interface AdminPluginOptions {
   db: PrismaClient
   listings: ListingRepository
+  operatorConfig?: ConfigService
   sources: SourceRepository
   scraperRuns: ScraperRunRepository
   jobRuns: JobRunRepository
@@ -83,7 +86,6 @@ const SOURCE_SCOPED_QUEUES = new Set<string>([
 // window is flagged as stalled rather than just "busy". Kept generous
 // relative to the slowest legitimate cadence (detail-crawl runs hourly;
 // geocode/dedupe run nightly) so normal scheduling gaps do not false-positive.
-const STALL_THRESHOLD_MS = 6 * 60 * 60 * 1000
 
 // Pipeline stages shown on the per-source view, in pipeline order. Each
 // DB-derivable stage (detail-crawl, detail-extract, geocode, vin-enrich) maps
@@ -145,7 +147,7 @@ const queueJobBodySchema = {
 
 export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   app,
-  { db, listings, sources, scraperRuns, jobRuns, queueFactory, jobRunReaper },
+  { db, listings, operatorConfig, sources, scraperRuns, jobRuns, queueFactory, jobRunReaper },
 ) => {
   const queues = new Map<string, QueueAdapter>()
   for (const name of Object.values(QUEUES)) {
@@ -349,6 +351,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
       )
       const failuresByStage = new Map(dbStageQueueResults.map((r) => [r.stageKey, r]))
 
+      const stallThresholdMs = (await operatorConfig?.getOperatorSetting('ops.stall_threshold_hours') ?? OPERATOR_SETTINGS['ops.stall_threshold_hours'].defaultValue) * 60 * 60 * 1000
       const stages: SourcePipelineStage[] = [
         {
           // source-scrape has no per-item "pending" count of its own (a scrape
@@ -366,7 +369,7 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
         ...dbStages.map((dbStage) => {
           const failures = failuresByStage.get(dbStage.stage)
           const stalled = dbStage.pendingCount > 0
-            && (dbStage.lastCompletedAt === null || Date.now() - dbStage.lastCompletedAt.getTime() > STALL_THRESHOLD_MS)
+            && (dbStage.lastCompletedAt === null || Date.now() - dbStage.lastCompletedAt.getTime() > stallThresholdMs)
           return {
             stage: dbStage.stage,
             queue: failures?.queueName ?? dbStage.stage,

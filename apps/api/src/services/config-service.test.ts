@@ -420,3 +420,17 @@ describe('ConfigService.history', () => {
     expect(await svc.history('missing.key')).toEqual([])
   })
 })
+
+describe('ConfigService.getOperatorSetting', () => {
+  const cache = { get: vi.fn(async () => null), set: vi.fn(async () => undefined), del: vi.fn(async () => undefined) }
+  it('returns the current default when no row exists', async () => {
+    const db = { configEntry: { findFirst: vi.fn(async () => null) } }
+    const svc = new ConfigService(db as never, cache as never, undefined)
+    expect(await svc.getOperatorSetting('search.indexer.batch_size')).toBe(500)
+  })
+  it('clamps a stored numeric row at the lower bound', async () => {
+    const db = { configEntry: { findFirst: vi.fn(async () => ({ key: 'search.indexer.batch_size', type: 'number', value: -10, id: '1', createdAt: new Date(), createdBy: null, description: null, hint: null })) } }
+    const svc = new ConfigService(db as never, cache as never, undefined)
+    expect(await svc.getOperatorSetting('search.indexer.batch_size')).toBe(1)
+  })
+})

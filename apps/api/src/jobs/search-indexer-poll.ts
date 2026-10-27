@@ -1,3 +1,5 @@
+import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
+import type { ConfigService } from '../services/config-service.js'
 import { getDb } from '@wivwav/db'
 import type { PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
@@ -30,15 +32,6 @@ import { rebuildMeilisearchIndex } from './meilisearch-sync.js'
  * eligibility and group representation from the database on every call
  * (idempotent).
  */
-
-const BATCH_SIZE = 500
-
-/**
- * Bounds the number of batches processed per invocation so a single run
- * cannot run unboundedly long under heavy write volume — a large backlog is
- * drained over several scheduled ticks instead of one long-running job.
- */
-const MAX_BATCHES_PER_RUN = 20
 
 const CHECKPOINT_ID = 'listings'
 
@@ -119,17 +112,17 @@ async function repairOrphanedSearchCatalog(
  * `(updatedAt, id)` so pagination stays stable even when many rows share the
  * same millisecond timestamp (a common outcome of batched updates).
  */
-async function fetchTouchedPage(db: PrismaClient, after: Checkpoint): Promise<TouchedRow[]> {
+async function fetchTouchedPage(db: PrismaClient, after: Checkpoint, batchSize: number): Promise<TouchedRow[]> {
   return db.$queryRaw<TouchedRow[]>`
-    SELECT id, "updatedAt"
+    SELECT listings.id, listings."updatedAt"
     FROM listings
-    WHERE ("updatedAt", id) > (${after.lastUpdatedAt}, ${after.lastId})
-    ORDER BY "updatedAt", id
-    LIMIT ${BATCH_SIZE}
+    WHERE (listings."updatedAt", listings.id) > (${after.lastUpdatedAt}, ${after.lastId})
+    ORDER BY listings."updatedAt", listings.id
+    LIMIT ${batchSize}
   `
 }
 
-export async function runSearchIndexerPollJob(context?: JobContext): Promise<void> {
+export async function runSearchIndexerPollJob(context?: JobContext, operatorConfig?: ConfigService): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
   // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
@@ -138,15 +131,18 @@ export async function runSearchIndexerPollJob(context?: JobContext): Promise<voi
   // connection roughly once a minute while concurrent HTTP traffic may be
   // using the same client.
   await repairOrphanedSearchCatalog(context, db, client)
-  await pollOnce(context, db, client)
+  const batchSize = await operatorConfig?.getOperatorSetting('search.indexer.batch_size') ?? OPERATOR_SETTINGS['search.indexer.batch_size'].defaultValue
+  // Bound each invocation so a backlog drains over scheduled ticks.
+  const maxBatches = await operatorConfig?.getOperatorSetting('search.indexer.max_batches') ?? OPERATOR_SETTINGS['search.indexer.max_batches'].defaultValue
+  await pollOnce(context, db, client, batchSize, maxBatches)
 }
 
-async function pollOnce(context: JobContext | undefined, db: PrismaClient, client: Meilisearch): Promise<void> {
+async function pollOnce(context: JobContext | undefined, db: PrismaClient, client: Meilisearch, batchSize: number, maxBatches: number): Promise<void> {
   let checkpoint = await loadCheckpoint(db)
   let totalSynced = 0
 
-  for (let batch = 0; batch < MAX_BATCHES_PER_RUN; batch++) {
-    const rows = await fetchTouchedPage(db, checkpoint)
+  for (let batch = 0; batch < maxBatches; batch++) {
+    const rows = await fetchTouchedPage(db, checkpoint, batchSize)
     if (rows.length === 0) break
 
     const ids = rows.map((row) => row.id)
@@ -158,7 +154,7 @@ async function pollOnce(context: JobContext | undefined, db: PrismaClient, clien
     await advanceCheckpoint(db, checkpoint)
     totalSynced += rows.length
 
-    if (rows.length < BATCH_SIZE) break
+    if (rows.length < batchSize) break
   }
 
   if (totalSynced > 0) {

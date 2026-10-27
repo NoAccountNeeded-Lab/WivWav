@@ -9,6 +9,7 @@ process.on('uncaughtException', (err) => handleUncaughtException(err))
 import { Meilisearch } from 'meilisearch'
 import { Redis } from 'ioredis'
 import { RedisCacheService } from './services/cache/index.js'
+import { ConfigService } from './services/config-service.js'
 import { getDb, readCurrentScheduleIntents } from '@wivwav/db'
 import { BullMQQueueFactory, QUEUES } from '@wivwav/queue'
 import { loadConfig } from './config.js'
@@ -48,6 +49,7 @@ const db = getDb()
 const meili = new Meilisearch({ host: config.MEILISEARCH_HOST, apiKey: config.MEILISEARCH_API_KEY })
 const redis = new Redis(config.VALKEY_URL, { lazyConnect: true, enableOfflineQueue: false })
 const cache = new RedisCacheService(redis)
+const operatorConfig = new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)
 const searchService = new MeilisearchService(meili)
 const search = new ListingSearchService(searchService)
 const facets = new ListingFacetsService(searchService, cache)
@@ -219,7 +221,7 @@ function registerWorkers(): void {
     withSentryCapture(
       QUEUES.LISTING_INDEX_POLL,
       withJobRunTracking(QUEUES.LISTING_INDEX_POLL, jobRuns, (_data: unknown, context) =>
-        runSearchIndexerPollJob(context),
+        runSearchIndexerPollJob(context, operatorConfig),
       ),
     ),
     { lockDuration: 120_000, logger: app.log },
@@ -239,7 +241,7 @@ function registerWorkers(): void {
     withSentryCapture(
       QUEUES.RAWPAGE_CLEANUP,
       withJobRunTracking(QUEUES.RAWPAGE_CLEANUP, jobRuns, (_data: unknown, context) =>
-        runRawPageCleanupJob(context),
+        runRawPageCleanupJob(context, operatorConfig),
       ),
     ),
     { lockDuration: 120_000, logger: app.log },

@@ -25,7 +25,7 @@ const baseConfig = {
 
 const baseDeps = {
   meili: { health: vi.fn(async () => ({ status: 'available' })) } as never,
-  cache: { ping: vi.fn(async () => undefined) } as never,
+  cache: { ping: vi.fn(async () => undefined), get: vi.fn(async () => null), set: vi.fn(async () => undefined) } as never,
   config: baseConfig,
 }
 
@@ -67,6 +67,7 @@ describe('healthRoutes', () => {
       ...buildHealthDeps(2, { finishedAt: new Date(Date.now() - 60_000) }),
       db: {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
+        configEntry: { findFirst: vi.fn(async () => null) },
       } as never,
     })
 
@@ -97,6 +98,7 @@ describe('healthRoutes', () => {
       ...buildHealthDeps(2, null),
       db: {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
+        configEntry: { findFirst: vi.fn(async () => null) },
       } as never,
     })
 
@@ -124,6 +126,7 @@ describe('healthRoutes', () => {
       ...buildHealthDeps(2, null),
       db: {
         $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
+        configEntry: { findFirst: vi.fn(async () => null) },
       } as never,
     })
 

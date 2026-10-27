@@ -1,10 +1,8 @@
+import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
+import type { ConfigService } from '../services/config-service.js'
 import { randomUUID } from 'node:crypto'
 import { SourceStatus, type PrismaClient, type Listing, type ListingImageSemanticAnalysis, type Prisma, type ConversionStatus, type WavFeature } from '@wivwav/db'
 
-// Mirrors DETAIL_CRAWL_STALE_DETAIL_DAYS in routes/internal-scraper.ts — a
-// listing whose detail page was last crawled longer ago than this is treated
-// as pending re-crawl, same as the job itself would pick it up again.
-const STALE_DETAIL_CRAWL_DAYS = 30
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -416,7 +414,7 @@ export interface ListingRepository {
 // ── Prisma implementation ────────────────────────────────────────────────────
 
 export class PrismaListingRepository implements ListingRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: PrismaClient, private readonly operatorConfig?: ConfigService) {}
 
   findById(id: string): Promise<ListingWithSource | null> {
     return this.db.listing.findFirst({
@@ -1015,7 +1013,8 @@ export class PrismaListingRepository implements ListingRepository {
   }
 
   async getSourcePipelineStages(sourceId: string): Promise<SourcePipelineStageRow[]> {
-    const staleThreshold = new Date(Date.now() - STALE_DETAIL_CRAWL_DAYS * 24 * 60 * 60 * 1000)
+    const staleDays = await this.operatorConfig?.getOperatorSetting('detail_crawl.stale_days') ?? OPERATOR_SETTINGS['detail_crawl.stale_days'].defaultValue
+    const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000)
 
     const [
       pendingDetailCrawl,
