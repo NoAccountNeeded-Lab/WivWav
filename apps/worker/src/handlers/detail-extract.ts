@@ -185,7 +185,7 @@ export function createDetailExtractHandler(
       return
     }
 
-    const batchSize = await readWorkerSetting(gateway, 'detail_extract.batch_size')
+    const batchSize = await readWorkerSetting(gateway, 'detail_extract.batch_size', logger)
     const { rawPages } = await gateway.getDetailExtractPendingRawPages(sourceId, batchSize)
     if (rawPages.length === 0) {
       await report(context, `[detail-extract] No raw pages pending for source ${sourceId}`, {

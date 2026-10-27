@@ -48,7 +48,7 @@ export function createNhtsaRecallsHandler(gateway: HttpEnrichGatewayClient, logg
   return async (payload: unknown, correlationId: string): Promise<NhtsaRecallsJobResult> => {
     const data = nhtsaRecallsJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
-    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms')
+    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms', logger)
 
     const { vehicleModels } = await gateway.listVehicleModels(data.vehicleModelId)
 

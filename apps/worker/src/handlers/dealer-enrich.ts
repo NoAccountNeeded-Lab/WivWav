@@ -120,9 +120,9 @@ export function createDealerEnrichHandler(gateway: HttpEnrichGatewayClient, logg
       return { processed: 0 }
     }
 
-    const staleDays = await readWorkerSetting(gateway, 'dealer_enrich.stale_days')
-    const maxPerRun = await readWorkerSetting(gateway, 'dealer_enrich.max_per_run')
-    const rateLimitMs = await readWorkerSetting(gateway, 'dealer_enrich.rate_limit_ms')
+    const staleDays = await readWorkerSetting(gateway, 'dealer_enrich.stale_days', logger)
+    const maxPerRun = await readWorkerSetting(gateway, 'dealer_enrich.max_per_run', logger)
+    const rateLimitMs = await readWorkerSetting(gateway, 'dealer_enrich.rate_limit_ms', logger)
     const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000)
     const { dealers: toEnrich } = await gateway.listDealerEnrichPending(maxPerRun, staleThreshold)
 
