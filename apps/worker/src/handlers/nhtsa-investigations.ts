@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -11,7 +12,6 @@ import { parseNhtsaYMD } from '../lib/nhtsa-date-utils.js'
 
 const INVESTIGATIONS_URL = 'https://api.nhtsa.gov/investigations/investigationsByVehicle'
 const INVESTIGATIONS_SOURCE_BASE = 'https://www.nhtsa.gov/vehicle-safety/recalls-and-investigations#investigations'
-const RATE_LIMIT_MS = 300
 
 interface NhtsaInvestigation {
   investigationId: string
@@ -49,6 +49,7 @@ export function createNhtsaInvestigationsHandler(gateway: HttpEnrichGatewayClien
   return async (payload: unknown, correlationId: string): Promise<NhtsaInvestigationsJobResult> => {
     const data = nhtsaInvestigationsJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
+    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms')
 
     const { vehicleModels } = await gateway.listVehicleModels(data.vehicleModelId)
 
@@ -88,7 +89,7 @@ export function createNhtsaInvestigationsHandler(gateway: HttpEnrichGatewayClien
         { stage: 'fetching', current: i + 1, total: vehicleModels.length },
       )
 
-      if (i < vehicleModels.length - 1) await jitteredSleep(RATE_LIMIT_MS)
+      if (i < vehicleModels.length - 1) await jitteredSleep(rateLimitMs)
     }
 
     await report(

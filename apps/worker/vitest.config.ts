@@ -19,6 +19,7 @@ export default defineConfig({
           replacement:
             path.resolve(WORKSPACE_ROOT, 'packages', 'scraper-sources', 'src') + '/$1.ts',
         },
+        { find: '@wivwav/types/operator-settings', replacement: TYPES_SRC + '/operator-settings.ts' },
         { find: '@wivwav/types/listing-validator', replacement: TYPES_SRC + '/listing-validator.ts' },
         { find: '@wivwav/types/scraper-gateway', replacement: TYPES_SRC + '/scraper-gateway.ts' },
         { find: '@wivwav/types/worker-protocol', replacement: TYPES_SRC + '/worker-protocol.ts' },

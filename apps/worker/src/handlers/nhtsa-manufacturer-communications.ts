@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -13,7 +14,6 @@ import { parseNhtsaYMD } from '../lib/nhtsa-date-utils.js'
 // communication artifact exposed by the public NHTSA API.
 const TSBS_URL = 'https://api.nhtsa.gov/tsbs/tsbsByVehicle'
 const TSB_SOURCE_BASE = 'https://www.nhtsa.gov/vehicle/safety-issues/tsbs'
-const RATE_LIMIT_MS = 300
 
 interface NhtsaTsb {
   tsbId: string
@@ -53,6 +53,7 @@ export function createNhtsaManufacturerCommunicationsHandler(
   return async (payload: unknown, correlationId: string): Promise<NhtsaManufacturerCommunicationsJobResult> => {
     const data = nhtsaManufacturerCommunicationsJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
+    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms')
 
     const { vehicleModels } = await gateway.listVehicleModels(data.vehicleModelId)
 
@@ -90,7 +91,7 @@ export function createNhtsaManufacturerCommunicationsHandler(
         { stage: 'fetching', current: i + 1, total: vehicleModels.length },
       )
 
-      if (i < vehicleModels.length - 1) await jitteredSleep(RATE_LIMIT_MS)
+      if (i < vehicleModels.length - 1) await jitteredSleep(rateLimitMs)
     }
 
     await report(

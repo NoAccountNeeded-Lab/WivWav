@@ -1,3 +1,4 @@
+import { readWorkerSetting } from '../operator-setting.js'
 import { report, jitteredSleep } from '@wivwav/scraper-sources'
 import type { WivWavLogger } from '@wivwav/logger'
 import {
@@ -10,7 +11,6 @@ import { fetchWithRetry } from '../util/fetch-with-retry.js'
 import { parseNhtsaDMY } from '../lib/nhtsa-date-utils.js'
 
 const RECALLS_URL = 'https://api.nhtsa.gov/recalls/recallsByVehicle'
-const RATE_LIMIT_MS = 300
 
 interface NhtsaRecall {
   NHTSACampaignNumber: string
@@ -48,6 +48,7 @@ export function createNhtsaRecallsHandler(gateway: HttpEnrichGatewayClient, logg
   return async (payload: unknown, correlationId: string): Promise<NhtsaRecallsJobResult> => {
     const data = nhtsaRecallsJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
+    const rateLimitMs = await readWorkerSetting(gateway, 'external.nhtsa.rate_limit_ms')
 
     const { vehicleModels } = await gateway.listVehicleModels(data.vehicleModelId)
 
@@ -83,7 +84,7 @@ export function createNhtsaRecallsHandler(gateway: HttpEnrichGatewayClient, logg
         { stage: 'fetching', current: i + 1, total: vehicleModels.length },
       )
 
-      if (i < vehicleModels.length - 1) await jitteredSleep(RATE_LIMIT_MS)
+      if (i < vehicleModels.length - 1) await jitteredSleep(rateLimitMs)
     }
 
     await report(context, `[nhtsa-recalls] Done. ${processed} recall(s) upserted across ${vehicleModels.length} model(s).`, {
