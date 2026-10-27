@@ -14,7 +14,7 @@ export const OPERATOR_SETTINGS = {
   'search.indexer.max_batches': { type: 'number', defaultValue: 20, min: 1, max: 200, description: 'Maximum search batches in one poll.', relatedPages: ['/ops/queues'] },
   'retention.raw_page.processed_days': { type: 'number', defaultValue: 7, min: 1, max: 365, description: 'Days to retain processed raw pages.', relatedPages: ['/ops/queues'] },
   'retention.raw_page.unprocessed_days': { type: 'number', defaultValue: 30, min: 1, max: 365, description: 'Days to retain unprocessed raw pages.', relatedPages: ['/ops/queues'] },
-  'health.scraper_stale_hours': { type: 'number', defaultValue: 24, min: 1, max: 720, description: 'Hours before scraper health is marked stale.', relatedPages: ['/ops'] },
+  'health.scraper_stale_hours': { type: 'number', defaultValue: 24, min: 1, max: 720, description: 'Hours before scraper health is marked stale; overview severity becomes critical at twice this value.', relatedPages: ['/ops'] },
   'ops.stall_threshold_hours': { type: 'number', defaultValue: 6, min: 1, max: 168, description: 'Hours without progress before a job is considered stalled.', relatedPages: ['/ops/queues', '/ops/sources'] },
 } as const
 

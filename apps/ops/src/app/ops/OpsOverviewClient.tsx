@@ -36,9 +36,8 @@ import { SkeletonChartBox } from '@/components/Skeleton'
 import { OpsRunbooks } from './OpsRunbooks'
 import { OPS_RUNBOOK_IDS } from './runbooks'
 import { ACTION_ICONS } from './action-icons'
-import { useOptionalSettings } from './settings/SettingsProvider'
+import { useSettingValue } from './settings/SettingsProvider'
 import { SettingRef } from './settings/SettingRef'
-import { OPERATOR_SETTINGS, resolveOperatorSetting } from '@wivwav/types/operator-settings'
 import type { ScrapeRunPoint } from '@wivwav/charts'
 import type { PolledResourceState } from '@/lib/use-polled-resource'
 import { useOverviewResources } from './use-overview-resources'
@@ -149,8 +148,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
   // regardless, so a useMemo here would never actually skip recomputation.
   const resources: Record<OverviewResourceKey, RetryableResource> = { health, queues, sources, runs, schedules, listingRefresh }
 
-  const settings = useOptionalSettings()
-  const scraperStaleHours = settings ? resolveOperatorSetting('health.scraper_stale_hours', settings.entries.get('health.scraper_stale_hours') ?? null) : OPERATOR_SETTINGS['health.scraper_stale_hours'].defaultValue
+  const scraperStaleHours = useSettingValue('health.scraper_stale_hours')
   const overview = useMemo<OverviewModel>(() => buildOpsOverview({
     scraperStaleHours,
     health: health.data,

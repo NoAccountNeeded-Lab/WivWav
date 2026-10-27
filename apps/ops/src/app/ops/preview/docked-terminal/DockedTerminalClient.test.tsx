@@ -215,6 +215,8 @@ describe('DockedTerminalClient (#913)', () => {
     const sourcesLink = screen.getByRole('link', { name: 'Source health' })
     expect(sourcesLink.getAttribute('href')).toBe('/ops/sources')
 
+    // Let the React interceptor observe the click, then cancel jsdom's unsupported page navigation.
+    window.addEventListener('click', event => event.preventDefault(), { once: true })
     fireEvent.click(sourcesLink)
 
     expect(screen.queryByRole('region', { name: 'Source health' })).toBeNull()

@@ -51,6 +51,7 @@ describe('MobileNav', () => {
     const moreButton = screen.getByRole('button', { name: /More/ })
     fireEvent.click(moreButton)
 
+    window.addEventListener('click', event => event.preventDefault(), { once: true })
     fireEvent.click(screen.getByRole('link', { name: /AI provider settings/ }))
 
     expect(screen.queryByRole('dialog', { name: 'More navigation' })).toBeNull()

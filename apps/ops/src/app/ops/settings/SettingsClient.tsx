@@ -10,7 +10,7 @@ import css from './settings.module.css'
 function title(key: string): string { return key.replace(/[._]/g, ' ') }
 
 export function SettingsClient({ selectedKey }: { selectedKey?: OperatorSettingKey }) {
-  const { entries, loading, error, reset, apiBaseUrl } = useSettings()
+  const { entries, loading, error, reset, apiBaseUrl, mutationRevision } = useSettings()
   const [history, setHistory] = useState<SettingEntry[]>([])
   const [actionError, setActionError] = useState<string | null>(null)
   const keys = selectedKey ? [selectedKey] : Object.keys(OPERATOR_SETTINGS) as OperatorSettingKey[]
@@ -20,10 +20,10 @@ export function SettingsClient({ selectedKey }: { selectedKey?: OperatorSettingK
     let active = true
     fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(selectedKey)}/history`, { cache: 'no-store' })
       .then(async response => response.status === 404 ? { data: [] } : response.ok ? await response.json() as { data: SettingEntry[] } : Promise.reject(new Error(`History failed (${response.status})`)))
-      .then(body => { if (active) setHistory(body.data) })
+      .then(body => { if (active) { setHistory(body.data); setActionError(null) } })
       .catch(err => { if (active) setActionError(err instanceof Error ? err.message : 'History could not load') })
     return () => { active = false }
-  }, [apiBaseUrl, selectedKey, entries])
+  }, [apiBaseUrl, selectedKey, mutationRevision])
 
   return <main className={css.main} id="main-content">
     <nav aria-label="Breadcrumb"><Link href="/ops">Operations</Link>{selectedKey && <> / <Link href="/ops/settings">Settings</Link></>}</nav>
@@ -46,7 +46,7 @@ export function SettingsClient({ selectedKey }: { selectedKey?: OperatorSettingK
             <div><dt>Minimum</dt><dd>{definition.min}</dd></div>
             <div><dt>Maximum</dt><dd>{definition.max}</dd></div>
           </dl>
-          <button type="button" disabled={!row} onClick={() => void reset(key).catch(err => setActionError(err instanceof Error ? err.message : 'Reset failed'))}>Reset to default</button>
+          <button type="button" aria-label={`Reset ${key} to default`} disabled={!row} onClick={() => void reset(key).then(() => setActionError(null)).catch(err => setActionError(err instanceof Error ? err.message : 'Reset failed'))}>Reset to default</button>
           {selectedKey && <><h3>Where this is used</h3><ul>{definition.relatedPages.map(page => <li key={page}><Link href={page}>{page}</Link></li>)}</ul></>}
         </section>
       })}

@@ -16,6 +16,7 @@ interface SettingsState {
   entries: Map<string, SettingEntry>
   loading: boolean
   error: string | null
+  mutationRevision: number
   apiBaseUrl: string
   save: (key: OperatorSettingKey, value: number) => Promise<void>
   reset: (key: OperatorSettingKey) => Promise<void>
@@ -27,6 +28,7 @@ export function SettingsProvider({ apiBaseUrl, children }: { apiBaseUrl: string;
   const [entries, setEntries] = useState<Map<string, SettingEntry>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [mutationRevision, setMutationRevision] = useState(0)
   const revision = useRef(0)
 
   const refresh = useCallback(async () => {
@@ -61,18 +63,18 @@ export function SettingsProvider({ apiBaseUrl, children }: { apiBaseUrl: string;
     const body = (await response.json()) as { data: SettingEntry }
     revision.current += 1
     setEntries(previous => new Map(previous).set(key, body.data))
+    setMutationRevision(previous => previous + 1)
   }, [apiBaseUrl])
 
   const reset = useCallback(async (key: OperatorSettingKey) => {
-    if (entries.has(key)) {
-      const response = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error(`Reset failed (${response.status})`)
-    }
+    const response = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
+    if (!response.ok) throw new Error(`Reset failed (${response.status})`)
     revision.current += 1
     setEntries(previous => { const next = new Map(previous); next.delete(key); return next })
-  }, [apiBaseUrl, entries])
+    setMutationRevision(previous => previous + 1)
+  }, [apiBaseUrl])
 
-  const value = useMemo(() => ({ entries, loading, error, apiBaseUrl, save, reset }), [entries, loading, error, apiBaseUrl, save, reset])
+  const value = useMemo(() => ({ entries, loading, error, mutationRevision, apiBaseUrl, save, reset }), [entries, loading, error, mutationRevision, apiBaseUrl, save, reset])
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
 }
 
@@ -87,8 +89,9 @@ export function useSettings(): SettingsState {
 }
 
 export function useSettingValue(key: OperatorSettingKey): number | null {
-  const { entries, loading, error } = useSettings()
-  if (loading || error) return null
+  const settings = useOptionalSettings()
+  if (!settings || settings.loading || settings.error) return null
+  const { entries } = settings
   const row = entries.get(key)
   return resolveOperatorSetting(key, row ? { value: row.value, type: row.type } : null)
 }

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OpsOverviewClient } from './OpsOverviewClient'
+import { SettingsProvider } from './settings/SettingsProvider'
 import { clearWarmCache } from '@/lib/warm-data-cache'
 
 const HEALTH_BODY = {
@@ -191,6 +192,30 @@ function mockFetchWith(overrides: { health?: unknown; queues?: unknown; problemA
 }
 
 describe('OpsOverviewClient — calm overview (#760)', () => {
+  it('uses the loaded setting for the stale badge and the adjacent reference', async () => {
+    const normalFetch = mockFetchWith()
+    const finishedAt = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString()
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/admin/config')) return jsonResponse({ data: [{ key: 'health.scraper_stale_hours', value: 8, type: 'number' }] })
+      if (url.endsWith('/admin/runs')) return jsonResponse({ data: [{ id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD', startedAt: finishedAt, finishedAt, success: true, listingsFound: 1, listingsNew: 0, listingsUpdated: 0, errorMessage: null }] })
+      return normalFetch(url)
+    }))
+    render(<SettingsProvider apiBaseUrl=""><OpsOverviewClient apiBaseUrl="" /></SettingsProvider>)
+    await screen.findByRole('link', { name: /health.scraper_stale_hours: 8/ })
+    expect(await screen.findByLabelText('Last successful scrape status: warning')).toBeDefined()
+  })
+  it('keeps the stale badge unknown when settings fail to load', async () => {
+    const normalFetch = mockFetchWith()
+    const finishedAt = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString()
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/admin/config')) throw new Error('settings offline')
+      if (url.endsWith('/admin/runs')) return jsonResponse({ data: [{ id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD', startedAt: finishedAt, finishedAt, success: true, listingsFound: 1, listingsNew: 0, listingsUpdated: 0, errorMessage: null }] })
+      return normalFetch(url)
+    }))
+    render(<SettingsProvider apiBaseUrl=""><OpsOverviewClient apiBaseUrl="" /></SettingsProvider>)
+    expect(await screen.findByText('Setting unavailable')).toBeDefined()
+    expect(await screen.findByLabelText('Last successful scrape status: unknown')).toBeDefined()
+  })
   it('renders zero warning/critical-colored elements and a compact healthy-summary row when everything is healthy', async () => {
     vi.stubGlobal('fetch', mockFetchWith())
 
