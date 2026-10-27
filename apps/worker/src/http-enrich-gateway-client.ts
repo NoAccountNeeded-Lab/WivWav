@@ -55,8 +55,8 @@ export class HttpEnrichGatewayClient {
     return this.http.post('/internal/scraper/http-enrich/manufacturer-communications/upsert', body)
   }
 
-  claimVinEnrichListings(limit: number): Promise<{ listings: VinEnrichCandidate[] }> {
-    return this.http.post('/internal/scraper/http-enrich/vin-enrich/claim', { limit })
+  claimVinEnrichListings(limit: number, listingId?: string): Promise<{ listings: VinEnrichCandidate[] }> {
+    return this.http.post('/internal/scraper/http-enrich/vin-enrich/claim', { limit, listingId })
   }
 
   resolveVinEnrichListing(body: VinEnrichResolveRequest): Promise<{ vehicleModelId: string | null }> {

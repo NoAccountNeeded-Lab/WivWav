@@ -7,13 +7,16 @@ import { createJobContext } from '../job-context.js'
 
 export interface DetailCrawlPayload {
   sourceId: string
+  /** Crawl only this listing (operator requeue, #1169). */
+  listingId?: string
 }
 
 function isDetailCrawlPayload(payload: unknown): payload is DetailCrawlPayload {
   return (
     typeof payload === 'object' &&
     payload !== null &&
-    typeof (payload as Record<string, unknown>)['sourceId'] === 'string'
+    typeof (payload as Record<string, unknown>)['sourceId'] === 'string' &&
+    ['undefined', 'string'].includes(typeof (payload as Record<string, unknown>)['listingId'])
   )
 }
 
@@ -31,9 +34,9 @@ export function createDetailCrawlHandler(
 ) {
   return async (payload: unknown, correlationId: string): Promise<void> => {
     if (!isDetailCrawlPayload(payload)) {
-      throw new Error('[detail-crawl] payload must be { sourceId: string }')
+      throw new Error('[detail-crawl] payload must be { sourceId: string, listingId?: string }')
     }
-    const { sourceId } = payload
+    const { sourceId, listingId } = payload
     const context = createJobContext(logger, correlationId)
 
     const { state } = await gateway.getExecutionState(sourceId)
@@ -52,7 +55,7 @@ export function createDetailCrawlHandler(
 
     const batchSize = await readWorkerSetting(gateway, 'detail_crawl.batch_size', logger)
     const rateLimitMs = await readWorkerSetting(gateway, 'detail_crawl.rate_limit_ms', logger)
-    const { listings } = await gateway.getDetailCrawlPendingListings(sourceId, batchSize)
+    const { listings, lockedAt } = await gateway.getDetailCrawlPendingListings(sourceId, batchSize, listingId)
     if (listings.length === 0) {
       await report(context, `[detail-crawl] No listings pending for source ${sourceId}`, {
         stage: 'complete',
@@ -68,7 +71,18 @@ export function createDetailCrawlHandler(
       total: listings.length,
     })
 
-    const browser = await browserService.launch()
+    const releaseLock = async () => {
+      if (listingId !== undefined && lockedAt !== undefined) {
+        await gateway.releaseDetailCrawlLock(listingId, lockedAt)
+      }
+    }
+    let browser: Awaited<ReturnType<BrowserService['launch']>>
+    try {
+      browser = await browserService.launch()
+    } catch (err) {
+      await releaseLock()
+      throw err
+    }
     let success = 0
     let failed = 0
 
@@ -133,7 +147,11 @@ export function createDetailCrawlHandler(
         if (i < listings.length - 1) await jitteredSleep(rateLimitMs)
       }
     } finally {
-      await browser.close()
+      try {
+        await browser.close()
+      } finally {
+        await releaseLock()
+      }
     }
 
     await report(context, `[detail-crawl] Done. ${success} crawled, ${failed} failed.`, {

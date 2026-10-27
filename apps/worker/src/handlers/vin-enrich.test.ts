@@ -95,4 +95,18 @@ describe('createVinEnrichHandler', () => {
     const result = await handler({}, 'corr-4')
     expect(result).toEqual({ processed: 0 })
   })
+
+  it('passes a listingId payload through to the claim', async () => {
+    const claimVinEnrichListings = vi.fn(async () => ({ listings: [] }))
+    const handler = createVinEnrichHandler(fakeGateway({ claimVinEnrichListings }), createNoopLogger())
+    await handler({ listingId: 'l9' }, 'corr-5')
+    expect(claimVinEnrichListings).toHaveBeenCalledWith(expect.any(Number), 'l9')
+  })
+
+  it('claims a batch (no listingId) when the payload is empty', async () => {
+    const claimVinEnrichListings = vi.fn(async () => ({ listings: [] }))
+    const handler = createVinEnrichHandler(fakeGateway({ claimVinEnrichListings }), createNoopLogger())
+    await handler({}, 'corr-6')
+    expect(claimVinEnrichListings).toHaveBeenCalledWith(expect.any(Number), undefined)
+  })
 })

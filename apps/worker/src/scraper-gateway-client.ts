@@ -135,8 +135,13 @@ export class ScraperGatewayClient {
   getDetailCrawlPendingListings(
     sourceId: string,
     limit?: number,
+    listingId?: string,
   ): Promise<DetailCrawlPendingListingsResponse> {
-    return this.http.post('/internal/scraper/detail-crawl/pending-listings', { sourceId, limit })
+    return this.http.post('/internal/scraper/detail-crawl/pending-listings', { sourceId, limit, listingId })
+  }
+
+  releaseDetailCrawlLock(listingId: string, lockedAt: string): Promise<{ ok: true }> {
+    return this.http.post('/internal/scraper/detail-crawl/release-lock', { listingId, lockedAt })
   }
 
   upsertRawPage(sourceId: string, url: string, html: string): Promise<RawPageUpsertResponse> {

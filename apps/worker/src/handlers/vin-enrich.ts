@@ -73,11 +73,11 @@ async function decodeVin(
  */
 export function createVinEnrichHandler(gateway: HttpEnrichGatewayClient, logger: WivWavLogger) {
   return async (payload: unknown, correlationId: string): Promise<VinEnrichJobResult> => {
-    vinEnrichJobPayloadSchema.parse(payload ?? {})
+    const { listingId } = vinEnrichJobPayloadSchema.parse(payload ?? {})
     const context = createJobContext(logger, correlationId)
 
     const batchSize = await readWorkerSetting(gateway, 'vin_enrich.batch_size', logger)
-    const { listings } = await gateway.claimVinEnrichListings(batchSize)
+    const { listings } = await gateway.claimVinEnrichListings(batchSize, listingId)
 
     await report(context, `[vin-enrich] ${listings.length} listing(s) claimed for VIN decode`, {
       stage: 'decoding',
