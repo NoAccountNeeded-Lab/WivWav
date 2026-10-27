@@ -1,19 +1,19 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, Raleway } from 'next/font/google'
+import localFont from 'next/font/local'
 import { headers } from 'next/headers'
 import './globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
-const font = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+const font = localFont({
+  src: './fonts/PlusJakartaSans-latin.woff2',
+  weight: '200 800',
   variable: '--font-sans',
   display: 'swap',
 })
 
-const logoFont = Raleway({
-  subsets: ['latin'],
-  weight: ['700'],
+const logoFont = localFont({
+  src: './fonts/Raleway-700-latin.woff2',
+  weight: '700',
   variable: '--font-logo',
   display: 'swap',
 })

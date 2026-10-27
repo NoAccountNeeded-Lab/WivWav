@@ -7,9 +7,10 @@ let requestLocale = 'en'
 vi.mock('next/headers', () => ({
   headers: async () => new Headers({ 'X-NEXT-INTL-LOCALE': requestLocale }),
 }))
-vi.mock('next/font/google', () => ({
-  Plus_Jakarta_Sans: () => ({ variable: 'font-sans' }),
-  Raleway: () => ({ variable: 'font-logo' }),
+vi.mock('next/font/local', () => ({
+  default: ({ variable }: { variable: string }) => ({
+    variable: variable === '--font-logo' ? 'font-logo' : 'font-sans',
+  }),
 }))
 vi.mock('next-intl/server', () => ({
   getTranslations: async ({ locale, namespace }: { locale: string; namespace: string }) =>
