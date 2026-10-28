@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@wivwav/db'
+import { strictReadySql } from '../lib/strict-ready.js'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -93,6 +94,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
+            ${strictReadySql()}
             AND sources.status != 'disabled'
             AND listings."priceCents" IS NOT NULL
             AND listings.make = ${make}
@@ -126,6 +128,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
+            ${strictReadySql()}
             AND sources.status != 'disabled'
             AND listings.make = ${make}
             AND listings.model = ${model}
@@ -180,6 +183,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
+            ${strictReadySql()}
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
@@ -196,6 +200,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
+            ${strictReadySql()}
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
@@ -212,6 +217,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
+            ${strictReadySql()}
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
@@ -259,6 +265,7 @@ export class PrismaMarketRepository implements MarketRepository {
         WHERE listings.make = ${make}
           AND listings.model = ${model}
           AND listings."publicationStatus" = 'eligible'
+          ${strictReadySql()}
           AND sources.status != 'disabled'
         ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
       ),

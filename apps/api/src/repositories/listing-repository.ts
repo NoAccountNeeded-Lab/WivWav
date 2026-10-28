@@ -1,3 +1,4 @@
+import { strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
 import type { ConfigService } from '../services/config-service.js'
 import { randomUUID } from 'node:crypto'
@@ -422,6 +423,7 @@ export class PrismaListingRepository implements ListingRepository {
         id,
         status: 'active',
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       include: {
@@ -458,6 +460,7 @@ export class PrismaListingRepository implements ListingRepository {
         vehicleId,
         status: 'active',
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         id: { not: excludeListingId },
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
@@ -487,6 +490,7 @@ export class PrismaListingRepository implements ListingRepository {
         id,
         status: 'active',
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, vehicleModelId: true },
@@ -499,6 +503,7 @@ export class PrismaListingRepository implements ListingRepository {
         id,
         status: 'active',
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, dealerProfileId: true },
@@ -539,6 +544,7 @@ export class PrismaListingRepository implements ListingRepository {
         vin,
         status: 'active',
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, conversionManufacturer: true },
@@ -550,6 +556,7 @@ export class PrismaListingRepository implements ListingRepository {
       where: {
         vin,
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
         ...(activeOnly ? { status: 'active' } : {}),
       },
@@ -570,7 +577,7 @@ export class PrismaListingRepository implements ListingRepository {
 
   async findHistoryByVin(vin: string): Promise<VinHistoryRow[]> {
     const matching = await this.db.listing.findMany({
-      where: { vin, publicationStatus: 'eligible', source: { is: { status: { not: SourceStatus.disabled } } } },
+      where: { vin, publicationStatus: 'eligible', ...strictReadyWhere(), source: { is: { status: { not: SourceStatus.disabled } } } },
       select: { id: true },
     })
     const listingIds = matching.map((l) => l.id)

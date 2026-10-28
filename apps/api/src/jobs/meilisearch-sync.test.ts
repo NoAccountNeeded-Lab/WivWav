@@ -114,6 +114,24 @@ describe('runMeilisearchSyncJob', () => {
     )
   })
 
+  it.each([
+    ['true', true],
+    [undefined, false],
+  ])('applies the strict predicate to the safety count only when PUBLISH_GATE_STRICT=%s (#1161)', async (flag, strict) => {
+    if (flag === undefined) vi.stubEnv('PUBLISH_GATE_STRICT', '')
+    else vi.stubEnv('PUBLISH_GATE_STRICT', flag)
+    try {
+      await runMeilisearchSyncJob()
+      // First $queryRaw call is the safety count, second is the id page: both must agree.
+      for (const call of [0, 1]) {
+        const values = db.$queryRaw.mock.calls[call]!.slice(1) as unknown[]
+        expect(values.includes(STRICT_READY_SQL)).toBe(strict)
+      }
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('reads the whole rebuild from one REPEATABLE READ snapshot with an explicit timeout (#1100)', async () => {
     await runMeilisearchSyncJob()
 

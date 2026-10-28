@@ -57,6 +57,27 @@ describe('PrismaListingRepository.countActive', () => {
 })
 
 describe('PrismaListingRepository public eligibility', () => {
+  it('applies the strict readiness predicate to public readers only when PUBLISH_GATE_STRICT=true (#1161)', async () => {
+    const db = buildDb()
+    const repo = new PrismaListingRepository(db as never)
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'true')
+    try {
+      await repo.findById('l-1')
+      await repo.findByVin('VIN')
+      await repo.findListingsByVin('VIN', true)
+      await repo.findHistoryByVin('VIN')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+    const strictCalls = [...db.listing.findFirst.mock.calls, ...db.listing.findMany.mock.calls] as unknown as Array<[{ where: Record<string, unknown> }]>
+    expect(strictCalls).toHaveLength(4)
+    for (const [arg] of strictCalls) expect(arg.where).toMatchObject({ readinessComputedAt: { not: null } })
+
+    db.listing.findFirst.mockClear()
+    await repo.findById('l-1')
+    expect((db.listing.findFirst.mock.calls as unknown[][])[0]?.[0]).not.toHaveProperty('where.readinessComputedAt')
+  })
+
   it('requires active eligible status for direct listing detail', async () => {
     const db = buildDb()
     const repo = new PrismaListingRepository(db as never)
