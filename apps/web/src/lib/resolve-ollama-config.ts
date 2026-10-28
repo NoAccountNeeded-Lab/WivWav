@@ -1,4 +1,4 @@
-import { getServerApiBaseUrl } from './api-url'
+import { getServerApiBaseUrl } from './server-api-url'
 import { apiFetch } from './api-fetch'
 
 export const OLLAMA_DEFAULT_MODEL = 'llama3.2'

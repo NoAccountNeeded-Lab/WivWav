@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { SiteHeader } from '@/components/SiteHeader'
-import { getServerApiBaseUrl } from '@/lib/api-url'
+import { getServerApiBaseUrl } from '@/lib/server-api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import { DiscoverPage } from './DiscoverPage'
 import styles from './DiscoverPage.module.css'
