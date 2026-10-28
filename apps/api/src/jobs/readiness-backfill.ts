@@ -22,8 +22,8 @@ export async function runReadinessBackfill(context?: JobContext): Promise<{ upda
 
   for (;;) {
     const rows = await db.listing.findMany({
-      where: { status: 'active', readinessComputedAt: null },
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      // id > cursor, not a Prisma cursor: updated rows leave this where set.
+      where: { status: 'active', readinessComputedAt: null, ...(cursor ? { id: { gt: cursor } } : {}) },
       take: BATCH_SIZE,
       orderBy: { id: 'asc' },
       select: {
