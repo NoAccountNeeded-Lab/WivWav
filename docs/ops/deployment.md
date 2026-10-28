@@ -62,68 +62,34 @@ expired and `publish` needs them.
 
 ## Client-side API host resolution
 
-`apps/web` builds one shared image per commit and promotes it across every
-deploy target (see the pipeline above) — there is no per-environment
-rebuild, and no single `NEXT_PUBLIC_API_URL` value is correct for every
-target at build time. Next.js only substitutes `NEXT_PUBLIC_*` variables
-into code that ends up in the browser bundle, at `next build` time; a
-runtime `environment:` entry in Compose never reaches code that reads
-`process.env.NEXT_PUBLIC_API_URL` inside a `'use client'` module. Before
-#837, four browser-fetching components (`CategoryBarChart`,
-`PriceHistogram`, `YearHistogram`, `MileageHistogram`) did exactly that, so
-every published `web` image had the API host permanently baked in as
-whatever `localhost` fallback `apps/web/src/lib/api-url.ts` defined at the
-time the "Docker build (web)" CI job ran — never a real deploy target's API
-host.
+`apps/web` builds one shared image per commit and promotes it across deploy
+targets. Configure `NEXT_PUBLIC_API_URL` at container startup, for example
+`https://api.wivwav.com`; no per-environment image rebuild is required.
 
-**Chosen approach: runtime injection via a server-rendered data attribute**,
-not a BFF proxy and not a per-target image build:
+`RootLayout` reads `getPublicApiBaseUrl()` from
+`apps/web/src/lib/server-api-url.ts` and stamps the result onto
+`<body data-api-url="...">`. Browser components read that attribute through
+`getClientApiBaseUrl()` in `apps/web/src/lib/api-url.ts`. Server-side API
+requests prefer `API_INTERNAL_URL`, so the internal Docker address is never
+injected into the browser attribute. Unset or blank values fall back to the
+local development API at `http://localhost:4001`; production Compose requires
+a nonempty public URL.
 
-- `RootLayout` (`apps/web/src/app/layout.tsx`) is a Server Component. It runs
-  in the Node process on every request, so `getPublicApiBaseUrl()`
-  (`apps/web/src/lib/api-url.ts`) reads the container's actual runtime
-  `NEXT_PUBLIC_API_URL` — not a value inlined at build time — and stamps it
-  onto `<body data-api-url="...">`.
-- Browser code — `getClientApiBaseUrl()` in the same file — reads that
-  attribute at call time instead of `process.env.NEXT_PUBLIC_API_URL`
-  directly. This is the same pattern `FetchErrorMonitor` already used to
-  detect the configured API host; #837 generalized it into a shared helper
-  and applied it to the four components above.
-- Net effect: the published `web` image is fully environment-agnostic for
-  these client fetches. `docker-compose.prod.yml`'s
-  `NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}` is
-  enough on its own — no rebuild per deploy target, no BFF hop for public,
-  unauthenticated read endpoints (`/v1/listings/facets`,
-  `/v1/conversion-brands`), and no asset-rewrite step at container start.
+The server helper destructures values from `process.env`. Keep
+that runtime read: Next.js substitutes direct `NEXT_PUBLIC_*` environment
+references at build time in server bundles as well as browser bundles.
+Server rendering alone does not make a direct reference runtime-configurable.
+The earlier #837 implementation still used that direct read; the live
+Mac mini deployment consequently rendered an empty `data-api-url`, causing
+facets and histograms to request the visitor's localhost (#1208).
 
-A same-origin BFF proxy (the pattern `apps/ops` uses for its
-authenticated `/admin/*` surface via `/api/bff`) was considered and
-rejected here: these `apps/web` endpoints are public, unauthenticated GETs,
-so a proxy would add a same-origin hop and a second `apps/web` route
-surface to maintain without closing any security gap the ops BFF exists
-for. Rebuilding the image once per deploy target was also rejected — it
-would give up the "build once, verified digest, promote everywhere" model
-`publish` relies on (see the pipeline above).
-
-`docker/web/Dockerfile` still declares `ARG NEXT_PUBLIC_API_URL` (added for
-#815, CI's E2E job build step) and the "Docker build (web)" CI matrix job
-still passes none. That is no longer a defect for the four components this
-issue fixes: they never read the build-time value anymore. The `ARG` is
-left in place because `getServerApiBaseUrl()` / `getPublicApiBaseUrl()`
-still read `process.env.NEXT_PUBLIC_API_URL` server-side (correctly, at
-request time) and E2E's compose stack still sets a matching runtime value —
-removing the `ARG` is unnecessary churn, not a follow-up requirement.
-
-**Audit (historical): no real deployment had shipped.** `docker-compose.prod.yml`'s
-image references were still the placeholder
-`@sha256:0000...0000` digest and there is no
-`chore(deploy): pin published image digests ...` commit in this repo's
-history — `publish` (see the pipeline above) has never completed a real
-run. So while the bug described in #837 was real from the day
-`docker/web/Dockerfile` was authored, the Discover facet groups, state heat
-map, and price/mileage/year histograms have not actually been broken for
-any real deployed audience — only in the hypothetical first production
-deploy, which this fix now precedes.
+The Docker build argument remains available for compatibility, but these
+API URL helpers do not depend on its value. To verify promotion, build once
+with an empty or distinct build-time API URL, start that image with the
+intended runtime `NEXT_PUBLIC_API_URL`, and check that the rendered body's
+`data-api-url` equals the runtime value. Then confirm Discover facet requests
+use that host and return populated distributions. Roll back by restoring the
+previous release manifest; no database migration is involved.
 
 ## Deploying
 
