@@ -6,19 +6,15 @@ RUN npm install -g corepack@latest && corepack enable
 
 FROM base AS builder
 WORKDIR /app
-# NEXT_PUBLIC_* vars are inlined into the client bundle at `next build` time,
-# not read from the container's runtime environment. docker-compose.yml's
-# `environment:` entry for NEXT_PUBLIC_API_URL only affects the server
-# process — the browser bundle needs it baked in here, or it silently falls
-# back to apps/web/src/lib/api-url.ts's DEFAULT_PUBLIC_API_URL.
-ARG NEXT_PUBLIC_API_URL
+# Browser API requests receive NEXT_PUBLIC_API_URL from the server-rendered
+# body's data-api-url attribute at runtime; do not bake a deploy-specific API
+# origin into this shared image.
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENABLED
 ARG SENTRY_ENABLED
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV SENTRY_DSN=$SENTRY_DSN
 ENV NEXT_PUBLIC_SENTRY_ENABLED=$NEXT_PUBLIC_SENTRY_ENABLED
@@ -56,10 +52,10 @@ RUN pnpm --filter @wivwav/search build
 # App source is copied after the package builds so an apps/web-only edit
 # reuses the cached package build layers. The .next/cache mount lets Next
 # reuse its incremental build cache; it is not part of the standalone output.
-# The cache id includes the NEXT_PUBLIC_* build args that are inlined into the
-# client bundle, so a build with different values never reuses stale output.
+# The cache id includes the Sentry-enabled build flag because it changes the
+# client bundle; the deployment API origin is read at runtime.
 COPY apps/web ./apps/web
-RUN --mount=type=cache,id=wivwav-next-web-${NEXT_PUBLIC_API_URL}-${NEXT_PUBLIC_SENTRY_ENABLED},target=/app/apps/web/.next/cache \
+RUN --mount=type=cache,id=wivwav-next-web-${NEXT_PUBLIC_SENTRY_ENABLED},target=/app/apps/web/.next/cache \
   --mount=type=secret,id=sentry_auth_token,required=false \
   if [ -s /run/secrets/sentry_auth_token ]; then export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token)"; fi; \
   pnpm --filter @wivwav/web build

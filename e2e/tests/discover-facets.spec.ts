@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { assertNoGatingViolations } from '../support/axe.js'
+import { e2eEnv } from '../support/compose.js'
 import {
   FACETS_EXPECTED,
   removeFacetsCatalog,
@@ -85,6 +86,28 @@ test.describe('Discover facets against the fixture catalog', () => {
     // Restores the single-smoke-listing state smoke.spec.ts asserts.
     test.setTimeout(240_000)
     await removeFacetsCatalog()
+  })
+
+  test('renders the public API URL from the built web image runtime environment', async ({ page }) => {
+    test.skip(
+      process.env['WIVWAV_E2E_SKIP_COMPOSE'] === '1',
+      'the reused stack may use a different public API origin',
+    )
+    const runtimeApiUrl = `http://127.0.0.1:${e2eEnv.apiPort}`
+    let facetRequestSeen = false
+    page.on('request', function (request) {
+      if (request.url().startsWith(`${runtimeApiUrl}/v1/listings/facets`)) {
+        facetRequestSeen = true
+      }
+    })
+    await page.goto('/en/results')
+
+    await expect(page.locator('body')).toHaveAttribute(
+      'data-api-url',
+      runtimeApiUrl,
+    )
+    await waitForFacets(page)
+    expect(facetRequestSeen).toBe(true)
   })
 
   test('renders the expected total and exact counts for every visible facet group', async ({ page }) => {
