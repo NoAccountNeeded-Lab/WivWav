@@ -83,10 +83,9 @@ The earlier #837 implementation still used that direct read; the live
 Mac mini deployment consequently rendered an empty `data-api-url`, causing
 facets and histograms to request the visitor's localhost (#1208).
 
-The Docker build argument remains available for compatibility, but these
-API URL helpers do not depend on its value. To verify promotion, build once
-with an empty or distinct build-time API URL, start that image with the
-intended runtime `NEXT_PUBLIC_API_URL`, and check that the rendered body's
+The web image has no API URL build argument. To verify promotion, build once
+with no API URL configured, start that image with the intended runtime
+`NEXT_PUBLIC_API_URL`, and check that the rendered body's
 `data-api-url` equals the runtime value. Then confirm Discover facet requests
 use that host and return populated distributions. Roll back by restoring the
 previous release manifest; no database migration is involved.
