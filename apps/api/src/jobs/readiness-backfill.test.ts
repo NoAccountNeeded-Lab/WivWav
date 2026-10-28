@@ -66,16 +66,28 @@ describe('runReadinessBackfill', () => {
     expect(db.listing.updateMany).not.toHaveBeenCalled()
   })
 
-  it('pages by id cursor in bounded batches', async () => {
-    const full = Array.from({ length: 200 }, (_, i) => row(`r${i}`))
-    db = makeDb([full, [row('last')]])
+  it('processes every row exactly once when updated rows leave the null set', async () => {
+    type Where = { id?: { gt?: string }; readinessComputedAt: null }
+    type Args = { where: Where; skip?: number; cursor?: { id: string }; take: number }
+    const state = new Map(Array.from({ length: 450 }, (_, i) => [`r${String(i).padStart(3, '0')}`, { computed: false }]))
+    const seen: string[] = []
+    const findMany = vi.fn(async (args: Args) => {
+      let ids = [...state].filter(([id, v]) => !v.computed && (!args.where.id?.gt || id > args.where.id.gt)).map(([id]) => id)
+      if (args.cursor) ids = ids.slice(ids.indexOf(args.cursor.id) + 1) // cursor row gone: Prisma-like skip
+      return ids.slice(args.skip ?? 0, (args.skip ?? 0) + args.take).map((id) => row(id))
+    })
+    const updateMany = vi.fn((a: { where: { id: string } }) => {
+      seen.push(a.where.id)
+      state.get(a.where.id)!.computed = true
+      return { count: 1 }
+    })
+    db = { listing: { findMany, updateMany }, $transaction: vi.fn(async (ops: Array<{ count: number }>) => ops) } as never
     vi.mocked(getDb).mockReturnValue(db as never)
 
     const result = await runReadinessBackfill()
 
-    expect(result.updated).toBe(201)
-    expect(db.listing.findMany).toHaveBeenCalledTimes(2)
-    expect(db.listing.findMany.mock.calls[0]![0]).toMatchObject({ take: 200 })
-    expect(db.listing.findMany.mock.calls[1]![0]).toMatchObject({ skip: 1, cursor: { id: 'r199' } })
+    expect(result.updated).toBe(450)
+    expect(seen).toHaveLength(450)
+    expect(new Set(seen).size).toBe(450)
   })
 })
