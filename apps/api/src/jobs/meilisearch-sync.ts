@@ -3,9 +3,10 @@ import type { Listing, PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { Meilisearch } from 'meilisearch'
 import { INDEX_NAME, configureIndexSettings, groupKeyOf, indexExists, selectRepresentative, toDocument } from '@wivwav/search'
-import { isPublishGateStrict, strictReadyWhere } from '@wivwav/types/listing-readiness'
+import { strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
+import { STRICT_READY_SQL, strictReadySql } from '../lib/strict-ready.js'
 
 const BATCH_SIZE = 1000
 const TASK_TIMEOUT_MS = 15_000
@@ -16,15 +17,7 @@ const SNAPSHOT_TXN_MAX_WAIT_MS = 10_000
 /** Prefix for versioned rebuild-target indexes, e.g. "listings_v1751234567890". */
 const VERSIONED_INDEX_PREFIX = `${INDEX_NAME}_v`
 
-export const STRICT_READY_SQL = Prisma.sql`
-      AND listings."detailScrapedAt" IS NOT NULL
-      AND listings."detailStaleAt" IS NULL
-      AND listings."qualityCheckedAt" IS NOT NULL
-      AND listings."readinessComputedAt" IS NOT NULL
-      AND cardinality(listings.images) > 0
-      AND cardinality(listings."readinessBlockers") = 0
-      AND (listings.vin IS NULL OR listings."vehicleModelId" IS NOT NULL)
-`
+export { STRICT_READY_SQL }
 
 type VehicleAwareCountRow = {
   count: number | bigint
@@ -63,7 +56,7 @@ async function fetchOrderedIdPage(
       AND listings."publicationStatus" = 'eligible'
       AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
-      ${isPublishGateStrict() ? STRICT_READY_SQL : Prisma.empty}
+      ${strictReadySql()}
       ${cursorClause}
     ORDER BY COALESCE(listings."vehicleId", listings.id), listings.id
     LIMIT ${BATCH_SIZE}
@@ -216,6 +209,7 @@ async function runFullRebuildInSnapshot(
       AND listings."publicationStatus" = 'eligible'
       AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
+      ${strictReadySql()}
   `
   const activeCount = Number(activeCountRows[0]?.count ?? 0)
 

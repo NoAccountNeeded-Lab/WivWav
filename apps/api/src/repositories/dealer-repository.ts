@@ -1,3 +1,4 @@
+import { strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { SourceStatus, type PrismaClient, type Prisma } from '@wivwav/db'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export class PrismaDealerRepository implements DealerRepository {
       where: {
         dealerProfileId: id,
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
         ...statusWhere(status),
       },
@@ -93,6 +95,7 @@ export class PrismaDealerRepository implements DealerRepository {
       where: {
         dealerProfileId: id,
         publicationStatus: 'eligible',
+        ...strictReadyWhere(),
         source: { is: { status: { not: SourceStatus.disabled } } },
         ...statusWhere(status),
       },
