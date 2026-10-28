@@ -437,7 +437,8 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   }, async (_req, reply) => {
     const queue = queues.get(QUEUES.LISTING_RESOLVE)
     if (!queue) return reply.internalServerError('listing-resolve queue is not registered')
-    const jobId = await queue.add({ readinessBackfill: true }, { ...CRITICAL_JOB_OPTIONS, jobId: READINESS_BACKFILL_JOB_ID })
+    // Finished runs are dropped so the fixed id never blocks a re-run; a waiting or active run still collapses.
+    const jobId = await queue.add({ readinessBackfill: true }, { ...CRITICAL_JOB_OPTIONS, removeOnComplete: true, removeOnFail: true, jobId: READINESS_BACKFILL_JOB_ID })
     return reply.code(202).send({ data: { enqueued: true, jobId } })
   })
 
