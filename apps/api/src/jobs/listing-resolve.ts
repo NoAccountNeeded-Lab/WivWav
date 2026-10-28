@@ -45,10 +45,13 @@ import { validateListing, decidePublication } from '@wivwav/types/listing-valida
 import { computeReadiness, isPublishGateStrict } from '@wivwav/types/listing-readiness'
 import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
+import { runReadinessBackfill } from './readiness-backfill.js'
 
 export type ListingResolveJobData =
   | { sourceId: string; parentRunId?: string | null }
   | { listingId: string; observationReference: string; parentRunId?: string | null }
+  /** #1161: one-off readiness backfill over all active rows (no publicationStatus change). */
+  | { readinessBackfill: true; parentRunId?: string | null }
 
 const SOURCE_BATCH_SIZE = 100
 
@@ -227,6 +230,10 @@ export async function runListingResolveJob(
   data: ListingResolveJobData,
   context?: JobContext,
 ): Promise<void> {
+  if ('readinessBackfill' in data) {
+    await runReadinessBackfill(context)
+    return
+  }
   const db = getDb()
 
   // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
