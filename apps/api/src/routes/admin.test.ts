@@ -626,7 +626,7 @@ describe('POST /readiness-backfill', () => {
     const jobs = factory.getQueue(QUEUES.LISTING_RESOLVE)?.getEnqueued() ?? []
     expect(jobs).toHaveLength(1)
     expect(jobs[0]).toMatchObject({ data: { readinessBackfill: true }, status: 'waiting' })
-    expect(jobs[0]?.options).toMatchObject({ jobId: 'readiness-backfill' })
+    expect(jobs[0]?.options).toMatchObject({ jobId: 'readiness-backfill', removeOnComplete: true, removeOnFail: true })
 
     await app.close()
   })
