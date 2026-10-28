@@ -22,3 +22,6 @@ export const CRITICAL_JOB_OPTIONS: JobOptions = {
  * full rebuilds (each of which clears and re-adds the entire index).
  */
 export const LISTING_SYNC_REBUILD_JOB_ID = 'listing-sync-rebuild'
+
+/** Fixed jobId for the one-off readiness backfill (#1161); repeated triggers collapse into one. */
+export const READINESS_BACKFILL_JOB_ID = 'readiness-backfill'

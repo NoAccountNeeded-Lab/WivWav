@@ -2,7 +2,7 @@ import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
 import type { ConfigService } from '../services/config-service.js'
 import type { FastifyPluginAsync } from 'fastify'
 import type { JobRecord, JobStats, QueueAdapter, QueueFactory } from '@wivwav/queue'
-import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES } from '@wivwav/queue'
+import { CRITICAL_JOB_OPTIONS, LISTING_SYNC_REBUILD_JOB_ID, QUEUES, READINESS_BACKFILL_JOB_ID } from '@wivwav/queue'
 import { QUALITY_RULE_SEVERITY, SCRAPER_SOURCE_REGISTRY, findScraperSourceByName } from '@wivwav/types'
 import {
   appendScheduleIntent,
@@ -427,6 +427,17 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
     const queue = queues.get(QUEUES.LISTING_SYNC)
     if (!queue) return reply.internalServerError('listing-sync queue is not registered')
     const jobId = await queue.add({}, { ...CRITICAL_JOB_OPTIONS, jobId: LISTING_SYNC_REBUILD_JOB_ID })
+    return reply.code(202).send({ data: { enqueued: true, jobId } })
+  })
+
+  // POST /admin/readiness-backfill — enqueue the one-off readiness backfill
+  // (#1161) on the listing-resolve queue; fixed jobId collapses repeats.
+  app.post('/readiness-backfill', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+  }, async (_req, reply) => {
+    const queue = queues.get(QUEUES.LISTING_RESOLVE)
+    if (!queue) return reply.internalServerError('listing-resolve queue is not registered')
+    const jobId = await queue.add({ readinessBackfill: true }, { ...CRITICAL_JOB_OPTIONS, jobId: READINESS_BACKFILL_JOB_ID })
     return reply.code(202).send({ data: { enqueued: true, jobId } })
   })
 

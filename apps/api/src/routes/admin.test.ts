@@ -614,6 +614,24 @@ describe('POST /sync', () => {
   })
 })
 
+describe('POST /readiness-backfill', () => {
+  it('enqueues the backfill on the listing-resolve queue with a fixed jobId', async () => {
+    const factory = new MockQueueFactory()
+    const { app } = buildTestApp({}, {}, factory)
+
+    const res = await app.inject({ method: 'POST', url: '/readiness-backfill' })
+    expect(res.statusCode).toBe(202)
+    expect(res.json().data.enqueued).toBe(true)
+
+    const jobs = factory.getQueue(QUEUES.LISTING_RESOLVE)?.getEnqueued() ?? []
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0]).toMatchObject({ data: { readinessBackfill: true }, status: 'waiting' })
+    expect(jobs[0]?.options).toMatchObject({ jobId: 'readiness-backfill' })
+
+    await app.close()
+  })
+})
+
 describe('GET /sync', () => {
   it('returns lastSyncCompletedAt=null when no listing-sync job has completed', async () => {
     const factory = new MockQueueFactory()
