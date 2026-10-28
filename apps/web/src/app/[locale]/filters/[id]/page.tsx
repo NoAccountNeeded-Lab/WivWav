@@ -25,7 +25,7 @@ import { Link } from '@/navigation'
 import type { Translate } from '@/lib/intl'
 import { toIntlLocale } from '@/lib/intl'
 import { conditionLabel, rampLabel } from '../../listings/[id]/utils'
-import { getServerApiBaseUrl } from '@/lib/api-url'
+import { getServerApiBaseUrl } from '@/lib/server-api-url'
 import { apiFetch } from '@/lib/api-fetch'
 import styles from './page.module.css'
 

@@ -30,9 +30,8 @@ vi.mock('next-intl/server', () => ({
   },
 }))
 
-vi.mock('@/lib/api-url', () => ({
+vi.mock('@/lib/server-api-url', () => ({
   getServerApiBaseUrl: () => 'http://api.test',
-  getClientApiBaseUrl: () => 'http://api.test',
 }))
 
 vi.mock('@/components/SiteHeader', () => ({

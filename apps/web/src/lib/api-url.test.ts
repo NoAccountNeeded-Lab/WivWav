@@ -1,35 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { getClientApiBaseUrl, getPublicApiBaseUrl, getServerApiBaseUrl } from './api-url'
+import { getClientApiBaseUrl } from './api-url'
 
 const ENV_KEYS = ['API_INTERNAL_URL', 'NEXT_PUBLIC_API_URL'] as const
 
 function clearEnv() {
   for (const key of ENV_KEYS) delete process.env[key]
 }
-
-describe('getServerApiBaseUrl / getPublicApiBaseUrl — server-side, request-time env reads', () => {
-  afterEach(clearEnv)
-
-  it('falls back to the documented default when nothing is set', () => {
-    clearEnv()
-    expect(getServerApiBaseUrl()).toBe('http://localhost:4001')
-    expect(getPublicApiBaseUrl()).toBe('http://localhost:4001')
-  })
-
-  it('getPublicApiBaseUrl reflects NEXT_PUBLIC_API_URL at call time (not baked in)', () => {
-    clearEnv()
-    process.env['NEXT_PUBLIC_API_URL'] = 'https://api.wivwav.example'
-    expect(getPublicApiBaseUrl()).toBe('https://api.wivwav.example')
-  })
-
-  it('getServerApiBaseUrl prefers API_INTERNAL_URL over NEXT_PUBLIC_API_URL', () => {
-    clearEnv()
-    process.env['NEXT_PUBLIC_API_URL'] = 'https://api.wivwav.example'
-    process.env['API_INTERNAL_URL'] = 'http://api:4001'
-    expect(getServerApiBaseUrl()).toBe('http://api:4001')
-  })
-})
 
 describe('getClientApiBaseUrl — browser-side, reads the runtime data-api-url attribute', () => {
   beforeEach(() => {
