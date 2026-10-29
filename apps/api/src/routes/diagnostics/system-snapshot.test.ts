@@ -81,10 +81,18 @@ function buildTestApp(opts: BuildOpts = {}) {
   const listings = buildDefaultListingRepo(opts.listingRepoOverrides)
   const db = opts.db ?? {
     $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
-    configEntry: { findMany: vi.fn(async () => []) },
+    configEntry: {
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+    },
   }
   const meili = opts.meili ?? { health: vi.fn(async () => ({ status: 'available' })) }
-  const cache = opts.cache ?? { ping: vi.fn(async () => undefined) }
+  const cache = opts.cache ?? {
+    get: vi.fn(async () => null),
+    set: vi.fn(async () => {}),
+    del: vi.fn(async () => {}),
+    ping: vi.fn(async () => undefined),
+  }
   const config = { ...baseConfig, ...opts.config }
   const factory = opts.factory ?? new MockQueueFactory()
 
