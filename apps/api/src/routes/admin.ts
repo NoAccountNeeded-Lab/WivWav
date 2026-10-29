@@ -41,9 +41,22 @@ export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (
   }
 
   await app.register(adminQueueRoutes, { queues })
-  await app.register(adminSourceRoutes, { db, listings, operatorConfig, sources, scraperRuns, jobRuns, queues })
+  await app.register(adminSourceRoutes, {
+    db,
+    listings,
+    ...(operatorConfig ? { operatorConfig } : {}),
+    sources,
+    scraperRuns,
+    jobRuns,
+    queues,
+  })
   await app.register(adminSyncRoutes, { queues })
   await app.register(adminModerationRoutes, { listings })
   await app.register(adminListingRefreshRoutes, { listings, sources, scraperRuns, queues })
-  await app.register(adminRepeatableRoutes, { db, sources, queues, jobRunReaper })
+  await app.register(adminRepeatableRoutes, {
+    db,
+    sources,
+    queues,
+    ...(jobRunReaper ? { jobRunReaper } : {}),
+  })
 }
