@@ -530,7 +530,9 @@ export async function buildApp(
       async () => (await operatorConfig.getOperatorSetting('worker.job_timeout_min', config.WORKER_JOB_TIMEOUT_MS / 60_000)) * 60_000,
       app.log,
     )
-    const gatewayWorkers = registerGatewayWorkers(queueFactory, workerDispatcher, app.log)
+    const gatewayWorkers = registerGatewayWorkers(queueFactory, workerDispatcher, app.log, {
+      waitLimitMs: async () => (await operatorConfig.getOperatorSetting('gateway.escalation_wait_min')) * 60_000,
+    })
 
     await app.register(
       async (workersScope) => {

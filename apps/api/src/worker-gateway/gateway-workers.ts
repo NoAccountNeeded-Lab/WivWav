@@ -133,7 +133,7 @@ function readEscalationRecord(data: unknown): CapabilityEscalationRecord | undef
 
 interface EscalationOptions {
   /** Overridable for tests. */
-  waitLimitMs?: number
+  waitLimitMs?: number | (() => Promise<number>)
   now?: () => number
 }
 
@@ -156,7 +156,9 @@ async function dispatchSourceScrape(
   logger?: WivWavLogger,
 ): Promise<unknown> {
   const now = options.now ?? Date.now
-  const waitLimitMs = options.waitLimitMs ?? ESCALATION_WAIT_LIMIT_MS
+  const waitLimitMs = typeof options.waitLimitMs === 'function'
+    ? await options.waitLimitMs()
+    : options.waitLimitMs ?? ESCALATION_WAIT_LIMIT_MS
   const existing = readEscalationRecord(data)
   const requirements = { chromium: existing !== undefined || chromium, httpEnrich: false, sourceId }
   try {
