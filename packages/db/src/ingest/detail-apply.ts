@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../generated/prisma/index.js'
 import { httpsImageUrls } from './https-images.js'
 import type { ConversionType, RampType, SaleStatus, WavFeature } from '@wivwav/types'
@@ -123,7 +124,8 @@ export function detailObservationReference(rawPage: { id: string; scrapedAt: Dat
 }
 
 function detailResolutionJobId(observationReference: string): string {
-  return `detail-resolution:${observationReference}`
+  const digest = createHash('sha256').update(observationReference).digest('hex')
+  return `detail-resolution-${digest}`
 }
 
 /**
