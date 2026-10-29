@@ -29,8 +29,9 @@ export function SettingRef({ settingKey }: { settingKey: OperatorSettingKey }) {
       if (definition.type === 'boolean') next = draft === 'true'
       else {
         const number = Number(draft)
-        if (!Number.isFinite(number) || ((definition.type !== 'number' || definition.integer !== false) && !Number.isInteger(number)) || number < definition.min || number > definition.max) {
-          setSaveError(`Enter a ${definition.type === 'number' && definition.integer === false ? 'number' : 'integer'} from ${definition.min} to ${definition.max}`)
+        const allowsFraction = 'integer' in definition && definition.integer === false
+        if (!Number.isFinite(number) || (!allowsFraction && !Number.isInteger(number)) || number < definition.min || number > definition.max) {
+          setSaveError(`Enter a ${allowsFraction ? 'number' : 'integer'} from ${definition.min} to ${definition.max}`)
           return
         }
         next = number
@@ -49,7 +50,7 @@ export function SettingRef({ settingKey }: { settingKey: OperatorSettingKey }) {
     {marker && <span> ({marker})</span>}
     {settings && <button type="button" className={css.smallButton} aria-label={`Edit ${settingKey}`} aria-expanded={editing} onClick={() => { setDraft(String(value)); setEditing(current => !current); setSaveError(null) }}>Edit</button>}
     {editing && <span className={css.inlineForm}>
-      <label>{settingKey}{definition.type === 'boolean' ? <select value={draft} onChange={event => setDraft(event.target.value)}><option value="false">Off</option><option value="true">On</option></select> : <input type="number" min={definition.min} max={definition.max} step={definition.type === 'number' && definition.integer === false ? 'any' : '1'} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit() } }} />}</label>
+      <label>{settingKey}{definition.type === 'boolean' ? <select value={draft} onChange={event => setDraft(event.target.value)}><option value="false">Off</option><option value="true">On</option></select> : <input type="number" min={definition.min} max={definition.max} step={'integer' in definition && definition.integer === false ? 'any' : '1'} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit() } }} />}</label>
       <button type="button" onClick={() => void commit()}>Save</button>
       <button type="button" onClick={() => setEditing(false)}>Cancel</button>
       {saveError && <span role="alert">{saveError}</span>}
