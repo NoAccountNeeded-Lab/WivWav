@@ -8,6 +8,7 @@ import type { WivWavLogger } from '@wivwav/logger'
 import { isEscalateCapabilitySignal } from '@wivwav/scraper-sources'
 import type { HandlerRegistry } from './handler-registry.js'
 import type { ScraperGatewayClient } from './scraper-gateway-client.js'
+import { collectWorkerMachineInfo } from './machine-info.js'
 
 export interface WsClientOptions {
   coordinatorUrl: string
@@ -116,6 +117,7 @@ export class WsClient {
         workerId: this.options.workerId,
         workerName: this.options.workerName,
         capabilities: this.options.capabilities,
+        machine: collectWorkerMachineInfo(),
       })
       this.startHeartbeat()
     })

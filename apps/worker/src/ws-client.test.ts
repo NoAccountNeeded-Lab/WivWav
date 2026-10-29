@@ -61,11 +61,23 @@ describe('WsClient', () => {
     client.start()
     const socket = FakeSocket.instances[0]!
     socket.openNow()
-    expect(socket.sent).toContainEqual({
+    const hello = socket.sent.find((message) => typeof message === 'object' && message !== null && 'type' in message && message.type === 'hello')
+    expect(hello).toMatchObject({
       type: 'hello',
       workerId: 'w-1',
       workerName: 'test-worker',
       capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
+      machine: {
+        hostname: expect.any(String),
+        platform: expect.any(String),
+        osRelease: expect.any(String),
+        arch: expect.any(String),
+        cpuModel: expect.any(String),
+        cpuCount: expect.any(Number),
+        totalMemBytes: expect.any(Number),
+        nodeVersion: expect.any(String),
+        appVersion: expect.any(String),
+      },
     })
     client.stop()
   })
