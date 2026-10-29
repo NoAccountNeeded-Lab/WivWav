@@ -4,10 +4,22 @@ import { describe, expect, it, vi } from 'vitest'
 import { ZodError } from 'zod'
 import { adminAuthPlugin } from './admin-auth.js'
 import { workerGatewayRoutes } from './worker-gateway-ws.js'
+import { adminWorkersRoutes } from '../routes/admin-workers.js'
 import { WorkerRegistry } from '../worker-gateway/registry.js'
 import { WorkerDispatcher } from '../worker-gateway/dispatcher.js'
 
 const INTERNAL_API_SECRET = 'a'.repeat(32)
+const MACHINE = {
+  hostname: 'crawler-laptop',
+  platform: 'linux',
+  osRelease: '6.8.0-test',
+  arch: 'x64',
+  cpuModel: 'Test CPU',
+  cpuCount: 6,
+  totalMemBytes: 16_000_000_000,
+  nodeVersion: 'v26.5.0',
+  appVersion: '0.0.1',
+}
 
 /**
  * `@fastify/websocket` is `fastify-plugin`-wrapped (no new encapsulation
@@ -35,6 +47,7 @@ function buildTestApp(
     ready: app.register(websocketPlugin).register(async (scope) => {
       await adminAuthPlugin(scope, { internalApiSecret: secret, nodeEnv })
       await scope.register(workerGatewayRoutes, { registry, dispatcher })
+      await scope.register(adminWorkersRoutes, { prefix: '/admin/workers', registry })
     }),
   }
 }
@@ -86,6 +99,37 @@ describe('worker gateway WS auth', () => {
     )
     await waitFor(() => registry.list().length === 1)
     expect(registry.list()[0]?.workerId).toBe('w-1')
+    expect(registry.list()[0]?.machine).toBeUndefined()
+    ws.close()
+    await app.close()
+  })
+
+  it('stores machine metadata from hello and returns it from the admin workers route', async () => {
+    const { app, registry, ready } = buildTestApp(INTERNAL_API_SECRET)
+    await ready
+    await app.ready()
+
+    const ws = await app.injectWS('/ws', {
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
+    ws.send(JSON.stringify({
+      type: 'hello',
+      workerId: 'w-machine',
+      workerName: 'crawler laptop',
+      capabilities: { chromium: true, httpEnrich: true, maxConcurrentJobs: 3 },
+      machine: MACHINE,
+    }))
+    await waitFor(() => registry.list().length === 1)
+
+    expect(registry.list()[0]?.machine).toEqual(MACHINE)
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/workers',
+      headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().data[0]?.machine).toEqual(MACHINE)
+
     ws.close()
     await app.close()
   })

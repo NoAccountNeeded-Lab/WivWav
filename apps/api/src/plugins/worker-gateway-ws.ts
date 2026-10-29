@@ -123,9 +123,10 @@ export async function workerGatewayRoutes(
           workerId: message.workerId,
           workerName: message.workerName,
           capabilities: message.capabilities,
+          ...(message.machine ? { machine: message.machine } : {}),
           inFlight: new Set(),
-    jobs: new Map(),
-    recentJobs: [],
+          jobs: new Map(),
+          recentJobs: [],
           stats: newWorkerStats(),
           lastHeartbeatAt: new Date(),
           send: (outbound: CoordinatorToWorkerMessage) => {

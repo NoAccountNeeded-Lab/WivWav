@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { WorkerCapabilities } from '@wivwav/types/worker-protocol'
+import type { WorkerCapabilities, WorkerMachineInfo } from '@wivwav/types/worker-protocol'
 import type { WorkerRegistry } from '../worker-gateway/registry.js'
 
 export interface AdminWorkersPluginOptions {
@@ -58,6 +58,7 @@ export interface ConnectedWorkerSummary {
   workerId: string
   workerName: string
   capabilities: WorkerCapabilities
+  machine?: WorkerMachineInfo
   /** `inFlight.size` — kept beside the per-job detail below for at-a-glance load. */
   inFlightCount: number
   /**
@@ -140,6 +141,7 @@ export const adminWorkersRoutes: FastifyPluginAsync<AdminWorkersPluginOptions> =
       workerId: worker.workerId,
       workerName: worker.workerName,
       capabilities: worker.capabilities,
+      ...(worker.machine ? { machine: worker.machine } : {}),
       inFlightCount: worker.inFlight.size,
       inFlightJobs: [...worker.jobs.entries()].map(([correlationId, job]) => ({
         queueName: job.queueName,
