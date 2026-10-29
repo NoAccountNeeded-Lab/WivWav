@@ -33,6 +33,8 @@ describe('settings page', () => {
     }))
 
     const view = render(<SettingsProvider apiBaseUrl="http://api.test"><SettingsClient /></SettingsProvider>)
+    await screen.findByText('Operator settings')
+    for (const summary of document.querySelectorAll('summary')) fireEvent.click(summary)
     expect(await screen.findAllByRole('region')).toHaveLength(30)
     const section = screen.getByRole('region', { name: 'detail_crawl.batch_size' })
     fireEvent.click(within(section).getByRole('button', { name: 'Edit detail_crawl.batch_size' }))
@@ -42,9 +44,22 @@ describe('settings page', () => {
 
     view.unmount()
     render(<SettingsProvider apiBaseUrl="http://api.test"><SettingsClient /></SettingsProvider>)
+    await screen.findByText('Operator settings')
+    fireEvent.click(document.querySelector('summary')!)
     expect(await screen.findAllByRole('link', { name: /detail_crawl.batch_size: 400/ })).toBeDefined()
     fireEvent.click(within(screen.getByRole('region', { name: 'detail_crawl.batch_size' })).getByRole('button', { name: 'Reset detail_crawl.batch_size to default' }))
     expect(await screen.findAllByRole('link', { name: /detail_crawl.batch_size: 50/ })).toBeDefined()
+  })
+  it('shows linked settings from the same group on a setting detail page', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/history')
+      ? new Response(null, { status: 404 })
+      : response([])))
+    render(<SettingsProvider apiBaseUrl="http://api.test"><SettingsClient selectedKey="detail_crawl.rate_limit_ms" /></SettingsProvider>)
+
+    expect(await screen.findByRole('region', { name: 'detail_crawl.rate_limit_ms' })).toBeDefined()
+    const related = screen.getByRole('region', { name: 'Related settings' })
+    expect(within(related).getByRole('link', { name: 'detail_crawl.batch_size' }).getAttribute('href')).toBe('/ops/settings/detail_crawl.batch_size')
+    expect(within(related).getByRole('link', { name: 'detail_crawl.stale_days' }).getAttribute('href')).toBe('/ops/settings/detail_crawl.stale_days')
   })
   it('edits the publish gate with a boolean control', async () => {
     const entries: Array<{ id: string; key: string; value: number | boolean; type: string; createdAt: string; createdBy: null }> = []

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { CircleDot } from 'lucide-react'
 import { OPERATOR_SETTINGS, type OperatorSettingKey, type OperatorSettingValue } from '@wivwav/types/operator-settings'
 import { useOptionalSettings } from './SettingsProvider'
 import { resolveOperatorSetting } from '@wivwav/types/operator-settings'
@@ -45,9 +46,12 @@ export function SettingRef({ settingKey }: { settingKey: OperatorSettingKey }) {
   }
 
   const marker = !settings ? 'default; settings unavailable' : !row ? 'default' : null
+  const changed = row !== undefined && !Object.is(value, definition.defaultValue)
+  const unit = 'unit' in definition ? definition.unit : undefined
   return <span className={css.ref}>
-    <Link href={href} className={css.chip} aria-label={`${settingKey}: ${value}${marker ? ` (${marker})` : ''}. Open setting details`}>{value}</Link>
+    <Link href={href} className={css.chip} aria-label={`${settingKey}: ${value}${unit ? ` ${unit}` : ''}${marker ? ` (${marker})` : ''}. Open setting details`}>{value}{unit && <span className={css.unit}> {unit}</span>}</Link>
     {marker && <span> ({marker})</span>}
+    {changed && <span className={css.changed}><CircleDot size={14} aria-hidden="true" /><span>Changed from default</span></span>}
     {settings && <button type="button" className={css.smallButton} aria-label={`Edit ${settingKey}`} aria-expanded={editing} onClick={() => { setDraft(String(value)); setEditing(current => !current); setSaveError(null) }}>Edit</button>}
     {editing && <span className={css.inlineForm}>
       <label>{settingKey}{definition.type === 'boolean' ? <select value={draft} onChange={event => setDraft(event.target.value)}><option value="false">Off</option><option value="true">On</option></select> : <input type="number" min={definition.min} max={definition.max} step={'integer' in definition && definition.integer === false ? 'any' : '1'} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit() } }} />}</label>

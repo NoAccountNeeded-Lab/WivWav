@@ -32,6 +32,18 @@ describe('SettingRef', () => {
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Setting unavailable')
   })
 
+  it('shows a changed-from-default indicator and the setting unit accessibly', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(body([{
+      id: 'saved', key: 'detail_crawl.rate_limit_ms', value: 4000, type: 'number',
+      createdAt: new Date().toISOString(), createdBy: null,
+    }])))
+    render(<SettingsProvider apiBaseUrl="http://api.test"><SettingRef settingKey="detail_crawl.rate_limit_ms" /></SettingsProvider>)
+
+    const link = await screen.findByRole('link', { name: /detail_crawl.rate_limit_ms: 4000 ms/ })
+    expect(link.textContent).toContain('4000 ms')
+    expect(screen.getByText('Changed from default')).toBeDefined()
+  })
+
   it('updates every reference after an inline save', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(body([])).mockResolvedValueOnce(body({ id: 'new', key: 'detail_crawl.batch_size', value: 400, type: 'number', createdAt: new Date().toISOString(), createdBy: null }))
     vi.stubGlobal('fetch', fetcher)
