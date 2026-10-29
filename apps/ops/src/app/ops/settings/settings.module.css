@@ -1,5 +1,5 @@
 .main { max-width: 75rem; margin: 0 auto; padding: 1.5rem; color: var(--color-text); }
-.main a { color: var(--color-primary-text); overflow-wrap: anywhere; }
+.main a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-primary-text); overflow-wrap: anywhere; }
 .main button, .main input, .main select, .ref button, .ref input, .ref select { min-height: 44px; font: inherit; }
 .main button, .ref button { cursor: pointer; }
 .groups { display: grid; gap: 0; border-top: 1px solid var(--color-border); }

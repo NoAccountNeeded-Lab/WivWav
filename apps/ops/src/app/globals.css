@@ -143,8 +143,8 @@ h1, h2, h3, h4, h5, h6 {
   left: 1rem;
   transform: translateY(-100%);
   padding: 0.5rem 1rem;
-  background: var(--clr-primary);
-  color: #000;
+  background: var(--clr-text);
+  color: var(--clr-surface);
   font-weight: 700;
   border-radius: 0 0 4px 4px;
   z-index: 9999;
