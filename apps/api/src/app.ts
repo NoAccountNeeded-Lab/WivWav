@@ -295,6 +295,7 @@ export async function buildApp(
     search,
     facets,
     queueFactory,
+    operatorConfig,
   })
   await app.register(vehicleRoutes, { prefix: '/v1/vehicles', vehicles: vehicleRepo })
   await app.register(vinRoutes, {
