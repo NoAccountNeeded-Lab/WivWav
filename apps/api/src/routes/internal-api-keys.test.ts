@@ -4,12 +4,67 @@ import { describe, expect, it, vi } from 'vitest'
 import { internalApiKeysRoutes } from './internal-api-keys.js'
 import type { ApiKeyRepository } from '../repositories/index.js'
 
-function buildTestApp(apiKeys: Partial<ApiKeyRepository>) {
+function buildTestApp(apiKeys: Partial<ApiKeyRepository>, includeList = false) {
   const app = Fastify()
   void app.register(sensible)
-  void app.register(internalApiKeysRoutes, { apiKeys: apiKeys as ApiKeyRepository })
+  void app.register(internalApiKeysRoutes, { apiKeys: apiKeys as ApiKeyRepository, includeList })
   return app
 }
+
+describe('GET / (admin list only)', () => {
+  it('lists paginated metadata without exposing raw keys or hashes', async () => {
+    const list = vi.fn(async () => ({
+      rows: [{
+        id: 'key-1', ownerEmail: 'buyer@example.com', tier: 'PRO' as const, rateLimitRpm: 600,
+        createdAt: new Date('2026-07-14T00:00:00.000Z'), revokedAt: null,
+        keyHash: 'sensitive-hash', rawKey: 'sensitive-raw-key',
+      }],
+      total: 8,
+    }))
+    const app = buildTestApp({ list }, true)
+
+    const response = await app.inject({ method: 'GET', url: '/?limit=5&offset=2' })
+
+    expect(response.statusCode).toBe(200)
+    expect(JSON.parse(response.body)).toEqual({
+      data: {
+        keys: [{
+          id: 'key-1', ownerEmail: 'buyer@example.com', tier: 'PRO', rateLimitRpm: 600,
+          createdAt: '2026-07-14T00:00:00.000Z', revokedAt: null,
+        }],
+        pagination: { limit: 5, offset: 2, total: 8 },
+      },
+    })
+    expect(response.body).not.toContain('sensitive-hash')
+    expect(response.body).not.toContain('sensitive-raw-key')
+    expect(list).toHaveBeenCalledWith({ limit: 5, offset: 2 })
+
+    await app.close()
+  })
+
+  it('uses default pagination and rejects invalid bounds', async () => {
+    const list = vi.fn(async () => ({ rows: [], total: 0 }))
+    const app = buildTestApp({ list }, true)
+
+    const defaults = await app.inject({ method: 'GET', url: '/' })
+    expect(defaults.statusCode).toBe(200)
+    expect(list).toHaveBeenCalledWith({ limit: 50, offset: 0 })
+
+    for (const query of ['?limit=0', '?limit=101', '?limit=2x', '?offset=-1', '?offset=1.5']) {
+      const response = await app.inject({ method: 'GET', url: `/${query}` })
+      expect(response.statusCode).toBe(400)
+    }
+
+    await app.close()
+  })
+
+  it('is not mounted on the internal provisioning surface', async () => {
+    const app = buildTestApp({ list: vi.fn() })
+    const response = await app.inject({ method: 'GET', url: '/' })
+    expect(response.statusCode).toBe(404)
+    await app.close()
+  })
+})
 
 describe('POST /', () => {
   it('creates a key, returns the raw key once, and persists only its hash', async () => {

@@ -361,6 +361,13 @@ export async function buildApp(
         encryptionSecret: config.CONFIG_ENCRYPTION_SECRET,
         internalApiSecret: config.INTERNAL_API_SECRET,
       })
+      // The operator-facing API key manager reuses provision/revoke handlers;
+      // list is enabled only in this admin-authenticated scope.
+      await adminScope.register(internalApiKeysRoutes, {
+        prefix: '/api-keys',
+        apiKeys: apiKeyRepo,
+        includeList: true,
+      })
       await adminScope.register(adminLogsRoutes, {
         prefix: '/logs',
         lokiUrl: config.LOKI_URL,

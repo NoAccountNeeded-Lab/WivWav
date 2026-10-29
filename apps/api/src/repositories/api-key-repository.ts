@@ -16,6 +16,15 @@ export type ApiKeyRow = {
   revokedAt: Date | null
 }
 
+export type ApiKeyListRow = Omit<ApiKeyRow, 'revokedAt'> & {
+  revokedAt: Date | null
+}
+
+export type ListApiKeysInput = {
+  limit: number
+  offset: number
+}
+
 export interface CreateApiKeyInput {
   keyHash: string
   ownerEmail: string
@@ -32,6 +41,9 @@ export interface ApiKeyRepository {
 
   /** Sets `revokedAt` for a key. Returns false if the key does not exist or is already revoked. */
   revoke(id: string): Promise<boolean>
+
+  /** Lists safe operator-facing fields only; key hashes and raw keys are never selected. */
+  list(input: ListApiKeysInput): Promise<{ rows: ApiKeyListRow[]; total: number }>
 
   /**
    * Updates tier and rate limit for every active (non-revoked) key owned by
@@ -64,6 +76,26 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
       data: { revokedAt: new Date() },
     })
     return result.count > 0
+  }
+
+  async list(input: ListApiKeysInput): Promise<{ rows: ApiKeyListRow[]; total: number }> {
+    const [rows, total] = await Promise.all([
+      this.db.apiKey.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: input.offset,
+        take: input.limit,
+        select: {
+          id: true,
+          ownerEmail: true,
+          tier: true,
+          rateLimitRpm: true,
+          createdAt: true,
+          revokedAt: true,
+        },
+      }),
+      this.db.apiKey.count(),
+    ])
+    return { rows, total }
   }
 
   async updateTierByOwnerEmail(ownerEmail: string, tier: ApiKeyTier, rateLimitRpm: number): Promise<number> {

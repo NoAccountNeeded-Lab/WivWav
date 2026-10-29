@@ -6,12 +6,16 @@ function buildDb(overrides: Partial<{
   findFirst: ReturnType<typeof vi.fn>
   create: ReturnType<typeof vi.fn>
   updateMany: ReturnType<typeof vi.fn>
+  findMany: ReturnType<typeof vi.fn>
+  count: ReturnType<typeof vi.fn>
 }>) {
   return {
     apiKey: {
       findFirst: overrides.findFirst ?? vi.fn(),
       create: overrides.create ?? vi.fn(),
       updateMany: overrides.updateMany ?? vi.fn(),
+      findMany: overrides.findMany ?? vi.fn(),
+      count: overrides.count ?? vi.fn(),
     },
   } as unknown as PrismaClient
 }
@@ -75,6 +79,38 @@ describe('PrismaApiKeyRepository', () => {
     it('returns false when the key does not exist or is already revoked', async () => {
       const repo = new PrismaApiKeyRepository(buildDb({ updateMany: vi.fn(async () => ({ count: 0 })) }))
       expect(await repo.revoke('missing')).toBe(false)
+    })
+  })
+
+  describe('list', () => {
+    it('returns only safe API key fields with stable pagination and total count', async () => {
+      const rows = [{
+        id: 'key-1',
+        ownerEmail: 'buyer@example.com',
+        tier: 'PRO' as const,
+        rateLimitRpm: 600,
+        createdAt: new Date('2026-07-14T00:00:00.000Z'),
+        revokedAt: null,
+      }]
+      const findMany = vi.fn(async () => rows)
+      const count = vi.fn(async () => 11)
+      const repo = new PrismaApiKeyRepository(buildDb({ findMany, count }))
+
+      expect(await repo.list({ limit: 5, offset: 5 })).toEqual({ rows, total: 11 })
+      expect(findMany).toHaveBeenCalledWith({
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: 5,
+        take: 5,
+        select: {
+          id: true,
+          ownerEmail: true,
+          tier: true,
+          rateLimitRpm: true,
+          createdAt: true,
+          revokedAt: true,
+        },
+      })
+      expect(count).toHaveBeenCalledWith()
     })
   })
 
