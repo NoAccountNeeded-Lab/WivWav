@@ -1,5 +1,6 @@
 import type { CacheService } from './cache/index.js'
 import type { SearchService } from './search/index.js'
+import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
 import { INDEX_NAME, buildListingFilters } from './listing-search.js'
 import type { SearchParams } from './listing-search.js'
 
@@ -26,13 +27,17 @@ export interface FacetsResult {
   wavFeatureCounts: Record<string, number>
 }
 
-const CACHE_TTL_SECONDS = 60
 const CACHE_NAMESPACE = 'facets:eligible-v2'
+
+interface FacetSettings {
+  getOperatorSetting(key: 'facets.cache_ttl_s'): Promise<number>
+}
 
 export class ListingFacetsService {
   constructor(
     private readonly searchService: SearchService,
     private readonly cache: CacheService,
+    private readonly settings?: FacetSettings,
   ) {}
 
   async getFacets(params: FacetsParams): Promise<FacetsResult> {
@@ -40,7 +45,8 @@ export class ListingFacetsService {
     // counts cannot survive a deployment of the default-deny boundary.
     const cacheKey = `${CACHE_NAMESPACE}:${stableKey(params)}`
 
-    const cached = await this.cache.get(cacheKey).catch(() => null)
+    const ttlSeconds = await this.settings?.getOperatorSetting('facets.cache_ttl_s') ?? OPERATOR_SETTINGS['facets.cache_ttl_s'].defaultValue
+    const cached = ttlSeconds > 0 ? await this.cache.get(cacheKey).catch(() => null) : null
     if (cached) return JSON.parse(cached) as FacetsResult
 
     const { filters, rangeFilters } = buildListingFilters(params)
@@ -78,9 +84,9 @@ export class ListingFacetsService {
       wavFeatureCounts: dist['wavFeatures'] ?? {},
     }
 
-    await this.cache
-      .set(cacheKey, JSON.stringify(facetsResult), CACHE_TTL_SECONDS)
-      .catch(() => {})
+    if (ttlSeconds > 0) {
+      await this.cache.set(cacheKey, JSON.stringify(facetsResult), ttlSeconds).catch(() => {})
+    }
 
     return facetsResult
   }

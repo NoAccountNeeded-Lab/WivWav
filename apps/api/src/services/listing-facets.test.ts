@@ -200,4 +200,19 @@ describe('ListingFacetsService', () => {
       { value: 'EX', count: 1 },
     ])
   })
+
+  it('uses the configured TTL and disables facet caching at zero', async () => {
+    const search = { search: vi.fn(async () => ({ hits: [], total: 0, facetDistribution: {} })) } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => null), set: vi.fn(async () => {}), del: vi.fn(async () => {}),
+      ping: vi.fn(async () => {}), getOrSet: vi.fn(),
+    } as unknown as CacheService
+    const settings = { getOperatorSetting: vi.fn(async () => 0) }
+
+    await new ListingFacetsService(search, cache, settings).getFacets({})
+
+    expect(settings.getOperatorSetting).toHaveBeenCalledWith('facets.cache_ttl_s')
+    expect(cache.get).not.toHaveBeenCalled()
+    expect(cache.set).not.toHaveBeenCalled()
+  })
 })
