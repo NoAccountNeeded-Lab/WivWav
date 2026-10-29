@@ -224,6 +224,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
       if (body.sourceId !== req.params.sourceId) {
         return reply.badRequest('sourceId in the URL and body must match')
       }
+      const goneAfterMissing = await config.getOperatorSetting('listing.gone_after_missing')
 
       // Idempotency: a mark-gone HTTP retry for the same (sourceId,
       // scraperRunId) must not double-increment missingFromCompleteCount.
@@ -253,6 +254,7 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
               body.activeSourceRecordKeys,
               {
                 isCompleteCrawl: body.isCompleteCrawl,
+                goneAfterMissing,
                 // The old in-process onGone search-index callback has no wire
                 // equivalent — the single-owner LISTING_INDEX_POLL poller picks
                 // up the status change via `updatedAt` on its next tick (matches
