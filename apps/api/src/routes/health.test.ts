@@ -101,6 +101,29 @@ describe('healthRoutes', () => {
     await app.close()
   })
 
+  it('keeps health probes available when operator setting reads fail', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))
+    const app = Fastify()
+    await app.register(healthRoutes, {
+      ...baseDeps,
+      ...buildHealthDeps(0, null),
+      db: {
+        $queryRaw: vi.fn(async () => { throw new Error('Postgres is unavailable') }),
+        configEntry: { findFirst: vi.fn(async () => { throw new Error('Postgres is unavailable') }) },
+      } as never,
+    })
+
+    const response = await app.inject({ method: 'GET', url: '/' })
+    const body = response.json()
+
+    expect(response.statusCode).toBe(200)
+    expect(body.services.postgres.status).toBe('down')
+    expect(body.services.meilisearch.status).toBe('up')
+    expect(body.services.valkey.status).toBe('up')
+    expect(body.services.ollama.status).toBe('up')
+    await app.close()
+  })
+
   it('keeps scraper up before its first successful run when active sources exist', async () => {
     vi.stubGlobal(
       'fetch',

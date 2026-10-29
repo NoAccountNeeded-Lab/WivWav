@@ -47,10 +47,10 @@ export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app,
 export async function computeHealth({ db, sources, scraperRuns, meili, cache, config }: HealthPluginOptions): Promise<HealthResponse> {
   const operatorConfig = new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)
   const [postgresThreshold, meilisearchThreshold, valkeyThreshold, ollamaThreshold] = await Promise.all([
-    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.postgres),
-    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.meilisearch),
-    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.valkey),
-    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.ollama),
+    readLatencyThreshold(operatorConfig, LATENCY_SETTING_KEYS.postgres, LATENCY_THRESHOLDS_MS.postgres),
+    readLatencyThreshold(operatorConfig, LATENCY_SETTING_KEYS.meilisearch, LATENCY_THRESHOLDS_MS.meilisearch),
+    readLatencyThreshold(operatorConfig, LATENCY_SETTING_KEYS.valkey, LATENCY_THRESHOLDS_MS.valkey),
+    readLatencyThreshold(operatorConfig, LATENCY_SETTING_KEYS.ollama, LATENCY_THRESHOLDS_MS.ollama),
   ])
   const [postgres, meilisearch, valkey, ollama, scraper] = await Promise.all([
     probe('postgres', () => db.$queryRaw`SELECT 1`, postgresThreshold),
@@ -66,6 +66,18 @@ export async function computeHealth({ db, sources, scraperRuns, meili, cache, co
     status: getOverallStatus(Object.values(services)),
     timestamp: new Date().toISOString(),
     services,
+  }
+}
+
+async function readLatencyThreshold(
+  operatorConfig: ConfigService,
+  key: (typeof LATENCY_SETTING_KEYS)[keyof typeof LATENCY_SETTING_KEYS],
+  fallback: number,
+): Promise<number> {
+  try {
+    return await withTimeout(operatorConfig.getOperatorSetting(key), PROBE_TIMEOUT_MS)
+  } catch {
+    return fallback
   }
 }
 
