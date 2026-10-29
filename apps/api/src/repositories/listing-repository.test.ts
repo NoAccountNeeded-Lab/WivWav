@@ -57,6 +57,21 @@ describe('PrismaListingRepository.countActive', () => {
 })
 
 describe('PrismaListingRepository public eligibility', () => {
+  it('uses the live operator publish gate for public listing reads', async () => {
+    const db = buildDb()
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+    const getOperatorSetting = vi.fn(async () => true)
+    const repo = new PrismaListingRepository(db as never, { getOperatorSetting } as never)
+
+    await repo.findById('l-1')
+
+    expect(getOperatorSetting).toHaveBeenCalledWith('publish_gate.strict', false)
+    expect((db.listing.findFirst.mock.calls as unknown[][])[0]?.[0]).toMatchObject({
+      where: { readinessComputedAt: { not: null }, readinessBlockers: { isEmpty: true } },
+    })
+    vi.unstubAllEnvs()
+  })
+
   it('applies the strict readiness predicate to public readers only when PUBLISH_GATE_STRICT=true (#1161)', async () => {
     const db = buildDb()
     const repo = new PrismaListingRepository(db as never)

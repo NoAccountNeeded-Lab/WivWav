@@ -465,6 +465,22 @@ describe('selectRepresentative', () => {
 // ---------------------------------------------------------------------------
 
 describe('syncListings — publication eligibility', () => {
+  it('applies the runtime strict publish gate to incremental reads', async () => {
+    const row = makeListing({ id: 'strict-1', vehicleId: null, publicationStatus: 'eligible' })
+    const findMany = vi.fn()
+      .mockResolvedValueOnce([{ id: 'strict-1', vehicleId: null }])
+      .mockResolvedValueOnce([row])
+    const client = { index: vi.fn(() => ({ addDocuments: vi.fn(async () => ({})), deleteDocuments: vi.fn(async () => ({})) })) }
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+
+    await syncListings(['strict-1'], { listing: { findMany } } as never, client as never, true)
+
+    expect(findMany.mock.calls[1]?.[0]).toMatchObject({
+      where: { readinessComputedAt: { not: null }, readinessBlockers: { isEmpty: true } },
+    })
+    vi.unstubAllEnvs()
+  })
+
   it('upserts the eligible ungrouped listing and does not delete', async () => {
     const row = makeListing({ id: 'eligible-1', vehicleId: null, publicationStatus: 'eligible' })
     // Call 1: discover vehicleIds (select: { id, vehicleId })

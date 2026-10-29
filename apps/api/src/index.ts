@@ -231,7 +231,7 @@ function registerWorkers(): void {
     withSentryCapture<ListingResolveJobData>(
       QUEUES.LISTING_RESOLVE,
       withJobRunTracking<ListingResolveJobData>(QUEUES.LISTING_RESOLVE, jobRuns, (data, context) =>
-        runListingResolveJob(data, context),
+        runListingResolveJob(data, context, operatorConfig),
       ),
     ),
     { lockDuration: 120_000, logger: app.log },
@@ -261,7 +261,7 @@ function registerWorkers(): void {
     withSentryCapture(
       QUEUES.PRIVATE_SELLER_RETENTION,
       withJobRunTracking(QUEUES.PRIVATE_SELLER_RETENTION, jobRuns, (_data: unknown, context) =>
-        runPrivateSellerRetentionJob(context),
+        runPrivateSellerRetentionJob(context, operatorConfig),
       ),
     ),
     { lockDuration: 120_000, logger: app.log },

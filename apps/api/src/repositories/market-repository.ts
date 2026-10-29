@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@wivwav/db'
 import { strictReadySql } from '../lib/strict-ready.js'
+import { isPublishGateStrict } from '@wivwav/types/listing-readiness'
+import type { ConfigService } from '../services/config-service.js'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -83,9 +85,14 @@ type TrendRow = {
 // ── Prisma implementation ────────────────────────────────────────────────────
 
 export class PrismaMarketRepository implements MarketRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: PrismaClient, private readonly operatorConfig?: ConfigService) {}
+
+  private async strictGate(): Promise<boolean> {
+    return await this.operatorConfig?.getOperatorSetting('publish_gate.strict', isPublishGateStrict()) ?? isPublishGateStrict()
+  }
 
   async getPricingStats(make: string, model: string, year: number | null, conversionType: string | null): Promise<PricingStats> {
+    const strictGate = await this.strictGate()
     const [pricingRows, dropRows] = await Promise.all([
       this.db.$queryRaw<PricingRow[]>`
         WITH representative_listings AS (
@@ -94,7 +101,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
-            ${strictReadySql()}
+            ${strictReadySql(strictGate)}
             AND sources.status != 'disabled'
             AND listings."priceCents" IS NOT NULL
             AND listings.make = ${make}
@@ -128,7 +135,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
-            ${strictReadySql()}
+            ${strictReadySql(strictGate)}
             AND sources.status != 'disabled'
             AND listings.make = ${make}
             AND listings.model = ${model}
@@ -175,6 +182,7 @@ export class PrismaMarketRepository implements MarketRepository {
   }
 
   async getPopular(): Promise<PopularStats> {
+    const strictGate = await this.strictGate()
     const [makes, models, brands] = await Promise.all([
       this.db.$queryRaw<PopularRow[]>`
         WITH representative_listings AS (
@@ -183,7 +191,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
-            ${strictReadySql()}
+            ${strictReadySql(strictGate)}
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
@@ -200,7 +208,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
-            ${strictReadySql()}
+            ${strictReadySql(strictGate)}
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
@@ -217,7 +225,7 @@ export class PrismaMarketRepository implements MarketRepository {
           INNER JOIN sources ON sources.id = listings."sourceId"
           WHERE listings.status = 'active'
             AND listings."publicationStatus" = 'eligible'
-            ${strictReadySql()}
+            ${strictReadySql(strictGate)}
             AND sources.status != 'disabled'
           ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
         )
@@ -240,6 +248,7 @@ export class PrismaMarketRepository implements MarketRepository {
   }
 
   async getTrends(make: string, model: string, interval: MarketTrendInterval, from: Date, to: Date): Promise<MarketTrendPoint[]> {
+    const strictGate = await this.strictGate()
     // One CTE-based query computes all three metrics per bucket rather than
     // running a query per bucket (avoids N+1 as called out in #454's notes).
     // `inventory`, `price_points`, and `gone_durations` are aggregated
@@ -265,7 +274,7 @@ export class PrismaMarketRepository implements MarketRepository {
         WHERE listings.make = ${make}
           AND listings.model = ${model}
           AND listings."publicationStatus" = 'eligible'
-          ${strictReadySql()}
+          ${strictReadySql(strictGate)}
           AND sources.status != 'disabled'
         ORDER BY COALESCE(listings."vehicleId", listings.id), listings."listedAt" DESC, listings.id ASC
       ),

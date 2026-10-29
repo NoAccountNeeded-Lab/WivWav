@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { PrismaClient } from '@wivwav/db'
 import type { Meilisearch } from 'meilisearch'
+import type { ConfigService } from '../services/config-service.js'
+import { isPublishGateStrict } from '@wivwav/types/listing-readiness'
 import { appendPrivateSellerDeletionAuditEntry, listPrivateSellerDeletionAuditEntries } from '@wivwav/db'
 import {
   anonymizePrivateSellerListing,
@@ -11,6 +13,7 @@ import {
 interface AdminPrivateSellerRetentionPluginOptions {
   db: PrismaClient
   meili: Meilisearch
+  operatorConfig?: Pick<ConfigService, 'getOperatorSetting'>
 }
 
 interface DeletionRequestBody {
@@ -31,7 +34,7 @@ interface DeletionRequestBody {
  * route here requires `Authorization: Bearer {INTERNAL_API_SECRET}`.
  */
 export const adminPrivateSellerRetentionRoutes: FastifyPluginAsync<AdminPrivateSellerRetentionPluginOptions> =
-  async (app, { db, meili }) => {
+  async (app, { db, meili, operatorConfig }) => {
     // ── POST /admin/private-seller-retention/listings/:id/delete ─────────────
     // Immediately anonymizes one private-seller listing regardless of its
     // gone/retention-window status — an explicit operator action, e.g. in
@@ -47,7 +50,8 @@ export const adminPrivateSellerRetentionRoutes: FastifyPluginAsync<AdminPrivateS
         const requestedBy = req.body?.requestedBy?.trim() || null
 
         try {
-          const result = await anonymizePrivateSellerListing(db, meili, listingId)
+          const strictGate = await operatorConfig?.getOperatorSetting('publish_gate.strict', isPublishGateStrict()) ?? isPublishGateStrict()
+          const result = await anonymizePrivateSellerListing(db, meili, listingId, strictGate)
           await appendPrivateSellerDeletionAuditEntry(db, listingId, {
             action: 'operator-request',
             outcome: result.outcome,

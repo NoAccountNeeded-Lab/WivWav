@@ -60,6 +60,20 @@ describe('runPrivateSellerRetentionJob', () => {
     )
   })
 
+  it('passes the runtime publish gate through the retention index sync', async () => {
+    const db = makeDb([[{ id: 'l-1' }]])
+    vi.mocked(getDb).mockReturnValue(db as never)
+    const getOperatorSetting = vi.fn(async () => true)
+    const anonymize = vi.mocked(anonymizePrivateSellerListing).mockResolvedValue({
+      listingId: 'l-1', outcome: 'applied', fieldsCleared: [], imagesDeleted: 0, rawPagesDeleted: 0,
+    })
+
+    await runPrivateSellerRetentionJob(undefined, { getOperatorSetting } as never)
+
+    expect(getOperatorSetting).toHaveBeenCalledWith('publish_gate.strict', false)
+    expect(anonymize).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'l-1', true)
+  })
+
   it('should not write an audit entry for a listing already anonymized by a concurrent run', async () => {
     const db = makeDb([[{ id: 'l-1' }]])
     vi.mocked(getDb).mockReturnValue(db as never)

@@ -319,6 +319,7 @@ export async function syncListings(
   listingIds: string[],
   db: PrismaClient,
   client: Meilisearch,
+  strictGate?: boolean,
 ): Promise<void> {
   if (listingIds.length === 0) return
 
@@ -344,7 +345,7 @@ export async function syncListings(
             status: 'active',
             publicationStatus: 'eligible',
             manuallyHiddenAt: null,
-            ...strictReadyWhere(),
+            ...strictReadyWhere(strictGate),
           },
         })
       : []
@@ -371,7 +372,7 @@ export async function syncListings(
             status: 'active',
             publicationStatus: 'eligible',
             manuallyHiddenAt: null,
-            ...strictReadyWhere(),
+            ...strictReadyWhere(strictGate),
           },
         })
       : []

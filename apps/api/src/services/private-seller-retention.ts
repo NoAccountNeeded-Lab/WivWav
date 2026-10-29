@@ -95,6 +95,7 @@ export async function anonymizePrivateSellerListing(
   db: PrismaClient,
   meili: Meilisearch,
   listingId: string,
+  strictGate?: boolean,
 ): Promise<AnonymizeResult> {
   const listing = await db.listing.findUnique({
     where: { id: listingId },
@@ -140,7 +141,7 @@ export async function anonymizePrivateSellerListing(
   const rawPagesDeleted = rawPageDeleteResult.count
 
   try {
-    await syncListings([listingId], db, meili)
+    await syncListings([listingId], db, meili, strictGate)
   } catch (err) {
     // Non-fatal — see the fail-closed note above. The next search-indexer
     // poll tick self-heals since the transaction above already bumped

@@ -1,5 +1,6 @@
-import { strictReadyWhere } from '@wivwav/types/listing-readiness'
+import { isPublishGateStrict, strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { SourceStatus, type PrismaClient, type Prisma } from '@wivwav/db'
+import type { ConfigService } from '../services/config-service.js'
 
 // ── Shape types ──────────────────────────────────────────────────────────────
 
@@ -54,7 +55,12 @@ export interface DealerRepository {
 // ── Prisma implementation ────────────────────────────────────────────────────
 
 export class PrismaDealerRepository implements DealerRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: PrismaClient, private readonly operatorConfig?: ConfigService) {}
+
+  private async strictReadyFilter() {
+    const strict = await this.operatorConfig?.getOperatorSetting('publish_gate.strict', isPublishGateStrict()) ?? isPublishGateStrict()
+    return strictReadyWhere(strict)
+  }
 
   findProfile(id: string): Promise<DealerProfileRow | null> {
     return this.db.dealerProfile.findUnique({
@@ -63,12 +69,13 @@ export class PrismaDealerRepository implements DealerRepository {
     })
   }
 
-  findListings(id: string, status: DealerListingStatusFilter, skip: number, take: number): Promise<DealerListingRow[]> {
+  async findListings(id: string, status: DealerListingStatusFilter, skip: number, take: number): Promise<DealerListingRow[]> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findMany({
       where: {
         dealerProfileId: id,
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
         ...statusWhere(status),
       },
@@ -90,12 +97,13 @@ export class PrismaDealerRepository implements DealerRepository {
     })
   }
 
-  countListings(id: string, status: DealerListingStatusFilter): Promise<number> {
+  async countListings(id: string, status: DealerListingStatusFilter): Promise<number> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.count({
       where: {
         dealerProfileId: id,
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
         ...statusWhere(status),
       },
