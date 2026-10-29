@@ -527,7 +527,7 @@ export async function buildApp(
   if (config.WORKER_GATEWAY_ENABLED) {
     const workerDispatcher = new WorkerDispatcher(
       workerRegistry,
-      config.WORKER_JOB_TIMEOUT_MS,
+      async () => (await operatorConfig.getOperatorSetting('worker.job_timeout_min', config.WORKER_JOB_TIMEOUT_MS / 60_000)) * 60_000,
       app.log,
     )
     const gatewayWorkers = registerGatewayWorkers(queueFactory, workerDispatcher, app.log)

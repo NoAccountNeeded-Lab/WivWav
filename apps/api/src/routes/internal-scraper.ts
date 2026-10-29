@@ -79,7 +79,10 @@ export const internalScraperRoutes: FastifyPluginAsync<InternalScraperRoutesOpti
 
   app.get<{ Params: { key: string } }>('/config/:key', async (req, reply) => {
     if (!isOperatorSettingKey(req.params.key)) return reply.notFound('Unknown operator setting')
-    return reply.send({ data: { key: req.params.key, value: await config.getOperatorSetting(req.params.key) } })
+    const value = req.params.key === 'publish_gate.strict'
+      ? await config.getOperatorSetting('publish_gate.strict', process.env['PUBLISH_GATE_STRICT'] === 'true')
+      : await config.getOperatorSetting(req.params.key)
+    return reply.send({ data: { key: req.params.key, value } })
   })
 
   // --- scraper runs ---

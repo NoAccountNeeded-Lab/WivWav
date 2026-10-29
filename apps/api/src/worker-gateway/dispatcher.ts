@@ -61,7 +61,7 @@ export class WorkerDispatcher {
 
   constructor(
     private readonly registry: WorkerRegistry,
-    private readonly timeoutMs: number,
+    private readonly timeoutMs: number | (() => Promise<number>),
     private readonly logger?: WivWavLogger,
   ) {}
 
@@ -105,14 +105,15 @@ export class WorkerDispatcher {
     }
 
     const dispatchId = randomUUID()
+    const timeoutMs = typeof this.timeoutMs === 'number' ? this.timeoutMs : await this.timeoutMs()
 
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.settle(
           correlationId,
-          new Error(`worker did not report completion within ${this.timeoutMs}ms`),
+          new Error(`worker did not report completion within ${timeoutMs}ms`),
         )
-      }, this.timeoutMs)
+      }, timeoutMs)
       timer.unref()
 
       const dispatchedAt = new Date()
