@@ -7,6 +7,7 @@ import { strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { STRICT_READY_SQL, strictReadySql } from '../lib/strict-ready.js'
+import type { ConfigService } from '../services/config-service.js'
 
 const BATCH_SIZE = 1000
 const TASK_TIMEOUT_MS = 15_000
@@ -44,6 +45,7 @@ type GroupKeyPosition = {
 async function fetchOrderedIdPage(
   db: Prisma.TransactionClient,
   after: GroupKeyPosition | undefined,
+  strictGate?: boolean,
 ): Promise<GroupKeyPosition[]> {
   const cursorClause = after
     ? Prisma.sql`AND (COALESCE(listings."vehicleId", listings.id), listings.id) > (${after.groupKey}, ${after.id})`
@@ -56,7 +58,7 @@ async function fetchOrderedIdPage(
       AND listings."publicationStatus" = 'eligible'
       AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
-      ${strictReadySql()}
+      ${strictReadySql(strictGate)}
       ${cursorClause}
     ORDER BY COALESCE(listings."vehicleId", listings.id), listings.id
     LIMIT ${BATCH_SIZE}
@@ -116,11 +118,12 @@ async function cleanupOrphanedIndexes(client: Meilisearch, keepIndexName: string
   }
 }
 
-export async function runMeilisearchSyncJob(context?: JobContext): Promise<void> {
+export async function runMeilisearchSyncJob(context?: JobContext, operatorConfig?: Pick<ConfigService, 'getOperatorSetting'>): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
   // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
-  await rebuildMeilisearchIndex(context, db, client)
+  const strictGate = await operatorConfig?.getOperatorSetting('publish_gate.strict')
+  await rebuildMeilisearchIndex(context, db, client, strictGate)
 }
 
 /**
@@ -134,6 +137,7 @@ export async function rebuildMeilisearchIndex(
   context: JobContext | undefined,
   db: PrismaClient,
   client: Meilisearch,
+  strictGate?: boolean,
 ): Promise<void> {
   // Build into a freshly created, uniquely named index and swap it into
   // service atomically once fully populated and validated (#669) — the live
@@ -145,7 +149,7 @@ export async function rebuildMeilisearchIndex(
     await cleanupOrphanedIndexes(client, versionedIndexName)
     await configureIndexSettings(client, versionedIndexName)
     const index = client.index(versionedIndexName)
-    await runFullRebuild(context, db, client, index)
+    await runFullRebuild(context, db, client, index, strictGate)
 
     // First-ever rebuild: the live index may not exist yet. swapIndexes
     // requires both sides to exist, so create it (empty, but configured)
@@ -184,9 +188,10 @@ async function runFullRebuild(
   db: PrismaClient,
   client: Meilisearch,
   index: ReturnType<Meilisearch['index']>,
+  strictGate?: boolean,
 ): Promise<void> {
   await db.$transaction(
-    (tx) => runFullRebuildInSnapshot(context, tx, client, index),
+    (tx) => runFullRebuildInSnapshot(context, tx, client, index, strictGate),
     {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
       timeout: SNAPSHOT_TXN_TIMEOUT_MS,
@@ -200,6 +205,7 @@ async function runFullRebuildInSnapshot(
   db: Prisma.TransactionClient,
   client: Meilisearch,
   index: ReturnType<Meilisearch['index']>,
+  strictGate?: boolean,
 ): Promise<void> {
   const activeCountRows = await db.$queryRaw<VehicleAwareCountRow[]>`
     SELECT COUNT(DISTINCT COALESCE(listings."vehicleId", listings.id))::int AS count
@@ -209,7 +215,7 @@ async function runFullRebuildInSnapshot(
       AND listings."publicationStatus" = 'eligible'
       AND listings."manuallyHiddenAt" IS NULL
       AND sources.status != 'disabled'
-      ${strictReadySql()}
+      ${strictReadySql(strictGate)}
   `
   const activeCount = Number(activeCountRows[0]?.count ?? 0)
 
@@ -228,7 +234,7 @@ async function runFullRebuildInSnapshot(
   let cursor: GroupKeyPosition | undefined
 
   for (;;) {
-    const idRows = await fetchOrderedIdPage(db, cursor)
+    const idRows = await fetchOrderedIdPage(db, cursor, strictGate)
     const isLastPage = idRows.length < BATCH_SIZE
 
     if (idRows.length > 0) {
@@ -243,7 +249,7 @@ async function runFullRebuildInSnapshot(
           publicationStatus: 'eligible',
           manuallyHiddenAt: null,
           source: { is: { status: { not: SourceStatus.disabled } } },
-          ...strictReadyWhere(),
+          ...strictReadyWhere(strictGate),
         },
       })
       const byId = new Map(fullRows.map((row) => [row.id, row]))
