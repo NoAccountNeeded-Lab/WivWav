@@ -122,7 +122,10 @@ export async function runMeilisearchSyncJob(context?: JobContext, operatorConfig
   const db = getDb()
   const client = getMeiliClient()
   // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
-  const strictGate = await operatorConfig?.getOperatorSetting('publish_gate.strict')
+  const strictGate = operatorConfig
+    ? await operatorConfig.getOperatorSetting('publish_gate.strict', process.env['PUBLISH_GATE_STRICT'] === 'true')
+    : undefined
+  context?.logger?.info({ strictGate: strictGate ?? process.env['PUBLISH_GATE_STRICT'] === 'true' }, '[meili-sync] effective publish gate setting')
   await rebuildMeilisearchIndex(context, db, client, strictGate)
 }
 
