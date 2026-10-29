@@ -43,8 +43,8 @@ export function SettingsClient({ selectedKey }: { selectedKey?: OperatorSettingK
             <div><dt>Group</dt><dd>{key.split('.')[0]?.replace(/_/g, ' ')}</dd></div>
             <div><dt>Current</dt><dd><SettingRef settingKey={key} /></dd></div>
             <div><dt>Default</dt><dd>{definition.defaultValue}</dd></div>
-            <div><dt>Minimum</dt><dd>{definition.min}</dd></div>
-            <div><dt>Maximum</dt><dd>{definition.max}</dd></div>
+            {definition.type === 'number' && <><div><dt>Minimum</dt><dd>{definition.min}</dd></div>
+            <div><dt>Maximum</dt><dd>{definition.max}</dd></div></>}
           </dl>
           <button type="button" aria-label={`Reset ${key} to default`} disabled={!row} onClick={() => void reset(key).then(() => setActionError(null)).catch(err => setActionError(err instanceof Error ? err.message : 'Reset failed'))}>Reset to default</button>
           {selectedKey && <><h3>Where this is used</h3><ul>{definition.relatedPages.map(page => <li key={page}><Link href={page}>{page}</Link></li>)}</ul></>}

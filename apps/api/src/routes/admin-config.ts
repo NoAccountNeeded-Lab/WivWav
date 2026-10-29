@@ -98,8 +98,10 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
 
     if (isOperatorSettingKey(req.params.key)) {
       const definition = OPERATOR_SETTINGS[req.params.key]
-      if (type !== 'number' || typeof value !== 'number' || !Number.isInteger(value) || value < definition.min || value > definition.max) {
-        return reply.badRequest(`Operator setting ${req.params.key} requires an integer number from ${definition.min} to ${definition.max}`)
+      if (definition.type === 'boolean') {
+        if (type !== 'boolean' || typeof value !== 'boolean') return reply.badRequest(`Operator setting ${req.params.key} requires a boolean`)
+      } else if (type !== 'number' || typeof value !== 'number' || !Number.isFinite(value) || (definition.integer !== false && !Number.isInteger(value)) || value < definition.min || value > definition.max) {
+        return reply.badRequest(`Operator setting ${req.params.key} requires an ${definition.integer === false ? 'number' : 'integer'} from ${definition.min} to ${definition.max}`)
       }
     }
 

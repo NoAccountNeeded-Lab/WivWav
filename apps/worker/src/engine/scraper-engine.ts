@@ -7,9 +7,8 @@ import {
   summarizeQuality,
   decidePublication,
   detectSourceDrift,
-  SYSTEMIC_ERROR_THRESHOLD,
 } from '@wivwav/types/listing-validator'
-import { computeReadiness, isPublishGateStrict } from '@wivwav/types'
+import { computeReadiness } from '@wivwav/types'
 import type { JobContext } from '../job-context.js'
 
 function sourceExecutionBlockReason(status: string, errorMessage: string | null): string | null {
@@ -23,6 +22,10 @@ interface EngineOptions {
   sources: SourceRepository
   listings: ListingRepository
   fullCrawlIntervalHours?: number
+  systemicErrorThreshold?: number
+  systemicMinListings?: number
+  driftThresholdPp?: number
+  publishGateStrict?: boolean
 }
 
 /**
@@ -53,12 +56,20 @@ export class ScraperEngine {
   private readonly sources: SourceRepository
   private readonly listings: ListingRepository
   private readonly fullCrawlIntervalHours: number
+  private readonly systemicErrorThreshold: number
+  private readonly systemicMinListings: number
+  private readonly driftThresholdPp: number
+  private readonly publishGateStrict: boolean
 
   constructor(options: EngineOptions) {
     this.runs = options.runs
     this.sources = options.sources
     this.listings = options.listings
     this.fullCrawlIntervalHours = options.fullCrawlIntervalHours ?? OPERATOR_SETTINGS['scraper.full_crawl_interval_hours'].defaultValue
+    this.systemicErrorThreshold = options.systemicErrorThreshold ?? OPERATOR_SETTINGS['quality.systemic_error_threshold'].defaultValue
+    this.systemicMinListings = options.systemicMinListings ?? OPERATOR_SETTINGS['quality.systemic_min_listings'].defaultValue
+    this.driftThresholdPp = options.driftThresholdPp ?? OPERATOR_SETTINGS['quality.drift_threshold_pp'].defaultValue
+    this.publishGateStrict = options.publishGateStrict ?? false
   }
 
   register(adapter: SourceAdapter, dbSourceId: string): void {
@@ -82,6 +93,7 @@ export class ScraperEngine {
     }
 
     const run = await this.runs.start(sourceId)
+    await report(context, `[source-scrape] Effective quality settings: systemic_error_threshold=${this.systemicErrorThreshold}, systemic_min_listings=${this.systemicMinListings}, drift_threshold_pp=${this.driftThresholdPp}, publish_gate.strict=${this.publishGateStrict}`, { stage: 'checking-structure' })
     await report(context, `[source-scrape] Started ${adapter.name} (${sourceId})`, {
       stage: 'checking-structure',
       current: 0,
@@ -199,8 +211,8 @@ export class ScraperEngine {
         const errorRate = quality.totalListings > 0 ? quality.errorListings / quality.totalListings : 0
         const qualityMsg = `[source-scrape] Quality summary: ${quality.listingsWithIssues}/${quality.totalListings} listings have issues (${quality.errorListings} error, ${quality.warnListings} warn). Rules: ${JSON.stringify(quality.issuesByRule)}`
 
-        if (errorRate >= SYSTEMIC_ERROR_THRESHOLD && quality.totalListings >= 5) {
-          const failMsg = `Data quality check failed: ${Math.round(errorRate * 100)}% of listings have error-level issues (threshold ${Math.round(SYSTEMIC_ERROR_THRESHOLD * 100)}%). Likely DOM structure change. Run aborted to prevent dirty data from being written.`
+        if (errorRate >= this.systemicErrorThreshold && quality.totalListings >= this.systemicMinListings) {
+          const failMsg = `Data quality check failed: ${Math.round(errorRate * 100)}% of listings have error-level issues (threshold ${Math.round(this.systemicErrorThreshold * 100)}%). Likely DOM structure change. Run aborted to prevent dirty data from being written.`
           await report(context, `[source-scrape] ${failMsg}`, { stage: 'blocked', reason: 'quality_check_failed' })
           await this.runs.fail(run.id, failMsg)
           await this.sources.markError(sourceId, failMsg)
@@ -218,7 +230,7 @@ export class ScraperEngine {
         const drift = detectSourceDrift(baseline, {
           errorRate: quality.errorListings / quality.totalListings,
           missingRate: missingCount / quality.totalListings,
-        })
+        }, this.driftThresholdPp)
         await this.sources.setDriftBaseline(sourceId, drift.nextBaseline)
 
         if (drift.drifted) {
@@ -242,12 +254,12 @@ export class ScraperEngine {
         return false
       }
 
+      const strictGate = this.publishGateStrict
       let listingsNew = 0
       let listingsUpdated = 0
       for (let i = 0; i < result.listings.length; i++) {
         const listing = result.listings[i]!
         const evaluated = decisionByKey.get(listing.sourceRecordKey)
-        const strictGate = isPublishGateStrict()
         const decision = evaluated?.decision
         const upsert = await this.listings.upsert({
           ...listing,

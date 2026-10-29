@@ -93,9 +93,19 @@ export function createSourceScrapeHandler(
     })
 
     const runContext = new RunContext()
-    const fullCrawlIntervalHours = await readWorkerSetting(gateway, 'scraper.full_crawl_interval_hours', logger)
+    const [fullCrawlIntervalHours, systemicErrorThreshold, systemicMinListings, driftThresholdPp, publishGateStrict] = await Promise.all([
+      readWorkerSetting(gateway, 'scraper.full_crawl_interval_hours', logger),
+      readWorkerSetting(gateway, 'quality.systemic_error_threshold', logger),
+      readWorkerSetting(gateway, 'quality.systemic_min_listings', logger),
+      readWorkerSetting(gateway, 'quality.drift_threshold_pp', logger),
+      readWorkerSetting(gateway, 'publish_gate.strict', logger),
+    ])
     const engine = new ScraperEngine({
       fullCrawlIntervalHours,
+      systemicErrorThreshold,
+      systemicMinListings,
+      driftThresholdPp,
+      publishGateStrict,
       runs: new HttpScraperRunRepository(gateway, runContext),
       sources: new HttpSourceRepository(gateway),
       listings: new HttpListingRepository(gateway, runContext),

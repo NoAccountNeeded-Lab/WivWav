@@ -1,4 +1,4 @@
-import { resolveOperatorSetting, type OperatorSettingKey } from '@wivwav/types/operator-settings'
+import { resolveOperatorSetting, type OperatorSettingKey, type OperatorSettingValue } from '@wivwav/types/operator-settings'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import type { CacheService } from './cache/index.js'
 import { Prisma, type PrismaClient } from '@wivwav/db'
@@ -118,8 +118,11 @@ export class ConfigService {
     return mapped
   }
 
-  async getOperatorSetting(key: OperatorSettingKey): Promise<number> {
-    return resolveOperatorSetting(key, await this.get(key))
+  async getOperatorSetting<K extends OperatorSettingKey>(
+    key: K,
+    fallbackValue?: OperatorSettingValue<K>,
+  ): Promise<OperatorSettingValue<K>> {
+    return resolveOperatorSetting(key, await this.get(key), fallbackValue)
   }
 
   /**

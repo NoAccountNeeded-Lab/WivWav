@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { OPERATOR_SETTINGS, type OperatorSettingKey } from '@wivwav/types/operator-settings'
+import { OPERATOR_SETTINGS, type OperatorSettingKey, type OperatorSettingValue } from '@wivwav/types/operator-settings'
 import { useOptionalSettings } from './SettingsProvider'
 import { resolveOperatorSetting } from '@wivwav/types/operator-settings'
 import css from './settings.module.css'
@@ -23,14 +23,19 @@ export function SettingRef({ settingKey }: { settingKey: OperatorSettingKey }) {
   if (error) return <span role="alert">Setting unavailable</span>
 
   async function commit() {
-    const number = Number(draft)
-    if (!Number.isInteger(number) || number < definition.min || number > definition.max) {
-      setSaveError(`Enter an integer from ${definition.min} to ${definition.max}`)
-      return
-    }
     if (!settings) return
     try {
-      await settings.save(settingKey, number)
+      let next: number | boolean
+      if (definition.type === 'boolean') next = draft === 'true'
+      else {
+        const number = Number(draft)
+        if (!Number.isFinite(number) || ((definition.type !== 'number' || definition.integer !== false) && !Number.isInteger(number)) || number < definition.min || number > definition.max) {
+          setSaveError(`Enter a ${definition.type === 'number' && definition.integer === false ? 'number' : 'integer'} from ${definition.min} to ${definition.max}`)
+          return
+        }
+        next = number
+      }
+      await settings.save(settingKey, next as OperatorSettingValue<typeof settingKey>)
       setEditing(false)
       setSaveError(null)
     } catch (err) {
@@ -44,7 +49,7 @@ export function SettingRef({ settingKey }: { settingKey: OperatorSettingKey }) {
     {marker && <span> ({marker})</span>}
     {settings && <button type="button" className={css.smallButton} aria-label={`Edit ${settingKey}`} aria-expanded={editing} onClick={() => { setDraft(String(value)); setEditing(current => !current); setSaveError(null) }}>Edit</button>}
     {editing && <span className={css.inlineForm}>
-      <label>{settingKey}<input type="number" min={definition.min} max={definition.max} step="1" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit() } }} /></label>
+      <label>{settingKey}{definition.type === 'boolean' ? <select value={draft} onChange={event => setDraft(event.target.value)}><option value="false">Off</option><option value="true">On</option></select> : <input type="number" min={definition.min} max={definition.max} step={definition.type === 'number' && definition.integer === false ? 'any' : '1'} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit() } }} />}</label>
       <button type="button" onClick={() => void commit()}>Save</button>
       <button type="button" onClick={() => setEditing(false)}>Cancel</button>
       {saveError && <span role="alert">{saveError}</span>}
