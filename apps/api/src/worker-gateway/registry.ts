@@ -1,4 +1,8 @@
-import type { CoordinatorToWorkerMessage, WorkerCapabilities } from '@wivwav/types/worker-protocol'
+import type {
+  CoordinatorToWorkerMessage,
+  WorkerCapabilities,
+  WorkerMachineInfo,
+} from '@wivwav/types/worker-protocol'
 
 /**
  * One live, hello'd WS connection. `connectionId` (not the worker-supplied
@@ -10,6 +14,8 @@ export interface RegisteredWorker {
   workerId: string
   workerName: string
   capabilities: WorkerCapabilities
+  /** Optional metadata from newer workers; older clients continue to register. */
+  machine?: WorkerMachineInfo
   /** Correlation ids currently dispatched to this connection. */
   inFlight: Set<string>
   /**
