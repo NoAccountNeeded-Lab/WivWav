@@ -16,12 +16,45 @@ describe('enqueueRequiredListingResolution', () => {
   it('enqueues with an idempotent job id and records the marker', async () => {
     const db = makeDb()
     const queue = { add: vi.fn().mockResolvedValue('job-1') }
-    await enqueueRequiredListingResolution(db as never, queue, { attempts: 3 }, 'l-1', 'raw:1', 'run-1')
+    await enqueueRequiredListingResolution(
+      db as never,
+      queue,
+      { attempts: 3 },
+      'l-1',
+      'raw:1',
+      'run-1',
+    )
+    const options = queue.add.mock.calls[0]?.[1] as { jobId?: string } | undefined
+    expect(options?.jobId).toMatch(/^detail-resolution-[a-f0-9]{64}$/)
     expect(queue.add).toHaveBeenCalledWith(
       { listingId: 'l-1', observationReference: 'raw:1', parentRunId: 'run-1' },
-      { attempts: 3, jobId: 'detail-resolution:raw:1' },
+      { attempts: 3, jobId: options?.jobId },
     )
     expect(db.listingObservation.upsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('generates stable distinct BullMQ-safe ids for observation references', async () => {
+    const firstQueue = { add: vi.fn().mockResolvedValue('job-1') }
+    const retryQueue = { add: vi.fn().mockResolvedValue('job-1') }
+    const otherQueue = { add: vi.fn().mockResolvedValue('job-2') }
+
+    const reference = 'raw:1:2026-10-29T09:00:00.000Z'
+    await enqueueRequiredListingResolution(makeDb() as never, firstQueue, {}, 'l-1', reference)
+    await enqueueRequiredListingResolution(makeDb() as never, retryQueue, {}, 'l-1', reference)
+    await enqueueRequiredListingResolution(
+      makeDb() as never,
+      otherQueue,
+      {},
+      'l-1',
+      'raw:2:2026-10-29T09:00:00.000Z',
+    )
+
+    const firstId = (firstQueue.add.mock.calls[0]?.[1] as { jobId?: string } | undefined)?.jobId
+    const retryId = (retryQueue.add.mock.calls[0]?.[1] as { jobId?: string } | undefined)?.jobId
+    const otherId = (otherQueue.add.mock.calls[0]?.[1] as { jobId?: string } | undefined)?.jobId
+    expect(retryId).toBe(firstId)
+    expect(otherId).not.toBe(firstId)
+    expect(firstId).not.toContain(':')
   })
 
   it('does not enqueue a duplicate when the marker already exists (retry of an applied write)', async () => {
