@@ -52,7 +52,7 @@ const cache = new RedisCacheService(redis)
 const operatorConfig = new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)
 const searchService = new MeilisearchService(meili)
 const search = new ListingSearchService(searchService)
-const facets = new ListingFacetsService(searchService, cache)
+const facets = new ListingFacetsService(searchService, cache, operatorConfig)
 const queueFactory = new BullMQQueueFactory()
 // #933 lineage backbone: one JobRun row per job execution, across every job
 // type registered below — see lib/job-run-tracking.ts.
