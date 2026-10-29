@@ -5,6 +5,7 @@ import {
   Compass,
   Globe,
   Layers,
+  KeyRound,
   LayoutDashboard,
   RefreshCw,
   Settings2,
@@ -31,6 +32,7 @@ export const OPS_NAV_ICONS: Record<string, LucideIcon> = {
   '/ops/logs': Terminal,
   '/ops/queues': Layers,
   '/ops/config': Settings2,
+  '/ops/api-keys': KeyRound,
   '/admin/board': Wrench,
 }
 

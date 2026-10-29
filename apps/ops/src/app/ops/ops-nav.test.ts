@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getOpsMobileTabs, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
+import { getOpsNavIcon } from '@/components/OpsNav/nav-icons'
 
 /**
  * All known Next.js page routes under apps/web/src/app.
@@ -8,6 +9,7 @@ import { getOpsMobileTabs, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
 const KNOWN_NEXT_ROUTES = new Set([
   '/ops',
   '/ops/ai',
+  '/ops/api-keys',
   '/ops/config',
   '/ops/settings',
   '/ops/privacy-requests',
@@ -33,6 +35,10 @@ const KNOWN_NEXT_ROUTES = new Set([
 ])
 
 describe('OPS_NAV_GROUPS', () => {
+  it('should give the API key destination a navigation icon', () => {
+    expect(getOpsNavIcon('/ops/api-keys')).toBeDefined()
+  })
+
   it('should render a flat primary list plus a single titled advanced section', () => {
     const required: OpsNavGroupId[] = ['primary', 'advanced']
 
@@ -68,6 +74,7 @@ describe('OPS_NAV_GROUPS', () => {
       '/ops/workers',
       '/ops/config',
       '/ops/settings',
+      '/ops/api-keys',
       '/ops/privacy-requests',
       '/admin/board',
     ]))
