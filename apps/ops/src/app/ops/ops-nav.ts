@@ -184,6 +184,12 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         shell: { placement: 'advanced' },
       },
       {
+        href: '/ops/api-keys',
+        title: 'API keys',
+        desc: 'Create, review, and revoke keys used by the public API.',
+        shell: { placement: 'advanced' },
+      },
+      {
         href: '/ops/config',
         title: 'AI provider settings',
         desc: 'Edit AI providers, model names, API key config IDs, and encrypted provider secrets.',

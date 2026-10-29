@@ -15,6 +15,7 @@ import * as problemsPage from './problems/page'
 import * as queuesPage from './queues/page'
 import * as workersPage from './workers/page'
 import * as configPage from './config/page'
+import * as apiKeysPage from './api-keys/page'
 import * as statusPage from '../status/page'
 
 // #735 (E8): every /ops route must set a distinct document title. Each
@@ -36,6 +37,7 @@ const ROUTE_PAGES: ReadonlyArray<{ href: string; mod: { metadata?: { title?: unk
   { href: '/ops/queues', mod: queuesPage },
   { href: '/ops/workers', mod: workersPage },
   { href: '/ops/config', mod: configPage },
+  { href: '/ops/api-keys', mod: apiKeysPage },
   { href: '/status', mod: statusPage },
 ]
 

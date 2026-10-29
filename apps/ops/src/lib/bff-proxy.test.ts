@@ -66,15 +66,18 @@ describe('proxyToApi', () => {
     ['GET', '/admin/sources/source-1/job-runs'], ['GET', '/admin/runs'], ['GET', '/admin/repeatables'],
     ['GET', '/admin/workers'], ['GET', '/admin/config'], ['GET', '/admin/config/ollama%2Fmodel'], ['GET', '/admin/config/ollama%2Fmodel/history'],
     ['GET', '/admin/ai/status'], ['GET', '/admin/logs?limit=50'], ['GET', '/admin/field-conflicts'],
+    ['GET', '/admin/api-keys'],
     ['GET', '/admin/private-seller-retention/listings/listing-1/audit'], ['GET', '/admin/board/static/app.js'],
     ['POST', '/admin/queues/detail-crawl/pause'], ['POST', '/admin/queues/detail-crawl/jobs'],
     ['POST', '/admin/sync'], ['POST', '/admin/sources/source-1/run'], ['POST', '/admin/ai/explain-error'],
+    ['POST', '/admin/api-keys'],
     ['POST', '/admin/private-seller-retention/listings/listing-1/delete'], ['POST', '/internal/ops/workers/conn-1/pause'],
     ['POST', '/internal/ops/queues/detail-crawl/jobs/1/retry'], ['POST', '/internal/ops/problem-ack'],
     ['POST', '/internal/ops/problem-aggregate'],
     ['POST', '/internal/ops/listings/listing-1/actions'], ['PUT', '/admin/config/ollama%2Fmodel'],
     ['PUT', '/admin/repeatables/detail-crawl'], ['DELETE', '/admin/config/ollama%2Fmodel'],
     ['DELETE', '/admin/repeatables/detail-crawl'], ['DELETE', '/admin/queues/detail-crawl/failed'],
+    ['DELETE', '/admin/api-keys/key-1'],
     ['POST', '/admin/board/api/queues/detail-crawl/add'],
     ['PUT', '/admin/board/api/queues/pause'], ['PUT', '/admin/board/api/queues/detail-crawl/retry/failed'],
     ['PUT', '/admin/board/api/queues/detail-crawl/clean/completed'], ['PUT', '/admin/board/api/queues/detail-crawl/promote'],
@@ -86,6 +89,16 @@ describe('proxyToApi', () => {
     ['PATCH', '/admin/board/api/queues/detail-crawl/job-1/update-data'],
   ])('allows current ops call site %s %s', (method, path) => {
     expect(isAllowedBffRequest(method, path)).toBe(true)
+  })
+
+  it.each([
+    ['GET', '/admin/api-keys/key-1'],
+    ['POST', '/admin/api-keys/key-1'],
+    ['DELETE', '/admin/api-keys'],
+    ['DELETE', '/admin/api-keys/key-1/extra'],
+    ['POST', '/internal/v1/api-keys'],
+  ])('rejects API key management paths outside the narrow allowlist: %s %s', (method, path) => {
+    expect(isAllowedBffRequest(method, path)).toBe(false)
   })
 
   it('has a method and path rule for every allowlist entry', () => {
