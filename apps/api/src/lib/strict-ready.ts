@@ -13,6 +13,6 @@ export const STRICT_READY_SQL = Prisma.sql`
 `
 
 /** Appends the strict publish predicate to a raw query on `listings` when PUBLISH_GATE_STRICT=true. */
-export function strictReadySql(): Prisma.Sql {
-  return isPublishGateStrict() ? STRICT_READY_SQL : Prisma.empty
+export function strictReadySql(strict?: boolean): Prisma.Sql {
+  return (strict ?? isPublishGateStrict()) ? STRICT_READY_SQL : Prisma.empty
 }

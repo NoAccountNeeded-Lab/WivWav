@@ -38,8 +38,9 @@ export function isPublishGateStrict(env: PublishGateEnv = runtimeEnv()): boolean
 }
 
 /** Prisma predicate shared by every strict publication/search reader. */
-export function strictReadyWhere(env: PublishGateEnv = runtimeEnv()) {
-  return isPublishGateStrict(env)
+export function strictReadyWhere(strict?: boolean | PublishGateEnv) {
+  const enabled = typeof strict === 'boolean' ? strict : strict ? isPublishGateStrict(strict) : isPublishGateStrict()
+  return enabled
     ? {
         detailScrapedAt: { not: null },
         detailStaleAt: null,

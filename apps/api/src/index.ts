@@ -211,7 +211,7 @@ function registerWorkers(): void {
     withSentryCapture(
       QUEUES.LISTING_SYNC,
       withJobRunTracking(QUEUES.LISTING_SYNC, jobRuns, (_data: unknown, context) =>
-        runMeilisearchSyncJob(context),
+        runMeilisearchSyncJob(context, operatorConfig),
       ),
     ),
     { lockDuration: 300_000, logger: app.log },
