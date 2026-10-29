@@ -24,6 +24,20 @@ export const workerCapabilitiesSchema = z.object({
 })
 export type WorkerCapabilities = z.infer<typeof workerCapabilitiesSchema>
 
+/** Best-effort host and runtime information reported by a connected worker. */
+export const workerMachineInfoSchema = z.object({
+  hostname: z.string().min(1),
+  platform: z.string().min(1),
+  osRelease: z.string().min(1),
+  arch: z.string().min(1),
+  cpuModel: z.string().min(1),
+  cpuCount: z.number().int().positive(),
+  totalMemBytes: z.number().int().positive(),
+  nodeVersion: z.string().min(1),
+  appVersion: z.string().min(1),
+})
+export type WorkerMachineInfo = z.infer<typeof workerMachineInfoSchema>
+
 /** First message a worker sends after the WS upgrade succeeds. */
 export const workerHelloSchema = z.object({
   type: z.literal('hello'),
@@ -32,6 +46,8 @@ export const workerHelloSchema = z.object({
   /** Human-readable name for logs and the ops UI. */
   workerName: z.string().min(1),
   capabilities: workerCapabilitiesSchema,
+  /** Optional so older deployed workers continue to connect. */
+  machine: workerMachineInfoSchema.optional(),
 })
 export type WorkerHello = z.infer<typeof workerHelloSchema>
 

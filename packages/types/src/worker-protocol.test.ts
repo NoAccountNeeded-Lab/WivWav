@@ -17,6 +17,17 @@ const validHello = {
   workerName: 'laptop-job-runner',
   capabilities: { chromium: true, httpEnrich: false, maxConcurrentJobs: 2 },
 }
+const validMachine = {
+  hostname: 'crawler-laptop',
+  platform: 'linux',
+  osRelease: '6.8.0-test',
+  arch: 'x64',
+  cpuModel: 'Test CPU',
+  cpuCount: 6,
+  totalMemBytes: 16_000_000_000,
+  nodeVersion: 'v26.5.0',
+  appVersion: '0.0.1',
+}
 
 describe('workerHelloSchema', () => {
   it('should parse a valid hello', () => {
@@ -26,6 +37,19 @@ describe('workerHelloSchema', () => {
   it('should parse a worker advertising httpEnrich without chromium', () => {
     const hello = { ...validHello, capabilities: { chromium: false, httpEnrich: true, maxConcurrentJobs: 2 } }
     expect(workerHelloSchema.parse(hello)).toEqual(hello)
+  })
+
+  it('should parse optional machine metadata', () => {
+    const hello = { ...validHello, machine: validMachine }
+    expect(workerHelloSchema.parse(hello)).toEqual(hello)
+  })
+
+  it('should reject a machine with a non-positive CPU count', () => {
+    const result = workerHelloSchema.safeParse({
+      ...validHello,
+      machine: { ...validMachine, cpuCount: 0 },
+    })
+    expect(issuePaths(result)).toContain('machine.cpuCount')
   })
 
   it('should reject a missing capability field with a field-level path', () => {
