@@ -52,6 +52,7 @@ storybook-static/
 **/.agents/*
 !/.agents/skills/
 !/.agents/skills/**
+/.agents/skills/.DS_Store
 
 # Codex project skills (/.agents/skills, repo root only) are committed so
 # they travel with the repo; everything else under any .agents/ directory,
