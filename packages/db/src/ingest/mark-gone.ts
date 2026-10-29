@@ -20,6 +20,8 @@ export const GONE_AFTER_CONSECUTIVE_MISSING = 6
 export interface MarkGoneListingsOptions {
   /** When true the crawl visited every page; missing listings count as evidence of removal. */
   isCompleteCrawl: boolean
+  /** Per-crawl override; callers read this once before entering their transaction. */
+  goneAfterMissing?: number
   /**
    * Called with the ids of listings newly promoted to `gone` in this run, so
    * the caller can remove them from the search index immediately instead of
@@ -63,6 +65,7 @@ export async function markGoneListings(
   if (activeSourceRecordKeys.length === 0) return { newlyMissingCount: 0, newlyGoneCount: 0 }
 
   const { isCompleteCrawl, onGone } = options
+  const goneAfterMissing = options.goneAfterMissing ?? GONE_AFTER_CONSECUTIVE_MISSING
 
   if (!isCompleteCrawl) {
     // Partial crawl (page-1 changed but we may have missed pages): soft-mark
@@ -133,7 +136,7 @@ export async function markGoneListings(
       sourceId,
       status: { in: ['active', 'possibly_gone'] },
       sourceRecordKey: { notIn: activeSourceRecordKeys },
-      missingFromCompleteCount: { lt: GONE_AFTER_CONSECUTIVE_MISSING },
+      missingFromCompleteCount: { lt: goneAfterMissing },
     },
     data: {
       status: 'possibly_gone',
@@ -147,7 +150,7 @@ export async function markGoneListings(
     sourceId,
     status: 'possibly_gone' as const,
     sourceRecordKey: { notIn: activeSourceRecordKeys },
-    missingFromCompleteCount: { gte: GONE_AFTER_CONSECUTIVE_MISSING },
+    missingFromCompleteCount: { gte: goneAfterMissing },
   }
 
   // Only look up the ids when a caller wants them — this query is otherwise
