@@ -1,6 +1,6 @@
 import { readWorkerSetting } from '../operator-setting.js'
 import { findScraperSourceByName } from '@wivwav/types'
-import { SOURCE_ADAPTER_MODULES, type SourceAdapter } from '@wivwav/scraper-sources'
+import { report, SOURCE_ADAPTER_MODULES, type SourceAdapter } from '@wivwav/scraper-sources'
 import type { PlaywrightBrowserService } from '@wivwav/scraper-sources/browser/playwright-browser-service.js'
 import type { SourceScrapeJobResult } from '@wivwav/types/scraper-gateway'
 import type { WivWavLogger } from '@wivwav/logger'
@@ -54,6 +54,7 @@ export function createSourceScrapeHandler(
     }
     const { sourceId } = payload
 
+    const context = createJobContext(logger, correlationId)
     const profile = await gateway.getSourceProfile(sourceId)
     const registryEntry = findScraperSourceByName(profile.name)
     if (!registryEntry) {
@@ -64,8 +65,24 @@ export function createSourceScrapeHandler(
       throw new Error(`[source-scrape] no adapter module for registry key '${registryEntry.key}'`)
     }
 
-    const ebayCredentials =
-      registryEntry.key === 'ebay-motors' ? await gateway.getEbayMotorsCredentials() : undefined
+    let ebayCredentials
+    if (registryEntry.key === 'ebay-motors') {
+      const { state } = await gateway.getExecutionState(sourceId)
+      const blockReason = state && (state.status === 'disabled' || state.status === 'paused')
+        ? state.errorMessage ?? `Source is ${state.status}`
+        : null
+      if (blockReason !== null) {
+        await report(context, `[source-scrape] Skipped source ${sourceId}: ${blockReason}`, {
+          stage: 'blocked',
+          reason: 'source_disabled',
+          current: 0,
+          total: 0,
+        })
+        return { listingsChanged: false }
+      }
+
+      ebayCredentials = await gateway.getEbayMotorsCredentials()
+    }
 
     const adapter: SourceAdapter = module.createSourceAdapter(profile.fingerprintHash, {
       previousPage1Hash: profile.page1Hash,
@@ -85,7 +102,6 @@ export function createSourceScrapeHandler(
     })
     engine.register(adapter, sourceId)
 
-    const context = createJobContext(logger, correlationId)
     const listingsChanged = await engine.runSource(sourceId, context)
     return { listingsChanged }
   }
