@@ -73,7 +73,13 @@ describe('isAllowedCorsOrigin', () => {
 })
 
 function buildTestApp(overrides?: {
-  apiKey?: { findFirst?: ReturnType<typeof vi.fn> }
+  apiKey?: {
+    findFirst?: ReturnType<typeof vi.fn>
+    findMany?: ReturnType<typeof vi.fn>
+    count?: ReturnType<typeof vi.fn>
+    create?: ReturnType<typeof vi.fn>
+    updateMany?: ReturnType<typeof vi.fn>
+  }
   config?: Partial<Config>
 }) {
   const search = {
@@ -120,7 +126,13 @@ function buildTestApp(overrides?: {
  * ScraperRun row (#1073) — without them the route 500s.
  */
 function makeMockDb(overrides?: {
-  apiKey?: { findFirst?: ReturnType<typeof vi.fn> }
+  apiKey?: {
+    findFirst?: ReturnType<typeof vi.fn>
+    findMany?: ReturnType<typeof vi.fn>
+    count?: ReturnType<typeof vi.fn>
+    create?: ReturnType<typeof vi.fn>
+    updateMany?: ReturnType<typeof vi.fn>
+  }
   config?: Partial<Config>
 }) {
   const dbMock = {
@@ -158,7 +170,9 @@ function makeMockDb(overrides?: {
     },
     apiKey: {
       findFirst: overrides?.apiKey?.findFirst ?? vi.fn(async () => null),
-      create: vi.fn(
+      findMany: overrides?.apiKey?.findMany ?? vi.fn(async () => []),
+      count: overrides?.apiKey?.count ?? vi.fn(async () => 0),
+      create: overrides?.apiKey?.create ?? vi.fn(
         async (args: { data: { ownerEmail: string; tier: string; rateLimitRpm: number } }) => ({
           id: 'key-created',
           ownerEmail: args.data.ownerEmail,
@@ -168,7 +182,7 @@ function makeMockDb(overrides?: {
           revokedAt: null,
         }),
       ),
-      updateMany: vi.fn(async () => ({ count: 0 })),
+      updateMany: overrides?.apiKey?.updateMany ?? vi.fn(async () => ({ count: 0 })),
     },
   }
   return Object.assign(dbMock, {
@@ -499,6 +513,93 @@ describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
       headers: { 'content-type': 'application/json' },
     })
     expect(response.statusCode).toBe(503)
+
+    await app.close()
+  })
+})
+
+describe('/admin/api-keys operator management (#1203)', () => {
+  it('lists safe fields only and requires the admin bearer credential', async () => {
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'operator-secret' },
+      apiKey: {
+        findMany: vi.fn(async () => [{
+          id: 'key-1',
+          ownerEmail: 'buyer@example.com',
+          tier: 'PRO',
+          rateLimitRpm: 600,
+          createdAt: new Date('2026-07-14T00:00:00.000Z'),
+          revokedAt: null,
+          keyHash: 'must-not-leak-hash',
+          rawKey: 'must-not-leak-raw-key',
+        }]),
+        count: vi.fn(async () => 1),
+      },
+    })
+    const app = await appPromise
+
+    const unauthorized = await app.inject({ method: 'GET', url: '/admin/api-keys' })
+    expect(unauthorized.statusCode).toBe(401)
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/api-keys?limit=10&offset=0',
+      headers: { authorization: 'Bearer operator-secret' },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(JSON.parse(response.body).data.keys[0]).toEqual({
+      id: 'key-1', ownerEmail: 'buyer@example.com', tier: 'PRO', rateLimitRpm: 600,
+      createdAt: '2026-07-14T00:00:00.000Z', revokedAt: null,
+    })
+    expect(response.body).not.toContain('must-not-leak-hash')
+    expect(response.body).not.toContain('must-not-leak-raw-key')
+
+    await app.close()
+  })
+
+  it('revokes an issued key so subsequent /v1/ requests receive 401', async () => {
+    let issuedHash: string | null = null
+    let revoked = false
+    const { app: appPromise } = buildTestApp({
+      config: { INTERNAL_API_SECRET: 'operator-secret' },
+      apiKey: {
+        findFirst: vi.fn(async (args: { where: { keyHash: string } }) => (
+          !revoked && issuedHash === args.where.keyHash
+            ? { id: 'key-created', tier: 'FREE', rateLimitRpm: 60 }
+            : null
+        )),
+        create: vi.fn(async (args: { data: { keyHash: string; ownerEmail: string; tier: string; rateLimitRpm: number } }) => {
+          issuedHash = args.data.keyHash
+          return {
+            id: 'key-created', ownerEmail: args.data.ownerEmail, tier: args.data.tier,
+            rateLimitRpm: args.data.rateLimitRpm, createdAt: new Date('2026-07-14T00:00:00.000Z'), revokedAt: null,
+          }
+        }),
+        updateMany: vi.fn(async (args: { where: { id: string; revokedAt: null } }) => {
+          if (args.where.id !== 'key-created' || revoked) return { count: 0 }
+          revoked = true
+          return { count: 1 }
+        }),
+      },
+    })
+    const app = await appPromise
+    const headers = { authorization: 'Bearer operator-secret' }
+
+    const created = await app.inject({
+      method: 'POST', url: '/admin/api-keys', headers,
+      payload: { ownerEmail: 'buyer@example.com' },
+    })
+    expect(created.statusCode).toBe(201)
+    const rawKey = JSON.parse(created.body).data.rawKey as string
+
+    const beforeRevoke = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': rawKey } })
+    expect(beforeRevoke.statusCode).toBe(200)
+
+    const deleted = await app.inject({ method: 'DELETE', url: '/admin/api-keys/key-created', headers })
+    expect(deleted.statusCode).toBe(200)
+
+    const afterRevoke = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': rawKey } })
+    expect(afterRevoke.statusCode).toBe(401)
 
     await app.close()
   })
