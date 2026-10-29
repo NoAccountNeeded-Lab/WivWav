@@ -7,6 +7,13 @@ import type { HealthResponse, OverallHealthStatus, ServiceHealth } from '@wivwav
 import type { Config } from '../config.js'
 import type { SourceRepository, ScraperRunRepository } from '../repositories/index.js'
 
+const LATENCY_SETTING_KEYS = {
+  postgres: 'health.latency_ms.postgres',
+  meilisearch: 'health.latency_ms.meilisearch',
+  valkey: 'health.latency_ms.valkey',
+  ollama: 'health.latency_ms.ollama',
+} as const
+
 const LATENCY_THRESHOLDS_MS = {
   postgres: 100,
   meilisearch: 150,
@@ -38,12 +45,19 @@ export const healthRoutes: FastifyPluginAsync<HealthPluginOptions> = async (app,
  * logic into a second implementation.
  */
 export async function computeHealth({ db, sources, scraperRuns, meili, cache, config }: HealthPluginOptions): Promise<HealthResponse> {
+  const operatorConfig = new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)
+  const [postgresThreshold, meilisearchThreshold, valkeyThreshold, ollamaThreshold] = await Promise.all([
+    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.postgres),
+    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.meilisearch),
+    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.valkey),
+    operatorConfig.getOperatorSetting(LATENCY_SETTING_KEYS.ollama),
+  ])
   const [postgres, meilisearch, valkey, ollama, scraper] = await Promise.all([
-    probe('postgres', () => db.$queryRaw`SELECT 1`),
-    probe('meilisearch', () => meili.health()),
-    probe('valkey', () => cache.ping()),
-    probeOllama(config),
-    getScraperHealth(sources, scraperRuns, new ConfigService(db, cache, config.CONFIG_ENCRYPTION_SECRET)),
+    probe('postgres', () => db.$queryRaw`SELECT 1`, postgresThreshold),
+    probe('meilisearch', () => meili.health(), meilisearchThreshold),
+    probe('valkey', () => cache.ping(), valkeyThreshold),
+    probeOllama(config, ollamaThreshold),
+    getScraperHealth(sources, scraperRuns, operatorConfig),
   ])
 
   const services = { postgres, meilisearch, valkey, ollama, scraper }
@@ -55,11 +69,11 @@ export async function computeHealth({ db, sources, scraperRuns, meili, cache, co
   }
 }
 
-async function probeOllama(config: Config): Promise<ServiceHealth> {
+async function probeOllama(config: Config, threshold: number): Promise<ServiceHealth> {
   const health = await probe('ollama', async () => {
     const response = await fetch(`${config.OLLAMA_BASE_URL}/`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
     if (!response.ok) throw new Error(`Ollama returned ${response.status}`)
-  })
+  }, threshold)
 
   if (health.status !== 'down') return health
   if (config.OLLAMA_REQUIRED) return { ...health, message: 'Required local AI service is unreachable' }
@@ -70,14 +84,14 @@ async function probeOllama(config: Config): Promise<ServiceHealth> {
   }
 }
 
-async function probe(name: ProbeName, fn: () => Promise<unknown>): Promise<ServiceHealth> {
+async function probe(name: ProbeName, fn: () => Promise<unknown>, threshold = LATENCY_THRESHOLDS_MS[name]): Promise<ServiceHealth> {
   const started = performance.now()
 
   try {
     await withTimeout(fn(), PROBE_TIMEOUT_MS)
     const latencyMs = Math.round(performance.now() - started)
     return {
-      status: latencyMs > LATENCY_THRESHOLDS_MS[name] ? 'degraded' : 'up',
+      status: latencyMs > threshold ? 'degraded' : 'up',
       latencyMs,
     }
   } catch (err) {
