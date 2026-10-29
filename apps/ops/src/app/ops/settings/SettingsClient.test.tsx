@@ -60,6 +60,9 @@ describe('settings page', () => {
     const related = screen.getByRole('region', { name: 'Related settings' })
     expect(within(related).getByRole('link', { name: 'detail_crawl.batch_size' }).getAttribute('href')).toBe('/ops/settings/detail_crawl.batch_size')
     expect(within(related).getByRole('link', { name: 'detail_crawl.stale_days' }).getAttribute('href')).toBe('/ops/settings/detail_crawl.stale_days')
+    const usage = screen.getByRole('region', { name: 'Where this is used' })
+    expect(within(usage).getByRole('link', { name: '/ops/queues' }).getAttribute('href')).toBe('/ops/queues')
+    expect(within(usage).getByRole('link', { name: '/ops/sources' }).getAttribute('href')).toBe('/ops/sources')
   })
   it('edits the publish gate with a boolean control', async () => {
     const entries: Array<{ id: string; key: string; value: number | boolean; type: string; createdAt: string; createdBy: null }> = []

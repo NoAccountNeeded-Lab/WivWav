@@ -84,6 +84,10 @@ export function SettingsClient({ selectedKey }: { selectedKey?: OperatorSettingK
         ? <ul>{relatedKeys.map(key => <li key={key}><Link href={`/ops/settings/${encodeURIComponent(key)}`}>{key}</Link><span> — {OPERATOR_SETTINGS[key].description}</span></li>)}</ul>
         : <p>No other settings are in this group.</p>}
     </section>}
+    {selectedKey && selectedDefinition && <section className={css.related} aria-labelledby="setting-pages-heading">
+      <h2 id="setting-pages-heading">Where this is used</h2>
+      <ul>{selectedDefinition.relatedPages.map(page => <li key={page}><Link href={page}>{page}</Link></li>)}</ul>
+    </section>}
     {selectedKey && <section className={css.history} aria-labelledby="settings-history-heading">
       <h2 id="settings-history-heading">History</h2>
       {history.length === 0 ? <p>No saved values yet.</p> : <ol>{history.map(row => <li key={row.id}><time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString()}</time>: {row.value === null ? 'Reset to default' : String(row.value)}{row.createdBy && ` by ${row.createdBy}`}</li>)}</ol>}
