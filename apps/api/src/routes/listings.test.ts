@@ -116,6 +116,7 @@ function buildTestApp(
   search = { search: vi.fn(async () => ({ hits: [] as unknown[], total: 0, facets: {} as Record<string, unknown> })) },
   listingRepoOverrides: Record<string, unknown> = {},
   facetsOverrides: Partial<{ getFacets: (args: unknown) => Promise<unknown> }> = {},
+  operatorConfig?: { getOperatorSetting: (key: string, fallback: number) => Promise<number> },
 ) {
   const app = Fastify()
   void app.register(sensible)
@@ -141,7 +142,7 @@ function buildTestApp(
     ...facetsOverrides,
   }
   const queueFactory = { createQueue: vi.fn(() => ({ add: vi.fn(async () => 'job-id') })) } as never
-  void app.register(listingRoutes, { listings: listings as never, search: search as never, facets: facets as never, queueFactory })
+  void app.register(listingRoutes, { listings: listings as never, search: search as never, facets: facets as never, queueFactory, operatorConfig: operatorConfig as never })
   return { app, listings, search, facets }
 }
 
@@ -300,6 +301,26 @@ describe('GET /', () => {
 
     expect(res.json().data[0].images).toEqual(images)
 
+    await app.close()
+  })
+
+  it('uses the dynamic operator confidence threshold for listing card heroes', async () => {
+    vi.stubEnv('WIVWAV_SEMANTIC_EVIDENCE_MIN_CONFIDENCE', '0.95')
+    const images = ['https://dealer.example.com/first.jpg', 'https://dealer.example.com/second.jpg']
+    const search = {
+      search: vi.fn(async () => ({ hits: [{ id: 'listing-1', images }], total: 1, facets: {} })),
+    }
+    const getOperatorSetting = vi.fn(async () => 0.85)
+    const { app } = buildTestApp(search, {
+      findImagesForHeroSelection: vi.fn(async () => [
+        heroCandidate('image-2', 'listing-1', images[1]!, 1, 0.9),
+      ]),
+    }, {}, { getOperatorSetting })
+
+    const res = await app.inject({ method: 'GET', url: '/' })
+
+    expect(getOperatorSetting).toHaveBeenCalledWith('semantic_evidence.min_confidence', 0.95)
+    expect(res.json().data[0].images).toEqual([images[1], images[0]])
     await app.close()
   })
 

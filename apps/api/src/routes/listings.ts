@@ -396,7 +396,10 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         candidates.push(candidate)
         candidatesByListingId.set(candidate.listingId, candidates)
       }
-      const confidenceThreshold = semanticEvidenceConfidenceThreshold()
+      const confidenceThreshold = await operatorConfig?.getOperatorSetting(
+        'semantic_evidence.min_confidence',
+        semanticEvidenceConfidenceThreshold(),
+      ) ?? semanticEvidenceConfidenceThreshold()
       const hits = result.hits.map((listing) => ({
         ...listing,
         images: promoteHeroImage(
