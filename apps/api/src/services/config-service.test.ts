@@ -433,4 +433,27 @@ describe('ConfigService.getOperatorSetting', () => {
     const svc = new ConfigService(db as never, cache as never, undefined)
     expect(await svc.getOperatorSetting('search.indexer.batch_size')).toBe(1)
   })
+
+  it('prefers a stored row over an environment fallback', async () => {
+    const db = { configEntry: { findFirst: vi.fn(async () => ({ key: 'worker.job_timeout_min', type: 'number', value: 75, id: '1', createdAt: new Date(), createdBy: null, description: null, hint: null })) } }
+    const svc = new ConfigService(db as never, cache as never, undefined)
+    expect(await svc.getOperatorSetting('worker.job_timeout_min', 90)).toBe(75)
+  })
+
+  it('uses the environment fallback for a missing or tombstoned row', async () => {
+    const missingDb = { configEntry: { findFirst: vi.fn(async () => null) } }
+    const missingSvc = new ConfigService(missingDb as never, cache as never, undefined)
+    expect(await missingSvc.getOperatorSetting('worker.job_timeout_min', 90)).toBe(90)
+
+    const tombstoneDb = { configEntry: { findFirst: vi.fn(async () => ({ key: 'worker.job_timeout_min', type: 'number', value: null, id: '1', createdAt: new Date(), createdBy: null, description: null, hint: null })) } }
+    const tombstoneSvc = new ConfigService(tombstoneDb as never, cache as never, undefined)
+    expect(await tombstoneSvc.getOperatorSetting('worker.job_timeout_min', 90)).toBe(90)
+  })
+
+  it('clamps environment fallbacks and resolves boolean settings', async () => {
+    const db = { configEntry: { findFirst: vi.fn(async () => null) } }
+    const svc = new ConfigService(db as never, cache as never, undefined)
+    expect(await svc.getOperatorSetting('worker.job_timeout_min', 999)).toBe(180)
+    expect(await svc.getOperatorSetting('publish_gate.strict', true)).toBe(true)
+  })
 })

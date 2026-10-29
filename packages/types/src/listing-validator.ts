@@ -511,6 +511,7 @@ const BASELINE_SMOOTHING_FACTOR = 0.2 // weight given to the new observation eac
 export function detectSourceDrift(
   baseline: SourceDriftBaseline | null,
   observation: SourceDriftObservation,
+  threshold = DRIFT_THRESHOLD_PERCENTAGE_POINTS,
 ): SourceDriftResult {
   // No prior run to compare against — seed the baseline from this observation
   // instead of comparing against an implicit 0%, which would flag every new
@@ -526,8 +527,8 @@ export function detectSourceDrift(
   const errorDelta = observation.errorRate - baseline.baselineErrorRate
   const missingDelta = observation.missingRate - baseline.baselineMissingRate
 
-  const driftedOnError = errorDelta > DRIFT_THRESHOLD_PERCENTAGE_POINTS
-  const driftedOnMissing = missingDelta > DRIFT_THRESHOLD_PERCENTAGE_POINTS
+  const driftedOnError = errorDelta > threshold
+  const driftedOnMissing = missingDelta > threshold
 
   const nextBaseline: SourceDriftBaseline = {
     baselineErrorRate:
@@ -554,7 +555,7 @@ export function detectSourceDrift(
 
   return {
     drifted: true,
-    reason: `Source quality drifted abruptly — ${parts.join('; ')} (threshold ${(DRIFT_THRESHOLD_PERCENTAGE_POINTS * 100).toFixed(0)} pts)`,
+    reason: `Source quality drifted abruptly — ${parts.join('; ')} (threshold ${(threshold * 100).toFixed(0)} pts)`,
     nextBaseline,
   }
 }

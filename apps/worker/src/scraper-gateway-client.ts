@@ -1,4 +1,4 @@
-import type { OperatorSettingKey } from '@wivwav/types/operator-settings'
+import type { OperatorSettingKey, OperatorSettingValue } from '@wivwav/types/operator-settings'
 import type {
   DetailCrawlPendingListingsResponse,
   DetailExtractPendingRawPagesResponse,
@@ -38,8 +38,8 @@ export interface SourceProfile {
 export class ScraperGatewayClient {
   constructor(private readonly http: HttpClient) {}
 
-  async getOperatorSetting(key: OperatorSettingKey): Promise<number> {
-    const response = await this.http.get<{ key: string; value: number }>(`/internal/scraper/config/${encodeURIComponent(key)}`)
+  async getOperatorSetting<K extends OperatorSettingKey>(key: K): Promise<OperatorSettingValue<K>> {
+    const response = await this.http.get<{ key: string; value: OperatorSettingValue<K> }>(`/internal/scraper/config/${encodeURIComponent(key)}`)
     return response.value
   }
 

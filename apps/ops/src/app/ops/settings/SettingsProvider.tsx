@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { resolveOperatorSetting, type OperatorSettingKey } from '@wivwav/types/operator-settings'
+import { resolveOperatorSetting, type OperatorSettingKey, type OperatorSettingValue } from '@wivwav/types/operator-settings'
 
 export interface SettingEntry {
   key: string
@@ -18,7 +18,7 @@ interface SettingsState {
   error: string | null
   mutationRevision: number
   apiBaseUrl: string
-  save: (key: OperatorSettingKey, value: number) => Promise<void>
+  save: <K extends OperatorSettingKey>(key: K, value: OperatorSettingValue<K>) => Promise<void>
   reset: (key: OperatorSettingKey) => Promise<void>
 }
 
@@ -54,10 +54,10 @@ export function SettingsProvider({ apiBaseUrl, children }: { apiBaseUrl: string;
     return () => window.clearInterval(timer)
   }, [refresh])
 
-  const save = useCallback(async (key: OperatorSettingKey, value: number) => {
+  const save = useCallback(async (key: OperatorSettingKey, value: number | boolean) => {
     const response = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, {
       method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ value, type: 'number' }),
+      body: JSON.stringify({ value, type: typeof value === 'boolean' ? 'boolean' : 'number' }),
     })
     if (!response.ok) throw new Error(`Save failed (${response.status})`)
     const body = (await response.json()) as { data: SettingEntry }
@@ -88,7 +88,7 @@ export function useSettings(): SettingsState {
   return state
 }
 
-export function useSettingValue(key: OperatorSettingKey): number | null {
+export function useSettingValue<K extends OperatorSettingKey>(key: K): OperatorSettingValue<K> | null {
   const settings = useOptionalSettings()
   if (!settings || settings.loading || settings.error) return null
   const { entries } = settings

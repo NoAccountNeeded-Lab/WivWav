@@ -16,14 +16,15 @@ function response(data: unknown): Response {
 }
 
 describe('settings page', () => {
-  it('edits all 16 registry keys and preserves a save across reload until reset', async () => {
-    const entries: Array<{ id: string; key: string; value: number; type: string; createdAt: string; createdBy: null }> = []
+  it('edits every registry key and preserves a save across reload until reset', async () => {
+    const entries: Array<{ id: string; key: string; value: number | boolean; type: string; createdAt: string; createdBy: null }> = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       const key = url.split('/admin/config/')[1]
       if (!key) return response(entries)
       if (init?.method === 'PUT') {
-        const value = (JSON.parse(init.body as string) as { value: number }).value
-        const row = { id: 'saved', key: decodeURIComponent(key), value, type: 'number', createdAt: new Date().toISOString(), createdBy: null }
+        const payload = JSON.parse(init.body as string) as { value: number | boolean; type: string }
+        const { value, type } = payload
+        const row = { id: 'saved', key: decodeURIComponent(key), value, type, createdAt: new Date().toISOString(), createdBy: null }
         entries.splice(0, entries.length, row)
         return response(row)
       }
@@ -32,7 +33,7 @@ describe('settings page', () => {
     }))
 
     const view = render(<SettingsProvider apiBaseUrl="http://api.test"><SettingsClient /></SettingsProvider>)
-    expect(await screen.findAllByRole('region')).toHaveLength(16)
+    expect(await screen.findAllByRole('region')).toHaveLength(30)
     const section = screen.getByRole('region', { name: 'detail_crawl.batch_size' })
     fireEvent.click(within(section).getByRole('button', { name: 'Edit detail_crawl.batch_size' }))
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '400' } })
@@ -44,6 +45,26 @@ describe('settings page', () => {
     expect(await screen.findAllByRole('link', { name: /detail_crawl.batch_size: 400/ })).toBeDefined()
     fireEvent.click(within(screen.getByRole('region', { name: 'detail_crawl.batch_size' })).getByRole('button', { name: 'Reset detail_crawl.batch_size to default' }))
     expect(await screen.findAllByRole('link', { name: /detail_crawl.batch_size: 50/ })).toBeDefined()
+  })
+  it('edits the publish gate with a boolean control', async () => {
+    const entries: Array<{ id: string; key: string; value: number | boolean; type: string; createdAt: string; createdBy: null }> = []
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      const key = url.split('/admin/config/')[1]
+      if (init?.method === 'PUT') {
+        const payload = JSON.parse(init.body as string) as { value: number | boolean; type: string }
+        const row = { id: 'saved', key: decodeURIComponent(key ?? ''), ...payload, createdAt: new Date().toISOString(), createdBy: null }
+        entries.push(row)
+        return response(row)
+      }
+      return response(entries)
+    })
+    vi.stubGlobal('fetch', fetcher)
+    render(<SettingsProvider apiBaseUrl="http://api.test"><SettingsClient selectedKey="publish_gate.strict" /></SettingsProvider>)
+    const section = await screen.findByRole('region', { name: 'publish_gate.strict' })
+    fireEvent.click(within(section).getByRole('button', { name: 'Edit publish_gate.strict' }))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'true' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT' && JSON.parse(init.body as string).type === 'boolean')).toBe(true))
   })
   it('labels reset controls and fetches history only after a mutation, not a refresh', async () => {
     let refresh: (() => void) | undefined

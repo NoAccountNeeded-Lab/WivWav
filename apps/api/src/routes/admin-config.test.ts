@@ -141,6 +141,28 @@ describe('GET /admin/config/:key', () => {
 })
 
 describe('PUT /admin/config/:key', () => {
+  it.each([
+    ['quality.systemic_error_threshold', 0.375],
+    ['quality.drift_threshold_pp', 0.25],
+    ['semantic_evidence.min_confidence', 0.92],
+  ])('accepts fractional operator setting %s', async (key, value) => {
+    const row = makeRow({ key, value, type: 'number' })
+    const db = { configEntry: { create: vi.fn(async () => row) } }
+    const { app } = buildTestApp(db)
+    const res = await app.inject({ method: 'PUT', url: `/${key}`, payload: { value, type: 'number' } })
+    expect(res.statusCode).toBe(201)
+    await app.close()
+  })
+
+  it('accepts boolean operator setting', async () => {
+    const row = makeRow({ key: 'publish_gate.strict', value: true, type: 'boolean' })
+    const db = { configEntry: { create: vi.fn(async () => row) } }
+    const { app } = buildTestApp(db)
+    const res = await app.inject({ method: 'PUT', url: '/publish_gate.strict', payload: { value: true, type: 'boolean' } })
+    expect(res.statusCode).toBe(201)
+    await app.close()
+  })
+
   it.each([1, 500])('accepts registry boundary value %i', async value => {
     const row = makeRow({ key: 'detail_crawl.batch_size', value, type: 'number' })
     const db = { configEntry: { create: vi.fn(async () => row) } }
@@ -162,7 +184,7 @@ describe('PUT /admin/config/:key', () => {
     const { app } = buildTestApp(db)
     const res = await app.inject({ method: 'PUT', url: '/detail_crawl.batch_size', payload })
     expect(res.statusCode).toBe(400)
-    expect(res.json().message).toContain('integer number from 1 to 500')
+    expect(res.json().message).toContain('an integer from 1 to 500')
     expect(db.configEntry.create).not.toHaveBeenCalled()
     await app.close()
   })
