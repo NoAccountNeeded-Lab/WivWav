@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getOpsMobileTabs, OPS_NAV_GROUPS, type OpsNavGroupId } from './ops-nav'
-import { getOpsNavIcon } from '@/components/OpsNav/nav-icons'
+import { getOpsNavIcon, OPS_NAV_FALLBACK_ICON, OPS_NAV_ICONS } from '@/components/OpsNav/nav-icons'
 
 /**
  * All known Next.js page routes under apps/web/src/app.
@@ -37,6 +37,18 @@ const KNOWN_NEXT_ROUTES = new Set([
 describe('OPS_NAV_GROUPS', () => {
   it('should give the API key destination a navigation icon', () => {
     expect(getOpsNavIcon('/ops/api-keys')).toBeDefined()
+  })
+
+  it('should map every navigation href to an explicit icon', () => {
+    const hrefs = OPS_NAV_GROUPS.flatMap(group => group.items.map(item => item.href))
+
+    for (const href of hrefs) {
+      expect(OPS_NAV_ICONS[href], `missing OPS_NAV_ICONS entry for ${href}`).toBeDefined()
+    }
+  })
+
+  it('should return a visible fallback icon for an unmapped href', () => {
+    expect(getOpsNavIcon('/ops/not-yet-mapped')).toBe(OPS_NAV_FALLBACK_ICON)
   })
 
   it('should render a flat primary list plus a single titled advanced section', () => {

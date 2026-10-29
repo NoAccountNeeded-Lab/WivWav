@@ -31,7 +31,7 @@ export function NavRailItem({ item, isActive }: NavRailItemProps) {
   if (item.apiOrigin || item.external) {
     return (
       <a href={item.href} target="_blank" rel="noopener noreferrer" className={styles.item} title={item.title}>
-        {Icon && <Icon size={20} aria-hidden="true" />}
+        <Icon size={20} aria-hidden="true" />
         <span className="sr-only">{item.title} (opens in new tab)</span>
       </a>
     )
@@ -52,7 +52,7 @@ export function NavRailItem({ item, isActive }: NavRailItemProps) {
         viewTransitionNav(event, item.href)
       }}
     >
-      {Icon && <Icon size={20} aria-hidden="true" />}
+      <Icon size={20} aria-hidden="true" />
       <span className="sr-only">{item.title}</span>
     </Link>
   )

@@ -39,7 +39,7 @@ export function NavLinkItem({ item, isActive, showDesc, onNavigate, className }:
         className={rowClassName}
         onClick={onNavigate}
       >
-        {Icon && <Icon size={18} aria-hidden="true" className={styles.icon} />}
+        <Icon size={18} aria-hidden="true" className={styles.icon} />
         <span className={styles.textCol}>
           <span className={styles.label}>
             {item.title}
@@ -68,7 +68,7 @@ export function NavLinkItem({ item, isActive, showDesc, onNavigate, className }:
         onNavigate?.()
       }}
     >
-      {Icon && <Icon size={18} aria-hidden="true" className={styles.icon} />}
+      <Icon size={18} aria-hidden="true" className={styles.icon} />
       <span className={styles.textCol}>
         <span className={styles.label}>{item.title}</span>
         {showDesc && <span className={styles.desc}>{item.desc}</span>}

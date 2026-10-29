@@ -43,6 +43,7 @@ import type { PolledResourceState } from '@/lib/use-polled-resource'
 import { useOverviewResources } from './use-overview-resources'
 import { useProblemAggregate } from './use-problem-aggregate'
 import { presentProblem, problemCountsBySeverity, sortProblems, unacknowledgedProblems } from './problem-presentation'
+import { getOpsNavIcon } from '@/components/OpsNav/nav-icons'
 
 /** Subset of resource state the attention-panel retry buttons need — avoids
  *  variance issues from mixing differently-typed resources in one map. */
@@ -240,7 +241,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           <div className={styles.cardHeader}>
             <AlertCircle size={14} />
             <span>Attention Needed</span>
-            <Link href="/ops/logs" className={styles.cardHeaderLink}>Logs →</Link>
+            <Link href="/ops/logs" className={styles.cardHeaderLink}>
+              <OverviewNavIcon href="/ops/logs" />
+              Logs →
+            </Link>
           </div>
           <div className={styles.attentionList}>
             {isAttentionQuiet ? (
@@ -331,6 +335,7 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
                       )
                     })}
                     <Link href="/ops/problems" className={styles.attentionViewAllLink}>
+                      <OverviewNavIcon href="/ops/problems" />
                       View all problems →
                     </Link>
                   </>
@@ -347,7 +352,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           {(health.isRefreshing || queues.isRefreshing) && health.data && queues.data && (
             <span className={styles.sectionRefreshing}>Refreshing…</span>
           )}
-          <Link href="/status" className={styles.labelLink}>Raw status →</Link>
+          <Link href="/status" className={styles.labelLink}>
+            <OverviewNavIcon href="/status" />
+            Raw status →
+          </Link>
         </div>
         {degradedHealthCards.map(card => (
           <MetricCard key={card.id} card={card} span={CARD_COL_SPAN[card.id] ?? 1} />
@@ -379,7 +387,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
                 {queues.data.map(queue => (
                   <div key={queue.name} className={styles.queueBreakdownRow} role="row">
                     <span className={styles.queueBreakdownName} role="cell">
-                      <Link href="/ops/queues">{queue.name}</Link>
+                      <Link href="/ops/queues">
+                        <OverviewNavIcon href="/ops/queues" />
+                        {queue.name}
+                      </Link>
                       {queue.paused && <span className={styles.queueBreakdownPaused}>Paused</span>}
                     </span>
                     <span className={styles.queueBreakdownStat} role="cell">{queue.stats.waiting}w</span>
@@ -406,7 +417,10 @@ export function OpsOverviewClient({ apiBaseUrl }: OpsOverviewClientProps) {
           {(sources.isRefreshing || runs.isRefreshing) && sources.data && runs.data && (
             <span className={styles.sectionRefreshing}>Refreshing…</span>
           )}
-          <Link href="/ops/runs" className={styles.labelLink}>Scraper runs →</Link>
+          <Link href="/ops/runs" className={styles.labelLink}>
+            <OverviewNavIcon href="/ops/runs" />
+            Scraper runs →
+          </Link>
         </div>
         <p className={styles.span4}>Scrape health is stale after <SettingRef settingKey="health.scraper_stale_hours" /> hours.</p>
         {overview.freshnessCards.map(card => (
@@ -486,6 +500,11 @@ function MetricCard({ card, span }: { card: OverviewCard; span: number }) {
       <CopyButton text={copyText} label={`Copy ${card.label}`} className={styles.cardCopyBtn} />
     </div>
   )
+}
+
+function OverviewNavIcon({ href }: { href: string }) {
+  const Icon = getOpsNavIcon(href)
+  return <Icon size={13} aria-hidden="true" />
 }
 
 function SeverityIcon({ severity, size }: { severity: OverviewSeverity; size: number }) {

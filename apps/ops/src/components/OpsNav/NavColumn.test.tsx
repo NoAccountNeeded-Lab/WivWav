@@ -75,6 +75,19 @@ describe('NavColumn', () => {
     expect(bullBoardLink.textContent).toContain('(opens in new tab)')
   })
 
+  it('renders an icon for every destination while keeping each link named by text', () => {
+    usePathnameMock.mockReturnValue('/ops')
+    render(<NavColumn />)
+
+    const links = screen.getAllByRole('link')
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      expect(link.querySelector('svg'), `expected an icon for ${link.getAttribute('href')}`).not.toBeNull()
+      expect(link.getAttribute('aria-label')).toBeNull()
+      expect(link.textContent).toMatch(/\S/)
+    }
+  })
+
   it('starts expanded, with a toggle exposing "Collapse navigation" as its accessible name', () => {
     usePathnameMock.mockReturnValue('/ops')
     render(<NavColumn />)

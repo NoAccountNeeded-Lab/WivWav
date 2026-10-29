@@ -84,6 +84,20 @@ afterEach(() => {
 })
 
 describe('OpsOverviewClient — streaming sections and per-section retry (E5, #732)', () => {
+  it('should use shared navigation icons on overview quick links without changing their accessible names', async () => {
+    vi.stubGlobal('fetch', mockFetchWithFailingRuns())
+
+    render(<OpsOverviewClient apiBaseUrl="" />)
+
+    for (const name of ['Logs', 'Raw status', 'Scraper runs']) {
+      const link = await screen.findByRole('link', { name: new RegExp(name) })
+      const icon = link.querySelector('svg')
+      expect(icon, `${name} link should have an icon`).not.toBeNull()
+      expect(icon?.getAttribute('aria-hidden')).toBe('true')
+      expect(link.textContent).toContain(name)
+    }
+  })
+
   it('shows an inline error with retry for the failed endpoint while other sections render normally', async () => {
     const fetchMock = mockFetchWithFailingRuns()
     vi.stubGlobal('fetch', fetchMock)

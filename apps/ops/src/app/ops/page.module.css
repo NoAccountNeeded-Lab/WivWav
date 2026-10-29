@@ -151,6 +151,9 @@
 }
 
 .labelLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   margin-left: auto;
   color: var(--clr-primary);
   font-size: 0.6875rem;
@@ -195,6 +198,9 @@
 }
 
 .cardHeaderLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   margin-left: auto;
   color: var(--clr-primary);
   font-size: 0.6875rem;
@@ -271,7 +277,10 @@
 
 /* "View all problems →" link under the Problems preview (issue #892) */
 .attentionViewAllLink {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
   padding: 0.625rem 1rem;
   color: var(--clr-primary);
   font-size: 0.75rem;
