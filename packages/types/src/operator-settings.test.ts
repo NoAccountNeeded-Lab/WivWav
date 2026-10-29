@@ -1,9 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { OPERATOR_SETTINGS, resolveOperatorSetting } from './operator-settings.js'
+import { OPERATOR_SETTING_GROUPS, OPERATOR_SETTINGS, resolveOperatorSetting } from './operator-settings.js'
 
 describe('operator settings', () => {
   it('defines the existing settings and all 14 new operator settings', () => {
     expect(Object.keys(OPERATOR_SETTINGS)).toHaveLength(30)
+  })
+  it('assigns every registry key to exactly one described group', () => {
+    const keys = Object.keys(OPERATOR_SETTINGS)
+    const memberships = keys.map((key) => {
+      const definition = OPERATOR_SETTINGS[key as keyof typeof OPERATOR_SETTINGS]
+      const group = OPERATOR_SETTING_GROUPS[definition.group]
+      expect(group.label.length).toBeGreaterThan(0)
+      expect(group.description.length).toBeGreaterThan(0)
+      return key
+    })
+    expect(memberships).toHaveLength(keys.length)
+    expect(new Set(memberships).size).toBe(keys.length)
+  })
+  it('declares an inline unit for millisecond, second, and day settings', () => {
+    for (const [key, definition] of Object.entries(OPERATOR_SETTINGS)) {
+      if (key.endsWith('_ms')) expect('unit' in definition && definition.unit).toBe('ms')
+      if (key.endsWith('_s')) expect('unit' in definition && definition.unit).toBe('s')
+      if (key.endsWith('_days')) expect('unit' in definition && definition.unit).toBe('days')
+    }
   })
   it('uses the default for missing, tombstoned and wrong-type rows', () => {
     expect(resolveOperatorSetting('detail_crawl.batch_size', null)).toBe(50)
