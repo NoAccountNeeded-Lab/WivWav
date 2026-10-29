@@ -110,7 +110,12 @@ function buildTestApp(overrides?: {
       { ...baseConfig, NODE_ENV: 'test', ...overrides?.config },
       makeMockDb(overrides),
       {} as never,
-      {} as never,
+      {
+        get: vi.fn(async () => null),
+        set: vi.fn(async () => undefined),
+        del: vi.fn(async () => undefined),
+        ping: vi.fn(async () => undefined),
+      } as never,
       search as never,
       facets as never,
       queueFactory as never,
@@ -137,6 +142,7 @@ function makeMockDb(overrides?: {
 }) {
   const dbMock = {
     $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
+    configEntry: { findFirst: vi.fn(async () => null) },
     listing: {
       findMany: vi.fn(async () => []),
       count: vi.fn(async () => 0),

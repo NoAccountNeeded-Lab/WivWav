@@ -141,7 +141,8 @@ export async function anonymizePrivateSellerListing(
   const rawPagesDeleted = rawPageDeleteResult.count
 
   try {
-    await syncListings([listingId], db, meili, strictGate)
+    if (strictGate === undefined) await syncListings([listingId], db, meili)
+    else await syncListings([listingId], db, meili, strictGate)
   } catch (err) {
     // Non-fatal — see the fail-closed note above. The next search-indexer
     // poll tick self-heals since the transaction above already bumped
