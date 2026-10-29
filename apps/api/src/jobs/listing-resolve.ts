@@ -43,6 +43,7 @@ import {
 import type { JobContext } from '@wivwav/queue'
 import { validateListing, decidePublication } from '@wivwav/types/listing-validator'
 import { computeReadiness, isPublishGateStrict } from '@wivwav/types/listing-readiness'
+import type { ConfigService } from '../services/config-service.js'
 import type { ListingUpsertRequest as ListingUpsertData } from '@wivwav/types/scraper-gateway'
 import { report } from './job-progress.js'
 import { runReadinessBackfill } from './readiness-backfill.js'
@@ -106,6 +107,7 @@ export async function resolveRow(
   db: PrismaClient,
   row: PrismaListing,
   context: JobContext | undefined,
+  configuredStrictGate?: boolean,
 ): Promise<ResolveOutcome> {
   // #1157: operator-hidden listings are never published by a resolve pass.
   if (row.manuallyHiddenAt) return 'quarantined'
@@ -124,7 +126,7 @@ export async function resolveRow(
     conversionType: row.conversionType,
     city: row.city,
   })
-  const strictGate = isPublishGateStrict()
+  const strictGate = configuredStrictGate ?? isPublishGateStrict()
   const publicationStatus = strictGate && decision.publicationStatus === 'eligible' && !readiness.ready
     ? 'pending'
     : decision.publicationStatus
@@ -159,6 +161,7 @@ async function resolveOneListing(
   listingId: string,
   observationReference: string,
   context: JobContext | undefined,
+  strictGate: boolean,
 ): Promise<void> {
   const row = await db.listing.findUnique({ where: { id: listingId, status: { not: 'gone' } } })
   if (!row) {
@@ -169,7 +172,7 @@ async function resolveOneListing(
     return
   }
 
-  const outcome = await resolveRow(db, row, context)
+  const outcome = await resolveRow(db, row, context, strictGate)
   await report(
     context,
     `[listing-resolve] Listing ${listingId} (observation ${observationReference}): ${outcome}`,
@@ -188,6 +191,7 @@ async function resolveSourceBacklog(
   db: PrismaClient,
   sourceId: string,
   context: JobContext | undefined,
+  strictGate: boolean,
 ): Promise<void> {
   let processed = 0
   let resolved = 0
@@ -204,7 +208,7 @@ async function resolveSourceBacklog(
     if (rows.length === 0) break
 
     for (const row of rows) {
-      const outcome = await resolveRow(db, row, context)
+      const outcome = await resolveRow(db, row, context, strictGate)
       processed++
       if (outcome === 'skipped-stale' || outcome === 'held-detail-stale') skippedStale++
       else resolved++
@@ -229,17 +233,21 @@ async function resolveSourceBacklog(
 export async function runListingResolveJob(
   data: ListingResolveJobData,
   context?: JobContext,
+  operatorConfig?: Pick<ConfigService, 'getOperatorSetting'>,
 ): Promise<void> {
   if ('readinessBackfill' in data) {
     await runReadinessBackfill(context)
     return
   }
   const db = getDb()
+  const strictGate = operatorConfig
+    ? await operatorConfig.getOperatorSetting('publish_gate.strict', isPublishGateStrict())
+    : isPublishGateStrict()
 
   // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
   if ('listingId' in data) {
-    await resolveOneListing(db, data.listingId, data.observationReference, context)
+    await resolveOneListing(db, data.listingId, data.observationReference, context, strictGate)
   } else {
-    await resolveSourceBacklog(db, data.sourceId, context)
+    await resolveSourceBacklog(db, data.sourceId, context, strictGate)
   }
 }

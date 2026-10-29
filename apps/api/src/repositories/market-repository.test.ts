@@ -39,6 +39,20 @@ describe('PrismaMarketRepository.getPricingStats', () => {
 })
 
 describe('PrismaMarketRepository.getTrends', () => {
+  it('uses the operator publish gate in raw analytics queries', async () => {
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+    const db = { $queryRaw: vi.fn().mockResolvedValue([]) }
+    const getOperatorSetting = vi.fn(async () => true)
+    const repo = new PrismaMarketRepository(db as never, { getOperatorSetting } as never)
+
+    await repo.getTrends('Toyota', 'Sienna', 'month', new Date('2026-04-01'), new Date('2026-06-01'))
+
+    expect(getOperatorSetting).toHaveBeenCalledWith('publish_gate.strict', false)
+    const strictFragment = db.$queryRaw.mock.calls[0]?.find((part: unknown) => typeof part === 'object' && part !== null && 'sql' in part) as { sql?: string } | undefined
+    expect(strictFragment?.sql).toContain('readinessComputedAt')
+    vi.unstubAllEnvs()
+  })
+
   it('builds a single CTE-based query scoped to the make/model and maps rows', async () => {
     const db = {
       $queryRaw: vi.fn().mockResolvedValueOnce([

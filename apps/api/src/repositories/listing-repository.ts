@@ -1,4 +1,4 @@
-import { strictReadyWhere } from '@wivwav/types/listing-readiness'
+import { isPublishGateStrict, strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { OPERATOR_SETTINGS } from '@wivwav/types/operator-settings'
 import type { ConfigService } from '../services/config-service.js'
 import { randomUUID } from 'node:crypto'
@@ -417,13 +417,19 @@ export interface ListingRepository {
 export class PrismaListingRepository implements ListingRepository {
   constructor(private readonly db: PrismaClient, private readonly operatorConfig?: ConfigService) {}
 
-  findById(id: string): Promise<ListingWithSource | null> {
+  private async strictReadyFilter() {
+    const strict = await this.operatorConfig?.getOperatorSetting('publish_gate.strict', isPublishGateStrict()) ?? isPublishGateStrict()
+    return strictReadyWhere(strict)
+  }
+
+  async findById(id: string): Promise<ListingWithSource | null> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findFirst({
       where: {
         id,
         status: 'active',
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       include: {
@@ -454,13 +460,14 @@ export class PrismaListingRepository implements ListingRepository {
     }) as Promise<ListingWithSource | null>
   }
 
-  findCrossListingsByVehicleId(vehicleId: string, excludeListingId: string): Promise<CrossListingRow[]> {
+  async findCrossListingsByVehicleId(vehicleId: string, excludeListingId: string): Promise<CrossListingRow[]> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findMany({
       where: {
         vehicleId,
         status: 'active',
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         id: { not: excludeListingId },
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
@@ -484,26 +491,28 @@ export class PrismaListingRepository implements ListingRepository {
     })
   }
 
-  findByIdForSafety(id: string): Promise<ListingSafetyResult | null> {
+  async findByIdForSafety(id: string): Promise<ListingSafetyResult | null> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findFirst({
       where: {
         id,
         status: 'active',
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, vehicleModelId: true },
     })
   }
 
-  findByIdForDealer(id: string): Promise<ListingDealerResult | null> {
+  async findByIdForDealer(id: string): Promise<ListingDealerResult | null> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findFirst({
       where: {
         id,
         status: 'active',
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, dealerProfileId: true },
@@ -538,25 +547,27 @@ export class PrismaListingRepository implements ListingRepository {
     })
   }
 
-  findByVin(vin: string): Promise<ListingVinRow | null> {
+  async findByVin(vin: string): Promise<ListingVinRow | null> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findFirst({
       where: {
         vin,
         status: 'active',
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
       },
       select: { id: true, conversionManufacturer: true },
     })
   }
 
-  findListingsByVin(vin: string, activeOnly: boolean): Promise<VinListingRow[]> {
+  async findListingsByVin(vin: string, activeOnly: boolean): Promise<VinListingRow[]> {
+    const strictFilter = await this.strictReadyFilter()
     return this.db.listing.findMany({
       where: {
         vin,
         publicationStatus: 'eligible',
-        ...strictReadyWhere(),
+        ...strictFilter,
         source: { is: { status: { not: SourceStatus.disabled } } },
         ...(activeOnly ? { status: 'active' } : {}),
       },
@@ -576,8 +587,9 @@ export class PrismaListingRepository implements ListingRepository {
   }
 
   async findHistoryByVin(vin: string): Promise<VinHistoryRow[]> {
+    const strictFilter = await this.strictReadyFilter()
     const matching = await this.db.listing.findMany({
-      where: { vin, publicationStatus: 'eligible', ...strictReadyWhere(), source: { is: { status: { not: SourceStatus.disabled } } } },
+      where: { vin, publicationStatus: 'eligible', ...strictFilter, source: { is: { status: { not: SourceStatus.disabled } } } },
       select: { id: true },
     })
     const listingIds = matching.map((l) => l.id)

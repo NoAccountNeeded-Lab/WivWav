@@ -1,5 +1,7 @@
 import { getDb, appendPrivateSellerDeletionAuditEntry } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
+import type { ConfigService } from '../services/config-service.js'
+import { isPublishGateStrict } from '@wivwav/types/listing-readiness'
 import { getMeiliClient } from '../lib/meili.js'
 import { anonymizePrivateSellerListing, retentionCutoff } from '../services/private-seller-retention.js'
 import { report } from './job-progress.js'
@@ -35,9 +37,10 @@ const MAX_BATCHES_PER_RUN = 20
  * continues to the next candidate. A failed row stays a candidate (its
  * `retentionAppliedAt` was never set) and is retried on the next tick.
  */
-export async function runPrivateSellerRetentionJob(context?: JobContext): Promise<void> {
+export async function runPrivateSellerRetentionJob(context?: JobContext, operatorConfig?: Pick<ConfigService, 'getOperatorSetting'>): Promise<void> {
   const db = getDb()
   const meili = getMeiliClient()
+  const strictGate = await operatorConfig?.getOperatorSetting('publish_gate.strict', isPublishGateStrict()) ?? isPublishGateStrict()
   const cutoff = retentionCutoff()
 
   let applied = 0
@@ -59,7 +62,7 @@ export async function runPrivateSellerRetentionJob(context?: JobContext): Promis
 
     for (const { id } of candidates) {
       try {
-        const result = await anonymizePrivateSellerListing(db, meili, id)
+        const result = await anonymizePrivateSellerListing(db, meili, id, strictGate)
         if (result.outcome === 'applied') {
           applied++
           await appendPrivateSellerDeletionAuditEntry(db, id, {

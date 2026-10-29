@@ -5,7 +5,7 @@ import type { PrismaClient } from '@wivwav/db'
 import type { JobContext } from '@wivwav/queue'
 import type { Meilisearch } from 'meilisearch'
 import { INDEX_NAME, syncListings } from '@wivwav/search'
-import { strictReadyWhere } from '@wivwav/types/listing-readiness'
+import { isPublishGateStrict, strictReadyWhere } from '@wivwav/types/listing-readiness'
 import { getMeiliClient } from '../lib/meili.js'
 import { report } from './job-progress.js'
 import { rebuildMeilisearchIndex } from './meilisearch-sync.js'
@@ -76,6 +76,7 @@ async function repairOrphanedSearchCatalog(
   context: JobContext | undefined,
   db: PrismaClient,
   client: Meilisearch,
+  strictGate: boolean,
 ): Promise<void> {
   const publicListingCount = await db.listing.count({
     where: {
@@ -83,7 +84,7 @@ async function repairOrphanedSearchCatalog(
       publicationStatus: 'eligible',
       manuallyHiddenAt: null,
       source: { is: { status: { not: 'disabled' } } },
-      ...strictReadyWhere(),
+      ...strictReadyWhere(strictGate),
     },
   })
   if (publicListingCount > 0) return
@@ -104,7 +105,7 @@ async function repairOrphanedSearchCatalog(
     `[search-indexer] Repairing ${indexedDocumentCount} orphaned search document(s); PostgreSQL has no public listings`,
     { stage: 'syncing', current: 0, total: indexedDocumentCount },
   )
-  await rebuildMeilisearchIndex(context, db, client)
+  await rebuildMeilisearchIndex(context, db, client, strictGate)
 }
 
 /**
@@ -125,19 +126,22 @@ async function fetchTouchedPage(db: PrismaClient, after: Checkpoint, batchSize: 
 export async function runSearchIndexerPollJob(context?: JobContext, operatorConfig?: ConfigService): Promise<void> {
   const db = getDb()
   const client = getMeiliClient()
+  const strictGate = operatorConfig
+    ? await operatorConfig.getOperatorSetting('publish_gate.strict', isPublishGateStrict())
+    : isPublishGateStrict()
   // #969: no per-job $disconnect() here — see jobs/geocode.ts's comment.
   // Notable for this queue in particular: its schedule fires every minute,
   // so disconnecting the shared client here would churn apps/api's DB
   // connection roughly once a minute while concurrent HTTP traffic may be
   // using the same client.
-  await repairOrphanedSearchCatalog(context, db, client)
+  await repairOrphanedSearchCatalog(context, db, client, strictGate)
   const batchSize = await operatorConfig?.getOperatorSetting('search.indexer.batch_size') ?? OPERATOR_SETTINGS['search.indexer.batch_size'].defaultValue
   // Bound each invocation so a backlog drains over scheduled ticks.
   const maxBatches = await operatorConfig?.getOperatorSetting('search.indexer.max_batches') ?? OPERATOR_SETTINGS['search.indexer.max_batches'].defaultValue
-  await pollOnce(context, db, client, batchSize, maxBatches)
+  await pollOnce(context, db, client, batchSize, maxBatches, strictGate)
 }
 
-async function pollOnce(context: JobContext | undefined, db: PrismaClient, client: Meilisearch, batchSize: number, maxBatches: number): Promise<void> {
+async function pollOnce(context: JobContext | undefined, db: PrismaClient, client: Meilisearch, batchSize: number, maxBatches: number, strictGate: boolean): Promise<void> {
   let checkpoint = await loadCheckpoint(db)
   let totalSynced = 0
 
@@ -147,7 +151,7 @@ async function pollOnce(context: JobContext | undefined, db: PrismaClient, clien
 
     const ids = rows.map((row) => row.id)
     // Must complete before the checkpoint advances — see ordering guarantee above.
-    await syncListings(ids, db, client)
+    await syncListings(ids, db, client, strictGate)
 
     const last = rows[rows.length - 1]!
     checkpoint = { lastUpdatedAt: last.updatedAt, lastId: last.id }

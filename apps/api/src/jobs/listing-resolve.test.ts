@@ -143,6 +143,14 @@ describe('resolveRow', () => {
     expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'pending' }) }))
   })
 
+  it('uses the per-job publish gate value rather than the legacy env flag', async () => {
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+    const row = makeListingRow()
+
+    expect(await resolveRow(db as never, row as never, undefined, true)).toBe('pending')
+    expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'pending' }) }))
+  })
+
   it('holds a row with detailStaleAt set: no write, no error (#1156)', async () => {
     const row = makeListingRow({ detailStaleAt: new Date('2026-01-03') })
     const outcome = await resolveRow(db as never, row as never, undefined)
@@ -200,6 +208,23 @@ describe('runListingResolveJob — single listing', () => {
 
     expect(db.listing.findUnique).toHaveBeenCalledWith({ where: { id: 'l-1', status: { not: 'gone' } } })
     expect(db.listing.update).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads the publish gate once per resolve job and applies it to the row', async () => {
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+    db.listing.findUnique.mockResolvedValueOnce(makeListingRow())
+    const getOperatorSetting = vi.fn(async () => true)
+
+    await runListingResolveJob(
+      { listingId: 'l-1', observationReference: 'raw-1:2026-01-01T00:00:00.000Z' },
+      undefined,
+      { getOperatorSetting } as never,
+    )
+
+    expect(getOperatorSetting).toHaveBeenCalledOnce()
+    expect(getOperatorSetting).toHaveBeenCalledWith('publish_gate.strict', false)
+    expect(db.listing.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publicationStatus: 'pending' }) }))
+    vi.unstubAllEnvs()
   })
 
   it('does nothing when the listing no longer exists or is gone', async () => {

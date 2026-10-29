@@ -68,7 +68,7 @@ describe('runSearchIndexerPollJob', () => {
 
     await runSearchIndexerPollJob()
 
-    expect(rebuildMeilisearchIndex).toHaveBeenCalledWith(undefined, db, meili)
+    expect(rebuildMeilisearchIndex).toHaveBeenCalledWith(undefined, db, meili, false)
   })
 
   it('does not rebuild an empty index when PostgreSQL also has no public listings', async () => {
@@ -109,11 +109,27 @@ describe('runSearchIndexerPollJob', () => {
 
     await runSearchIndexerPollJob()
 
-    expect(syncListings).toHaveBeenCalledWith(['l-1', 'l-2'], db, expect.anything())
+    expect(syncListings).toHaveBeenCalledWith(['l-1', 'l-2'], db, expect.anything(), false)
     expect(db.searchIndexerCheckpoint.upsert).toHaveBeenCalledTimes(1)
     const checkpoint = db.__checkpoints.get('listings')
     expect(checkpoint).toMatchObject({ lastId: 'l-2' })
     expect(checkpoint?.lastUpdatedAt).toEqual(rows[1]!.updatedAt)
+  })
+
+  it('passes the dynamic strict publish gate to incremental indexing', async () => {
+    db.$queryRaw.mockResolvedValueOnce([{ id: 'l-1', updatedAt: new Date('2026-01-01T00:00:00Z') }]).mockResolvedValueOnce([])
+    const operatorConfig = {
+      getOperatorSetting: vi.fn(async (key: string) => {
+        if (key === 'publish_gate.strict') return true
+        if (key === 'search.indexer.max_batches') return 20
+        return 500
+      }),
+    }
+
+    await runSearchIndexerPollJob(undefined, operatorConfig as never)
+
+    expect(syncListings).toHaveBeenCalledWith(['l-1'], db, meili, true)
+    expect(operatorConfig.getOperatorSetting).toHaveBeenCalledWith('publish_gate.strict', false)
   })
 
   it('does not advance the checkpoint when syncListings fails, so the batch replays next run', async () => {

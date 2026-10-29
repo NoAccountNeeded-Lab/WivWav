@@ -140,10 +140,10 @@ export async function buildApp(
   const vehicleRepo = new PrismaVehicleRepository(db)
   const sourceRepo = new PrismaSourceRepository(db)
   const scraperRunRepo = new PrismaScraperRunRepository(db)
-  const marketRepo = new PrismaMarketRepository(db)
+  const marketRepo = new PrismaMarketRepository(db, operatorConfig)
   const conversionBrandRepo = new PrismaConversionBrandRepository(db)
   const vehicleIdentityDecisionRepo = new PrismaVehicleIdentityDecisionRepository(db)
-  const dealerRepo = new PrismaDealerRepository(db)
+  const dealerRepo = new PrismaDealerRepository(db, operatorConfig)
   const apiKeyRepo = new PrismaApiKeyRepository(db)
   const problemStateRepo = new PrismaOpsProblemStateRepository(db)
   const jobRunRepo = new PrismaJobRunRepository(db)
@@ -371,6 +371,7 @@ export async function buildApp(
         prefix: '/private-seller-retention',
         db,
         meili,
+        operatorConfig,
       })
 
       const boardAdapter = new FastifyAdapter()

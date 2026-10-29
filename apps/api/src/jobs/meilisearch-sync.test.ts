@@ -132,6 +132,21 @@ describe('runMeilisearchSyncJob', () => {
     }
   })
 
+  it('uses the dynamic operator publish gate for full rebuild queries', async () => {
+    vi.stubEnv('PUBLISH_GATE_STRICT', 'false')
+    const operatorConfig = { getOperatorSetting: vi.fn(async () => true) }
+    try {
+      await runMeilisearchSyncJob(undefined, operatorConfig as never)
+      expect(operatorConfig.getOperatorSetting).toHaveBeenCalledWith('publish_gate.strict', false)
+      for (const call of [0, 1]) {
+        const values = db.$queryRaw.mock.calls[call]!.slice(1) as unknown[]
+        expect(values.includes(STRICT_READY_SQL)).toBe(true)
+      }
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('reads the whole rebuild from one REPEATABLE READ snapshot with an explicit timeout (#1100)', async () => {
     await runMeilisearchSyncJob()
 
