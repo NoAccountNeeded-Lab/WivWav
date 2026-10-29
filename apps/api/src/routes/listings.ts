@@ -6,8 +6,8 @@ import type { ListingSearchService } from '../services/listing-search.js'
 import type { ListingFacetsService } from '../services/listing-facets.js'
 import type { CrossListingRow, ListingImageWithSemanticAnalyses, ListingReportType, ListingRepository } from '../repositories/index.js'
 import { promoteHeroImage } from './listing-hero-image.js'
+import type { ConfigService } from '../services/config-service.js'
 
-const REFRESH_RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour per vehicle model
 const refreshedAt = new Map<string, number>()
 
 type ListingWithRequiredSource = Listing & {
@@ -57,8 +57,7 @@ function isFieldClaim(value: unknown): value is { field: string; claimedValue: s
     && Number.isFinite(record['confidence'])
 }
 
-function toPublicSemanticEvidence(images: ListingImageWithSemanticAnalyses[] | undefined) {
-  const threshold = semanticEvidenceConfidenceThreshold()
+function toPublicSemanticEvidence(images: ListingImageWithSemanticAnalyses[] | undefined, threshold: number) {
   const evidence = []
 
   for (const image of images ?? []) {
@@ -91,6 +90,7 @@ function toPublicSemanticEvidence(images: ListingImageWithSemanticAnalyses[] | u
 
 function toListingDetailResponse(
   listing: ListingWithRequiredSource,
+  confidenceThreshold = semanticEvidenceConfidenceThreshold(),
   crossListings: CrossListingResponse[] = [],
   reportSummary: ListingReportSummary = { unresolvedCount: 0, flagged: false },
 ) {
@@ -131,8 +131,7 @@ function toListingDetailResponse(
   // violated upstream.
   const publicConversionType = conversionTypeResolution === 'conflicting' ? 'unknown' : conversionType
   const publicRampType = rampTypeResolution === 'conflicting' ? 'unknown' : rampType
-  const confidenceThreshold = semanticEvidenceConfidenceThreshold()
-  const semanticEvidence = toPublicSemanticEvidence(listingImages)
+  const semanticEvidence = toPublicSemanticEvidence(listingImages, confidenceThreshold)
 
   const response = {
     ...rest,
@@ -196,6 +195,7 @@ interface ListingsPluginOptions {
   search: ListingSearchService
   facets: ListingFacetsService
   queueFactory: BullMQQueueFactory
+  operatorConfig?: Pick<ConfigService, 'getOperatorSetting'>
 }
 
 const filterQuerySchema = Type.Object(
@@ -295,7 +295,7 @@ const listingsSearchResponseSchema = Type.Object({
   }),
 })
 
-export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = async (app, { listings, search, facets, queueFactory }) => {
+export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = async (app, { listings, search, facets, queueFactory, operatorConfig }) => {
   const recallsQueue = queueFactory.createQueue(QUEUES.NHTSA_RECALLS)
   const complaintsQueue = queueFactory.createQueue(QUEUES.NHTSA_COMPLAINTS)
   const safetyRatingsQueue = queueFactory.createQueue(QUEUES.NHTSA_SAFETY_RATINGS)
@@ -449,6 +449,7 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
       return reply.send({
         data: toListingDetailResponse(
           listing as ListingWithRequiredSource,
+          await operatorConfig?.getOperatorSetting('semantic_evidence.min_confidence', semanticEvidenceConfidenceThreshold()) ?? semanticEvidenceConfidenceThreshold(),
           crossListings.map(toCrossListingResponse),
           { unresolvedCount: unresolvedReportCount, flagged: unresolvedReportCount >= 3 },
         ),
@@ -543,11 +544,12 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
       }
 
       const vehicleModelId = listing.vehicleModelId
+      const cooldownMs = (await operatorConfig?.getOperatorSetting('listings.refresh_cooldown_min') ?? 60) * 60_000
       const last = refreshedAt.get(vehicleModelId) ?? 0
       const now = Date.now()
 
-      if (now - last < REFRESH_RATE_LIMIT_MS) {
-        return reply.send({ data: { enqueued: false, reason: 'rate-limited', retryAfter: Math.ceil((last + REFRESH_RATE_LIMIT_MS - now) / 1000) } })
+      if (now - last < cooldownMs) {
+        return reply.send({ data: { enqueued: false, reason: 'rate-limited', retryAfter: Math.ceil((last + cooldownMs - now) / 1000) } })
       }
 
       refreshedAt.set(vehicleModelId, now)

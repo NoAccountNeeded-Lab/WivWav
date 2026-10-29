@@ -84,7 +84,7 @@ async function probeOllama(config: Config, threshold: number): Promise<ServiceHe
   }
 }
 
-async function probe(name: ProbeName, fn: () => Promise<unknown>, threshold = LATENCY_THRESHOLDS_MS[name]): Promise<ServiceHealth> {
+async function probe(name: ProbeName, fn: () => Promise<unknown>, threshold: number = LATENCY_THRESHOLDS_MS[name]): Promise<ServiceHealth> {
   const started = performance.now()
 
   try {
