@@ -86,6 +86,32 @@ export function WorkerCard({ worker, now, onToggle, pending = false }: WorkerCar
         </div>
       </div>
 
+      <details className={css.details}>
+        <summary className={css.detailsSummary}>Worker details</summary>
+        <div className={css.detailsContent}>
+          {worker.machine ? (
+            <dl className={css.machineGrid}>
+              <dt>Hostname</dt><dd>{worker.machine.hostname}</dd>
+              <dt>Platform</dt><dd>{worker.machine.platform}</dd>
+              <dt>OS release</dt><dd>{worker.machine.osRelease}</dd>
+              <dt>Architecture</dt><dd>{worker.machine.arch}</dd>
+              <dt>CPU model</dt><dd>{worker.machine.cpuModel}</dd>
+              <dt>CPU count</dt><dd>{worker.machine.cpuCount}</dd>
+              <dt>Total memory</dt><dd>{worker.machine.totalMemBytes.toLocaleString()} bytes</dd>
+              <dt>Node version</dt><dd>{worker.machine.nodeVersion}</dd>
+              <dt>App version</dt><dd>{worker.machine.appVersion}</dd>
+            </dl>
+          ) : (
+            <p className={css.notReported}>Machine details not reported by this worker.</p>
+          )}
+          <dl className={css.machineGrid}>
+            <dt>Chromium</dt><dd>{worker.capabilities.chromium ? 'Available' : 'Not available'}</dd>
+            <dt>HTTP enrichment</dt><dd>{worker.capabilities.httpEnrich ? 'Available' : 'Not available'}</dd>
+            <dt>Maximum concurrent jobs</dt><dd>{max}</dd>
+          </dl>
+        </div>
+      </details>
+
       <div className={css.jobs}>
         {worker.inFlightJobs.length > 0 ? (
           worker.inFlightJobs.map((job) => {

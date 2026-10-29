@@ -8,6 +8,17 @@ const SUMMARY = {
   successRate: 0.8, avgDurationMs: 2000, jobsPerMinute: 2.5, statsSince: new Date().toISOString(),
   queues: [{ queueName: 'source-scrape', running: 0, completed: 4, failed: 1, avgDurationMs: 2000 }],
 }
+const MACHINE = {
+  hostname: 'crawler-laptop',
+  platform: 'linux',
+  osRelease: '6.8.0-test',
+  arch: 'x64',
+  cpuModel: 'Test CPU',
+  cpuCount: 6,
+  totalMemBytes: 16_000_000_000,
+  nodeVersion: 'v26.5.0',
+  appVersion: '0.0.1',
+}
 const EMPTY_SUMMARY = {
   ...SUMMARY, workers: 0, busyWorkers: 0, inFlight: 0, capacity: 0, completed: 0, failed: 0,
   successRate: null, avgDurationMs: null, jobsPerMinute: null, statsSince: null, queues: [],
@@ -116,6 +127,35 @@ describe('WorkersClient', () => {
     const queueLink = screen.getByRole('link', { name: 'source-scrape' })
     expect(queueLink.getAttribute('href')).toBe('/ops/queues')
     expect(screen.getByText(/reset when the API restarts/)).toBeDefined()
+  })
+
+  it('shows machine details, capabilities, and concurrency when worker details open', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [{ ...WORKER, machine: MACHINE }] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    await screen.findByText('Desk laptop')
+
+    const details = screen.getByText('Worker details')
+    expect(details.tagName).toBe('SUMMARY')
+    expect(details.tabIndex).toBe(0)
+    await act(async () => { details.click() })
+
+    expect(screen.getByText('crawler-laptop')).toBeDefined()
+    expect(screen.getByText('Test CPU')).toBeDefined()
+    expect(screen.getByText('16,000,000,000 bytes')).toBeDefined()
+    expect(screen.getByText('v26.5.0')).toBeDefined()
+    expect(screen.getByText('0.0.1')).toBeDefined()
+    expect(screen.getByText('Maximum concurrent jobs')).toBeDefined()
+    expect(screen.getByText('3')).toBeDefined()
+  })
+
+  it('shows a not-reported state for a legacy worker without machine metadata', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [WORKER] })))
+    render(<WorkersClient apiBaseUrl="" />)
+    await screen.findByText('Desk laptop')
+    await act(async () => { screen.getByText('Worker details').click() })
+
+    expect(screen.getByText('Machine details not reported by this worker.')).toBeDefined()
+    expect(screen.getByText('Maximum concurrent jobs')).toBeDefined()
   })
 
   it('links the worker, current job and recent pips to the logs', async () => {

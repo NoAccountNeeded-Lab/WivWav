@@ -1,3 +1,5 @@
+import type { WorkerMachineInfo } from '@wivwav/types/worker-protocol'
+
 export interface InFlightJob {
   queueName: string
   correlationId: string
@@ -22,6 +24,8 @@ export interface ConnectedWorker {
   workerId: string
   workerName: string
   capabilities: { chromium: boolean; httpEnrich: boolean; maxConcurrentJobs: number }
+  /** Absent for workers that have not yet adopted the optional hello metadata. */
+  machine?: WorkerMachineInfo
   inFlightCount: number
   inFlightJobs: InFlightJob[]
   recentJobs: RecentJob[]
@@ -71,6 +75,25 @@ const isStr = (v: unknown): v is string => typeof v === 'string'
 const isNum = (v: unknown): v is number => typeof v === 'number'
 const isNumOrNull = (v: unknown): v is number | null => v === null || isNum(v)
 
+function isMachineInfo(value: unknown): value is WorkerMachineInfo {
+  return (
+    isRecord(value) &&
+    isStr(value.hostname) &&
+    isStr(value.platform) &&
+    isStr(value.osRelease) &&
+    isStr(value.arch) &&
+    isStr(value.cpuModel) &&
+    Number.isInteger(value.cpuCount) &&
+    isNum(value.cpuCount) &&
+    value.cpuCount > 0 &&
+    Number.isInteger(value.totalMemBytes) &&
+    isNum(value.totalMemBytes) &&
+    value.totalMemBytes > 0 &&
+    isStr(value.nodeVersion) &&
+    isStr(value.appVersion)
+  )
+}
+
 function isInFlightJob(row: unknown): row is InFlightJob {
   return isRecord(row) && isStr(row.queueName) && isStr(row.correlationId) && isStr(row.dispatchedAt)
 }
@@ -95,6 +118,7 @@ function isConnectedWorker(row: unknown): row is ConnectedWorker {
     typeof row.accepting === 'boolean' &&
     isStr(row.workerId) &&
     isStr(row.workerName) &&
+    (row.machine === undefined || isMachineInfo(row.machine)) &&
     isNum(row.inFlightCount) &&
     Array.isArray(row.inFlightJobs) &&
     (row.inFlightJobs as unknown[]).every(isInFlightJob) &&
