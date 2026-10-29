@@ -3,7 +3,7 @@ import type { WivWavLogger } from '@wivwav/logger'
 
 /** Gateway values are validated by the API; outages and local gateways use the registry default. */
 export async function readWorkerSetting<K extends OperatorSettingKey>(
-  gateway: { getOperatorSetting?: <T extends OperatorSettingKey>(key: T) => Promise<OperatorSettingValue<T>> },
+  gateway: { getOperatorSetting?: (key: OperatorSettingKey) => Promise<number | boolean> },
   key: K,
   logger?: Pick<WivWavLogger, 'warn'>,
 ): Promise<OperatorSettingValue<K>> {
@@ -11,6 +11,6 @@ export async function readWorkerSetting<K extends OperatorSettingKey>(
     return (await gateway.getOperatorSetting?.(key) ?? OPERATOR_SETTINGS[key].defaultValue) as OperatorSettingValue<K>
   } catch (err) {
     logger?.warn({ key, err }, 'Operator setting unavailable; using registry default')
-    return OPERATOR_SETTINGS[key].defaultValue
+    return OPERATOR_SETTINGS[key].defaultValue as OperatorSettingValue<K>
   }
 }
