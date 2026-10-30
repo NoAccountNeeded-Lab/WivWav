@@ -278,6 +278,13 @@ describe('createEntryBuffer', () => {
     assert.deepEqual(drained.map((e) => e.line), ['c', 'd', 'e'])
     assert.equal(buffer.droppedCount, 2)
   })
+
+  it('requeues a failed Loki batch ahead of newer entries for the next flush', () => {
+    const buffer = createEntryBuffer(4)
+    buffer.push(['newer-line'])
+    buffer.requeue(['failed-line'])
+    assert.deepEqual(buffer.drain(), ['failed-line', 'newer-line'])
+  })
 })
 
 describe('flushBatchesWithRetry', () => {

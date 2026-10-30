@@ -235,6 +235,13 @@ export function createEntryBuffer(maxEntries) {
         this.droppedCount += 1
       }
     },
+    requeue(items) {
+      entries.unshift(...items)
+      while (entries.length > maxEntries) {
+        entries.shift()
+        this.droppedCount += 1
+      }
+    },
     drain() {
       return entries.splice(0, entries.length)
     },
@@ -409,7 +416,14 @@ export function createForwarder(config, deps = {}) {
           if (!response.ok) throw new Error(`loki push failed with HTTP ${response.status}`)
         }, batch, { maxAttempts: config.lokiRetryMaxAttempts })
       } catch (error) {
-        safeLog(`loki batch dropped after ${config.lokiRetryMaxAttempts} attempts: ${error?.message}`)
+        const failedEntries = batch.flatMap((group) => group.entries)
+        const droppedBefore = buffer.droppedCount
+        buffer.requeue(failedEntries)
+        const droppedNow = buffer.droppedCount - droppedBefore
+        safeLog(
+          `loki batch retained for retry after ${config.lokiRetryMaxAttempts} attempts: ${error?.message}` +
+          (droppedNow > 0 ? `; ${droppedNow} oldest buffered entries dropped at capacity` : ''),
+        )
       }
     }
   }
