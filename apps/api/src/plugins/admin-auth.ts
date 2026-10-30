@@ -8,7 +8,7 @@ export interface AdminAuthPluginOptions {
 }
 
 /**
- * Existing INTERNAL identity guard for worker coordinator routes only.
+ * WORKER_API_SECRET identity guard for worker coordinator routes only.
  * Operator traffic uses opsAuthPlugin instead. Call directly in the parent
  * Fastify scope so the onRequest hook guards sibling route registrations.
  * Production fails closed when the credential is absent; configured credentials
@@ -22,8 +22,8 @@ export const adminAuthPlugin: FastifyPluginAsync<AdminAuthPluginOptions> = async
     if (nodeEnv === 'production' && !internalApiSecret) {
       return reply.code(503).send({
         error: {
-          code: 'ADMIN_DISABLED',
-          message: 'Admin surfaces are disabled: no internal credential configured',
+          code: 'WORKER_DISABLED',
+          message: 'Worker surfaces are disabled: no worker credential configured',
         },
       })
     }
@@ -34,7 +34,7 @@ export const adminAuthPlugin: FastifyPluginAsync<AdminAuthPluginOptions> = async
         return reply.code(401).send({
           error: {
             code: 'UNAUTHORIZED',
-            message: 'Valid Authorization header required for admin access',
+            message: 'Valid Authorization header required for worker access',
           },
         })
       }

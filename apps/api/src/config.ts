@@ -63,9 +63,11 @@ const schema = z.object({
       'CONFIG_ENCRYPTION_SECRET must be a 64-character hex string (32 bytes)',
     )
     .optional(),
-  // Web product/config reads and the existing worker coordinator identity.
+  // Web product and bounded model-config reads only.
   // This credential never authorizes operator or diagnostic routes.
   INTERNAL_API_SECRET: z.string().min(16).optional(),
+  // Existing worker protocol identity, held by API and worker clients only.
+  WORKER_API_SECRET: z.string().min(16).optional(),
   // Operator identity; provision only to API and ops, never the web service.
   OPS_API_SECRET: z.string().min(16).optional(),
   // Narrow read-only desktop AI identity. Diagnostics also accepts OPS,
@@ -99,7 +101,7 @@ const schema = z.object({
   // pipeline sets it.
   GIT_SHA: z.string().default('unknown'),
 }).superRefine((config, context) => {
-  const identities = ['INTERNAL_API_SECRET', 'OPS_API_SECRET', 'DIAGNOSTIC_API_SECRET'] as const
+  const identities = ['INTERNAL_API_SECRET', 'OPS_API_SECRET', 'DIAGNOSTIC_API_SECRET', 'WORKER_API_SECRET'] as const
   for (let i = 0; i < identities.length; i++) {
     for (const other of identities.slice(i + 1)) {
       const identity = identities[i]

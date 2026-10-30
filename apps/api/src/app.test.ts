@@ -165,6 +165,7 @@ function makeMockDb(overrides?: {
       findMany: vi.fn(async () => []),
       findUnique: vi.fn(async () => null),
       count: vi.fn(async () => 0),
+      update: vi.fn(async () => ({})),
     },
     scraperRun: {
       findMany: vi.fn(async () => []),
@@ -1089,7 +1090,7 @@ describe('worker gateway registration (#948/#951)', () => {
 
   it('registers /internal/scraper (auth-guarded) when WORKER_GATEWAY_ENABLED is true', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32) },
+      config: { WORKER_GATEWAY_ENABLED: true, WORKER_API_SECRET: 'a'.repeat(32) },
     })
     const app = await appPromise
 
@@ -1117,7 +1118,7 @@ describe('worker gateway registration (#948/#951)', () => {
     // enrich bursts 429'd, including /jobs/complete. The allowList on the
     // registration exempts the secret-authenticated internal prefixes.
     const { app: appPromise } = buildTestApp({
-      config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32), RATE_LIMIT_MAX: 3 },
+      config: { WORKER_GATEWAY_ENABLED: true, WORKER_API_SECRET: 'a'.repeat(32), RATE_LIMIT_MAX: 3 },
     })
     const app = await appPromise
 
@@ -1136,7 +1137,7 @@ describe('worker gateway registration (#948/#951)', () => {
 
   it('registers the /internal/workers WS route (auth-guarded) when WORKER_GATEWAY_ENABLED is true', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { WORKER_GATEWAY_ENABLED: true, INTERNAL_API_SECRET: 'a'.repeat(32) },
+      config: { WORKER_GATEWAY_ENABLED: true, WORKER_API_SECRET: 'a'.repeat(32) },
     })
     const app = await appPromise
 
@@ -1154,7 +1155,7 @@ describe('worker gateway registration (#948/#951)', () => {
 describe('private control-plane credential separation (#1225)', () => {
   const scopeConfig = {
     NODE_ENV: 'production' as const,
-    INTERNAL_API_SECRET: 'web-and-worker-secret',
+    INTERNAL_API_SECRET: 'web-service-only-secret',
     OPS_API_SECRET: 'operator-only-secret',
     DIAGNOSTIC_API_SECRET: 'diagnostic-only-secret',
   }
@@ -1225,6 +1226,60 @@ describe('private control-plane credential separation (#1225)', () => {
       const response = await app.inject({ url, headers })
       expect(response.statusCode).toBe(404)
       expect(response.headers.location).toBeUndefined()
+    }
+    await app.close()
+  })
+})
+
+
+describe('worker service identity separation (#1225)', () => {
+  const config = {
+    NODE_ENV: 'production' as const,
+    WORKER_GATEWAY_ENABLED: true,
+    INTERNAL_API_SECRET: 'web-service-secret',
+    OPS_API_SECRET: 'operator-service-secret',
+    DIAGNOSTIC_API_SECRET: 'diagnostic-service-secret',
+    WORKER_API_SECRET: 'worker-service-secret',
+  }
+
+  it.each([undefined, 'wrong', config.INTERNAL_API_SECRET, config.OPS_API_SECRET, config.DIAGNOSTIC_API_SECRET])('rejects non-worker identity %s on sensitive worker endpoints', async token => {
+    const app = await buildTestApp({ config }).app
+    const headers = token ? { authorization: `Bearer ${token}` } : {}
+    for (const url of ['/internal/workers/ws', '/internal/scraper/sources/ebay-motors/credentials', '/internal/scraper/sources/source-1/mappings']) {
+      expect((await app.inject({ url, headers })).statusCode).toBe(401)
+    }
+    for (const url of ['/internal/scraper/sources/mappings', '/internal/scraper/sources/active', '/internal/scraper/runs']) {
+      expect((await app.inject({ method: 'POST', url, headers, payload: {} })).statusCode).toBe(401)
+    }
+    await app.close()
+  })
+
+  it('accepts only worker identity for safe reads and the existing worker mapping protocol', async () => {
+    const app = await buildTestApp({ config }).app
+    const headers = { authorization: `Bearer ${config.WORKER_API_SECRET}` }
+    const read = await app.inject({ url: '/internal/scraper/sources/source-1/mappings', headers })
+    expect(read.statusCode).toBe(200)
+    expect(read.json()).toEqual({ data: { mappings: [] } })
+    expect((await app.inject({ method: 'POST', url: '/internal/scraper/runs', headers, payload: { sourceId: 'source-1' } })).statusCode).toBe(200)
+    expect((await app.inject({ method: 'POST', url: '/internal/scraper/sources/mappings', headers, payload: { sourceId: 'source-1', mappings: [] } })).statusCode).toBe(200)
+    await app.close()
+  })
+
+  it('fails closed in production when worker identity is missing despite other identities being configured', async () => {
+    const app = await buildTestApp({ config: { ...config, WORKER_API_SECRET: undefined } }).app
+    for (const url of ['/internal/workers/ws', '/internal/scraper/sources/source-1/mappings']) {
+      const response = await app.inject({ url, headers: { authorization: `Bearer ${config.INTERNAL_API_SECRET}` } })
+      expect(response.statusCode).toBe(503)
+      expect(response.json().error.code).toBe('WORKER_DISABLED')
+    }
+    await app.close()
+  })
+
+  it('never accepts worker identity on web config, operator, diagnostic or public service-bypass scopes', async () => {
+    const app = await buildTestApp({ config }).app
+    const headers = { authorization: `Bearer ${config.WORKER_API_SECRET}` }
+    for (const url of ['/internal/config/ai.intake.model', '/internal/ops/runs', '/internal/v1/grafana/alerts', '/ops/queues/board', '/diagnostics/diagnostic-context', '/v1/listings']) {
+      expect((await app.inject({ url, headers })).statusCode).toBe(401)
     }
     await app.close()
   })

@@ -19,7 +19,7 @@ describe('adminAuthPlugin', () => {
     const app = buildTestApp({ internalApiSecret: undefined, nodeEnv: 'production' })
     const response = await app.inject({ method: 'GET', url: '/internal/workers/whoami' })
     expect(response.statusCode).toBe(503)
-    expect(JSON.parse(response.body).error.code).toBe('ADMIN_DISABLED')
+    expect(JSON.parse(response.body).error.code).toBe('WORKER_DISABLED')
     await app.close()
   })
 
