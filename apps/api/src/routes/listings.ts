@@ -1,3 +1,4 @@
+import { shoppingFiltersEnabled } from '../services/listing-facets.js'
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import type { Listing } from '@wivwav/db'
 import type { BullMQQueueFactory } from '@wivwav/queue'
@@ -217,6 +218,11 @@ const filterQuerySchema = Type.Object(
     wavFeatures: Type.Optional(Type.String()),
     color: Type.Optional(Type.String()),
     state: Type.Optional(Type.String()),
+    // Composite values use a pipe; URLSearchParams percent-encodes it on the wire.
+    city: Type.Optional(Type.String({ pattern: '^[^,|]{1,100}\\|[A-Z]{2}(,[^,|]{1,100}\\|[A-Z]{2})*$' })),
+    transmission: Type.Optional(Type.String({ pattern: '^(automatic|manual|cvt|automated_manual)(,(automatic|manual|cvt|automated_manual))*$' })),
+    wheelchairCapacity: Type.Optional(Type.String({ pattern: '^[1-6](,[1-6])*$' })),
+    conversionStatus: Type.Optional(Type.String({ pattern: '^(proposed|complete|unknown)(,(proposed|complete|unknown))*$' })),
     sellerType: Type.Optional(Type.String()),
     fuelType: Type.Optional(Type.String()),
     sort: Type.Optional(Type.String()),
@@ -237,6 +243,11 @@ const facetCountSchema = Type.Object({ value: Type.String(), count: Type.Number(
 // serialization behaviour unchanged while still validating the type of whatever is present.
 const facetsResultSchema = Type.Object({
   total: Type.Optional(Type.Number()),
+  shoppingFiltersReady: Type.Optional(Type.Boolean()),
+  cityBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  transmissionBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  wheelchairCapacityBreakdown: Type.Optional(Type.Array(facetCountSchema)),
+  conversionStatusBreakdown: Type.Optional(Type.Array(facetCountSchema)),
   priceDistribution: Type.Optional(Type.Array(Type.Object({ bucket: Type.String(), count: Type.Number() }))),
   yearDistribution: Type.Optional(Type.Array(Type.Object({ year: Type.Number(), count: Type.Number() }))),
   mileageDistribution: Type.Optional(Type.Array(Type.Object({ bucket: Type.String(), count: Type.Number() }))),
@@ -302,8 +313,11 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
   const investigationsQueue = queueFactory.createQueue(QUEUES.NHTSA_INVESTIGATIONS)
   const manufacturerCommunicationsQueue = queueFactory.createQueue(QUEUES.NHTSA_MANUFACTURER_COMMUNICATIONS)
 
-  app.get('/facets', { schema: { querystring: filterQuerySchema, response: { 200: facetsResponseSchema } } }, async (req, reply) => {
+  app.get('/facets', { schema: { querystring: filterQuerySchema, response: { 200: facetsResponseSchema, 503: searchUnavailableResponseSchema } } }, async (req, reply) => {
     const q = req.query
+    if (!shoppingFiltersEnabled() && (q.city || q.transmission || q.wheelchairCapacity || q.conversionStatus)) {
+      return reply.code(503).send({ error: { code: 'SEARCH_UNAVAILABLE', message: 'Shopping filters are unavailable until the search index rollout completes.' } })
+    }
     try {
       const result = await facets.getFacets({
         q: q.q,
@@ -322,6 +336,10 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         wavFeatures: parseArr(q.wavFeatures),
         color: parseArr(q.color),
         state: parseArr(q.state),
+        city: parseArr(q.city),
+        transmission: parseArr(q.transmission),
+        wheelchairCapacity: parseArr(q.wheelchairCapacity)?.map(Number),
+        conversionStatus: parseArr(q.conversionStatus),
         sellerType: parseArr(q.sellerType),
         fuelType: parseArr(q.fuelType),
       })
@@ -331,6 +349,11 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
       return reply.send({
         data: {
           total: 0,
+          shoppingFiltersReady: false,
+          cityBreakdown: [],
+          transmissionBreakdown: [],
+          wheelchairCapacityBreakdown: [],
+          conversionStatusBreakdown: [],
           priceDistribution: [],
           yearDistribution: [],
           mileageDistribution: [],
@@ -353,6 +376,9 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
 
   app.get('/', { schema: { querystring: filterQuerySchema, response: { 200: listingsSearchResponseSchema, 503: searchUnavailableResponseSchema } } }, async (req, reply) => {
     const q = req.query
+    if (!shoppingFiltersEnabled() && (q.city || q.transmission || q.wheelchairCapacity || q.conversionStatus)) {
+      return reply.code(503).send({ error: { code: 'SEARCH_UNAVAILABLE', message: 'Shopping filters are unavailable until the search index rollout completes.' } })
+    }
     const page = q.page ?? 1
     const perPage = q.perPage ?? 20
 
@@ -376,6 +402,10 @@ export const listingRoutes: FastifyPluginAsyncTypebox<ListingsPluginOptions> = a
         wavFeatures: parseArr(q.wavFeatures),
         color: parseArr(q.color),
         state: parseArr(q.state),
+        city: parseArr(q.city),
+        transmission: parseArr(q.transmission),
+        wheelchairCapacity: parseArr(q.wheelchairCapacity)?.map(Number),
+        conversionStatus: parseArr(q.conversionStatus),
         sellerType: parseArr(q.sellerType),
         fuelType: parseArr(q.fuelType),
         sort: q.sort,

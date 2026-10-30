@@ -8,6 +8,7 @@ const baseConfig = {
   HOST: '127.0.0.1',
   RATE_LIMIT_MAX: 100,
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/wivwav',
+  WAV_SHOPPING_FILTERS_ENABLED: false,
   MEILISEARCH_HOST: 'http://localhost:7700',
   MEILISEARCH_API_KEY: 'test',
   MEILISEARCH_INDEX_NAME: 'listings',
