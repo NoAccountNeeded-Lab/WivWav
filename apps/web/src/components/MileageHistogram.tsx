@@ -141,7 +141,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
       range: [0, max] as const,
       searchParams: params.toString(),
     }
-  }, [rangeMax])
+  }, [])
   const stableRange = useStableRangeValue([0, urlMax], [0, rangeMax], reapplyCommit, readHistoryValue)
   const displayMax = stableRange.value[1]
 

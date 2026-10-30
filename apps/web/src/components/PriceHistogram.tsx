@@ -110,9 +110,6 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   const [facetsTotal, setFacetsTotal] = useState<number | null>(null)
 
   // The effective committed range (dollars)
-  const committedMin = urlMin > 0 ? urlMin : rangeMin
-  const committedMax = urlMax > 0 ? urlMax : rangeMax
-
   const hasFilter = urlMin > 0 || urlMax > 0
 
   // Build facets fetch URL without price params (cross-filter behaviour)
@@ -177,7 +174,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
       range: [min, max] as const,
       searchParams: params.toString(),
     }
-  }, [rangeMin, rangeMax])
+  }, [])
   const stableRange = useStableRangeValue([urlMin, urlMax], [rangeMin, rangeMax], reapplyCommit, readHistoryValue)
   const [displayMin, displayMax] = stableRange.value
 
@@ -191,7 +188,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
         const min = d.lo <= rangeMin ? 0 : d.lo
         const max = d.hi >= rangeMax ? 0 : d.hi
         stableRange.handleCommit([d.lo, d.hi], [min, max])
-        push(d.lo, d.hi)
+        push(min, max)
       }
     },
     [hasFilter, displayMin, displayMax, rangeMin, rangeMax, stableRange.handleCommit, push],
@@ -214,9 +211,9 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
 
   const ariaLabel = useMemo(() => {
     return hasFilter
-      ? t('price.ariaFiltered', { min: fmtFull(committedMin), max: fmtFull(committedMax) })
+      ? t('price.ariaFiltered', { min: fmtFull(displayMin), max: fmtFull(displayMax) })
       : t('price.ariaUnfiltered')
-  }, [hasFilter, committedMin, committedMax, t])
+  }, [hasFilter, displayMin, displayMax, t])
 
   const formatListingCount = useCallback((count: number) => t('listingCount', { count }), [t])
 
