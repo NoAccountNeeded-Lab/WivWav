@@ -45,7 +45,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum by (service, level) (rate({project=\"wivwav\", service=~\"$service\", level=~\"error|warn\"}[$__rate_interval]))",
+          "expr": "sum by (service, level) (rate({project=\"wivwav\", service=~\"^(api|web|ops|job-runner)$\", service=~\"$service\", level=~\"error|warn\"}[$__rate_interval]))",
           "legendFormat": "{{service}} {{level}}",
           "refId": "A"
         }
@@ -77,7 +77,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{project=\"wivwav\", service=~\"$service\", level=~\"$level\"}",
+          "expr": "{project=\"wivwav\", service=~\"^(api|web|ops|job-runner)$\", service=~\"$service\", level=~\"$level\"}",
           "legendFormat": "",
           "refId": "A"
         }
@@ -94,13 +94,13 @@
       {
         "current": {},
         "datasource": { "type": "loki", "uid": "loki" },
-        "definition": "label_values({project=\"wivwav\"}, service)",
+        "definition": "label_values({project=\"wivwav\", service=~\"^(api|web|ops|job-runner)$\"}, service)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "service",
         "options": [],
-        "query": "label_values({project=\"wivwav\"}, service)",
+        "query": "label_values({project=\"wivwav\", service=~\"^(api|web|ops|job-runner)$\"}, service)",
         "refresh": 2,
         "sort": 1,
         "type": "query",
@@ -110,13 +110,13 @@
       {
         "current": {},
         "datasource": { "type": "loki", "uid": "loki" },
-        "definition": "label_values({project=\"wivwav\"}, level)",
+        "definition": "label_values({project=\"wivwav\", service=~\"^(api|web|ops|job-runner)$\"}, level)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "level",
         "options": [],
-        "query": "label_values({project=\"wivwav\"}, level)",
+        "query": "label_values({project=\"wivwav\", service=~\"^(api|web|ops|job-runner)$\"}, level)",
         "refresh": 2,
         "sort": 1,
         "type": "query",

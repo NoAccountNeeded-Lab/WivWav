@@ -4,9 +4,9 @@ import { adminLogsRoutes } from './admin-logs.js'
 
 const LOKI_URL = 'http://loki.test'
 
-function buildTestApp() {
+function buildTestApp(lokiAuthorization?: string) {
   const app = Fastify()
-  void app.register(adminLogsRoutes, { lokiUrl: LOKI_URL })
+  void app.register(adminLogsRoutes, { lokiUrl: LOKI_URL, lokiAuthorization })
   return app
 }
 
@@ -30,6 +30,20 @@ function lokiResponse(
 }
 
 describe('GET /', () => {
+  it('sends the configured authorization header to Loki', async () => {
+    const fetchStub = vi.fn(async () => lokiResponse({}, []))
+    vi.stubGlobal('fetch', fetchStub)
+
+    const app = buildTestApp('Bearer test-token')
+    await app.inject({ method: 'GET', url: '/' })
+
+    expect(fetchStub).toHaveBeenCalledWith(
+      expect.stringContaining('/loki/api/v1/query_range?'),
+      expect.objectContaining({ headers: { authorization: 'Bearer test-token' } }),
+    )
+    await app.close()
+  })
+
   it('returns parsed log entries from Loki', async () => {
     const tsNs = String(BigInt(Date.now()) * 1_000_000n)
     const line = JSON.stringify({ level: 30, msg: 'request completed', service: 'api', pid: 1 })
@@ -180,7 +194,7 @@ describe('GET /', () => {
     expect(capturedUrl).toContain('service%3D%22api%22')
   })
 
-  it('passes through non-api service names with project scope intact', async () => {
+  it('passes through the worker service with project scope intact', async () => {
     let capturedUrl = ''
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       capturedUrl = url
@@ -188,11 +202,20 @@ describe('GET /', () => {
     }))
 
     const app = buildTestApp()
-    await app.inject({ method: 'GET', url: '/?service=worker' })
+    await app.inject({ method: 'GET', url: '/?service=job-runner' })
 
     const query = new URL(capturedUrl).searchParams.get('query') ?? ''
     expect(query).toContain('project="wivwav"')
-    expect(query).toContain('service="worker"')
+    expect(query).toContain('service="job-runner"')
+  })
+
+  it('rejects infrastructure service filters', async () => {
+    const fetchStub = vi.fn()
+    vi.stubGlobal('fetch', fetchStub)
+    const app = buildTestApp()
+    const response = await app.inject({ method: 'GET', url: '/?service=postgres' })
+    expect(response.statusCode).toBe(400)
+    expect(fetchStub).not.toHaveBeenCalled()
   })
 
   it('applies text search filter in LogQL', async () => {
@@ -376,7 +399,7 @@ describe('GET /', () => {
     const tsNs1 = String(BigInt(Date.now() - 1000) * 1_000_000n)
     const tsNs2 = String(BigInt(Date.now()) * 1_000_000n)
     const line1 = JSON.stringify({ level: 30, msg: 'from api', service: 'api' })
-    const line2 = JSON.stringify({ level: 40, msg: 'from scraper', service: 'scraper' })
+    const line2 = JSON.stringify({ level: 40, msg: 'from worker', service: 'job-runner' })
 
     vi.stubGlobal('fetch', vi.fn(async () =>
       Response.json({
@@ -385,7 +408,7 @@ describe('GET /', () => {
           resultType: 'streams',
           result: [
             { stream: { service: 'api' }, values: [[tsNs1, line1]] },
-            { stream: { service: 'scraper' }, values: [[tsNs2, line2]] },
+            { stream: { service: 'job-runner' }, values: [[tsNs2, line2]] },
           ],
         },
       })
@@ -398,7 +421,7 @@ describe('GET /', () => {
     const { data } = res.json() as { data: { entries: unknown[]; services: string[] } }
     expect(data.entries).toHaveLength(2)
     expect(data.services).toContain('api')
-    expect(data.services).toContain('scraper')
+    expect(data.services).toContain('job-runner')
   })
 
   it('sorts entries newest-first when Loki returns them out of order', async () => {
@@ -423,7 +446,7 @@ describe('GET /', () => {
 describe('GET /services', () => {
   it('returns service label values from Loki', async () => {
     const fetchStub = vi.fn(async () =>
-      Response.json({ data: ['api', 'scraper', 'worker'] })
+      Response.json({ data: ['api', 'job-runner', 'postgres'] })
     )
     vi.stubGlobal('fetch', fetchStub)
 
@@ -432,11 +455,25 @@ describe('GET /services', () => {
 
     expect(res.statusCode).toBe(200)
     const body = res.json() as { data: string[] }
-    expect(body.data).toEqual(['api', 'scraper', 'worker'])
+    expect(body.data).toEqual(['api', 'job-runner'])
     expect(fetchStub).toHaveBeenCalledWith(
       'http://loki.test/loki/api/v1/label/service/values?query=%7Bproject%3D%22wivwav%22%7D',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
+  })
+
+  it('sends the configured authorization header to Loki', async () => {
+    const fetchStub = vi.fn(async () => Response.json({ data: ['api'] }))
+    vi.stubGlobal('fetch', fetchStub)
+
+    const app = buildTestApp('Bearer test-token')
+    await app.inject({ method: 'GET', url: '/services' })
+
+    expect(fetchStub).toHaveBeenCalledWith(
+      expect.stringContaining('/loki/api/v1/label/service/values?query='),
+      expect.objectContaining({ headers: { authorization: 'Bearer test-token' } }),
+    )
+    await app.close()
   })
 
   it('returns 503 when Loki is unreachable', async () => {

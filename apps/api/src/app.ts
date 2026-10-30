@@ -372,6 +372,7 @@ export async function buildApp(
       await adminScope.register(adminLogsRoutes, {
         prefix: '/logs',
         lokiUrl: config.LOKI_URL,
+        lokiAuthorization: config.LOKI_AUTHORIZATION,
       })
       await adminScope.register(adminAttentionRoutes, { prefix: '/attention-snapshot' })
       await adminScope.register(adminPrivateSellerRetentionRoutes, {

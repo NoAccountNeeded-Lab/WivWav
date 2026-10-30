@@ -121,6 +121,7 @@ services:
       # Laptop-hosted observability may set this to the private LAN Loki gateway URL.
       # Keep the default for deployments without a configured Loki endpoint.
       LOKI_URL: ${LOKI_URL:-http://localhost:3100}
+      LOKI_AUTHORIZATION: ${LOKI_AUTHORIZATION:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_REQUIRED: "false"
       CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN}

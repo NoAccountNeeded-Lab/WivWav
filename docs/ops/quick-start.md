@@ -135,10 +135,9 @@ to query application logs. It does not start Web, Ops, AI, or the worker itself.
 | API metrics   | http://localhost:3001/metrics | Prometheus text format — prom-client           |
 
 The optional `loki-gateway` stays loopback-only by default. To let a production
-API on the private home LAN query logs, set `LOKI_GATEWAY_BIND_ADDRESS` to the
-laptop's private address and `LOKI_ALLOWED_SOURCE_CIDR` to the production host
-address with `/32` in the local ignored `.env`. Grafana and Loki themselves
-remain loopback-only. See
+API on the private home LAN query logs, configure the gateway bind address,
+source allowlist, and shared bearer token in the local ignored `.env`.
+Grafana and Loki themselves remain loopback-only. See
 [production log viewing](deployment.md#ops-logs-with-laptop-hosted-observability)
 for the matching API configuration and verification steps.
 
