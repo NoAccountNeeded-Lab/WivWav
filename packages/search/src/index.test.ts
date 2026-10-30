@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
+  configureIndexSettings,
   conversionBrandSlug,
   listingCompletenessScore,
   mileageBucket,
@@ -680,5 +681,24 @@ describe('syncListings — verified vehicle group representative selection', () 
       { primaryKey: 'id' },
     )
     expect(deleteDocuments).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('shopping search projection', () => {
+  it('normalizes shopping fields without changing source data', () => {
+    const row = makeListing({ transmission: '6-Speed Automatic', city: ' Springfield ', state: 'IL', wheelchairCapacity: 2, conversionStatus: 'proposed' })
+    expect(toDocument(row)).toMatchObject({ transmission: 'automatic', cityState: 'springfield|IL', wheelchairCapacity: 2, conversionStatus: 'proposed' })
+    expect(row.transmission).toBe('6-Speed Automatic')
+  })
+  it.each([null, 0, -1, 1.5, 7])('keeps invalid or missing capacity %s distinct from zero', (wheelchairCapacity) => {
+    expect(toDocument(makeListing({ wheelchairCapacity })).wheelchairCapacity).toBeNull()
+  })
+  it('waits for the new filterable settings task', async () => {
+    const updateSettings = vi.fn().mockResolvedValue({ taskUid: 42 })
+    const waitForTask = vi.fn().mockResolvedValue({ status: 'succeeded' })
+    await configureIndexSettings({ index: () => ({ updateSettings }), tasks: { waitForTask } } as never, 'listings_test')
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ filterableAttributes: expect.arrayContaining(['cityState', 'transmission', 'wheelchairCapacity', 'conversionStatus']) }))
+    expect(waitForTask).toHaveBeenCalledWith(42, { timeout: 15000 })
   })
 })

@@ -1,4 +1,5 @@
-import type { ConversionType, ListingCondition, ListingSellerType, RampType, WavFeature } from './listing.js'
+import type { Transmission } from './shopping-filters.js'
+import type { ConversionStatus, ConversionType, ListingCondition, ListingSellerType, RampType, WavFeature } from './listing.js'
 
 export interface RangeFilter<T> {
   min: T | null
@@ -15,6 +16,10 @@ export interface ListingFilters {
   conditions: ListingCondition[]
   sellerTypes: ListingSellerType[]
   states: string[]
+  cities?: string[]
+  transmissions?: Transmission[]
+  wheelchairCapacities?: number[]
+  conversionStatuses?: ConversionStatus[]
   conversionTypes: ConversionType[]
   conversionManufacturers: string[]
   rampTypes: RampType[]

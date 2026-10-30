@@ -17,3 +17,4 @@ export * from './listing-readiness.js'
 // barrel is imported at runtime by apps/web client code (WAV_FEATURES) as
 // un-tree-shakeable CommonJS. Import them via the subpath exports
 // '@wivwav/types/worker-protocol' and '@wivwav/types/scraper-gateway'.
+export * from './shopping-filters.js'
