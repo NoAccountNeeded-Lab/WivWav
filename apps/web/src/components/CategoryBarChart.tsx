@@ -1,5 +1,7 @@
 'use client'
 
+import { shoppingFilterLabel, SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
+
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -28,13 +30,13 @@ interface ConversionBrandSummary {
 
 // ── Disjunctive faceting config ────────────────────────────────────────────
 
-const DISJUNCTIVE_PARAMS = ['make', 'model', 'trim', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'fuelType', 'conversionBrand'] as const
+const DISJUNCTIVE_PARAMS = [...SHOPPING_FILTER_PARAMS, 'make', 'model', 'trim', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'fuelType', 'conversionBrand'] as const
 type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
 
 const ALL_FILTER_PARAMS = [
   'q', 'make', 'model', 'trim', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures',
-  'conversionBrand', 'color', 'state', 'sellerType', 'fuelType',
+  ...SHOPPING_FILTER_PARAMS, 'conversionBrand', 'color', 'state', 'sellerType', 'fuelType',
 ]
 
 const MAX_BARS = 8
@@ -93,7 +95,9 @@ function stabilizeBars(current: BarDatum[], previous: BarDatum[]): BarDatum[] {
 
 /** Convert BarDatum[] + active values into the normalized FilterItem[] the renderers expect. */
 function toFilterItems(bars: BarDatum[], activeValues: string[]): FilterItem[] {
-  return bars.map((b) => ({
+  const values = new Set(bars.map((bar) => bar.value))
+  const withSelected = [...bars, ...activeValues.filter((value) => !values.has(value)).map((value) => ({ value, count: 0 }))]
+  return withSelected.map((b) => ({
     value: b.value,
     label: formatFilterLabel(b.value),
     count: b.count,
@@ -172,6 +176,10 @@ export function CategoryBarChart({
         disjResults.forEach((d, i) => {
           const param = disjunctiveCalls[i]!.param as DisjunctiveParam
           switch (param) {
+            case 'city': merged.cityBreakdown = d.cityBreakdown; break
+            case 'transmission': merged.transmissionBreakdown = d.transmissionBreakdown; break
+            case 'wheelchairCapacity': merged.wheelchairCapacityBreakdown = d.wheelchairCapacityBreakdown; break
+            case 'conversionStatus': merged.conversionStatusBreakdown = d.conversionStatusBreakdown; break
             case 'make':           merged.makeBreakdown = d.makeBreakdown; break
             case 'model':          merged.modelBreakdown = d.modelBreakdown; break
             case 'trim':           merged.trimBreakdown = d.trimBreakdown; break
@@ -280,6 +288,10 @@ export function CategoryBarChart({
     { id: 'color',     title: t('groups.color'),     items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
     { id: 'state',     title: t('groups.state'),     items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
     { id: 'seller',    title: t('groups.seller'),    items: toFilterItems(data.sellerTypeBreakdown,                                         parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
+    ...(data.shoppingFiltersReady ? SHOPPING_FILTER_PARAMS.map((param) => ({
+      id: param, title: t(`groups.${param}`), param,
+      items: toFilterItems(data[`${param}Breakdown`], parseCommaSep(searchParams.get(param))).map((item) => ({ ...item, label: param === 'wheelchairCapacity' ? t('capacityCount', { count: Number(item.value) }) : shoppingFilterLabel(param, item.value, (key) => t(`shoppingValues.${key}`)) })),
+    })) : []),
     { id: 'fuelType',  title: t('groups.fuelType'),  items: toFilterItems(data.fuelTypeBreakdown,                                           parseCommaSep(searchParams.get('fuelType'))),       param: 'fuelType'       },
   ].filter((g) => g.items.length > 0) : []
 

@@ -1,5 +1,7 @@
 'use client'
 
+import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -17,9 +19,9 @@ interface YearDatum {
 
 // Omit year params so this histogram shows cross-filtered data (all years visible)
 const FORWARD_PARAMS = [
-  'q', 'make', 'model', 'priceMin', 'priceMax', 'mileageMax',
+  'q', 'make', 'model', 'trim', 'priceMin', 'priceMax', 'mileageMax',
   'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
-  'conversionBrand',
+  ...SHOPPING_FILTER_PARAMS, 'conversionBrand',
 ]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────

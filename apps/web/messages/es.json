@@ -103,6 +103,7 @@
     }
   },
   "ActiveFilters": {
+    "capacityCount": "{count, plural, one {# espacio para silla de ruedas} other {# espacios para sillas de ruedas}}",
     "ariaLabel": "Filtros activos",
     "clearAll": "Borrar todo ×",
     "clearAllAriaLabel": "Borrar todos los filtros",
@@ -162,6 +163,20 @@
     }
   },
   "FilterControls": {
+    "shoppingValues": {
+      "transmission": {
+        "automatic": "Automática",
+        "manual": "Manual",
+        "cvt": "CVT",
+        "automated_manual": "Manual automatizada"
+      },
+      "conversionStatus": {
+        "proposed": "Propuesta",
+        "complete": "Completa",
+        "unknown": "Desconocida"
+      }
+    },
+    "capacityCount": "{count, plural, one {# espacio para silla de ruedas} other {# espacios para sillas de ruedas}}",
     "showFewer": "Mostrar menos",
     "showMore": "Mostrar {count} más",
     "listingCount": "{count, plural, =1 {# anuncio} other {# anuncios}}",
@@ -177,7 +192,11 @@
       "seller": "Tipo de vendedor",
       "fuelType": "Tipo de combustible",
       "features": "Características",
-      "conversionBrand": "Marca de conversión"
+      "conversionBrand": "Marca de conversión",
+      "city": "Ciudad",
+      "transmission": "Transmisión",
+      "wheelchairCapacity": "Capacidad para sillas de ruedas",
+      "conversionStatus": "Estado de conversión"
     },
     "features": {
       "hasLift": "Tiene elevador",

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { Translate } from '@/lib/intl'
 import { toIntlLocale } from '@/lib/intl'
 import styles from './ActiveFilters.module.css'
+import { SHOPPING_FILTER_PARAMS, shoppingFilterLabel, removeFilterValue } from '@/lib/shopping-filter-url'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -60,11 +61,12 @@ interface PillText {
   t: Translate
   /** Resolves a WAV feature key to its localized label, or null when unknown. */
   featureLabel: (key: string) => string | null
+  shoppingLabel: (param: string, value: string) => string
   formatNumber: (value: number) => string
 }
 
 function buildPills(params: URLSearchParams, text: PillText): Pill[] {
-  const { t, featureLabel, formatNumber } = text
+  const { t, featureLabel, formatNumber, shoppingLabel } = text
   const pills: Pill[] = []
 
   // Price
@@ -108,6 +110,15 @@ function buildPills(params: URLSearchParams, text: PillText): Pill[] {
       ariaLabel: t('removeFilter', { filter: t(`params.${param}.name`) }),
       paramsToDelete: [param],
     })
+  }
+
+  for (const param of SHOPPING_FILTER_PARAMS) {
+    for (const value of parseCommaSep(params.get(param))) {
+      const label = param === 'wheelchairCapacity'
+        ? t('capacityCount', { count: Number(value) })
+        : shoppingLabel(param, value)
+      pills.push({ key: `${param}:${value}`, label, ariaLabel: t('removeFilter', { filter: label }), paramsToDelete: [] })
+    }
   }
 
   // WAV features (comma-separated multi-value, one pill per selected feature)
@@ -161,10 +172,12 @@ export function ActiveFilters() {
   const [, startTransition] = useTransition()
   const t = useTranslations('ActiveFilters')
   const featureT = useTranslations('FiltersPage.listing')
+  const shoppingT = useTranslations('FilterControls.shoppingValues')
   const locale = useLocale()
 
   const pills = buildPills(new URLSearchParams(searchParams.toString()), {
     t,
+    shoppingLabel: (param, value) => shoppingFilterLabel(param, value, (key) => shoppingT(key)),
     featureLabel: (key) => (featureT.has(`wavFeature_${key}`) ? featureT(`wavFeature_${key}`) : null),
     formatNumber: (value) => new Intl.NumberFormat(toIntlLocale(locale)).format(value),
   })
@@ -172,7 +185,10 @@ export function ActiveFilters() {
   if (pills.length === 0) return null
 
   const removePill = (paramsToDelete: string[], pill: Pill) => {
-    const next = new URLSearchParams(searchParams.toString())
+    const pairParam = SHOPPING_FILTER_PARAMS.find((param) => pill.key.startsWith(`${param}:`))
+    const next = pairParam
+      ? removeFilterValue(new URLSearchParams(searchParams.toString()), pairParam, pill.key.slice(pairParam.length + 1))
+      : new URLSearchParams(searchParams.toString())
     // For wavFeatures pills, remove just this feature key from the comma list
     if (pill.key.startsWith('wavFeatures:')) {
       const featureKey = pill.key.slice('wavFeatures:'.length)

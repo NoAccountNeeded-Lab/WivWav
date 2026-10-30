@@ -1,4 +1,7 @@
+import { SHOPPING_FILTER_PARAMS } from './shopping-filter-url'
+
 const RESULT_FILTER_KEYS = [
+  ...SHOPPING_FILTER_PARAMS,
   'q',
   'make',
   'model',

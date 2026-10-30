@@ -1,5 +1,7 @@
 'use client'
 
+import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -41,9 +43,9 @@ function fmtMiles(miles: number): string {
 
 // Omit mileageMax so histogram shows cross-filtered counts (all mileages visible)
 const FORWARD_PARAMS = [
-  'q', 'make', 'model', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
+  'q', 'make', 'model', 'trim', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
   'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
-  'conversionBrand',
+  ...SHOPPING_FILTER_PARAMS, 'conversionBrand',
 ]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────
