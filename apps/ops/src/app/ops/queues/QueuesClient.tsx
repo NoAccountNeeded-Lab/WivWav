@@ -201,7 +201,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: QueueRow[] }
       setQueues(body.data)
@@ -222,7 +222,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
 
   const refreshQueueDetail = useCallback(async (name: string) => {
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(name)}`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(name)}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: QueueDetail }
       setQueueDetail(body.data)
@@ -251,7 +251,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   async function pauseQueue(name: string) {
     setAction(name, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(name)}/pause`, { method: 'POST' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(name)}/pause`, { method: 'POST' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       setQueues(prev => prev?.map(q => q.name === name ? { ...q, paused: true } : q) ?? null)
       setAction(name, { loading: false, feedback: 'Paused', isError: false })
@@ -263,7 +263,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   async function resumeQueue(name: string) {
     setAction(name, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(name)}/resume`, { method: 'POST' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(name)}/resume`, { method: 'POST' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       setQueues(prev => prev?.map(q => q.name === name ? { ...q, paused: false } : q) ?? null)
       setAction(name, { loading: false, feedback: 'Resumed', isError: false })
@@ -302,7 +302,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   async function triggerSync() {
     setSyncState({ loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sync`, { method: 'POST' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sync`, { method: 'POST' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       const body = (await res.json()) as { data: { enqueued: boolean; jobId: string } }
       setSyncState({ loading: false, feedback: `Sync queued (job ${body.data.jobId})`, isError: false })
@@ -314,7 +314,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
   async function triggerQueue(name: string) {
     setAction(name, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(name)}/jobs`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(name)}/jobs`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       const body = (await res.json()) as { data: { id: string } }
       setAction(name, { loading: false, feedback: `Enqueued job ${body.data.id}`, isError: false })
@@ -346,7 +346,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
               <ACTION_ICONS.refresh size={13} aria-hidden="true" />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
-            <a href="/admin/board" target="_blank" rel="noopener noreferrer" className={`${styles.btn} ${styles.btnGhost}`}>
+            <a href="/ops/queues/board" target="_blank" rel="noopener noreferrer" className={`${styles.btn} ${styles.btnGhost}`}>
               Bull Board diagnostics ↗
             </a>
             <button
@@ -639,7 +639,7 @@ export function QueuesClient({ apiBaseUrl }: QueuesClientProps) {
             </ol>
             <p><strong>After geocoding completes, click "Sync Meilisearch"</strong> (top right) to push the new coordinates into the search index — that&apos;s what makes pins appear on the map. Geocode updates Postgres; sync copies it to Meilisearch.</p>
             <p><strong>Pausing</strong> a queue stops workers from picking up new jobs — jobs already in progress finish. <strong>Triggering</strong> enqueues a job immediately without waiting for the cron schedule.</p>
-            <p>For raw queue internals such as job payloads, retry counts, and stack traces, open <a href="/admin/board" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>Bull Board diagnostics ↗</a>.</p>
+            <p>For raw queue internals such as job payloads, retry counts, and stack traces, open <a href="/ops/queues/board" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>Bull Board diagnostics ↗</a>.</p>
           </div>
         </details>
       </div>

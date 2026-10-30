@@ -98,7 +98,7 @@ export interface OverviewInput {
   runs: RunRow[] | null
   schedules: ScheduleEntry[] | null
   /**
-   * Listing-refresh status aggregate (`GET /admin/listing-refresh/status`) —
+   * Listing-refresh status aggregate (`GET /internal/ops/listing-refresh/status`) —
    * consumed here for `listings.missingLocations`, which feeds the
    * `missing-coordinates` telemetry tile (issue #927).
    */
@@ -388,7 +388,7 @@ export function isSettledEmpty(data: unknown, pending: boolean | undefined): boo
  *  applies per-resource, so callers never disagree about whether a resource
  *  has genuinely failed vs. simply not loaded yet. Shared by
  *  `use-problem-aggregate.ts` (issue #892) and any future caller of
- *  `POST /admin/attention-snapshot`-shaped endpoints. */
+ *  `POST /internal/ops/attention-snapshot`-shaped endpoints. */
 export function toAttentionResourceInput<T>(resource: PolledResourceState<T>): AttentionResourceInput<T> {
   return {
     data: resource.data,

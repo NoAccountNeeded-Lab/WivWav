@@ -24,7 +24,7 @@ export function SettingsClient({ selectedKey }: { selectedKey?: OperatorSettingK
   useEffect(() => {
     if (!selectedKey) return
     let active = true
-    fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(selectedKey)}/history`, { cache: 'no-store' })
+    fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(selectedKey)}/history`, { cache: 'no-store' })
       .then(async response => response.status === 404 ? { data: [] } : response.ok ? await response.json() as { data: SettingEntry[] } : Promise.reject(new Error(`History failed (${response.status})`)))
       .then(body => { if (active) { setHistory(body.data); setActionError(null) } })
       .catch(err => { if (active) setActionError(err instanceof Error ? err.message : 'History could not load') })

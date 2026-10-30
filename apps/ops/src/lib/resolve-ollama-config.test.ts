@@ -25,7 +25,7 @@ describe('resolveOllamaConfig', () => {
     apiFetchMock.mockResolvedValue(jsonResponse({ data: { value: 'qwen3' } }))
     const result = await resolveOllamaConfig('ollama/model key')
     expect(result).toEqual({ model: 'qwen3', baseUrl: OLLAMA_DEFAULT_BASE_URL })
-    expect(apiFetchMock.mock.calls[0]?.[0]).toBe('http://api/admin/config/ollama%2Fmodel%20key')
+    expect(apiFetchMock.mock.calls[0]?.[0]).toBe('http://api/internal/ops/config/ollama%2Fmodel%20key')
   })
 
   it('honours OLLAMA_BASE_URL', async () => {

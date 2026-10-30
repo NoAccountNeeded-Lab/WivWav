@@ -19,7 +19,7 @@ describe('settings page', () => {
   it('edits every registry key and preserves a save across reload until reset', async () => {
     const entries: Array<{ id: string; key: string; value: number | boolean; type: string; createdAt: string; createdBy: null }> = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      const key = url.split('/admin/config/')[1]
+      const key = url.split('/internal/ops/config/')[1]
       if (!key) return response(entries)
       if (init?.method === 'PUT') {
         const payload = JSON.parse(init.body as string) as { value: number | boolean; type: string }
@@ -67,7 +67,7 @@ describe('settings page', () => {
   it('edits the publish gate with a boolean control', async () => {
     const entries: Array<{ id: string; key: string; value: number | boolean; type: string; createdAt: string; createdBy: null }> = []
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
-      const key = url.split('/admin/config/')[1]
+      const key = url.split('/internal/ops/config/')[1]
       if (init?.method === 'PUT') {
         const payload = JSON.parse(init.body as string) as { value: number | boolean; type: string }
         const row = { id: 'saved', key: decodeURIComponent(key ?? ''), ...payload, createdAt: new Date().toISOString(), createdBy: null }
@@ -100,7 +100,7 @@ describe('settings page', () => {
     await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url.endsWith('/history'))).toHaveLength(1))
     expect(refresh).toBeDefined()
     await act(async () => { refresh?.(); await Promise.resolve() })
-    expect(fetcher.mock.calls.filter(([url]) => url.endsWith('/admin/config'))).toHaveLength(2)
+    expect(fetcher.mock.calls.filter(([url]) => url.endsWith('/internal/ops/config'))).toHaveLength(2)
     expect(fetcher.mock.calls.filter(([url]) => url.endsWith('/history'))).toHaveLength(1)
   })
 

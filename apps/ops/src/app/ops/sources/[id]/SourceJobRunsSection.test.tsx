@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // #937 AC: the source detail page renders a Runs section sourced from
-// `GET /admin/sources/:id/job-runs`, showing job type, status, timestamps,
+// `GET /internal/ops/sources/:id/job-runs`, showing job type, status, timestamps,
 // and nested children by `parentRunId` — verified here with a multi-level
 // fixture tree that includes a failed run, whose `errorMessage` must also
 // be visible.

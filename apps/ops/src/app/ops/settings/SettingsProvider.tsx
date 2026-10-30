@@ -34,7 +34,7 @@ export function SettingsProvider({ apiBaseUrl, children }: { apiBaseUrl: string;
   const refresh = useCallback(async () => {
     const startedAtRevision = revision.current
     try {
-      const response = await fetch(`${apiBaseUrl}/admin/config`, { cache: 'no-store' })
+      const response = await fetch(`${apiBaseUrl}/internal/ops/config`, { cache: 'no-store' })
       if (!response.ok) throw new Error(`Settings request failed (${response.status})`)
       const body = (await response.json()) as { data: SettingEntry[] }
       if (revision.current === startedAtRevision) {
@@ -55,7 +55,7 @@ export function SettingsProvider({ apiBaseUrl, children }: { apiBaseUrl: string;
   }, [refresh])
 
   const save = useCallback(async (key: OperatorSettingKey, value: number | boolean) => {
-    const response = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, {
+    const response = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(key)}`, {
       method: 'PUT', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ value, type: typeof value === 'boolean' ? 'boolean' : 'number' }),
     })
@@ -67,7 +67,7 @@ export function SettingsProvider({ apiBaseUrl, children }: { apiBaseUrl: string;
   }, [apiBaseUrl])
 
   const reset = useCallback(async (key: OperatorSettingKey) => {
-    const response = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
+    const response = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
     if (!response.ok) throw new Error(`Reset failed (${response.status})`)
     revision.current += 1
     setEntries(previous => { const next = new Map(previous); next.delete(key); return next })

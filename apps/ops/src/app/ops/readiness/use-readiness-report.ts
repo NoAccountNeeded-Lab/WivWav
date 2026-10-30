@@ -47,10 +47,10 @@ export function useReadinessReport(apiBaseUrl: string): UseReadinessReportResult
     setIsRefreshing(true)
     const [health, queues, sources, schedules, runs, listingSearch] = await Promise.all([
       fetchResource<HealthResponse>(`${apiBaseUrl}/health`),
-      fetchDataResource<QueueSnapshot[]>(`${apiBaseUrl}/admin/queues`),
-      fetchDataResource<SourceSnapshot[]>(`${apiBaseUrl}/admin/sources`),
-      fetchDataResource<ScheduleSnapshot[]>(`${apiBaseUrl}/admin/repeatables`),
-      fetchDataResource<RunSnapshot[]>(`${apiBaseUrl}/admin/runs`),
+      fetchDataResource<QueueSnapshot[]>(`${apiBaseUrl}/internal/ops/queues`),
+      fetchDataResource<SourceSnapshot[]>(`${apiBaseUrl}/internal/ops/sources`),
+      fetchDataResource<ScheduleSnapshot[]>(`${apiBaseUrl}/internal/ops/repeatables`),
+      fetchDataResource<RunSnapshot[]>(`${apiBaseUrl}/internal/ops/runs`),
       fetchResource<ListingSearchSnapshot>(`${apiBaseUrl}/v1/listings?perPage=1`),
     ])
 

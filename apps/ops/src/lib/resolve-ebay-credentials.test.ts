@@ -14,9 +14,9 @@ function mockByUrl(map: Record<string, Response>) {
   apiFetchMock.mockImplementation(async (url: string) => map[url] ?? res({}, false))
 }
 
-const APP = 'http://api/admin/config/ebay.motors.app-id/decrypt'
-const CERT = 'http://api/admin/config/ebay.motors.cert-id/decrypt'
-const ENV = 'http://api/admin/config/ebay.motors.environment'
+const APP = 'http://api/internal/ops/config/ebay.motors.app-id/decrypt'
+const CERT = 'http://api/internal/ops/config/ebay.motors.cert-id/decrypt'
+const ENV = 'http://api/internal/ops/config/ebay.motors.environment'
 
 describe('resolveEbayCredentials', () => {
   beforeEach(() => apiFetchMock.mockReset())

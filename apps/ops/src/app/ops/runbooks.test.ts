@@ -62,7 +62,7 @@ describe('OPS_RUNBOOKS', () => {
         runbook.escalation,
       ].join(' ')
 
-      expect(content).not.toMatch(/\bPOST\b|\bcurl\b|\/admin\/queues\/:name\/jobs/)
+      expect(content).not.toMatch(/\bPOST\b|\bcurl\b|\/internal\/ops\/queues\/:name\/jobs/)
     }
   })
 })

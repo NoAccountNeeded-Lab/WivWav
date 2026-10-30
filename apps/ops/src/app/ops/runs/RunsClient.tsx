@@ -114,7 +114,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/runs`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/runs`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: RunRow[] }
       setRuns(body.data)
@@ -173,7 +173,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/pipeline`, { cache: 'no-store' })
+        const res = await fetch(`${apiBaseUrl}/internal/ops/sources/${encodeURIComponent(sourceId)}/pipeline`, { cache: 'no-store' })
         if (!res.ok) {
           if (!cancelled) setPipelineStageBySource(prev => ({ ...prev, [sourceId]: null }))
           return
@@ -190,7 +190,7 @@ export function RunsClient({ apiBaseUrl }: RunsClientProps) {
     }
   }, [apiBaseUrl, inspectedRun, pipelineStageBySource])
 
-  // `/admin/runs` returns newest-first; ScrapeRunChart expects oldest-first
+  // `/internal/ops/runs` returns newest-first; ScrapeRunChart expects oldest-first
   // (it renders left-to-right and keeps the most recent `maxBars` entries
   // via `.slice(-maxBars)`), so reverse before mapping.
   const scrapeRunPoints = useMemo<ScrapeRunPoint[]>(() => {

@@ -22,7 +22,7 @@ interface NavLinkItemProps {
  * and More sheet. `item.apiOrigin` destinations (Bull Board) always render as
  * a real `<a>` — never a Next `Link` — because they resolve to a route
  * handler that proxies to the API and must do a full page navigation, not a
- * client-side transition. See `apps/ops/src/app/admin/board/[[...path]]/route.ts`.
+ * client-side transition. See `apps/ops/src/app/ops/queues/board/[[...path]]/route.ts`.
  */
 export function NavLinkItem({ item, isActive, showDesc, onNavigate, className }: NavLinkItemProps) {
   const Icon = getOpsNavIcon(item.href)

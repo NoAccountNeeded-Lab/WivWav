@@ -51,11 +51,11 @@ function jsonResponse(body: unknown): Response {
 function mockFetch(problemAggregateBody: unknown) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
-    if (url.endsWith('/admin/queues')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/sources')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/runs')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/repeatables')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
+    if (url.endsWith('/internal/ops/queues')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/internal/ops/sources')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/internal/ops/runs')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/internal/ops/repeatables')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/internal/ops/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(problemAggregateBody)
     if (url.endsWith('/internal/ops/problem-ack')) {
       const body = JSON.parse(String(init?.body)) as { fingerprint: string; acknowledged: boolean }

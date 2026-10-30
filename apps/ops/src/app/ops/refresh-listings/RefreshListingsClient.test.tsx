@@ -15,7 +15,7 @@ afterEach(() => {
 describe('RefreshListingsClient progress', () => {
   it('renders count-backed workflow and detail progress from mocked API data', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/listing-refresh/status')) {
+      if (url.endsWith('/internal/ops/listing-refresh/status')) {
         return jsonResponse({
           data: {
             generatedAt: '2026-07-12T09:00:00.000Z',
@@ -46,7 +46,7 @@ describe('RefreshListingsClient progress', () => {
         })
       }
 
-      if (url.endsWith('/admin/sources')) {
+      if (url.endsWith('/internal/ops/sources')) {
         return jsonResponse({ data: [{ id: 'src-1', name: 'BLVD', status: 'active' }] })
       }
 

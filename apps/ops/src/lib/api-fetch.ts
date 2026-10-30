@@ -21,8 +21,8 @@ async function getRequestId(): Promise<string> {
  * log entries can be correlated with Fastify API log entries via a shared
  * requestId. The ID is never surfaced to the browser or in any response body.
  *
- * Also forwards `Authorization: Bearer <INTERNAL_API_SECRET>` when the env
- * var is set so that the API's admin-only endpoints (e.g. /admin/config/:key/decrypt)
+ * Also forwards `Authorization: Bearer <OPS_API_SECRET>` when the env
+ * var is set so that the API's admin-only endpoints (e.g. /internal/ops/config/:key/decrypt)
  * accept requests from the ops container.
  */
 export async function apiFetch(
@@ -30,7 +30,7 @@ export async function apiFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const requestId = await getRequestId()
-  const secret = process.env['INTERNAL_API_SECRET']
+  const secret = process.env['OPS_API_SECRET']
   return fetch(url, {
     ...init,
     headers: {

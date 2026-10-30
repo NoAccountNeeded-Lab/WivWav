@@ -39,14 +39,21 @@ describe('apiFetch', () => {
     expect(sentHeaders()['x-request-id']).toMatch(/^[0-9a-f-]{36}$/)
   })
 
-  it('adds a bearer token when INTERNAL_API_SECRET is set', async () => {
-    vi.stubEnv('INTERNAL_API_SECRET', 's3cret')
+  it('adds a bearer token when OPS_API_SECRET is set', async () => {
+    vi.stubEnv('OPS_API_SECRET', 's3cret')
     await apiFetch('http://api/x')
     expect(sentHeaders()['Authorization']).toBe('Bearer s3cret')
   })
 
+  it('never falls back to the web/worker identity', async () => {
+    vi.stubEnv('OPS_API_SECRET', '')
+    vi.stubEnv('INTERNAL_API_SECRET', 'web-worker-secret')
+    await apiFetch('http://api/x')
+    expect(sentHeaders()['Authorization']).toBeUndefined()
+  })
+
   it('omits Authorization without the secret and keeps caller headers/init', async () => {
-    vi.stubEnv('INTERNAL_API_SECRET', '')
+    vi.stubEnv('OPS_API_SECRET', '')
     await apiFetch('http://api/x', { method: 'POST', headers: { 'x-custom': '1' } })
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(init.method).toBe('POST')

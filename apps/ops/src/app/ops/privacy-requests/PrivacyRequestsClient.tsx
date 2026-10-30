@@ -50,7 +50,7 @@ export function PrivacyRequestsClient({ apiBaseUrl }: PrivacyRequestsClientProps
     setAuditError(null)
     try {
       const res = await fetch(
-        `${apiBaseUrl}/admin/private-seller-retention/listings/${encodeURIComponent(trimmed)}/audit`,
+        `${apiBaseUrl}/internal/ops/private-seller-retention/listings/${encodeURIComponent(trimmed)}/audit`,
         { cache: 'no-store' },
       )
       if (!res.ok) throw new Error(`API returned ${res.status}`)
@@ -76,7 +76,7 @@ export function PrivacyRequestsClient({ apiBaseUrl }: PrivacyRequestsClientProps
     setSubmitFeedback(null)
     try {
       const res = await fetch(
-        `${apiBaseUrl}/admin/private-seller-retention/listings/${encodeURIComponent(trimmedId)}/delete`,
+        `${apiBaseUrl}/internal/ops/private-seller-retention/listings/${encodeURIComponent(trimmedId)}/delete`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },

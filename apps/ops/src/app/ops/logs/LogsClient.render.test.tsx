@@ -5,7 +5,7 @@
 // LogsClient.test.ts intentionally keeps to pure-function extraction; this file covers
 // the one behavior that only exists in the rendered component: how `initialService`,
 // `initialStart`, and `initialEnd` props (populated by page.tsx from `?service=&start=&end=`)
-// shape the `/admin/logs` query.
+// shape the `/internal/ops/logs` query.
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LogsClient } from './LogsClient'
@@ -21,7 +21,7 @@ afterEach(() => {
 })
 
 describe('LogsClient deep-link params', () => {
-  it('includes service, start, and end in the /admin/logs query when provided via deep-link props', async () => {
+  it('includes service, start, and end in the /internal/ops/logs query when provided via deep-link props', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entries: [], services: ['scraper'] }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -43,7 +43,7 @@ describe('LogsClient deep-link params', () => {
     expect(url.searchParams.get('end')).toBe('2026-07-20T10:05:00.000Z')
   })
 
-  it('pre-selects the deep-linked service in the filter dropdown before /admin/logs returns its services list', () => {
+  it('pre-selects the deep-linked service in the filter dropdown before /internal/ops/logs returns its services list', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ entries: [], services: [] })))
 
     render(<LogsClient apiBaseUrl="http://api.test" initialService="scraper" />)

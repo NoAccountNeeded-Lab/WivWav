@@ -46,27 +46,27 @@ export function useOverviewResources(apiBaseUrl: string): OverviewResources {
   )
   const queues = usePolledResource<QueueRow[]>(
     'ops-overview:queues',
-    useCallback(() => fetchJson<QueueRow[]>(`${apiBaseUrl}/admin/queues`), [apiBaseUrl]),
+    useCallback(() => fetchJson<QueueRow[]>(`${apiBaseUrl}/internal/ops/queues`), [apiBaseUrl]),
     REFRESH_MS,
   )
   const sources = usePolledResource<SourceRow[]>(
     'ops-overview:sources',
-    useCallback(() => fetchJson<SourceRow[]>(`${apiBaseUrl}/admin/sources`), [apiBaseUrl]),
+    useCallback(() => fetchJson<SourceRow[]>(`${apiBaseUrl}/internal/ops/sources`), [apiBaseUrl]),
     REFRESH_MS,
   )
   const runs = usePolledResource<RunRow[]>(
     'ops-overview:runs',
-    useCallback(() => fetchJson<RunRow[]>(`${apiBaseUrl}/admin/runs`), [apiBaseUrl]),
+    useCallback(() => fetchJson<RunRow[]>(`${apiBaseUrl}/internal/ops/runs`), [apiBaseUrl]),
     REFRESH_MS,
   )
   const schedules = usePolledResource<ScheduleEntry[]>(
     'ops-overview:schedules',
-    useCallback(() => fetchJson<ScheduleEntry[]>(`${apiBaseUrl}/admin/repeatables`), [apiBaseUrl]),
+    useCallback(() => fetchJson<ScheduleEntry[]>(`${apiBaseUrl}/internal/ops/repeatables`), [apiBaseUrl]),
     REFRESH_MS,
   )
   const listingRefresh = usePolledResource<ListingRefreshStatus>(
     'ops-overview:listing-refresh',
-    useCallback(() => fetchJson<ListingRefreshStatus>(`${apiBaseUrl}/admin/listing-refresh/status`), [apiBaseUrl]),
+    useCallback(() => fetchJson<ListingRefreshStatus>(`${apiBaseUrl}/internal/ops/listing-refresh/status`), [apiBaseUrl]),
     REFRESH_MS,
   )
 

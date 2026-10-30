@@ -71,7 +71,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sources`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sources`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: SourceRow[] }
       setSources(body.data)
@@ -93,7 +93,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
   async function runNow(sourceId: string) {
     setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, jobId: null, isError: false } }))
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/run`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sources/${encodeURIComponent(sourceId)}/run`, {
         method: 'POST',
       })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
@@ -107,7 +107,7 @@ export function SourcesClient({ apiBaseUrl }: SourcesClientProps) {
   async function setSourceEnabled(sourceId: string, enabled: boolean) {
     setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, jobId: null, isError: false } }))
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/${enabled ? 'enable' : 'disable'}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sources/${encodeURIComponent(sourceId)}/${enabled ? 'enable' : 'disable'}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: enabled ? JSON.stringify({}) : JSON.stringify({ reason: 'Disabled from ops source health' }),

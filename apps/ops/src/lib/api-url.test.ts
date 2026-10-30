@@ -27,6 +27,6 @@ describe('getServerApiBaseUrl', () => {
 
 describe('getPublicApiBaseUrl', () => {
   it('is always the same-origin BFF path', () => {
-    expect(getPublicApiBaseUrl()).toBe('/api/bff')
+    expect(getPublicApiBaseUrl()).toBe('/ops/api')
   })
 })

@@ -39,7 +39,7 @@ export function WorkersClient({ apiBaseUrl }: WorkersClientProps) {
     const isStale = () => !mounted.current || seq !== requestSeq.current
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/workers`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/workers`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const payload = parseWorkers(await res.json())
       if (isStale()) return

@@ -69,7 +69,7 @@ describe('NavColumn', () => {
 
     const bullBoardLink = screen.getByRole('link', { name: /Bull Board diagnostics/ })
     expect(bullBoardLink.tagName).toBe('A')
-    expect(bullBoardLink.getAttribute('href')).toBe('/admin/board')
+    expect(bullBoardLink.getAttribute('href')).toBe('/ops/queues/board')
     expect(bullBoardLink.getAttribute('target')).toBe('_blank')
     expect(bullBoardLink.getAttribute('rel')).toContain('noopener')
     expect(bullBoardLink.textContent).toContain('(opens in new tab)')

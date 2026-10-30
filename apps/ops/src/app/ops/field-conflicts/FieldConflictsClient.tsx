@@ -61,7 +61,7 @@ export function FieldConflictsClient({ apiBaseUrl }: FieldConflictsClientProps) 
     try {
       const params = new URLSearchParams({ skip: String(skip), take: String(PAGE_SIZE) })
       if (fieldFilter) params.set('field', fieldFilter)
-      const res = await fetch(`${apiBaseUrl}/admin/field-conflicts?${params.toString()}`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/field-conflicts?${params.toString()}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: FieldConflictRow[]; meta: { total: number } }
       setRows(body.data)

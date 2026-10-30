@@ -9,7 +9,7 @@ export interface EbayCredentials {
 
 /**
  * Resolves the eBay Motors Browse API credentials via the API's
- * server-to-server-only `/admin/config/:key/decrypt` endpoint (#999) —
+ * server-to-server-only `/internal/ops/config/:key/decrypt` endpoint (#999) —
  * mirrors resolve-ollama-config.ts's pattern of letting an ops server route
  * pull decrypted config through `apiFetch` rather than giving apps/ops its
  * own Prisma/ConfigService access. Returns null when the app-id/cert-id
@@ -20,9 +20,9 @@ export async function resolveEbayCredentials(): Promise<EbayCredentials | null> 
   const apiBase = getServerApiBaseUrl()
 
   const [appIdRes, certIdRes, envRes] = await Promise.all([
-    apiFetch(`${apiBase}/admin/config/ebay.motors.app-id/decrypt`, { cache: 'no-store' }),
-    apiFetch(`${apiBase}/admin/config/ebay.motors.cert-id/decrypt`, { cache: 'no-store' }),
-    apiFetch(`${apiBase}/admin/config/ebay.motors.environment`, { cache: 'no-store' }),
+    apiFetch(`${apiBase}/internal/ops/config/ebay.motors.app-id/decrypt`, { cache: 'no-store' }),
+    apiFetch(`${apiBase}/internal/ops/config/ebay.motors.cert-id/decrypt`, { cache: 'no-store' }),
+    apiFetch(`${apiBase}/internal/ops/config/ebay.motors.environment`, { cache: 'no-store' }),
   ])
 
   if (!appIdRes.ok || !certIdRes.ok) return null
