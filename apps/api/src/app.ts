@@ -548,7 +548,7 @@ export async function buildApp(
       async (workersScope) => {
         await workersScope.register(websocketPlugin)
         await adminAuthPlugin(workersScope, {
-          internalApiSecret: config.INTERNAL_API_SECRET,
+          internalApiSecret: config.WORKER_API_SECRET,
           nodeEnv: config.NODE_ENV,
         })
         await workersScope.register(workerGatewayRoutes, {
@@ -563,7 +563,7 @@ export async function buildApp(
     await app.register(
       async (scraperGatewayScope) => {
         await adminAuthPlugin(scraperGatewayScope, {
-          internalApiSecret: config.INTERNAL_API_SECRET,
+          internalApiSecret: config.WORKER_API_SECRET,
           nodeEnv: config.NODE_ENV,
         })
         await scraperGatewayScope.register(internalScraperRoutes, {

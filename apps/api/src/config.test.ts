@@ -183,6 +183,9 @@ describe('service credential separation', () => {
     ['INTERNAL_API_SECRET', 'OPS_API_SECRET'],
     ['INTERNAL_API_SECRET', 'DIAGNOSTIC_API_SECRET'],
     ['OPS_API_SECRET', 'DIAGNOSTIC_API_SECRET'],
+    ['INTERNAL_API_SECRET', 'WORKER_API_SECRET'],
+    ['OPS_API_SECRET', 'WORKER_API_SECRET'],
+    ['DIAGNOSTIC_API_SECRET', 'WORKER_API_SECRET'],
   ])('rejects identical %s and %s without exposing the secret', (first, second) => {
     vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
     vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
