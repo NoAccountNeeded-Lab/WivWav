@@ -17,6 +17,7 @@ import {
   createEntryBuffer,
   createReplayGuard,
   flushBatchesWithRetry,
+  flushBatchWithRetention,
   maskSensitive,
 } from './remote-log-forwarder.mjs'
 
@@ -319,6 +320,23 @@ describe('flushBatchesWithRetry', () => {
     assert.equal(attempts, 2)
     assert.equal(seenBodies.length, 1)
     assert.equal(JSON.parse(seenBodies[0]).streams[0].values[0][1], 'whole-batch')
+  })
+
+  it('retains a failed batch ahead of newer entries for the next flush', async () => {
+    const buffer = createEntryBuffer(4)
+    const failed = group('failed-line')
+    const newer = { labels: failed.labels, line: 'newer-line', tsNs: '1719837297000000000' }
+    buffer.push([newer])
+
+    const retained = await flushBatchWithRetention(
+      async () => { throw new Error('loki unavailable') },
+      buffer,
+      [failed],
+      { maxAttempts: 2, sleepFn: sleep },
+    )
+
+    assert.equal(retained, false)
+    assert.deepEqual(buffer.drain().map((entry) => entry.line), ['failed-line', 'newer-line'])
   })
 })
 
