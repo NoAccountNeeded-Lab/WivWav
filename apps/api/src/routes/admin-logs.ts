@@ -31,6 +31,9 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
    *   limit    — max entries (default 200, max 500)
    *   start    — ISO / ns epoch start time (default: 1 hour ago)
    *   end      — ISO / ns epoch end time (default: now)
+ *
+ *   Every query is scoped to the WivWav Compose project via project="wivwav" so
+ *   Ops logs never include streams ingested from unrelated local Docker projects.
    */
   app.get<{ Querystring: LogsQuerystring }>('/', async (req, reply) => {
     const { service, search, limit: limitStr, start: startStr, end: endStr } = req.query
@@ -53,12 +56,14 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
       return isNaN(asDate) ? nowMs : asDate
     })()
 
-    // Build LogQL selector — use {service=~".+"} as default so all Alloy-shipped streams match
-    let selector = '{service=~".+"}'
+    // Build LogQL selector — always scoped to the WivWav Compose project.
+    // Use {service=~".+"} as default so all WivWav service streams match.
+    const WIVWAV_PROJECT = 'wivwav'
+    let selector = `{project="${WIVWAV_PROJECT}", service=~".+"}`
     if (service) {
       // Escape backslashes and double-quotes before embedding in a label selector string
       const escapedService = service.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-      selector = `{service="${escapedService}"}`
+      selector = `{project="${WIVWAV_PROJECT}", service="${escapedService}"}`
     }
 
     let logql = selector

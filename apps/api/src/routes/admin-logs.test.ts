@@ -151,7 +151,21 @@ describe('GET /', () => {
     expect(extra).toHaveProperty('customField', 'keep-me')
   })
 
-  it('applies service filter in LogQL selector', async () => {
+  it('scopes every LogQL query to the wivwav project', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      capturedUrl = url
+      return Response.json({ status: 'success', data: { resultType: 'streams', result: [] } })
+    }))
+
+    const app = buildTestApp()
+    await app.inject({ method: 'GET', url: '/' })
+
+    const query = new URL(capturedUrl).searchParams.get('query') ?? ''
+    expect(query).toContain('project="wivwav"')
+  })
+
+  it('applies service filter in LogQL selector alongside project scope', async () => {
     let capturedUrl = ''
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       capturedUrl = url
@@ -161,7 +175,24 @@ describe('GET /', () => {
     const app = buildTestApp()
     await app.inject({ method: 'GET', url: '/?service=api' })
 
+    const query = new URL(capturedUrl).searchParams.get('query') ?? ''
+    expect(query).toContain('project="wivwav"')
     expect(capturedUrl).toContain('service%3D%22api%22')
+  })
+
+  it('passes through non-api service names with project scope intact', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      capturedUrl = url
+      return Response.json({ status: 'success', data: { resultType: 'streams', result: [] } })
+    }))
+
+    const app = buildTestApp()
+    await app.inject({ method: 'GET', url: '/?service=worker' })
+
+    const query = new URL(capturedUrl).searchParams.get('query') ?? ''
+    expect(query).toContain('project="wivwav"')
+    expect(query).toContain('service="worker"')
   })
 
   it('applies text search filter in LogQL', async () => {
