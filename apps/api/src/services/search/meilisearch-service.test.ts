@@ -281,3 +281,10 @@ describe('MeilisearchService.clear', () => {
     )
   })
 })
+
+
+describe('numeric shopping filters', () => {
+  it('uses OR within each facet and AND between exact capacity, pairs and states', () => {
+    expect(buildFilterString({ cityState: ['springfield|IL', 'portland|OR'], state: ['IL'], wheelchairCapacity: [1, 2], transmission: ['automatic', 'manual'] })).toBe('cityState IN ["springfield|IL", "portland|OR"] AND state IN ["IL"] AND wheelchairCapacity IN [1, 2] AND transmission IN ["automatic", "manual"]')
+  })
+})

@@ -17,7 +17,7 @@
  * Boolean fields use a literal boolean.
  */
 export interface SearchFilters {
-  [field: string]: string | string[] | boolean | undefined
+  [field: string]: string | string[] | number | number[] | boolean | undefined
 }
 
 /**

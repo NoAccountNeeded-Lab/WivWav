@@ -63,11 +63,11 @@ export function buildFilterString(
   if (filters) {
     for (const [field, value] of Object.entries(filters)) {
       if (value === undefined) continue
-      if (typeof value === 'boolean') {
+      if (typeof value === 'boolean' || typeof value === 'number') {
         parts.push(`${field} = ${value}`)
       } else if (Array.isArray(value)) {
         if (value.length === 0) continue
-        parts.push(`${field} IN [${value.map(quoteStr).join(', ')}]`)
+        parts.push(`${field} IN [${value.map((item) => typeof item === 'number' ? String(item) : quoteStr(item)).join(', ')}]`)
       } else {
         parts.push(`${field} = ${quoteStr(value)}`)
       }
