@@ -33,14 +33,19 @@ discovery.docker "containers" {
 discovery.relabel "containers" {
   targets = discovery.docker.containers.targets
 
-  // Keep only containers belonging to the WivWav Compose project. Alloy runs on
-  // the shared Docker host, so without this rule logs from unrelated local
-  // Compose projects (other worktrees, side projects) would be ingested into
-  // the same Loki. Logs queries are scoped with project="wivwav" on the API
-  // side; this keeps those unrelated streams out of Loki entirely.
+  // Keep only application containers belonging to the WivWav Compose project.
+  // Alloy runs on the shared Docker host, so unrelated projects must not enter
+  // Loki. API includes scheduled jobs and BullMQ workers; job-runner is the
+  // separate Chromium/data-collector worker. Exclude DB/cache/search and Obs.
   rule {
     source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
     regex         = "wivwav"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "api|web|ops|job-runner"
     action        = "keep"
   }
 

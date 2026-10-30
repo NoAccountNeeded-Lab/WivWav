@@ -91,8 +91,10 @@ To use the existing laptop Obs containers for production logs:
 5. From the production host, verify `http://<laptop-lan-ip>:3101/ready` returns
    `ready`, then open
    `/ops/logs` in the authenticated Ops app. Queries are scoped to
-   `project="wivwav"`; all WivWav services remain available in the service
-   filter. Grafana remains available on the laptop at `http://localhost:3003`.
+   `project="wivwav"`; the collector includes `api`, `web`, `ops`, and
+   `job-runner`, covering scheduled/BullMQ jobs and the separate worker.
+   Database, cache, search, and observability infrastructure logs are excluded.
+   Grafana remains available on the laptop at `http://localhost:3003`.
 
 Rollback by removing the gateway settings from the laptop's ignored `.env`,
 restoring the API's previous `LOKI_URL` value, and stopping the gateway and
