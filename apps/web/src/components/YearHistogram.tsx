@@ -123,7 +123,7 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
       range: [min, max] as const,
       searchParams: params.toString(),
     }
-  }, [rangeMin, rangeMax])
+  }, [])
   const stableRange = useStableRangeValue([urlMin, urlMax], [rangeMin, rangeMax], reapplyCommit, readHistoryValue)
   const [displayMin, displayMax] = stableRange.value
 

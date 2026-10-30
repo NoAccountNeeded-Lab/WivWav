@@ -16,6 +16,7 @@ interface PendingRange {
 
 export function parsePositiveIntegerParameter(raw: string | null): number {
   if (raw === null || raw.trim() === '') return 0
+  if (!/^\d+$/.test(raw)) return 0
   const parsed = Number(raw)
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0
 }
@@ -49,21 +50,27 @@ export function useStableRangeValue(
     const pending = pendingValue.current
     if (!pending) return
     if (sameRange(urlValue, pending.expected)) {
-      setLocalValue(null)
-      if (!pending.historyOverride) {
+      pendingValue.current = null
+      lastReapplied.current = null
+      if (pending.historyOverride) setLocalValue(null)
+      else setLocalValue((local) => local && sameRange(local, pending.expected) ? null : local)
+      return
+    }
+    if (!pending.historyOverride && sameRange(urlValue, pending.from)) {
+      if (sameRange(pending.expected, pending.from)) {
         pendingValue.current = null
         lastReapplied.current = null
+        setLocalValue(null)
       }
       return
     }
-    if (!pending.historyOverride && sameRange(urlValue, pending.from)) return
 
     const key = `${urlValue[0]}:${urlValue[1]}|${pending.expected[0]}:${pending.expected[1]}`
     if (lastReapplied.current !== key) {
       lastReapplied.current = key
       reapplyCommit(pending.expected, pending.historySearchParams ?? undefined)
     }
-  }, [urlValue[0], urlValue[1], reapplyCommit])
+  }, [urlValue, reapplyCommit])
 
   useEffect(() => {
     function clearPendingOnHistoryNavigation() {
@@ -115,7 +122,13 @@ export function useStableRangeValue(
       historySearchParams: null,
     }
     lastReapplied.current = null
-    setLocalValue(committed)
+    if (sameRange(pendingValue.current.expected, urlValueRef.current)) {
+      pendingValue.current = null
+      lastReapplied.current = null
+      setLocalValue(null)
+    } else {
+      setLocalValue(committed)
+    }
     return committed
   }, [clearHistoryOverride])
 

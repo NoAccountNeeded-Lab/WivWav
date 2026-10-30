@@ -25,6 +25,31 @@ describe('useStableRangeValue', () => {
     expect(result.current.value).toEqual([20, 80])
   })
 
+  it('clears a commit immediately when its expected URL value is already current', () => {
+    const reapplyCommit = vi.fn()
+    const { result, rerender } = renderHook(
+      ({ committed }) => useStableRangeValue(committed, [0, 100], reapplyCommit),
+      { initialProps: { committed: [20, 80] as [number, number] } },
+    )
+    act(() => result.current.handleCommit([20, 80]))
+    expect(result.current.value).toEqual([20, 80])
+    rerender({ committed: [0, 100] })
+    expect(result.current.value).toEqual([0, 100])
+    expect(reapplyCommit).not.toHaveBeenCalled()
+  })
+
+  it('keeps a newer drag visible when an older commit is acknowledged', () => {
+    const { result, rerender } = renderHook(({ committed }) => useStableRangeValue(committed), {
+      initialProps: { committed: [0, 200_000] as [number, number] },
+    })
+    act(() => {
+      result.current.handleCommit([0, 100_000])
+      result.current.handleChange([0, 150_000])
+    })
+    rerender({ committed: [0, 100_000] })
+    expect(result.current.value).toEqual([0, 150_000])
+  })
+
   it('accepts browser Back and Forward URL state after a pending commit', () => {
     const { result, rerender } = renderHook(({ committed }) => useStableRangeValue(committed), {
       initialProps: { committed: [0, 100] as [number, number] },
@@ -58,10 +83,12 @@ describe('useStableRangeValue', () => {
     rerender({ committed: [10, 90] })
     expect(result.current.value).toEqual([10, 90])
 
-    act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', metaKey: true })))
     rerender({ committed: [25, 75] })
     expect(result.current.value).toEqual([10, 90])
     expect(reapplyCommit).toHaveBeenCalledWith([10, 90], 'min=10&max=90&page=2')
+    rerender({ committed: [10, 90] })
+    rerender({ committed: [25, 75] })
+    expect(result.current.value).toEqual([25, 75])
     window.history.replaceState({}, '', '/')
   })
 
@@ -97,6 +124,18 @@ describe('useStableRangeValue', () => {
     rerender({ committed: [20, 80] })
     expect(result.current.value).toEqual([20, 80])
     expect(reapplyCommit).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reapply a commit while the URL remains at its origin range', () => {
+    const reapplyCommit = vi.fn()
+    const { result, rerender } = renderHook(
+      ({ committed }) => useStableRangeValue(committed, [0, 100], reapplyCommit),
+      { initialProps: { committed: [0, 100] as [number, number] } },
+    )
+    act(() => result.current.handleCommit([20, 80]))
+    rerender({ committed: [0, 100] })
+    expect(result.current.value).toEqual([20, 80])
+    expect(reapplyCommit).not.toHaveBeenCalled()
   })
 
   it('lets a newer chart selection replace a pending slider commit', () => {
@@ -165,6 +204,10 @@ describe('useStableRangeValue', () => {
     ['0', 0],
     ['-5', 0],
     ['1.5', 0],
+    ['1e3', 0],
+    ['0x7CC', 0],
+    [' 42', 0],
+    ['42 ', 0],
     ['123oops', 0],
     ['9007199254740992', 0],
     ['42', 42],

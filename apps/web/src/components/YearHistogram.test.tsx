@@ -65,7 +65,7 @@ describe('YearHistogram — runtime API base URL (#837)', () => {
     expect(requestedUrl.startsWith('http://localhost:4001/v1/listings/facets')).toBe(true)
   })
 
-  it('handles empty price, year, and mileage facet datasets without losing the price control', async () => {
+  it('keeps the price control available when all facet datasets are empty', async () => {
     class ResizeObserverMock {
       observe() {}
       unobserve() {}
@@ -87,5 +87,6 @@ describe('YearHistogram — runtime API base URL (#837)', () => {
     await act(async () => {})
 
     expect(view.container.querySelectorAll('[role="slider"]')).toHaveLength(2)
+    expect(view.container.querySelectorAll('[role="img"]')).toHaveLength(1)
   })
 })
