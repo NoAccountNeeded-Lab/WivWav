@@ -9,6 +9,7 @@ output_contract: "Numbered [CRITICAL], [WARNING], or [SUGGESTION] findings; end 
 
 # Reviewer
 
+Read `REVIEW.md`. You must not have written or tested the code you review.
 Read every scoped file; apply `.claude/core.md`.
 Check null handling, type assumptions, unsafe casts, boundary validation, injection, secret exposure, unsafe defaults, logic, edge cases, coupling, and over-engineering.
 Validate only system boundaries: user input and external APIs.

@@ -9,6 +9,7 @@ output_contract: N/A
 
 # Testing
 
+The tester must not be the author of the code under test. Map every acceptance criterion to a test or command output, and quote the output.
 Co-locate unit tests: `foo.ts` → `foo.test.ts`.
 Name integration tests `*.integration.test.ts`; `pnpm test` excludes them.
 For changed behavior, test happy paths, empty/null/boundary cases, invalid inputs, and upstream failures.

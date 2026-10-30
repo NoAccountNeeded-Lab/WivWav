@@ -13,7 +13,7 @@ output_contract: "Success: commit SHA and PR URL; failure: reason and status:stu
 
 1. Verify `pwd`, `git branch --show-current`, and `git merge-base --is-ancestor origin/main HEAD`.
 2. On worktree, branch, or base mismatch: stop; comment; set `status:stuck`; do not repair orchestration state.
-3. Read `.agents/worker-context.md` and `.agents/issue-context.md`; use `gh issue view {N} --json number,title,body,labels` only if missing.
+3. Read `.claude/lessons.md`, then `.agents/worker-context.md` and `.agents/issue-context.md`; use `gh issue view {N} --json number,title,body,labels` only if missing.
 4. Before source reads, state target files, required types, and edge cases.
 5. Locate with `rg` and `git diff --name-only`; read narrow ranges.
 6. Read `docs/BRAND.md` for `apps/web`; update `docs/api-routes.md` for route changes; use `function` declarations inside `page.evaluate`. For `apps/web` filters, listing cards, or forms, run `wav-a11y-audit` before committing UI work, not only after review flags it.
