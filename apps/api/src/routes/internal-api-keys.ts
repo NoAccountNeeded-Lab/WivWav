@@ -35,7 +35,7 @@ function parsePageValue(value: unknown, fallback: number, max: number): number |
 /**
  * Key management for the public `/v1/` API (#453/#1203). The shared create and
  * revoke handlers are mounted under `/internal/v1/api-keys` for server-to-
- * server provisioning and under `/admin/api-keys` inside the fail-closed
+ * server provisioning and under `/internal/ops/api-keys` inside the fail-closed
  * admin scope for the Ops BFF. The safe metadata list is enabled only on the
  * admin mount; the browser never receives the internal bearer secret.
  */

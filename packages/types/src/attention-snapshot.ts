@@ -4,7 +4,7 @@ import type { HealthResponse } from './api.js'
  * Shared contract for the domain-level "what is currently wrong" computation
  * (issue #774, D4 from #757/#758). One implementation — `computeAttentionSnapshot`
  * in `apps/api/src/domain/attention-snapshot.ts` — is consumed by both the ops
- * overview's Attention panel (via `POST /admin/attention-snapshot`) and, in a
+ * overview's Attention panel (via `POST /internal/ops/attention-snapshot`) and, in a
  * follow-up issue, the diagnostic gateway's `get_system_snapshot`. Neither
  * consumer may fork this computation into a second implementation.
  *
@@ -123,7 +123,7 @@ export interface AttentionSnapshotRequest {
   /**
    * Loki reachability, reported by callers that actually probe it (issue
    * #775's `get_system_snapshot`). Optional and unconsumed by every other
-   * caller (`POST /admin/attention-snapshot`, `POST
+   * caller (`POST /internal/ops/attention-snapshot`, `POST
    * /internal/ops/problem-aggregate`) — they never send this field, so
    * `computeSignalAvailability` treats an omitted value the same as the
    * hardcoded `'available'` it always reported before this field existed.

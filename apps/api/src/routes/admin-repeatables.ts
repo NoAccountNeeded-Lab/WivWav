@@ -18,13 +18,13 @@ export const adminRepeatableRoutes: FastifyPluginAsync<AdminRepeatablesOptions> 
   app,
   { db, sources, queues, jobRunReaper },
 ) => {
-  // GET /admin/repeatables — merged canonical + live BullMQ state
+  // GET /internal/ops/repeatables — merged canonical + live BullMQ state
   app.get('/repeatables', async (_req, reply) => {
     const data = await buildRepeatableStatuses(db, sources, queues)
     return reply.send({ data, jobRuns: jobRunReaper?.getStats() ?? { reapedCount: 0, runningTooLongCount: 0 } })
   })
 
-  // DELETE /admin/repeatables/:queue — disable (remove from BullMQ) by key
+  // DELETE /internal/ops/repeatables/:queue — disable (remove from BullMQ) by key
   app.delete<{ Params: { queue: string }; Body: { key: string } }>(
     '/repeatables/:queue',
     async (req, reply) => {
@@ -40,7 +40,7 @@ export const adminRepeatableRoutes: FastifyPluginAsync<AdminRepeatablesOptions> 
     },
   )
 
-  // POST /admin/repeatables/:queue — enable (add) a repeatable
+  // POST /internal/ops/repeatables/:queue — enable (add) a repeatable
   app.post<{
     Params: { queue: string }
     Body: { name: string; data: Record<string, unknown>; pattern: string; tz?: string; jobId?: string }
@@ -60,7 +60,7 @@ export const adminRepeatableRoutes: FastifyPluginAsync<AdminRepeatablesOptions> 
     return reply.code(201).send({ data: { added: true } })
   })
 
-  // PUT /admin/repeatables/:queue — update pattern (remove old key, add with new pattern)
+  // PUT /internal/ops/repeatables/:queue — update pattern (remove old key, add with new pattern)
   app.put<{
     Params: { queue: string }
     Body: { key: string; name: string; data: Record<string, unknown>; pattern: string; tz?: string; jobId?: string }

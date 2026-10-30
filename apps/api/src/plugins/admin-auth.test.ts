@@ -9,7 +9,7 @@ function buildTestApp(opts: { internalApiSecret: string | undefined; nodeEnv: 'd
       await adminAuthPlugin(adminScope, opts)
       adminScope.get('/whoami', async () => ({ data: 'ok' }))
     },
-    { prefix: '/admin' },
+    { prefix: '/internal/workers' },
   )
   return app
 }
@@ -17,7 +17,7 @@ function buildTestApp(opts: { internalApiSecret: string | undefined; nodeEnv: 'd
 describe('adminAuthPlugin', () => {
   it('fails closed in production with no secret configured', async () => {
     const app = buildTestApp({ internalApiSecret: undefined, nodeEnv: 'production' })
-    const response = await app.inject({ method: 'GET', url: '/admin/whoami' })
+    const response = await app.inject({ method: 'GET', url: '/internal/workers/whoami' })
     expect(response.statusCode).toBe(503)
     expect(JSON.parse(response.body).error.code).toBe('ADMIN_DISABLED')
     await app.close()
@@ -25,7 +25,7 @@ describe('adminAuthPlugin', () => {
 
   it('rejects requests without a valid bearer token when a secret is configured', async () => {
     const app = buildTestApp({ internalApiSecret: 'super-secret-value', nodeEnv: 'production' })
-    const response = await app.inject({ method: 'GET', url: '/admin/whoami' })
+    const response = await app.inject({ method: 'GET', url: '/internal/workers/whoami' })
     expect(response.statusCode).toBe(401)
     await app.close()
   })
@@ -34,7 +34,7 @@ describe('adminAuthPlugin', () => {
     const app = buildTestApp({ internalApiSecret: 'super-secret-value', nodeEnv: 'production' })
     const response = await app.inject({
       method: 'GET',
-      url: '/admin/whoami',
+      url: '/internal/workers/whoami',
       headers: { authorization: 'Bearer wrong-value' },
     })
     expect(response.statusCode).toBe(401)
@@ -45,7 +45,7 @@ describe('adminAuthPlugin', () => {
     const app = buildTestApp({ internalApiSecret: 'super-secret-value', nodeEnv: 'production' })
     const response = await app.inject({
       method: 'GET',
-      url: '/admin/whoami',
+      url: '/internal/workers/whoami',
       headers: { authorization: 'Bearer super-secret-value' },
     })
     expect(response.statusCode).toBe(200)
@@ -54,14 +54,14 @@ describe('adminAuthPlugin', () => {
 
   it('allows unauthenticated access in non-production when no secret is configured', async () => {
     const app = buildTestApp({ internalApiSecret: undefined, nodeEnv: 'development' })
-    const response = await app.inject({ method: 'GET', url: '/admin/whoami' })
+    const response = await app.inject({ method: 'GET', url: '/internal/workers/whoami' })
     expect(response.statusCode).toBe(200)
     await app.close()
   })
 
   it('still requires the bearer token in development when a secret is configured', async () => {
     const app = buildTestApp({ internalApiSecret: 'dev-secret', nodeEnv: 'development' })
-    const response = await app.inject({ method: 'GET', url: '/admin/whoami' })
+    const response = await app.inject({ method: 'GET', url: '/internal/workers/whoami' })
     expect(response.statusCode).toBe(401)
     await app.close()
   })

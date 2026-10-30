@@ -256,7 +256,7 @@ export type QuarantineFilter = {
 /**
  * One #499 field currently at `conflicting` resolution for one listing, with
  * the competing claims that caused it — for the operator triage surface
- * (`GET /admin/field-conflicts`). Deliberately excludes free-text evidence
+ * (`GET /internal/ops/field-conflicts`). Deliberately excludes free-text evidence
  * (e.g. a description snippet) — only the normalized claimed values, their
  * provenance category, and observation times are exposed, so no
  * private-seller description text or model reasoning leaks into ops

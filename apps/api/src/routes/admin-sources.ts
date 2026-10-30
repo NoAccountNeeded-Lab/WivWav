@@ -29,7 +29,7 @@ export const adminSourceRoutes: FastifyPluginAsync<AdminSourcesOptions> = async 
   app,
   { db, listings, operatorConfig, sources, scraperRuns, jobRuns, queues },
 ) => {
-  // GET /admin/runs — last 100 scraper runs ordered by startedAt desc, with source name
+  // GET /internal/ops/runs — last 100 scraper runs ordered by startedAt desc, with source name
   app.get('/runs', async (_req, reply) => {
     const runs = await scraperRuns.findRecent(100)
     const sourceIds = [...new Set(runs.map(r => r.sourceId))]
@@ -38,7 +38,7 @@ export const adminSourceRoutes: FastifyPluginAsync<AdminSourcesOptions> = async 
     return reply.send({ data: runs.map(r => ({ ...r, sourceName: nameById.get(r.sourceId) ?? null })) })
   })
 
-  // GET /admin/sources — sources with status, lastScrapedAt, listingCount
+  // GET /internal/ops/sources — sources with status, lastScrapedAt, listingCount
   app.get('/sources', async (_req, reply) => {
     const [sourceList, publicationCounts] = await Promise.all([
       sources.findAll(),
@@ -47,7 +47,7 @@ export const adminSourceRoutes: FastifyPluginAsync<AdminSourcesOptions> = async 
     return reply.send({ data: withPublicationCounts(sourceList, publicationCounts) })
   })
 
-  // POST /admin/sources/:id/run — immediately enqueue a source-scrape job
+  // POST /internal/ops/sources/:id/run — immediately enqueue a source-scrape job
   app.post<{ Params: { id: string } }>('/sources/:id/run', async (req, reply) => {
     const source = await sources.findById(req.params.id)
     if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
@@ -109,7 +109,7 @@ export const adminSourceRoutes: FastifyPluginAsync<AdminSourcesOptions> = async 
     },
   )
 
-  // GET /admin/sources/:id/pipeline — per-stage pending/failed/stall state for one source
+  // GET /internal/ops/sources/:id/pipeline — per-stage pending/failed/stall state for one source
   app.get<{ Params: { id: string } }>('/sources/:id/pipeline', async (req, reply) => {
     const source = await sources.findById(req.params.id)
     if (!source) return reply.notFound(`Source "${req.params.id}" not found`)
@@ -130,7 +130,7 @@ export const adminSourceRoutes: FastifyPluginAsync<AdminSourcesOptions> = async 
     }
   })
 
-  // GET /admin/sources/:id/job-runs — full pipeline run tree for one source
+  // GET /internal/ops/sources/:id/job-runs — full pipeline run tree for one source
   // (#933 lineage backbone). Every JobRun directly attributed to the source
   // (scrape, detail-crawl, detail-extract, etc.), plus every run
   // transitively spawned from one of those (e.g. a listing-resolve run

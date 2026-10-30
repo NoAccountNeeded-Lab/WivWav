@@ -47,7 +47,7 @@ function buildTestApp(
     ready: app.register(websocketPlugin).register(async (scope) => {
       await adminAuthPlugin(scope, { internalApiSecret: secret, nodeEnv })
       await scope.register(workerGatewayRoutes, { registry, dispatcher })
-      await scope.register(adminWorkersRoutes, { prefix: '/admin/workers', registry })
+      await scope.register(adminWorkersRoutes, { prefix: '/internal/ops/workers', registry })
     }),
   }
 }
@@ -124,7 +124,7 @@ describe('worker gateway WS auth', () => {
     expect(registry.list()[0]?.machine).toEqual(MACHINE)
     const response = await app.inject({
       method: 'GET',
-      url: '/admin/workers',
+      url: '/internal/ops/workers',
       headers: { authorization: `Bearer ${INTERNAL_API_SECRET}` },
     })
     expect(response.statusCode).toBe(200)

@@ -169,7 +169,7 @@ ${PROJECT_CONTEXT}
 Given a task and its implementation, output only what is genuinely needed:
 1. Inline comments to add — only where the WHY is non-obvious (skip if obvious from names)
 2. Agent instruction updates — AGENTS.md, CLAUDE.md, GEMINI.md, Copilot/Cursor rules, or role/skill files only when the change affects those agents
-3. Config DB entries to add for any new AI provider settings or runtime configuration (see the /admin/config API and the config key table in AGENTS.md). Only add .env.example lines for infrastructure connection strings (database URL, Redis, Meilisearch) — not for API keys or feature settings
+3. Config DB entries to add for any new AI provider settings or runtime configuration (see the /internal/ops/config API and the config key table in AGENTS.md). Only add .env.example lines for infrastructure connection strings (database URL, Redis, Meilisearch) — not for API keys or feature settings
 
 Be minimal. Do not document what the code already says. If nothing is needed, say so.`,
   },

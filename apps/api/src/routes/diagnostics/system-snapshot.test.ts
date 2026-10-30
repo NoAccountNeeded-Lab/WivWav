@@ -6,6 +6,7 @@ import type { Config } from '../../config.js'
 import { healthRoutes } from '../health.js'
 import { adminRoutes } from '../admin.js'
 import { systemSnapshotRoutes } from './system-snapshot.js'
+import { opsAuthPlugin } from '../../plugins/ops-auth.js'
 
 const LOKI_URL = 'http://loki.test'
 
@@ -106,8 +107,9 @@ function buildTestApp(opts: BuildOpts = {}) {
     cache: cache as never,
     config,
   })
-  void app.register(adminRoutes, {
-    prefix: '/admin',
+  void app.register(async scope => {
+    await opsAuthPlugin(scope, { opsApiSecret: config.OPS_API_SECRET, nodeEnv: config.NODE_ENV })
+    await scope.register(adminRoutes, {
     db: db as never,
     listings: listings as never,
     sources: sources as never,
@@ -115,6 +117,7 @@ function buildTestApp(opts: BuildOpts = {}) {
     jobRuns: { findRunTreeForSource: vi.fn(async () => []) } as never,
     queueFactory: factory as never,
   })
+  }, { prefix: '/internal/ops' })
   void app.register(systemSnapshotRoutes, {
     prefix: '/system-snapshot',
     db: db as never,
@@ -123,7 +126,7 @@ function buildTestApp(opts: BuildOpts = {}) {
     meili: meili as never,
     cache: cache as never,
     config,
-    internalApiSecret: undefined,
+    opsApiSecret: config.OPS_API_SECRET,
   })
 
   return { app, sources, scraperRuns }
@@ -289,4 +292,15 @@ describe('GET /', () => {
     expect(res.body).not.toContain('sk-live-should-be-redacted')
     await app.close()
   })
+})
+
+
+it('uses server-held operator identity for in-process reads without leaking it', async () => {
+  stubLokiReady()
+  const { app } = buildTestApp({ config: { OPS_API_SECRET: 'private-operator-secret' } })
+  const res = await app.inject('/system-snapshot')
+  expect(res.statusCode).toBe(200)
+  expect(res.json().data.snapshot.signalAvailability.bullmq).toBe('available')
+  expect(res.body).not.toContain('private-operator-secret')
+  await app.close()
 })

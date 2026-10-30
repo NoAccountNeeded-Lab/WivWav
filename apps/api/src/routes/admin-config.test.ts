@@ -19,7 +19,6 @@ function buildTestApp(db: unknown, encryptionSecret: string | undefined = TEST_S
     db: db as never,
     cache: cache as never,
     encryptionSecret,
-    internalApiSecret: undefined,
   })
   return { app, cache }
 }
@@ -45,7 +44,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('GET /admin/config', () => {
+describe('GET /internal/ops/config', () => {
   it('returns all current config values', async () => {
     const row = makeRow()
     const db = {
@@ -66,7 +65,7 @@ describe('GET /admin/config', () => {
   })
 })
 
-describe('GET /admin/config/:key', () => {
+describe('GET /internal/ops/config/:key', () => {
   it('returns the current value for a key', async () => {
     const row = makeRow()
     const db = {
@@ -140,7 +139,7 @@ describe('GET /admin/config/:key', () => {
   })
 })
 
-describe('PUT /admin/config/:key', () => {
+describe('PUT /internal/ops/config/:key', () => {
   it.each([
     ['quality.systemic_error_threshold', 0.375],
     ['quality.drift_threshold_pp', 0.25],
@@ -354,7 +353,7 @@ describe('PUT /admin/config/:key', () => {
   })
 })
 
-describe('GET /admin/config/:key/history', () => {
+describe('GET /internal/ops/config/:key/history', () => {
   it('returns all historical rows for a key', async () => {
     const rows = [
       makeRow({ id: 'c2', value: 'ollama', createdAt: new Date('2026-06-04T01:00:00Z') }),
@@ -391,7 +390,7 @@ describe('GET /admin/config/:key/history', () => {
   })
 })
 
-describe('DELETE /admin/config/:key', () => {
+describe('DELETE /internal/ops/config/:key', () => {
   it('allows resetting a registry key with no active row', async () => {
     const db = { configEntry: { findFirst: vi.fn(async () => null), create: vi.fn() } }
     const { app } = buildTestApp(db)

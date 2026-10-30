@@ -56,6 +56,8 @@ import { internalOpsProblemAckRoutes } from './routes/internal-ops-problem-ack.j
 import { internalOpsProblemAggregateRoutes } from './routes/internal-ops-problem-aggregate.js'
 import { adminClientEventsRoutes } from './routes/admin-client-events.js'
 import { adminAuthPlugin } from './plugins/admin-auth.js'
+import { opsAuthPlugin } from './plugins/ops-auth.js'
+import { internalConfigRoutes } from './routes/internal-config.js'
 import { diagnosticAuthPlugin } from './plugins/diagnostic-auth.js'
 import { diagnosticsRoutes } from './routes/diagnostics/index.js'
 import { apiKeyAuthPlugin, getResolvedApiKey } from './plugins/api-key-auth.js'
@@ -159,6 +161,7 @@ export async function buildApp(
   const apiKeyAuthDeps = {
     apiKeys: apiKeyRepo,
     internalApiSecret: config.INTERNAL_API_SECRET,
+    opsApiSecret: config.OPS_API_SECRET,
     isTrustedOrigin: (origin: string | undefined) => isTrustedBrowserOrigin(origin, config),
   }
 
@@ -320,8 +323,8 @@ export async function buildApp(
   })
   await app.register(sourceRoutes, { prefix: '/v1/sources' })
 
-  // Every route nested under /admin — including Bull Board — is guarded by a
-  // single fail-closed auth hook (see plugins/admin-auth.ts). Fastify plugin
+  // Every route nested under /internal/ops — including Bull Board — is guarded by a
+  // single fail-closed auth hook (see plugins/ops-auth.ts). Fastify plugin
   // encapsulation means the hook applies to all children registered inside
   // this callback without each route needing its own check.
   await app.register(
@@ -330,8 +333,8 @@ export async function buildApp(
       // adminScope itself rather than a further-nested encapsulation context —
       // otherwise it would only guard routes registered inside this plugin's
       // own scope, not the sibling route registrations below.
-      await adminAuthPlugin(adminScope, {
-        internalApiSecret: config.INTERNAL_API_SECRET,
+      await opsAuthPlugin(adminScope, {
+        opsApiSecret: config.OPS_API_SECRET,
         nodeEnv: config.NODE_ENV,
       })
 
@@ -360,7 +363,6 @@ export async function buildApp(
         db,
         cache,
         encryptionSecret: config.CONFIG_ENCRYPTION_SECRET,
-        internalApiSecret: config.INTERNAL_API_SECRET,
       })
       // The operator-facing API key manager reuses provision/revoke handlers;
       // list is enabled only in this admin-authenticated scope.
@@ -382,25 +384,39 @@ export async function buildApp(
         operatorConfig,
       })
 
-      const boardAdapter = new FastifyAdapter()
-      boardAdapter.setBasePath('/admin/board')
-      createBullBoard({ queues: createBullBoardQueues(queueFactory), serverAdapter: boardAdapter })
-      await adminScope.register(boardAdapter.registerPlugin(), { prefix: '/board' })
+
     },
-    { prefix: '/admin' },
+    { prefix: '/internal/ops' },
   )
 
+  await app.register(internalConfigRoutes, {
+    prefix: '/internal/config',
+    db,
+    cache,
+    internalApiSecret: config.INTERNAL_API_SECRET,
+    opsApiSecret: config.OPS_API_SECRET,
+    nodeEnv: config.NODE_ENV,
+  })
+
+  await app.register(async (boardScope) => {
+    await opsAuthPlugin(boardScope, { opsApiSecret: config.OPS_API_SECRET, nodeEnv: config.NODE_ENV })
+    const boardAdapter = new FastifyAdapter()
+    boardAdapter.setBasePath('/ops/queues/board')
+    createBullBoard({ queues: createBullBoardQueues(queueFactory), serverAdapter: boardAdapter })
+    await boardScope.register(boardAdapter.registerPlugin())
+  }, { prefix: '/ops/queues/board' })
+
   // Key provisioning (#453) plus the Grafana/Sentry operator-dashboard proxies
-  // (#890) — same fail-closed Authorization: Bearer {INTERNAL_API_SECRET}
-  // boundary as /admin, reusing adminAuthPlugin directly for the same
+  // (#890) — same fail-closed Authorization: Bearer {OPS_API_SECRET}
+  // boundary as /internal/ops, reusing opsAuthPlugin directly for the same
   // encapsulation reason documented above. Deliberately a sibling scope to
-  // /admin, not nested inside it: these are operator/server-to-server
+  // /internal/ops, not nested inside it: these are operator/server-to-server
   // surfaces (billing provisioning, Grafana/Sentry reads for the ops
   // dashboard), never called from a browser.
   await app.register(
     async (internalScope) => {
-      await adminAuthPlugin(internalScope, {
-        internalApiSecret: config.INTERNAL_API_SECRET,
+      await opsAuthPlugin(internalScope, {
+        opsApiSecret: config.OPS_API_SECRET,
         nodeEnv: config.NODE_ENV,
       })
 
@@ -425,13 +441,12 @@ export async function buildApp(
 
   const workerRegistry = new WorkerRegistry()
 
-  // New privileged operator APIs mount under /internal/ops/*, not /admin/*.
-  // This still uses the existing fail-closed bearer guard until the broader
-  // OPS_API_SECRET migration lands.
+  // New privileged operator APIs mount under /internal/ops/*, not /internal/ops/*.
+  // Operator credentials are separate from web and worker service authority.
   await app.register(
     async (internalOpsScope) => {
-      await adminAuthPlugin(internalOpsScope, {
-        internalApiSecret: config.INTERNAL_API_SECRET,
+      await opsAuthPlugin(internalOpsScope, {
+        opsApiSecret: config.OPS_API_SECRET,
         nodeEnv: config.NODE_ENV,
       })
 
@@ -469,21 +484,14 @@ export async function buildApp(
     { prefix: '/internal/ops' },
   )
 
-  // Read-only AI diagnostic gateway (#757/#773/#775). A separate fail-closed
-  // scope from /admin and /internal — gated by DIAGNOSTIC_API_SECRET, a
-  // narrower credential safe to hand to desktop AI MCP clients (see
-  // plugins/diagnostic-auth.ts for why it must not be INTERNAL_API_SECRET).
-  // INTERNAL_API_SECRET is also accepted here (asymmetric compatibility so
-  // the ops BFF can proxy without new wiring), but adminAuthPlugin never
-  // accepts DIAGNOSTIC_API_SECRET, so this credential can never reach
-  // /admin/*. get_system_snapshot calls /admin/* routes in-process via
-  // app.inject (see routes/diagnostics/system-snapshot.ts) using
-  // INTERNAL_API_SECRET itself, not the caller's diagnostic credential.
+  // Read-only diagnostic identity is accepted only here. The operator identity
+  // is intentionally also accepted, while the web/worker identity is rejected.
+  // The snapshot uses the server-held OPS identity for bounded in-process reads.
   await app.register(
     async (diagnosticsScope) => {
       await diagnosticAuthPlugin(diagnosticsScope, {
         diagnosticApiSecret: config.DIAGNOSTIC_API_SECRET,
-        internalApiSecret: config.INTERNAL_API_SECRET,
+        opsApiSecret: config.OPS_API_SECRET,
         nodeEnv: config.NODE_ENV,
       })
 
@@ -513,17 +521,17 @@ export async function buildApp(
   // sole BullMQ consumer for the three browser-job queues and dispatches them
   // to connected apps/worker runners. apps/scraper no longer has fallback
   // consumers, so disabling this flag pauses browser-job processing.
-  // The registry exists regardless of the flag so GET /admin/workers (#1038)
+  // The registry exists regardless of the flag so GET /internal/ops/workers (#1038)
   // returns an empty list, not a 404, when the gateway is disabled.
   await app.register(
     async (adminWorkersScope) => {
-      await adminAuthPlugin(adminWorkersScope, {
-        internalApiSecret: config.INTERNAL_API_SECRET,
+      await opsAuthPlugin(adminWorkersScope, {
+        opsApiSecret: config.OPS_API_SECRET,
         nodeEnv: config.NODE_ENV,
       })
       await adminWorkersScope.register(adminWorkersRoutes, { registry: workerRegistry })
     },
-    { prefix: '/admin/workers' },
+    { prefix: '/internal/ops/workers' },
   )
 
   if (config.WORKER_GATEWAY_ENABLED) {
@@ -580,7 +588,7 @@ export async function buildApp(
     })
   }
 
-  // Intentionally unauthenticated and outside /admin — this endpoint accepts only
+  // Intentionally unauthenticated and outside /internal/ops — this endpoint accepts only
   // pre-validated structured browser error events and is rate-limited per-route.
   // See docs/api-routes.md for the full list of public exceptions to the admin
   // fail-closed boundary (this route, /health, /metrics).

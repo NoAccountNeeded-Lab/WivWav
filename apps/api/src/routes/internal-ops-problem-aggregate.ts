@@ -18,10 +18,10 @@ interface InternalOpsProblemAggregatePluginOptions extends GrafanaAlertsClientOp
  * `/ops/problems` both render from (issue #892, child of #758) — neither
  * consumer may fork this computation into a second implementation. A new
  * privileged operator API, so it mounts under `/internal/ops/*` alongside
- * `internal-ops-problem-ack` (#891), not under `/admin/*` (see `app.ts`).
+ * `internal-ops-problem-ack` (#891), not under `/internal/ops/*` (see `app.ts`).
  *
  * Same "caller reports already-fetched domain resource state" pattern as
- * `POST /admin/attention-snapshot` (E5: independent per-section
+ * `POST /internal/ops/attention-snapshot` (E5: independent per-section
  * streaming/retry) for `health`/`queues`/`sources`/`runs`/`schedules`. Unlike
  * that route, Grafana and Sentry state is fetched here server-side rather
  * than posted by the browser — `internal-grafana-alerts`/`internal-sentry-issues`

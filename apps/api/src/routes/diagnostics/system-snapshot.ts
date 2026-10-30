@@ -32,10 +32,10 @@ export interface SystemSnapshotPluginOptions {
   meili: Meilisearch
   cache: CacheService
   config: Config
-  /** Sent as `Authorization: Bearer <secret>` on the in-process `/admin/*`
+  /** Sent as `Authorization: Bearer <secret>` on the in-process `/internal/ops/*`
    *  calls below, mirroring `adminAuthPlugin`'s own accepted credential.
-   *  `undefined` in local dev, where `/admin/*` is unauthenticated. */
-  internalApiSecret: string | undefined
+   *  `undefined` in local dev, where `/internal/ops/*` is unauthenticated. */
+  opsApiSecret: string | undefined
 }
 
 interface QuerystringShape {
@@ -48,9 +48,9 @@ interface QuerystringShape {
  * Serves the #774 domain computation (`computeAttentionSnapshot`) windowed
  * to `windowMinutes` (default 60, capped at 1440/24h) with per-section item
  * caps. Queue/source/run/schedule state is gathered by calling the already-
- * registered `/admin/queues`, `/admin/sources`, `/admin/runs`, and
- * `/admin/repeatables` routes in-process via `app.inject` — those routes
- * (particularly `/admin/repeatables`, which reconciles canonical schedule
+ * registered `/internal/ops/queues`, `/internal/ops/sources`, `/internal/ops/runs`, and
+ * `/internal/ops/repeatables` routes in-process via `app.inject` — those routes
+ * (particularly `/internal/ops/repeatables`, which reconciles canonical schedule
  * definitions against live BullMQ state) are the single source of truth for
  * this data; this route must not fork a second implementation of that
  * reconciliation. Health uses `computeHealth` directly (the same probe
@@ -61,23 +61,23 @@ interface QuerystringShape {
  */
 export const systemSnapshotRoutes: FastifyPluginAsync<SystemSnapshotPluginOptions> = async (
   app,
-  { db, sources, scraperRuns, meili, cache, config, internalApiSecret },
+  { db, sources, scraperRuns, meili, cache, config, opsApiSecret },
 ) => {
   app.get<{ Querystring: QuerystringShape }>('/', async (req, reply) => {
     const nowMs = Date.now()
     const window = resolveWindow(req.query.windowMinutes, nowMs)
 
-    const authHeaders = internalApiSecret ? { authorization: `Bearer ${internalApiSecret}` } : {}
+    const authHeaders = opsApiSecret ? { authorization: `Bearer ${opsApiSecret}` } : {}
 
     const [healthResult, queuesRes, sourcesRes, runsRes, schedulesRes, lokiReachable] = await Promise.all([
       computeHealth({ db, sources, scraperRuns, meili, cache, config }).then(
         (data) => ({ ok: true as const, data }),
         () => ({ ok: false as const }),
       ),
-      app.inject({ method: 'GET', url: '/admin/queues', headers: authHeaders }),
-      app.inject({ method: 'GET', url: '/admin/sources', headers: authHeaders }),
-      app.inject({ method: 'GET', url: '/admin/runs', headers: authHeaders }),
-      app.inject({ method: 'GET', url: '/admin/repeatables', headers: authHeaders }),
+      app.inject({ method: 'GET', url: '/internal/ops/queues', headers: authHeaders }),
+      app.inject({ method: 'GET', url: '/internal/ops/sources', headers: authHeaders }),
+      app.inject({ method: 'GET', url: '/internal/ops/runs', headers: authHeaders }),
+      app.inject({ method: 'GET', url: '/internal/ops/repeatables', headers: authHeaders }),
       pingLoki(config.LOKI_URL),
     ])
 

@@ -26,7 +26,7 @@ const queueJobBodySchema = {
 
 // Queue inspection and control: stats, enqueue, pause/resume, clean failed.
 export const adminQueueRoutes: FastifyPluginAsync<AdminQueuesOptions> = async (app, { queues }) => {
-  // GET /admin/queues — all queues with stats
+  // GET /internal/ops/queues — all queues with stats
   app.get('/queues', async (_req, reply) => {
     try {
       const data = await Promise.all(
@@ -44,7 +44,7 @@ export const adminQueueRoutes: FastifyPluginAsync<AdminQueuesOptions> = async (a
     }
   })
 
-  // GET /admin/queues/:name — single queue stats + recent jobs
+  // GET /internal/ops/queues/:name — single queue stats + recent jobs
   app.get<{ Params: { name: string } }>('/queues/:name', async (req, reply) => {
     const q = queues.get(req.params.name)
     if (!q) return reply.notFound(`Queue "${req.params.name}" not found`)
@@ -56,7 +56,7 @@ export const adminQueueRoutes: FastifyPluginAsync<AdminQueuesOptions> = async (a
     return reply.send({ data: { name: req.params.name, paused, stats, jobs, policy: q.getPolicy() } })
   })
 
-  // POST /admin/queues/:name/jobs — enqueue a job
+  // POST /internal/ops/queues/:name/jobs — enqueue a job
   app.post<{ Params: { name: string }; Body: QueueJobBody | null }>(
     '/queues/:name/jobs',
     { schema: { body: queueJobBodySchema } },
@@ -80,7 +80,7 @@ export const adminQueueRoutes: FastifyPluginAsync<AdminQueuesOptions> = async (a
     },
   )
 
-  // POST /admin/queues/:name/pause
+  // POST /internal/ops/queues/:name/pause
   app.post<{ Params: { name: string } }>('/queues/:name/pause', async (req, reply) => {
     const q = queues.get(req.params.name)
     if (!q) return reply.notFound(`Queue "${req.params.name}" not found`)
@@ -88,7 +88,7 @@ export const adminQueueRoutes: FastifyPluginAsync<AdminQueuesOptions> = async (a
     return reply.send({ data: { paused: true } })
   })
 
-  // POST /admin/queues/:name/resume
+  // POST /internal/ops/queues/:name/resume
   app.post<{ Params: { name: string } }>('/queues/:name/resume', async (req, reply) => {
     const q = queues.get(req.params.name)
     if (!q) return reply.notFound(`Queue "${req.params.name}" not found`)
@@ -96,7 +96,7 @@ export const adminQueueRoutes: FastifyPluginAsync<AdminQueuesOptions> = async (a
     return reply.send({ data: { paused: false } })
   })
 
-  // DELETE /admin/queues/:name/failed — clean all failed jobs from a queue
+  // DELETE /internal/ops/queues/:name/failed — clean all failed jobs from a queue
   app.delete<{ Params: { name: string } }>('/queues/:name/failed', async (req, reply) => {
     const q = queues.get(req.params.name)
     if (!q) return reply.notFound(`Queue "${req.params.name}" not found`)

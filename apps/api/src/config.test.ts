@@ -177,3 +177,18 @@ describe('shopping filters deployment gate', () => {
     expect(loadConfig().WAV_SHOPPING_FILTERS_ENABLED).toBe(true)
   })
 })
+
+describe('service credential separation', () => {
+  it.each([
+    ['INTERNAL_API_SECRET', 'OPS_API_SECRET'],
+    ['INTERNAL_API_SECRET', 'DIAGNOSTIC_API_SECRET'],
+    ['OPS_API_SECRET', 'DIAGNOSTIC_API_SECRET'],
+  ])('rejects identical %s and %s without exposing the secret', (first, second) => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    vi.stubEnv(first, 'duplicated-secret-value')
+    vi.stubEnv(second, 'duplicated-secret-value')
+    expect(() => loadConfig()).toThrow(`Missing or invalid: ${second}`)
+    try { loadConfig() } catch (error) { expect(String(error)).not.toContain('duplicated-secret-value') }
+  })
+})

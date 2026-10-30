@@ -14,7 +14,7 @@ export const adminListingRefreshRoutes: FastifyPluginAsync<AdminListingRefreshOp
   app,
   { listings, sources, scraperRuns, queues },
 ) => {
-  // GET /admin/listing-refresh/status — aggregate status for the guided refresh workflow
+  // GET /internal/ops/listing-refresh/status — aggregate status for the guided refresh workflow
   app.get('/listing-refresh/status', async (_req, reply) => {
     try {
       const data = await buildListingRefreshStatus({ sources, scraperRuns, listings, queues })

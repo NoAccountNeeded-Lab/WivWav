@@ -125,8 +125,8 @@ function summarize(registry: WorkerRegistry, now: Date): WorkersSummary {
 }
 
 /**
- * GET /admin/workers — read-only snapshot of `WorkerRegistry.list()` (#1038).
- * Mount inside an adminAuthPlugin-guarded scope at the `/admin/workers` prefix.
+ * GET /internal/ops/workers — read-only snapshot of `WorkerRegistry.list()` (#1038).
+ * Mount inside an adminAuthPlugin-guarded scope at the `/internal/ops/workers` prefix.
  * Workers are only ever registered when the worker gateway is enabled; with it
  * disabled the registry is empty and this returns an empty list.
  */

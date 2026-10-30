@@ -18,7 +18,7 @@ interface AdminVehicleIdentityPluginOptions {
 
 export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentityPluginOptions> =
   async (app, { vehicleIdentityDecisions }) => {
-    // ── GET /admin/vehicle-identity/candidates ────────────────────────────────
+    // ── GET /internal/ops/vehicle-identity/candidates ────────────────────────────────
     // List pending candidates with their contributing/conflicting signals, both
     // listing snapshots, and pagination metadata.
     app.get<{ Querystring: CandidateListQuery }>(
@@ -43,7 +43,7 @@ export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentity
       },
     )
 
-    // ── POST /admin/vehicle-identity/candidates/:id/approve ──────────────────
+    // ── POST /internal/ops/vehicle-identity/candidates/:id/approve ──────────────────
     // Approve a candidate: transition to `verified`, find-or-create a shared
     // Vehicle, and link both listings to it.
     app.post<{ Params: { id: string } }>(
@@ -59,7 +59,7 @@ export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentity
       },
     )
 
-    // ── POST /admin/vehicle-identity/candidates/:id/reject ───────────────────
+    // ── POST /internal/ops/vehicle-identity/candidates/:id/reject ───────────────────
     // Reject a candidate: transition to `rejected` without linking listings.
     app.post<{ Params: { id: string } }>(
       '/candidates/:id/reject',
@@ -74,7 +74,7 @@ export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentity
       },
     )
 
-    // ── POST /admin/vehicle-identity/candidates/:id/split ────────────────────
+    // ── POST /internal/ops/vehicle-identity/candidates/:id/split ────────────────────
     // Split a verified group: transition to `split` and unlink listings.
     // Only decisions in `verified` state can be split (422 otherwise).
     app.post<{ Params: { id: string } }>(
@@ -93,7 +93,7 @@ export const adminVehicleIdentityRoutes: FastifyPluginAsync<AdminVehicleIdentity
       },
     )
 
-    // ── POST /admin/vehicle-identity/candidates/:id/undo-split ───────────────
+    // ── POST /internal/ops/vehicle-identity/candidates/:id/undo-split ───────────────
     // Undo a split: transition back to `candidate` so the operator can
     // re-approve or re-reject.
     app.post<{ Params: { id: string } }>(

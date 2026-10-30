@@ -25,7 +25,7 @@ export interface DiagnosticsPluginOptions {
  * Q7) and built on top of the `/diagnostics` fail-closed auth boundary
  * (#773) and the shared domain snapshot (#774). `get_source_pipeline`,
  * `get_recent_logs`, and `get_failed_job` remain out of scope here — they
- * are bounded/typed wrappers over existing `/admin` routes exposed later
+ * are bounded/typed wrappers over existing `/internal/ops` routes exposed later
  * through the MCP adapter (follow-up issue), not new API routes.
  */
 export const diagnosticsRoutes: FastifyPluginAsync<DiagnosticsPluginOptions> = async (
@@ -50,7 +50,7 @@ export const diagnosticsRoutes: FastifyPluginAsync<DiagnosticsPluginOptions> = a
     meili,
     cache,
     config,
-    internalApiSecret: config.INTERNAL_API_SECRET,
+    opsApiSecret: config.OPS_API_SECRET,
   })
 
   await app.register(correlationRoutes, {

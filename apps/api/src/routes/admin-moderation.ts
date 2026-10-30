@@ -48,7 +48,7 @@ export const adminModerationRoutes: FastifyPluginAsync<{ listings: ListingReposi
   // Operator-facing list/filter/reprocess surface for listings the publication
   // validator quarantined (see engine/listing-validator.ts).
 
-  // GET /admin/quarantine — list quarantined listings, filterable by source,
+  // GET /internal/ops/quarantine — list quarantined listings, filterable by source,
   // rule, severity, and age (olderThanDays).
   app.get<{ Querystring: QuarantineListQuery }>('/quarantine', async (req, reply) => {
     const { sourceId, rule, severity, olderThanDays, skip, take } = req.query
@@ -95,7 +95,7 @@ export const adminModerationRoutes: FastifyPluginAsync<{ listings: ListingReposi
     })
   })
 
-  // POST /admin/quarantine/:id/reprocess — reset a quarantined listing to
+  // POST /internal/ops/quarantine/:id/reprocess — reset a quarantined listing to
   // 'pending' so the next validator pass re-evaluates it (e.g. after an
   // operator corrects upstream data or a source fix ships).
   app.post<{ Params: { id: string } }>('/quarantine/:id/reprocess', async (req, reply) => {
@@ -113,7 +113,7 @@ export const adminModerationRoutes: FastifyPluginAsync<{ listings: ListingReposi
   // this issue does not build a separate user-report form, only the
   // operator-facing conflict list the issue's acceptance criteria require.
 
-  // GET /admin/field-conflicts — list unresolved field conflicts, one row per
+  // GET /internal/ops/field-conflicts — list unresolved field conflicts, one row per
   // (listingId, field), with the competing claims that caused each one.
   app.get<{ Querystring: FieldConflictListQuery }>('/field-conflicts', async (req, reply) => {
     const { sourceId, field, skip, take } = req.query
@@ -137,7 +137,7 @@ export const adminModerationRoutes: FastifyPluginAsync<{ listings: ListingReposi
     return reply.send({ data: rows, meta: { total, skip: parsedSkip, take: parsedTake } })
   })
 
-  // GET /admin/listing-reports — operator triage for listings with unresolved
+  // GET /internal/ops/listing-reports — operator triage for listings with unresolved
   // user reports, sorted by highest unresolved count then latest report.
   app.get<{ Querystring: ListingReportListQuery }>('/listing-reports', async (req, reply) => {
     const { minReports, skip, take } = req.query
@@ -158,7 +158,7 @@ export const adminModerationRoutes: FastifyPluginAsync<{ listings: ListingReposi
     return reply.send({ data: rows, meta: { total, skip: parsedSkip, take: parsedTake } })
   })
 
-  // GET /admin/images/:imageId/semantic-analyses — full operator-only audit
+  // GET /internal/ops/images/:imageId/semantic-analyses — full operator-only audit
   // history for one image. Unlike the public listing read model, this exposes
   // low-confidence and failed attempts for calibration/review.
   app.get<{ Params: { imageId: string } }>('/images/:imageId/semantic-analyses', async (req, reply) => {

@@ -25,7 +25,7 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
   { lokiUrl, lokiAuthorization },
 ) => {
   /**
-   * GET /admin/logs
+   * GET /internal/ops/logs
    *
    * Query Loki for recent log lines. Returns a flat array of normalised LogEntry
    * objects in descending timestamp order.
@@ -98,7 +98,7 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
   })
 
   /**
-   * GET /admin/logs/services
+   * GET /internal/ops/logs/services
    * Return the set of known service labels from Loki label values.
    */
   app.get('/services', async (_req, reply) => {

@@ -20,7 +20,7 @@ export interface ServiceGlossaryEntry {
 }
 
 export const SERVICE_GLOSSARY: ServiceGlossaryEntry[] = [
-  { name: 'api', kind: 'app', description: 'Fastify REST API. Owns /v1 public endpoints, /admin operator endpoints, and this /diagnostics gateway.' },
+  { name: 'api', kind: 'app', description: 'Fastify REST API. Owns /v1 public endpoints, /internal/ops operator endpoints, and this /diagnostics gateway.' },
   { name: 'scraper', kind: 'app', description: 'Playwright-based scraper and Ollama-backed selector remapping. Runs as BullMQ workers, not an HTTP service.' },
   { name: 'ops', kind: 'app', description: 'Next.js operations UI. Calls the API as a client; never accesses the database directly.' },
   { name: 'web', kind: 'app', description: 'Next.js public-facing listing search UI. Calls the API as a client; never accesses the database directly.' },
@@ -38,7 +38,7 @@ export const SERVICE_GLOSSARY: ServiceGlossaryEntry[] = [
   { name: 'valkey', kind: 'infra', description: 'Cache and BullMQ backing store.' },
   { name: 'meilisearch', kind: 'infra', description: 'Search index backing public listing search and facets.' },
   { name: 'ollama', kind: 'infra', description: 'Local LLM runtime used for AI-assisted selector remapping. Optional — its absence degrades, not blocks, scraping.' },
-  { name: 'loki', kind: 'infra', description: 'Log aggregation queried by /admin/logs and this diagnostic gateway\'s get_correlation/get_system_snapshot.' },
+  { name: 'loki', kind: 'infra', description: 'Log aggregation queried by /internal/ops/logs and this diagnostic gateway\'s get_correlation/get_system_snapshot.' },
 ]
 
 export interface SignalGlossaryEntry {
@@ -93,7 +93,7 @@ export const SAFETY_RULES: string[] = [
   'No route accepts arbitrary SQL, LogQL, URLs, or filesystem paths — only allow-listed typed filters (e.g. get_correlation\'s idType) with bounded time windows and result counts.',
   'No response includes decrypted configuration, credentials, cookies, or tokens. If a value looks credential-shaped in upstream data, treat its presence in a response as a bug, not a feature.',
   'get_system_snapshot windows are capped at 24 hours and default to 1 hour; get_correlation caps returned log lines at 100 with a truncation marker when more matched.',
-  'DIAGNOSTIC_API_SECRET (this scope\'s credential) grants no access to /admin/*, /internal/v1/*, or /internal/ops/* — those require the separate, more privileged INTERNAL_API_SECRET.',
+  'DIAGNOSTIC_API_SECRET (this scope\'s credential) grants no access to /internal/ops/*, /internal/v1/*, or /ops/queues/board/* — those require the separate, more privileged OPS_API_SECRET.',
 ]
 
 /**
