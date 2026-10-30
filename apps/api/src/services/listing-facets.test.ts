@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { ListingFacetsService } from './listing-facets.js'
 import { priceBucket, mileageBucket } from './listing-search.js'
 import type { CacheService } from './cache/index.js'
@@ -75,7 +75,7 @@ describe('ListingFacetsService', () => {
 
     const result = await new ListingFacetsService(search, cache).getFacets({})
 
-    expect(cache.get).toHaveBeenCalledWith('facets:eligible-v2:{}')
+    expect(cache.get).toHaveBeenCalledWith('facets:shopping-v3:held:{}')
     expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
       facets: expect.arrayContaining(['rampType', 'wavFeatures', 'sellerType']),
       limit: 0,
@@ -214,5 +214,22 @@ describe('ListingFacetsService', () => {
     expect(settings.getOperatorSetting).toHaveBeenCalledWith('facets.cache_ttl_s')
     expect(cache.get).not.toHaveBeenCalled()
     expect(cache.set).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('shopping facet rollout', () => {
+  afterEach(() => vi.unstubAllEnvs())
+  it('invalidates held and legacy caches when enabling rebuilt shopping facets', async () => {
+    const search = { search: vi.fn().mockResolvedValue({ hits: [], total: 3, facetDistribution: { cityState: { 'springfield|IL': 2, 'springfield|MO': 1 }, transmission: { automatic: 2 }, wheelchairCapacity: { '1': 2 }, conversionStatus: { complete: 2, unknown: 1 } } }) }
+    const cache = { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue(undefined) }
+    const service = new ListingFacetsService(search as never, cache as never)
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'false')
+    expect((await service.getFacets({})).shoppingFiltersReady).toBe(false)
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'true')
+    const result = await service.getFacets({})
+    expect(result).toMatchObject({ shoppingFiltersReady: true, cityBreakdown: [{ value: 'springfield|IL', count: 2 }, { value: 'springfield|MO', count: 1 }], wheelchairCapacityBreakdown: [{ value: '1', count: 2 }], conversionStatusBreakdown: [{ value: 'complete', count: 2 }, { value: 'unknown', count: 1 }] })
+    expect(cache.get.mock.calls.map(([key]) => key)).toEqual(['facets:shopping-v3:held:{}', 'facets:shopping-v3:ready:{}'])
+    expect(search.search).toHaveBeenLastCalledWith('listings', expect.objectContaining({ facets: expect.arrayContaining(['cityState', 'transmission', 'wheelchairCapacity', 'conversionStatus']) }))
   })
 })

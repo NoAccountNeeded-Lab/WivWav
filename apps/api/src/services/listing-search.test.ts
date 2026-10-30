@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { configureListingsIndex, q, priceBucket, mileageBucket, ListingSearchService } from './listing-search.js'
+import { configureListingsIndex, buildListingFilters, q, priceBucket, mileageBucket, ListingSearchService } from './listing-search.js'
 import type { SearchParams } from './listing-search.js'
 import type { SearchService, SearchOptions, SearchResult } from './search/index.js'
 import type { ListingDocument } from '@wivwav/search'
@@ -447,5 +447,15 @@ describe('ListingSearchService.search', () => {
     expect(opts.facets).toEqual(
       expect.arrayContaining(['make', 'model', 'year', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType', 'fuelType']),
     )
+  })
+})
+
+
+describe('shopping filter conjunctions', () => {
+  it('keeps city/state pairs atomic while retaining explicit state restrictions', () => {
+    expect(buildListingFilters({ city: ['Springfield|IL', 'Portland|OR'], state: ['MO'], transmission: ['automatic', 'manual'], wheelchairCapacity: [1, 2], conversionStatus: ['proposed', 'unknown'] }).filters).toEqual({ status: 'active', publicationStatus: 'eligible', cityState: ['springfield|IL', 'portland|OR'], state: ['MO'], transmission: ['automatic', 'manual'], wheelchairCapacity: [1, 2], conversionStatus: ['proposed', 'unknown'] })
+  })
+  it('does not interpret missing capacity as zero', () => {
+    expect(buildListingFilters({}).filters).not.toHaveProperty('wheelchairCapacity')
   })
 })

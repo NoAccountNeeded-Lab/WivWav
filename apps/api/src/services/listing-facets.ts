@@ -8,6 +8,11 @@ export type FacetsParams = Omit<SearchParams, 'page' | 'perPage' | 'sort'>
 
 export interface FacetsResult {
   total: number
+  shoppingFiltersReady?: boolean
+  cityBreakdown?: Array<{ value: string; count: number }>
+  transmissionBreakdown?: Array<{ value: string; count: number }>
+  wheelchairCapacityBreakdown?: Array<{ value: string; count: number }>
+  conversionStatusBreakdown?: Array<{ value: string; count: number }>
   priceDistribution: Array<{ bucket: string; count: number }>
   yearDistribution: Array<{ year: number; count: number }>
   mileageDistribution: Array<{ bucket: string; count: number }>
@@ -27,7 +32,12 @@ export interface FacetsResult {
   wavFeatureCounts: Record<string, number>
 }
 
-const CACHE_NAMESPACE = 'facets:eligible-v2'
+const CACHE_NAMESPACE = 'facets:shopping-v3'
+
+/** Enable only after the verified full rebuild described in the shopping-filter runbook. */
+export function shoppingFiltersEnabled(): boolean {
+  return process.env['WAV_SHOPPING_FILTERS_ENABLED'] === 'true'
+}
 
 interface FacetSettings {
   getOperatorSetting(key: 'facets.cache_ttl_s'): Promise<number>
@@ -43,7 +53,8 @@ export class ListingFacetsService {
   async getFacets(params: FacetsParams): Promise<FacetsResult> {
     // Namespace includes the publication policy so pre-gate cached facet
     // counts cannot survive a deployment of the default-deny boundary.
-    const cacheKey = `${CACHE_NAMESPACE}:${stableKey(params)}`
+    const ready = shoppingFiltersEnabled()
+    const cacheKey = `${CACHE_NAMESPACE}:${ready ? 'ready' : 'held'}:${stableKey(params)}`
 
     const ttlSeconds = await this.settings?.getOperatorSetting('facets.cache_ttl_s') ?? OPERATOR_SETTINGS['facets.cache_ttl_s'].defaultValue
     const cached = ttlSeconds > 0 ? await this.cache.get(cacheKey).catch(() => null) : null
@@ -59,6 +70,7 @@ export class ListingFacetsService {
         'make', 'model', 'trim', 'year', 'condition', 'conversionType',
         'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
         'conversionBrand', 'priceBucket', 'mileageBucket',
+        ...(ready ? ['cityState', 'transmission', 'wheelchairCapacity', 'conversionStatus'] : []),
       ],
       limit: 0,
     })
@@ -67,6 +79,11 @@ export class ListingFacetsService {
 
     const facetsResult: FacetsResult = {
       total: result.total,
+      shoppingFiltersReady: ready,
+      cityBreakdown: toValueCount(dist['cityState'] ?? {}),
+      transmissionBreakdown: toValueCount(dist['transmission'] ?? {}),
+      wheelchairCapacityBreakdown: toValueCount(dist['wheelchairCapacity'] ?? {}),
+      conversionStatusBreakdown: toValueCount(dist['conversionStatus'] ?? {}),
       priceDistribution: toSortedBuckets(dist['priceBucket'] ?? {}),
       yearDistribution: toYearDist(dist['year'] ?? {}),
       mileageDistribution: toSortedBuckets(dist['mileageBucket'] ?? {}),

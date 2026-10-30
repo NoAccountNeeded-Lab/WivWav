@@ -1,3 +1,4 @@
+import { cityStateKey } from '@wivwav/types'
 import type { Meilisearch } from 'meilisearch'
 import type { ListingDocument } from '@wivwav/search'
 import {
@@ -28,6 +29,10 @@ export interface SearchParams {
   wavFeatures?: string[] | undefined
   color?: string[] | undefined
   state?: string[] | undefined
+  city?: string[] | undefined
+  transmission?: string[] | undefined
+  wheelchairCapacity?: number[] | undefined
+  conversionStatus?: string[] | undefined
   sellerType?: string[] | undefined
   fuelType?: string[] | undefined
   sort?: string | undefined
@@ -75,6 +80,13 @@ export function buildListingFilters(params: Omit<SearchParams, 'page' | 'perPage
   if (params.rampType?.length) filters['rampType'] = params.rampType
   if (params.wavFeatures?.length) filters['wavFeatures'] = params.wavFeatures
   if (params.color?.length) filters['color'] = params.color
+  if (params.city?.length) filters['cityState'] = params.city.map((pair) => {
+    const [city, state] = pair.split('|')
+    return cityStateKey(city, state) ?? pair
+  })
+  if (params.transmission?.length) filters['transmission'] = params.transmission
+  if (params.wheelchairCapacity?.length) filters['wheelchairCapacity'] = params.wheelchairCapacity
+  if (params.conversionStatus?.length) filters['conversionStatus'] = params.conversionStatus
   if (params.state?.length) filters['state'] = params.state
   if (params.sellerType?.length) filters['sellerType'] = params.sellerType
   if (params.fuelType?.length) filters['fuelType'] = params.fuelType
@@ -114,7 +126,7 @@ export class ListingSearchService {
       ...(params.q != null ? { query: params.q } : {}),
       filters,
       ...(rangeFilters.length ? { rangeFilters } : {}),
-      facets: ['make', 'model', 'year', 'trim', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType', 'fuelType'],
+      facets: ['make', 'model', 'year', 'trim', 'condition', 'conversionType', 'rampType', 'color', 'state', 'sellerType', 'fuelType', 'cityState', 'transmission', 'wheelchairCapacity', 'conversionStatus'],
       ...(params.sort ? { sort: [params.sort] } : {}),
       limit: perPage,
       offset: (page - 1) * perPage,
