@@ -14,6 +14,8 @@
 // still target the localhost fallback even with a real host configured.
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MileageHistogram } from './MileageHistogram'
+import { PriceHistogram } from './PriceHistogram'
 import { YearHistogram } from './YearHistogram'
 
 vi.mock('next/navigation', () => ({
@@ -61,5 +63,29 @@ describe('YearHistogram — runtime API base URL (#837)', () => {
 
     const requestedUrl = String(fetchMock.mock.calls[0]?.[0])
     expect(requestedUrl.startsWith('http://localhost:4001/v1/listings/facets')).toBe(true)
+  })
+
+  it('handles empty price, year, and mileage facet datasets without losing the price control', async () => {
+    class ResizeObserverMock {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+    fetchMock = vi.fn(() => Promise.resolve({
+      json: async () => ({ data: { priceDistribution: [], yearDistribution: [], mileageDistribution: [], total: 0 } }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const view = render(
+      <>
+        <PriceHistogram />
+        <YearHistogram />
+        <MileageHistogram />
+      </>,
+    )
+    await act(async () => {})
+
+    expect(view.container.querySelectorAll('[role="slider"]')).toHaveLength(2)
   })
 })

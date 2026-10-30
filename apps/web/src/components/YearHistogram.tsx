@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
+import { parsePositiveIntegerParameter, rangeFilterSearchParams, useStableRangeValue } from '@/components/useStableRangeValue'
 import { getClientApiBaseUrl } from '@/lib/api-url'
 import styles from './PriceHistogram.module.css'
 
@@ -52,22 +53,17 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
 
   const urlMin = useMemo(() => {
     const v = searchParams.get('yearMin')
-    return v ? parseInt(v, 10) : 0
+    return parsePositiveIntegerParameter(v)
   }, [searchParams])
 
   const urlMax = useMemo(() => {
     const v = searchParams.get('yearMax')
-    return v ? parseInt(v, 10) : 0
+    return parsePositiveIntegerParameter(v)
   }, [searchParams])
 
   const [data, setData] = useState<YearDatum[]>([])
   const [rangeMin, setRangeMin] = useState(2000)
   const [rangeMax, setRangeMax] = useState(new Date().getFullYear())
-  const [localValue, setLocalValue] = useState<[number, number] | null>(null)
-
-  const committedMin = urlMin > 0 ? urlMin : rangeMin
-  const committedMax = urlMax > 0 ? urlMax : rangeMax
-  const sliderDisplay = localValue ?? [committedMin, committedMax]
   const hasFilter = urlMin > 0 || urlMax > 0
 
   const fetchUrl = useMemo(() => {
@@ -96,8 +92,8 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
   }, [fetchUrl])
 
   const push = useCallback(
-    (min: number, max: number) => {
-      const params = new URLSearchParams(searchParams.toString())
+    (min: number, max: number, baseSearchParams?: string) => {
+      const params = rangeFilterSearchParams(baseSearchParams ?? searchParams.toString(), baseSearchParams !== undefined)
       if (min > 0 && min > rangeMin) {
         params.set('yearMin', String(min))
       } else {
@@ -108,34 +104,56 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
       } else {
         params.delete('yearMax')
       }
-      params.delete('page')
       router.push(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [router, pathname, searchParams, rangeMin, rangeMax],
   )
 
+  const reapplyCommit = useCallback(
+    ([min, max]: readonly [number, number], baseSearchParams?: string) => push(min, max, baseSearchParams),
+    [push],
+  )
+  const readHistoryValue = useCallback((search: string) => {
+    const params = new URLSearchParams(search)
+    const min = parsePositiveIntegerParameter(params.get('yearMin'))
+    const max = parsePositiveIntegerParameter(params.get('yearMax'))
+    return {
+      range: [min, max] as const,
+      searchParams: params.toString(),
+    }
+  }, [rangeMin, rangeMax])
+  const stableRange = useStableRangeValue([urlMin, urlMax], [rangeMin, rangeMax], reapplyCommit, readHistoryValue)
+  const [displayMin, displayMax] = stableRange.value
+
   const handleBarClick = useCallback(
     (d: YearDatum) => {
-      const alreadyActive = hasFilter && committedMin === d.year && committedMax === d.year
-      if (alreadyActive) push(0, 0)
-      else push(d.year, d.year)
+      const alreadyActive = hasFilter && displayMin === d.year && displayMax === d.year
+      if (alreadyActive) {
+        stableRange.handleCommit([rangeMin, rangeMax], [0, 0])
+        push(0, 0)
+      } else {
+        const min = d.year <= rangeMin ? 0 : d.year
+        const max = d.year >= rangeMax ? 0 : d.year
+        stableRange.handleCommit([d.year, d.year], [min, max])
+        push(d.year, d.year)
+      }
     },
-    [hasFilter, committedMin, committedMax, push],
+    [hasFilter, displayMin, displayMax, rangeMin, rangeMax, stableRange.handleCommit, push],
   )
 
-  const handleSliderChange = useCallback((v: number[]) => {
-    if (v.length >= 2) setLocalValue([v[0]!, v[1]!])
-  }, [])
+  const handleSliderChange = stableRange.handleChange
 
   const handleSliderCommit = useCallback(
     (v: number[]) => {
-      setLocalValue(null)
-      if (v.length >= 2) push(v[0]!, v[1]!)
+      if (v.length >= 2) {
+        const min = v[0]! <= rangeMin ? 0 : v[0]!
+        const max = v[1]! >= rangeMax ? 0 : v[1]!
+        stableRange.handleCommit(v, [min, max])
+        push(v[0]!, v[1]!)
+      }
     },
-    [push],
+    [push, rangeMin, rangeMax, stableRange.handleCommit],
   )
-
-  const [displayMin, displayMax] = sliderDisplay
 
   const isBarActive = useCallback(
     (d: YearDatum): boolean => {

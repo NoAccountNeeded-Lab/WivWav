@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
+import { parsePositiveIntegerParameter, rangeFilterSearchParams, useStableRangeValue } from '@/components/useStableRangeValue'
 import { getClientApiBaseUrl } from '@/lib/api-url'
 import styles from './PriceHistogram.module.css'
 
@@ -79,16 +80,13 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
 
   const urlMax = useMemo(() => {
     const v = searchParams.get('mileageMax')
-    return v ? parseInt(v, 10) : 0
+    return parsePositiveIntegerParameter(v)
   }, [searchParams])
 
   const [data, setData] = useState<BucketDatum[]>([])
   const [rangeMax, setRangeMax] = useState(DEFAULT_MAX)
-  const [localValue, setLocalValue] = useState<number | null>(null)
   const [facetsTotal, setFacetsTotal] = useState<number | null>(null)
 
-  const committedMax = urlMax > 0 ? urlMax : rangeMax
-  const displayMax = localValue ?? committedMax
   const hasFilter = urlMax > 0
 
   const fetchUrl = useMemo(() => {
@@ -120,38 +118,59 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
   }, [fetchUrl])
 
   const push = useCallback(
-    (max: number) => {
-      const params = new URLSearchParams(searchParams.toString())
+    (max: number, baseSearchParams?: string) => {
+      const params = rangeFilterSearchParams(baseSearchParams ?? searchParams.toString(), baseSearchParams !== undefined)
       if (max > 0 && max < rangeMax) {
         params.set('mileageMax', String(max))
       } else {
         params.delete('mileageMax')
       }
-      params.delete('page')
       router.push(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [router, pathname, searchParams, rangeMax],
   )
 
+  const reapplyCommit = useCallback(
+    ([, max]: readonly [number, number], baseSearchParams?: string) => push(max, baseSearchParams),
+    [push],
+  )
+  const readHistoryValue = useCallback((search: string) => {
+    const params = new URLSearchParams(search)
+    const max = parsePositiveIntegerParameter(params.get('mileageMax'))
+    return {
+      range: [0, max] as const,
+      searchParams: params.toString(),
+    }
+  }, [rangeMax])
+  const stableRange = useStableRangeValue([0, urlMax], [0, rangeMax], reapplyCommit, readHistoryValue)
+  const displayMax = stableRange.value[1]
+
   const handleBarClick = useCallback(
     (d: BucketDatum) => {
-      const alreadyActive = hasFilter && committedMax === d.hi
-      if (alreadyActive) push(0)
-      else push(d.hi)
+      const alreadyActive = hasFilter && displayMax === d.hi
+      if (alreadyActive) {
+        stableRange.handleCommit([0, rangeMax], [0, 0])
+        push(0)
+      } else {
+        const max = d.hi >= rangeMax ? 0 : d.hi
+        stableRange.handleCommit([0, d.hi], [0, max])
+        push(d.hi)
+      }
     },
-    [hasFilter, committedMax, push],
+    [hasFilter, displayMax, rangeMax, stableRange.handleCommit, push],
   )
 
-  const handleSliderChange = useCallback((v: number[]) => {
-    if (v.length >= 1) setLocalValue(v[0]!)
-  }, [])
+  const handleSliderChange = stableRange.handleChange
 
   const handleSliderCommit = useCallback(
     (v: number[]) => {
-      setLocalValue(null)
-      if (v.length >= 1) push(v[0]!)
+      if (v.length >= 1) {
+        const max = v[0]! > 0 && v[0]! < rangeMax ? v[0]! : 0
+        stableRange.handleCommit(v, [0, max])
+        push(v[0]!)
+      }
     },
-    [push],
+    [push, rangeMax, stableRange.handleCommit],
   )
 
   const isBarActive = useCallback(

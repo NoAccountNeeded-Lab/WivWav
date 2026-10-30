@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Slider } from '@/components/ui/slider'
+import { parsePositiveIntegerParameter, rangeFilterSearchParams, useStableRangeValue } from '@/components/useStableRangeValue'
 import { getClientApiBaseUrl } from '@/lib/api-url'
 import styles from './PriceHistogram.module.css'
 
@@ -95,12 +96,12 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   // URL price range in dollars (URL stores cents)
   const urlMin = useMemo(() => {
     const v = searchParams.get('priceMin')
-    return v ? Math.floor(parseInt(v, 10) / 100) : 0
+    return Math.floor(parsePositiveIntegerParameter(v) / 100)
   }, [searchParams])
 
   const urlMax = useMemo(() => {
     const v = searchParams.get('priceMax')
-    return v ? Math.floor(parseInt(v, 10) / 100) : 0
+    return Math.floor(parsePositiveIntegerParameter(v) / 100)
   }, [searchParams])
 
   const [data, setData] = useState<BucketDatum[]>([])
@@ -108,15 +109,9 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   const [rangeMax, setRangeMax] = useState(DEFAULT_MAX)
   const [facetsTotal, setFacetsTotal] = useState<number | null>(null)
 
-  // Local slider value (dollars) — tracks drag before commit
-  const [localValue, setLocalValue] = useState<[number, number] | null>(null)
-
   // The effective committed range (dollars)
   const committedMin = urlMin > 0 ? urlMin : rangeMin
   const committedMax = urlMax > 0 ? urlMax : rangeMax
-
-  // What to render in the slider
-  const sliderDisplay = localValue ?? [committedMin, committedMax]
 
   const hasFilter = urlMin > 0 || urlMax > 0
 
@@ -153,8 +148,8 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   }, [fetchUrl])
 
   const push = useCallback(
-    (min: number, max: number) => {
-      const params = new URLSearchParams(searchParams.toString())
+    (min: number, max: number, baseSearchParams?: string) => {
+      const params = rangeFilterSearchParams(baseSearchParams ?? searchParams.toString(), baseSearchParams !== undefined)
       if (min > 0) {
         params.set('priceMin', String(min * 100))
       } else {
@@ -165,40 +160,56 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
       } else {
         params.delete('priceMax')
       }
-      params.delete('page')
       router.push(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [router, pathname, searchParams, rangeMax],
   )
 
+  const reapplyCommit = useCallback(
+    ([min, max]: readonly [number, number], baseSearchParams?: string) => push(min, max, baseSearchParams),
+    [push],
+  )
+  const readHistoryValue = useCallback((search: string) => {
+    const params = new URLSearchParams(search)
+    const min = Math.floor(parsePositiveIntegerParameter(params.get('priceMin')) / 100)
+    const max = Math.floor(parsePositiveIntegerParameter(params.get('priceMax')) / 100)
+    return {
+      range: [min, max] as const,
+      searchParams: params.toString(),
+    }
+  }, [rangeMin, rangeMax])
+  const stableRange = useStableRangeValue([urlMin, urlMax], [rangeMin, rangeMax], reapplyCommit, readHistoryValue)
+  const [displayMin, displayMax] = stableRange.value
+
   const handleBarClick = useCallback(
     (d: BucketDatum) => {
-      const alreadyActive =
-        hasFilter && committedMin === d.lo && committedMax === d.hi
+      const alreadyActive = hasFilter && displayMin === d.lo && displayMax === d.hi
       if (alreadyActive) {
+        stableRange.handleCommit([rangeMin, rangeMax], [0, 0])
         push(0, 0)
       } else {
+        const min = d.lo <= rangeMin ? 0 : d.lo
+        const max = d.hi >= rangeMax ? 0 : d.hi
+        stableRange.handleCommit([d.lo, d.hi], [min, max])
         push(d.lo, d.hi)
       }
     },
-    [hasFilter, committedMin, committedMax, push],
+    [hasFilter, displayMin, displayMax, rangeMin, rangeMax, stableRange.handleCommit, push],
   )
 
-  const handleSliderChange = useCallback((v: number[]) => {
-    if (v.length >= 2) setLocalValue([v[0]!, v[1]!])
-  }, [])
+  const handleSliderChange = stableRange.handleChange
 
   const handleSliderCommit = useCallback(
     (v: number[]) => {
-      setLocalValue(null)
       if (v.length >= 2) {
         // Treat handles at their natural limits as "no bound" so params are omitted
         const min = v[0]! <= rangeMin ? 0 : v[0]!
         const max = v[1]! >= rangeMax ? 0 : v[1]!
+        stableRange.handleCommit(v, [min, max])
         push(min, max)
       }
     },
-    [push, rangeMin, rangeMax],
+    [push, rangeMin, rangeMax, stableRange.handleCommit],
   )
 
   const ariaLabel = useMemo(() => {
@@ -208,8 +219,6 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   }, [hasFilter, committedMin, committedMax, t])
 
   const formatListingCount = useCallback((count: number) => t('listingCount', { count }), [t])
-
-  const [displayMin, displayMax] = sliderDisplay
 
   const isBarActive = useCallback(
     (d: BucketDatum): boolean => {
