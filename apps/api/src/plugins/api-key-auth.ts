@@ -49,8 +49,10 @@ export function getResolvedApiKey(request: FastifyRequest): ResolvedApiKey | und
 
 export interface ResolveApiKeyDeps {
   apiKeys: ApiKeyRepository
-  /** Shared secret for server-to-server calls (e.g. apps/web's SSR fetches). Same var used for `/admin`. */
+  /** Shared secret for server-to-server calls (e.g. apps/web's SSR fetches). Same var used for `/internal/ops`. */
   internalApiSecret: string | undefined
+  /** Operator server identity, never held by web. */
+  opsApiSecret?: string | undefined
   /**
    * True when `origin` is a first-party browser origin (e.g. the web app),
    * used only when no key/secret is presented — lets the site's own
@@ -65,8 +67,8 @@ export interface ResolveApiKeyDeps {
 /**
  * Resolves the caller identity for a `/v1/` request, checked in order:
  *
- * 1. `Authorization: Bearer {INTERNAL_API_SECRET}` — the internal
- *    server-to-server bypass apps/web uses so its SSR fetches keep working
+ * 1. `Authorization: Bearer {INTERNAL_API_SECRET}` or `{OPS_API_SECRET}` — the internal
+ *    server-to-server bypass web SSR and ops previews use to keep working
  *    without a provisioned key.
  * 2. A valid, non-revoked API key (`X-Api-Key` or `Authorization: Bearer`).
  *    Unknown, malformed, or revoked keys resolve to `null` — they never
@@ -78,10 +80,10 @@ export interface ResolveApiKeyDeps {
  * Anything else resolves to `null` (the caller must reject with 401).
  */
 export async function resolveApiKey(headers: ApiKeyAuthHeaders, deps: ResolveApiKeyDeps): Promise<ResolvedApiKey> {
-  const { apiKeys, internalApiSecret, isTrustedOrigin } = deps
+  const { apiKeys, internalApiSecret, opsApiSecret, isTrustedOrigin } = deps
 
   const auth = headers.authorization
-  if (internalApiSecret && auth === `Bearer ${internalApiSecret}`) {
+  if ((internalApiSecret && auth === `Bearer ${internalApiSecret}`) || (opsApiSecret && auth === `Bearer ${opsApiSecret}`)) {
     return { id: 'internal', tier: 'ENTERPRISE', rateLimitRpm: INTERNAL_BYPASS_RATE_LIMIT_RPM }
   }
 

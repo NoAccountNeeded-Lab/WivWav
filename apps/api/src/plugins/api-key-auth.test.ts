@@ -7,6 +7,7 @@ import type { ApiKeyRepository } from '../repositories/index.js'
 function buildTestApp(opts: {
   apiKeys?: Partial<ApiKeyRepository>
   internalApiSecret?: string | undefined
+  opsApiSecret?: string | undefined
   isTrustedOrigin?: (origin: string | undefined) => boolean
 }) {
   const app = Fastify()
@@ -18,6 +19,7 @@ function buildTestApp(opts: {
     await v1Scope.register(apiKeyAuthPlugin, {
       apiKeys: (opts.apiKeys ?? { findActiveByHash: vi.fn(async () => null) }) as ApiKeyRepository,
       internalApiSecret: opts.internalApiSecret,
+      opsApiSecret: opts.opsApiSecret,
       isTrustedOrigin: opts.isTrustedOrigin ?? (() => false),
     })
     v1Scope.get('/listings', async (req) => ({ data: getResolvedApiKey(req) ?? null }))
@@ -116,4 +118,13 @@ describe('apiKeyAuthPlugin', () => {
     expect(response.statusCode).toBe(401)
     await app.close()
   })
+})
+
+
+it('gives the operator preview bypass the same bounded service identity as web SSR', async () => {
+  const app = buildTestApp({ opsApiSecret: 'operator-secret' })
+  const res = await app.inject({ url: '/v1/listings', headers: { authorization: 'Bearer operator-secret' } })
+  expect(res.statusCode).toBe(200)
+  expect(res.json().data).toEqual({ id: 'internal', tier: 'ENTERPRISE', rateLimitRpm: INTERNAL_BYPASS_RATE_LIMIT_RPM })
+  await app.close()
 })

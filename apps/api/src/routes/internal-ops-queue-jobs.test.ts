@@ -3,7 +3,7 @@ import sensible from '@fastify/sensible'
 import { describe, expect, it } from 'vitest'
 import { MockQueueFactory, QUEUES } from '@wivwav/queue'
 import type { MockQueueAdapter } from '@wivwav/queue'
-import { adminAuthPlugin } from '../plugins/admin-auth.js'
+import { opsAuthPlugin } from '../plugins/ops-auth.js'
 import { internalOpsQueueJobsRoutes } from './internal-ops-queue-jobs.js'
 
 const SECRET = 'a'.repeat(32)
@@ -16,7 +16,7 @@ async function buildApp() {
   await app.register(sensible)
   await app.register(
     async (scope) => {
-      await adminAuthPlugin(scope, { internalApiSecret: SECRET, nodeEnv: 'test' })
+      await opsAuthPlugin(scope, { opsApiSecret: SECRET, nodeEnv: 'test' })
       await scope.register(internalOpsQueueJobsRoutes, { queueFactory: factory })
     },
     { prefix: '/internal/ops/queues' },

@@ -34,7 +34,7 @@
  *    at all — nothing to seed) and the `verified`/`conflicting` counts are 0
  *    (this backfill never produces them).
  * 3. Run --apply.
- * 4. Confirm via `GET /admin/field-conflicts` that it is still empty (this
+ * 4. Confirm via `GET /internal/ops/field-conflicts` that it is still empty (this
  *    backfill cannot create conflicts; a non-empty result here means a live
  *    scrape landed a conflicting claim concurrently, which is expected and
  *    fine, not a backfill bug).

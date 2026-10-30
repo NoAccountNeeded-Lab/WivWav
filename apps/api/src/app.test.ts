@@ -463,11 +463,11 @@ describe('rate limiting', () => {
     const app = await appPromise
 
     for (let i = 0; i < 5; i++) {
-      const response = await app.inject({ method: 'POST', url: '/admin/sync' })
+      const response = await app.inject({ method: 'POST', url: '/internal/ops/sync' })
       expect(response.statusCode).toBe(202)
     }
 
-    const limited = await app.inject({ method: 'POST', url: '/admin/sync' })
+    const limited = await app.inject({ method: 'POST', url: '/internal/ops/sync' })
     expect(limited.statusCode).toBe(429)
 
     await app.close()
@@ -475,12 +475,12 @@ describe('rate limiting', () => {
 })
 
 describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
-  it('mounts key provisioning under the same fail-closed boundary as /admin', async () => {
+  it('mounts key provisioning under the same fail-closed boundary as /internal/ops', async () => {
     const { app: appPromise } = buildTestApp()
     const app = await appPromise
 
-    // No INTERNAL_API_SECRET is configured and NODE_ENV is 'test', so
-    // adminAuthPlugin's non-production permissive fallback applies here too
+    // No OPS_API_SECRET is configured and NODE_ENV is 'test', so
+    // opsAuthPlugin's non-production permissive fallback applies here too
     // — this confirms the route is reachable at the documented path and
     // reuses that same plugin, not that it's unauthenticated in production.
     const response = await app.inject({
@@ -495,7 +495,7 @@ describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
 
   it('refuses key provisioning without the bearer secret once one is configured', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: { OPS_API_SECRET: 'shared-secret-value' },
     })
     const app = await appPromise
 
@@ -525,10 +525,10 @@ describe('/internal/v1/api-keys and /webhooks/stripe wiring (#453)', () => {
   })
 })
 
-describe('/admin/api-keys operator management (#1203)', () => {
+describe('/internal/ops/api-keys operator management (#1203)', () => {
   it('lists safe fields only and requires the admin bearer credential', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'operator-secret' },
+      config: { OPS_API_SECRET: 'operator-secret' },
       apiKey: {
         findMany: vi.fn(async () => [{
           id: 'key-1',
@@ -545,12 +545,12 @@ describe('/admin/api-keys operator management (#1203)', () => {
     })
     const app = await appPromise
 
-    const unauthorized = await app.inject({ method: 'GET', url: '/admin/api-keys' })
+    const unauthorized = await app.inject({ method: 'GET', url: '/internal/ops/api-keys' })
     expect(unauthorized.statusCode).toBe(401)
 
     const response = await app.inject({
       method: 'GET',
-      url: '/admin/api-keys?limit=10&offset=0',
+      url: '/internal/ops/api-keys?limit=10&offset=0',
       headers: { authorization: 'Bearer operator-secret' },
     })
     expect(response.statusCode).toBe(200)
@@ -568,7 +568,7 @@ describe('/admin/api-keys operator management (#1203)', () => {
     let issuedHash: string | null = null
     let revoked = false
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'operator-secret' },
+      config: { OPS_API_SECRET: 'operator-secret' },
       apiKey: {
         findFirst: vi.fn(async (args: { where: { keyHash: string } }) => (
           !revoked && issuedHash === args.where.keyHash
@@ -593,7 +593,7 @@ describe('/admin/api-keys operator management (#1203)', () => {
     const headers = { authorization: 'Bearer operator-secret' }
 
     const created = await app.inject({
-      method: 'POST', url: '/admin/api-keys', headers,
+      method: 'POST', url: '/internal/ops/api-keys', headers,
       payload: { ownerEmail: 'buyer@example.com' },
     })
     expect(created.statusCode).toBe(201)
@@ -602,7 +602,7 @@ describe('/admin/api-keys operator management (#1203)', () => {
     const beforeRevoke = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': rawKey } })
     expect(beforeRevoke.statusCode).toBe(200)
 
-    const deleted = await app.inject({ method: 'DELETE', url: '/admin/api-keys/key-created', headers })
+    const deleted = await app.inject({ method: 'DELETE', url: '/internal/ops/api-keys/key-created', headers })
     expect(deleted.statusCode).toBe(200)
 
     const afterRevoke = await app.inject({ method: 'GET', url: '/v1/listings', headers: { 'x-api-key': rawKey } })
@@ -676,11 +676,11 @@ describe('/diagnostics auth boundary (#773)', () => {
     await app.close()
   })
 
-  it('also accepts a valid INTERNAL_API_SECRET bearer token (asymmetric compatibility)', async () => {
+  it('also accepts a valid OPS_API_SECRET bearer token (asymmetric compatibility)', async () => {
     const { app: appPromise } = buildTestApp({
       config: {
         DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value',
-        INTERNAL_API_SECRET: 'shared-secret-value',
+        OPS_API_SECRET: 'shared-secret-value',
       },
     })
     const app = await appPromise
@@ -695,19 +695,19 @@ describe('/diagnostics auth boundary (#773)', () => {
     await app.close()
   })
 
-  it('never accepts DIAGNOSTIC_API_SECRET on /admin/* routes', async () => {
+  it('never accepts DIAGNOSTIC_API_SECRET on /internal/ops/* routes', async () => {
     const { app: appPromise } = buildTestApp({
       config: {
         NODE_ENV: 'production',
         DIAGNOSTIC_API_SECRET: 'diagnostic-secret-value',
-        INTERNAL_API_SECRET: 'shared-secret-value',
+        OPS_API_SECRET: 'shared-secret-value',
       },
     })
     const app = await appPromise
 
     const response = await app.inject({
       method: 'GET',
-      url: '/admin/runs',
+      url: '/internal/ops/runs',
       headers: { authorization: 'Bearer diagnostic-secret-value' },
     })
     expect(response.statusCode).toBe(401)
@@ -996,7 +996,7 @@ describe('GET /openapi.json', () => {
 describe('POST /internal/ops/queues/:name/jobs/:id/* (#1152)', () => {
   it('rejects a missing or wrong bearer with 401 UNAUTHORIZED', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: { OPS_API_SECRET: 'shared-secret-value' },
     })
     const app = await appPromise
 
@@ -1014,20 +1014,20 @@ describe('POST /internal/ops/queues/:name/jobs/:id/* (#1152)', () => {
   })
 })
 
-describe('GET /admin/workers (#1038)', () => {
+describe('GET /internal/ops/workers (#1038)', () => {
   it('rejects a missing or wrong bearer with 401 UNAUTHORIZED when an admin secret is configured', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: { OPS_API_SECRET: 'shared-secret-value' },
     })
     const app = await appPromise
 
-    const missing = await app.inject({ method: 'GET', url: '/admin/workers' })
+    const missing = await app.inject({ method: 'GET', url: '/internal/ops/workers' })
     expect(missing.statusCode).toBe(401)
     expect(missing.json()).toMatchObject({ error: { code: 'UNAUTHORIZED' } })
 
     const wrong = await app.inject({
       method: 'GET',
-      url: '/admin/workers',
+      url: '/internal/ops/workers',
       headers: { authorization: 'Bearer wrong-value' },
     })
     expect(wrong.statusCode).toBe(401)
@@ -1038,13 +1038,13 @@ describe('GET /admin/workers (#1038)', () => {
 
   it('returns an empty list with a valid bearer when WORKER_GATEWAY_ENABLED is off', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: { OPS_API_SECRET: 'shared-secret-value' },
     })
     const app = await appPromise
 
     const response = await app.inject({
       method: 'GET',
-      url: '/admin/workers',
+      url: '/internal/ops/workers',
       headers: { authorization: 'Bearer shared-secret-value' },
     })
     expect(response.statusCode).toBe(200)
@@ -1057,7 +1057,7 @@ describe('GET /admin/workers (#1038)', () => {
 describe('POST /internal/ops/workers pause/resume (#1151)', () => {
   it('is mounted in the guarded /internal/ops scope: missing or wrong bearer is 401', async () => {
     const { app: appPromise } = buildTestApp({
-      config: { INTERNAL_API_SECRET: 'shared-secret-value' },
+      config: { OPS_API_SECRET: 'shared-secret-value' },
     })
     const app = await appPromise
 
@@ -1147,6 +1147,85 @@ describe('worker gateway registration (#948/#951)', () => {
     const response = await app.inject({ method: 'GET', url: '/internal/workers/ws' })
     expect(response.statusCode).toBe(401)
 
+    await app.close()
+  })
+})
+
+describe('private control-plane credential separation (#1225)', () => {
+  const scopeConfig = {
+    NODE_ENV: 'production' as const,
+    INTERNAL_API_SECRET: 'web-and-worker-secret',
+    OPS_API_SECRET: 'operator-only-secret',
+    DIAGNOSTIC_API_SECRET: 'diagnostic-only-secret',
+  }
+
+  it.each([
+    '/internal/ops/runs', '/internal/ops/workers', '/internal/ops/config/ai.intake.model',
+    '/internal/ops/config/ebay.motors.app-id/decrypt', '/internal/v1/grafana/alerts',
+    '/ops/queues/board',
+  ])('rejects missing, invalid, web and diagnostic credentials at %s', async url => {
+    const app = await buildTestApp({ config: scopeConfig }).app
+    for (const token of [undefined, 'wrong', scopeConfig.INTERNAL_API_SECRET, scopeConfig.DIAGNOSTIC_API_SECRET]) {
+      const response = await app.inject({ url, ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}) })
+      expect(response.statusCode).toBe(401)
+    }
+    await app.close()
+  })
+
+  it('rejects web identity on API-key provisioning and revocation', async () => {
+    const app = await buildTestApp({ config: scopeConfig }).app
+    const headers = { authorization: `Bearer ${scopeConfig.INTERNAL_API_SECRET}` }
+    expect((await app.inject({ method: 'POST', url: '/internal/v1/api-keys', headers, payload: { ownerEmail: 'test@example.com' } })).statusCode).toBe(401)
+    expect((await app.inject({ method: 'DELETE', url: '/internal/ops/api-keys/key-1', headers })).statusCode).toBe(401)
+    await app.close()
+  })
+
+  it('accepts the operator identity on operator reads and public listing previews', async () => {
+    const app = await buildTestApp({ config: scopeConfig }).app
+    const headers = { authorization: `Bearer ${scopeConfig.OPS_API_SECRET}` }
+    for (const url of ['/internal/ops/runs', '/internal/ops/workers', '/v1/listings', '/ops/queues/board']) {
+      expect((await app.inject({ url, headers })).statusCode).toBe(200)
+    }
+    await app.close()
+  })
+
+  it('keeps Bull Board HTML, assets, XHR and nested paths on the exact authenticated base', async () => {
+    const app = await buildTestApp({ config: scopeConfig }).app
+    const headers = { authorization: `Bearer ${scopeConfig.OPS_API_SECRET}` }
+    const html = await app.inject({ url: '/ops/queues/board', headers })
+    expect(html.statusCode).toBe(200)
+    expect(html.body).toContain('<base href="/ops/queues/board/"')
+    const asset = /src="(static\/js\/[^"<>]+)"/.exec(html.body)?.[1]
+    expect(asset).toBeDefined()
+    const url = `/ops/queues/board/${asset ?? 'missing'}`
+    expect((await app.inject({ url, headers })).statusCode).toBe(200)
+    expect((await app.inject({ url })).statusCode).toBe(401)
+    expect((await app.inject({ url: '/ops/queues/board/api/queues', headers })).statusCode).toBe(200)
+    expect((await app.inject({ url: '/ops/queues/board/queue/example', headers })).statusCode).toBe(200)
+    await app.close()
+  })
+
+  it('fails closed when the operator credential is missing even with other identities configured', async () => {
+    const app = await buildTestApp({ config: { ...scopeConfig, OPS_API_SECRET: undefined } }).app
+    for (const url of ['/internal/ops/runs', '/internal/v1/grafana/alerts', '/ops/queues/board']) {
+      expect((await app.inject({ url, headers: { authorization: `Bearer ${scopeConfig.INTERNAL_API_SECRET}` } })).statusCode).toBe(503)
+    }
+    await app.close()
+  })
+
+  it('never accepts web identity on diagnostics', async () => {
+    const app = await buildTestApp({ config: scopeConfig }).app
+    expect((await app.inject({ url: '/diagnostics/diagnostic-context', headers: { authorization: `Bearer ${scopeConfig.INTERNAL_API_SECRET}` } })).statusCode).toBe(401)
+    await app.close()
+  })
+
+  it.each(['/admin', '/admin/runs', '/admin/config/ai.intake.model', '/admin/board', '/admin/workers'])('retires %s with 404 and no redirect', async url => {
+    const app = await buildTestApp({ config: scopeConfig }).app
+    for (const headers of [{}, { authorization: `Bearer ${scopeConfig.OPS_API_SECRET}` }]) {
+      const response = await app.inject({ url, headers })
+      expect(response.statusCode).toBe(404)
+      expect(response.headers.location).toBeUndefined()
+    }
     await app.close()
   })
 })

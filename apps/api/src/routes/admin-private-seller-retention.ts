@@ -30,12 +30,12 @@ interface DeletionRequestBody {
  * is identical whether a listing was reached by the automated sweep or by
  * an operator acting on a seller's request.
  *
- * Guarded by adminAuthPlugin at the /admin prefix (see app.ts) — every
+ * Guarded by adminAuthPlugin at the /internal/ops prefix (see app.ts) — every
  * route here requires `Authorization: Bearer {INTERNAL_API_SECRET}`.
  */
 export const adminPrivateSellerRetentionRoutes: FastifyPluginAsync<AdminPrivateSellerRetentionPluginOptions> =
   async (app, { db, meili, operatorConfig }) => {
-    // ── POST /admin/private-seller-retention/listings/:id/delete ─────────────
+    // ── POST /internal/ops/private-seller-retention/listings/:id/delete ─────────────
     // Immediately anonymizes one private-seller listing regardless of its
     // gone/retention-window status — an explicit operator action, e.g. in
     // response to a seller's request at privacy@wivwav.com. Records an
@@ -80,7 +80,7 @@ export const adminPrivateSellerRetentionRoutes: FastifyPluginAsync<AdminPrivateS
       },
     )
 
-    // ── GET /admin/private-seller-retention/listings/:id/audit ───────────────
+    // ── GET /internal/ops/private-seller-retention/listings/:id/audit ───────────────
     // Full deletion-lifecycle history for one listing — evidence for both
     // automated sweeps and operator-initiated requests, newest first.
     app.get<{ Params: { id: string } }>('/listings/:id/audit', async (req, reply) => {

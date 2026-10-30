@@ -21,7 +21,7 @@ export interface RegisteredWorker {
   /**
    * Per-job detail for each in-flight correlation id. Kept beside `inFlight`
    * (rather than replacing it) so dispatch pick/load math keeps reading the
-   * Set; `#1067` surfaces this map on GET /admin/workers.
+   * Set; `#1067` surfaces this map on GET /internal/ops/workers.
    */
   jobs: Map<string, InFlightJobDetail>
   /**

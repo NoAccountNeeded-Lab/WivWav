@@ -22,7 +22,7 @@ export const adminSyncRoutes: FastifyPluginAsync<AdminSyncOptions> = async (app,
     return reply.code(202).send({ data: { enqueued: true, jobId } })
   })
 
-  // POST /admin/sync — enqueue a full versioned re-index of the listings
+  // POST /internal/ops/sync — enqueue a full versioned re-index of the listings
   // search projection. The scraper's single-owner indexer job (#669) performs
   // the actual rebuild (versioned index + atomic swap); this route only
   // enqueues it, using the same fixed jobId as the nightly schedule and the
@@ -37,7 +37,7 @@ export const adminSyncRoutes: FastifyPluginAsync<AdminSyncOptions> = async (app,
     return reply.code(202).send({ data: { enqueued: true, jobId } })
   })
 
-  // GET /admin/sync — last completed listing-sync job, for operator tooling
+  // GET /internal/ops/sync — last completed listing-sync job, for operator tooling
   // that wants a "synced N minutes ago" readout without scraping /metrics.
   // Shares its BullMQ lookup with the wivwav_meilisearch_last_sync_timestamp_seconds
   // gauge (routes/metrics.ts) via services/queue-job-timestamps.ts.

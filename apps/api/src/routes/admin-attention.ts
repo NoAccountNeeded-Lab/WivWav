@@ -5,7 +5,7 @@ import { computeAttentionSnapshot } from '../domain/attention-snapshot.js'
 const RESOURCE_KEYS = ['health', 'queues', 'sources', 'runs', 'schedules'] as const
 
 /**
- * POST /admin/attention-snapshot
+ * POST /internal/ops/attention-snapshot
  *
  * Runs the shared domain-level "what is currently wrong" computation
  * (`computeAttentionSnapshot`, issue #774) over resource state the ops

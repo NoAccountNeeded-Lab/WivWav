@@ -91,7 +91,7 @@ export const adminAiRoutes: FastifyPluginAsync<AdminAiPluginOptions> = async (
   app,
   { sources, ollamaBaseUrl, queueFactory },
 ) => {
-  // GET /admin/ai/status — Ollama health, loaded models, installed models, and sources flagged for remapping
+  // GET /internal/ops/ai/status — Ollama health, loaded models, installed models, and sources flagged for remapping
   app.get('/status', async (_req, reply) => {
     let available = false
     let models: string[] = []
@@ -148,7 +148,7 @@ export const adminAiRoutes: FastifyPluginAsync<AdminAiPluginOptions> = async (
     })
   })
 
-  // POST /admin/ai/explain-error — plain-language explanation of a failed job,
+  // POST /internal/ops/ai/explain-error — plain-language explanation of a failed job,
   // for the "Explain this error" action on the per-source pipeline view (#555).
   // Scoped strictly to explanation/triage; the prompt explicitly forbids the
   // model from proposing code changes, since local-model fix suggestions are

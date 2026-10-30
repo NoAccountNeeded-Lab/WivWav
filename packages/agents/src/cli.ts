@@ -7,6 +7,7 @@ import { ROLES } from './roles.js'
 import { saveRun } from './output.js'
 import type { AgentStep } from './types.js'
 import { logCompletionUsage } from './usage.js'
+import { fetchAgentConfig } from './config-client.js'
 
 const task = process.argv.slice(2).join(' ').trim()
 
@@ -18,32 +19,13 @@ if (!task) {
   console.error('  AGENTS_MODEL            model name (default: llama3.2)')
   console.error('  AGENTS_MAX_REVISIONS    max coder revision loops (default: 3)')
   console.error('  AGENTS_PROMPT_CACHE     set to 0 to disable Anthropic prompt caching')
+  console.error('  OPS_API_SECRET          operator identity for config reads (never supplied to models)')
   console.error('  CONFIG_API_URL          WivWav config API base URL (optional, enables runtime provider config)')
   process.exit(1)
 }
 
-async function fetchConfig(key: string, suffix = ''): Promise<string | null> {
-  const configApiUrl = process.env['CONFIG_API_URL']
-  if (!configApiUrl) return null
-  try {
-    const internalSecret = process.env['INTERNAL_API_SECRET']
-    const headers: Record<string, string> = suffix && internalSecret
-      ? { Authorization: `Bearer ${internalSecret}` }
-      : {}
-    const res = await fetch(
-      `${configApiUrl}/admin/config/${encodeURIComponent(key)}${suffix}`,
-      Object.keys(headers).length ? { headers } : undefined,
-    )
-    if (!res.ok) return null
-    const body = (await res.json()) as { data: { value: unknown } }
-    return typeof body.data?.value === 'string' ? body.data.value : null
-  } catch {
-    return null
-  }
-}
-
-const readConfigValue = (key: string) => fetchConfig(key)
-const readSecretValue = (key: string) => fetchConfig(key, '/decrypt')
+const readConfigValue = (key: string) => fetchAgentConfig(key)
+const readSecretValue = (key: string) => fetchAgentConfig(key, '/decrypt')
 
 async function resolveProvider(): Promise<CompletionProvider> {
   const [configProvider, configModel, configApiKeyId] = await Promise.all([

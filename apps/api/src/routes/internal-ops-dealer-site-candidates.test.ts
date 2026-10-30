@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import sensible from '@fastify/sensible'
 import { describe, expect, it } from 'vitest'
-import { adminAuthPlugin } from '../plugins/admin-auth.js'
+import { opsAuthPlugin } from '../plugins/ops-auth.js'
 import { internalOpsDealerSiteCandidatesRoutes } from './internal-ops-dealer-site-candidates.js'
 
 const SECRET = 'a'.repeat(32)
@@ -28,7 +28,7 @@ async function buildApp() {
   await app.register(sensible)
   await app.register(
     async (scope) => {
-      await adminAuthPlugin(scope, { internalApiSecret: SECRET, nodeEnv: 'test' })
+      await opsAuthPlugin(scope, { opsApiSecret: SECRET, nodeEnv: 'test' })
       await scope.register(internalOpsDealerSiteCandidatesRoutes, { db: db as never })
     },
     { prefix: '/internal/ops/dealer-site-candidates' },

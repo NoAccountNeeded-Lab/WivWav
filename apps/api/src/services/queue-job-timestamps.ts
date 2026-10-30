@@ -4,7 +4,7 @@ import type { QueueAdapter } from '@wivwav/queue'
  * Unix timestamp (seconds) of the most recently completed job in a queue, or
  * `null` if the queue has no completed jobs. Shared by the Prometheus scrape
  * endpoint (`routes/metrics.ts`, which reports recency gauges for several
- * queues) and the admin API (`routes/admin.ts`, `GET /admin/sync`) so both
+ * queues) and the admin API (`routes/admin.ts`, `GET /internal/ops/sync`) so both
  * surfaces read the same BullMQ `getJobs(['completed'])` query instead of
  * maintaining separate copies.
  *

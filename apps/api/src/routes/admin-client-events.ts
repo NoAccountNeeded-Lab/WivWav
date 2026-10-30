@@ -46,7 +46,7 @@ const clientEventBodySchema = {
 
 export const adminClientEventsRoutes: FastifyPluginAsync = async (app) => {
   /**
-   * POST /admin/client-events
+   * POST /internal/ops/client-events
    *
    * Ingests a browser error event and logs it via pino so it flows through
    * the existing Loki pipeline and appears in /ops/logs alongside api/scraper

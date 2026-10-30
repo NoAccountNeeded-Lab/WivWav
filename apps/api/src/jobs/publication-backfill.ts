@@ -25,17 +25,17 @@
  *    data, and is worth a manual sample check before applying).
  * 2. Roll out gradually if the report shows a large volume: apply to one
  *    source at a time via --source <sourceId>, watching the operator
- *    quarantine list (GET /admin/quarantine?sourceId=...) after each.
+ *    quarantine list (GET /internal/ops/quarantine?sourceId=...) after each.
  * 3. Run: pnpm tsx apps/api/src/jobs/publication-backfill.ts --apply
  *    This sets publicationStatus to 'eligible' or 'quarantined' (from
  *    'pending') on every currently-active listing.
  * 4. Trigger a full Meilisearch re-index (meilisearch-sync job) so the index
  *    only contains the newly-eligible set.
  * 5. Post-release smoke check:
- *    - GET /admin/quarantine — confirm the count matches the --report total.
+ *    - GET /internal/ops/quarantine — confirm the count matches the --report total.
  *    - Spot-check 5-10 quarantined listings against their source page to
  *      confirm the rule firing is a genuine data problem, not a validator bug.
- *    - Confirm public listing counts (GET /admin/listing-refresh/status)
+ *    - Confirm public listing counts (GET /internal/ops/listing-refresh/status)
  *      dropped by roughly the quarantined count, not more.
  *
  * Rollback:

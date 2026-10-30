@@ -34,7 +34,7 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
-  // Loki log aggregation — used by the /admin/logs proxy endpoint
+  // Loki log aggregation — used by the /internal/ops/logs proxy endpoint
   LOKI_URL: urlWithDefault('http://localhost:3100'),
   LOKI_AUTHORIZATION: z.string().optional(),
   // Grafana — used by the /internal/v1/grafana/alerts proxy endpoint (#890).
@@ -63,22 +63,13 @@ const schema = z.object({
       'CONFIG_ENCRYPTION_SECRET must be a 64-character hex string (32 bytes)',
     )
     .optional(),
-  // Shared secret for server-to-server calls to /admin, /internal, and the
-  // apps/web SSR bypass on /v1 (#453). Set the same value in every service
-  // (web, CLI) that calls these endpoints. When unset, /admin is
-  // unauthenticated in non-production and the /v1 bypass simply never
-  // matches — only acceptable in local dev.
+  // Web product/config reads and the existing worker coordinator identity.
+  // This credential never authorizes operator or diagnostic routes.
   INTERNAL_API_SECRET: z.string().min(16).optional(),
-  // Shared secret for the `/diagnostics/*` scope (#757/#773 AI diagnostic
-  // gateway) — deliberately distinct from INTERNAL_API_SECRET because
-  // diagnostic routes are designed for desktop AI clients (Claude/ChatGPT
-  // desktop apps), whose MCP config stores the bearer token in a plaintext
-  // file. INTERNAL_API_SECRET unlocks queue mutation, schedule changes, and
-  // secret-config decryption — unacceptable to hand to a desktop AI client.
-  // INTERNAL_API_SECRET is also accepted on /diagnostics/* (asymmetric
-  // compatibility, see plugins/diagnostic-auth.ts), but DIAGNOSTIC_API_SECRET
-  // is never accepted on /admin/*. When unset, /diagnostics is unauthenticated
-  // in non-production and fails closed (503) in production.
+  // Operator identity; provision only to API and ops, never the web service.
+  OPS_API_SECRET: z.string().min(16).optional(),
+  // Narrow read-only desktop AI identity. Diagnostics also accepts OPS,
+  // but never INTERNAL; missing diagnostic identity fails closed in production.
   DIAGNOSTIC_API_SECRET: z.string().min(16).optional(),
   // Signing secret for the Stripe webhook (`POST /webhooks/stripe`), from the
   // Stripe Dashboard's webhook endpoint config. When unset, the webhook
@@ -107,6 +98,16 @@ const schema = z.object({
   // (#775) as fixed-size revision metadata; 'unknown' in local dev where no
   // pipeline sets it.
   GIT_SHA: z.string().default('unknown'),
+}).superRefine((config, context) => {
+  const identities = ['INTERNAL_API_SECRET', 'OPS_API_SECRET', 'DIAGNOSTIC_API_SECRET'] as const
+  for (let i = 0; i < identities.length; i++) {
+    for (const other of identities.slice(i + 1)) {
+      const identity = identities[i]
+      if (identity && config[identity] && config[identity] === config[other]) {
+        context.addIssue({ code: 'custom', path: [other], message: 'Service identities must use distinct credentials' })
+      }
+    }
+  }
 })
 
 export type Config = z.infer<typeof schema>

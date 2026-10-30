@@ -9,7 +9,6 @@ interface AdminConfigPluginOptions {
   db: PrismaClient
   cache: CacheService
   encryptionSecret: string | undefined
-  internalApiSecret: string | undefined
 }
 
 const VALID_TYPES: ReadonlySet<string> = new Set(['string', 'number', 'boolean', 'json', 'secret'])
@@ -45,18 +44,18 @@ function parseValue(raw: unknown, type: ConfigValueType): ConfigValue | null {
 
 export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = async (
   app,
-  { db, cache, encryptionSecret, internalApiSecret },
+  { db, cache, encryptionSecret },
 ) => {
   const svc = new ConfigService(db, cache, encryptionSecret)
 
-  // GET /admin/config — list all current values
+  // GET /internal/ops/config — list all current values
   app.get('/', async (_req, reply) => {
     const entries = await svc.listAll()
     // Never expose encryptedValue or plaintext secrets
     return reply.send({ data: entries })
   })
 
-  // GET /admin/config/:key — get current value for one key
+  // GET /internal/ops/config/:key — get current value for one key
   app.get<{ Params: { key: string } }>('/:key', async (req, reply) => {
     if (!isValidKey(req.params.key)) {
       return reply.badRequest('Config key may only contain alphanumeric characters, dots, hyphens, and underscores')
@@ -71,7 +70,7 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
     return reply.send({ data: entry })
   })
 
-  // PUT /admin/config/:key — insert a new row (append-only)
+  // PUT /internal/ops/config/:key — insert a new row (append-only)
   app.put<{
     Params: { key: string }
     Body: {
@@ -128,17 +127,9 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
     return reply.code(201).send({ data: entry })
   })
 
-  // GET /admin/config/:key/decrypt — returns the decrypted plaintext for a secret (server-to-server only)
+  // GET /internal/ops/config/:key/decrypt — returns the decrypted plaintext for a secret (server-to-server only)
   app.get<{ Params: { key: string } }>('/:key/decrypt', async (req, reply) => {
-    // Auth: require Bearer token when INTERNAL_API_SECRET is configured.
-    // In local dev without the secret set, the endpoint is unauthenticated — set it in production.
-    if (internalApiSecret) {
-      const auth = req.headers.authorization
-      if (auth !== `Bearer ${internalApiSecret}`) {
-        return reply.unauthorized('Valid Authorization header required for secret decryption')
-      }
-    }
-
+    // This route inherits the operator-only scope guard.
     if (!encryptionSecret) {
       return reply.internalServerError('CONFIG_ENCRYPTION_SECRET is not configured — cannot decrypt secrets')
     }
@@ -154,7 +145,7 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
     return reply.send({ data: { key: req.params.key, value } })
   })
 
-  // GET /admin/config/:key/history — all historical rows for a key
+  // GET /internal/ops/config/:key/history — all historical rows for a key
   app.get<{ Params: { key: string } }>('/:key/history', async (req, reply) => {
     if (!isValidKey(req.params.key)) {
       return reply.badRequest('Config key may only contain alphanumeric characters, dots, hyphens, and underscores')
@@ -166,7 +157,7 @@ export const adminConfigRoutes: FastifyPluginAsync<AdminConfigPluginOptions> = a
     return reply.send({ data: rows })
   })
 
-  // DELETE /admin/config/:key — soft delete (insert tombstone row)
+  // DELETE /internal/ops/config/:key — soft delete (insert tombstone row)
   app.delete<{ Params: { key: string }; Body?: { createdBy?: string } }>(
     '/:key',
     async (req, reply) => {

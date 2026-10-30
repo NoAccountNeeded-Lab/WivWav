@@ -28,7 +28,7 @@ interface AdminPluginOptions {
   jobRunReaper?: JobRunReaper
 }
 
-// Composition entry point for the ops routes mounted under /admin (auth is
+// Composition entry point for the ops routes mounted under /internal/ops (auth is
 // applied by the parent scope in app.ts). Each capability lives in its own
 // module and shares one queue-adapter map so every queue is created once.
 export const adminRoutes: FastifyPluginAsync<AdminPluginOptions> = async (

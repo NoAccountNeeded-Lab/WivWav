@@ -1,6 +1,6 @@
 import Fastify from 'fastify'
 import { describe, expect, it, vi } from 'vitest'
-import { adminAuthPlugin } from '../plugins/admin-auth.js'
+import { opsAuthPlugin } from '../plugins/ops-auth.js'
 import { WorkerRegistry, newWorkerStats, recordOutcome } from '../worker-gateway/registry.js'
 import type { RegisteredWorker } from '../worker-gateway/registry.js'
 import { adminWorkersRoutes } from './admin-workers.js'
@@ -11,10 +11,10 @@ async function buildApp(registry: WorkerRegistry) {
   const app = Fastify()
   await app.register(
     async (scope) => {
-      await adminAuthPlugin(scope, { internalApiSecret: SECRET, nodeEnv: 'test' })
+      await opsAuthPlugin(scope, { opsApiSecret: SECRET, nodeEnv: 'test' })
       await scope.register(adminWorkersRoutes, { registry })
     },
-    { prefix: '/admin/workers' },
+    { prefix: '/internal/ops/workers' },
   )
   await app.ready()
   return app
@@ -49,17 +49,17 @@ function worker(overrides: Partial<RegisteredWorker> = {}): RegisteredWorker {
 
 const auth = { authorization: `Bearer ${SECRET}` }
 
-describe('GET /admin/workers', () => {
+describe('GET /internal/ops/workers', () => {
   it('rejects an unauthenticated request with 401', async () => {
     const app = await buildApp(new WorkerRegistry())
-    const res = await app.inject({ method: 'GET', url: '/admin/workers' })
+    const res = await app.inject({ method: 'GET', url: '/internal/ops/workers' })
     expect(res.statusCode).toBe(401)
     await app.close()
   })
 
   it('returns an empty list when no worker is connected', async () => {
     const app = await buildApp(new WorkerRegistry())
-    const res = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
+    const res = await app.inject({ method: 'GET', url: '/internal/ops/workers', headers: auth })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({
       data: [],
@@ -76,7 +76,7 @@ describe('GET /admin/workers', () => {
     registry.register(worker())
     const app = await buildApp(registry)
 
-    const res = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
+    const res = await app.inject({ method: 'GET', url: '/internal/ops/workers', headers: auth })
     expect(res.json().data).toEqual([
         {
           connectionId: 'conn-1',
@@ -117,7 +117,7 @@ describe('GET /admin/workers', () => {
       ])
 
     registry.unregister('conn-1')
-    const after = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
+    const after = await app.inject({ method: 'GET', url: '/internal/ops/workers', headers: auth })
     expect(after.json().data).toEqual([])
     await app.close()
   })
@@ -132,7 +132,7 @@ describe('GET /admin/workers', () => {
     for (let i = 0; i < 5; i++) recordOutcome(registry.fleet, 'source-scrape', 'escalated', 9999)
     registry.register(worker())
     const app = await buildApp(registry)
-    const get = async () => (await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })).json().summary
+    const get = async () => (await app.inject({ method: 'GET', url: '/internal/ops/workers', headers: auth })).json().summary
     const summary = await get()
     expect(summary).toMatchObject({
       workers: 1, busyWorkers: 1, inFlight: 2, capacity: 3,
@@ -157,7 +157,7 @@ describe('POST /internal/ops/workers/:connectionId/{pause,resume} (#1151)', () =
     const app = Fastify()
     await app.register(
       async (scope) => {
-        await adminAuthPlugin(scope, { internalApiSecret: SECRET, nodeEnv: 'test' })
+        await opsAuthPlugin(scope, { opsApiSecret: SECRET, nodeEnv: 'test' })
         await scope.register(internalOpsWorkerControlRoutes, { registry })
       },
       { prefix: '/internal/ops/workers' },
@@ -202,7 +202,7 @@ describe('POST /internal/ops/workers/:connectionId/{pause,resume} (#1151)', () =
     registry.register(worker())
     registry.setAccepting('conn-1', false)
     const app = await buildApp(registry)
-    const res = await app.inject({ method: 'GET', url: '/admin/workers', headers: auth })
+    const res = await app.inject({ method: 'GET', url: '/internal/ops/workers', headers: auth })
     expect(res.json().data[0]).toMatchObject({ connectionId: 'conn-1', accepting: false })
     await app.close()
   })
