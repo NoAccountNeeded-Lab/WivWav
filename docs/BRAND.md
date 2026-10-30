@@ -24,7 +24,7 @@ WivWav is a practical search tool for wheelchair accessible vehicles. The produc
 - Detail pages should prioritize image, price, location, conversion details, access equipment, seller contact, and source link.
 - Use full-width sections or constrained content areas; do not nest cards inside cards.
 - Every interactive control needs a stable size so labels, hover states, and dynamic values do not shift layout.
-- For filter panels, stat tiles, result counts, or any comparison/dashboard view, load the `dataviz` skill before designing or implementing — it's the source of truth for chart/tile color, density, and light/dark consistency, not a per-component judgment call.
+- For filter panels, stat tiles, result counts, or comparison views, follow the public data-visualization rules below. This guide is the canonical source; it does not depend on an external `dataviz` skill.
 
 ## Accessibility Rules
 
@@ -35,6 +35,12 @@ WivWav is a practical search tool for wheelchair accessible vehicles. The produc
 - Error, loading, empty, and no-results states need readable text.
 - Color cannot be the only way to communicate status.
 - Maps must not be the only way to access listing locations.
+
+## Public Shopping Data Visualization
+
+Public shopping pages use a fixed palette regardless of season or stored theme preference: deep purple for primary actions and selected values, muted teal for unselected chart data, and neutral page/card surfaces. Use semantic tokens rather than component-level color literals.
+
+Charts must keep selection understandable without color alone. Keep labels and counts available as text, provide keyboard operation and visible focus for interactive marks, and provide a text alternative for maps and other visual summaries. Do not animate chart meaning or selection. Any decorative motion must be subtle, pause in hidden tabs, and respect reduced-motion preferences.
 
 ---
 
@@ -84,9 +90,9 @@ This token architecture is intentionally compatible with custom primary colors. 
 
 ---
 
-## Seasonal Themes
+## Ops Seasonal Themes
 
-Themes rotate automatically by calendar date. Users can override manually; the override is persisted to `localStorage`.
+Seasonal themes apply to ops surfaces only. Public shopping pages use the fixed palette above and do not show a seasonal theme control. Users can override the ops theme manually; the override is persisted to `localStorage`.
 
 | Season | Months | Primary Scale | Accent Scale | Feel |
 |--------|--------|---------------|--------------|------|
@@ -95,25 +101,25 @@ Themes rotate automatically by calendar date. Users can override manually; the o
 | Fall | Sep – Nov | `Orange` | `Amber` | Warm, rich, high contrast |
 | Winter | Dec – Feb | `Indigo` | `Slate` | Calm, cool, structured |
 
-### Theme switching behavior
+### Ops theme switching behavior
 
 - Default: auto-rotate based on the current month (server date, not client clock).
 - Manual override: user selects a season from the theme switcher; selection written to `localStorage` key `wav-theme`.
 - A stored value of `"auto"` or an absent key both mean auto-rotate.
-- The `data-theme` attribute on `<html>` drives all CSS token overrides: `data-theme="spring"`, `"summer"`, `"fall"`, `"winter"`.
+- The `data-theme` attribute drives ops CSS token overrides: `data-theme="spring"`, `"summer"`, `"fall"`, `"winter"`. Public shopping surfaces ignore obsolete seasonal preferences.
 
-### Theme switcher UI
+### Ops theme switcher UI
 
-- Lives in the site header, right-aligned.
+- Lives in the ops header, right-aligned.
 - Compact control: a labeled icon button showing the current season name + a small season glyph (leaf, sun, etc.) from Lucide.
 - Opens a small popover with five options: Auto, Spring, Summer, Fall, Winter.
 - "Auto" is the default selection; shows the current auto season in parentheses: "Auto (Fall)".
 - Minimum tap target 48×48px.
 - Does not use color alone to distinguish options — each has a text label.
 
-### Chart fills in themed contexts
+### Chart fills in themed ops contexts
 
-Chart bars and pie slices for **data** use `--color-primary-solid` (step 9) for active/selected and `--color-border` (Slate 6) for dimmed/unselected — never theme accent colors for data, to avoid ambiguity with status colors.
+Ops chart bars and pie slices for **data** use `--color-primary-solid` (step 9) for active/selected and `--color-border` (Slate 6) for dimmed/unselected — never theme accent colors for data, to avoid ambiguity with status colors. Public shopping charts follow the fixed purple/teal palette above.
 
 The **vehicle color picker** filter is a special case: swatches use the actual vehicle color (white, black, silver, red, etc.) with a `--color-border` ring for contrast on light swatches. These are not themed.
 
