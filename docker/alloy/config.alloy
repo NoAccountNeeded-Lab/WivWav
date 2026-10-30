@@ -48,7 +48,7 @@ discovery.relabel "containers" {
   // index noise — Loki/Alloy/Grafana logs are not app logs.
   rule {
     source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-    regex         = "alloy|loki|grafana"
+    regex         = "alloy|loki|loki-gateway|grafana|prometheus"
     action        = "drop"
   }
 

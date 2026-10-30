@@ -180,7 +180,7 @@ worker-logs:
 ##        Wait for health checks before returning. Grafana: http://localhost:3003
 obs:
 	$(MAKE) build BUILD_SERVICES="migrate api" BUILD_PROFILES="--profile obs"
-	$(COMPOSE) --profile obs up -d --no-build --wait loki alloy prometheus grafana
+	$(COMPOSE) --profile obs up -d --no-build --wait loki loki-gateway alloy prometheus grafana
 	@scripts/open-when-ready.sh http://localhost:3003 >/dev/null 2>&1 &
 
 ## prune  Reclaim disk space: dangling images plus unused build cache. Run

@@ -118,6 +118,9 @@ services:
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
       VALKEY_URL: redis://valkey:6379
+      # Laptop-hosted observability may set this to the private LAN Loki gateway URL.
+      # Keep the default for deployments without a configured Loki endpoint.
+      LOKI_URL: ${LOKI_URL:-http://localhost:3100}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_REQUIRED: "false"
       CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN}
