@@ -161,3 +161,19 @@ describe('loadConfig', () => {
     expect(config.STRIPE_WEBHOOK_SECRET).toBe('whsec_test')
   })
 })
+
+
+describe('shopping filters deployment gate', () => {
+  it('defaults off until the rebuilt index is verified', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    delete process.env['WAV_SHOPPING_FILTERS_ENABLED']
+    expect(loadConfig().WAV_SHOPPING_FILTERS_ENABLED).toBe(false)
+  })
+  it('accepts explicit opt-in after rebuild verification', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'true')
+    expect(loadConfig().WAV_SHOPPING_FILTERS_ENABLED).toBe(true)
+  })
+})

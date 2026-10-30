@@ -13,6 +13,7 @@ const schema = z.object({
   HOST: z.string().default('0.0.0.0'),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   DATABASE_URL: z.url(),
+  WAV_SHOPPING_FILTERS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   MEILISEARCH_HOST: urlWithDefault('http://localhost:7700'),
   MEILISEARCH_API_KEY: z.string(),
   MEILISEARCH_INDEX_NAME: z

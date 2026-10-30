@@ -158,3 +158,32 @@ These routes are deliberately reachable without the admin credential:
 - `/health` — liveness/readiness probe; no sensitive data returned.
 - `/metrics` — Prometheus scrape endpoint; policy is network-level isolation (only scraped by Prometheus on the internal `obs` compose network), not application auth. Do not expose this port publicly.
 - `/telemetry/client-events` — narrow, schema-validated browser telemetry sink, rate-limited per-route (10/min), re-pathed out of `/admin` in #450 specifically so it is never caught by the fail-closed admin boundary above.
+
+## Additive shopping filters
+
+`GET /v1/listings` and `GET /v1/listings/facets` accept comma-separated
+`city`, `transmission`, `wheelchairCapacity`, and `conversionStatus` values.
+Values within a facet are ORed; distinct facets are ANDed. Existing query
+parameters and URLs remain supported.
+
+- `city` identifies an atomic lowercase city/uppercase state pair, for example
+  `city=springfield%7CIL,portland%7COR`. The index uses `cityState`; a separate
+  explicit `state` filter still applies. Conflicting selections are not removed
+  or broadened automatically.
+- `transmission`: `automatic`, `manual`, `cvt`, `automated_manual`. Source
+  aliases are normalized only in the search projection; raw source values remain.
+- `wheelchairCapacity`: exact positive integers 1–6, for example `1,2`.
+  Missing data is distinct from zero; zero, negative, fractional, malformed,
+  blank and out-of-range selections return 400.
+- `conversionStatus`: existing `proposed`, `complete`, `unknown` meanings.
+
+Facets add `cityBreakdown`, `transmissionBreakdown`,
+`wheelchairCapacityBreakdown`, `conversionStatusBreakdown`, and
+`shoppingFiltersReady`. Breakdowns retain `{ value: string, count: number }`,
+including string capacity values; counts use the full matching set. Clients
+perform disjunctive counts by omitting only the current facet's query parameter.
+New-filter requests return `503 SEARCH_UNAVAILABLE` while the default-off
+`WAV_SHOPPING_FILTERS_ENABLED` rollout gate is held. Listings continue to fail
+closed on search outages, without an unfiltered database fallback. Follow the
+[verified rebuild and rollback procedure](ops/shopping-filters-rollout.md)
+before enabling the new controls.

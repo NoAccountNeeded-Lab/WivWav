@@ -470,6 +470,11 @@ describe('GET /facets', () => {
     const body = res.json<{ data: Record<string, unknown> }>()
     expect(body.data).toEqual({
       total: 0,
+      shoppingFiltersReady: false,
+      cityBreakdown: [],
+      transmissionBreakdown: [],
+      wheelchairCapacityBreakdown: [],
+      conversionStatusBreakdown: [],
       priceDistribution: [],
       yearDistribution: [],
       mileageDistribution: [],
@@ -1427,6 +1432,45 @@ describe('snippetDescription', () => {
     const body = res.json<{ data: { description: string } }>()
     expect(body.data.description).toBe(shortDesc)
 
+    await app.close()
+  })
+})
+
+
+describe('shopping filter query contract', () => {
+  afterEach(() => vi.unstubAllEnvs())
+  it.each(['/', '/facets'])('forwards validated multi-value filters for %s', async (path) => {
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'true')
+    const { app, search, facets } = buildTestApp()
+    const query = new URLSearchParams({ city: 'springfield|IL,portland|OR', state: 'IL', transmission: 'automatic,cvt', wheelchairCapacity: '1,6', conversionStatus: 'proposed,complete,unknown' })
+    const response = await app.inject({ method: 'GET', url: `${path}?${query}` })
+    expect(response.statusCode).toBe(200)
+    expect(path === '/' ? search.search : facets.getFacets).toHaveBeenCalledWith(expect.objectContaining({ city: ['springfield|IL', 'portland|OR'], state: ['IL'], transmission: ['automatic', 'cvt'], wheelchairCapacity: [1, 6], conversionStatus: ['proposed', 'complete', 'unknown'] }))
+    await app.close()
+  })
+  it.each(['', '0', '-1', '1.5', '7', '10', 'NaN', '1x', '1,', '1,,2', '01', '1e0', ' 1'])('rejects malformed capacity %s on both endpoints', async (value) => {
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'true')
+    const { app, search, facets } = buildTestApp()
+    for (const path of ['/', '/facets']) {
+      const response = await app.inject({ method: 'GET', url: `${path}?${new URLSearchParams({ wheelchairCapacity: value })}` })
+      expect(response.statusCode).toBe(400)
+    }
+    expect(search.search).not.toHaveBeenCalled()
+    expect(facets.getFacets).not.toHaveBeenCalled()
+    await app.close()
+  })
+  it.each(['city=Springfield', 'city=Springfield%7CIL%7CMO', 'transmission=bogus', 'conversionStatus=converted'])('rejects invalid shopping contract %s', async (query) => {
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'true')
+    const { app } = buildTestApp()
+    expect((await app.inject({ method: 'GET', url: `/?${query}` })).statusCode).toBe(400)
+    await app.close()
+  })
+  it('fails closed for new filter queries before verified rollout, while old URLs work', async () => {
+    vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'false')
+    const { app, search } = buildTestApp()
+    expect((await app.inject({ method: 'GET', url: '/?wheelchairCapacity=1' })).statusCode).toBe(503)
+    expect(search.search).not.toHaveBeenCalled()
+    expect((await app.inject({ method: 'GET', url: '/?state=IL&make=Ford' })).statusCode).toBe(200)
     await app.close()
   })
 })

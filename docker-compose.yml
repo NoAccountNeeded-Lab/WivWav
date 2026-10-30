@@ -74,6 +74,7 @@ services:
       PORT: 3001
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://wav:wav@postgres:5432/wivwav
+      WAV_SHOPPING_FILTERS_ENABLED: ${WAV_SHOPPING_FILTERS_ENABLED:-false}
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILISEARCH_API_KEY: wav_master_key
       VALKEY_URL: redis://valkey:6379
