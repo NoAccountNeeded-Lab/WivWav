@@ -88,7 +88,7 @@ describe('OPS_NAV_GROUPS', () => {
       '/ops/settings',
       '/ops/api-keys',
       '/ops/privacy-requests',
-      '/admin/board',
+      '/ops/queues/board',
     ]))
   })
 
@@ -111,7 +111,7 @@ describe('OPS_NAV_GROUPS', () => {
     const advanced = OPS_NAV_GROUPS.find(group => group.id === 'advanced')
 
     expect(advanced?.items).toContainEqual(expect.objectContaining({
-      href: '/admin/board',
+      href: '/ops/queues/board',
       external: true,
       title: expect.stringContaining('diagnostics'),
     }))
@@ -159,10 +159,10 @@ describe('OPS_NAV_GROUPS', () => {
     }
   })
 
-  it('should never render /admin/board as a same-origin Next.js route', () => {
+  it('should never render /ops/queues/board as a same-origin Next.js route', () => {
     const bullBoardItems = OPS_NAV_GROUPS
       .flatMap(group => group.items)
-      .filter(item => item.href === '/admin/board')
+      .filter(item => item.href === '/ops/queues/board')
 
     expect(bullBoardItems.length).toBeGreaterThanOrEqual(1)
 

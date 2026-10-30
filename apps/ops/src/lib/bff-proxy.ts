@@ -12,44 +12,44 @@ type BffRule = Readonly<{ method: string; path: RegExp }>
 export const BFF_ALLOWLIST: readonly BffRule[] = [
   { method: 'GET', path: /^\/health$/ },
   { method: 'GET', path: /^\/v1\/listings$/ },
-  { method: 'GET', path: /^\/admin\/board(?:\/.*)?$/ },
-  { method: 'GET', path: /^\/admin\/(?:queues|sources|runs|repeatables|workers|config|logs|field-conflicts)$/ },
-  { method: 'GET', path: /^\/admin\/queues\/[^/]+$/ },
-  { method: 'GET', path: /^\/admin\/sources\/[^/]+\/(?:pipeline|job-runs)$/ },
-  { method: 'GET', path: /^\/admin\/listing-refresh\/status$/ },
-  { method: 'GET', path: /^\/admin\/config\/[^/]+(?:\/history)?$/ },
-  { method: 'GET', path: /^\/admin\/api-keys$/ },
-  { method: 'GET', path: /^\/admin\/ai\/status$/ },
-  { method: 'GET', path: /^\/admin\/private-seller-retention\/listings\/[^/]+\/audit$/ },
-  { method: 'POST', path: /^\/admin\/queues\/[^/]+\/(?:pause|resume|jobs)$/ },
-  { method: 'POST', path: /^\/admin\/sync$/ },
-  { method: 'POST', path: /^\/admin\/sources\/[^/]+\/(?:run|enable|disable)$/ },
-  { method: 'POST', path: /^\/admin\/ai\/explain-error$/ },
-  { method: 'POST', path: /^\/admin\/api-keys$/ },
-  { method: 'POST', path: /^\/admin\/private-seller-retention\/listings\/[^/]+\/delete$/ },
+  { method: 'GET', path: /^\/ops\/queues\/board(?:\/.*)?$/ },
+  { method: 'GET', path: /^\/internal\/ops\/(?:queues|sources|runs|repeatables|workers|config|logs|field-conflicts)$/ },
+  { method: 'GET', path: /^\/internal\/ops\/queues\/[^/]+$/ },
+  { method: 'GET', path: /^\/internal\/ops\/sources\/[^/]+\/(?:pipeline|job-runs)$/ },
+  { method: 'GET', path: /^\/internal\/ops\/listing-refresh\/status$/ },
+  { method: 'GET', path: /^\/internal\/ops\/config\/[^/]+(?:\/history)?$/ },
+  { method: 'GET', path: /^\/internal\/ops\/api-keys$/ },
+  { method: 'GET', path: /^\/internal\/ops\/ai\/status$/ },
+  { method: 'GET', path: /^\/internal\/ops\/private-seller-retention\/listings\/[^/]+\/audit$/ },
+  { method: 'POST', path: /^\/internal\/ops\/queues\/[^/]+\/(?:pause|resume|jobs)$/ },
+  { method: 'POST', path: /^\/internal\/ops\/sync$/ },
+  { method: 'POST', path: /^\/internal\/ops\/sources\/[^/]+\/(?:run|enable|disable)$/ },
+  { method: 'POST', path: /^\/internal\/ops\/ai\/explain-error$/ },
+  { method: 'POST', path: /^\/internal\/ops\/api-keys$/ },
+  { method: 'POST', path: /^\/internal\/ops\/private-seller-retention\/listings\/[^/]+\/delete$/ },
   { method: 'POST', path: /^\/internal\/ops\/workers\/[^/]+\/(?:pause|resume)$/ },
   { method: 'POST', path: /^\/internal\/ops\/queues\/[^/]+\/jobs\/[^/]+\/(?:cancel|retry|make-ready)$/ },
   { method: 'POST', path: /^\/internal\/ops\/problem-aggregate$/ },
   { method: 'POST', path: /^\/internal\/ops\/problem-ack$/ },
   { method: 'POST', path: /^\/internal\/ops\/listings\/[^/]+\/actions$/ },
-  { method: 'PUT', path: /^\/admin\/config\/[^/]+$/ },
-  { method: 'PUT', path: /^\/admin\/repeatables\/[^/]+$/ },
-  { method: 'POST', path: /^\/admin\/repeatables\/[^/]+$/ },
-  { method: 'DELETE', path: /^\/admin\/config\/[^/]+$/ },
-  { method: 'DELETE', path: /^\/admin\/api-keys\/[^/]+$/ },
-  { method: 'DELETE', path: /^\/admin\/repeatables\/[^/]+$/ },
-  { method: 'DELETE', path: /^\/admin\/queues\/[^/]+\/failed$/ },
+  { method: 'PUT', path: /^\/internal\/ops\/config\/[^/]+$/ },
+  { method: 'PUT', path: /^\/internal\/ops\/repeatables\/[^/]+$/ },
+  { method: 'POST', path: /^\/internal\/ops\/repeatables\/[^/]+$/ },
+  { method: 'DELETE', path: /^\/internal\/ops\/config\/[^/]+$/ },
+  { method: 'DELETE', path: /^\/internal\/ops\/api-keys\/[^/]+$/ },
+  { method: 'DELETE', path: /^\/internal\/ops\/repeatables\/[^/]+$/ },
+  { method: 'DELETE', path: /^\/internal\/ops\/queues\/[^/]+\/failed$/ },
   // Bull Board 9.10.2's mutation routes (see @bull-board/api/dist/routes.js).
-  { method: 'POST', path: /^\/admin\/board\/api\/queues\/[^/]+\/add$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/(?:pause|resume)$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/(?:retry|clean)\/[^/]+$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/promote$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/(?:pause|resume|concurrency|rate-limit|empty|obliterate)$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/rate-limit\/release$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/job-schedulers\/[^/]+\/(?:remove|run)$/ },
-  { method: 'PUT', path: /^\/admin\/board\/api\/queues\/[^/]+\/[^/]+\/(?:retry|clean|promote|remove-unprocessed-children)$/ },
-  { method: 'PATCH', path: /^\/admin\/board\/api\/queues\/[^/]+\/job-schedulers\/[^/]+$/ },
-  { method: 'PATCH', path: /^\/admin\/board\/api\/queues\/[^/]+\/[^/]+\/(?:update-data|delay|priority)$/ },
+  { method: 'POST', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/add$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/(?:pause|resume)$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/(?:retry|clean)\/[^/]+$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/promote$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/(?:pause|resume|concurrency|rate-limit|empty|obliterate)$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/rate-limit\/release$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/job-schedulers\/[^/]+\/(?:remove|run)$/ },
+  { method: 'PUT', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/[^/]+\/(?:retry|clean|promote|remove-unprocessed-children)$/ },
+  { method: 'PATCH', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/job-schedulers\/[^/]+$/ },
+  { method: 'PATCH', path: /^\/ops\/queues\/board\/api\/queues\/[^/]+\/[^/]+\/(?:update-data|delay|priority)$/ },
 ]
 
 export function isAllowedBffRequest(method: string, upstreamPath: string): boolean {
@@ -78,10 +78,10 @@ function getTrustedOpsOrigin(): string | null {
  * Shared proxy body for the ops BFF: forwards a browser request to the API
  * (or, for Bull Board, to a caller-supplied absolute upstream path), injecting
  * the internal service credential server-side via `apiFetch` so the browser
- * never needs it and never calls `/admin/*` directly.
+ * never needs it and never calls `/internal/ops/*` directly.
  *
  * Defense-in-depth: `middleware.ts` already blocks unauthenticated requests to
- * `/api/bff/*` and `/admin/board/*`, but this checks the session again in case
+ * `/ops/api/*` and `/ops/queues/board/*`, but this checks the session again in case
  * a route handler is ever reached by another path.
  *
  * CSRF: this app is same-origin-only (the ops browser client never calls a

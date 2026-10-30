@@ -52,7 +52,7 @@ function jsonResponse(body: unknown): Response {
 
 const EMPTY_LIST = { data: [] }
 // The real `/health` route (`apps/api/src/routes/health.ts`) returns the
-// health object directly, unlike `/admin/*`'s `{ data: [...] }` envelope —
+// health object directly, unlike `/internal/ops/*`'s `{ data: [...] }` envelope —
 // wrapping this in an extra `data` layer left `useReadinessReport`'s
 // un-enveloped `fetchResource` reading `services` off `undefined`.
 const HEALTH_BODY = { status: 'ok', timestamp: new Date().toISOString(), services: {} }
@@ -98,21 +98,21 @@ interface FetchRoutes {
 function mockFetch(routes: FetchRoutes = {}) {
   return vi.fn(async (url: string) => {
     if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
-    if (url.endsWith('/admin/sources')) return jsonResponse(routes.sources ?? EMPTY_LIST)
-    if (url.endsWith('/admin/runs')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/repeatables')) return jsonResponse(EMPTY_LIST)
-    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
+    if (url.endsWith('/internal/ops/sources')) return jsonResponse(routes.sources ?? EMPTY_LIST)
+    if (url.endsWith('/internal/ops/runs')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/internal/ops/repeatables')) return jsonResponse(EMPTY_LIST)
+    if (url.endsWith('/internal/ops/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.includes('/v1/listings')) return jsonResponse(LISTINGS_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(routes.problemAggregate ?? PROBLEM_AGGREGATE_EMPTY)
-    if (url.includes('/admin/logs')) return jsonResponse(routes.logs ?? EMPTY_LIST)
-    const queueDetailMatch = /\/admin\/queues\/([^/?]+)$/.exec(url)
+    if (url.includes('/internal/ops/logs')) return jsonResponse(routes.logs ?? EMPTY_LIST)
+    const queueDetailMatch = /\/internal\/ops\/queues\/([^/?]+)$/.exec(url)
     if (queueDetailMatch) {
       const name = decodeURIComponent(queueDetailMatch[1] ?? '')
       const detail = routes.queueDetail?.[name]
       if (detail) return jsonResponse({ data: detail })
       throw new Error(`No mocked detail for queue ${name}`)
     }
-    if (url.endsWith('/admin/queues')) return jsonResponse(routes.queues ?? EMPTY_LIST)
+    if (url.endsWith('/internal/ops/queues')) return jsonResponse(routes.queues ?? EMPTY_LIST)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
 }

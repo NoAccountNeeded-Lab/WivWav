@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { buildUpstreamPath, proxyToApi } from '@/lib/bff-proxy'
 
 /**
- * Allowlisted BFF proxy: `/api/bff/<rest>` → API `/<rest>` (1:1, prefix stripped).
+ * Allowlisted BFF proxy: `/ops/api/<rest>` → API `/<rest>` (1:1, prefix stripped).
  *
  * The path and method allowlist lives in `bff-proxy.ts`; the browser never
  * talks to the API's privileged surface directly. The internal service

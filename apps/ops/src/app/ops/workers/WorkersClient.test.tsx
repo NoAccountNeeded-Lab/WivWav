@@ -336,11 +336,11 @@ describe('WorkersClient', () => {
       return jsonResponse({ data: [{ ...IDLE_WORKER, accepting: !paused }] })
     })
     vi.stubGlobal('fetch', fetchMock)
-    render(<WorkersClient apiBaseUrl="/api/bff" />)
+    render(<WorkersClient apiBaseUrl="/ops/api" />)
     const pause = await screen.findByRole('button', { name: 'Pause Spare laptop' })
     await act(async () => { pause.click() })
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/bff/internal/ops/workers/conn-2/pause', { method: 'POST' })
+    expect(fetchMock).toHaveBeenCalledWith('/ops/api/internal/ops/workers/conn-2/pause', { method: 'POST' })
     expect(await screen.findByRole('button', { name: 'Resume Spare laptop' })).toBeDefined()
     expect(screen.getByText(/· Paused/)).toBeDefined()
     expect(screen.getByText(/Paused — not taking new work/)).toBeDefined()

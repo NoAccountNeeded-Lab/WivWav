@@ -64,7 +64,7 @@ export function ApiKeysClient({ apiBaseUrl }: ApiKeysClientProps) {
     setLoadError(null)
     try {
       const query = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) })
-      const response = await fetch(`${apiBaseUrl}/admin/api-keys?${query.toString()}`, { cache: 'no-store', signal })
+      const response = await fetch(`${apiBaseUrl}/internal/ops/api-keys?${query.toString()}`, { cache: 'no-store', signal })
       if (!response.ok) throw new Error(await readError(response))
       const body = await response.json() as { data?: ApiKeysPayload }
       if (!body.data || !Array.isArray(body.data.keys) || !body.data.pagination) {
@@ -106,7 +106,7 @@ export function ApiKeysClient({ apiBaseUrl }: ApiKeysClientProps) {
     try {
       const payload: { ownerEmail: string; tier: ApiKeyRecord['tier']; rateLimitRpm?: number } = { ownerEmail: email, tier }
       if (parsedRateLimit !== undefined) payload.rateLimitRpm = parsedRateLimit
-      const response = await fetch(`${apiBaseUrl}/admin/api-keys`, {
+      const response = await fetch(`${apiBaseUrl}/internal/ops/api-keys`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
@@ -148,7 +148,7 @@ export function ApiKeysClient({ apiBaseUrl }: ApiKeysClientProps) {
     setMutationError(null)
     setStatusMessage(null)
     try {
-      const response = await fetch(`${apiBaseUrl}/admin/api-keys/${encodeURIComponent(target.id)}`, { method: 'DELETE' })
+      const response = await fetch(`${apiBaseUrl}/internal/ops/api-keys/${encodeURIComponent(target.id)}`, { method: 'DELETE' })
       if (!response.ok) throw new Error(await readError(response))
       setRevokeTarget(null)
       setStatusMessage(`Key for ${target.ownerEmail} was revoked.`)

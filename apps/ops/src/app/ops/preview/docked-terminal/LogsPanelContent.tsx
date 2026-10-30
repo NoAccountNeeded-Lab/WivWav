@@ -16,7 +16,7 @@ interface LogsPanelContentProps {
 }
 
 /** Logs panel content, opened via the `queues` panel's failed-job-count
- *  entity relationship link (#913) — real `/admin/logs` data, filtered to
+ *  entity relationship link (#913) — real `/internal/ops/logs` data, filtered to
  *  the job that opened it. */
 export function LogsPanelContent({ apiBaseUrl, jobId }: LogsPanelContentProps) {
   const [entries, setEntries] = useState<LogEntry[] | null>(null)
@@ -25,7 +25,7 @@ export function LogsPanelContent({ apiBaseUrl, jobId }: LogsPanelContentProps) {
   const refresh = useCallback(async () => {
     try {
       const params = new URLSearchParams({ limit: '50', search: jobId })
-      const res = await fetch(`${apiBaseUrl}/admin/logs?${params.toString()}`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/logs?${params.toString()}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: LogEntry[] }
       setEntries(body.data.filter(entry => entry.jobId === jobId))

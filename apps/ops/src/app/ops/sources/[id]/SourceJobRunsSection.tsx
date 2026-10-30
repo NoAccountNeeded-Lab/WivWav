@@ -26,7 +26,7 @@ const REFRESH_MS = 15_000
 
 /**
  * #937: renders the source's full pipeline run tree from
- * `GET /admin/sources/:id/job-runs` (#933 lineage backbone) — job type,
+ * `GET /internal/ops/sources/:id/job-runs` (#933 lineage backbone) — job type,
  * status, timestamps, succeeded/failed counts, and (for a failed run) its
  * error message, nested by `parentRunId`. Deliberately a plain page
  * section, not the `Workspace`/docked-terminal panel treatment tracked
@@ -38,7 +38,7 @@ export function SourceJobRunsSection({ apiBaseUrl, sourceId }: SourceJobRunsSect
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/job-runs`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sources/${encodeURIComponent(sourceId)}/job-runs`, {
         cache: 'no-store',
       })
       if (!res.ok) throw new Error(`API returned ${res.status}`)

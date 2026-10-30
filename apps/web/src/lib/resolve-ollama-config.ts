@@ -13,7 +13,7 @@ export async function resolveOllamaConfig(modelConfigKey: string): Promise<{
   const apiBase = getServerApiBaseUrl()
 
   try {
-    const res = await apiFetch(`${apiBase}/admin/config/${encodeURIComponent(modelConfigKey)}`, {
+    const res = await apiFetch(`${apiBase}/internal/config/${encodeURIComponent(modelConfigKey)}`, {
       cache: 'no-store',
     })
     const body = res.ok ? (await res.json() as { data: { value: unknown } }) : null

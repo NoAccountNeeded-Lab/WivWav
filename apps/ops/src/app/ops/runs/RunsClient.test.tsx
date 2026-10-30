@@ -60,7 +60,7 @@ function jsonResponse(data: unknown): Response {
 
 function stubFetch(pipelineStages: PipelineStageFixture[] = []) {
   vi.stubGlobal('fetch', vi.fn((url: string) => {
-    if (url.includes('/admin/runs')) {
+    if (url.includes('/internal/ops/runs')) {
       return Promise.resolve(jsonResponse(RUNS))
     }
     if (url.includes('/pipeline')) {

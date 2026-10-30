@@ -37,29 +37,40 @@ describe('ops middleware — page protection', () => {
 })
 
 describe('ops middleware — BFF and Bull Board API calls', () => {
-  it('returns 401 JSON (not a redirect) for unauthenticated /api/bff calls', async () => {
-    const response = middleware(makeRequest('http://ops.local/api/bff/admin/queues'))
+  it('returns 401 JSON (not a redirect) for unauthenticated /ops/api calls', async () => {
+    const response = middleware(makeRequest('http://ops.local/ops/api/internal/ops/queues'))
     expect(response.status).toBe(401)
     const body = await response.json() as { error: { code: string } }
     expect(body.error.code).toBe('UNAUTHENTICATED')
   })
 
-  it('returns 401 JSON for unauthenticated /admin/board sub-resource fetches', () => {
+  it('returns 401 JSON for unauthenticated /ops/queues/board sub-resource fetches', () => {
     const response = middleware(
-      makeRequest('http://ops.local/admin/board/static/app.js', { headers: { 'sec-fetch-mode': 'no-cors' } }),
+      makeRequest('http://ops.local/ops/queues/board/static/app.js', { headers: { 'sec-fetch-mode': 'no-cors' } }),
     )
     expect(response.status).toBe(401)
   })
 
-  it('redirects unauthenticated top-level navigation to /admin/board', () => {
+  it('redirects unauthenticated top-level navigation to /ops/queues/board', () => {
     const response = middleware(
-      makeRequest('http://ops.local/admin/board', { headers: { 'sec-fetch-mode': 'navigate' } }),
+      makeRequest('http://ops.local/ops/queues/board', { headers: { 'sec-fetch-mode': 'navigate' } }),
     )
     expect(response.status).toBe(307)
   })
 
-  it('passes through authenticated /api/bff calls', () => {
-    const response = middleware(makeRequest('http://ops.local/api/bff/admin/queues', { sessionCookie: createSessionValue() }))
+  it('passes through authenticated /ops/api calls', () => {
+    const response = middleware(makeRequest('http://ops.local/ops/api/internal/ops/queues', { sessionCookie: createSessionValue() }))
     expect(response.status).toBe(200)
+  })
+})
+
+
+describe('retired namespaces', () => {
+  it.each(['/admin', '/admin/board', '/api/bff', '/api/bff/admin/queues'])('returns 404 without redirect for %s with or without session', pathname => {
+    for (const sessionCookie of [undefined, createSessionValue()]) {
+      const response = middleware(makeRequest(`http://ops.local${pathname}`, sessionCookie ? { sessionCookie } : {}))
+      expect(response.status).toBe(404)
+      expect(response.headers.get('location')).toBeNull()
+    }
   })
 })

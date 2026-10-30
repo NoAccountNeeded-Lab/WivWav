@@ -2,7 +2,7 @@ import type { OpsStatusVariant } from '@/components/OpsStatusChip'
 
 export type JobRunStatus = 'running' | 'succeeded' | 'failed'
 
-/** One node of the `GET /admin/sources/:id/job-runs` run tree (#933 lineage backbone). */
+/** One node of the `GET /internal/ops/sources/:id/job-runs` run tree (#933 lineage backbone). */
 export interface JobRunNode {
   id: string
   jobType: string

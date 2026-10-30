@@ -73,7 +73,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetchWithTimeout(`${apiBaseUrl}/admin/repeatables`, { cache: 'no-store' }, 10_000)
+      const res = await fetchWithTimeout(`${apiBaseUrl}/internal/ops/repeatables`, { cache: 'no-store' }, 10_000)
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: ScheduleEntry[] }
       setSchedules(body.data)
@@ -104,7 +104,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
     if (!entry.key) return
     setAction(entry.id, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/repeatables/${encodeURIComponent(entry.queue)}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/repeatables/${encodeURIComponent(entry.queue)}`, {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ key: entry.key }),
@@ -120,7 +120,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
   async function enable(entry: ScheduleEntry, pattern?: string) {
     setAction(entry.id, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/repeatables/${encodeURIComponent(entry.queue)}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/repeatables/${encodeURIComponent(entry.queue)}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +143,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
   async function clearFailed(entry: ScheduleEntry) {
     setAction(entry.id, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(entry.queue)}/failed`, { method: 'DELETE' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(entry.queue)}/failed`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       const body = (await res.json()) as { data: { removed: number } }
       setAction(entry.id, { loading: false, feedback: `Cleared ${body.data.removed} failed`, isError: false })
@@ -157,7 +157,7 @@ export function SchedulesClient({ apiBaseUrl }: SchedulesClientProps) {
     if (!entry.key) { await enable(entry, newPattern); return }
     setAction(entry.id, { loading: true, feedback: null, isError: false })
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/repeatables/${encodeURIComponent(entry.queue)}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/repeatables/${encodeURIComponent(entry.queue)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

@@ -10,7 +10,7 @@ export type OpsNavGroupId =
 export interface OpsNavItem {
   /**
    * For internal Next.js routes: the pathname (e.g. `/ops/queues`).
-   * For API-hosted destinations: the path relative to the API origin (e.g. `/admin/board`).
+   * For API-hosted destinations: the path relative to the API origin (e.g. `/ops/queues/board`).
    * When `apiOrigin` is true, callers must build the URL from the public API base URL rather than
    * rendering a same-origin Next `Link`.
    */
@@ -206,7 +206,7 @@ export const OPS_NAV_GROUPS: OpsNavGroup[] = [
         },
       },
       {
-        href: '/admin/board',
+        href: '/ops/queues/board',
         title: 'Bull Board diagnostics',
         desc: 'Open the full raw queue inspector for payloads, retry details, and stack traces.',
         apiOrigin: true,

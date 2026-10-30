@@ -63,7 +63,7 @@ function ollamaHttpErrorResponse(status = 500): Response {
  */
 function mockFetchOllama(ollamaFactory: () => Response): ReturnType<typeof vi.fn> {
   return vi.fn().mockImplementation((url: string) => {
-    if ((url as string).includes('/admin/config/')) return Promise.resolve(configNotFoundResponse())
+    if ((url as string).includes('/internal/config/')) return Promise.resolve(configNotFoundResponse())
     return Promise.resolve(ollamaFactory())
   })
 }
@@ -74,8 +74,8 @@ function mockFetchOllama(ollamaFactory: () => Response): ReturnType<typeof vi.fn
  */
 function mockFetchWithModel(model: string, ollamaFactory: () => Response): ReturnType<typeof vi.fn> {
   return vi.fn().mockImplementation((url: string) => {
-    if ((url as string).includes('/admin/config/ai.intake.model')) return Promise.resolve(configOkResponse(model))
-    if ((url as string).includes('/admin/config/')) return Promise.resolve(configNotFoundResponse())
+    if ((url as string).includes('/internal/config/ai.intake.model')) return Promise.resolve(configOkResponse(model))
+    if ((url as string).includes('/internal/config/')) return Promise.resolve(configNotFoundResponse())
     return Promise.resolve(ollamaFactory())
   })
 }
@@ -246,7 +246,7 @@ describe('POST /api/intake', () => {
 
   it('returns empty filters when fetch throws a network error', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
-      if ((url as string).includes('/admin/config/')) return Promise.resolve(configNotFoundResponse())
+      if ((url as string).includes('/internal/config/')) return Promise.resolve(configNotFoundResponse())
       return Promise.reject(new Error('Network failure'))
     }))
 

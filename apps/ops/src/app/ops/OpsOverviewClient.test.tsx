@@ -59,11 +59,11 @@ const PROBLEM_AGGREGATE_BODY = {
 function mockFetchWithFailingRuns() {
   return vi.fn(async (url: string) => {
     if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
-    if (url.endsWith('/admin/queues')) return jsonResponse(QUEUES_BODY)
-    if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
-    if (url.endsWith('/admin/runs')) return { ok: false, status: 503, json: async () => ({}) } as Response
-    if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
+    if (url.endsWith('/internal/ops/queues')) return jsonResponse(QUEUES_BODY)
+    if (url.endsWith('/internal/ops/sources')) return jsonResponse(SOURCES_BODY)
+    if (url.endsWith('/internal/ops/runs')) return { ok: false, status: 503, json: async () => ({}) } as Response
+    if (url.endsWith('/internal/ops/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/internal/ops/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
@@ -123,7 +123,7 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
       expect(screen.getByText('42')).not.toBeNull()
     })
 
-    const callsBeforeRetry = fetchMock.mock.calls.filter(([url]) => (url as string).endsWith('/admin/runs')).length
+    const callsBeforeRetry = fetchMock.mock.calls.filter(([url]) => (url as string).endsWith('/internal/ops/runs')).length
     expect(callsBeforeRetry).toBeGreaterThanOrEqual(1)
 
     // Clicking retry re-fetches only that resource.
@@ -132,7 +132,7 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
     })
 
     await waitFor(() => {
-      const callsAfterRetry = fetchMock.mock.calls.filter(([url]) => (url as string).endsWith('/admin/runs')).length
+      const callsAfterRetry = fetchMock.mock.calls.filter(([url]) => (url as string).endsWith('/internal/ops/runs')).length
       expect(callsAfterRetry).toBeGreaterThan(callsBeforeRetry)
     })
   })
@@ -169,11 +169,11 @@ describe('OpsOverviewClient — streaming sections and per-section retry (E5, #7
 
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/health')) return jsonResponse(HEALTH_BODY)
-      if (url.endsWith('/admin/queues')) return jsonResponse(QUEUES_BODY)
-      if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
-      if (url.endsWith('/admin/runs')) return jsonResponse(runsBody)
-      if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-      if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
+      if (url.endsWith('/internal/ops/queues')) return jsonResponse(QUEUES_BODY)
+      if (url.endsWith('/internal/ops/sources')) return jsonResponse(SOURCES_BODY)
+      if (url.endsWith('/internal/ops/runs')) return jsonResponse(runsBody)
+      if (url.endsWith('/internal/ops/repeatables')) return jsonResponse(SCHEDULES_BODY)
+      if (url.endsWith('/internal/ops/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
       if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(PROBLEM_AGGREGATE_BODY)
       throw new Error(`Unexpected URL in test: ${url}`)
     }))
@@ -195,11 +195,11 @@ function mockFetchWith(overrides: { health?: unknown; queues?: unknown; problemA
   const problemAggregate = overrides.problemAggregate ?? PROBLEM_AGGREGATE_BODY
   return vi.fn(async (url: string) => {
     if (url.endsWith('/health')) return jsonResponse(health)
-    if (url.endsWith('/admin/queues')) return jsonResponse(queues)
-    if (url.endsWith('/admin/sources')) return jsonResponse(SOURCES_BODY)
-    if (url.endsWith('/admin/runs')) return jsonResponse({ data: [] })
-    if (url.endsWith('/admin/repeatables')) return jsonResponse(SCHEDULES_BODY)
-    if (url.endsWith('/admin/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
+    if (url.endsWith('/internal/ops/queues')) return jsonResponse(queues)
+    if (url.endsWith('/internal/ops/sources')) return jsonResponse(SOURCES_BODY)
+    if (url.endsWith('/internal/ops/runs')) return jsonResponse({ data: [] })
+    if (url.endsWith('/internal/ops/repeatables')) return jsonResponse(SCHEDULES_BODY)
+    if (url.endsWith('/internal/ops/listing-refresh/status')) return jsonResponse(LISTING_REFRESH_BODY)
     if (url.endsWith('/internal/ops/problem-aggregate')) return jsonResponse(problemAggregate)
     throw new Error(`Unexpected URL in test: ${url}`)
   })
@@ -210,8 +210,8 @@ describe('OpsOverviewClient — calm overview (#760)', () => {
     const normalFetch = mockFetchWith()
     const finishedAt = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString()
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/config')) return jsonResponse({ data: [{ key: 'health.scraper_stale_hours', value: 8, type: 'number' }] })
-      if (url.endsWith('/admin/runs')) return jsonResponse({ data: [{ id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD', startedAt: finishedAt, finishedAt, success: true, listingsFound: 1, listingsNew: 0, listingsUpdated: 0, errorMessage: null }] })
+      if (url.endsWith('/internal/ops/config')) return jsonResponse({ data: [{ key: 'health.scraper_stale_hours', value: 8, type: 'number' }] })
+      if (url.endsWith('/internal/ops/runs')) return jsonResponse({ data: [{ id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD', startedAt: finishedAt, finishedAt, success: true, listingsFound: 1, listingsNew: 0, listingsUpdated: 0, errorMessage: null }] })
       return normalFetch(url)
     }))
     render(<SettingsProvider apiBaseUrl=""><OpsOverviewClient apiBaseUrl="" /></SettingsProvider>)
@@ -222,8 +222,8 @@ describe('OpsOverviewClient — calm overview (#760)', () => {
     const normalFetch = mockFetchWith()
     const finishedAt = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString()
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/config')) throw new Error('settings offline')
-      if (url.endsWith('/admin/runs')) return jsonResponse({ data: [{ id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD', startedAt: finishedAt, finishedAt, success: true, listingsFound: 1, listingsNew: 0, listingsUpdated: 0, errorMessage: null }] })
+      if (url.endsWith('/internal/ops/config')) throw new Error('settings offline')
+      if (url.endsWith('/internal/ops/runs')) return jsonResponse({ data: [{ id: 'run-1', sourceId: 'src-1', sourceName: 'BLVD', startedAt: finishedAt, finishedAt, success: true, listingsFound: 1, listingsNew: 0, listingsUpdated: 0, errorMessage: null }] })
       return normalFetch(url)
     }))
     render(<SettingsProvider apiBaseUrl=""><OpsOverviewClient apiBaseUrl="" /></SettingsProvider>)

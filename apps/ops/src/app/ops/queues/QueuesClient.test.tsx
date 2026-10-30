@@ -15,7 +15,7 @@ afterEach(() => {
 describe('QueuesClient progress', () => {
   it('renders count-backed queue snapshot progress from mocked API data', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/queues')) {
+      if (url.endsWith('/internal/ops/queues')) {
         return jsonResponse({
           data: [{
             name: 'detail-crawl',
@@ -44,7 +44,7 @@ describe('QueuesClient progress', () => {
 describe('QueuesClient action icons (#764)', () => {
   it('renders a leading icon on the Pause, Trigger, Activity, and Refresh buttons', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/queues')) {
+      if (url.endsWith('/internal/ops/queues')) {
         return jsonResponse({
           data: [{
             name: 'detail-crawl',
@@ -75,7 +75,7 @@ describe('QueuesClient action icons (#764)', () => {
 
   it('renders a distinct Resume icon from Pause on a paused queue', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/queues')) {
+      if (url.endsWith('/internal/ops/queues')) {
         return jsonResponse({
           data: [{
             name: 'detail-crawl',
@@ -108,7 +108,7 @@ describe('QueuesClient per-job controls (#1152)', () => {
       if (init?.method === 'POST') {
         return { ok: actionStatus < 300, status: actionStatus, json: async () => actionBody } as Response
       }
-      if (url.endsWith('/admin/queues')) {
+      if (url.endsWith('/internal/ops/queues')) {
         return jsonResponse({
           data: [{
             name: 'detail-crawl', paused: false,
@@ -117,7 +117,7 @@ describe('QueuesClient per-job controls (#1152)', () => {
           }],
         })
       }
-      if (url.endsWith('/admin/queues/detail-crawl')) {
+      if (url.endsWith('/internal/ops/queues/detail-crawl')) {
         return jsonResponse({
           data: {
             name: 'detail-crawl', paused: false,
@@ -171,7 +171,7 @@ describe('QueuesClient per-job controls (#1152)', () => {
     const detailFetch = fetchMock.getMockImplementation()!
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       const res = await detailFetch(url, init)
-      if (url.endsWith('/admin/queues/detail-crawl') && !init?.method) {
+      if (url.endsWith('/internal/ops/queues/detail-crawl') && !init?.method) {
         const body = (await res.json()) as { data: { jobs: { id: string }[] } }
         body.data.jobs = body.data.jobs.filter((j) => j.id !== 'w1')
         return jsonResponse(body)

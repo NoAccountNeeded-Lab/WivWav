@@ -32,7 +32,7 @@ describe('PrivacyRequestsClient deletion request', () => {
     await screen.findByText(/sensitive fields cleared/i)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://api.test/admin/private-seller-retention/listings/listing-1/delete',
+      'http://api.test/internal/ops/private-seller-retention/listings/listing-1/delete',
       expect.objectContaining({ method: 'POST' }),
     )
   })

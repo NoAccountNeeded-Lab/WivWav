@@ -36,7 +36,7 @@ interface LogsClientProps {
   /** Pre-selects the service filter from an inbound deep link (e.g. a run's "Logs for
    *  this run" link). Falls back to "All services" when absent or unrecognized. */
   initialService?: string
-  /** Time-window bounds (ISO or ns epoch, per `/admin/logs`) from an inbound deep link.
+  /** Time-window bounds (ISO or ns epoch, per `/internal/ops/logs`) from an inbound deep link.
    *  Not exposed as editable controls yet — they scope the initial query only. */
   initialStart?: string
   initialEnd?: string
@@ -284,7 +284,7 @@ function EntryRow({ entry, rowId }: EntryRowProps) {
 export function LogsClient({ apiBaseUrl, initialSearch = '', initialService, initialStart, initialEnd }: LogsClientProps) {
   const [entries, setEntries] = useState<LogEntry[] | null>(null)
   // Seed with the deep-linked service (if any) so the select shows it immediately,
-  // even before `/admin/logs` returns the full known-services list to merge into.
+  // even before `/internal/ops/logs` returns the full known-services list to merge into.
   const [services, setServices] = useState<string[]>(initialService ? [initialService] : [])
   const [error, setError] = useState<string | null>(null)
   const [unavailable, setUnavailable] = useState(false)
@@ -321,7 +321,7 @@ export function LogsClient({ apiBaseUrl, initialSearch = '', initialService, ini
     if (initialEnd) params.set('end', initialEnd)
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/logs?${params.toString()}`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/logs?${params.toString()}`, { cache: 'no-store' })
       if (res.status === 503) {
         setUnavailable(true)
         setEntries(null)

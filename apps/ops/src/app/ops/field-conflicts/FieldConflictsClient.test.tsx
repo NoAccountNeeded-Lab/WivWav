@@ -30,7 +30,7 @@ const ROW = {
 describe('FieldConflictsClient', () => {
   it('renders unresolved field conflicts with competing values and a source link', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.includes('/admin/field-conflicts')) {
+      if (url.includes('/internal/ops/field-conflicts')) {
         return jsonResponse({ data: [ROW], meta: { total: 1, skip: 0, take: 50 } })
       }
       throw new Error(`Unexpected URL in test: ${url}`)

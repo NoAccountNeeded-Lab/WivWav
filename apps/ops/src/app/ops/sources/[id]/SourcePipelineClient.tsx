@@ -80,7 +80,7 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/pipeline`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sources/${encodeURIComponent(sourceId)}/pipeline`, { cache: 'no-store' })
       if (res.status === 404) {
         setNotFound(true)
         setError(null)
@@ -109,7 +109,7 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
     setRetryStates(prev => ({ ...prev, [stage.stage]: { loading: true, feedback: null, isError: false } }))
     try {
       const body = stage.failedScopedToSource ? { data: { sourceId } } : { data: {} }
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(stage.queue)}/jobs`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(stage.queue)}/jobs`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
@@ -133,7 +133,7 @@ export function SourcePipelineClient({ apiBaseUrl, sourceId }: SourcePipelineCli
     if (!stage.latestFailedJobId) return
     setExplainStates(prev => ({ ...prev, [stage.stage]: { loading: true, explanation: null, error: null } }))
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/ai/explain-error`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/ai/explain-error`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: AbortSignal.timeout(EXPLAIN_TIMEOUT_MS),

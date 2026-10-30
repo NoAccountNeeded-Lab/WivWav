@@ -36,7 +36,7 @@ interface QueuesPanelContentProps {
   onOpenLogsForJob: (jobId: string) => void
 }
 
-/** Queues panel content — the same `/admin/queues` snapshot `/ops/queues`
+/** Queues panel content — the same `/internal/ops/queues` snapshot `/ops/queues`
  *  renders (#913), with a queue-list / queue-detail split matching the
  *  internal split the `queue` demo entity already showed in
  *  `workspace-preview`. */
@@ -49,7 +49,7 @@ export function QueuesPanelContent({ apiBaseUrl, onOpenLogsForJob }: QueuesPanel
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: QueueRow[] }
       setQueues(body.data)
@@ -67,7 +67,7 @@ export function QueuesPanelContent({ apiBaseUrl, onOpenLogsForJob }: QueuesPanel
 
   const loadQueueDetail = useCallback(async (name: string): Promise<QueueDetail | null> => {
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/queues/${encodeURIComponent(name)}`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/queues/${encodeURIComponent(name)}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: QueueDetail }
       setQueueDetail(body.data)

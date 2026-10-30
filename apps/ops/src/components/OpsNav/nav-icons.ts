@@ -43,7 +43,7 @@ export const OPS_NAV_ICONS: Record<string, LucideIcon> = {
   '/ops/api-keys': KeyRound,
   '/ops/privacy-requests': LockKeyhole,
   '/ops/field-conflicts': AlertTriangle,
-  '/admin/board': Wrench,
+  '/ops/queues/board': Wrench,
 }
 
 export const OPS_NAV_FALLBACK_ICON: LucideIcon = CircleHelp

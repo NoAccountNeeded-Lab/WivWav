@@ -24,7 +24,7 @@ async function getRequestId(): Promise<string> {
  * Also attaches the `INTERNAL_API_SECRET` server-to-server bypass (when
  * configured) so this server-side path keeps working now that `/v1/` routes
  * require an API key (#453) — the same secret already used for
- * `/admin/config/:key/decrypt` calls. Never overrides a caller-supplied
+ * `/internal/ops/config/:key/decrypt` calls. Never overrides a caller-supplied
  * `Authorization` header. `INTERNAL_API_SECRET` is server-only (no
  * `NEXT_PUBLIC_` prefix) — this function must never run in the browser.
  */

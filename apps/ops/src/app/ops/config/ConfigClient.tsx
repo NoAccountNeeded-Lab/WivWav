@@ -122,7 +122,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
   const refreshConfig = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/config`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`Config API returned ${res.status}`)
       const body = (await res.json()) as { data: ConfigEntry[] }
       setEntries(body.data)
@@ -155,12 +155,12 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
 
   async function writeConfigValue(key: string, value: string) {
     if (value.trim() === '') {
-      const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
       if (!res.ok && res.status !== 404) throw new Error(`Failed to unset ${key} (${res.status})`)
       return
     }
 
-    const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, {
+    const res = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(key)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: value.trim(), type: 'string' }),
@@ -214,7 +214,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
     }))
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(request.key)}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(request.key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request.payload),
@@ -256,7 +256,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
     }))
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(request.key)}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(request.key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request.payload),
@@ -288,7 +288,7 @@ export function ConfigClient({ apiBaseUrl }: ConfigClientProps) {
     }))
 
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(key)}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`Failed to delete secret (${res.status})`)
       await refreshConfig()
       setSaveStates(prev => ({

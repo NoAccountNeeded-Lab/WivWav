@@ -37,7 +37,7 @@ afterEach(() => {
 describe('SchedulesClient action icons (#764)', () => {
   it('renders a leading icon on the Disable, Edit, and Refresh buttons for an enabled schedule', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/repeatables')) {
+      if (url.endsWith('/internal/ops/repeatables')) {
         return jsonResponse({ data: [scheduleEntry({ enabled: true })] })
       }
       throw new Error(`Unexpected URL in test: ${url}`)
@@ -57,7 +57,7 @@ describe('SchedulesClient action icons (#764)', () => {
 
   it('renders a distinct Enable icon from Disable for a disabled schedule', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/admin/repeatables')) {
+      if (url.endsWith('/internal/ops/repeatables')) {
         return jsonResponse({ data: [scheduleEntry({ enabled: false, key: null })] })
       }
       throw new Error(`Unexpected URL in test: ${url}`)

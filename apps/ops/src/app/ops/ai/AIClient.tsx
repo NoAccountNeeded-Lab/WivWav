@@ -281,7 +281,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
 
   const refreshConfig = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/config`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config`, { cache: 'no-store' })
       if (!res.ok) return
       const body = (await res.json()) as { data: ConfigEntry[] }
       setConfigEntries(body.data.filter(e => e.type !== 'secret'))
@@ -293,7 +293,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/ai/status`, { cache: 'no-store' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/ai/status`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API returned ${res.status}`)
       const body = (await res.json()) as { data: AiStatus }
       setStatus(body.data)
@@ -310,7 +310,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
     setConfigSaving(prev => ({ ...prev, [key]: true }))
     setConfigFeedback(prev => ({ ...prev, [key]: { msg: '', isError: false } }))
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/config/${encodeURIComponent(key)}`, {
+      const res = await fetch(`${apiBaseUrl}/internal/ops/config/${encodeURIComponent(key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value, type: 'string' }),
@@ -338,7 +338,7 @@ export function AIClient({ apiBaseUrl }: AIClientProps) {
   async function remapNow(sourceId: string) {
     setRunStates(prev => ({ ...prev, [sourceId]: { loading: true, feedback: null, queueJobId: null, isError: false } }))
     try {
-      const res = await fetch(`${apiBaseUrl}/admin/sources/${encodeURIComponent(sourceId)}/run`, { method: 'POST' })
+      const res = await fetch(`${apiBaseUrl}/internal/ops/sources/${encodeURIComponent(sourceId)}/run`, { method: 'POST' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       const body = (await res.json()) as { data: { id: string } }
       setRunStates(prev => ({

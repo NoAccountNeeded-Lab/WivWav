@@ -27,13 +27,13 @@ describe('resolveOllamaConfig', () => {
 
   it('returns the default model when the config key is not found (404)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(configNotFoundResponse()))
-    const result = await resolveOllamaConfig('ai.scraper.structure.model')
+    const result = await resolveOllamaConfig('ai.intake.model')
     expect(result.model).toBe(OLLAMA_DEFAULT_MODEL)
   })
 
   it('returns the model from config DB when found', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(configOkResponse('qwen2.5-coder:7b')))
-    const result = await resolveOllamaConfig('ai.scraper.remap.model')
+    const result = await resolveOllamaConfig('ai.intake.model')
     expect(result.model).toBe('qwen2.5-coder:7b')
   })
 
@@ -45,7 +45,7 @@ describe('resolveOllamaConfig', () => {
 
   it('falls back to default model when config value is null', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(configOkResponse(null)))
-    const result = await resolveOllamaConfig('ai.agents.model')
+    const result = await resolveOllamaConfig('ai.intake.model')
     expect(result.model).toBe(OLLAMA_DEFAULT_MODEL)
   })
 
@@ -74,8 +74,8 @@ describe('resolveOllamaConfig', () => {
   it('encodes the config key in the request URL', async () => {
     const mockFetch = vi.fn().mockResolvedValue(configOkResponse('llama3.2'))
     vi.stubGlobal('fetch', mockFetch)
-    await resolveOllamaConfig('ai.scraper.structure.model')
+    await resolveOllamaConfig('ai.intake.model')
     const calledUrl = mockFetch.mock.calls[0]?.[0] as string
-    expect(calledUrl).toContain('ai.scraper.structure.model')
+    expect(new URL(calledUrl).pathname).toBe('/internal/config/ai.intake.model')
   })
 })
