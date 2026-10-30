@@ -152,7 +152,7 @@ export async function rebuildMeilisearchIndex(
     await cleanupOrphanedIndexes(client, versionedIndexName)
     await configureIndexSettings(client, versionedIndexName)
     const index = client.index(versionedIndexName)
-    await runFullRebuild(context, db, client, index, strictGate)
+    const rebuiltCount = await runFullRebuild(context, db, client, index, strictGate)
 
     // First-ever rebuild: the live index may not exist yet. swapIndexes
     // requires both sides to exist, so create it (empty, but configured)
@@ -163,6 +163,7 @@ export async function rebuildMeilisearchIndex(
 
     const swapTask = await client.swapIndexes([{ indexes: [INDEX_NAME, versionedIndexName], rename: false }])
     await waitForMeiliTask(client, swapTask.taskUid, 'swapIndexes')
+    await report(context, '[meili-sync] Verified index swap complete.', { stage: 'complete', current: rebuiltCount, total: rebuiltCount })
 
     // versionedIndexName now holds the *previous* live content post-swap;
     // it is no longer referenced by anything and can be dropped.
@@ -192,8 +193,8 @@ async function runFullRebuild(
   client: Meilisearch,
   index: ReturnType<Meilisearch['index']>,
   strictGate?: boolean,
-): Promise<void> {
-  await db.$transaction(
+): Promise<number> {
+  return db.$transaction(
     (tx) => runFullRebuildInSnapshot(context, tx, client, index, strictGate),
     {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
@@ -209,7 +210,7 @@ async function runFullRebuildInSnapshot(
   client: Meilisearch,
   index: ReturnType<Meilisearch['index']>,
   strictGate?: boolean,
-): Promise<void> {
+): Promise<number> {
   const activeCountRows = await db.$queryRaw<VehicleAwareCountRow[]>`
     SELECT COUNT(DISTINCT COALESCE(listings."vehicleId", listings.id))::int AS count
     FROM listings
@@ -321,7 +322,8 @@ async function runFullRebuildInSnapshot(
 
   await report(
     context,
-    `[meili-sync] Done. ${synced} representative doc(s) upserted. DB has ${activeCount} eligible active vehicle group(s); Meilisearch index has ${meiliCount} total document(s).`,
-    { stage: 'complete', current: activeCount, total: activeCount },
+    `[meili-sync] Build validated; awaiting swap. ${synced} representative doc(s) upserted. DB has ${activeCount} eligible active vehicle group(s); Meilisearch index has ${meiliCount} total document(s).`,
+    { stage: 'syncing', current: activeCount, total: activeCount },
   )
+  return activeCount
 }

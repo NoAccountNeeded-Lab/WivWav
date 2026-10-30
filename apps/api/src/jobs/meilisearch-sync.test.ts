@@ -207,6 +207,26 @@ describe('runMeilisearchSyncJob', () => {
     expect(deleteIndexIfExists).toHaveBeenCalledWith(versionedNames[0])
   })
 
+  it('does not report completion until the swap task succeeds', async () => {
+    const context = { log: vi.fn(), updateProgress: vi.fn() }
+    waitForTask.mockImplementation(async (uid: number) => {
+      if (uid === 30) {
+        expect(context.updateProgress).not.toHaveBeenCalledWith(expect.objectContaining({ stage: 'complete' }))
+      }
+      return { status: 'succeeded', uid }
+    })
+    await runMeilisearchSyncJob(context as never)
+    expect(context.updateProgress).toHaveBeenLastCalledWith({ stage: 'complete', current: 3, total: 3 })
+  })
+
+  it('does not claim success when the atomic swap fails', async () => {
+    const context = { log: vi.fn(), updateProgress: vi.fn() }
+    waitForTask.mockImplementation(async (uid: number) => ({ status: uid === 30 ? 'failed' : 'succeeded', uid }))
+    await expect(runMeilisearchSyncJob(context as never)).rejects.toThrow('swapIndexes failed')
+    expect(context.updateProgress).not.toHaveBeenCalledWith(expect.objectContaining({ stage: 'complete' }))
+    expect(deleteIndexIfExists).not.toHaveBeenCalledWith('listings')
+  })
+
   it('creates the live index when it does not exist yet, so the first-ever rebuild can still swap', async () => {
     vi.mocked(indexExists).mockResolvedValueOnce(false)
 
