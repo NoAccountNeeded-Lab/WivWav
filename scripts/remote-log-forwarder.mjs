@@ -291,6 +291,24 @@ export async function flushBatchesWithRetry(
   throw new Error('unreachable: flush retries exhausted')
 }
 
+/** Keep a failed Loki batch queued for a later flush while capacity remains. */
+export async function flushBatchWithRetention(
+  pushFn,
+  buffer,
+  groups,
+  { maxAttempts, sleepFn, onFailure = () => {} },
+) {
+  try {
+    await flushBatchesWithRetry(pushFn, groups, { maxAttempts, sleepFn })
+    return true
+  } catch (error) {
+    const droppedBefore = buffer.droppedCount
+    buffer.requeue(groups.flatMap((group) => group.entries))
+    onFailure(error, buffer.droppedCount - droppedBefore)
+    return false
+  }
+}
+
 /** Remote docker ps discovery command for wivwav compose services. */
 export function discoverCommand() {
   return [
@@ -406,25 +424,20 @@ export function createForwarder(config, deps = {}) {
     const groups = groupEntries(entries)
     for (let start = 0; start < groups.length; start += config.maxFlushBatchEntries) {
       const batch = groups.slice(start, start + config.maxFlushBatchEntries)
-      try {
-        await flushBatchesWithRetry(async (payload) => {
+      await flushBatchWithRetention(async (payload) => {
           const response = await fetch(config.lokiPushUrl, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: payload,
           })
           if (!response.ok) throw new Error(`loki push failed with HTTP ${response.status}`)
-        }, batch, { maxAttempts: config.lokiRetryMaxAttempts })
-      } catch (error) {
-        const failedEntries = batch.flatMap((group) => group.entries)
-        const droppedBefore = buffer.droppedCount
-        buffer.requeue(failedEntries)
-        const droppedNow = buffer.droppedCount - droppedBefore
-        safeLog(
-          `loki batch retained for retry after ${config.lokiRetryMaxAttempts} attempts: ${error?.message}` +
-          (droppedNow > 0 ? `; ${droppedNow} oldest buffered entries dropped at capacity` : ''),
-        )
-      }
+        }, buffer, batch, {
+          maxAttempts: config.lokiRetryMaxAttempts,
+          onFailure: (error, droppedNow) => safeLog(
+            `loki batch retained for retry after ${config.lokiRetryMaxAttempts} attempts: ${error?.message}` +
+            (droppedNow > 0 ? `; ${droppedNow} oldest buffered entries dropped at capacity` : ''),
+          ),
+        })
     }
   }
 

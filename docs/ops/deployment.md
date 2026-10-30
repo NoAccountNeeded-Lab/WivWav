@@ -83,7 +83,9 @@ To use the existing laptop Obs containers for production logs:
 
    Loki itself remains bound to loopback on port 3100. The gateway accepts
    only the configured source address, and its query endpoints require the
-   bearer token.
+   bearer token. Requests use HTTP on the private home LAN, so use this only on
+   a trusted LAN; the bearer token does not encrypt traffic. Do not expose the
+   gateway through guest Wi-Fi or a router port-forward.
 3. Set `LOKI_URL=http://<laptop-lan-ip>:3101` in the production deployment's
    ignored `.env.production` file, and set
    `LOKI_AUTHORIZATION=Bearer <same-random-secret>`. Deploy an API image that
