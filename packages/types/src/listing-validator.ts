@@ -1,3 +1,4 @@
+import { MAX_WHEELCHAIR_CAPACITY } from './shopping-filters.js'
 import { QUALITY_RULE_SEVERITY } from './listing.js'
 import type { ListingUpsertRequest as ListingUpsertData } from './scraper-gateway.js'
 import { checkDigitValid, isValidVin, normalizeVin } from './vin.js'
@@ -75,7 +76,7 @@ const MAX_PLAUSIBLE_PRICE_CENTS = 50_000_000 // $500,000 — generous ceiling fo
 const MIN_PLAUSIBLE_PRICE_CENTS = 50_000 // $500 — below this is almost certainly a parse error.
 const MAX_PLAUSIBLE_MILEAGE = 400_000
 const MAX_PLAUSIBLE_FLOOR_LOWERING_INCHES = 14
-const MAX_PLAUSIBLE_WHEELCHAIR_CAPACITY = 6
+const MAX_PLAUSIBLE_WHEELCHAIR_CAPACITY = MAX_WHEELCHAIR_CAPACITY
 const MAX_PLAUSIBLE_IMAGE_COUNT = 60
 
 function maxModelYear(): number {

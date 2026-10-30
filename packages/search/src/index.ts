@@ -2,6 +2,9 @@ import type { Meilisearch } from 'meilisearch'
 import type { Listing, PrismaClient } from '@wivwav/db'
 import { strictReadyWhere } from '@wivwav/types/listing-readiness'
 import {
+  canonicalTransmission,
+  cityStateKey,
+  validWheelchairCapacity,
   canonicalColor,
   canonicalFuelType,
   canonicalMake,
@@ -119,7 +122,8 @@ export async function configureIndexSettings(client: Meilisearch, indexName: str
     filterableAttributes: [
       'make', 'model', 'year', 'trim', 'condition', 'sellerType',
       'conversionType', 'rampType', 'wavFeatures', 'fuelType',
-      'conversionBrand', 'color', 'state', 'city', 'sourceId',
+      'conversionBrand', 'color', 'state', 'city', 'cityState', 'transmission',
+      'wheelchairCapacity', 'conversionStatus', 'sourceId',
       'priceCents', 'priceBucket', 'mileage', 'mileageBucket', 'status', 'saleStatus',
       'publicationStatus', 'vehicleId', 'vehicleGroupKey',
     ],
@@ -184,6 +188,8 @@ export interface ListingDocument {
    */
   fuelType: string | null
   transmission: string | null
+  conversionStatus: string
+  cityState: string | null
   conversionType: string
   /**
    * Canonical conversion manufacturer — null when the source value is a year number,
@@ -273,7 +279,9 @@ export function toDocument(row: Listing): ListingDocument {
     mileageBucket: mileageBucket(row.mileage),
     color: canonColor,
     fuelType: canonFuelType,
-    transmission: row.transmission,
+    transmission: canonicalTransmission(row.transmission),
+    conversionStatus: row.conversionStatus,
+    cityState: cityStateKey(row.city, row.state),
     conversionType: row.conversionType,
     conversionManufacturer: canonConverter,
     conversionBrand: conversionBrandSlug(canonConverter),
@@ -282,7 +290,7 @@ export function toDocument(row: Listing): ListingDocument {
     conversionTypeResolution: row.conversionTypeResolution,
     rampTypeResolution: row.rampTypeResolution,
     wavFeatures: row.wavFeatures as string[],
-    wheelchairCapacity: row.wheelchairCapacity,
+    wheelchairCapacity: validWheelchairCapacity(row.wheelchairCapacity),
     zip: row.zip,
     city: row.city,
     state: row.state,
