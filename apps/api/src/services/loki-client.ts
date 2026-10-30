@@ -121,6 +121,7 @@ export interface LokiRangeQuery {
   endMs: number
   limit: number
   timeoutMs?: number
+  authorization?: string | undefined
 }
 
 export type LokiRangeResult =
@@ -145,6 +146,7 @@ export async function queryLokiRange(lokiUrl: string, query: LokiRangeQuery): Pr
   let res: Response
   try {
     res = await fetch(`${lokiUrl}/loki/api/v1/query_range?${params.toString()}`, {
+      ...(query.authorization ? { headers: { authorization: query.authorization } } : {}),
       signal: AbortSignal.timeout(query.timeoutMs ?? 8_000),
     })
   } catch (err) {

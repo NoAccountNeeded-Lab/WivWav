@@ -35,6 +35,7 @@ const schema = z.object({
     .transform((value) => value === 'true'),
   // Loki log aggregation — used by the /admin/logs proxy endpoint
   LOKI_URL: urlWithDefault('http://localhost:3100'),
+  LOKI_AUTHORIZATION: z.string().optional(),
   // Grafana — used by the /internal/v1/grafana/alerts proxy endpoint (#890).
   // GRAFANA_API_TOKEN is optional: local dev's Grafana runs with anonymous
   // admin access (see docker-compose.yml's `obs` profile).

@@ -279,8 +279,10 @@ services:
     ports:
       - "${LOKI_GATEWAY_BIND_ADDRESS:-127.0.0.1}:3101:8080"
     environment:
-      NGINX_ENVSUBST_FILTER: LOKI_ALLOWED_SOURCE_CIDR
+      NGINX_ENVSUBST_FILTER: LOKI_ALLOWED_SOURCE_CIDR|LOKI_GATEWAY_TOKEN
       LOKI_ALLOWED_SOURCE_CIDR: ${LOKI_ALLOWED_SOURCE_CIDR:-127.0.0.1/32}
+      # The default is for loopback-only local development; replace it for LAN use.
+      LOKI_GATEWAY_TOKEN: ${LOKI_GATEWAY_TOKEN:-wivwav-local-obs-token}
     volumes:
       - ./docker/loki-gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:

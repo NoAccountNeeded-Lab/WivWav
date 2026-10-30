@@ -23,6 +23,7 @@ export interface CorrelationPluginOptions {
   scraperRuns: ScraperRunRepository
   queueFactory: QueueFactory
   lokiUrl: string
+  lokiAuthorization?: string | undefined
 }
 
 interface QuerystringShape {
@@ -44,7 +45,7 @@ interface QuerystringShape {
  */
 export const correlationRoutes: FastifyPluginAsync<CorrelationPluginOptions> = async (
   app,
-  { sources, scraperRuns, queueFactory, lokiUrl },
+  { sources, scraperRuns, queueFactory, lokiUrl, lokiAuthorization },
 ) => {
   const queues = new Map(Object.values(QUEUES).map((name) => [name, queueFactory.createQueue(name)]))
 
@@ -71,7 +72,7 @@ export const correlationRoutes: FastifyPluginAsync<CorrelationPluginOptions> = a
       return reply.notFound(`No ${idType} "${id}" found`)
     }
 
-    const logs = await correlateLogs(lokiUrl, idType, id, window)
+    const logs = await correlateLogs(lokiUrl, idType, id, window, lokiAuthorization)
 
     return reply.send(sanitizeDiagnosticResponse({
       data: {
@@ -151,19 +152,26 @@ interface CorrelationLogs {
   unavailable: boolean
 }
 
-async function correlateLogs(lokiUrl: string, idType: IdType, id: string, window: ReturnType<typeof resolveWindow>): Promise<CorrelationLogs> {
+async function correlateLogs(
+  lokiUrl: string,
+  idType: IdType,
+  id: string,
+  window: ReturnType<typeof resolveWindow>,
+  lokiAuthorization?: string | undefined,
+): Promise<CorrelationLogs> {
   // Substring line filter: jobId/sourceId/requestId are embedded in the
   // pino-JSON log body (see services/loki-client.ts's parseLine), not a Loki
   // stream label, so a LogQL line filter is the correct match strategy here
   // (same approach `admin-logs.ts`'s `search` param uses).
   const safeId = id.replace(/`/g, '')
-  const logql = '{service=~".+"} |= `' + safeId + '`'
+  const logql = '{project="wivwav", service=~".+"} |= `' + safeId + '`'
 
   const result = await queryLokiRange(lokiUrl, {
     logql,
     startMs: window.sinceMs,
     endMs: window.untilMs,
     limit: LOKI_FETCH_LIMIT,
+    authorization: lokiAuthorization,
   })
 
   if (!result.ok) {

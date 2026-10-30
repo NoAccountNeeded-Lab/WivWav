@@ -59,5 +59,6 @@ export const diagnosticsRoutes: FastifyPluginAsync<DiagnosticsPluginOptions> = a
     scraperRuns,
     queueFactory,
     lokiUrl: config.LOKI_URL,
+    lokiAuthorization: config.LOKI_AUTHORIZATION,
   })
 }

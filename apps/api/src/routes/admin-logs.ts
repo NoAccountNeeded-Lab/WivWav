@@ -3,6 +3,7 @@ import { queryLokiRange, type LogEntry } from '../services/loki-client.js'
 
 interface AdminLogsPluginOptions {
   lokiUrl: string
+  lokiAuthorization?: string | undefined
 }
 
 export type { LogEntry }
@@ -15,9 +16,13 @@ interface LogsQuerystring {
   end?: string
 }
 
+const WIVWAV_LOG_SERVICES = ['api', 'web', 'ops', 'job-runner'] as const
+const WIVWAV_SERVICE_SET = new Set<string>(WIVWAV_LOG_SERVICES)
+const WIVWAV_SERVICE_SELECTOR = WIVWAV_LOG_SERVICES.join('|')
+
 export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async (
   app,
-  { lokiUrl },
+  { lokiUrl, lokiAuthorization },
 ) => {
   /**
    * GET /admin/logs
@@ -56,11 +61,13 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
       return isNaN(asDate) ? nowMs : asDate
     })()
 
-    // Build LogQL selector — always scoped to the WivWav Compose project.
-    // Use {service=~".+"} as default so all WivWav service streams match.
+    // Keep only the website, API/Ops, and worker/job services in this view.
     const WIVWAV_PROJECT = 'wivwav'
-    let selector = `{project="${WIVWAV_PROJECT}", service=~".+"}`
+    let selector = `{project="${WIVWAV_PROJECT}", service=~"^(${WIVWAV_SERVICE_SELECTOR})$"}`
     if (service) {
+      if (!WIVWAV_SERVICE_SET.has(service)) {
+        return reply.code(400).send({ error: { code: 'INVALID_SERVICE', message: 'Unsupported log service' } })
+      }
       // Escape backslashes and double-quotes before embedding in a label selector string
       const escapedService = service.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
       selector = `{project="${WIVWAV_PROJECT}", service="${escapedService}"}`
@@ -74,7 +81,7 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
       logql = selector + ' |= `' + safe + '`'
     }
 
-    const result = await queryLokiRange(lokiUrl, { logql, startMs, endMs, limit })
+    const result = await queryLokiRange(lokiUrl, { logql, startMs, endMs, limit, authorization: lokiAuthorization })
 
     if (!result.ok) {
       if (result.unavailable) {
@@ -99,6 +106,7 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
     try {
       const projectQuery = encodeURIComponent('{project="wivwav"}')
       lokiRes = await fetch(`${lokiUrl}/loki/api/v1/label/service/values?query=${projectQuery}`, {
+        ...(lokiAuthorization ? { headers: { authorization: lokiAuthorization } } : {}),
         signal: AbortSignal.timeout(4_000),
       })
     } catch (err) {
@@ -111,6 +119,6 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
     }
 
     const body = (await lokiRes.json()) as { data: string[] }
-    return reply.send({ data: body.data ?? [] })
+    return reply.send({ data: (body.data ?? []).filter((service) => WIVWAV_SERVICE_SET.has(service)) })
   })
 }

@@ -69,25 +69,35 @@ setting, it defaults to `localhost:3100` inside the API container.
 To use the existing laptop Obs containers for production logs:
 
 1. Give the laptop a stable private LAN address. In the laptop's local,
-   ignored Compose `.env`, set `LOKI_GATEWAY_BIND_ADDRESS` to that address and
-   `LOKI_ALLOWED_SOURCE_CIDR` to the production host's LAN address with `/32`.
-   Loki, Grafana, and the gateway itself remain loopback-only by default.
+   ignored Compose `.env`, set `LOKI_GATEWAY_BIND_ADDRESS` to that address,
+   `LOKI_ALLOWED_SOURCE_CIDR` to the source address the gateway sees from the
+   Mac mini with `/32`, and `LOKI_GATEWAY_TOKEN` to a random secret
+   (`openssl rand -hex 32`). OrbStack may translate the client source to its
+   host bridge address; use the gateway access log to identify it. Loki,
+   Grafana, and the gateway itself remain loopback-only by default.
 2. Recreate the gateway so Docker publishes its port only on that private address:
 
    ```bash
    docker compose --profile obs up -d --no-deps loki-gateway
    ```
 
-   Loki itself remains bound to loopback on port 3100; the gateway accepts
-   only the production host's source address on port 3101.
+   Loki itself remains bound to loopback on port 3100. The gateway accepts
+   only the configured source address, and its query endpoints require the
+   bearer token.
 3. Set `LOKI_URL=http://<laptop-lan-ip>:3101` in the production deployment's
-   ignored `.env.production` file. Apply the normal digest-pinned Compose file
-   with `--no-deps api` to recreate only the API container and apply the
-   runtime setting; no app image rebuild is needed.
+   ignored `.env.production` file, and set
+   `LOKI_AUTHORIZATION=Bearer <same-random-secret>`. Deploy an API image that
+   includes this change, then apply the normal digest-pinned Compose file with
+   `--no-deps api` to apply the runtime settings without another image build.
 4. Start the laptop-side remote log forwarder using the existing SSH target.
    It streams Docker logs from the remote WivWav Compose project into the
    laptop's local Loki push endpoint at `http://127.0.0.1:3100`; the gateway
    on port 3101 is reserved for API queries and does not accept pushes.
+   Keep this process running:
+
+   ```bash
+   WIVWAV_REMOTE_SSH_TARGET=<ssh-config-alias> node scripts/remote-log-forwarder.mjs
+   ```
 5. From the production host, verify `http://<laptop-lan-ip>:3101/ready` returns
    `ready`, then open
    `/ops/logs` in the authenticated Ops app. Queries are scoped to
