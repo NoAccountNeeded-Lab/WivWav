@@ -249,7 +249,7 @@ describe('parseContainerListing', () => {
       'd4\twivwav-job-runner-1\tjob-runner',
       'e5\twivwav-postgres-1\tpostgres',
     ].join('\n')
-    assert.deepEqual(parseContainerListing(rows).map((record) => record.id), ['a1', 'b2', 'c3', 'd4'])
+    assert.deepEqual(parseContainerListing(rows).map((record) => record.containerId), ['a1', 'b2', 'c3', 'd4'])
   })
 })
 
