@@ -4,6 +4,11 @@ export interface BarDatum {
 }
 
 export interface FacetsData {
+  shoppingFiltersReady: boolean
+  cityBreakdown: BarDatum[]
+  transmissionBreakdown: BarDatum[]
+  wheelchairCapacityBreakdown: BarDatum[]
+  conversionStatusBreakdown: BarDatum[]
   makeBreakdown: BarDatum[]
   modelBreakdown: BarDatum[]
   trimBreakdown: BarDatum[]
@@ -45,6 +50,11 @@ export function normalizeFacetsData(raw: unknown): FacetsData {
   const wavFeatureCounts = isRecord(source.wavFeatureCounts) ? source.wavFeatureCounts : {}
 
   return {
+    shoppingFiltersReady: source.shoppingFiltersReady === true,
+    cityBreakdown: toBars(source.cityBreakdown),
+    transmissionBreakdown: toBars(source.transmissionBreakdown),
+    wheelchairCapacityBreakdown: toBars(source.wheelchairCapacityBreakdown),
+    conversionStatusBreakdown: toBars(source.conversionStatusBreakdown),
     makeBreakdown: toBars(source.makeBreakdown),
     modelBreakdown: toBars(source.modelBreakdown),
     trimBreakdown: toBars(source.trimBreakdown),

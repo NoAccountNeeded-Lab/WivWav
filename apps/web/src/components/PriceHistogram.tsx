@@ -1,5 +1,7 @@
 'use client'
 
+import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -81,9 +83,9 @@ function PriceTooltip({ active, payload, formatListingCount }: TooltipProps) {
 const DEFAULT_MAX = 150000  // dollars
 
 const FORWARD_PARAMS = [
-  'q', 'make', 'model', 'yearMin', 'yearMax',
+  'q', 'make', 'model', 'trim', 'yearMin', 'yearMax',
   'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
-  'conversionBrand',
+  ...SHOPPING_FILTER_PARAMS, 'conversionBrand',
 ]
 
 export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {

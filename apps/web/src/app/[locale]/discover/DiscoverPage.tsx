@@ -66,7 +66,7 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
               showMap={false}
               showHistograms={false}
               singleColumn
-              limitGroups={['color', 'state', 'seller', 'fuelType', 'features']}
+              limitGroups={['color', 'state', 'city', 'transmission', 'wheelchairCapacity', 'conversionStatus', 'seller', 'fuelType', 'features']}
               renderers={{ color: 'swatches', seller: 'donut' }}
             />
           </Suspense>

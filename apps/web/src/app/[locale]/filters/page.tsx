@@ -1,3 +1,4 @@
+import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
@@ -63,7 +64,7 @@ async function fetchListings(
   const url = new URL(`${base}/v1/listings`)
 
   const forward = [
-    'q', 'page', 'make', 'model',
+    ...SHOPPING_FILTER_PARAMS, 'q', 'page', 'make', 'model', 'trim',
     'yearMin', 'yearMax', 'priceMin', 'priceMax', 'mileageMax',
     'condition', 'conversionBrand', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType', 'sort',
   ]
