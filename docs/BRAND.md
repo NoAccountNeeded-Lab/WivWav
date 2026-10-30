@@ -90,32 +90,21 @@ This token architecture is intentionally compatible with custom primary colors. 
 
 ---
 
-## Ops Seasonal Themes
+## Ops Themes
 
-Seasonal themes apply to ops surfaces only. Public shopping pages use the fixed palette above and do not show a seasonal theme control. Users can override the ops theme manually; the override is persisted to `localStorage`.
-
-| Season | Months | Primary Scale | Accent Scale | Feel |
-|--------|--------|---------------|--------------|------|
-| Spring | Mar – May | `Jade` | `Grass` | Fresh, green, hopeful |
-| Summer | Jun – Aug | `Teal` | `Sky` | Bright, open, airy |
-| Fall | Sep – Nov | `Orange` | `Amber` | Warm, rich, high contrast |
-| Winter | Dec – Feb | `Indigo` | `Slate` | Calm, cool, structured |
+Ops surfaces offer theme families and a light, dark, or system mode. Public shopping pages use the fixed palette above and do not show a theme control.
 
 ### Ops theme switching behavior
 
-- Default: auto-rotate based on the current month (server date, not client clock).
-- Manual override: user selects a season from the theme switcher; selection written to `localStorage` key `wav-theme`.
-- A stored value of `"auto"` or an absent key both mean auto-rotate.
-- The `data-theme` attribute drives ops CSS token overrides: `data-theme="spring"`, `"summer"`, `"fall"`, `"winter"`. Public shopping surfaces ignore obsolete seasonal preferences.
+- The ops picker stores the selected family in `localStorage` key `ops-theme` and the mode (`light`, `dark`, or `system`) in `ops-mode`.
+- The ops root uses `data-theme` for the resolved family; its server-rendered default is `grafana` until the picker applies the saved preference.
+- Public shopping surfaces ignore obsolete seasonal preferences and always use the fixed public palette.
 
-### Ops theme switcher UI
+### Ops theme picker UI
 
-- Lives in the ops header, right-aligned.
-- Compact control: a labeled icon button showing the current season name + a small season glyph (leaf, sun, etc.) from Lucide.
-- Opens a small popover with five options: Auto, Spring, Summer, Fall, Winter.
-- "Auto" is the default selection; shows the current auto season in parentheses: "Auto (Fall)".
-- Minimum tap target 48×48px.
-- Does not use color alone to distinguish options — each has a text label.
+- Offers the supported theme families and light, dark, and system modes.
+- Keeps text labels for theme names and modes; do not use color alone to distinguish options.
+- Preserve the ops picker’s existing control and persistence behavior when changing public shopping styles.
 
 ### Chart fills in themed ops contexts
 
