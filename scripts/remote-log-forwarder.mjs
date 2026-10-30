@@ -3,7 +3,7 @@
  * Remote WivWav Docker log forwarder (#1226).
  *
  * Connects over SSH to `WIVWAV_REMOTE_SSH_TARGET` (required; never hard-coded),
- * discovers running Docker Compose containers carrying the wivwav project
+ * discovers running app containers carrying the wivwav project
  * label, follows each container's logs via `docker logs --follow --timestamps`,
  * and pushes the lines to Loki (`LOKI_PUSH_URL`, default the local push
  * endpoint) labelled with the compose service and an optional
@@ -33,6 +33,8 @@ export const COMPOSE_PROJECT_LABEL = 'com.docker.compose.project'
 export const COMPOSE_SERVICE_LABEL = 'com.docker.compose.service'
 /** Compose project name the forwarder is scoped to. */
 export const PROJECT = 'wivwav'
+/** App services relevant to the website, Ops page, and scheduled/worker jobs. */
+export const APP_SERVICES = new Set(['api', 'web', 'ops', 'job-runner'])
 /** Local Loki push endpoint used when LOKI_PUSH_URL is not set. */
 export const DEFAULT_PUSH_URL = 'http://127.0.0.1:3100/loki/api/v1/push'
 
@@ -294,7 +296,7 @@ export function discoverCommand() {
   ].join(' ')
 }
 
-/** Parse tab-separated docker ps rows into container records. */
+/** Parse tab-separated docker ps rows and retain only relevant app services. */
 export function parseContainerListing(output) {
   return String(output)
     .split('\n')
@@ -304,7 +306,7 @@ export function parseContainerListing(output) {
       const [id, name, service] = row.split('\t')
       return { id, name, service }
     })
-    .filter((record) => record.id && record.service)
+    .filter((record) => record.id && APP_SERVICES.has(record.service))
 }
 
 /*

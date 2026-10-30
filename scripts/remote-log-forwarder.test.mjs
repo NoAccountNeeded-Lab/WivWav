@@ -13,6 +13,7 @@ import {
   buildLokiPayload,
   nextBackoffDelayMs,
   computeFollowArgs,
+  parseContainerListing,
   createEntryBuffer,
   createReplayGuard,
   flushBatchesWithRetry,
@@ -236,6 +237,19 @@ describe('computeFollowArgs', () => {
   it('caps the catch-up tail so a first observation cannot flood Loki', () => {
     const args = computeFollowArgs({ containerId: 'abc123', cursor: null, tail: 10_000_000 })
     assert.ok(Number(args[args.indexOf('--tail') + 1]) <= 1000)
+  })
+})
+
+describe('parseContainerListing', () => {
+  it('keeps website, API, Ops, and worker containers while excluding WivWav infrastructure', () => {
+    const rows = [
+      'a1\twivwav-api-1\tapi',
+      'b2\twivwav-web-1\tweb',
+      'c3\twivwav-ops-1\tops',
+      'd4\twivwav-job-runner-1\tjob-runner',
+      'e5\twivwav-postgres-1\tpostgres',
+    ].join('\n')
+    assert.deepEqual(parseContainerListing(rows).map((record) => record.id), ['a1', 'b2', 'c3', 'd4'])
   })
 })
 
