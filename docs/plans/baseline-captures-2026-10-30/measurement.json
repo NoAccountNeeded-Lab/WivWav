@@ -1,0 +1,124 @@
+{
+  "capturedAt": "2026-10-30T10:28:21.282Z",
+  "baseUrl": "https://wivwav.com",
+  "browser": {
+    "name": "Chromium",
+    "version": "153.0.8010.12"
+  },
+  "routeModel": {
+    "/": "/en",
+    "/en": "Discover",
+    "/en/results": "Results"
+  },
+  "roundTrips": 3,
+  "screenshots": [
+    {
+      "route": "/",
+      "url": "https://wivwav.com/",
+      "viewport": "1710x960@2",
+      "path": "docs/plans/baseline-captures-2026-10-30/home-discover-desktop.png"
+    },
+    {
+      "route": "/en/results",
+      "url": "https://wivwav.com/en/results",
+      "viewport": "1710x960@2",
+      "path": "docs/plans/baseline-captures-2026-10-30/results-desktop.png"
+    },
+    {
+      "route": "/",
+      "url": "https://wivwav.com/",
+      "viewport": "390x844@3",
+      "path": "docs/plans/baseline-captures-2026-10-30/home-discover-mobile.png"
+    },
+    {
+      "route": "/en/results",
+      "url": "https://wivwav.com/en/results",
+      "viewport": "390x844@3",
+      "path": "docs/plans/baseline-captures-2026-10-30/results-mobile.png"
+    }
+  ],
+  "samples": [
+    {
+      "label": "discover-0",
+      "route": "/en",
+      "viewport": "1710x960@2",
+      "resources": 35,
+      "facetRequests": 5,
+      "imageElements": 0,
+      "loadedImages": 0,
+      "jsHeapBytes": 15200000,
+      "domElements": 580
+    },
+    {
+      "label": "results-1",
+      "route": "/en/results",
+      "viewport": "1710x960@2",
+      "resources": 57,
+      "facetRequests": 4,
+      "imageElements": 20,
+      "loadedImages": 16,
+      "jsHeapBytes": 15200000,
+      "domElements": 1216
+    },
+    {
+      "label": "discover-1",
+      "route": "/en",
+      "viewport": "1710x960@2",
+      "resources": 36,
+      "facetRequests": 5,
+      "imageElements": 0,
+      "loadedImages": 0,
+      "jsHeapBytes": 15200000,
+      "domElements": 580
+    },
+    {
+      "label": "results-2",
+      "route": "/en/results",
+      "viewport": "1710x960@2",
+      "resources": 58,
+      "facetRequests": 4,
+      "imageElements": 20,
+      "loadedImages": 19,
+      "jsHeapBytes": 15200000,
+      "domElements": 1216
+    },
+    {
+      "label": "discover-2",
+      "route": "/en",
+      "viewport": "1710x960@2",
+      "resources": 36,
+      "facetRequests": 5,
+      "imageElements": 0,
+      "loadedImages": 0,
+      "jsHeapBytes": 15200000,
+      "domElements": 580
+    },
+    {
+      "label": "results-3",
+      "route": "/en/results",
+      "viewport": "1710x960@2",
+      "resources": 58,
+      "facetRequests": 4,
+      "imageElements": 20,
+      "loadedImages": 19,
+      "jsHeapBytes": 15200000,
+      "domElements": 1216
+    },
+    {
+      "label": "discover-3",
+      "route": "/en",
+      "viewport": "1710x960@2",
+      "resources": 36,
+      "facetRequests": 5,
+      "imageElements": 0,
+      "loadedImages": 0,
+      "jsHeapBytes": 15200000,
+      "domElements": 580
+    }
+  ],
+  "caveats": [
+    "performance.memory is a Chromium-only approximate JavaScript heap value, not total browser memory.",
+    "Resource and image counts are per-document snapshots after a 1200 ms settle; they do not measure every network cache or deferred image.",
+    "Inventory and all counts are point-in-time and can change between runs."
+  ]
+}
