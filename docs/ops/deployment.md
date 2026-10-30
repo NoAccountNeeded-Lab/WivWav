@@ -84,9 +84,10 @@ To use the existing laptop Obs containers for production logs:
    ignored `.env.production` file. Apply the normal digest-pinned Compose file
    with `--no-deps api` to recreate only the API container and apply the
    runtime setting; no app image rebuild is needed.
-4. Start the laptop-side remote log forwarder using the existing SSH target and
-   the same private Loki address. It streams Docker logs from the remote
-   WivWav Compose project into Loki; it does not expose a new inbound port.
+4. Start the laptop-side remote log forwarder using the existing SSH target.
+   It streams Docker logs from the remote WivWav Compose project into the
+   laptop's local Loki push endpoint at `http://127.0.0.1:3100`; the gateway
+   on port 3101 is reserved for API queries and does not accept pushes.
 5. From the production host, verify `http://<laptop-lan-ip>:3101/ready` returns
    `ready`, then open
    `/ops/logs` in the authenticated Ops app. Queries are scoped to
