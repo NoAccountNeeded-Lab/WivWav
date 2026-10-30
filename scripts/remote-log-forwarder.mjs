@@ -304,9 +304,9 @@ export function parseContainerListing(output) {
     .filter(Boolean)
     .map((row) => {
       const [id, name, service] = row.split('\t')
-      return { id, name, service }
+      return { containerId: id, name, service }
     })
-    .filter((record) => record.id && APP_SERVICES.has(record.service))
+    .filter((record) => record.containerId && APP_SERVICES.has(record.service))
 }
 
 /*
