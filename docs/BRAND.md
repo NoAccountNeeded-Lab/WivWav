@@ -97,7 +97,7 @@ Ops surfaces offer theme families and a light, dark, or system mode. Public shop
 ### Ops theme switching behavior
 
 - The ops picker stores the resolved theme variant (for example, `grafana-light`) in `localStorage` key `ops-theme` and the mode (`light`, `dark`, or `system`) in `ops-mode`.
-- The ops root uses `data-theme` for the resolved family; its server-rendered default is `grafana` until the picker applies the saved preference.
+- The ops root uses `data-theme` for the resolved theme variant; its server-rendered default is `grafana` until the picker applies the saved preference.
 - Public shopping surfaces ignore obsolete seasonal preferences and always use the fixed public palette.
 
 ### Ops theme picker UI
