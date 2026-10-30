@@ -97,7 +97,8 @@ export const adminLogsRoutes: FastifyPluginAsync<AdminLogsPluginOptions> = async
   app.get('/services', async (_req, reply) => {
     let lokiRes: Response
     try {
-      lokiRes = await fetch(`${lokiUrl}/loki/api/v1/label/service/values`, {
+      const projectQuery = encodeURIComponent('{project="wivwav"}')
+      lokiRes = await fetch(`${lokiUrl}/loki/api/v1/label/service/values?query=${projectQuery}`, {
         signal: AbortSignal.timeout(4_000),
       })
     } catch (err) {

@@ -422,9 +422,10 @@ describe('GET /', () => {
 
 describe('GET /services', () => {
   it('returns service label values from Loki', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
+    const fetchStub = vi.fn(async () =>
       Response.json({ data: ['api', 'scraper', 'worker'] })
-    ))
+    )
+    vi.stubGlobal('fetch', fetchStub)
 
     const app = buildTestApp()
     const res = await app.inject({ method: 'GET', url: '/services' })
@@ -432,6 +433,10 @@ describe('GET /services', () => {
     expect(res.statusCode).toBe(200)
     const body = res.json() as { data: string[] }
     expect(body.data).toEqual(['api', 'scraper', 'worker'])
+    expect(fetchStub).toHaveBeenCalledWith(
+      'http://loki.test/loki/api/v1/label/service/values?query=%7Bproject%3D%22wivwav%22%7D',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
   })
 
   it('returns 503 when Loki is unreachable', async () => {
