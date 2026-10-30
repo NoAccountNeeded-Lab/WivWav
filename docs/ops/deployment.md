@@ -60,6 +60,45 @@ uploaded with `retention-days: 1`, so once a day has passed since the
 original run, re-run **all** jobs instead — the saved artifacts will have
 expired and `publish` needs them.
 
+## Ops logs with laptop-hosted observability
+
+The authenticated Ops Logs page (`/ops/logs`) reads the API's `/admin/logs`
+endpoint. The production API queries Loki using `LOKI_URL`; without that
+setting, it defaults to `localhost:3100` inside the API container.
+
+To use the existing laptop Obs containers for production logs:
+
+1. Give the laptop a stable private LAN address. In the laptop's local,
+   ignored Compose `.env`, set `LOKI_GATEWAY_BIND_ADDRESS` to that address and
+   `LOKI_ALLOWED_SOURCE_CIDR` to the production host's LAN address with `/32`.
+   Loki, Grafana, and the gateway itself remain loopback-only by default.
+2. Recreate the gateway so Docker publishes its port only on that private address:
+
+   ```bash
+   docker compose --profile obs up -d --no-deps loki-gateway
+   ```
+
+   Loki itself remains bound to loopback on port 3100; the gateway accepts
+   only the production host's source address on port 3101.
+3. Set `LOKI_URL=http://<laptop-lan-ip>:3101` in the production deployment's
+   ignored `.env.production` file. Apply the normal digest-pinned Compose file
+   with `--no-deps api` to recreate only the API container and apply the
+   runtime setting; no app image rebuild is needed.
+4. Start the laptop-side remote log forwarder using the existing SSH target and
+   the same private Loki address. It streams Docker logs from the remote
+   WivWav Compose project into Loki; it does not expose a new inbound port.
+5. From the production host, verify `http://<laptop-lan-ip>:3101/ready` returns
+   `ready`, then open
+   `/ops/logs` in the authenticated Ops app. Queries are scoped to
+   `project="wivwav"`; all WivWav services remain available in the service
+   filter. Grafana remains available on the laptop at `http://localhost:3003`.
+
+Rollback by removing the gateway settings from the laptop's ignored `.env`,
+restoring the API's previous `LOKI_URL` value, and stopping the gateway and
+recreating the API.
+The Loki named volume and stored logs are retained. No router port-forward is
+used at any point.
+
 ## Client-side API host resolution
 
 `apps/web` builds one shared image per commit and promotes it across deploy

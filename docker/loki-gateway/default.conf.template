@@ -1,0 +1,22 @@
+server {
+  listen 8080;
+
+  allow ${LOKI_ALLOWED_SOURCE_CIDR};
+  deny all;
+
+  location = /ready {
+    limit_except GET { deny all; }
+    proxy_pass http://loki:3100;
+  }
+
+  location ~ ^/loki/api/v1/(query_range|label/service/values)$ {
+    limit_except GET { deny all; }
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_pass http://loki:3100;
+  }
+
+  location / { return 404; }
+}
