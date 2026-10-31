@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import type { TriagedAxeViolation } from '../support/axe.js'
 import { assertNoGatingViolations as assertNoGatingViolationsBase } from '../support/axe.js'
+import { removeFacetsCatalog, seedFacetsCatalog } from '../support/facets-catalog.js'
 import { fixtureListingId } from '../support/fixture.js'
 
 // Issue #673 / decision D9 (#666): every user-facing page must meet WCAG 2.1
@@ -134,68 +135,83 @@ test.describe('accessibility smoke (axe)', () => {
     await assertTabOrderHasVisibleFocus(page)
   })
 
-  test('state heat map focus distinguishes the maximum fill without weakening other states', async ({
-    page,
-  }) => {
-    await page.goto('/en/results')
-    await expect(page.getByText(/vehicle found|vehicles found/i)).toBeVisible()
-
-    const map = page.locator('[role="group"][aria-label*="Map of the United States"]')
-    const states = map.locator('[role="button"]')
-    await expect(states.first()).toBeAttached()
-
-    const maxState = map.locator('[role="button"][data-max-count="true"]').first()
-    const otherState = map.locator('[role="button"][data-max-count="false"]').first()
-
-    // `states.first()` above only proves the map shell rendered — every state
-    // button exists regardless of data. `data-max-count` is derived from the
-    // stats fetch StateHeatMap loads independently (see comment above), so
-    // wait for it explicitly here too; otherwise a slow-loading fetch fails
-    // the unguarded `.evaluate()` calls below only after burning the entire
-    // test timeout, with no indication of what was actually still missing.
-    await expect(maxState).toBeAttached()
-    await expect(otherState).toBeAttached()
-
-    const baselineWidths = await Promise.all([
-      maxState.evaluate(function getStrokeWidth(state) {
-        return parseFloat(window.getComputedStyle(state).strokeWidth)
-      }),
-      otherState.evaluate(function getStrokeWidth(state) {
-        return parseFloat(window.getComputedStyle(state).strokeWidth)
-      }),
-    ])
-
-    await maxState.focus()
-    const maxFocusStyle = await maxState.evaluate(function getFocusStyle(state) {
-      const style = window.getComputedStyle(state)
-
-      function renderedRgba(color: string): number[] {
-        const canvas = document.createElement('canvas')
-        canvas.width = 1
-        canvas.height = 1
-        const context = canvas.getContext('2d')
-        if (!context) throw new Error('Canvas 2D context is unavailable')
-
-        context.fillStyle = color
-        context.fillRect(0, 0, 1, 1)
-        return Array.from(context.getImageData(0, 0, 1, 1).data)
-      }
-
-      return {
-        fillRgba: renderedRgba(style.fill),
-        strokeRgba: renderedRgba(style.stroke),
-        strokeWidth: parseFloat(style.strokeWidth),
-      }
+  // The facets endpoint returns no state counts for the lone smoke listing, so
+  // the map has no maximum until the shared catalog is seeded. Suites run on one
+  // worker, so seeding here cannot overlap the single-listing assertions above.
+  test.describe('with the facets catalog seeded', () => {
+    test.beforeAll(async () => {
+      test.setTimeout(240_000)
+      await seedFacetsCatalog()
     })
 
-    await otherState.focus()
-    const otherFocusWidth = await otherState.evaluate(function getStrokeWidth(state) {
-      return parseFloat(window.getComputedStyle(state).strokeWidth)
+    test.afterAll(async () => {
+      test.setTimeout(240_000)
+      await removeFacetsCatalog()
     })
 
-    expect(maxFocusStyle.strokeRgba).not.toEqual(maxFocusStyle.fillRgba)
-    expect(maxFocusStyle.strokeWidth).toBeGreaterThan(baselineWidths[0])
-    expect(otherFocusWidth).toBeGreaterThan(baselineWidths[1])
+    test('state heat map focus distinguishes the maximum fill without weakening other states', async ({
+      page,
+    }) => {
+      await page.goto('/en/results')
+      await expect(page.getByText(/vehicle found|vehicles found/i)).toBeVisible()
+
+      const map = page.locator('[role="group"][aria-label*="Map of the United States"]')
+      const states = map.locator('[role="button"]')
+      await expect(states.first()).toBeAttached()
+
+      const maxState = map.locator('[role="button"][data-max-count="true"]').first()
+      const otherState = map.locator('[role="button"][data-max-count="false"]').first()
+
+      // `states.first()` above only proves the map shell rendered — every state
+      // button exists regardless of data. `data-max-count` is derived from the
+      // stats fetch StateHeatMap loads independently (see comment above), so
+      // wait for it explicitly here too; otherwise a slow-loading fetch fails
+      // the unguarded `.evaluate()` calls below only after burning the entire
+      // test timeout, with no indication of what was actually still missing.
+      await expect(maxState).toBeAttached()
+      await expect(otherState).toBeAttached()
+
+      const baselineWidths = await Promise.all([
+        maxState.evaluate(function getStrokeWidth(state) {
+          return parseFloat(window.getComputedStyle(state).strokeWidth)
+        }),
+        otherState.evaluate(function getStrokeWidth(state) {
+          return parseFloat(window.getComputedStyle(state).strokeWidth)
+        }),
+      ])
+
+      await maxState.focus()
+      const maxFocusStyle = await maxState.evaluate(function getFocusStyle(state) {
+        const style = window.getComputedStyle(state)
+
+        function renderedRgba(color: string): number[] {
+          const canvas = document.createElement('canvas')
+          canvas.width = 1
+          canvas.height = 1
+          const context = canvas.getContext('2d')
+          if (!context) throw new Error('Canvas 2D context is unavailable')
+
+          context.fillStyle = color
+          context.fillRect(0, 0, 1, 1)
+          return Array.from(context.getImageData(0, 0, 1, 1).data)
+        }
+
+        return {
+          fillRgba: renderedRgba(style.fill),
+          strokeRgba: renderedRgba(style.stroke),
+          strokeWidth: parseFloat(style.strokeWidth),
+        }
+      })
+
+      await otherState.focus()
+      const otherFocusWidth = await otherState.evaluate(function getStrokeWidth(state) {
+        return parseFloat(window.getComputedStyle(state).strokeWidth)
+      })
+
+      expect(maxFocusStyle.strokeRgba).not.toEqual(maxFocusStyle.fillRgba)
+      expect(maxFocusStyle.strokeWidth).toBeGreaterThan(baselineWidths[0])
+      expect(otherFocusWidth).toBeGreaterThan(baselineWidths[1])
+    })
   })
 
   test('keyboard-only pass: listing detail has an in-order, visible focus sequence', async ({ page }) => {
