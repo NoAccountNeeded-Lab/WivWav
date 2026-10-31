@@ -31,6 +31,11 @@ function sameRange(left: RangeValue, right: RangeValue): boolean {
   return left[0] === right[0] && left[1] === right[1]
 }
 
+function matchesExpectedRange(actual: RangeValue, expected: RangeValue, defaults: RangeValue): boolean {
+  return (expected[0] === 0 ? actual[0] === 0 || actual[0] === defaults[0] : actual[0] === expected[0])
+    && (expected[1] === 0 ? actual[1] === 0 || actual[1] === defaults[1] : actual[1] === expected[1])
+}
+
 /** Keeps a committed slider value visible until the URL reflects that commit. */
 const noop = () => {}
 
@@ -49,11 +54,25 @@ export function useStableRangeValue(
   useEffect(() => {
     const pending = pendingValue.current
     if (!pending) return
-    if (sameRange(urlValue, pending.expected)) {
+    if (pending.historyOverride && !matchesExpectedRange(urlValue, pending.expected, defaultValue)) return
+    if (matchesExpectedRange(urlValue, pending.expected, defaultValue)) {
+      if (pending.historyOverride) {
+        setLocalValue(null)
+        return
+      }
       pendingValue.current = null
       lastReapplied.current = null
-      if (pending.historyOverride) setLocalValue(null)
-      else setLocalValue((local) => local && sameRange(local, pending.expected) ? null : local)
+      setLocalValue((local) => {
+        if (!local || sameRange(local, pending.expected)
+          || (pending.expected[0] === 0 && pending.expected[1] > 0 && local[0] === 0 && local[1] === 0)) return null
+        if (local[0] === pending.expected[0] && pending.expected[1] === 0) {
+          return [local[0], defaultValue[1]]
+        }
+        if (local[1] === pending.expected[1] && pending.expected[0] === 0) {
+          return [defaultValue[0], local[1]]
+        }
+        return local
+      })
       return
     }
     if (!pending.historyOverride && sameRange(urlValue, pending.from)) {
@@ -70,7 +89,7 @@ export function useStableRangeValue(
       lastReapplied.current = key
       reapplyCommit(pending.expected, pending.historySearchParams ?? undefined)
     }
-  }, [urlValue, reapplyCommit])
+  }, [urlValue[0], urlValue[1], defaultValue[0], defaultValue[1], reapplyCommit])
 
   useEffect(() => {
     function clearPendingOnHistoryNavigation() {
