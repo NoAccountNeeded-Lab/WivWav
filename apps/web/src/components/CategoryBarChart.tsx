@@ -20,44 +20,35 @@ const StateHeatMap = dynamic(() => import('./StateHeatMap'), { ssr: false })
 /** Per-group renderer overrides. Keys are group ids: make, model, condition, entry, color, state, features. */
 export type RendererMap = Partial<Record<string, CategoricalRendererType>>
 
-interface CategoryBarChartProps {
+export function CategoryBarChart({
+  showMap = true,
+  showHistograms = true,
+  renderers = {},
+}: {
   showMap?: boolean
   showHistograms?: boolean
-  /** When provided, only these group ids (and 'features') are rendered. */
-  limitGroups?: string[]
-  /** Disables the internal multi-column layout so groups fill their container. */
-  singleColumn?: boolean
   /** Per-group renderer overrides. Defaults to 'bars' for all groups. */
   renderers?: RendererMap
-  /** Facet data from a page-level owner. When omitted, this component owns its own request. */
-  facets?: FacetsState
-}
-
-export function CategoryBarChart(props: CategoryBarChartProps) {
-  return props.facets ? (
-    <FacetsStateContext.Provider value={props.facets}>
-      <CategoryBarChartView {...props} facets={props.facets} />
-    </FacetsStateContext.Provider>
-  ) : <OwnedCategoryBarChart {...props} />
-}
-
-function OwnedCategoryBarChart(props: CategoryBarChartProps) {
+}) {
   const facets = useFacetsData()
   return (
     <FacetsStateContext.Provider value={facets}>
-      <CategoryBarChartView {...props} facets={facets} />
+      <CategoryBarChartView showMap={showMap} showHistograms={showHistograms} renderers={renderers} facets={facets} />
     </FacetsStateContext.Provider>
   )
 }
 
 function CategoryBarChartView({
-  showMap = true,
-  showHistograms = true,
-  limitGroups,
-  singleColumn = false,
-  renderers = {},
+  showMap,
+  showHistograms,
+  renderers,
   facets,
-}: CategoryBarChartProps & { facets: FacetsState }) {
+}: {
+  showMap: boolean
+  showHistograms: boolean
+  renderers: RendererMap
+  facets: FacetsState
+}) {
   const t = useTranslations('FilterControls')
   const router = useRouter()
   const pathname = usePathname()
@@ -98,20 +89,14 @@ function CategoryBarChartView({
   const handleFeatureToggle = (value: string) => toggleArray(toggleFeature(value).param, value)
   const unavailableText = unavailable ? t('countsUnavailable') : undefined
 
-  const visibleGroups = limitGroups
-    ? groups.filter((g) => limitGroups.includes(g.id))
-    : groups
-
-  const showFeatures = !limitGroups || limitGroups.includes('features')
-
   const rendererFor = (id: string): CategoricalRendererType => renderers[id] ?? 'bars'
 
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className={`${styles.root}${singleColumn ? ` ${styles.singleColumn}` : ''}`}>
+    <div className={styles.root}>
       {showMap && (
-        <div className={`${styles.mapGroup}`}>
+        <div className={styles.mapGroup}>
           <span className={styles.mapTitle}>{t('groups.location')}</span>
           <div className={styles.mapContainer}>
             <StateHeatMap
@@ -158,12 +143,12 @@ function CategoryBarChartView({
               items={g.items}
               onToggle={(v) => toggleArray(g.param, v, g.members?.[v])}
               renderer={rendererFor(g.id)}
-            unavailableText={unavailableText}
+              unavailableText={unavailableText}
             />
           ))}
         </>
       ) : (
-        visibleGroups.map((g) => (
+        groups.map((g) => (
           <FilterGroup
             key={g.id}
             title={g.title}
@@ -176,7 +161,7 @@ function CategoryBarChartView({
         ))
       )}
 
-      {showFeatures && (unavailable || featureItems.some((i) => !i.disabled || i.active)) && (
+      {(unavailable || featureItems.some((i) => !i.disabled || i.active)) && (
         <FilterGroup
           title={t('groups.features')}
           labelId="cat-bar-features"

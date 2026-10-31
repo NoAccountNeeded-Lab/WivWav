@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MileageHistogram } from './MileageHistogram'
 import { PriceHistogram } from './PriceHistogram'
 import { YearHistogram } from './YearHistogram'
+import { FacetsOwner } from '@/test-utils/facets-owner'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -48,20 +49,21 @@ describe('YearHistogram — runtime API base URL (#837)', () => {
     document.body.dataset['apiUrl'] = 'https://api.wivwav.example'
 
     await act(async () => {
-      render(<YearHistogram />)
+      render(<FacetsOwner><YearHistogram /></FacetsOwner>)
     })
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const requestedUrl = String(fetchMock.mock.calls[0]?.[0])
+    const facetCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/v1/listings/facets'))
+    expect(facetCalls).toHaveLength(1)
+    const requestedUrl = String(facetCalls[0]?.[0])
     expect(requestedUrl.startsWith('https://api.wivwav.example/v1/listings/facets')).toBe(true)
   })
 
   it('falls back to the documented default when no runtime API host is injected', async () => {
     await act(async () => {
-      render(<YearHistogram />)
+      render(<FacetsOwner><YearHistogram /></FacetsOwner>)
     })
 
-    const requestedUrl = String(fetchMock.mock.calls[0]?.[0])
+    const requestedUrl = String(fetchMock.mock.calls.find(([url]) => String(url).includes('/v1/listings/facets'))?.[0])
     expect(requestedUrl.startsWith('http://localhost:4001/v1/listings/facets')).toBe(true)
   })
 
@@ -78,11 +80,11 @@ describe('YearHistogram — runtime API base URL (#837)', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const view = render(
-      <>
+      <FacetsOwner>
         <PriceHistogram />
         <YearHistogram />
         <MileageHistogram />
-      </>,
+      </FacetsOwner>,
     )
     await act(async () => {})
 
