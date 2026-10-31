@@ -9,16 +9,13 @@ import { YearHistogram } from './YearHistogram'
 import { MileageHistogram } from './MileageHistogram'
 import { FilterGroup } from './filters/FilterGroup'
 import type { CategoricalRendererType } from './filters/types'
+import { toggleMembers } from '@/lib/color-families'
 import { parseCommaSep, useFacetGroups } from './use-facet-groups'
 import { useFacetsData } from './use-facets-data'
 import type { FacetsState } from './use-facets-data'
 import styles from './CategoryBarChart.module.css'
 
 const StateHeatMap = dynamic(() => import('./StateHeatMap'), { ssr: false })
-
-function toggleInList(list: string[], value: string): string[] {
-  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
-}
 
 /** Per-group renderer overrides. Keys are group ids: make, model, condition, entry, color, state, features. */
 export type RendererMap = Partial<Record<string, CategoricalRendererType>>
@@ -82,9 +79,9 @@ function CategoryBarChartView({
   )
 
   const toggleArray = useCallback(
-    (param: string, value: string) => {
+    (param: string, value: string, members?: string[]) => {
       const current = parseCommaSep(searchParams.get(param))
-      const next = toggleInList(current, value)
+      const next = toggleMembers(current, value, members)
       push({ [param]: next.length ? next.join(',') : null })
     },
     [push, searchParams],
@@ -127,7 +124,7 @@ function CategoryBarChartView({
               title={groups[0].title}
               labelId={`cat-bar-${groups[0].id}`}
               items={groups[0].items}
-              onToggle={(v) => toggleArray(groups[0]!.param, v)}
+              onToggle={(v) => toggleArray(groups[0]!.param, v, groups[0]!.members?.[v])}
               renderer={rendererFor(groups[0].id)}
               unavailableText={unavailableText}
             />
@@ -139,7 +136,7 @@ function CategoryBarChartView({
               title={groups[1].title}
               labelId={`cat-bar-${groups[1].id}`}
               items={groups[1].items}
-              onToggle={(v) => toggleArray(groups[1]!.param, v)}
+              onToggle={(v) => toggleArray(groups[1]!.param, v, groups[1]!.members?.[v])}
               renderer={rendererFor(groups[1].id)}
               unavailableText={unavailableText}
             />
@@ -151,7 +148,7 @@ function CategoryBarChartView({
               title={g.title}
               labelId={`cat-bar-${g.id}`}
               items={g.items}
-              onToggle={(v) => toggleArray(g.param, v)}
+              onToggle={(v) => toggleArray(g.param, v, g.members?.[v])}
               renderer={rendererFor(g.id)}
             unavailableText={unavailableText}
             />
@@ -164,7 +161,7 @@ function CategoryBarChartView({
             title={g.title}
             labelId={`cat-bar-${g.id}`}
             items={g.items}
-            onToggle={(v) => toggleArray(g.param, v)}
+            onToggle={(v) => toggleArray(g.param, v, g.members?.[v])}
             renderer={rendererFor(g.id)}
             unavailableText={unavailableText}
           />
