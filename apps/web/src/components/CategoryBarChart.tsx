@@ -11,7 +11,7 @@ import { FilterGroup } from './filters/FilterGroup'
 import type { CategoricalRendererType } from './filters/types'
 import { toggleMembers } from '@/lib/color-families'
 import { parseCommaSep, useFacetGroups } from './use-facet-groups'
-import { useFacetsData } from './use-facets-data'
+import { FacetsStateContext, useFacetsData } from './use-facets-data'
 import type { FacetsState } from './use-facets-data'
 import styles from './CategoryBarChart.module.css'
 
@@ -34,12 +34,20 @@ interface CategoryBarChartProps {
 }
 
 export function CategoryBarChart(props: CategoryBarChartProps) {
-  return props.facets ? <CategoryBarChartView {...props} facets={props.facets} /> : <OwnedCategoryBarChart {...props} />
+  return props.facets ? (
+    <FacetsStateContext.Provider value={props.facets}>
+      <CategoryBarChartView {...props} facets={props.facets} />
+    </FacetsStateContext.Provider>
+  ) : <OwnedCategoryBarChart {...props} />
 }
 
 function OwnedCategoryBarChart(props: CategoryBarChartProps) {
   const facets = useFacetsData()
-  return <CategoryBarChartView {...props} facets={facets} />
+  return (
+    <FacetsStateContext.Provider value={facets}>
+      <CategoryBarChartView {...props} facets={facets} />
+    </FacetsStateContext.Provider>
+  )
 }
 
 function CategoryBarChartView({

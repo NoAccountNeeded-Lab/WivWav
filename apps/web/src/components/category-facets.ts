@@ -3,8 +3,23 @@ export interface BarDatum {
   count: number
 }
 
+export interface BucketCount {
+  bucket: string
+  count: number
+}
+
+export interface YearCount {
+  year: number
+  count: number
+}
+
 export interface FacetsData {
   shoppingFiltersReady: boolean
+  /** Total matching listings for this request. */
+  total: number | null
+  priceDistribution: BucketCount[]
+  yearDistribution: YearCount[]
+  mileageDistribution: BucketCount[]
   cityBreakdown: BarDatum[]
   transmissionBreakdown: BarDatum[]
   wheelchairCapacityBreakdown: BarDatum[]
@@ -36,6 +51,16 @@ function toCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
+function toBuckets(value: unknown): BucketCount[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => (isRecord(item) && typeof item.bucket === 'string' ? [{ bucket: item.bucket, count: toCount(item.count) }] : []))
+}
+
+function toYears(value: unknown): YearCount[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => (isRecord(item) && typeof item.year === 'number' ? [{ year: item.year, count: toCount(item.count) }] : []))
+}
+
 function toBars(value: unknown): BarDatum[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
@@ -51,6 +76,10 @@ export function normalizeFacetsData(raw: unknown): FacetsData {
 
   return {
     shoppingFiltersReady: source.shoppingFiltersReady === true,
+    total: typeof source.total === 'number' && Number.isFinite(source.total) ? source.total : null,
+    priceDistribution: toBuckets(source.priceDistribution),
+    yearDistribution: toYears(source.yearDistribution),
+    mileageDistribution: toBuckets(source.mileageDistribution),
     cityBreakdown: toBars(source.cityBreakdown),
     transmissionBreakdown: toBars(source.transmissionBreakdown),
     wheelchairCapacityBreakdown: toBars(source.wheelchairCapacityBreakdown),

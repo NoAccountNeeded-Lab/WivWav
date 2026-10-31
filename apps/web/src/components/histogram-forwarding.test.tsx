@@ -30,8 +30,9 @@ describe('cross-filtered histogram query forwarding', () => {
     const fetchMock = vi.fn((_input: RequestInfo | URL) => new Promise<Response>(() => {}))
     vi.stubGlobal('fetch', fetchMock)
     await act(async () => { renderWithIntl(<Component />) })
-    const requested = new URL(String(fetchMock.mock.calls[0]![0]))
     const expected = Object.fromEntries(Object.entries(filters).filter(([key]) => !omitted.includes(key)))
-    expect(Object.fromEntries(requested.searchParams)).toEqual(expected)
+    // The shared owner also issues the base and disjunctive requests; the cross-filtered one must be among them.
+    const requests = fetchMock.mock.calls.map(([input]) => Object.fromEntries(new URL(String(input)).searchParams))
+    expect(requests).toContainEqual(expected)
   })
 })
