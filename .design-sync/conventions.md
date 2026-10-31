@@ -5,19 +5,22 @@ framework-agnostic component kit. Several components read routing/locale context
 will throw if mounted without it:
 
 - **Router-dependent** (call `useRouter`/`usePathname`/`useSearchParams` from `next/navigation`,
-  or the app's own `@/navigation` wrapper): `SiteHeader`, `SortSelect`, `ActiveFilters`,
+  or the app's own `@/navigation` wrapper): `SortSelect`, `ActiveFilters`,
   `PriceHistogram`, `YearHistogram`, `SafetyRefreshButton`, `CategoryBarChart`,
   `MileageHistogram`, `IntakeForm`.
 - **Locale-dependent** (call `useLocale`/`useTranslations` from `next-intl`):
-  `LanguageSwitcher` (and transitively `SiteHeader`, which renders it).
+  `LanguageSwitcher`.
 
 Build pages containing these inside a real Next.js App Router tree with a `next-intl`
 `NextIntlClientProvider` (locale + messages) above them — e.g. the actual `app/[locale]/layout.tsx`
 root layout. There is no prop to opt out of this; it's load-bearing, not optional context.
 
-Wrap the page/app root in `ErrorBoundary` (from this library) once, near the top — its default
-fallback is a plain accessible "An error occurred" message; pass a custom `fallback` node for a
-styled alternative.
+Wrap the page/app root in `ErrorBoundary` (from this library) once, near the top. It requires a
+`labels` prop (`{ heading, description, reload }`, localized strings) for its default fallback;
+pass a custom `fallback` node for a styled alternative.
+
+`SiteHeader` and `Footer` are async server components in the app and are not part of this
+library; build page chrome with the other components instead.
 
 ## Styling idiom
 

@@ -6,20 +6,41 @@
   "srcDir": "src/components",
   "tsconfig": "tsconfig.json",
   "cssEntry": ".ds-generated/globals.compiled.css",
-  "extraEntries": ["./.ds-generated/process-shim.mjs", "./.ds-generated/preview-provider.tsx"],
-  "provider": { "component": "PreviewProvider" },
-  "componentSrcMap": {
-    "StateHeatMap": null
+  "extraEntries": [
+    "./.ds-generated/process-shim.mjs",
+    "./.ds-generated/preview-provider.tsx"
+  ],
+  "provider": {
+    "component": "PreviewProvider"
   },
-  "extraFonts": [".ds-generated/fonts.css"],
+  "componentSrcMap": {
+    "StateHeatMap": null,
+    "Footer": null,
+    "SiteHeader": null
+  },
+  "extraFonts": [
+    ".ds-generated/fonts.css"
+  ],
   "readmeHeader": ".design-sync/conventions.md",
   "overrides": {
-    "FacetModal": { "cardMode": "single", "primaryStory": "Default" },
-    "ChartContainer": { "cardMode": "column" },
-    "ChartTooltip": { "cardMode": "column" },
-    "ChartTooltipContent": { "cardMode": "column" },
-    "PhotoGallery": { "cardMode": "column" },
-    "SiteHeader": { "cardMode": "column" },
-    "PriceHistoryChart": { "cardMode": "column" }
+    "FacetModal": {
+      "cardMode": "single",
+      "primaryStory": "Default"
+    },
+    "ChartContainer": {
+      "cardMode": "column"
+    },
+    "ChartTooltip": {
+      "cardMode": "column"
+    },
+    "ChartTooltipContent": {
+      "cardMode": "column"
+    },
+    "PhotoGallery": {
+      "cardMode": "column"
+    },
+    "PriceHistoryChart": {
+      "cardMode": "column"
+    }
   }
 }

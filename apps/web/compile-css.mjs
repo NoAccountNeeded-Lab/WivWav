@@ -1,7 +1,11 @@
-import postcss from '/Users/matt/Projects/NoAccountNeeded-Lab/WivWav/node_modules/.pnpm/postcss@8.5.16/node_modules/postcss/lib/postcss.mjs';
 import tailwindcss from '@tailwindcss/postcss';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+
+// postcss isn't a direct dependency; resolve the copy @tailwindcss/postcss uses.
+const tailwindRequire = createRequire(realpathSync(resolve(process.cwd(), 'node_modules/@tailwindcss/postcss/package.json')));
+const postcss = tailwindRequire('postcss');
 
 const webDir = process.cwd();
 const from = resolve(webDir, 'src/app/globals.css');
