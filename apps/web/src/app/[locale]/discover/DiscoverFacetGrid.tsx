@@ -12,7 +12,7 @@ import { FilterGroup } from '@/components/filters/FilterGroup'
 import { ChipsRenderer } from '@/components/filters/ChipsRenderer'
 import { FILTER_RENDERERS } from '@/components/filters/renderer-defaults'
 import { parseCommaSep, useFacetGroups } from '@/components/use-facet-groups'
-import { useFacetsData } from '@/components/use-facets-data'
+import { FacetsStateContext, useFacetsData } from '@/components/use-facets-data'
 import { toggleMembers } from '@/lib/color-families'
 import { US_STATE_NAME_TO_ABBR } from '@/lib/us-states'
 import styles from './DiscoverFacetGrid.module.css'
@@ -110,8 +110,10 @@ export function DiscoverFacetGrid() {
   }
 
   return (
+    <FacetsStateContext.Provider value={facets}>
     <div className={styles.grid}>
       {ORDER.map((id) => cells[id] ? <div key={id} className={`${styles.slot}${id === '$location' ? ` ${styles.wide}` : ''}`}>{cells[id]}</div> : null)}
     </div>
+    </FacetsStateContext.Provider>
   )
 }

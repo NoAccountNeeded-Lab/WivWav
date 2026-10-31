@@ -1,6 +1,5 @@
 'use client'
 
-import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -8,15 +7,10 @@ import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
 import { parsePositiveIntegerParameter, rangeFilterSearchParams, useStableRangeValue } from '@/components/useStableRangeValue'
-import { getClientApiBaseUrl } from '@/lib/api-url'
+import { useRangeFacets } from './use-facets-data'
 import styles from './PriceHistogram.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface RawBucket {
-  bucket: string
-  count: number
-}
 
 interface BucketDatum {
   bucket: string
@@ -41,13 +35,6 @@ function fmtMiles(miles: number): string {
   if (miles === 0) return '0'
   return `${(miles / 1000).toFixed(0)}k`
 }
-
-// Omit mileageMax so histogram shows cross-filtered counts (all mileages visible)
-const FORWARD_PARAMS = [
-  'q', 'make', 'model', 'trim', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
-  'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
-  ...SHOPPING_FILTER_PARAMS, 'conversionBrand',
-]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────
 
@@ -91,33 +78,19 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
 
   const hasFilter = urlMax > 0
 
-  const fetchUrl = useMemo(() => {
-    const base = getClientApiBaseUrl()
-    const url = new URL(`${base}/v1/listings/facets`)
-    for (const key of FORWARD_PARAMS) {
-      const val = searchParams.get(key)
-      if (val) url.searchParams.set(key, val)
-    }
-    return url.toString()
-  }, [searchParams])
-
+  // Cross-filtered (own range omitted) data comes from the shared facet owner.
+  const source = useRangeFacets('mileage')
   useEffect(() => {
-    let cancelled = false
-    fetch(fetchUrl)
-      .then((r) => r.json() as Promise<{ data: { mileageDistribution: RawBucket[]; total: number } }>)
-      .then(({ data: { mileageDistribution, total } }) => {
-        if (cancelled || !mileageDistribution.length) return
-        const parsed: BucketDatum[] = mileageDistribution.map(({ bucket, count }) => {
-          const { lo, hi } = parseBucket(bucket)
-          return { bucket, lo, hi, count }
-        })
-        setData(parsed)
-        setFacetsTotal(total)
-        setRangeMax(Math.max(...parsed.map((b) => b.hi)))
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [fetchUrl])
+    const mileageDistribution = source?.mileageDistribution
+    if (!source || !mileageDistribution?.length) return
+    const parsed: BucketDatum[] = mileageDistribution.map(({ bucket, count }) => {
+      const { lo, hi } = parseBucket(bucket)
+      return { bucket, lo, hi, count }
+    })
+    setData(parsed)
+    setFacetsTotal(source.total)
+    setRangeMax(Math.max(...parsed.map((b) => b.hi)))
+  }, [source])
 
   const push = useCallback(
     (max: number, baseSearchParams?: string) => {
