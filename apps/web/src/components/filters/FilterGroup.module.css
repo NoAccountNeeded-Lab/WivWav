@@ -3,17 +3,14 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  min-width: 0;
   break-inside: avoid;
   margin-bottom: 1rem;
   padding: 0.75rem;
-  background: rgba(92, 53, 198, 0.04);
-  border-radius: 12px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-facet-border);
+  border-radius: var(--radius);
 }
-
-/* ── Collapsed content ───────────────────────────────────────────────────────── */
-/* Wraps the title/renderer/show-more button so they can be made `inert`
-   together while the modal is open, without disturbing .group's own layout. */
 
 .content {
   display: flex;
@@ -21,16 +18,89 @@
   gap: 0.375rem;
 }
 
-/* ── Title ───────────────────────────────────────────────────────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  animation: facet-reveal 0.18s ease-out;
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+@keyframes facet-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── Heading: one button per facet, identical across the grid ───────────────── */
+
+.heading {
+  margin: 0;
+  font: inherit;
+}
 
 .title {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.125rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
   font-size: 0.8125rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  text-align: left;
   color: var(--clr-text-muted);
-  margin-bottom: 0.125rem;
+  cursor: pointer;
+}
+
+.title:focus-visible {
+  outline: 2px solid var(--clr-focus);
+  outline-offset: 1px;
+}
+
+.title:active .chevron {
+  /* brief anticipatory nudge before the state flips */
+  translate: 0 2px;
+}
+
+.chevron {
+  flex-shrink: 0;
+  transition: transform 0.18s ease, translate 0.08s ease;
+}
+
+.chevron[data-collapsed='true'] {
+  transform: rotate(-90deg);
+}
+
+.summary {
+  margin: 0;
+  padding: 0 0.125rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--clr-chart-selected-strong);
+  overflow-wrap: anywhere;
+}
+
+.unavailable {
+  margin: 0;
+  padding: 0 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--clr-text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+  .chevron { transition: none; }
+  .title:active .chevron { translate: none; }
 }
 
 /* ── Show more ───────────────────────────────────────────────────────────────── */

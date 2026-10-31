@@ -192,4 +192,30 @@ describe('FilterGroup', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(document.body.style.overflow).toBe('')
   })
+
+  it('collapses from a heading button, keeps selections, and summarizes them', async () => {
+    const items = makeItems(3).map((item, i) => ({ ...item, active: i === 1 }))
+    renderWithIntl(<FilterGroup title="Make" labelId="make" items={items} onToggle={vi.fn()} />)
+    const heading = screen.getByRole('button', { name: 'Make' })
+    expect(heading.getAttribute('aria-expanded')).toBe('true')
+    await screen.findAllByRole('button', { name: /^Item \d+/ })
+
+    fireEvent.click(heading)
+    expect(heading.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('button', { name: /^Item 0/ })).toBeNull()
+    expect(document.querySelector('p')?.textContent).toBe('Item 1')
+
+    fireEvent.click(heading)
+    expect((await screen.findByRole('button', { name: /^Item 1/ })).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shows an unavailable note but keeps the heading and selected zero-count values', async () => {
+    const items = [{ value: 'x', label: 'Ford', count: 0, active: true, disabled: false }]
+    renderWithIntl(
+      <FilterGroup title="Make" labelId="make" items={items} onToggle={vi.fn()} unavailableText="Counts unavailable" />,
+    )
+    expect(screen.getByRole('button', { name: 'Make' })).toBeTruthy()
+    expect(screen.getByText('Counts unavailable')).toBeTruthy()
+    expect((await screen.findByRole('button', { name: /Ford/ })).getAttribute('aria-pressed')).toBe('true')
+  })
 })

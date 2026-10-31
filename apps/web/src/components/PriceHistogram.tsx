@@ -269,7 +269,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
               {data.map((entry) => (
                 <Cell
                   key={entry.bucket}
-                  fill={isBarActive(entry) ? 'var(--clr-primary)' : 'var(--clr-border-strong)'}
+                  fill={isBarActive(entry) ? 'var(--clr-chart-selected-strong)' : 'var(--clr-chart-teal-mark-3)'}
                 />
               ))}
             </Bar>

@@ -236,7 +236,7 @@ export function MileageHistogram({ renderer: _renderer = 'histogram' }: { render
               {data.map((entry) => (
                 <Cell
                   key={entry.bucket}
-                  fill={isBarActive(entry) ? 'var(--clr-primary)' : 'var(--clr-border-strong)'}
+                  fill={isBarActive(entry) ? 'var(--clr-chart-selected-strong)' : 'var(--clr-chart-teal-mark-3)'}
                 />
               ))}
             </Bar>

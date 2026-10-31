@@ -82,6 +82,17 @@ html {
   --clr-feature-bg: var(--color-feature-bg);
   --clr-focus: var(--color-primary);
 
+  /* Public shopping chart palette: muted teal = unselected data, deep purple = selected. */
+  --clr-chart-teal: #bfe3df;
+  --clr-chart-teal-hover: #a6d6d1;
+  --clr-chart-teal-mark-1: #2f8f87;
+  --clr-chart-teal-mark-2: #1f6f69;
+  --clr-chart-teal-mark-3: #4a9f98;
+  --clr-chart-selected: var(--color-primary);
+  --clr-chart-selected-fill: #d3c8f5;
+  --clr-chart-selected-strong: var(--color-primary-dark);
+  --clr-facet-border: var(--color-border);
+
   --clr-success: #15803d;
   --clr-success-text: #166534;
   --clr-warning: #b45309;
