@@ -3,12 +3,9 @@
 import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { CategoryBarChart } from '@/components/CategoryBarChart'
-import { PriceHistogram } from '@/components/PriceHistogram'
-import { YearHistogram } from '@/components/YearHistogram'
-import { MileageHistogram } from '@/components/MileageHistogram'
 import { ActiveFilters } from '@/components/ActiveFilters'
 import { buildSearchHref } from '@/lib/results-url'
+import { DiscoverFacetGrid } from './DiscoverFacetGrid'
 import styles from './DiscoverPage.module.css'
 
 function DiscoverActions({ resultsPath }: { resultsPath: string }) {
@@ -47,37 +44,11 @@ export function DiscoverPage({ resultsPath = '/results' }: { resultsPath?: strin
         <DiscoverActions resultsPath={resultsPath} />
       </Suspense>
 
-      <div className={styles.filterGrid}>
-        <aside aria-label={t('vehicleFilters')}>
-          <Suspense>
-            <CategoryBarChart
-              showMap={false}
-              showHistograms={false}
-              singleColumn
-              limitGroups={['make', 'model', 'condition', 'entry', 'conversionBrand']}
-              renderers={{ condition: 'donut' }}
-            />
-          </Suspense>
-        </aside>
-
-        <aside aria-label={t('featureFilters')}>
-          <Suspense>
-            <CategoryBarChart
-              showMap={false}
-              showHistograms={false}
-              singleColumn
-              limitGroups={['color', 'state', 'city', 'transmission', 'wheelchairCapacity', 'conversionStatus', 'seller', 'fuelType', 'features']}
-              renderers={{ color: 'swatches', seller: 'donut' }}
-            />
-          </Suspense>
-        </aside>
-
-        <aside aria-label={t('rangeFilters')}>
-          <Suspense><PriceHistogram /></Suspense>
-          <Suspense><YearHistogram /></Suspense>
-          <Suspense><MileageHistogram /></Suspense>
-        </aside>
-      </div>
+      <section aria-label={t('filters')}>
+        <Suspense>
+          <DiscoverFacetGrid />
+        </Suspense>
+      </section>
     </div>
   )
 }
