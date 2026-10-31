@@ -17,6 +17,9 @@ export const e2eEnv = {
   internalApiSecret:
     process.env['WIVWAV_E2E_INTERNAL_API_SECRET'] ??
     '41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2',
+  opsApiSecret:
+    process.env['WIVWAV_E2E_OPS_API_SECRET'] ??
+    '0a7c5d91e3b24f68a1d9c0e47b2f83a5d6c1e90b7a3f4258c6d1e0f9a8b7c6d5',
 } as const
 
 export function webBaseUrl(): string {
@@ -40,6 +43,7 @@ function composeEnv(): NodeJS.ProcessEnv {
     WIVWAV_E2E_VALKEY_PORT: e2eEnv.valkeyPort,
     WIVWAV_E2E_MEILI_PORT: e2eEnv.meiliPort,
     WIVWAV_E2E_INTERNAL_API_SECRET: e2eEnv.internalApiSecret,
+    WIVWAV_E2E_OPS_API_SECRET: e2eEnv.opsApiSecret,
   }
 }
 

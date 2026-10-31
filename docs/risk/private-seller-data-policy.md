@@ -143,7 +143,7 @@ Steps 1–3 run inside one PostgreSQL transaction (fail-closed: a failure partwa
 
 ### When a private seller requests deletion
 
-Operators have an authenticated deletion-request workflow at `POST /admin/private-seller-retention/listings/:id/delete` (guarded by the same `Authorization: Bearer {INTERNAL_API_SECRET}` boundary as every other `/admin` route), with an ops UI at `/ops/privacy-requests`. It calls the same `anonymizePrivateSellerListing` contract immediately, bypassing the `status`/`goneAt` gate — a seller can ask for removal regardless of whether the listing has gone `gone` yet — but still only applies to `sellerType: 'private'` listings. `GET /admin/private-seller-retention/listings/:id/audit` returns the full history.
+Operators have an authenticated deletion-request workflow at `POST /internal/ops/private-seller-retention/listings/:id/delete` (guarded by the same `Authorization: Bearer {OPS_API_SECRET}` boundary as every other `/internal/ops` route), with an ops UI at `/ops/privacy-requests`. It calls the same `anonymizePrivateSellerListing` contract immediately, bypassing the `status`/`goneAt` gate — a seller can ask for removal regardless of whether the listing has gone `gone` yet — but still only applies to `sellerType: 'private'` listings. `GET /internal/ops/private-seller-retention/listings/:id/audit` returns the full history.
 
 Requests received at `privacy@wivwav.com` are handled by an operator submitting the listing ID through `/ops/privacy-requests`.
 
@@ -179,6 +179,6 @@ These deferrals are documented. No public display of private-seller listings sho
 ## Implemented Mitigations (issue #817)
 
 4. **Retention lifecycle** — `apps/api/src/jobs/private-seller-retention.ts` anonymizes gone private-seller listings 30 days after `goneAt`, automatically and idempotently, including the pre-existing backlog at deploy time.
-5. **Operator deletion-request workflow** — `/ops/privacy-requests` (backed by `POST /admin/private-seller-retention/listings/:id/delete`) lets an authenticated operator anonymize a specific listing immediately, for seller requests received at `privacy@wivwav.com`.
-6. **Audit trail** — every automated and operator-initiated attempt, success or failure, is recorded and queryable via `GET /admin/private-seller-retention/listings/:id/audit`.
+5. **Operator deletion-request workflow** — `/ops/privacy-requests` (backed by `POST /internal/ops/private-seller-retention/listings/:id/delete`) lets an authenticated operator anonymize a specific listing immediately, for seller requests received at `privacy@wivwav.com`.
+6. **Audit trail** — every automated and operator-initiated attempt, success or failure, is recorded and queryable via `GET /internal/ops/private-seller-retention/listings/:id/audit`.
 7. **Privacy page updated** — now states the 30-day automatic retention window in addition to the manual contact path.

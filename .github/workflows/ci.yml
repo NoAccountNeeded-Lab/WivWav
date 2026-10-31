@@ -325,6 +325,10 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # #1225: public edge and worker-ingress allowlists, proven against real nginx.
+      - name: Edge allowlist smoke
+        run: bash scripts/edge-smoke.sh
+
       - name: Report Turbo lint/typecheck duration
         if: always()
         run: |

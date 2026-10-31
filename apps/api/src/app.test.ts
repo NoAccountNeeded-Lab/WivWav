@@ -43,6 +43,7 @@ const baseConfig: Config = {
   GRAFANA_URL: 'http://localhost:3003',
   CORS_ORIGIN: ['http://localhost:3000'],
   WORKER_GATEWAY_ENABLED: false,
+  TRUST_PROXY: false,
   WORKER_JOB_TIMEOUT_MS: 2_700_000,
   JOB_RUN_MAX_AGE_MS: 21_600_000,
   GIT_SHA: 'test-sha',

@@ -108,8 +108,8 @@ services:
   api:
     image: ghcr.io/noaccountneeded-lab/wivwav/api@sha256:0000000000000000000000000000000000000000000000000000000000000000
     restart: unless-stopped
-    ports:
-      - "3001:3001"
+    # No host-published port: the API is private. Public traffic enters through
+    # `edge`; remote workers through the opt-in `worker-ingress` profile.
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -127,7 +127,14 @@ services:
       OLLAMA_REQUIRED: "false"
       CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN}
       CONFIG_ENCRYPTION_SECRET: ${CONFIG_ENCRYPTION_SECRET:?set CONFIG_ENCRYPTION_SECRET}
+      # Four distinct service identities; the API refuses to start if any two match.
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
+      OPS_API_SECRET: ${OPS_API_SECRET:?set OPS_API_SECRET}
+      WORKER_API_SECRET: ${WORKER_API_SECRET:?set WORKER_API_SECRET}
+      DIAGNOSTIC_API_SECRET: ${DIAGNOSTIC_API_SECRET:?set DIAGNOSTIC_API_SECRET}
+      # Only the edge and sibling containers can reach the API, so X-Forwarded-For
+      # (overwritten by the edge) is the real client address for rate limits.
+      TRUST_PROXY: "true"
       WORKER_GATEWAY_ENABLED: ${WORKER_GATEWAY_ENABLED:-true}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: json
@@ -145,9 +152,39 @@ services:
       retries: 10
       start_period: 30s
 
+  # Public edge: explicit allowlist in docker/edge/edge.conf. Keeps the
+  # historical public API port; everything outside the allowlist returns 404.
+  edge:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${EDGE_PUBLIC_PORT:-3001}:8080"
+    volumes:
+      - ./docker/edge/edge.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/edge/proxy.inc:/etc/nginx/conf.d/proxy.inc:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Private ingress for remote workers. Off by default; enable with
+  # `docker compose --profile worker-ingress up -d worker-ingress`.
+  # WORKER_INGRESS_BIND defaults to loopback; set it to a private-network address
+  # (LAN or VPN) for remote workers, never a public one.
+  worker-ingress:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    profiles: [worker-ingress]
+    restart: unless-stopped
+    ports:
+      - "${WORKER_INGRESS_BIND:-127.0.0.1}:3011:8080"
+    volumes:
+      - ./docker/edge/coordinator.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
   # Data-collector worker. Never starts by default: enable with
   # `docker compose --profile worker up -d job-runner`. WORKER_TOKEN must equal
-  # the coordinator's INTERNAL_API_SECRET and has no default on purpose.
+  # the coordinator's WORKER_API_SECRET and has no default on purpose.
   job-runner:
     image: ghcr.io/noaccountneeded-lab/wivwav/worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
     profiles: [worker]
@@ -195,15 +232,20 @@ services:
       retries: 10
       start_period: 30s
 
+  # Stopped by default. Start/stop manually:
+  #   docker compose --profile ops up -d ops
+  #   docker compose --profile ops stop ops
+  # There is deliberately no public wake endpoint.
   ops:
     image: ghcr.io/noaccountneeded-lab/wivwav/ops@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [ops]
     restart: unless-stopped
     ports:
       - "3002:3002"
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
       API_INTERNAL_URL: http://api:3001
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
+      OPS_API_SECRET: ${OPS_API_SECRET:?set OPS_API_SECRET}
       OPS_PUBLIC_ORIGIN: ${OPS_PUBLIC_ORIGIN:?set OPS_PUBLIC_ORIGIN}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       LOG_FORMAT: json

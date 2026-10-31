@@ -63,8 +63,8 @@ selftest() {
   if ( render "$dir/bad.yml" "api=$a" ) 2>/dev/null; then fail "selftest: partial render succeeded"; fi
   if [ -n "${COMPOSE_VALIDATE:-}" ]; then
     local env="$dir/env"
-    for v in CONFIG_ENCRYPTION_SECRET CORS_ORIGIN DATABASE_URL INTERNAL_API_SECRET MEILI_MASTER_KEY \
-      NEXT_PUBLIC_API_URL OPS_ADMIN_PASSWORD OPS_ADMIN_USERNAME OPS_PUBLIC_ORIGIN OPS_SESSION_SECRET POSTGRES_PASSWORD POSTGRES_USER WORKER_TOKEN; do
+    for v in CONFIG_ENCRYPTION_SECRET CORS_ORIGIN DATABASE_URL DIAGNOSTIC_API_SECRET INTERNAL_API_SECRET MEILI_MASTER_KEY \
+      NEXT_PUBLIC_API_URL OPS_ADMIN_PASSWORD OPS_API_SECRET WORKER_API_SECRET OPS_ADMIN_USERNAME OPS_PUBLIC_ORIGIN OPS_SESSION_SECRET POSTGRES_PASSWORD POSTGRES_USER WORKER_TOKEN; do
       echo "$v=placeholder" >> "$env"
     done
     local c=(docker compose -f "$dir/m.yml" --env-file "$env")
@@ -75,6 +75,12 @@ selftest() {
     if "${c[@]}" config --services | grep -qx job-runner; then
       fail "selftest: job-runner active without --profile worker"
     fi
+    # Ops is stopped by default; the API has no host-published port.
+    if "${c[@]}" config --services | grep -qx ops; then
+      fail "selftest: ops active without --profile ops"
+    fi
+    "${c[@]}" --profile ops config --services | grep -qx ops || fail "selftest: ops missing under --profile ops"
+    "${c[@]}" config --services | grep -qx edge || fail "selftest: edge missing from default set"
     # Profile on: worker digest pinned. WORKER_TOKEN is required (:?) even
     # with the profile off, because compose interpolates inactive profiles.
     "${c[@]}" --profile worker config --quiet

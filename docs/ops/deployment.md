@@ -62,7 +62,7 @@ expired and `publish` needs them.
 
 ## Ops logs with laptop-hosted observability
 
-The authenticated Ops Logs page (`/ops/logs`) reads the API's `/admin/logs`
+The authenticated Ops Logs page (`/ops/logs`) reads the API's `/internal/ops/logs`
 endpoint. The production API queries Loki using `LOKI_URL`; without that
 setting, it defaults to `localhost:3100` inside the API container.
 
@@ -189,7 +189,7 @@ pipeline above:
   them.
 - They are set and updated by an operator through the ops config UI
   (`/ops/config`, password-protected — see `apps/ops/src/middleware.ts`),
-  which calls `PUT /admin/config/:key` on the API directly. The API key
+  which calls `PUT /internal/ops/config/:key` on the API directly. The API key
   secrets table there includes a per-row "Rotate" action for replacing a
   value without retyping its key/description.
 - Each key holds exactly one value regardless of environment — there is no
@@ -291,8 +291,8 @@ docker compose -f docker-compose.release.yml --profile worker up -d job-runner
 `WORKER_TOKEN` is required with no default, and because compose interpolates
 inactive profiles too, **every host must set it in `.env.production`**, even
 one that never runs the worker. Set it to the same value as
-`INTERNAL_API_SECRET`: the API's worker gateway authenticates workers with
-`Authorization: Bearer {INTERNAL_API_SECRET}` (see
+`WORKER_API_SECRET`, never `INTERNAL_API_SECRET`: the API's worker gateway authenticates workers with
+`Authorization: Bearer {WORKER_API_SECRET}` (see
 `apps/api/src/plugins/worker-gateway-ws.test.ts`). `COORDINATOR_URL` defaults
 to `http://api:3001`; `WORKER_CAPABILITIES` and `WORKER_MAX_CONCURRENT_JOBS`
 default to `chromium=true` and `2`. The release-manifest selftest validates
@@ -301,3 +301,24 @@ the manifest with and without `--profile worker`.
 The container gets `shm_size` (`WORKER_SHM_SIZE`, default `1gb`) for Chromium
 instead of host IPC, plus `WORKER_MEM_LIMIT` (default `2g`) and `WORKER_CPUS`
 (default `1.5`). On small hosts lower `WORKER_MAX_CONCURRENT_JOBS` to `1`.
+
+## Private control plane rollout (#1225)
+
+One coordinated release; there is no alias for the retired admin namespace, so partial rollout is not supported. Rollback is redeploying the previous release manifest (no data migration).
+
+**Before deploy (secrets, never committed).** In `.env.production` set four distinct values, each at least 16 characters: `INTERNAL_API_SECRET` (existing, now `api` + `web` only), `OPS_API_SECRET`, `WORKER_API_SECRET` and `DIAGNOSTIC_API_SECRET`. Set `WORKER_TOKEN` on every worker host to the `WORKER_API_SECRET` value. The API refuses to start if two identities match. Do not rotate existing credentials during this release other than adding the new ones.
+
+**Topology.**
+
+- `api` has no host-published port. `edge` publishes `${EDGE_PUBLIC_PORT:-3001}` (the former API port, so `NEXT_PUBLIC_API_URL` and any public proxy keep working) and forwards only the public allowlist in `docker/edge/edge.conf`.
+- `ops` is stopped by default. Start it with `docker compose --profile ops up -d ops` and stop it with `docker compose --profile ops stop ops`. There is no wake endpoint.
+- Remote workers reach the coordinator through `worker-ingress`, off by default: set `WORKER_INGRESS_BIND` to the host's private LAN or VPN address and run `docker compose --profile worker-ingress up -d worker-ingress`. Point `COORDINATOR_URL` at `http://<that address>:3011`. Never bind it to a public address. Workers on the same compose network keep using `http://api:3001`.
+
+**Smoke checks after deploy.**
+
+1. Public edge: `/health` and an API-key `/v1/listings` request return 200. `/internal/ops/runs`, `/ops/queues/board`, `/diagnostics/diagnostic-context`, `/docs`, `/openapi.json`, `/metrics` and any retired admin path return 404 even with a valid token.
+2. `docker compose ps` shows no `0.0.0.0:3001->3001` mapping on `api`.
+3. With ops started: log in, open Queues and confirm the Bull Board page, assets and job data load, then confirm `/ops/api/x` without a session is rejected.
+4. A worker connects through `worker-ingress` and reports a heartbeat on the Workers page.
+
+**CI proofs.** `pnpm check:boundaries` (retired URLs, ops secret in web, Compose exposure), `bash scripts/edge-smoke.sh` (both nginx allowlists against a stub upstream) and `COMPOSE_VALIDATE=1 bash scripts/release-manifest.sh selftest`.

@@ -35,7 +35,7 @@ See `.env.example` in each app directory. Never commit `.env` files.
 
 - CI: only `GITHUB_TOKEN` (auto-provided)
 
-AI API keys and provider selection are managed through the config DB, not env vars. Set them via `/ops/ai` or the `/admin/config` API:
+AI API keys and provider selection are managed through the config DB, not env vars. Set them via `/ops/ai` or the `/internal/ops/config` API:
 
 | Config key | Description |
 | --- | --- |
