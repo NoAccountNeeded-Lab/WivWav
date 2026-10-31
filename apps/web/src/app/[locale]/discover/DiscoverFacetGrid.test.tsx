@@ -23,6 +23,7 @@ const payload = {
   wheelchairCapacityBreakdown: bars(['1', 6]),
   stateBreakdown: bars(['IL', 4], ['DC', 1]),
   transmissionBreakdown: bars(['automatic', 6]),
+  colorBreakdown: bars(['Burgundy', 2], ['Red', 3], ['White', 1]),
 }
 
 function stubFetch(handler?: (url: URL) => unknown) {
@@ -97,5 +98,16 @@ describe('DiscoverFacetGrid', () => {
     expect((await screen.findByRole('button', { name: /Ford/ })).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getAllByText(/Counts are unavailable/).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Illinois/ }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shows color families, selects every raw member, and treats an old raw-color link as selected', async () => {
+    state.params = new URLSearchParams('color=Burgundy')
+    stubFetch()
+    await act(async () => { renderWithIntl(<DiscoverFacetGrid />) })
+    const red = await screen.findByRole('button', { name: /^Red:/ })
+    expect(red.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(red)
+    const cleared = new URL(state.push.mock.calls[0]![0] as string, 'https://example.test')
+    expect(cleared.searchParams.has('color')).toBe(false)
   })
 })

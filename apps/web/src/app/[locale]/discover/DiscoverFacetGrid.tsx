@@ -13,6 +13,7 @@ import { ChipsRenderer } from '@/components/filters/ChipsRenderer'
 import { FILTER_RENDERERS } from '@/components/filters/renderer-defaults'
 import { parseCommaSep, useFacetGroups } from '@/components/use-facet-groups'
 import { useFacetsData } from '@/components/use-facets-data'
+import { toggleMembers } from '@/lib/color-families'
 import { US_STATE_NAME_TO_ABBR } from '@/lib/us-states'
 import styles from './DiscoverFacetGrid.module.css'
 
@@ -43,9 +44,9 @@ export function DiscoverFacetGrid() {
   const facets = useFacetsData()
   const { groups, featureItems, unavailable, toggleFeature } = useFacetGroups(facets, searchParams)
 
-  const toggle = (param: string, value: string) => {
+  const toggle = (param: string, value: string, members?: string[]) => {
     const current = parseCommaSep(searchParams.get(param))
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
+    const next = toggleMembers(current, value, members)
     const params = new URLSearchParams(searchParams.toString())
     if (next.length) params.set(param, next.join(','))
     else params.delete(param)
@@ -99,7 +100,7 @@ export function DiscoverFacetGrid() {
           title={group.title}
           labelId={`cat-bar-${group.id}`}
           items={group.items}
-          onToggle={(value) => toggle(group.param, value)}
+          onToggle={(value) => toggle(group.param, value, group.members?.[value])}
           renderer={FILTER_RENDERERS[group.id] ?? DEFAULT_RENDERER}
           moreLabel={group.id === 'color' ? t('moreColors') : undefined}
           unavailableText={unavailableText}

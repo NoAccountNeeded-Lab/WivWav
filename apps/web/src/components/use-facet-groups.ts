@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { shoppingFilterLabel, SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
 import type { BarDatum, FacetsData } from './category-facets'
 import { normalizeFacetsData } from './category-facets'
+import { groupColors } from '@/lib/color-families'
 import type { FilterItem } from './filters/types'
 import { formatFilterLabel } from './filters/types'
 import type { FacetsState } from './use-facets-data'
@@ -14,6 +15,8 @@ export interface FacetGroup {
   items: FilterItem[]
   /** URL query parameter this group toggles. */
   param: string
+  /** value -> raw URL values it selects (color families). Absent for ordinary groups. */
+  members?: Record<string, string[]>
 }
 
 export interface FacetGroups {
@@ -59,6 +62,7 @@ export function useFacetGroups(facets: FacetsState, searchParams: Params): Facet
     ? (facets.data ? data.conversionBrandBreakdown.filter((b) => brandNameBySlug.has(b.value)) : [])
     : []
 
+  const colors = groupColors(data?.colorBreakdown ?? [], active('color'))
   const activeWavFeatures = active('wavFeatures')
   const activeRampTypes = active('rampType')
 
@@ -76,7 +80,11 @@ export function useFacetGroups(facets: FacetsState, searchParams: Params): Facet
       id: 'conversionBrand', title: t('groups.conversionBrand'), param: 'conversionBrand',
       items: toFilterItems(brandBars, active('conversionBrand')).map((item) => ({ ...item, label: brandNameBySlug.get(item.value) ?? item.label })),
     },
-    { id: 'color', title: t('groups.color'), items: toFilterItems(data.colorBreakdown, active('color')), param: 'color' },
+    {
+      id: 'color', title: t('groups.color'), param: 'color', members: colors.members,
+      // A family is selected when any raw color it covers is in the URL.
+      items: toFilterItems(colors.bars, Object.entries(colors.members).filter(([, raws]) => raws.some((r) => active('color').includes(r))).map(([family]) => family)),
+    },
     { id: 'state', title: t('groups.state'), items: toFilterItems(data.stateBreakdown, active('state')), param: 'state' },
     { id: 'seller', title: t('groups.seller'), items: toFilterItems(data.sellerTypeBreakdown, active('sellerType')), param: 'sellerType' },
     // Shopping filters stay withheld until the index rollout is verified, except to show selected values.
