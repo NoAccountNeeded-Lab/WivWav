@@ -7,7 +7,7 @@ import { SwatchesRenderer } from './SwatchesRenderer'
 import { BarsRenderer } from './BarsRenderer'
 import type { FilterItem } from './types'
 
-afterEach(cleanup)
+afterEach(() => { vi.restoreAllMocks(); cleanup() })
 
 const item = (value: string, count: number, active = false): FilterItem => ({
   value, label: value.toUpperCase(), count, active, disabled: count === 0 && !active,
@@ -74,8 +74,12 @@ describe('SwatchesRenderer', () => {
 
   it('shows its tooltip on focus', () => {
     withIntl(<SwatchesRenderer items={[item('red', 3)]} onToggle={vi.fn()} maxCount={3} />)
+    const realMatches = Element.prototype.matches
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
+      return selector === ':focus-visible' ? true : realMatches.call(this, selector)
+    })
     fireEvent.focus(screen.getByRole('button', { name: /RED/ }))
-    expect(screen.getByRole('tooltip').textContent).toBe('RED: 3 listings')
+    expect(document.querySelector('[data-tooltip]')?.textContent).toBe('RED: 3 listings')
   })
 })
 

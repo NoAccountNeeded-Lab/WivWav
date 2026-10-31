@@ -1,24 +1,32 @@
 'use client'
 
-import { cloneElement, useEffect, useId, useRef, useState } from 'react'
-import type { ReactElement } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { FocusEvent, ReactNode } from 'react'
 import styles from './FacetTooltip.module.css'
 
 const HOVER_DELAY_MS = 150
 
+/** True for keyboard-driven focus; assumes true where :focus-visible is unsupported. */
+export function focusVisible(event: FocusEvent): boolean {
+  try {
+    return (event.target as Element).matches(':focus-visible')
+  } catch {
+    return true
+  }
+}
+
 interface FacetTooltipProps {
-  /** Supplementary text only; the trigger must already carry its essential name and count. */
+  /** Visual duplicate of the trigger's accessible name and count; hidden from assistive technology. */
   text: string
-  /** One focusable element; receives aria-describedby while the tooltip is shown. */
-  children: ReactElement<{ 'aria-describedby'?: string }>
+  children: ReactNode
 }
 
 /**
- * Styled replacement for native `title` tooltips: ~150 ms hover delay, immediate on keyboard focus,
- * dismissed with Escape. Touch taps focus the trigger, which shows the tooltip until blur.
+ * Styled replacement for native `title` tooltips: ~150 ms hover delay, immediate on keyboard focus
+ * (:focus-visible only, so a mouse or touch click does not leave a stuck tip), dismissed with Escape.
+ * The tip repeats the trigger's accessible name, so it is aria-hidden rather than described-by.
  */
 export function FacetTooltip({ text, children }: FacetTooltipProps) {
-  const id = useId()
   const [open, setOpen] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -37,12 +45,12 @@ export function FacetTooltip({ text, children }: FacetTooltipProps) {
       className={styles.wrap}
       onMouseEnter={() => { clear(); timer.current = setTimeout(() => setOpen(true), HOVER_DELAY_MS) }}
       onMouseLeave={hide}
-      onFocusCapture={show}
+      onFocusCapture={(event) => { if (focusVisible(event)) show() }}
       onBlurCapture={hide}
       onKeyDown={(event) => { if (event.key === 'Escape' && open) { event.stopPropagation(); hide() } }}
     >
-      {cloneElement(children, open ? { 'aria-describedby': id } : {})}
-      {open && <span id={id} role="tooltip" className={styles.tip}>{text}</span>}
+      {children}
+      {open && <span aria-hidden="true" data-tooltip="" className={styles.tip}>{text}</span>}
     </span>
   )
 }

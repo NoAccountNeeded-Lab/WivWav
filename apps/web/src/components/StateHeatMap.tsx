@@ -5,6 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import { useTranslations } from 'next-intl'
 import type { BarDatum } from './category-facets'
+import { focusVisible } from './filters/FacetTooltip'
 import { US_STATE_NAME_TO_ABBR, US_TERRITORY_ABBREVIATIONS } from '@/lib/us-states'
 import styles from './StateHeatMap.module.css'
 
@@ -49,7 +50,6 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
   const rootRef = useRef<HTMLDivElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const statusId = useId()
-  const tipId = useId()
   const t = useTranslations('StateHeatMap')
   const countLabel = (count: number): string => t('listingCount', { count })
 
@@ -136,21 +136,22 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
                   style={{ default: { fill }, hover: { fill }, pressed: { fill } }}
                   onClick={() => onToggle(abbr)}
                   onKeyDown={handleKeyDown(abbr)}
-                  aria-describedby={tip?.name === name ? tipId : undefined}
                   onMouseEnter={(event: MouseEvent) => {
                     setHovered({ name, count })
                     clearTimer()
                     const { clientX, clientY } = event
                     timer.current = setTimeout(() => setTip(place(name, count, clientX, clientY)), HOVER_DELAY_MS)
                   }}
-                  onMouseLeave={() => { setHovered(null); hideTip() }}
+                  onPointerLeave={() => { setHovered(null); hideTip() }}
+                  onTouchEnd={() => { setHovered(null); hideTip() }}
                   onFocus={(event: FocusEvent) => {
-                    setHovered({ name, count })
+                    // Keyboard focus only; the control's aria-label is its one announcement.
+                    if (!focusVisible(event)) return
                     clearTimer()
                     const rect = (event.currentTarget as Element).getBoundingClientRect()
                     setTip(place(name, count, rect.left + rect.width / 2, rect.top))
                   }}
-                  onBlur={() => { setHovered(null); hideTip() }}
+                  onBlur={hideTip}
                 />
               )
             })
@@ -159,7 +160,7 @@ export default function StateHeatMap({ data, activeStates, onToggle }: StateHeat
       </ComposableMap>
 
       {tip && (
-        <div id={tipId} role="tooltip" className={styles.tip} style={{ left: tip.x, top: tip.y }}>
+        <div aria-hidden="true" data-tooltip="" className={styles.tip} style={{ left: tip.x, top: tip.y }}>
           {`${tip.name}: ${countLabel(tip.count)}`}
         </div>
       )}
