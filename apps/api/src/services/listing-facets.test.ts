@@ -88,6 +88,25 @@ describe('ListingFacetsService', () => {
     expect(Number.isNaN(Date.parse(result.calculatedAt))).toBe(false)
   })
 
+  it('recomputes when the cached JSON is corrupt', async () => {
+    const search = { search: vi.fn(async () => ({ hits: [], total: 2, facetDistribution: {} })) } as unknown as SearchService
+    const cache = { get: vi.fn(async () => '{not json'), set: vi.fn(async () => {}) } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(result.total).toBe(2)
+  })
+
+  it('runs one search for concurrent cold requests with the same key', async () => {
+    const search = { search: vi.fn(async () => ({ hits: [], total: 1, facetDistribution: {} })) } as unknown as SearchService
+    const cache = { get: vi.fn(async () => null), set: vi.fn(async () => {}) } as unknown as CacheService
+    const service = new ListingFacetsService(search, cache)
+
+    await Promise.all([service.getFacets({}), service.getFacets({}), service.getFacets({})])
+
+    expect(search.search).toHaveBeenCalledTimes(1)
+  })
+
   it('discards a cached payload without calculatedAt', async () => {
     const search = { search: vi.fn(async () => ({ hits: [], total: 1, facetDistribution: {} })) } as unknown as SearchService
     const cache = {

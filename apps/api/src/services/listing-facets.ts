@@ -46,6 +46,8 @@ interface FacetSettings {
 }
 
 export class ListingFacetsService {
+  private readonly inflight = new Map<string, Promise<FacetsResult>>()
+
   constructor(
     private readonly searchService: SearchService,
     private readonly cache: CacheService,
@@ -61,10 +63,28 @@ export class ListingFacetsService {
     const ttlSeconds = await this.settings?.getOperatorSetting('facets.cache_ttl_s') ?? OPERATOR_SETTINGS['facets.cache_ttl_s'].defaultValue
     const cached = ttlSeconds > 0 ? await this.cache.get(cacheKey).catch(() => null) : null
     if (cached) {
-      const parsed = JSON.parse(cached) as Partial<FacetsResult>
-      // A payload from before calculatedAt existed must not survive the contract change.
-      if (typeof parsed.calculatedAt === 'string') return parsed as FacetsResult
+      try {
+        const parsed = JSON.parse(cached) as Partial<FacetsResult>
+        // A payload from before calculatedAt existed must not survive the contract change.
+        if (typeof parsed.calculatedAt === 'string') return parsed as FacetsResult
+      } catch {
+        // Corrupt cache entry: recompute below.
+      }
     }
+
+    // One in-flight compute per key, so a cold cache (e.g. after a version bump) is not stampeded.
+    const pending = this.inflight.get(cacheKey)
+    if (pending) return pending
+    const compute = this.compute(params, ready, cacheKey, ttlSeconds)
+    this.inflight.set(cacheKey, compute)
+    try {
+      return await compute
+    } finally {
+      this.inflight.delete(cacheKey)
+    }
+  }
+
+  private async compute(params: FacetsParams, ready: boolean, cacheKey: string, ttlSeconds: number): Promise<FacetsResult> {
 
     const { filters, rangeFilters } = buildListingFilters(params)
 
