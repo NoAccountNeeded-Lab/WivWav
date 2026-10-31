@@ -49,4 +49,8 @@ for p in /admin/runs /internal/ops/runs /internal/config/ai.intake.model /intern
 for p in /internal/scraper/detail-extract/submit /internal/workers/ws; do expect "$INGRESS" GET "$p" 200; done
 for p in /v1/listings /health /internal/ops/runs /internal/config/x /admin/runs /docs /; do expect "$INGRESS" GET "$p" 404; done
 
-[ "$fails" -eq 0 ] && echo "edge-smoke ok" || { echo "edge-smoke: $fails failure(s)"; exit 1; }
+if [ "$fails" -ne 0 ]; then
+  for c in "es-edge-$$" "es-ingress-$$" "es-api-$$"; do echo "--- logs: $c"; docker logs --tail 20 "$c" 2>&1 || true; done
+  echo "edge-smoke: $fails failure(s)"; exit 1
+fi
+echo "edge-smoke ok"
