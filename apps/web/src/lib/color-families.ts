@@ -20,17 +20,15 @@ const FAMILY_KEYWORDS: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['teal', ['teal', 'turquoise']],
 ]
 
-/** Family of a raw color: the keyword that appears earliest in the text wins. */
+const FAMILY_BY_WORD = new Map(FAMILY_KEYWORDS.flatMap(([family, words]) => words.map((word) => [word, family] as const)))
+
+/** Family of a raw color: the first whole word that names a family wins ("Titanium Gray" is gray, not tan). */
 export function colorFamily(raw: string): string | null {
-  const text = raw.toLowerCase()
-  let best: { family: string; at: number } | null = null
-  for (const [family, words] of FAMILY_KEYWORDS) {
-    for (const word of words) {
-      const at = text.indexOf(word)
-      if (at >= 0 && (!best || at < best.at)) best = { family, at }
-    }
+  for (const word of raw.toLowerCase().split(/[^a-z]+/)) {
+    const family = FAMILY_BY_WORD.get(word)
+    if (family) return family
   }
-  return best?.family ?? null
+  return null
 }
 
 export interface ColorFamilies {
@@ -49,8 +47,9 @@ export function groupColors(bars: BarDatum[], selectedRaw: string[]): ColorFamil
     const list = (members[key] ??= [])
     if (!list.includes(raw)) list.push(raw)
   }
-  for (const bar of bars) add(bar.value, bar.count)
-  for (const raw of selectedRaw) add(raw, 0)
+  // Zero-count ghosts from the previous query are not members; selected values always are.
+  for (const bar of bars) if (bar.count > 0 || selectedRaw.includes(bar.value)) add(bar.value, bar.count)
+  for (const raw of selectedRaw) if (!bars.some((b) => b.value === raw)) add(raw, 0)
   return {
     bars: [...totals].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
     members,
