@@ -76,11 +76,13 @@ selftest() {
       fail "selftest: job-runner active without --profile worker"
     fi
     # Ops is stopped by default; the API has no host-published port.
-    if "${c[@]}" config --services | grep -qx ops; then
-      fail "selftest: ops active without --profile ops"
-    fi
-    "${c[@]}" --profile ops config --services | grep -qx ops || fail "selftest: ops missing under --profile ops"
-    "${c[@]}" config --services | grep -qx edge || fail "selftest: edge missing from default set"
+    # Capture first: under pipefail, `grep -q` exiting early can SIGPIPE compose and flip the result.
+    local default_services ops_services
+    default_services="$("${c[@]}" config --services)"
+    ops_services="$("${c[@]}" --profile ops config --services)"
+    if grep -qx ops <<<"$default_services"; then fail "selftest: ops active without --profile ops"; fi
+    grep -qx ops <<<"$ops_services" || fail "selftest: ops missing under --profile ops"
+    grep -qx edge <<<"$default_services" || fail "selftest: edge missing from default set"
     # Profile on: worker digest pinned. WORKER_TOKEN is required (:?) even
     # with the profile off, because compose interpolates inactive profiles.
     "${c[@]}" --profile worker config --quiet
