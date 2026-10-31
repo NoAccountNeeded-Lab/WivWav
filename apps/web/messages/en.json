@@ -45,11 +45,8 @@
     "stateLink": "{state}: {count, number} vehicles",
     "entryHeading": "Entry types listed",
     "entryChartLabel": "Vehicles by known entry type",
-    "rear_entry": "Rear entry",
-    "side_entry": "Side entry",
     "budgetHeading": "Browse by budget",
     "budgetIntro": "Price ranges use the same 5,000 dollar groups as the Discover price chart.",
-    "budgetLink": "{range}: {count, number} vehicles",
     "noBudgets": "No priced vehicles to group.",
     "missingHeading": "Missing data",
     "missingIntro": "These vehicles are still counted above but cannot be placed in the groups shown.",
@@ -65,7 +62,12 @@
     "guideLift": "See vehicles with a lift",
     "safetyNote": "Recall and VIN safety information is not shown here. Missing safety data does not mean a vehicle has no recalls; check recalls separately for any vehicle you consider.",
     "ctaHeading": "Ready to start?",
-    "ctaBody": "Choose filters in Discover, or browse everything."
+    "ctaBody": "Choose filters in Discover, or browse everything.",
+    "entry": {
+      "rear_entry": "Rear entry",
+      "side_entry": "Side entry"
+    },
+    "budgetLink": "{min}–{max}: {count, number} vehicles"
   },
   "IntakeForm": {
     "aiMessage": "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
