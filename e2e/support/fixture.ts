@@ -103,7 +103,7 @@ export async function seedSmokeFixture(): Promise<void> {
  * `waitForSyncJobToComplete` (#740).
  */
 export async function syncSearchIndex(): Promise<string> {
-  const response = await fetch(`${apiBaseUrl()}/admin/sync`, {
+  const response = await fetch(`${apiBaseUrl()}/internal/ops/sync`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${e2eEnv.internalApiSecret}`,
@@ -146,7 +146,7 @@ export async function waitForSyncJobToComplete(jobId: string, timeoutMs = 90_000
   let lastKnownStatus: AdminQueueJob['status'] | 'unknown' = 'unknown'
 
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await fetch(`${apiBaseUrl()}/admin/queues/${LISTING_SYNC_QUEUE_NAME}`, {
+    const response = await fetch(`${apiBaseUrl()}/internal/ops/queues/${LISTING_SYNC_QUEUE_NAME}`, {
       headers: {
         authorization: `Bearer ${e2eEnv.internalApiSecret}`,
       },

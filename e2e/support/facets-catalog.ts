@@ -217,7 +217,7 @@ async function withDb(fn: (db: PrismaClient) => Promise<void>): Promise<void> {
  * Indexing rides the production path: every Prisma write here advances
  * `updatedAt`, and the scraper's every-minute LISTING_INDEX_POLL checkpoint
  * poller (apps/api/src/jobs/search-indexer-poll.ts) syncs the touched
- * rows into Meilisearch. POST /admin/sync is deliberately NOT used — it
+ * rows into Meilisearch. POST /internal/ops/sync is deliberately NOT used — it
  * enqueues under a fixed BullMQ jobId that dedupes against the retained
  * completed rebuild from global-setup, so a second trigger in the same stack
  * silently no-ops. The poll cadence is one minute, hence the generous wait.
