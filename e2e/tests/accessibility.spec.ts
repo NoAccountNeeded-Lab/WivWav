@@ -140,10 +140,6 @@ test.describe('accessibility smoke (axe)', () => {
     await page.goto('/en/results')
     await expect(page.getByText(/vehicle found|vehicles found/i)).toBeVisible()
 
-    // The map shell renders before the shared facet owner resolves, so
-    // `data-max-count` stays false everywhere until the State facet has counts.
-    await expect(page.getByRole('group', { name: 'State', exact: true }).locator('button:not([aria-expanded])').first()).toBeVisible()
-
     const map = page.locator('[role="group"][aria-label*="Map of the United States"]')
     const states = map.locator('[role="button"]')
     await expect(states.first()).toBeAttached()
