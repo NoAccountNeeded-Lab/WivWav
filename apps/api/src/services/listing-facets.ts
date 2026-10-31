@@ -8,6 +8,8 @@ export type FacetsParams = Omit<SearchParams, 'page' | 'perPage' | 'sort'>
 
 export interface FacetsResult {
   total: number
+  /** ISO time the aggregate was computed (not when it was served from cache). */
+  calculatedAt: string
   shoppingFiltersReady?: boolean
   cityBreakdown?: Array<{ value: string; count: number }>
   transmissionBreakdown?: Array<{ value: string; count: number }>
@@ -32,7 +34,7 @@ export interface FacetsResult {
   wavFeatureCounts: Record<string, number>
 }
 
-const CACHE_NAMESPACE = 'facets:shopping-v3'
+const CACHE_NAMESPACE = 'facets:shopping-v4'
 
 /** Enable only after the verified full rebuild described in the shopping-filter runbook. */
 export function shoppingFiltersEnabled(): boolean {
@@ -44,6 +46,8 @@ interface FacetSettings {
 }
 
 export class ListingFacetsService {
+  private readonly inflight = new Map<string, Promise<FacetsResult>>()
+
   constructor(
     private readonly searchService: SearchService,
     private readonly cache: CacheService,
@@ -58,7 +62,29 @@ export class ListingFacetsService {
 
     const ttlSeconds = await this.settings?.getOperatorSetting('facets.cache_ttl_s') ?? OPERATOR_SETTINGS['facets.cache_ttl_s'].defaultValue
     const cached = ttlSeconds > 0 ? await this.cache.get(cacheKey).catch(() => null) : null
-    if (cached) return JSON.parse(cached) as FacetsResult
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as Partial<FacetsResult>
+        // A payload from before calculatedAt existed must not survive the contract change.
+        if (typeof parsed.calculatedAt === 'string') return parsed as FacetsResult
+      } catch {
+        // Corrupt cache entry: recompute below.
+      }
+    }
+
+    // One in-flight compute per key, so a cold cache (e.g. after a version bump) is not stampeded.
+    const pending = this.inflight.get(cacheKey)
+    if (pending) return pending
+    const compute = this.compute(params, ready, cacheKey, ttlSeconds)
+    this.inflight.set(cacheKey, compute)
+    try {
+      return await compute
+    } finally {
+      this.inflight.delete(cacheKey)
+    }
+  }
+
+  private async compute(params: FacetsParams, ready: boolean, cacheKey: string, ttlSeconds: number): Promise<FacetsResult> {
 
     const { filters, rangeFilters } = buildListingFilters(params)
 
@@ -79,6 +105,7 @@ export class ListingFacetsService {
 
     const facetsResult: FacetsResult = {
       total: result.total,
+      calculatedAt: new Date().toISOString(),
       shoppingFiltersReady: ready,
       cityBreakdown: toValueCount(dist['cityState'] ?? {}),
       transmissionBreakdown: toValueCount(dist['transmission'] ?? {}),

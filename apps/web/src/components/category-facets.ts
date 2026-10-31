@@ -3,8 +3,25 @@ export interface BarDatum {
   count: number
 }
 
+export interface BucketCount {
+  bucket: string
+  count: number
+}
+
+export interface YearCount {
+  year: number
+  count: number
+}
+
 export interface FacetsData {
+  /** Null when the API omitted it; never defaulted to zero. */
+  total: number | null
+  /** ISO time the aggregate was calculated; null for legacy payloads. */
+  calculatedAt: string | null
   shoppingFiltersReady: boolean
+  priceDistribution: BucketCount[]
+  yearDistribution: YearCount[]
+  mileageDistribution: BucketCount[]
   cityBreakdown: BarDatum[]
   transmissionBreakdown: BarDatum[]
   wheelchairCapacityBreakdown: BarDatum[]
@@ -36,6 +53,16 @@ function toCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
+function toBuckets(value: unknown): BucketCount[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => (isRecord(item) && typeof item.bucket === 'string' ? [{ bucket: item.bucket, count: toCount(item.count) }] : []))
+}
+
+function toYears(value: unknown): YearCount[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => (isRecord(item) && typeof item.year === 'number' ? [{ year: item.year, count: toCount(item.count) }] : []))
+}
+
 function toBars(value: unknown): BarDatum[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
@@ -50,7 +77,12 @@ export function normalizeFacetsData(raw: unknown): FacetsData {
   const wavFeatureCounts = isRecord(source.wavFeatureCounts) ? source.wavFeatureCounts : {}
 
   return {
+    total: typeof source.total === 'number' && Number.isFinite(source.total) ? source.total : null,
+    calculatedAt: typeof source.calculatedAt === 'string' && !Number.isNaN(Date.parse(source.calculatedAt)) ? source.calculatedAt : null,
+    priceDistribution: toBuckets(source.priceDistribution),
     shoppingFiltersReady: source.shoppingFiltersReady === true,
+    yearDistribution: toYears(source.yearDistribution),
+    mileageDistribution: toBuckets(source.mileageDistribution),
     cityBreakdown: toBars(source.cityBreakdown),
     transmissionBreakdown: toBars(source.transmissionBreakdown),
     wheelchairCapacityBreakdown: toBars(source.wheelchairCapacityBreakdown),

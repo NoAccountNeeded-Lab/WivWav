@@ -75,7 +75,7 @@ describe('ListingFacetsService', () => {
 
     const result = await new ListingFacetsService(search, cache).getFacets({})
 
-    expect(cache.get).toHaveBeenCalledWith('facets:shopping-v3:held:{}')
+    expect(cache.get).toHaveBeenCalledWith('facets:shopping-v4:held:{}')
     expect(search.search).toHaveBeenCalledWith('listings', expect.objectContaining({
       facets: expect.arrayContaining(['rampType', 'wavFeatures', 'sellerType']),
       limit: 0,
@@ -85,6 +85,39 @@ describe('ListingFacetsService', () => {
       { value: 'fold_out', count: 1 },
     ])
     expect(result.wavFeatureCounts).toEqual({ has_lift: 2, hand_controls: 1 })
+    expect(Number.isNaN(Date.parse(result.calculatedAt))).toBe(false)
+  })
+
+  it('recomputes when the cached JSON is corrupt', async () => {
+    const search = { search: vi.fn(async () => ({ hits: [], total: 2, facetDistribution: {} })) } as unknown as SearchService
+    const cache = { get: vi.fn(async () => '{not json'), set: vi.fn(async () => {}) } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(result.total).toBe(2)
+  })
+
+  it('runs one search for concurrent cold requests with the same key', async () => {
+    const search = { search: vi.fn(async () => ({ hits: [], total: 1, facetDistribution: {} })) } as unknown as SearchService
+    const cache = { get: vi.fn(async () => null), set: vi.fn(async () => {}) } as unknown as CacheService
+    const service = new ListingFacetsService(search, cache)
+
+    await Promise.all([service.getFacets({}), service.getFacets({}), service.getFacets({})])
+
+    expect(search.search).toHaveBeenCalledTimes(1)
+  })
+
+  it('discards a cached payload without calculatedAt', async () => {
+    const search = { search: vi.fn(async () => ({ hits: [], total: 1, facetDistribution: {} })) } as unknown as SearchService
+    const cache = {
+      get: vi.fn(async () => JSON.stringify({ total: 9 })),
+      set: vi.fn(async () => {}),
+    } as unknown as CacheService
+
+    const result = await new ListingFacetsService(search, cache).getFacets({})
+
+    expect(result.total).toBe(1)
+    expect(search.search).toHaveBeenCalled()
   })
 
   it('returns sellerType breakdown from facet distribution', async () => {
@@ -229,7 +262,7 @@ describe('shopping facet rollout', () => {
     vi.stubEnv('WAV_SHOPPING_FILTERS_ENABLED', 'true')
     const result = await service.getFacets({})
     expect(result).toMatchObject({ shoppingFiltersReady: true, cityBreakdown: [{ value: 'springfield|IL', count: 2 }, { value: 'springfield|MO', count: 1 }], wheelchairCapacityBreakdown: [{ value: '1', count: 2 }], conversionStatusBreakdown: [{ value: 'complete', count: 2 }, { value: 'unknown', count: 1 }] })
-    expect(cache.get.mock.calls.map(([key]) => key)).toEqual(['facets:shopping-v3:held:{}', 'facets:shopping-v3:ready:{}'])
+    expect(cache.get.mock.calls.map(([key]) => key)).toEqual(['facets:shopping-v4:held:{}', 'facets:shopping-v4:ready:{}'])
     expect(search.search).toHaveBeenLastCalledWith('listings', expect.objectContaining({ facets: expect.arrayContaining(['cityState', 'transmission', 'wheelchairCapacity', 'conversionStatus']) }))
   })
 })

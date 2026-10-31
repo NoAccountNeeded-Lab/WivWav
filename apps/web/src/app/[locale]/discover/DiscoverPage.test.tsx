@@ -8,17 +8,8 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams('make=Ford'),
 }))
 
-vi.mock('@/components/CategoryBarChart', () => ({
-  CategoryBarChart: () => null,
-}))
-vi.mock('@/components/PriceHistogram', () => ({
-  PriceHistogram: () => null,
-}))
-vi.mock('@/components/YearHistogram', () => ({
-  YearHistogram: () => null,
-}))
-vi.mock('@/components/MileageHistogram', () => ({
-  MileageHistogram: () => null,
+vi.mock('./DiscoverFacetGrid', () => ({
+  DiscoverFacetGrid: () => <div data-testid="facet-grid" />,
 }))
 vi.mock('@/components/ActiveFilters', () => ({
   ActiveFilters: () => <div aria-label="Active filters" />,
@@ -34,15 +25,8 @@ describe('DiscoverPage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Find the right accessible vehicle' }),
     ).toBeTruthy()
-    expect(
-      screen.getByRole('complementary', { name: 'Filter by vehicle type and brand' }),
-    ).toBeTruthy()
-    expect(
-      screen.getByRole('complementary', { name: 'Filter by feature, location, seller, and fuel type' }),
-    ).toBeTruthy()
-    expect(
-      screen.getByRole('complementary', { name: 'Filter by price, year, and mileage' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Vehicle filters' })).toBeTruthy()
+    expect(screen.getByTestId('facet-grid')).toBeTruthy()
 
     expect(screen.queryByRole('log')).toBeNull()
     expect(screen.queryByRole('textbox')).toBeNull()
@@ -58,9 +42,7 @@ describe('DiscoverPage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Encuentre el vehículo accesible adecuado' }),
     ).toBeTruthy()
-    expect(
-      screen.getByRole('complementary', { name: 'Filtrar por precio, año y millaje' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Filtros de vehículos' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Ver coincidencias →' }).getAttribute('href')).toBe(
       '/es/results?make=Ford',
     )

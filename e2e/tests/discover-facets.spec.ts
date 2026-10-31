@@ -132,7 +132,7 @@ test.describe('Discover facets against the fixture catalog', () => {
         await expect(facetButton(page, group, label, count)).toBeVisible()
       }
       // Exactly the derived values — no extras, no bogus null/unknown entries.
-      await expect(facetGroup(page, group).getByRole('button')).toHaveCount(
+      await expect(facetGroup(page, group).locator('button:not([aria-expanded])')).toHaveCount(
         Object.keys(expected).length,
       )
     }
@@ -140,7 +140,7 @@ test.describe('Discover facets against the fixture catalog', () => {
     for (const [label, count] of Object.entries(FACETS_EXPECTED.color)) {
       await expect(swatchButton(page, label, count)).toBeVisible()
     }
-    await expect(facetGroup(page, 'Color').getByRole('button')).toHaveCount(
+    await expect(facetGroup(page, 'Color').locator('button:not([aria-expanded])')).toHaveCount(
       Object.keys(FACETS_EXPECTED.color).length,
     )
 

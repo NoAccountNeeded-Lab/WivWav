@@ -91,7 +91,7 @@ from Bull Board and confirm the resulting exception in Sentry.
 ### BullMQ job processors
 
 Temporarily throw inside a BullMQ job processor and enqueue the job via the
-Bull Board UI at `/admin/board`. The `withSentryCapture` wrapper will forward
+Bull Board UI at `/ops/queues/board`. The `withSentryCapture` wrapper will forward
 the error to Sentry before BullMQ marks the job as failed.
 
 ## Alerting

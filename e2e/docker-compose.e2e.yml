@@ -1,14 +1,14 @@
 services:
   postgres:
-    ports:
+    ports: !override
       - "127.0.0.1:${WIVWAV_E2E_POSTGRES_PORT:-55432}:5432"
 
   valkey:
-    ports:
+    ports: !override
       - "127.0.0.1:${WIVWAV_E2E_VALKEY_PORT:-56379}:6379"
 
   meilisearch:
-    ports:
+    ports: !override
       - "127.0.0.1:${WIVWAV_E2E_MEILI_PORT:-57700}:7700"
 
   migrate:
@@ -16,7 +16,7 @@ services:
 
   api:
     image: ${WIVWAV_E2E_API_IMAGE:-wivwav-e2e-api:local}
-    ports:
+    ports: !override
       - "127.0.0.1:${WIVWAV_E2E_API_PORT:-53001}:3001"
     environment:
       NODE_ENV: development
@@ -25,11 +25,12 @@ services:
       RATE_LIMIT_MAX: 1000
       CORS_ORIGIN: http://127.0.0.1:${WIVWAV_E2E_WEB_PORT:-53000},http://localhost:${WIVWAV_E2E_WEB_PORT:-53000}
       INTERNAL_API_SECRET: ${WIVWAV_E2E_INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
+      OPS_API_SECRET: ${WIVWAV_E2E_OPS_API_SECRET:-0a7c5d91e3b24f68a1d9c0e47b2f83a5d6c1e90b7a3f4258c6d1e0f9a8b7c6d5}
       LOG_LEVEL: info
 
   web:
     image: ${WIVWAV_E2E_WEB_IMAGE:-wivwav-e2e-web:local}
-    ports:
+    ports: !override
       - "127.0.0.1:${WIVWAV_E2E_WEB_PORT:-53000}:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://127.0.0.1:${WIVWAV_E2E_API_PORT:-53001}

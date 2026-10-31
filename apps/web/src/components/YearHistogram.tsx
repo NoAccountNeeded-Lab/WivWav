@@ -1,14 +1,12 @@
 'use client'
 
-import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Slider } from '@/components/ui/slider'
 import { parsePositiveIntegerParameter, rangeFilterSearchParams, useStableRangeValue } from '@/components/useStableRangeValue'
-import { getClientApiBaseUrl } from '@/lib/api-url'
+import { useRangeFacets } from './use-facets-data'
 import styles from './PriceHistogram.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -17,13 +15,6 @@ interface YearDatum {
   year: number
   count: number
 }
-
-// Omit year params so this histogram shows cross-filtered data (all years visible)
-const FORWARD_PARAMS = [
-  'q', 'make', 'model', 'trim', 'priceMin', 'priceMax', 'mileageMax',
-  'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
-  ...SHOPPING_FILTER_PARAMS, 'conversionBrand',
-]
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────
 
@@ -68,30 +59,16 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
   const [rangeMax, setRangeMax] = useState(new Date().getFullYear())
   const hasFilter = urlMin > 0 || urlMax > 0
 
-  const fetchUrl = useMemo(() => {
-    const base = getClientApiBaseUrl()
-    const url = new URL(`${base}/v1/listings/facets`)
-    for (const key of FORWARD_PARAMS) {
-      const val = searchParams.get(key)
-      if (val) url.searchParams.set(key, val)
-    }
-    return url.toString()
-  }, [searchParams])
-
+  // Cross-filtered (own range omitted) data comes from the shared facet owner.
+  const source = useRangeFacets('year')
   useEffect(() => {
-    let cancelled = false
-    fetch(fetchUrl)
-      .then((r) => r.json() as Promise<{ data: { yearDistribution: YearDatum[] } }>)
-      .then(({ data: { yearDistribution } }) => {
-        if (cancelled || !yearDistribution.length) return
-        setData(yearDistribution)
-        const years = yearDistribution.map((d) => d.year)
-        setRangeMin(Math.min(...years))
-        setRangeMax(Math.max(...years))
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [fetchUrl])
+    const yearDistribution = source?.yearDistribution
+    if (!yearDistribution?.length) return
+    setData(yearDistribution)
+    const years = yearDistribution.map((d) => d.year)
+    setRangeMin(Math.min(...years))
+    setRangeMax(Math.max(...years))
+  }, [source])
 
   const push = useCallback(
     (min: number, max: number, baseSearchParams?: string) => {
@@ -201,7 +178,7 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
               {data.map((entry) => (
                 <Cell
                   key={entry.year}
-                  fill={isBarActive(entry) ? 'var(--clr-primary)' : 'var(--clr-border-strong)'}
+                  fill={isBarActive(entry) ? 'var(--clr-chart-selected-strong)' : 'var(--clr-chart-teal-mark-3)'}
                 />
               ))}
             </Bar>

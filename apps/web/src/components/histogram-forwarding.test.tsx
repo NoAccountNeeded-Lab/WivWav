@@ -5,6 +5,7 @@ import { renderWithIntl } from '@/test-utils/intl'
 import { PriceHistogram } from './PriceHistogram'
 import { YearHistogram } from './YearHistogram'
 import { MileageHistogram } from './MileageHistogram'
+import { FacetsOwner } from '@/test-utils/facets-owner'
 
 const state = vi.hoisted(() => ({ params: new URLSearchParams() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => '/es/discover', useSearchParams: () => state.params }))
@@ -29,9 +30,14 @@ describe('cross-filtered histogram query forwarding', () => {
     state.params = new URLSearchParams(filters)
     const fetchMock = vi.fn((_input: RequestInfo | URL) => new Promise<Response>(() => {}))
     vi.stubGlobal('fetch', fetchMock)
-    await act(async () => { renderWithIntl(<Component />) })
-    const requested = new URL(String(fetchMock.mock.calls[0]![0]))
+    await act(async () => { renderWithIntl(<FacetsOwner><Component /></FacetsOwner>) })
+    // The owner also sends the full base request and disjunctive ones. Exactly one request omits
+    // this histogram's own params and nothing else, and it forwards every other constraint.
+    const requests = fetchMock.mock.calls
+      .map(([input]) => Object.fromEntries(new URL(String(input)).searchParams))
+      .filter((query) => Object.keys(query).length > 0)
+    const omittingOwn = requests.filter((query) => omitted.every((key) => !(key in query)))
     const expected = Object.fromEntries(Object.entries(filters).filter(([key]) => !omitted.includes(key)))
-    expect(Object.fromEntries(requested.searchParams)).toEqual(expected)
+    expect(omittingOwn).toEqual([expected])
   })
 })

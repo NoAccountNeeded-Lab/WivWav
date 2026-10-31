@@ -1,0 +1,100 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { NextIntlClientProvider } from 'next-intl'
+import { DonutRenderer } from './DonutRenderer'
+import { SwatchesRenderer } from './SwatchesRenderer'
+import { BarsRenderer } from './BarsRenderer'
+import type { FilterItem } from './types'
+
+afterEach(() => { vi.restoreAllMocks(); cleanup() })
+
+const item = (value: string, count: number, active = false): FilterItem => ({
+  value, label: value.toUpperCase(), count, active, disabled: count === 0 && !active,
+})
+
+function withIntl(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={{ FilterControls: { listingCount: '{count, plural, one {# listing} other {# listings}}' } }}>
+      {ui}
+    </NextIntlClientProvider>,
+  )
+}
+
+describe('DonutRenderer', () => {
+  const items = [item('new', 90), item('used', 9), item('tiny', 1), item('gone', 0, true)]
+
+  it('exposes every slice, including tiny and selected zero-count values, as pressed-state buttons', () => {
+    const onToggle = vi.fn()
+    render(<DonutRenderer items={items} onToggle={onToggle} maxCount={90} />)
+    const gone = screen.getByRole('button', { name: /GONE/ })
+    expect(gone.getAttribute('aria-pressed')).toBe('true')
+    expect(gone.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: /TINY/ }))
+    expect(onToggle).toHaveBeenCalledWith('tiny')
+  })
+
+  it('selects from the slice itself, supports multi-selection, and offsets selected slices', () => {
+    const onToggle = vi.fn()
+    const { container } = render(
+      <DonutRenderer items={[item('new', 60, true), item('used', 40, true)]} onToggle={onToggle} maxCount={60} />,
+    )
+    const paths = container.querySelectorAll<SVGPathElement>('path[class]')
+    expect(paths).toHaveLength(2)
+    paths.forEach((path) => expect(path.style.transform).toMatch(/translate\((?!0px, 0px)/))
+    fireEvent.click(paths[0]!)
+    expect(onToggle).toHaveBeenCalledWith('new')
+    expect(screen.getAllByRole('button').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true)
+  })
+
+  const fillsInOrder = (rows: FilterItem[]) => {
+    const { container, unmount } = render(<DonutRenderer items={rows} onToggle={vi.fn()} maxCount={10} />)
+    const fills = [...container.querySelectorAll('li')].map((li) => li.querySelector<HTMLElement>('span[aria-hidden]')!.style.background)
+    unmount()
+    return fills
+  }
+
+  it('never gives neighbouring slices the same color, including first and last, with 4+ slices', () => {
+    for (const n of [4, 5, 6, 7, 8]) {
+      const rows = Array.from({ length: n }, (_, i) => item(`v${i}`, 100 - i))
+      const fills = fillsInOrder(rows)
+      fills.forEach((fill, i) => expect(fill).not.toBe(fills[(i + 1) % n]))
+    }
+  })
+
+  it('keeps colors stable when only counts change', () => {
+    const before = fillsInOrder([item('a', 9), item('b', 5), item('c', 3), item('d', 1)])
+    const after = fillsInOrder([item('a', 90), item('b', 50), item('c', 30), item('d', 10)])
+    expect(after).toEqual(before)
+  })
+})
+
+describe('SwatchesRenderer', () => {
+  it('names each swatch with its count, shows no native title tooltip, and marks selection with a check', () => {
+    const { container } = withIntl(<SwatchesRenderer items={[item('red', 3, true), item('blue', 0)]} onToggle={vi.fn()} maxCount={3} />)
+    const red = screen.getByRole('button', { name: 'RED: 3 listings' })
+    expect(red.hasAttribute('title')).toBe(false)
+    expect(red.getAttribute('aria-pressed')).toBe('true')
+    expect(red.querySelector('svg')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /BLUE/ }).querySelector('svg')).toBeNull()
+    expect(container.querySelectorAll('[title]')).toHaveLength(0)
+  })
+
+  it('shows its tooltip on focus', () => {
+    withIntl(<SwatchesRenderer items={[item('red', 3)]} onToggle={vi.fn()} maxCount={3} />)
+    const realMatches = Element.prototype.matches
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
+      return selector === ':focus-visible' ? true : realMatches.call(this, selector)
+    })
+    fireEvent.focus(screen.getByRole('button', { name: /RED/ }))
+    expect(document.querySelector('[data-tooltip]')?.textContent).toBe('RED: 3 listings')
+  })
+})
+
+describe('BarsRenderer', () => {
+  it('marks the selected bar with a non-color checkmark', () => {
+    render(<BarsRenderer items={[item('a', 5, true), item('b', 2)]} onToggle={vi.fn()} maxCount={5} />)
+    expect(screen.getByRole('button', { name: /A/ }).querySelector('svg')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /B/ }).querySelector('svg')).toBeNull()
+  })
+})

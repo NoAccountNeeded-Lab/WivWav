@@ -89,7 +89,7 @@ same safe cleanup on demand; it never touches volumes or containers.
 (web, web dev server, ops, Grafana) in your browser once it responds. Set
 `NO_OPEN=1` to skip; it is also skipped in CI and inside containers.
 
-Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/admin/*` routes directly. See `docs/api-routes.md#admin-auth-boundary-fail-closed`.
+Every ops page and admin action goes through the ops server's own session + BFF proxy — the browser never calls the API's `/internal/ops/*` routes directly. See `docs/api-routes.md#private-control-plane-fail-closed`.
 
 ### Start a crawler worker
 

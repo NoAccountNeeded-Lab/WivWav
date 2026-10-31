@@ -11,7 +11,7 @@ import { buildUpstreamPath, proxyToApi } from '@/lib/bff-proxy'
  *
  * This is the only authenticated path to Bull Board — the API's own
  * `/ops/queues/board` fails closed per `apps/api/src/plugins/ops-auth.ts`, and
- * this route injects the internal credential server-side after checking the
+ * this route injects the operator credential server-side after checking the
  * ops session (see `proxyToApi` and `middleware.ts`).
  */
 async function handle(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
