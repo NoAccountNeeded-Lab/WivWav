@@ -47,17 +47,25 @@ describe('DonutRenderer', () => {
     expect(screen.getAllByRole('button').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true)
   })
 
-  it('keeps colors stable when counts reorder the slices', () => {
-    const fills = (rows: FilterItem[]) => {
-      const { container, unmount } = render(<DonutRenderer items={rows} onToggle={vi.fn()} maxCount={10} />)
-      const map = Object.fromEntries([...container.querySelectorAll('li')].map((li) => [li.textContent, li.querySelector<HTMLElement>('span[aria-hidden]')!.style.background]))
-      unmount()
-      return map
+  const fillsInOrder = (rows: FilterItem[]) => {
+    const { container, unmount } = render(<DonutRenderer items={rows} onToggle={vi.fn()} maxCount={10} />)
+    const fills = [...container.querySelectorAll('li')].map((li) => li.querySelector<HTMLElement>('span[aria-hidden]')!.style.background)
+    unmount()
+    return fills
+  }
+
+  it('never gives neighbouring slices the same color, including first and last, with 4+ slices', () => {
+    for (const n of [4, 5, 6, 7, 8]) {
+      const rows = Array.from({ length: n }, (_, i) => item(`v${i}`, 100 - i))
+      const fills = fillsInOrder(rows)
+      fills.forEach((fill, i) => expect(fill).not.toBe(fills[(i + 1) % n]))
     }
-    const a = fills([item('a', 9), item('b', 5), item('c', 1)])
-    const b = fills([item('c', 9), item('b', 5), item('a', 1)])
-    expect(a['A9']).toBe(b['A1'])
-    expect(a['C1']).toBe(b['C9'])
+  })
+
+  it('keeps colors stable when only counts change', () => {
+    const before = fillsInOrder([item('a', 9), item('b', 5), item('c', 3), item('d', 1)])
+    const after = fillsInOrder([item('a', 90), item('b', 50), item('c', 30), item('d', 10)])
+    expect(after).toEqual(before)
   })
 })
 

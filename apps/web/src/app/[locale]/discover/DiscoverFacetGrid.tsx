@@ -61,59 +61,53 @@ export function DiscoverFacetGrid() {
     .sort((a, b) => a.label.localeCompare(b.label))
 
   const cells: Record<string, ReactNode> = {
-    $price: <><PriceHistogram /></>,
-    $year: <><YearHistogram /></>,
-    $mileage: <><MileageHistogram /></>,
+    $price: <PriceHistogram />,
+    $year: <YearHistogram />,
+    $mileage: <MileageHistogram />,
     $location: (
-      <>
-        <section className={styles.location} aria-labelledby="discover-location">
-          <h3 id="discover-location" className={styles.locationTitle}>{t('groups.location')}</h3>
-          <StateHeatMap
-            data={facets.data?.stateBreakdown ?? []}
-            activeStates={parseCommaSep(searchParams.get('state'))}
-            onToggle={(value) => toggle(STATE_PARAM, value)}
-          />
-          {unavailableText && <p className={styles.note}>{unavailableText}</p>}
-          <div role="group" aria-label={t('locationByName')} className={styles.stateList}>
-            <ChipsRenderer items={stateItems} onToggle={(value) => toggle(STATE_PARAM, value)} maxCount={1} />
-          </div>
-        </section>
-      </>
+      <section className={styles.location} aria-labelledby="discover-location">
+        <h3 id="discover-location" className={styles.locationTitle}>{t('groups.location')}</h3>
+        <StateHeatMap
+          data={facets.data?.stateBreakdown ?? []}
+          activeStates={parseCommaSep(searchParams.get('state'))}
+          onToggle={(value) => toggle(STATE_PARAM, value)}
+        />
+        {unavailableText && <p className={styles.note}>{unavailableText}</p>}
+        <div role="group" aria-label={t('locationByName')} className={styles.stateList}>
+          <ChipsRenderer items={stateItems} onToggle={(value) => toggle(STATE_PARAM, value)} maxCount={1} />
+        </div>
+      </section>
     ),
     features: featureItems.length > 0 ? (
-      <>
-        <FilterGroup
-          title={t('groups.features')}
-          labelId="cat-bar-features"
-          items={featureItems}
-          onToggle={(value) => toggle(toggleFeature(value).param, value)}
-          unavailableText={unavailableText}
-        />
-      </>
+      <FilterGroup
+        title={t('groups.features')}
+        labelId="cat-bar-features"
+        items={featureItems}
+        onToggle={(value) => toggle(toggleFeature(value).param, value)}
+        unavailableText={unavailableText}
+      />
     ) : null,
   }
   for (const group of groups) {
     if (group.id === 'state') continue
     cells[group.id] = (
-      <>
-        <FilterGroup
-          title={group.title}
-          labelId={`cat-bar-${group.id}`}
-          items={group.items}
-          onToggle={(value) => toggle(group.param, value, group.members?.[value])}
-          renderer={FILTER_RENDERERS[group.id] ?? DEFAULT_RENDERER}
-          moreLabel={group.id === 'color' ? t('moreColors') : undefined}
-          unavailableText={unavailableText}
-        />
-      </>
+      <FilterGroup
+        title={group.title}
+        labelId={`cat-bar-${group.id}`}
+        items={group.items}
+        onToggle={(value) => toggle(group.param, value, group.members?.[value])}
+        renderer={FILTER_RENDERERS[group.id] ?? DEFAULT_RENDERER}
+        moreLabel={group.id === 'color' ? t('moreColors') : undefined}
+        unavailableText={unavailableText}
+      />
     )
   }
 
   return (
     <FacetsStateContext.Provider value={facets}>
-    <div className={styles.grid}>
-      {ORDER.map((id) => cells[id] ? <div key={id} className={`${styles.slot}${id === '$location' ? ` ${styles.wide}` : ''}`}>{cells[id]}</div> : null)}
-    </div>
+      <div className={styles.grid}>
+        {ORDER.map((id) => cells[id] ? <div key={id} className={`${styles.slot}${id === '$location' ? ` ${styles.wide}` : ''}`}>{cells[id]}</div> : null)}
+      </div>
     </FacetsStateContext.Provider>
   )
 }
