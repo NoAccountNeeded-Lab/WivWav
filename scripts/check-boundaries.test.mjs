@@ -61,6 +61,10 @@ describe('scanCompose', () => {
     const bad = GOOD.replace('      INTERNAL_API_SECRET: i', '      OPS_API_SECRET: leaked')
     assert.match(scanCompose(bad).join('\n'), /web must not receive OPS_API_SECRET/)
   })
+  it('flags INTERNAL_API_SECRET on ops even without published ports', () => {
+    const bad = GOOD.replace('      OPS_API_SECRET: z', '      OPS_API_SECRET: z\n      INTERNAL_API_SECRET: i')
+    assert.match(scanCompose(bad).join('\n'), /ops must not hold INTERNAL_API_SECRET/)
+  })
   it('flags a missing api or ops service', () => {
     assert.equal(scanCompose('services:\n  web:\n    image: w\n').length, 2)
   })
