@@ -10,7 +10,7 @@
     "preinstall": "node scripts/check-node-version.mjs",
     "build": "turbo build",
     "dev": "turbo dev",
-    "lint": "turbo lint && pnpm check:boundaries",
+    "lint": "turbo lint && pnpm check:boundaries && bash scripts/check-deploy-docs.sh",
     "check:boundaries": "node scripts/check-boundaries.mjs && node --test scripts/check-boundaries.test.mjs",
     "typecheck": "turbo typecheck",
     "test": "turbo test",

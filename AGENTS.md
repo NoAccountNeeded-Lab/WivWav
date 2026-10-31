@@ -128,7 +128,7 @@ Use `Refs #N` for intentionally partial work.
 Map every acceptance criterion to a command result, test, screenshot, log, or explicit `not applicable`.
 Run typecheck, lint, build, relevant tests, full tests, and issue-required manual checks.
 For user-facing changes, record keyboard, screen-reader semantics, contrast, mobile layout, touch-target, and non-visual-alternative evidence as applicable.
-For deployment changes, record release notes, rollback, and post-release smoke checks.
+For deployment changes, record release notes, rollback, and post-release smoke checks, and update `docs/ops/oracle-deployment.md` and `.agent.md` in the same commit.
 Record skipped checks, missing tests, known gaps, and follow-ups in the PR.
 Link long evidence; do not paste large logs.
 
