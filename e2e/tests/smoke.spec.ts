@@ -6,7 +6,7 @@ test('home renders from the built web container and serves public assets', async
   await page.goto('/')
 
   await expect(page).toHaveURL(/\/en\/?$/)
-  await expect(page.getByRole('heading', { name: /find the right accessible vehicle/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /find a wheelchair accessible vehicle/i })).toBeVisible()
   await expect(page.getByRole('link', { name: /wivwav/i })).toBeVisible()
 
   const asset = await request.get('/data/us-states-10m.json')
