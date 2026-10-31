@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { SiteHeader } from '@/components/SiteHeader'
-import { apiFetch } from '@/lib/api-fetch'
-import { fetchHomeSnapshot } from '@/lib/home-snapshot'
+import { getHomeSnapshot } from '@/lib/home-snapshot-server'
 import { getServerApiBaseUrl } from '@/lib/server-api-url'
 import { HomeContent } from './HomeContent'
 
@@ -14,7 +13,7 @@ export default async function LocaleHomePage({ params }: { params: Promise<{ loc
   const { locale } = await params
   const [t, result] = await Promise.all([
     getTranslations({ locale, namespace: 'HomePage' }),
-    fetchHomeSnapshot(getServerApiBaseUrl(), apiFetch),
+    getHomeSnapshot(getServerApiBaseUrl()),
   ])
   return (
     <>

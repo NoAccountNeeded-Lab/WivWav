@@ -19,6 +19,14 @@ describe('buildHomeSnapshot', () => {
     expect(r.snapshot.entryTypes).toEqual([{ value: 'side_entry', count: 50 }])
   })
 
+  it('hides missing-data coverage when facet counts exceed the total', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const r = buildHomeSnapshot({ ...good, total: 5 })
+    expect(r.status === 'ok' && r.snapshot.missing).toBeNull()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('is unavailable without a calculation time (stale cache or outage fallback)', () => {
     expect(buildHomeSnapshot({ ...good, calculatedAt: undefined }).status).toBe('unavailable')
     expect(buildHomeSnapshot({ total: 0, stateBreakdown: [] }).status).toBe('unavailable')

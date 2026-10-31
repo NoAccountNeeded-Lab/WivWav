@@ -11,7 +11,6 @@
 
 @media (min-width: 720px) {
   .page { grid-template-columns: 1fr 1fr; }
-
 }
 
 .hero {
@@ -58,9 +57,12 @@
 .linkList { margin: 0.5rem 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
 .linkList a { display: inline-flex; align-items: center; min-height: 2.75rem; }
 
+.liftLink { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
 .bars { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.75rem; }
 .bars a { display: inline-flex; align-items: center; min-height: 2.75rem; }
 .track { display: block; height: 0.5rem; background: var(--clr-border); border-radius: var(--radius-sm); }
+/* Depends on --clr-chart-unselected (muted teal) from the shared facet frame, #1234; neutral until it lands. */
 .fill { display: block; height: 100%; background: var(--clr-chart-unselected, var(--clr-neutral-muted)); border-radius: var(--radius-sm); }
 
 .cta {
@@ -70,7 +72,7 @@
   align-items: center;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--clr-on-primary);
   background: var(--clr-primary);
   border-radius: var(--radius-lg);
   text-decoration: none;

@@ -16,8 +16,8 @@ export interface HomeSnapshot {
   states: BarDatum[]
   entryTypes: BarDatum[]
   budgets: PriceBudget[]
-  /** Eligible listings missing the field; null when the facet gives no basis to compute it. */
-  missing: { state: number; entryType: number; price: number }
+  /** Eligible listings missing each field; null when the facet counts exceed the total (inconsistent). */
+  missing: { state: number; entryType: number; price: number } | null
 }
 
 export type HomeSnapshotResult =
@@ -46,6 +46,9 @@ export function buildHomeSnapshot(raw: unknown): HomeSnapshotResult {
   const entryTypes = facets.conversionBreakdown.filter((b) => b.value !== 'unknown' && b.count > 0)
   const budgets = parseBudgets(facets.priceDistribution)
   const states = facets.stateBreakdown.filter((b) => b.count > 0).sort((a, b) => b.count - a.count)
+  const covered = { state: sum(states), entryType: sum(entryTypes), price: sum(budgets) }
+  const consistent = Object.values(covered).every((n) => n <= total)
+  if (!consistent) console.warn('[home] facet counts exceed total; hiding missing-data coverage', { total, ...covered })
   return {
     status: 'ok',
     snapshot: {
@@ -54,21 +57,19 @@ export function buildHomeSnapshot(raw: unknown): HomeSnapshotResult {
       states,
       entryTypes,
       budgets,
-      missing: {
-        state: Math.max(0, total - sum(states)),
-        entryType: Math.max(0, total - sum(entryTypes)),
-        price: Math.max(0, total - sum(budgets)),
-      },
+      missing: consistent
+        ? { state: total - covered.state, entryType: total - covered.entryType, price: total - covered.price }
+        : null,
     },
   }
 }
 
 export async function fetchHomeSnapshot(
   base: string,
-  fetcher: (url: string, init?: RequestInit & { next?: { revalidate: number } }) => Promise<Response>,
+  fetcher: (url: string) => Promise<Response>,
 ): Promise<HomeSnapshotResult> {
   try {
-    const res = await fetcher(`${base}/v1/listings/facets`, { next: { revalidate: 300 } })
+    const res = await fetcher(`${base}/v1/listings/facets`)
     if (!res.ok) return { status: 'unavailable' }
     return buildHomeSnapshot(((await res.json()) as { data?: unknown }).data)
   } catch {

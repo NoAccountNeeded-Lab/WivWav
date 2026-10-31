@@ -47,11 +47,8 @@
     "stateLink": "{state}: {count, number} vehículos",
     "entryHeading": "Tipos de entrada",
     "entryChartLabel": "Vehículos por tipo de entrada conocido",
-    "rear_entry": "Entrada trasera",
-    "side_entry": "Entrada lateral",
     "budgetHeading": "Explorar por presupuesto",
     "budgetIntro": "Los rangos usan los mismos grupos de 5,000 dólares del gráfico de precios de Descubrir.",
-    "budgetLink": "{range}: {count, number} vehículos",
     "noBudgets": "No hay vehículos con precio para agrupar.",
     "missingHeading": "Datos faltantes",
     "missingIntro": "Estos vehículos se cuentan arriba, pero no caben en los grupos mostrados.",
@@ -67,7 +64,12 @@
     "guideLift": "Ver vehículos con elevador",
     "safetyNote": "Aquí no se muestra información de retiros ni de seguridad por VIN. La falta de datos de seguridad no significa que no haya retiros; revíselos aparte para cada vehículo.",
     "ctaHeading": "¿Listo para empezar?",
-    "ctaBody": "Elija filtros en Descubrir o explore todo."
+    "ctaBody": "Elija filtros en Descubrir o explore todo.",
+    "entry": {
+      "rear_entry": "Entrada trasera",
+      "side_entry": "Entrada lateral"
+    },
+    "budgetLink": "{min}–{max}: {count, number} vehículos"
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",

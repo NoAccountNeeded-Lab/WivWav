@@ -4,28 +4,22 @@ import styles from './HomePage.module.css'
 
 const TOP_STATES = 8
 
-const usd = (n: number) => `$${n / 1000}k`
-
-function FindVehicle({ href, label }: { href: string; label: string }) {
-  return <a href={href} className={styles.cta}>{label}</a>
-}
 
 
-function Missing({ snapshot }: { snapshot: HomeSnapshot }) {
+function Missing({ missing }: { missing: NonNullable<HomeSnapshot['missing']> }) {
   const t = useTranslations('HomePage')
-  const { state, entryType, price } = snapshot.missing
   const rows = [
-    state > 0 && t('missingState', { count: state }),
-    entryType > 0 && t('missingEntry', { count: entryType }),
-    price > 0 && t('missingPrice', { count: price }),
-  ].filter(Boolean)
+    { key: 'state', text: missing.state > 0 && t('missingState', { count: missing.state }) },
+    { key: 'entry', text: missing.entryType > 0 && t('missingEntry', { count: missing.entryType }) },
+    { key: 'price', text: missing.price > 0 && t('missingPrice', { count: missing.price }) },
+  ].filter((r): r is { key: string; text: string } => r.text !== false)
   return (
     <section aria-labelledby="home-missing" className={styles.card}>
       <h2 id="home-missing" className={styles.h2}>{t('missingHeading')}</h2>
       {rows.length ? (
         <>
           <p className={styles.note}>{t('missingIntro')}</p>
-          <ul className={styles.plainList}>{rows.map((r) => <li key={String(r)}>{r}</li>)}</ul>
+          <ul className={styles.plainList}>{rows.map((r) => <li key={r.key}>{r.text}</li>)}</ul>
         </>
       ) : <p className={styles.note}>{t('missingNone')}</p>}
     </section>
@@ -36,6 +30,7 @@ function Snapshot({ snapshot, discover }: { snapshot: HomeSnapshot; discover: st
   const t = useTranslations('HomePage')
   const format = useFormatter()
   const time = format.dateTime(new Date(snapshot.calculatedAt), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })
+  const dollars = (n: number) => format.number(n, { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 0 })
   const maxEntry = Math.max(1, ...snapshot.entryTypes.map((e) => e.count))
   return (
     <>
@@ -72,7 +67,7 @@ function Snapshot({ snapshot, discover }: { snapshot: HomeSnapshot; discover: st
             {snapshot.entryTypes.map((e) => (
               <li key={e.value}>
                 <a href={`${discover}?conversionType=${encodeURIComponent(e.value)}`}>
-                  {t.has(e.value) ? t(e.value as 'rear_entry') : e.value}: {format.number(e.count)}
+                  {t.has(`entry.${e.value}`) ? t(`entry.${e.value}` as 'entry.rear_entry') : e.value.replace(/_/g, ' ')}: {format.number(e.count)}
                 </a>
                 <span className={styles.track} aria-hidden="true">
                   <span className={styles.fill} style={{ width: `${(e.count / maxEntry) * 100}%` }} />
@@ -91,8 +86,8 @@ function Snapshot({ snapshot, discover }: { snapshot: HomeSnapshot; discover: st
             <ul className={styles.linkList}>
               {snapshot.budgets.map((b) => (
                 <li key={b.lo}>
-                  <a href={`${discover}?priceMin=${b.lo * 100}&priceMax=${b.hi * 100}`}>
-                    {t('budgetLink', { range: `${usd(b.lo)}–${usd(b.hi)}`, count: b.count })}
+                  <a href={`${discover}?priceMin=${b.lo * 100}&priceMax=${b.hi * 100 - 1}`}>
+                    {t('budgetLink', { min: dollars(b.lo), max: dollars(b.hi), count: b.count })}
                   </a>
                 </li>
               ))}
@@ -101,7 +96,7 @@ function Snapshot({ snapshot, discover }: { snapshot: HomeSnapshot; discover: st
         ) : <p className={styles.note}>{t('noBudgets')}</p>}
       </section>
 
-      <Missing snapshot={snapshot} />
+      {snapshot.missing && <Missing missing={snapshot.missing} />}
     </>
   )
 }
@@ -114,7 +109,7 @@ export function HomeContent({ locale, result }: { locale: string; result: HomeSn
       <section aria-labelledby="home-heading" className={styles.hero}>
         <h1 id="home-heading" className={styles.h1}>{t('heading')}</h1>
         <p className={styles.lead}>{t('intro')}</p>
-        <FindVehicle href={discover} label={t('findVehicle')} />
+        <a href={discover} className={styles.cta}>{t('findVehicle')}</a>
       </section>
 
       {result.status === 'ok' ? (
@@ -134,14 +129,14 @@ export function HomeContent({ locale, result }: { locale: string; result: HomeSn
           <li>{t('guideRamp')}</li>
           <li>{t('guideCheck')}</li>
         </ul>
-        <a href={`${discover}?wavFeatures=has_lift`}>{t('guideLift')}</a>
+        <a href={`${discover}?wavFeatures=has_lift`} className={styles.liftLink}>{t('guideLift')}</a>
         <p className={styles.note}>{t('safetyNote')}</p>
       </section>
 
       <section aria-labelledby="home-cta" className={styles.hero}>
         <h2 id="home-cta" className={styles.h2}>{t('ctaHeading')}</h2>
         <p className={styles.lead}>{t('ctaBody')}</p>
-        <FindVehicle href={discover} label={t('findVehicle')} />
+        <a href={discover} className={styles.cta}>{t('findVehicle')}</a>
       </section>
     </div>
   )
