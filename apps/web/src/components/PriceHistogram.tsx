@@ -1,7 +1,5 @@
 'use client'
 
-import { SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -14,15 +12,10 @@ import {
 } from 'recharts'
 import { Slider } from '@/components/ui/slider'
 import { parsePositiveIntegerParameter, rangeFilterSearchParams, useStableRangeValue } from '@/components/useStableRangeValue'
-import { getClientApiBaseUrl } from '@/lib/api-url'
+import { useRangeFacets } from './use-facets-data'
 import styles from './PriceHistogram.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface RawBucket {
-  bucket: string
-  count: number
-}
 
 interface BucketDatum {
   bucket: string
@@ -83,12 +76,6 @@ function PriceTooltip({ active, payload, formatListingCount }: TooltipProps) {
 
 const DEFAULT_MAX = 150000  // dollars
 
-const FORWARD_PARAMS = [
-  'q', 'make', 'model', 'trim', 'yearMin', 'yearMax',
-  'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures', 'color', 'state', 'sellerType', 'fuelType',
-  ...SHOPPING_FILTER_PARAMS, 'conversionBrand',
-]
-
 export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer?: 'histogram' } = {}) {
   const t = useTranslations('FilterControls')
   const router = useRouter()
@@ -114,37 +101,21 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
   // The effective committed range (dollars)
   const hasFilter = urlMin > 0 || urlMax > 0
 
-  // Build facets fetch URL without price params (cross-filter behaviour)
-  const fetchUrl = useMemo(() => {
-    const base = getClientApiBaseUrl()
-    const url = new URL(`${base}/v1/listings/facets`)
-    for (const key of FORWARD_PARAMS) {
-      const val = searchParams.get(key)
-      if (val) url.searchParams.set(key, val)
-    }
-    return url.toString()
-  }, [searchParams])
-
+  // Cross-filtered (own range omitted) data comes from the shared facet owner.
+  const source = useRangeFacets('price')
   useEffect(() => {
-    let cancelled = false
-    fetch(fetchUrl)
-      .then((r) => r.json() as Promise<{ data: { priceDistribution: RawBucket[]; total: number } }>)
-      .then(({ data: { priceDistribution, total } }) => {
-        if (cancelled) return
-        const parsed: BucketDatum[] = priceDistribution.map(({ bucket, count }) => {
-          const { lo, hi } = parseBucket(bucket)
-          return { bucket, lo, hi, count, label: fmtDollars(lo) }
-        })
-        setData(parsed)
-        setFacetsTotal(total)
-        const min = parsed.length > 0 ? Math.min(...parsed.map((b) => b.lo)) : 0
-        const max = parsed.length > 0 ? Math.max(...parsed.map((b) => b.hi)) : DEFAULT_MAX
-        setRangeMin(min)
-        setRangeMax(max)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [fetchUrl])
+    if (!source) return
+    const parsed: BucketDatum[] = source.priceDistribution.map(({ bucket, count }) => {
+      const { lo, hi } = parseBucket(bucket)
+      return { bucket, lo, hi, count, label: fmtDollars(lo) }
+    })
+    setData(parsed)
+    setFacetsTotal(source.total)
+    const min = parsed.length > 0 ? Math.min(...parsed.map((b) => b.lo)) : 0
+    const max = parsed.length > 0 ? Math.max(...parsed.map((b) => b.hi)) : DEFAULT_MAX
+    setRangeMin(min)
+    setRangeMax(max)
+  }, [source])
 
   const push = useCallback(
     (min: number, max: number, baseSearchParams?: string) => {
@@ -269,7 +240,7 @@ export function PriceHistogram({ renderer: _renderer = 'histogram' }: { renderer
               {data.map((entry) => (
                 <Cell
                   key={entry.bucket}
-                  fill={isBarActive(entry) ? 'var(--clr-primary)' : 'var(--clr-border-strong)'}
+                  fill={isBarActive(entry) ? 'var(--clr-chart-selected-strong)' : 'var(--clr-chart-teal-mark-3)'}
                 />
               ))}
             </Bar>

@@ -5,6 +5,7 @@
   --color-primary: #5c35c6;       /* deep violet; 5.2:1 on white = WCAG AA ✓ */
   --color-primary-dark: #4a28a8;
   --color-primary-light: #f0eeff;
+  --color-on-primary: #ffffff;   /* text on solid primary fills */
   --color-text: #100e1a;          /* near-black with violet cast */
   --color-text-secondary: #3d3568;
   --color-text-muted: #6a5f92;    /* was #7b70a8 (4.44:1, fails WCAG AA); 5.73:1 on white */
@@ -70,6 +71,7 @@
 html {
   --clr-primary: var(--color-primary);
   --clr-primary-dark: var(--color-primary-dark);
+  --clr-on-primary: var(--color-on-primary);
   --clr-primary-light: var(--color-primary-light);
   --clr-text: var(--color-text);
   --clr-text-secondary: var(--color-text-secondary);
@@ -81,6 +83,17 @@ html {
   --clr-feature: var(--color-feature);
   --clr-feature-bg: var(--color-feature-bg);
   --clr-focus: var(--color-primary);
+
+  /* Public shopping chart palette: muted teal = unselected data, deep purple = selected. */
+  --clr-chart-teal: #bfe3df;
+  --clr-chart-teal-hover: #a6d6d1;
+  --clr-chart-teal-mark-1: #2f8f87;
+  --clr-chart-teal-mark-2: #1f6f69;
+  --clr-chart-teal-mark-3: #4a9f98;
+  --clr-chart-selected: var(--color-primary);
+  --clr-chart-selected-fill: #d3c8f5;
+  --clr-chart-selected-strong: var(--color-primary-dark);
+  --clr-facet-border: var(--color-border);
 
   --clr-success: #15803d;
   --clr-success-text: #166534;

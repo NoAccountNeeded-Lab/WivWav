@@ -31,17 +31,8 @@ vi.mock('@/components/SiteHeader', () => ({
 vi.mock('@/components/ActiveFilters', () => ({
   ActiveFilters: () => <div aria-label="Active filters" />,
 }))
-vi.mock('@/components/CategoryBarChart', () => ({
-  CategoryBarChart: () => <div data-testid="category-bar-chart" />,
-}))
-vi.mock('@/components/PriceHistogram', () => ({
-  PriceHistogram: () => <div data-testid="price-histogram" />,
-}))
-vi.mock('@/components/YearHistogram', () => ({
-  YearHistogram: () => <div data-testid="year-histogram" />,
-}))
-vi.mock('@/components/MileageHistogram', () => ({
-  MileageHistogram: () => <div data-testid="mileage-histogram" />,
+vi.mock('./DiscoverFacetGrid', () => ({
+  DiscoverFacetGrid: () => <div data-testid="facet-grid" />,
 }))
 
 const fetchListingsMock = vi.fn()
@@ -70,8 +61,7 @@ describe('DiscoverRoute empty catalog', () => {
 
     expect(screen.getByText('No vehicles are listed yet. Check back soon.')).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Discover' })).toBeTruthy()
-    expect(screen.queryByTestId('category-bar-chart')).toBeNull()
-    expect(screen.queryByTestId('price-histogram')).toBeNull()
+    expect(screen.queryByTestId('facet-grid')).toBeNull()
   })
 
   it('renders the filter widgets when the catalog has listings', async () => {
@@ -80,8 +70,7 @@ describe('DiscoverRoute empty catalog', () => {
     const element = await DiscoverRoute({ params: Promise.resolve({ locale: 'en' }) })
     render(element)
 
-    expect(screen.getAllByTestId('category-bar-chart').length).toBeGreaterThan(0)
-    expect(screen.getByTestId('price-histogram')).toBeTruthy()
+    expect(screen.getByTestId('facet-grid')).toBeTruthy()
     expect(screen.queryByText('No vehicles are listed yet. Check back soon.')).toBeNull()
   })
 
@@ -91,6 +80,6 @@ describe('DiscoverRoute empty catalog', () => {
     const element = await DiscoverRoute({ params: Promise.resolve({ locale: 'en' }) })
     render(element)
 
-    expect(screen.getAllByTestId('category-bar-chart').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('facet-grid')).toBeTruthy()
   })
 })

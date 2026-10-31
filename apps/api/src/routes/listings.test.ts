@@ -459,6 +459,16 @@ describe('GET /facets', () => {
     await app.close()
   })
 
+  it('serializes calculatedAt on a successful facets response', async () => {
+    const { app } = buildTestApp(undefined, {}, {
+      getFacets: vi.fn(async () => ({ total: 1, calculatedAt: '2026-10-31T08:00:00.000Z' })),
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/facets' })
+
+    expect(res.json<{ data: { calculatedAt: string } }>().data.calculatedAt).toBe('2026-10-31T08:00:00.000Z')
+  })
+
   it('returns empty distributions when Meilisearch is unavailable', async () => {
     const { app } = buildTestApp(undefined, {}, {
       getFacets: vi.fn(async () => { throw new Error('Meilisearch down') }),
@@ -468,6 +478,8 @@ describe('GET /facets', () => {
 
     expect(res.statusCode).toBe(200)
     const body = res.json<{ data: Record<string, unknown> }>()
+    // Clients rely on the missing timestamp to tell this fallback from a real zero.
+    expect(body.data).not.toHaveProperty('calculatedAt')
     expect(body.data).toEqual({
       total: 0,
       shoppingFiltersReady: false,

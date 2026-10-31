@@ -1,7 +1,9 @@
 'use client'
 
+import { Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { CategoricalRendererProps } from './types'
+import { FacetTooltip } from './FacetTooltip'
 import styles from './SwatchesRenderer.module.css'
 
 // ── Color map ──────────────────────────────────────────────────────────────────
@@ -49,29 +51,32 @@ export function SwatchesRenderer({ items, onToggle }: CategoricalRendererProps) 
   return (
     <div className={styles.grid}>
       {items.map((item) => (
-        <button
-          key={item.value}
-          type="button"
-          className={`${styles.swatch} ${item.active ? styles.active : ''}`}
-          disabled={item.disabled}
-          aria-pressed={item.active}
-          aria-label={`${item.label}: ${t('listingCount', { count: item.count })}`}
-          onClick={() => onToggle(item.value)}
-          title={`${item.label} (${t('listingCount', { count: item.count })})`}
-        >
-          <span
-            className={styles.dot}
-            style={{
-              background: swatchColor(item.value),
-              boxShadow: needsBorder(item.value) ? 'inset 0 0 0 1px rgba(0,0,0,0.15)' : undefined,
-            }}
-            aria-hidden="true"
-          />
-          <span className={styles.label}>{item.label}</span>
-          {item.count > 0 && (
-            <span className={styles.count}>{item.count.toLocaleString()}</span>
-          )}
-        </button>
+        <FacetTooltip key={item.value} text={`${item.label}: ${t('listingCount', { count: item.count })}`}>
+          <button
+            type="button"
+            className={`${styles.swatch} ${item.active ? styles.active : ''}`}
+            disabled={item.disabled}
+            aria-pressed={item.active}
+            aria-label={`${item.label}: ${t('listingCount', { count: item.count })}`}
+            onClick={() => onToggle(item.value)}
+          >
+            {/* Fixed-size dot slot: the selection ring is inset, so nothing grows or crowds the label. */}
+            <span className={styles.dotSlot} aria-hidden="true">
+              <span
+                className={styles.dot}
+                style={{
+                  background: swatchColor(item.value),
+                  boxShadow: needsBorder(item.value) ? 'inset 0 0 0 1px rgba(0,0,0,0.15)' : undefined,
+                }}
+              />
+            </span>
+            <span className={styles.label}>{item.label}</span>
+            <span className={styles.check} aria-hidden="true">{item.active && <Check size={14} strokeWidth={3} />}</span>
+            {item.count > 0 && (
+              <span className={styles.count}>{item.count.toLocaleString()}</span>
+            )}
+          </button>
+        </FacetTooltip>
       ))}
     </div>
   )
