@@ -13,6 +13,7 @@ docker network create "$NET" >/dev/null
 
 STUB="$(mktemp)"; trap 'rm -f "$STUB"; cleanup' EXIT
 printf 'server { listen 3001; location / { return 200 "upstream-reached"; } }\n' > "$STUB"
+chmod 644 "$STUB" # mktemp is 0600; the nginx user in the container must read it
 docker run -d --name "es-api-$$" --network "$NET" --network-alias api -v "$STUB:/etc/nginx/conf.d/default.conf:ro" "$IMAGE" >/dev/null
 docker run -d --name "es-edge-$$" --network "$NET" -p 127.0.0.1::8080 \
   -v "$PWD/docker/edge/edge.conf:/etc/nginx/conf.d/default.conf:ro" \
