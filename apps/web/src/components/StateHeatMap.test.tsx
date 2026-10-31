@@ -179,4 +179,48 @@ describe('StateHeatMap', () => {
       screen.getAllByRole('button').map((state) => state.getAttribute('data-max-count')),
     ).toEqual(['false', 'false'])
   })
+
+  describe('styled tooltip', () => {
+    const renderMap = async () => {
+      let container!: HTMLElement
+      await act(async () => {
+        container = renderWithIntl(
+          <StateHeatMap data={[{ value: 'CA', count: 12 }]} activeStates={[]} onToggle={vi.fn()} />,
+        ).container
+      })
+      return container
+    }
+
+    it('has no native <title> tooltips', async () => {
+      const container = await renderMap()
+      expect(container.querySelectorAll('title')).toHaveLength(0)
+    })
+
+    it('shows on keyboard focus at once, links the region, and dismisses with Escape', async () => {
+      await renderMap()
+      const california = screen.getByRole('button', { name: 'California: 12 listings' })
+      fireEvent.focus(california)
+      expect(screen.getByRole('tooltip').textContent).toBe('California: 12 listings')
+      expect(california.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip').id)
+      fireEvent.keyDown(california, { key: 'Escape' })
+      expect(screen.queryByRole('tooltip')).toBeNull()
+    })
+
+    it('waits about 150 ms on hover', async () => {
+      await renderMap()
+      vi.useFakeTimers()
+      try {
+        const california = screen.getByRole('button', { name: 'California: 12 listings' })
+        fireEvent.mouseEnter(california)
+        act(() => { vi.advanceTimersByTime(100) })
+        expect(screen.queryByRole('tooltip')).toBeNull()
+        act(() => { vi.advanceTimersByTime(60) })
+        expect(screen.getByRole('tooltip')).toBeDefined()
+        fireEvent.mouseLeave(california)
+        expect(screen.queryByRole('tooltip')).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
 })
