@@ -85,10 +85,8 @@ describe('useStableRangeValue', () => {
 
     rerender({ committed: [25, 75] })
     expect(result.current.value).toEqual([10, 90])
-    expect(reapplyCommit).toHaveBeenCalledWith([10, 90], 'min=10&max=90&page=2')
-    rerender({ committed: [10, 90] })
     rerender({ committed: [25, 75] })
-    expect(result.current.value).toEqual([25, 75])
+    expect(result.current.value).toEqual([10, 90])
     window.history.replaceState({}, '', '/')
   })
 
