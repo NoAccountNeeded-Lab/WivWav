@@ -23,4 +23,15 @@ if echo "$STAGED" | grep -qE '^apps/api/src/routes/'; then
   fi
 fi
 
+# Require the Oracle deployment page when deploy-shaping files are staged
+if echo "$STAGED" | grep -qE '^(docker-compose\.prod\.yml|docker/|scripts/release-manifest\.sh)'; then
+  if ! echo "$STAGED" | grep -q '^docs/ops/oracle-deployment\.md$' || ! echo "$STAGED" | grep -q '^docs/ops/oracle-deployment\.agent\.md$'; then
+    echo "Documentation check failed: deployment files changed but docs/ops/oracle-deployment.md and .agent.md are not both staged."
+    echo ""
+    echo "Update both (and add a change-log line), or confirm no deployment behaviour changed."
+    echo "Then: git add docs/ops/oracle-deployment*.md && retry the commit."
+    exit 2
+  fi
+fi
+
 bash scripts/pre-commit-check.sh
