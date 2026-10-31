@@ -1,6 +1,9 @@
 'use client'
 
+import { useState } from 'react'
+import { Check } from 'lucide-react'
 import type { CategoricalRendererProps } from './types'
+import { FacetTooltip } from './FacetTooltip'
 import styles from './DonutRenderer.module.css'
 
 // ── SVG arc helpers ────────────────────────────────────────────────────────────
@@ -42,78 +45,90 @@ function arcPath(startDeg: number, endDeg: number): string {
 }
 
 // ── Palette ────────────────────────────────────────────────────────────────────
+// Unselected slices use the public teal marks; selection is deep purple plus an offset
+// and a checkmark, so it never depends on color alone.
 
-const PALETTE = [
-  'var(--clr-primary)',
-  'rgba(92,53,198,0.55)',
-  'rgba(92,53,198,0.32)',
-  'rgba(92,53,198,0.18)',
-  '#a78bfa',
-  '#7c3aed',
-  '#c4b5fd',
-  '#6d28d9',
-]
+const TEAL_MARKS = ['var(--clr-chart-teal-mark-1)', 'var(--clr-chart-teal-mark-2)', 'var(--clr-chart-teal-mark-3)']
+const SELECTED_FILL = 'var(--clr-chart-selected-strong)'
+const HOVER_OFFSET = 2
+const SELECTED_OFFSET = 4
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
+/**
+ * Selectable donut. The legend rows are the keyboard/touch/screen-reader controls (large targets
+ * even for tiny slices, and they carry zero-count selected values); slices mirror them for pointer use.
+ */
 export function DonutRenderer({ items, onToggle }: CategoricalRendererProps) {
+  const [highlight, setHighlight] = useState<string | null>(null)
   const enabled = items.filter((i) => i.count > 0 || i.active)
   const total = enabled.reduce((s, i) => s + i.count, 0) || 1
 
+  // Colors follow the value's position in an alphabetical order, so they do not reshuffle as counts change.
+  const colorIndex = new Map([...items].sort((a, b) => a.value.localeCompare(b.value)).map((item, idx) => [item.value, idx]))
+  const colorFor = (value: string) => TEAL_MARKS[(colorIndex.get(value) ?? 0) % TEAL_MARKS.length]!
+
   let cursor = 0
-  const segments = enabled.map((item, idx) => {
+  const segments = enabled.map((item) => {
     const deg = (item.count / total) * 360
     const start = cursor
     cursor += deg
-    return { item, start, end: cursor, color: PALETTE[idx % PALETTE.length]! }
+    return { item, start, end: cursor }
   })
 
   const activeCount = enabled.filter((i) => i.active).reduce((s, i) => s + i.count, 0)
-  const centerLabel = items.filter((i) => i.active).length > 0
-    ? activeCount.toLocaleString()
-    : total.toLocaleString()
+  const centerLabel = items.some((i) => i.active) ? activeCount.toLocaleString() : total.toLocaleString()
 
   return (
     <div className={styles.root}>
-      {/* Donut */}
-      <svg
-        className={styles.donut}
-        viewBox="0 0 120 120"
-        aria-hidden="true"
-      >
-        {segments.map(({ item, start, end, color }) => (
-          <path
-            key={item.value}
-            d={arcPath(start, end)}
-            fill={item.active ? color : item.disabled ? 'var(--clr-border)' : color}
-            opacity={item.active ? 1 : item.disabled ? 0.4 : 0.35}
-            className={styles.segment}
-          />
-        ))}
+      <svg className={styles.donut} viewBox="-8 -8 136 136" aria-hidden="true">
+        {segments.filter(({ end, start }) => end > start).map(({ item, start, end }) => {
+          const lifted = item.active ? SELECTED_OFFSET : highlight === item.value ? HOVER_OFFSET : 0
+          const mid = polar(0, 0, 1, (start + end) / 2)
+          return (
+            <path
+              key={item.value}
+              d={arcPath(start, end)}
+              className={`${styles.segment}${item.disabled ? '' : ` ${styles.clickable}`}`}
+              style={{ transform: `translate(${(mid.x * lifted).toFixed(2)}px, ${(mid.y * lifted).toFixed(2)}px)` }}
+              fill={item.active ? SELECTED_FILL : colorFor(item.value)}
+              opacity={item.disabled ? 0.4 : 1}
+              onMouseEnter={() => setHighlight(item.value)}
+              onMouseLeave={() => setHighlight(null)}
+              onClick={() => { if (!item.disabled) onToggle(item.value) }}
+            />
+          )
+        })}
         <text x={CX} y={CY} className={styles.centerText} textAnchor="middle" dominantBaseline="middle">
           {centerLabel}
         </text>
       </svg>
 
-      {/* Legend */}
       <ul className={styles.legend} role="list">
-        {enabled.map((item, idx) => (
+        {enabled.map((item) => (
           <li key={item.value}>
-            <button
-              type="button"
-              className={`${styles.legendRow} ${item.active ? styles.legendActive : ''}`}
-              disabled={item.disabled}
-              aria-pressed={item.active}
-              onClick={() => onToggle(item.value)}
-            >
-              <span
-                className={styles.swatch}
-                style={{ background: PALETTE[idx % PALETTE.length] }}
-                aria-hidden="true"
-              />
-              <span className={styles.legendLabel}>{item.label}</span>
-              <span className={styles.legendCount}>{item.count.toLocaleString()}</span>
-            </button>
+            <FacetTooltip text={`${item.label}: ${item.count.toLocaleString()}`}>
+              <button
+                type="button"
+                className={`${styles.legendRow} ${item.active ? styles.legendActive : ''}`}
+                disabled={item.disabled}
+                aria-pressed={item.active}
+                onClick={() => onToggle(item.value)}
+                onMouseEnter={() => setHighlight(item.value)}
+                onMouseLeave={() => setHighlight(null)}
+                onFocus={() => setHighlight(item.value)}
+                onBlur={() => setHighlight(null)}
+              >
+                <span
+                  className={styles.swatch}
+                  style={{ background: item.active ? SELECTED_FILL : colorFor(item.value) }}
+                  aria-hidden="true"
+                />
+                <span className={styles.legendLabel}>{item.label}</span>
+                <span className={styles.check} aria-hidden="true">{item.active && <Check size={14} strokeWidth={3} />}</span>
+                <span className={styles.legendCount}>{item.count.toLocaleString()}</span>
+              </button>
+            </FacetTooltip>
           </li>
         ))}
       </ul>

@@ -40,6 +40,8 @@ WivWav is a practical search tool for wheelchair accessible vehicles. The produc
 
 Public shopping pages use a fixed palette regardless of season or stored theme preference: deep purple for primary actions and selected values, muted teal for unselected chart data, and neutral page/card surfaces. Use semantic tokens rather than component-level color literals.
 
+Chart tokens live in `apps/web/src/app/globals.css`: `--clr-chart-teal*` for unselected data and `--clr-chart-selected*` for selected data. Selected bars, donut legend rows, swatches and chips add a checkmark or ring; selected donut slices are also offset. Facet tooltips use `FacetTooltip` (about 150 ms hover delay, immediate on focus, Escape dismisses) and never carry essential information.
+
 Charts must keep selection understandable without color alone. Keep labels and counts available as text, provide keyboard operation and visible focus for interactive marks, and provide a text alternative for maps and other visual summaries. Do not animate chart meaning or selection. Any decorative motion must be subtle, pause in hidden tabs, and respect reduced-motion preferences.
 
 ---
