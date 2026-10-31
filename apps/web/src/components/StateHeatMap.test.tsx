@@ -45,9 +45,18 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   cleanup()
   vi.unstubAllGlobals()
 })
+
+const realMatches = Element.prototype.matches
+/** jsdom has no focus-visible heuristics, so tests choose the answer. */
+function forceFocusVisible(value: boolean) {
+  vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
+    return selector === ':focus-visible' ? value : realMatches.call(this, selector)
+  })
+}
 
 describe('StateHeatMap', () => {
   it('renders a selectable region per state with its listing count in the accessible label', async () => {
@@ -137,7 +146,7 @@ describe('StateHeatMap', () => {
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'California: 12 listings' }))
     expect(screen.getByText('California: 12 listings', { selector: 'div' })).toBeDefined()
 
-    fireEvent.mouseLeave(screen.getByRole('button', { name: 'California: 12 listings' }))
+    fireEvent.pointerLeave(screen.getByRole('button', { name: 'California: 12 listings' }))
     expect(screen.getByText('Hover or select a state to see listing counts')).toBeDefined()
   })
 
@@ -198,12 +207,38 @@ describe('StateHeatMap', () => {
 
     it('shows on keyboard focus at once, links the region, and dismisses with Escape', async () => {
       await renderMap()
+      forceFocusVisible(true)
       const california = screen.getByRole('button', { name: 'California: 12 listings' })
       fireEvent.focus(california)
-      expect(screen.getByRole('tooltip').textContent).toBe('California: 12 listings')
-      expect(california.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip').id)
+      expect(document.querySelector('[data-tooltip]')!.textContent).toBe('California: 12 listings')
+      // One announcement only: the control's aria-label. The tip is hidden and the live region ignores focus.
+      expect(document.querySelector('[data-tooltip]')!.getAttribute('aria-hidden')).toBe('true')
+      expect(california.hasAttribute('aria-describedby')).toBe(false)
+      expect(screen.getByText('Hover or select a state to see listing counts')).toBeDefined()
       fireEvent.keyDown(california, { key: 'Escape' })
-      expect(screen.queryByRole('tooltip')).toBeNull()
+      expect(document.querySelector('[data-tooltip]')).toBeNull()
+    })
+
+    it('ignores focus that is not keyboard-driven', async () => {
+      await renderMap()
+      forceFocusVisible(false)
+      fireEvent.focus(screen.getByRole('button', { name: 'California: 12 listings' }))
+      expect(document.querySelector('[data-tooltip]')).toBeNull()
+    })
+
+    it('closes on touchend so a hover tip and a focus tip never stay open together', async () => {
+      await renderMap()
+      vi.useFakeTimers()
+      try {
+        const california = screen.getByRole('button', { name: 'California: 12 listings' })
+        fireEvent.mouseEnter(california)
+        act(() => { vi.advanceTimersByTime(160) })
+        expect(document.querySelector('[data-tooltip]')).not.toBeNull()
+        fireEvent.touchEnd(california)
+        expect(document.querySelectorAll('[data-tooltip]')).toHaveLength(0)
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('waits about 150 ms on hover', async () => {
@@ -213,11 +248,11 @@ describe('StateHeatMap', () => {
         const california = screen.getByRole('button', { name: 'California: 12 listings' })
         fireEvent.mouseEnter(california)
         act(() => { vi.advanceTimersByTime(100) })
-        expect(screen.queryByRole('tooltip')).toBeNull()
+        expect(document.querySelector('[data-tooltip]')).toBeNull()
         act(() => { vi.advanceTimersByTime(60) })
-        expect(screen.getByRole('tooltip')).toBeDefined()
-        fireEvent.mouseLeave(california)
-        expect(screen.queryByRole('tooltip')).toBeNull()
+        expect(document.querySelector('[data-tooltip]')!).toBeDefined()
+        fireEvent.pointerLeave(california)
+        expect(document.querySelector('[data-tooltip]')).toBeNull()
       } finally {
         vi.useRealTimers()
       }
