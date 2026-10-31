@@ -83,6 +83,9 @@ services:
       CORS_ORIGIN: http://localhost:3000,http://localhost:3002
       CONFIG_ENCRYPTION_SECRET: ${CONFIG_ENCRYPTION_SECRET:-0e1735cf48baa21c71a376a432ebd30b400a118feaecce8ea43f864cf27b2f61}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
+      # Distinct dev-only service identities (the API refuses duplicates).
+      OPS_API_SECRET: ${OPS_API_SECRET:-0a7c5d91e3b24f68a1d9c0e47b2f83a5d6c1e90b7a3f4258c6d1e0f9a8b7c6d5}
+      WORKER_API_SECRET: ${WORKER_API_SECRET:-5d3b9f1a7c2e84d6b0a1f93e5c7d2b48e6a0c1f7d9b3a5e2c4f6081a9d7b3e1c}
       WORKER_GATEWAY_ENABLED: ${WORKER_GATEWAY_ENABLED:-true}
       LOG_LEVEL: debug
       # Emit structured JSON so Alloy can parse log fields when --profile obs is active
@@ -134,7 +137,7 @@ services:
     environment:
       NODE_ENV: development
       COORDINATOR_URL: ${WORKER_COORDINATOR_URL:-http://api:3001}
-      WORKER_TOKEN: ${WORKER_TOKEN:-${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}}
+      WORKER_TOKEN: ${WORKER_TOKEN:-${WORKER_API_SECRET:-5d3b9f1a7c2e84d6b0a1f93e5c7d2b48e6a0c1f7d9b3a5e2c4f6081a9d7b3e1c}}
       WORKER_CAPABILITIES: ${WORKER_CAPABILITIES:-chromium=true}
       WORKER_MAX_CONCURRENT_JOBS: ${WORKER_MAX_CONCURRENT_JOBS:-2}
       LOG_LEVEL: debug
@@ -219,7 +222,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
       API_INTERNAL_URL: http://api:3001
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-41ddf2d6dfad63f18a7fa42d4ddc82da47fd7ac0f9e6c55530078f7c2ca941c2}
+      OPS_API_SECRET: ${OPS_API_SECRET:-0a7c5d91e3b24f68a1d9c0e47b2f83a5d6c1e90b7a3f4258c6d1e0f9a8b7c6d5}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       LOG_FORMAT: json
       # Operator session signing secret (HMAC) — required in production; falls

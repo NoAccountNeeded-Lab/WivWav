@@ -14,7 +14,7 @@ capacity is indexed as null, never zero. Unrecognized transmission is null.
    facet responses advertise `shoppingFiltersReady: false`, so the web hides
    the four new controls. API startup refreshes settings, but that is **not**
    a document rebuild and does not establish readiness.
-2. Trigger the existing authenticated `POST /admin/sync` operation, or the
+2. Trigger the existing authenticated `POST /internal/ops/sync` operation, or the
    existing full-sync action in ops. The API's `listing-sync` worker runs
    `apps/api/src/jobs/meilisearch-sync.ts`. Do not clear the live index or
    substitute an incremental poll: unchanged listings must be remapped too.

@@ -38,7 +38,7 @@ untouched listings never write to `ListingFieldClaim`:
   history yet — see that file's module docstring for the full deploy
   procedure and why it can only ever produce `source_reported`, never
   `conflicting`.
-- Operator triage: `GET /admin/field-conflicts`
+- Operator triage: `GET /internal/ops/field-conflicts`
   (`apps/api/src/repositories/listing-repository.ts::findFieldConflicts`).
 
 ## Ownership matrix

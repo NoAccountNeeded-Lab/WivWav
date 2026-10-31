@@ -1,6 +1,20 @@
 # Secure WivWav AI operations: source-drift MVP
 
-Status: planning; implementation not started. Updated 2026-10-30.
+Status: group B (private control plane) in progress via #1225; groups A and C–F not started. Updated 2026-10-31. GitHub is the status source; this table is a snapshot.
+
+### Status snapshot (2026-10-31)
+
+| Task | Status | Evidence |
+| --- | --- | --- |
+| A1–A4 | Partial. Owner provenance recorded on [#843](https://github.com/NoAccountNeeded-Lab/WivWav/issues/843#issuecomment-6513649279); `/docs` and `/openapi.json` default private (enforced at the edge). A1/A2 reports, #1076 design contract (A4) and #1111 reconciliation not done. | #843 closed; #1076, #1111 open |
+| B1 | Done (matrix lives in #1225 acceptance criteria and tests). | [#1225](https://github.com/NoAccountNeeded-Lab/WivWav/issues/1225) |
+| B2 | Done in code and merged to `main`: [PR #1242](https://github.com/NoAccountNeeded-Lab/WivWav/pull/1242) (opened as a partial draft, merged). Compose secret wiring, docs and e2e callers were missing there and are completed on the follow-up branch. | api 1604, ops 603, web 662 tests pass |
+| B3 | Implemented on branch `claude/secure-ai-ops-mvp-0ac0fd`: `docker/edge/*`, API port unpublished, `scripts/edge-smoke.sh`. Awaiting review, PR and release. | #1225 |
+| B4 | Implemented on the same branch: `pnpm check:boundaries` (in `pnpm lint`), with tests. | #1225 |
+| B5 | Implemented on the same branch: `ops` Compose profile and rollout docs in `docs/ops/deployment.md`. | #1225 |
+| C–F | Not started. Blocked until B is accepted: different-vendor review, built-container E2E, Bull Board/session evidence and deploy smoke. | #777, #778, #780, #781 open |
+
+Remaining B acceptance: independent different-vendor review, `pnpm test:e2e` with built containers, Bull Board session flow evidence, and the post-deploy smoke list in `docs/ops/deployment.md`.
 
 ## Goal and completion boundary
 

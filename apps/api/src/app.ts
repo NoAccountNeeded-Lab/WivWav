@@ -121,6 +121,7 @@ export async function buildApp(
   jobRunReaper?: JobRunReaper,
 ) {
   const app = Fastify({
+    trustProxy: config.TRUST_PROXY,
     logger:
       config.NODE_ENV === 'test'
         ? false
@@ -441,7 +442,7 @@ export async function buildApp(
 
   const workerRegistry = new WorkerRegistry()
 
-  // New privileged operator APIs mount under /internal/ops/*, not /internal/ops/*.
+  // New privileged operator APIs mount under /internal/ops/*, never a retired admin namespace.
   // Operator credentials are separate from web and worker service authority.
   await app.register(
     async (internalOpsScope) => {

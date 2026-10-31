@@ -31,6 +31,14 @@ describe('loadConfig', () => {
     expect(config.CORS_ORIGIN).toBe('')
   })
 
+  it('defaults TRUST_PROXY off and parses true', () => {
+    vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
+    vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)
+    expect(loadConfig().TRUST_PROXY).toBe(false)
+    vi.stubEnv('TRUST_PROXY', 'true')
+    expect(loadConfig().TRUST_PROXY).toBe(true)
+  })
+
   it('loads successfully with required fields only', () => {
     vi.stubEnv('DATABASE_URL', REQUIRED_ENV.DATABASE_URL)
     vi.stubEnv('MEILISEARCH_API_KEY', REQUIRED_ENV.MEILISEARCH_API_KEY)

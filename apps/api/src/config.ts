@@ -86,6 +86,12 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  // Set only when every request arrives through a trusted proxy (the production
+  // edge) that overwrites X-Forwarded-For; otherwise clients could spoof req.ip.
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   // How long the coordinator waits for a dispatched remote job's completion
   // callback before failing the queue job so BullMQ retries it. Browser jobs
   // legitimately run for many minutes (batched crawls + rate-limit sleeps).

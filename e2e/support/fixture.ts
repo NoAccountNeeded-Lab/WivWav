@@ -106,7 +106,7 @@ export async function syncSearchIndex(): Promise<string> {
   const response = await fetch(`${apiBaseUrl()}/internal/ops/sync`, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${e2eEnv.internalApiSecret}`,
+      authorization: `Bearer ${e2eEnv.opsApiSecret}`,
     },
   })
 
@@ -148,7 +148,7 @@ export async function waitForSyncJobToComplete(jobId: string, timeoutMs = 90_000
   while (Date.now() - startedAt < timeoutMs) {
     const response = await fetch(`${apiBaseUrl()}/internal/ops/queues/${LISTING_SYNC_QUEUE_NAME}`, {
       headers: {
-        authorization: `Bearer ${e2eEnv.internalApiSecret}`,
+        authorization: `Bearer ${e2eEnv.opsApiSecret}`,
       },
     }).catch(() => null)
 
