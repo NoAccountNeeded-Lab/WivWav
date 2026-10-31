@@ -243,6 +243,8 @@ const facetCountSchema = Type.Object({ value: Type.String(), count: Type.Number(
 // serialization behaviour unchanged while still validating the type of whatever is present.
 const facetsResultSchema = Type.Object({
   total: Type.Optional(Type.Number()),
+  // Absent on the Meilisearch-outage fallback, so clients can tell it from a real zero.
+  calculatedAt: Type.Optional(Type.String()),
   shoppingFiltersReady: Type.Optional(Type.Boolean()),
   cityBreakdown: Type.Optional(Type.Array(facetCountSchema)),
   transmissionBreakdown: Type.Optional(Type.Array(facetCountSchema)),

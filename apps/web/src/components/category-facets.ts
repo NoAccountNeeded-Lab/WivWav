@@ -14,6 +14,11 @@ export interface YearCount {
 }
 
 export interface FacetsData {
+  /** Null when the API omitted it; never defaulted to zero. */
+  total: number | null
+  /** ISO time the aggregate was calculated; null for legacy payloads. */
+  calculatedAt: string | null
+  priceDistribution: Array<{ bucket: string; count: number }>
   shoppingFiltersReady: boolean
   /** Total matching listings for this request. */
   total: number | null
@@ -69,12 +74,23 @@ function toBars(value: unknown): BarDatum[] {
   })
 }
 
+function toBuckets(value: unknown): Array<{ bucket: string; count: number }> {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.bucket !== 'string') return []
+    return [{ bucket: item.bucket, count: toCount(item.count) }]
+  })
+}
+
 export function normalizeFacetsData(raw: unknown): FacetsData {
   const source = isRecord(raw) ? raw : {}
   const wavFeatures = isRecord(source.wavFeatures) ? source.wavFeatures : {}
   const wavFeatureCounts = isRecord(source.wavFeatureCounts) ? source.wavFeatureCounts : {}
 
   return {
+    total: typeof source.total === 'number' && Number.isFinite(source.total) ? source.total : null,
+    calculatedAt: typeof source.calculatedAt === 'string' && !Number.isNaN(Date.parse(source.calculatedAt)) ? source.calculatedAt : null,
+    priceDistribution: toBuckets(source.priceDistribution),
     shoppingFiltersReady: source.shoppingFiltersReady === true,
     total: typeof source.total === 'number' && Number.isFinite(source.total) ? source.total : null,
     priceDistribution: toBuckets(source.priceDistribution),
