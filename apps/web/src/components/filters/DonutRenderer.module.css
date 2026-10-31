@@ -8,12 +8,31 @@
 
 .donut {
   flex-shrink: 0;
-  width: 80px;
-  height: 80px;
+  width: 88px;
+  height: 88px;
 }
 
 .segment {
-  pointer-events: none;
+  stroke: var(--clr-surface);
+  stroke-width: 1.5;
+  transition: transform 0.15s ease;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.check {
+  display: inline-flex;
+  flex: 0 0 0.875rem;
+  width: 0.875rem;
+  color: var(--clr-chart-selected-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment {
+    transition: none;
+  }
 }
 
 .centerText {
@@ -60,7 +79,7 @@
 }
 
 .legendRow:hover:not(:disabled) {
-  background: rgba(92, 53, 198, 0.06);
+  background: var(--clr-primary-light);
 }
 
 .legendRow:disabled {
@@ -75,13 +94,13 @@
 
 .legendActive {
   font-weight: 600;
-  color: var(--clr-primary);
+  color: var(--clr-chart-selected-strong);
 }
 
 .swatch {
   flex-shrink: 0;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }
 
