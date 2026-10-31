@@ -4,14 +4,14 @@
 
 /* Side-by-side on larger screens */
 @media (min-width: 700px) {
-  .root:not(.singleColumn) {
+  .root {
     column-count: 2;
     column-gap: 3rem;
   }
 }
 
 @media (min-width: 1080px) {
-  .root:not(.singleColumn) {
+  .root {
     column-count: 3;
   }
 }

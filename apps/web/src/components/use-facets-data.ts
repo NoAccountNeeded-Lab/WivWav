@@ -133,25 +133,25 @@ function stabilize(merged: FacetsData, prev: FacetsData | null): FacetsData {
 /**
  * The single owner of categorical facet data for a page. Requests are deduplicated by URL and
  * aborted when the query changes or the owner unmounts, so a stale response cannot overwrite
- * a newer one. Failures keep the last good data and report `unavailable`.
+ * a newer one. The base request is required (failure reports `unavailable` and keeps the last good
+ * data); a failed disjunctive or range request keeps the previous slice for that facet only, and
+ * each histogram's range data lands as soon as its own request settles.
  */
-export function useFacetsData({ enabled = true, brands = true }: { enabled?: boolean; brands?: boolean } = {}): FacetsState {
+export function useFacetsData(): FacetsState {
   const searchParams = useSearchParams()
   const [state, setState] = useState<FacetsState>({ data: null, brands: [], status: 'loading', ranges: { price: null, year: null, mileage: null } })
   const prevRef = useRef<FacetsData | null>(null)
 
   useEffect(() => {
-    if (!enabled || !brands) return
     const controller = new AbortController()
-    void fetchConversionBrands(controller.signal).then((brands) => {
-      if (!controller.signal.aborted) setState((s) => ({ ...s, brands }))
+    void fetchConversionBrands(controller.signal).then((list) => {
+      if (!controller.signal.aborted) setState((s) => ({ ...s, brands: list }))
     })
     return () => controller.abort()
-  }, [enabled, brands])
+  }, [])
 
   const query = searchParams.toString()
   useEffect(() => {
-    if (!enabled) return
     const controller = new AbortController()
     const params = new URLSearchParams(query)
     const active = DISJUNCTIVE_PARAMS.filter((p) => (params.get(p) ?? '').split(',').some((v) => v.trim()))
@@ -171,24 +171,30 @@ export function useFacetsData({ enabled = true, brands = true }: { enabled?: boo
     }
 
     setState((s) => (s.status === 'unavailable' ? { ...s, status: 'loading' } : s))
+    for (const { kind, url } of rangeUrls) {
+      request(url).then(
+        (slice) => { if (!controller.signal.aborted) setState((s) => ({ ...s, ranges: { ...s.ranges, [kind]: slice } })) },
+        () => { /* keep the previous range slice */ },
+      )
+    }
     void (async () => {
-      try {
-        const [base, ...all] = await Promise.all([request(baseUrl), ...calls.map(({ url }) => request(url)), ...rangeUrls.map(({ url }) => request(url))])
-        const rest = all.slice(0, calls.length)
-        const rangeData = all.slice(calls.length)
-        if (controller.signal.aborted || !base) return
-        const merged: FacetsData = { ...base, wavFeatures: { ...base.wavFeatures } }
-        rest.forEach((d, i) => mergeDisjunctive(merged, calls[i]!.param, d))
-        const stabilized = stabilize(merged, prevRef.current)
-        prevRef.current = merged
-        const ranges = Object.fromEntries(rangeUrls.map(({ kind }, i) => [kind, rangeData[i] ?? null])) as Record<RangeKind, FacetsData | null>
-        setState((s) => ({ ...s, data: stabilized, ranges, status: 'ready' }))
-      } catch {
-        if (!controller.signal.aborted) setState((s) => ({ ...s, status: 'unavailable' }))
+      const [base, ...rest] = await Promise.allSettled([request(baseUrl), ...calls.map(({ url }) => request(url))])
+      if (controller.signal.aborted) return
+      if (base?.status !== 'fulfilled') {
+        setState((s) => ({ ...s, status: 'unavailable' }))
+        return
       }
+      const merged: FacetsData = { ...base.value, wavFeatures: { ...base.value.wavFeatures } }
+      rest.forEach((result, i) => {
+        const slice = result.status === 'fulfilled' ? result.value : prevRef.current
+        if (slice) mergeDisjunctive(merged, calls[i]!.param, slice)
+      })
+      const stabilized = stabilize(merged, prevRef.current)
+      prevRef.current = merged
+      setState((s) => ({ ...s, data: stabilized, status: 'ready' }))
     })()
     return () => controller.abort()
-  }, [query, enabled])
+  }, [query])
 
   return state
 }
@@ -196,9 +202,7 @@ export function useFacetsData({ enabled = true, brands = true }: { enabled?: boo
 /** Lets histograms read the page's single facet owner instead of fetching their own range data. */
 export const FacetsStateContext = createContext<FacetsState | null>(null)
 
-/** Cross-filtered range data for one histogram: shared owner when present, otherwise its own small owner. */
+/** Cross-filtered range data for one histogram, from the page's facet owner (null until it arrives). */
 export function useRangeFacets(kind: RangeKind): FacetsData | null {
-  const shared = useContext(FacetsStateContext)
-  const own = useFacetsData({ enabled: shared === null, brands: false })
-  return (shared ?? own).ranges[kind]
+  return useContext(FacetsStateContext)?.ranges[kind] ?? null
 }
