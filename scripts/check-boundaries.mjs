@@ -65,7 +65,7 @@ export function scanCompose(compose, file = 'docker-compose.prod.yml') {
   if (!ops) problems.push(`${file}: ops service not found`)
   else if (!/^    profiles:\s*\[[^\]]*\bops\b/m.test(ops)) problems.push(`${file}: ops must be behind the stopped-by-default "ops" profile`)
   if (serviceBlock(compose, 'web').includes('OPS_API_SECRET')) problems.push(`${file}: web must not receive OPS_API_SECRET`)
-  if (/^    ports:/m.test(ops) && /INTERNAL_API_SECRET/.test(ops)) problems.push(`${file}: ops must not hold INTERNAL_API_SECRET`)
+  if (/INTERNAL_API_SECRET/.test(ops)) problems.push(`${file}: ops must not hold INTERNAL_API_SECRET`)
   return problems
 }
 
