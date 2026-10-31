@@ -64,9 +64,16 @@ export function DonutRenderer({ items, onToggle }: CategoricalRendererProps) {
   const enabled = items.filter((i) => i.count > 0 || i.active)
   const total = enabled.reduce((s, i) => s + i.count, 0) || 1
 
-  // Colors follow the value's position in an alphabetical order, so they do not reshuffle as counts change.
-  const colorIndex = new Map([...items].sort((a, b) => a.value.localeCompare(b.value)).map((item, idx) => [item.value, idx]))
-  const colorFor = (value: string) => TEAL_MARKS[(colorIndex.get(value) ?? 0) % TEAL_MARKS.length]!
+  // Each value prefers a color from its alphabetical position (stable while counts change), but a slice
+  // never shares a color with its neighbours, including the wrap-around from last to first.
+  const preferred = new Map([...items].sort((a, b) => a.value.localeCompare(b.value)).map((item, idx) => [item.value, idx]))
+  const colors: number[] = []
+  enabled.forEach((item, i) => {
+    const want = preferred.get(item.value) ?? 0
+    const taken = new Set([colors[i - 1], i === enabled.length - 1 && i > 0 ? colors[0] : undefined])
+    colors[i] = [0, 1, 2].map((k) => (want + k) % TEAL_MARKS.length).find((c) => !taken.has(c)) ?? 0
+  })
+  const colorFor = (value: string) => TEAL_MARKS[colors[enabled.findIndex((i) => i.value === value)] ?? 0]!
 
   let cursor = 0
   const segments = enabled.map((item) => {
@@ -89,13 +96,12 @@ export function DonutRenderer({ items, onToggle }: CategoricalRendererProps) {
             <path
               key={item.value}
               d={arcPath(start, end)}
-              className={`${styles.segment}${item.disabled ? '' : ` ${styles.clickable}`}`}
+              className={`${styles.segment} ${styles.clickable}`}
               style={{ transform: `translate(${(mid.x * lifted).toFixed(2)}px, ${(mid.y * lifted).toFixed(2)}px)` }}
               fill={item.active ? SELECTED_FILL : colorFor(item.value)}
-              opacity={item.disabled ? 0.4 : 1}
               onMouseEnter={() => setHighlight(item.value)}
               onMouseLeave={() => setHighlight(null)}
-              onClick={() => { if (!item.disabled) onToggle(item.value) }}
+              onClick={() => onToggle(item.value)}
             />
           )
         })}
@@ -111,7 +117,6 @@ export function DonutRenderer({ items, onToggle }: CategoricalRendererProps) {
               <button
                 type="button"
                 className={`${styles.legendRow} ${item.active ? styles.legendActive : ''}`}
-                disabled={item.disabled}
                 aria-pressed={item.active}
                 onClick={() => onToggle(item.value)}
                 onMouseEnter={() => setHighlight(item.value)}

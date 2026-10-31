@@ -78,13 +78,8 @@
   }
 }
 
-.legendRow:hover:not(:disabled) {
+.legendRow:hover {
   background: var(--clr-primary-light);
-}
-
-.legendRow:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 .legendRow:focus-visible {
