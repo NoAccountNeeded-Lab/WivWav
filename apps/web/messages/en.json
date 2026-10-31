@@ -26,9 +26,7 @@
     "seeMatches": "See Matches →",
     "browseAll": "Browse all vehicles",
     "noListingsYet": "No vehicles are listed yet. Check back soon.",
-    "vehicleFilters": "Filter by vehicle type and brand",
-    "featureFilters": "Filter by feature, location, seller, and fuel type",
-    "rangeFilters": "Filter by price, year, and mileage"
+    "filters": "Vehicle filters"
   },
   "IntakeForm": {
     "aiMessage": "Describe what you need in plain language — wheelchair type, ramp or lift, budget, location — and I'll set the filters for you.",
@@ -224,7 +222,10 @@
       "zero": "0 mi",
       "highPlus": "{value}k+ mi",
       "high": "{value}k mi"
-    }
+    },
+    "countsUnavailable": "Counts are unavailable right now. Your selected values stay listed so you can remove them.",
+    "moreColors": "More colors",
+    "locationByName": "Choose states by name"
   },
   "ListingDetail": {
     "backAriaLabel": "Back to listings",

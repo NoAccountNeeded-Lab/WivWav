@@ -33,6 +33,7 @@ export function FacetTooltip({ text, children }: FacetTooltipProps) {
 
   return (
     <span
+      role="presentation"
       className={styles.wrap}
       onMouseEnter={() => { clear(); timer.current = setTimeout(() => setOpen(true), HOVER_DELAY_MS) }}
       onMouseLeave={hide}

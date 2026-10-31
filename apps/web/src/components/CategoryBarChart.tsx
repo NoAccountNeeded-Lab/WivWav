@@ -1,8 +1,6 @@
 'use client'
 
-import { shoppingFilterLabel, SHOPPING_FILTER_PARAMS } from '@/lib/shopping-filter-url'
-
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useTransition } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
@@ -10,114 +8,22 @@ import { PriceHistogram } from './PriceHistogram'
 import { YearHistogram } from './YearHistogram'
 import { MileageHistogram } from './MileageHistogram'
 import { FilterGroup } from './filters/FilterGroup'
-import type { FilterItem, CategoricalRendererType } from './filters/types'
-import { formatFilterLabel } from './filters/types'
-import { normalizeFacetsData } from './category-facets'
-import type { BarDatum, FacetsData } from './category-facets'
-import { getClientApiBaseUrl } from '@/lib/api-url'
+import type { CategoricalRendererType } from './filters/types'
+import { parseCommaSep, useFacetGroups } from './use-facet-groups'
+import { useFacetsData } from './use-facets-data'
+import type { FacetsState } from './use-facets-data'
 import styles from './CategoryBarChart.module.css'
 
 const StateHeatMap = dynamic(() => import('./StateHeatMap'), { ssr: false })
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-interface ConversionBrandSummary {
-  id: string
-  name: string
-  slug: string
-  productCount: number
-}
-
-// ── Disjunctive faceting config ────────────────────────────────────────────
-
-const DISJUNCTIVE_PARAMS = [...SHOPPING_FILTER_PARAMS, 'make', 'model', 'trim', 'condition', 'conversionType', 'color', 'rampType', 'wavFeatures', 'state', 'sellerType', 'fuelType', 'conversionBrand'] as const
-type DisjunctiveParam = typeof DISJUNCTIVE_PARAMS[number]
-
-const ALL_FILTER_PARAMS = [
-  'q', 'make', 'model', 'trim', 'yearMin', 'yearMax', 'priceMin', 'priceMax',
-  'mileageMax', 'condition', 'conversionType', 'rampType', 'wavFeatures',
-  ...SHOPPING_FILTER_PARAMS, 'conversionBrand', 'color', 'state', 'sellerType', 'fuelType',
-]
-
-const MAX_BARS = 8
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function buildFacetsUrl(
-  searchParams: { get: (key: string) => string | null },
-  omitParam: string | null,
-): string {
-  const base = getClientApiBaseUrl()
-  const url = new URL(`${base}/v1/listings/facets`)
-  for (const key of ALL_FILTER_PARAMS) {
-    if (key === omitParam) continue
-    const val = searchParams.get(key)
-    if (val) url.searchParams.set(key, val)
-  }
-  return url.toString()
-}
-
-function parseCommaSep(v: string | null): string[] {
-  if (!v) return []
-  return v.split(',').map((s) => s.trim()).filter(Boolean)
-}
 
 function toggleInList(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
 }
 
-async function fetchFacets(url: string): Promise<FacetsData> {
-  const res = await fetch(url)
-  const json = (await res.json()) as { data: unknown }
-  return normalizeFacetsData(json.data)
-}
-
-async function fetchConversionBrands(): Promise<ConversionBrandSummary[]> {
-  const base = getClientApiBaseUrl()
-  try {
-    const res = await fetch(`${base}/v1/conversion-brands`)
-    if (!res.ok) return []
-    const json = (await res.json()) as { data?: ConversionBrandSummary[] }
-    return json.data ?? []
-  } catch {
-    return []
-  }
-}
-
-function stabilizeBars(current: BarDatum[], previous: BarDatum[]): BarDatum[] {
-  const currentSet = new Set(current.map((b) => b.value))
-  const ghost = previous
-    .filter((b) => !currentSet.has(b.value))
-    .map((b) => ({ value: b.value, count: 0 }))
-    .slice(0, MAX_BARS)
-  return [...current, ...ghost]
-}
-
-/** Convert BarDatum[] + active values into the normalized FilterItem[] the renderers expect. */
-function toFilterItems(bars: BarDatum[], activeValues: string[]): FilterItem[] {
-  const values = new Set(bars.map((bar) => bar.value))
-  const withSelected = [...bars, ...activeValues.filter((value) => !values.has(value)).map((value) => ({ value, count: 0 }))]
-  return withSelected.map((b) => ({
-    value: b.value,
-    label: formatFilterLabel(b.value),
-    count: b.count,
-    active: activeValues.includes(b.value),
-    disabled: b.count === 0 && !activeValues.includes(b.value),
-  }))
-}
-
-// ── Main component ─────────────────────────────────────────────────────────
-
 /** Per-group renderer overrides. Keys are group ids: make, model, condition, entry, color, state, features. */
 export type RendererMap = Partial<Record<string, CategoricalRendererType>>
 
-export function CategoryBarChart({
-  showMap = true,
-  showHistograms = true,
-  limitGroups,
-  singleColumn = false,
-  renderers = {},
-}: {
+interface CategoryBarChartProps {
   showMap?: boolean
   showHistograms?: boolean
   /** When provided, only these group ids (and 'features') are rendered. */
@@ -126,109 +32,34 @@ export function CategoryBarChart({
   singleColumn?: boolean
   /** Per-group renderer overrides. Defaults to 'bars' for all groups. */
   renderers?: RendererMap
-}) {
+  /** Facet data from a page-level owner. When omitted, this component owns its own request. */
+  facets?: FacetsState
+}
+
+export function CategoryBarChart(props: CategoryBarChartProps) {
+  return props.facets ? <CategoryBarChartView {...props} facets={props.facets} /> : <OwnedCategoryBarChart {...props} />
+}
+
+function OwnedCategoryBarChart(props: CategoryBarChartProps) {
+  const facets = useFacetsData()
+  return <CategoryBarChartView {...props} facets={facets} />
+}
+
+function CategoryBarChartView({
+  showMap = true,
+  showHistograms = true,
+  limitGroups,
+  singleColumn = false,
+  renderers = {},
+  facets,
+}: CategoryBarChartProps & { facets: FacetsState }) {
   const t = useTranslations('FilterControls')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
-
-  const [data, setData] = useState<FacetsData | null>(null)
-  const [conversionBrands, setConversionBrands] = useState<ConversionBrandSummary[]>([])
-  const prevFacetsRef = useRef<FacetsData | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const doFetch = async () => {
-      const brands = await fetchConversionBrands()
-      if (!cancelled) setConversionBrands(brands)
-    }
-
-    void doFetch()
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-
-    const activeDisjunctive = DISJUNCTIVE_PARAMS.filter(
-      (p) => parseCommaSep(searchParams.get(p)).length > 0,
-    )
-
-    const baseUrl = buildFacetsUrl(searchParams, null)
-    const disjunctiveCalls = activeDisjunctive.map((param) => ({
-      param,
-      url: buildFacetsUrl(searchParams, param),
-    }))
-
-    const doFetch = async () => {
-      try {
-        const [base, ...disjResults] = await Promise.all([
-          fetchFacets(baseUrl),
-          ...disjunctiveCalls.map(({ url }) => fetchFacets(url)),
-        ])
-
-        if (cancelled || !base) return
-
-        const merged: FacetsData = { ...base, wavFeatures: { ...base.wavFeatures } }
-
-        disjResults.forEach((d, i) => {
-          const param = disjunctiveCalls[i]!.param as DisjunctiveParam
-          switch (param) {
-            case 'city': merged.cityBreakdown = d.cityBreakdown; break
-            case 'transmission': merged.transmissionBreakdown = d.transmissionBreakdown; break
-            case 'wheelchairCapacity': merged.wheelchairCapacityBreakdown = d.wheelchairCapacityBreakdown; break
-            case 'conversionStatus': merged.conversionStatusBreakdown = d.conversionStatusBreakdown; break
-            case 'make':           merged.makeBreakdown = d.makeBreakdown; break
-            case 'model':          merged.modelBreakdown = d.modelBreakdown; break
-            case 'trim':           merged.trimBreakdown = d.trimBreakdown; break
-            case 'condition':      merged.conditionBreakdown = d.conditionBreakdown; break
-            case 'conversionType': merged.conversionBreakdown = d.conversionBreakdown; break
-            case 'color':          merged.colorBreakdown = d.colorBreakdown; break
-            case 'rampType':       merged.wavFeatures.rampTypes = d.wavFeatures.rampTypes; break
-            case 'wavFeatures':
-              merged.wavFeatures.hasLift = d.wavFeatures.hasLift
-              merged.wavFeatures.handControls = d.wavFeatures.handControls
-              break
-            case 'state':          merged.stateBreakdown = d.stateBreakdown; break
-            case 'sellerType':     merged.sellerTypeBreakdown = d.sellerTypeBreakdown; break
-            case 'fuelType':       merged.fuelTypeBreakdown = d.fuelTypeBreakdown; break
-            case 'conversionBrand': merged.conversionBrandBreakdown = d.conversionBrandBreakdown; break
-          }
-        })
-
-        const prev = prevFacetsRef.current
-        const stabilized: FacetsData = prev
-          ? {
-              ...merged,
-              makeBreakdown:       stabilizeBars(merged.makeBreakdown,       prev.makeBreakdown),
-              modelBreakdown:      stabilizeBars(merged.modelBreakdown,      prev.modelBreakdown),
-              trimBreakdown:       stabilizeBars(merged.trimBreakdown,       prev.trimBreakdown),
-              conditionBreakdown:  stabilizeBars(merged.conditionBreakdown,  prev.conditionBreakdown),
-              conversionBreakdown: stabilizeBars(merged.conversionBreakdown, prev.conversionBreakdown),
-              colorBreakdown:      stabilizeBars(merged.colorBreakdown,      prev.colorBreakdown),
-              stateBreakdown:      stabilizeBars(merged.stateBreakdown,      prev.stateBreakdown),
-              sellerTypeBreakdown: stabilizeBars(merged.sellerTypeBreakdown, prev.sellerTypeBreakdown),
-              fuelTypeBreakdown: stabilizeBars(merged.fuelTypeBreakdown, prev.fuelTypeBreakdown),
-              conversionBrandBreakdown: stabilizeBars(merged.conversionBrandBreakdown, prev.conversionBrandBreakdown),
-              wavFeatures: {
-                ...merged.wavFeatures,
-                rampTypes: stabilizeBars(merged.wavFeatures.rampTypes, prev.wavFeatures.rampTypes),
-              },
-            }
-          : merged
-
-        prevFacetsRef.current = merged
-        setData(stabilized)
-      } catch {
-        // silent — chart stays at last known state
-      }
-    }
-
-    void doFetch()
-    return () => { cancelled = true }
-  }, [searchParams])
+  const { groups, featureItems, unavailable, toggleFeature } = useFacetGroups(facets, searchParams)
+  const data = facets.data
 
   // ── URL mutation helpers ─────────────────────────────────────────────────
 
@@ -259,78 +90,8 @@ export function CategoryBarChart({
     [push, searchParams],
   )
 
-  // ── Build group definitions ──────────────────────────────────────────────
-
-  // Facet values are raw scraper slugs; only the curated /v1/conversion-brands
-  // list is trustworthy enough to display (the index also holds noise values
-  // like "yes" or "fr"). It doubles as the display-name source ("BraunAbility",
-  // not "Braunability").
-  const brandNameBySlug = new Map(conversionBrands.map((b) => [b.slug, b.name]))
-  const brandItems = data
-    ? toFilterItems(
-        data.conversionBrandBreakdown.filter((b) => brandNameBySlug.has(b.value)),
-        parseCommaSep(searchParams.get('conversionBrand')),
-      ).map((item) => ({ ...item, label: brandNameBySlug.get(item.value) ?? item.label }))
-    : []
-
-  const groups: Array<{
-    id: string
-    title: string
-    items: FilterItem[]
-    param: string
-  }> = data ? [
-    { id: 'make',      title: t('groups.make'),      items: toFilterItems(data.makeBreakdown,                                               parseCommaSep(searchParams.get('make'))),           param: 'make'           },
-    { id: 'model',     title: t('groups.model'),     items: toFilterItems(data.modelBreakdown,                                              parseCommaSep(searchParams.get('model'))),          param: 'model'          },
-    { id: 'trim',      title: t('groups.trim'),      items: toFilterItems(data.trimBreakdown,                                               parseCommaSep(searchParams.get('trim'))),           param: 'trim'           },
-    { id: 'condition', title: t('groups.condition'), items: toFilterItems(data.conditionBreakdown,                                          parseCommaSep(searchParams.get('condition'))),      param: 'condition'      },
-    { id: 'entry',     title: t('groups.entry'),     items: toFilterItems(data.conversionBreakdown.filter((b) => b.value !== 'unknown'),    parseCommaSep(searchParams.get('conversionType'))), param: 'conversionType' },
-    { id: 'conversionBrand', title: t('groups.conversionBrand'), items: brandItems,                                                                                                             param: 'conversionBrand' },
-    { id: 'color',     title: t('groups.color'),     items: toFilterItems(data.colorBreakdown,                                              parseCommaSep(searchParams.get('color'))),          param: 'color'          },
-    { id: 'state',     title: t('groups.state'),     items: toFilterItems(data.stateBreakdown,                                              parseCommaSep(searchParams.get('state'))),          param: 'state'          },
-    { id: 'seller',    title: t('groups.seller'),    items: toFilterItems(data.sellerTypeBreakdown,                                         parseCommaSep(searchParams.get('sellerType'))),     param: 'sellerType'     },
-    ...(data.shoppingFiltersReady ? SHOPPING_FILTER_PARAMS.map((param) => ({
-      id: param, title: t(`groups.${param}`), param,
-      items: toFilterItems(data[`${param}Breakdown`], parseCommaSep(searchParams.get(param))).map((item) => ({ ...item, label: param === 'wheelchairCapacity' ? t('capacityCount', { count: Number(item.value) }) : shoppingFilterLabel(param, item.value, (key) => t(`shoppingValues.${key}`)) })),
-    })) : []),
-    { id: 'fuelType',  title: t('groups.fuelType'),  items: toFilterItems(data.fuelTypeBreakdown,                                           parseCommaSep(searchParams.get('fuelType'))),       param: 'fuelType'       },
-  ].filter((g) => g.items.length > 0) : []
-
-  const activeWavFeatures = parseCommaSep(searchParams.get('wavFeatures'))
-  const activeRampTypes = parseCommaSep(searchParams.get('rampType'))
-
-  const featureItems: FilterItem[] = data ? [
-    {
-      value: 'has_lift',
-      label: t('features.hasLift'),
-      count: data.wavFeatures.hasLift,
-      active: activeWavFeatures.includes('has_lift'),
-      disabled: data.wavFeatures.hasLift === 0 && !activeWavFeatures.includes('has_lift'),
-    },
-    {
-      value: 'hand_controls',
-      label: t('features.handControls'),
-      count: data.wavFeatures.handControls,
-      active: activeWavFeatures.includes('hand_controls'),
-      disabled: data.wavFeatures.handControls === 0 && !activeWavFeatures.includes('hand_controls'),
-    },
-    ...data.wavFeatures.rampTypes
-      .filter((r) => r.value !== 'unknown' && r.value !== 'none')
-      .map((r) => ({
-        value: r.value,
-        label: formatFilterLabel(r.value),
-        count: r.count,
-        active: activeRampTypes.includes(r.value),
-        disabled: r.count === 0 && !activeRampTypes.includes(r.value),
-      })),
-  ] : []
-
-  const handleFeatureToggle = (value: string) => {
-    if (value === 'has_lift' || value === 'hand_controls') {
-      toggleArray('wavFeatures', value)
-      return
-    }
-    toggleArray('rampType', value)
-  }
+  const handleFeatureToggle = (value: string) => toggleArray(toggleFeature(value).param, value)
+  const unavailableText = unavailable ? t('countsUnavailable') : undefined
 
   const visibleGroups = limitGroups
     ? groups.filter((g) => limitGroups.includes(g.id))
@@ -368,6 +129,7 @@ export function CategoryBarChart({
               items={groups[0].items}
               onToggle={(v) => toggleArray(groups[0]!.param, v)}
               renderer={rendererFor(groups[0].id)}
+              unavailableText={unavailableText}
             />
           )}
           <YearHistogram />
@@ -379,6 +141,7 @@ export function CategoryBarChart({
               items={groups[1].items}
               onToggle={(v) => toggleArray(groups[1]!.param, v)}
               renderer={rendererFor(groups[1].id)}
+              unavailableText={unavailableText}
             />
           )}
           <MileageHistogram />
@@ -390,6 +153,7 @@ export function CategoryBarChart({
               items={g.items}
               onToggle={(v) => toggleArray(g.param, v)}
               renderer={rendererFor(g.id)}
+            unavailableText={unavailableText}
             />
           ))}
         </>
@@ -402,17 +166,19 @@ export function CategoryBarChart({
             items={g.items}
             onToggle={(v) => toggleArray(g.param, v)}
             renderer={rendererFor(g.id)}
+            unavailableText={unavailableText}
           />
         ))
       )}
 
-      {showFeatures && featureItems.some((i) => !i.disabled || i.active) && (
+      {showFeatures && (unavailable || featureItems.some((i) => !i.disabled || i.active)) && (
         <FilterGroup
           title={t('groups.features')}
           labelId="cat-bar-features"
           items={featureItems}
           onToggle={handleFeatureToggle}
           renderer={rendererFor('features')}
+          unavailableText={unavailableText}
         />
       )}
     </div>

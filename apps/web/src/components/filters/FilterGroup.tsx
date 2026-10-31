@@ -28,9 +28,9 @@ interface FilterGroupProps {
   /** Max items shown before a "show more" button appears. undefined = show all. */
   maxVisible?: number
   /** Overrides the "Show N more" label, for example "More colors". */
-  moreLabel?: string
+  moreLabel?: string | undefined
   /** Shown in place of the renderer when the data source is unavailable. */
-  unavailableText?: string
+  unavailableText?: string | undefined
 }
 
 export function FilterGroup({

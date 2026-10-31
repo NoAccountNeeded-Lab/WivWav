@@ -26,9 +26,7 @@
     "seeMatches": "Ver coincidencias →",
     "browseAll": "Ver todos los vehículos",
     "noListingsYet": "Todavía no hay vehículos listados. Vuelva a consultar pronto.",
-    "vehicleFilters": "Filtrar por tipo de vehículo y marca",
-    "featureFilters": "Filtrar por función, ubicación, vendedor y tipo de combustible",
-    "rangeFilters": "Filtrar por precio, año y millaje"
+    "filters": "Filtros de vehículos"
   },
   "IntakeForm": {
     "aiMessage": "Describa lo que necesita en lenguaje sencillo — tipo de silla de ruedas, rampa o elevador, presupuesto, ubicación — y yo configuraré los filtros por usted.",
@@ -225,7 +223,10 @@
       "zero": "0 mi",
       "highPlus": "{value}k+ mi",
       "high": "{value}k mi"
-    }
+    },
+    "countsUnavailable": "Los conteos no están disponibles por ahora. Sus valores seleccionados siguen listados para que pueda quitarlos.",
+    "moreColors": "Más colores",
+    "locationByName": "Elegir estados por nombre"
   },
   "ListingDetail": {
     "backAriaLabel": "Volver a los anuncios",
