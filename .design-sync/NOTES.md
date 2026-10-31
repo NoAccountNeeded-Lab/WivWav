@@ -96,3 +96,12 @@
 - `apps/web/compile-css.mjs` + `globals.compiled.css` likewise need re-running if
   `globals.css`'s Tailwind usage changes materially (new utility classes used in components that
   weren't previously scanned).
+
+## 2026-10-31 re-sync
+
+- `Footer` and `SiteHeader` became async server components (`getTranslations` from `next-intl/server`), which cannot mount in a client preview. Excluded via `componentSrcMap: null` (user decision). Their previews were removed. Revisit if a synchronous client export is added.
+- `ErrorBoundary` now requires a `labels` prop; preview updated.
+- `ProvenanceBadge` was removed upstream. Eight new components ship as floor cards (previews not yet authored): ConditionalSkipLink, DealerReputation, PriceSparkline, SafetyStatusBadge, VinHistoryTable, VinHistoryTimeline, VinHistoryTooltip, WavConversionHistory.
+- `apps/web/compile-css.mjs` imported a hardcoded `postcss@8.5.16` pnpm path; it now resolves postcss through `@tailwindcss/postcss`.
+- Converter's playwright must pin the cached chromium build: use playwright-core 1.63.0 (chromium 1243), not 1.61.1.
+- Known gap: `StateHeatMap` default-export exclusion unchanged.
