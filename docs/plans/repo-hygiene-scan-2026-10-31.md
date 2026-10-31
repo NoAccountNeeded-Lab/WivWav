@@ -4,7 +4,7 @@ Read-only scan of `apps/*`, `packages/*`, `docker-compose*.yml`, `docker/`, `scr
 
 Baseline: `main` at `d9ef8027`, which already contains part of #1225. The sibling branch `claude/secure-ai-ops-mvp-0ac0fd` was not inspected, so findings about compose and e2e defaults may already be changing there. Treat S1 to S3 as input to that branch, not as separate work.
 
-Method and limits: grep and targeted reading only. The `ponytail:ponytail-audit`, `engineering:tech-debt` and `security-review` skills were **not** run as separate passes; their checklists were applied by hand. Nothing was executed, so every "verify" item is a hypothesis. No secret value appears here; locations are file:line only. A shared 64-character hex string is called "the dev default hex".
+Method and limits: grep and targeted reading only. The first version applied the audit checklists by hand. A second pass (section 5) then ran `ponytail:ponytail-audit` and `engineering:tech-debt` as proper passes on the highest-risk code. `security-review` was **not** run: it targets pending branch changes, and this branch is docs only. Nothing was executed, so every "verify" item is a hypothesis. No secret value appears here; locations are file:line only. A shared 64-character hex string is called "the dev default hex".
 
 Effort: S under 2 hours, M about a day, L multiple days. Risk is the risk of making the change. Quick wins are marked **QW**.
 
@@ -31,7 +31,8 @@ Effort: S under 2 hours, M about a day, L multiple days. Risk is the risk of mak
 | 2. Magic values (M) | 8 | 4 |
 | 3. Duplication and reuse (D) | 9 | 4 |
 | 4. Design quality (G) | 9 | 2 |
-| Total | 34 | 14 |
+| 5. Second-pass additions (N) | 4 | 1 |
+| Total | 38 | 15 |
 
 ---
 
@@ -234,3 +235,51 @@ Items 1 to 3, 6, 7 and 9 are independent quick wins and can run in parallel on s
 - `apps/web` beyond a grep for secrets and imports.
 - Dependency licences and `pnpm audit`; run `security-review` and `pnpm audit` separately if a dependency scan is wanted.
 - Test files, fixtures and generated code.
+
+---
+
+## 5. Second pass: audit and tech-debt skills
+
+Scope of the pass: auth plugins, the config encryption service, `safeFetch`, the Stripe webhook check, the worker dispatcher, and test coverage by sibling file. Not read in depth: `listing-repository.ts` queries, scraper source logic, the web app. Assumed load: one operator, a few workers, a public read API behind rate limiting.
+
+**Checked and found fine.** `safeFetch` (`apps/api/src/util/safe-fetch.ts`) blocks private ranges, re-checks every redirect hop, and documents its DNS-rebinding gap as a deliberate shortcut, so it is a decision, not a finding. The Stripe check uses `timingSafeEqual` and a replay window (`services/stripe-webhook.ts`). Raw SQL is limited to one test helper (`test-support/integration-db.ts:32`), so no injection surface in production code. Rate limiting is registered ahead of API-key auth (`app.ts:175-216`).
+
+**N1. Secret hint leaks the last 4 characters in plain text (`apps/api/src/services/config-service.ts:57,203`). Effort S, risk low. QW.**
+Every encrypted entry also stores `value.slice(-4)` in the unencrypted `hint` column. For a short or low-entropy secret that is a large part of the secret, and it sits in every database backup. Fix: show a fixed mask plus the key name and creation date, or store a short keyed hash instead; keep the UI behaviour that says "a value is set".
+
+**N2. Auth fail-open logic has no direct test (`apps/api/src/plugins/ops-auth.ts`). Effort S, risk low.**
+There is no `ops-auth.test.ts`; behaviour is only exercised through route tests that inject a secret. The no-secret, production and non-production branches that S2 is about are untested. Add a small table test (secret set or not, `NODE_ENV` values, right and wrong header) before changing S2, so the fix is checked.
+
+**N3. Test debt by sibling file. Effort M, risk low.**
+19 of 96 non-test source files in `apps/api/src/routes` (5 of 39), `jobs` (7 of 30), `services` (5 of 15) and `apps/worker/src/handlers` (2 of 12) have no sibling `.test.ts`. A file without a sibling test can still be covered elsewhere, so this is a starting list, not a verdict. Do it as part of whichever PR next touches each file; list them with the one-line script in this section's method.
+
+**N4. Dependency debt not measured. Effort S, risk low.**
+`pnpm outdated -r` returned nothing in this environment (no network or timed out), so there is no dependency view in this report. Run `pnpm outdated -r` and `pnpm audit --prod` locally; Dependabot is configured (`.github/dependabot.yml`) and may already cover this.
+
+### Priority scores (tech-debt framework)
+
+Score = (Impact + Risk) x (6 - Effort), each 1 to 5. Higher first.
+
+| ID | Impact | Risk | Effort | Score |
+|---|---|---|---|---|
+| S2 fail-open auth | 3 | 5 | 1 | 48 |
+| S1 shared dev secret | 4 | 4 | 1 | 40 |
+| S4 open dev ports | 2 | 4 | 1 | 30 |
+| S3 constant-time compare | 2 | 3 | 1 | 25 |
+| D1 scraper helper copies | 3 | 2 | 1 | 25 |
+| M1/M2 shared constants | 3 | 2 | 1 | 25 |
+| D2 one bearer hook | 4 | 3 | 3 | 21 |
+| S5 env reads via config | 3 | 3 | 3 | 18 |
+| G1 console to logger | 3 | 2 | 3 | 15 |
+| D7 turbo prune Dockerfiles | 3 | 2 | 3 | 15 |
+| G2 split large files | 4 | 2 | 5 | 6 |
+
+### Phased plan alongside feature work
+
+1. **Now (one sprint, small PRs):** N2 test, then S2, S3, S1, S4, N1. Items 1 to 3 in the follow-up table. These need no design decisions.
+2. **Next:** D1, M1, M2, M5, D5 (shared constants and helpers), then D2 with the bearer hook. Decide G3 first so helpers have a home.
+3. **Later, with feature work:** S5 per app, G1 per directory, D7 and D8, N3 as files are touched, G2 when each large file is next edited. S7 only when a second encrypted secret is planned.
+
+**Verdict:** healthy enough to ship; fix first the fail-open auth path (S2) and the shared dev secret (S1), both small.
+**Lean:** about -150 lines possible from D1, D3, D5, D6 (copies removed), no dependencies to drop found.
+**Not checked:** dependency freshness (N4), `listing-repository.ts` query behaviour, scraper source logic, `apps/web`, running containers, the #1225 branch.
