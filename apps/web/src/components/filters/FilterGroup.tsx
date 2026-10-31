@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { CategoricalRendererProps, CategoricalRendererType, FilterItem } from './types'
 import { FacetModal } from './FacetModal'
@@ -26,6 +27,10 @@ interface FilterGroupProps {
   renderer?: CategoricalRendererType
   /** Max items shown before a "show more" button appears. undefined = show all. */
   maxVisible?: number
+  /** Overrides the "Show N more" label, for example "More colors". */
+  moreLabel?: string
+  /** Shown in place of the renderer when the data source is unavailable. */
+  unavailableText?: string
 }
 
 export function FilterGroup({
@@ -35,9 +40,14 @@ export function FilterGroup({
   onToggle,
   renderer = 'bars',
   maxVisible = 8,
+  moreLabel,
+  unavailableText,
 }: FilterGroupProps) {
   const t = useTranslations('FilterControls')
   const [showAll, setShowAll] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const panelId = `${labelId}-panel`
+  const selected = items.filter((i) => i.active).map((i) => i.label)
 
   const Renderer = RENDERERS[renderer]
 
@@ -58,20 +68,40 @@ export function FilterGroup({
           tab order and the accessibility tree, so screen readers can't reach
           this facet's own buttons "behind" the dialog. */}
       <div className={styles.content} inert={showAll}>
-        <span id={labelId} className={styles.title}>{title}</span>
-        <Suspense fallback={null}>
-          <Renderer items={visible} onToggle={onToggle} maxCount={maxCount} />
-        </Suspense>
-        {hasMore && (
+        <h3 className={styles.heading}>
           <button
             type="button"
-            className={styles.showMore}
-            onClick={() => setShowAll(true)}
-            aria-haspopup="dialog"
+            id={labelId}
+            className={styles.title}
+            aria-expanded={!collapsed}
+            aria-controls={panelId}
+            onClick={() => setCollapsed((v) => !v)}
           >
-            {t('showMore', { count: sorted.length - maxVisible })}
+            <span>{title}</span>
+            <ChevronDown className={styles.chevron} size={18} aria-hidden="true" data-collapsed={collapsed} />
           </button>
+        </h3>
+        {collapsed && selected.length > 0 && (
+          <p className={styles.summary}>{selected.join(', ')}</p>
         )}
+        <div id={panelId} className={styles.panel} hidden={collapsed}>
+          {unavailableText ? (
+            <p className={styles.unavailable}>{unavailableText}</p>
+          ) : null}
+          <Suspense fallback={null}>
+            <Renderer items={visible} onToggle={onToggle} maxCount={maxCount} />
+          </Suspense>
+          {hasMore && (
+            <button
+              type="button"
+              className={styles.showMore}
+              onClick={() => setShowAll(true)}
+              aria-haspopup="dialog"
+            >
+              {moreLabel ?? t('showMore', { count: sorted.length - maxVisible })}
+            </button>
+          )}
+        </div>
       </div>
       {showAll && (
         <FacetModal title={title} onClose={() => setShowAll(false)}>

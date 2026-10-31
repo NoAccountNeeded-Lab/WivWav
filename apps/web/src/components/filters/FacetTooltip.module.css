@@ -1,0 +1,22 @@
+.wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.tip {
+  position: absolute;
+  z-index: 20;
+  left: 0.5rem;
+  bottom: calc(100% + 0.25rem);
+  max-width: min(18rem, 90vw);
+  padding: 0.375rem 0.625rem;
+  background: var(--clr-text);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(16, 14, 26, 0.25);
+}

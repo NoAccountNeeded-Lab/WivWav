@@ -201,7 +201,7 @@ export function YearHistogram({ renderer: _renderer = 'histogram' }: { renderer?
               {data.map((entry) => (
                 <Cell
                   key={entry.year}
-                  fill={isBarActive(entry) ? 'var(--clr-primary)' : 'var(--clr-border-strong)'}
+                  fill={isBarActive(entry) ? 'var(--clr-chart-selected-strong)' : 'var(--clr-chart-teal-mark-3)'}
                 />
               ))}
             </Bar>

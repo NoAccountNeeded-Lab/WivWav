@@ -67,16 +67,19 @@
   outline-offset: 1px;
 }
 
-/* "Clear all" is a standalone button styled as a pill */
+/* "Clear all" is a standalone button styled as a pill; it shares the pill box model, type and height. */
 .clearAll {
+  box-sizing: border-box;
+  justify-content: center;
   min-height: 2.75rem;
   padding: 0.25rem 0.875rem;
-  background: none;
-  border: 1.5px solid var(--clr-border);
+  background: var(--clr-surface);
+  border: 1.5px solid var(--clr-border-strong);
+  line-height: 1.3;
   border-radius: 999px;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--clr-text-muted);
+  color: var(--clr-text-secondary);
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
@@ -84,9 +87,9 @@
 }
 
 .clearAll:hover {
-  background: var(--clr-surface);
-  border-color: var(--clr-border-strong);
-  color: var(--clr-text-secondary);
+  background: var(--clr-primary-light);
+  border-color: var(--clr-primary);
+  color: var(--clr-text);
 }
 
 .clearAll:focus-visible {
